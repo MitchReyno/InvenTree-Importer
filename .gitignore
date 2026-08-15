@@ -1,0 +1,26 @@
+# Local environment variables
+.env
+
+# Cache directory for downloaded data.
+# Holds DigiKey Data, which the API User Agreement forbids disclosing to third
+# parties (§3.2(iv)) and requires deleting on termination (§9).
+.cache
+
+# Command output written by --json may contain DigiKey Data; same restriction
+# as the cache. Add any other output filenames you use.
+results.json
+orders.json
+
+# Pytest cache
+.pytest_cache
+
+# Pycache
+__pycache__
+
+# IDE settings
+.vscode
+.idea
+.cursor
+
+# uv virtualenv
+.venv

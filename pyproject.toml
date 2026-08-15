@@ -1,0 +1,41 @@
+[project]
+name = "inventree-importer"
+version = "0.1.0"
+description = "Import DigiKey product and order data into InvenTree"
+# Only 3.12 is tested. The code uses `from __future__ import annotations`
+# throughout and would likely run on 3.10+, but that is unverified.
+requires-python = ">=3.12"
+dependencies = [
+    # Upper bound is deliberate. src/invimport/inventree/api.py overrides
+    # Parameter.URL and ParameterTemplate.URL because 0.13.x still ships the
+    # pre-530 /api/part/parameter/ routes. If a later release fixes those
+    # upstream, the override stops being a fix and becomes the bug - so pin
+    # until it can be retested. test_client_models_point_at_the_530_routes
+    # covers the override itself.
+    "inventree>=0.13.5,<0.14",
+    "pandas>=2.3.3",
+    "python-dotenv>=1.2.2",
+    "requests>=2.34.2",
+]
+
+[project.scripts]
+invimport = "invimport.__main__:cli"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# The distribution is named inventree-importer but the package is invimport,
+# so the backend cannot infer it.
+packages = ["src/invimport"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]

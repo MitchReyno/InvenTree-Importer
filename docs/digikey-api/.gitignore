@@ -1,0 +1,9 @@
+# DigiKey API specifications are kept here for local reference only.
+#
+# Under the DigiKey API User Agreement they are "Documentation": classed as
+# Confidential Information (§4) and covered by the prohibition on publishing
+# or otherwise making the Documentation available (§3.2(iii)).
+# https://developer.digikey.com/api-user-agreement
+#
+# Never commit them. See README.md in this directory for how to obtain them.
+*.json
