@@ -5,9 +5,10 @@ invimport - one entrypoint for the InvenTree import tooling.
 
 Commands
 --------
-    product      fetch DigiKey product data by SKU
-    orders       fetch DigiKey order history and sales orders
-    parameters   load part parameter templates and values into InvenTree
+    product        fetch DigiKey product data by SKU
+    orders         fetch DigiKey order history and sales orders
+    import-orders  import DigiKey orders into InvenTree as purchase orders
+    parameters     create and update InvenTree parameter templates
 
 Run `invimport <command> --help` for a command's own options and notes.
 
@@ -36,6 +37,7 @@ import sys
 from pathlib import Path
 
 from .commands import COMMANDS
+from .config import ConfigError
 from .digikey.api import DigiKeyError
 from .env import DEFAULT_ENV_FILE, load_env_file
 from .inventree.api import InvenTreeError
@@ -117,7 +119,7 @@ def cli(argv: list[str] | None = None) -> int:
     """
     try:
         return main(argv)
-    except (DigiKeyError, InvenTreeError) as exc:
+    except (ConfigError, DigiKeyError, InvenTreeError) as exc:
         print(f"\nERROR: {exc}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:

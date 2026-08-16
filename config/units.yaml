@@ -1,0 +1,18 @@
+# Custom units, created in InvenTree before any parameter template that uses
+# them. A template referencing a unit the server does not know is rejected, so
+# these have to exist first.
+#
+# Most things need no entry. pint already knows ohm, F, V, W, °C, Hz, %, ppm
+# and composites of them - "ppm/K" is a valid unit without being declared here.
+# Check before adding: a custom unit that duplicates a built-in is one more
+# thing to keep in step for no gain.
+#
+#   definition  a pint expression, evaluated by InvenTree
+#   symbol      how it is displayed (10 characters maximum)
+#
+# The symbol has to parse back to the same quantity, or values fall back to the
+# unit's full name. Watch offset units in particular: "ppm/°C" reads as ppm
+# divided by an absolute temperature, not a temperature interval.
+#
+# ppm_per_delta_degC used to live here. It is not needed: pint's own ppm/K is
+# the same quantity and needs no definition.

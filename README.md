@@ -12,13 +12,14 @@ order quantity, a datasheet URL — and those facts already exist in DigiKey's
 API. This tool fetches them, normalises them, and loads the parts of them that
 InvenTree's CSV importer cannot handle on its own.
 
-It provides three commands:
+It provides four commands:
 
-| Command      | What it does                                                                                                            |
-|--------------|-------------------------------------------------------------------------------------------------------------------------|
-| `product`    | Look up DigiKey SKUs and report packaging, pack quantity, MOQ, description, datasheet and canonical product link        |
-| `orders`     | Fetch order history or a single sales order, with line items, ordered/shipped quantities, pricing and shipment tracking |
-| `parameters` | Create InvenTree parameter templates and attach parameter values to parts                                               |
+| Command         | What it does                                                                                                            |
+|-----------------|-------------------------------------------------------------------------------------------------------------------------|
+| `product`       | Look up DigiKey SKUs and report packaging, pack quantity, MOQ, description, datasheet and canonical product link        |
+| `orders`        | Fetch order history or a single sales order, with line items, ordered/shipped quantities, pricing and shipment tracking |
+| `import-orders` | Pick DigiKey orders from a checklist and book them into InvenTree as purchase orders                                    |
+| `parameters`    | Create and update InvenTree parameter templates from `config/parameters.yaml`                                          |
 
 Two design points worth knowing up front:
 
@@ -54,7 +55,7 @@ activate — prefix commands with `uv run`.
 
 ### Credentials
 
-Copy the example file and fill it in:
+Copy the example file, then fill in the missing values in `.env`:
 
 ```bash
 cp .env.example .env
@@ -74,11 +75,11 @@ INVENTREE_USER=...
 INVENTREE_PASSWORD=...
 ```
 
-Optional locale settings, which default to Australia:
+Optional locale settings, which default to US:
 
 ```ini
-DIGIKEY_LOCALE_SITE=AU
-DIGIKEY_LOCALE_CURRENCY=AUD
+DIGIKEY_LOCALE_SITE=US
+DIGIKEY_LOCALE_CURRENCY=USD
 DIGIKEY_LOCALE_LANGUAGE=en
 ```
 
@@ -86,7 +87,7 @@ DIGIKEY_LOCALE_LANGUAGE=en
 precedence over the file, so you can override one for a single run:
 
 ```bash
-DIGIKEY_LOCALE_CURRENCY=USD uv run invimport product 296-1234-1-ND --pricing
+DIGIKEY_LOCALE_CURRENCY=AUD uv run invimport product 296-1234-1-ND --pricing
 ```
 
 ### Two things that will bite you first
@@ -158,44 +159,170 @@ uv run invimport orders --json orders.json --refresh
 statuses, shipments and tracking numbers change after an order is placed, and a
 cached history page will not show orders placed since it was written.
 
+### import-orders
+
+Fetch orders, choose which ones you want from a checklist, and book each one
+into InvenTree as a purchase order.
+
+```bash
+uv run invimport import-orders                             # dry run, last 30 days
+uv run invimport import-orders --start-date 2026-01-01 --write
+uv run invimport import-orders --order 87654321 --write    # one sales order
+uv run invimport import-orders --all --supplier 1 --write  # no prompts
+```
+
+It takes the same date and scope flags as `orders`, plus:
+
+| Flag                  | Effect                                                              |
+|-----------------------|----------------------------------------------------------------------|
+| `--write`             | Apply changes. Without it you get a dry run                          |
+| `--all`               | Import everything found, skipping the checklist                      |
+| `--supplier NAME\|PK` | Use this supplier and skip the supplier prompt                       |
+| `--partial`           | Import an order even when some lines have no matching supplier part  |
+| `--no-products`       | Skip the product lookup for the selected orders                      |
+| `--plain`             | Use the numbered checklist instead of the arrow-key one              |
+
+The checklist starts with everything selected. Move with the arrow keys (or
+`j`/`k`), toggle with `SPACE`, `a` for all, `n` for none, and `ENTER` to
+submit. `q` or `ESC` cancels.
+
+```
+Orders found (3):
+  > [x] 12345678      2026-07-01      41.50 AUD  1 line  [Shipped]
+    [x] 12345679      2026-07-14      12.05 AUD  1 line  [Shipped]
+    [ ] 12345680      2026-08-02       8.20 AUD  1 line  [Shipped]
+
+  2 of 3 selected
+  UP/DOWN move   SPACE toggle   a all   n none   ENTER import   q cancel
+```
+
+Long lists scroll to fit the terminal. If the terminal cannot support that —
+piped output, a `dumb` terminal, Windows — it falls back automatically to a
+numbered list where you type numbers or ranges (`1 3-5`) to toggle. `--plain`
+forces that version, as does setting `INVIMPORT_PLAIN_PROMPT=1`.
+
+**Product details are fetched once you submit.** Every SKU across the selected
+orders is looked up against the Product Information API, which is what lets an
+unmatched SKU be reported as a real part rather than a bare number:
+
+```
+  ! skipped DigiKey 12345680 / sales order 87654323: no line item matched a supplier part
+      - NOT-STOCKED: no supplier part with this SKU
+          NE555P  IC OSC SINGLE TIMER
+```
+
+Running it after the selection means only the orders you are actually
+importing cost API calls. Results land in the same product cache `invimport
+product` uses, so a second run over the same orders is free. `--no-products`
+skips the step.
+
+**The supplier.** Orders are booked against a company named `DigiKey` flagged
+as a supplier. The usual spellings (`Digi-Key`, `DigiKey Electronics` and so
+on) are recognised, so an instance set up by hand does not end up with a second
+near-duplicate company. If there is no match you are offered the choice of
+creating one or picking an existing supplier under a different name:
+
+```
+No supplier named 'DigiKey' in InvenTree.
+
+DigiKey orders need a supplier to book against:
+  1) create a new supplier named 'DigiKey'
+  2) use existing: Digi-Key AU Pty (pk=7)
+  3) use existing: Tayda (pk=2)
+  q) cancel
+```
+
+**Parts have to exist already.** An InvenTree purchase order line points at a
+`SupplierPart`, which in turn needs an internal `Part`, so a DigiKey line can
+only be imported if its SKU is already stocked as a supplier part under the
+chosen supplier. Nothing is invented: unmatched lines are reported by SKU, and
+by default an order with any unmatched line is skipped whole rather than
+creating a purchase order quietly missing half of what was bought. Use
+`--partial` to import the lines that do match.
+
+**Re-running is safe.** Each purchase order records its DigiKey sales order id
+in `supplier_reference`, and an order already imported is recognised and left
+alone. One purchase order is created per *sales* order, so a DigiKey order
+split across two shipments produces two — that is where the line items live.
+
+Orders arrive as `PENDING`. Issuing them and receiving stock are deliberately
+left to you in InvenTree.
+
 ### parameters
 
-Load part parameters into InvenTree. Parameters cannot ride along in the Part
-import CSV — InvenTree's importer handles one model per file — so they are
-loaded separately through the API.
+Create and update the InvenTree parameter templates defined in
+`config/parameters.yaml`. Templates are the vocabulary parts are described
+with: a category names the parameters its parts carry, and each of those has to
+exist as a template with the right units before any value can be stored.
 
 ```bash
 # dry run: reports what it would do, changes nothing
-uv run invimport parameters --templates templates.csv --values values.csv
+uv run invimport parameters
 
 # apply
-uv run invimport parameters --templates templates.csv --values values.csv --write
+uv run invimport parameters --write
 ```
 
-**Dry run is the default.** Nothing is written without `--write`, and nothing
-is ever deleted. Both stages are idempotent, so re-running is safe.
+**Dry run is the default.** Nothing is written without `--write`, and nothing is
+ever deleted — a template on the server the config does not mention is reported
+and left alone, since parts may be using it. Re-running is safe.
 
-Input formats:
+The config is a mapping of template name to its properties:
 
-```csv
-# templates.csv
-name,units,description,choices,checkbox
-Resistance,ohm,Nominal resistance value,,False
-Composition,,Resistive element material,"Metal Film,Carbon Film,Thick Film",False
+```yaml
+Resistance:
+  units: ohm                     # pint unit; InvenTree derives data_numeric
+  description: Nominal resistance value
+  aliases: [Resistance, Resistance (Ohms)]   # names suppliers use
+  parse: quantity                # how to read a supplier value
+
+Composition:
+  choices: [Metal Film, Carbon Film, Thick Film]
+
+Mounting:
+  choices: [Through Hole, Surface Mount]
+  values:                        # canonical value -> supplier spellings
+    Through Hole: [Thru Hole, Axial, Radial]
 ```
 
-```csv
-# values.csv
-part_ipn,template,data,source
-R-0402-10K,Resistance,10000,datasheet
+`units` matters twice over. InvenTree computes `data_numeric` by parsing the
+stored value against the template's unit, which is what makes a parameter
+sortable and filterable — and it is what values are formatted into. Values are
+stored unit-bearing and human-readable, using pint's compact short-pretty
+format:
+
+| Magnitude | Unit | Stored as |
+|---|---|---|
+| 100000 | `ohm` | `100 kΩ` |
+| 0.25 | `W` | `250 mW` |
+| 2.2e-7 | `F` | `220 nF` |
+| -55 | `°C` | `-55 °C` |
+
+That costs nothing in sortability, because InvenTree parses the string back.
+Every formatted value is round-trip checked before it is stored — a unit whose
+display symbol cannot be parsed back falls through to a plainer form rather
+than being written wrongly.
+
+**Custom units are created first.** A template names its unit, and InvenTree
+rejects one it cannot resolve, so anything pint does not already know has to
+exist before the template that uses it. Declare those in `config/units.yaml`:
+
+```yaml
+ppm_per_delta_degC:
+  definition: ppm / delta_degC     # a pint expression, evaluated by InvenTree
+  symbol: ppm/°C                   # display only, 10 characters maximum
 ```
 
-`source` is documentation only and is not sent to InvenTree. Use it to record
-where each figure came from, so a later reader can tell a datasheet value from
-a supplier-listing value.
+The command does units then templates in one pass, so the ordering is not
+something you have to remember. Common units — `ohm`, `V`, `W`, `F`, `°C`,
+`%` — need no entry. A template declaring a unit the server cannot resolve is
+reported by name rather than failing as a bare HTTP 400.
 
-Parts are matched by IPN. An IPN that matches nothing, or matches more than one
-part, is reported as a problem rather than guessed at.
+`aliases`, `parse` and `values` are not sent to InvenTree. They tell the part
+import how to recognise a parameter in supplier data and how to read its value.
+
+Parameter *values* are not set by this command. They come from supplier data as
+parts are imported. See `PROPOSAL-part-import.md` for where that is heading.
 
 ### Global flags
 
@@ -226,6 +353,26 @@ for product in products:
 That example — "find every part I have ordered this year and collect its
 datasheet" — is the motivating case for the split.
 
+The order import is importable too. It takes its answers as arguments, so
+nothing prompts and nothing prints; only the CLI does that.
+
+```python
+from invimport import fetch_orders, find_supplier, import_orders, inventree_connect
+
+api = inventree_connect()
+supplier = find_supplier(api)                   # None if there is not one yet
+
+result = import_orders(fetch_orders(start_date="2026-01-01"), api,
+                       supplier=supplier, write=True)
+print(result.counts())
+for order in result.orders:
+    for line in order.unmatched:
+        print(order.sales_order_id, line.sku, line.reason)
+```
+
+With `write=False` nothing is created and the same result describes what a
+real run would do.
+
 Log output is opt-in:
 
 ```python
@@ -235,8 +382,10 @@ logging.getLogger("invimport").addHandler(logging.StreamHandler())
 
 The public surface is re-exported from `invimport`: `fetch_products`,
 `fetch_product`, `fetch_orders`, `fetch_sales_orders`, `line_items`,
-`load_parameters`, `digikey_connect`, `inventree_connect`, `load_env`,
-`load_env_file`, `Client`, `SyncResult`, `DigiKeyError`, `InvenTreeError`.
+`import_orders`, `find_supplier`, `list_suppliers`, `create_supplier`,
+`sync_templates`, `load_config`, `digikey_connect`, `inventree_connect`,
+`load_env`, `load_env_file`, `Client`, `SyncResult`, `ImportResult`,
+`ConfigError`, `DigiKeyError`, `InvenTreeError`.
 
 Note that `fetch_orders` and `fetch_products` write to the cache like the CLI
 does, relative to the working directory. Pass `cache_dir=` if you need them
@@ -262,10 +411,15 @@ you will scatter `.cache` directories.
 ## Project layout
 
 ```
+config/
+    units.yaml                custom units, created before any template needs them
+    categories.yaml           part categories, their parameters and DigiKey aliases
+    parameters.yaml           parameter templates and how to read supplier values
 src/
     invimport/
         __main__.py           CLI entrypoint and subcommand registry
         cache.py              on-disk response cache
+        config.py             YAML config loading and validation
         env.py                .env loading
         digikey/
             api.py            auth, endpoints, HTTP retry, Client
@@ -273,8 +427,13 @@ src/
             orders.py         OrderStatus API
         inventree/
             api.py            connection and API 530 model overrides
-            parameters.py     parameter templates and values
+            parameters.py     parameter templates, from config/parameters.yaml
+            units.py          custom units, from config/units.yaml
+            values.py         pint registry and value formatting
+            purchase_orders.py  suppliers and DigiKey order import
         commands/             thin CLI adapters over the above
+            _keys.py          raw-mode key reading for the interactive prompts
+            _prompt.py        checklist and menu prompts
 tests/                        mirrors the package
     conftest.py               shared fixtures
     support.py                test doubles: fake DigiKey, stub InvenTree
@@ -322,6 +481,14 @@ The InvenTree suite runs against a stub server that serves **only** routes
 present in `docs/InvenTree API.yaml` and 404s everything else, so a call to a
 route that no longer exists fails loudly rather than silently passing against a
 permissive mock.
+
+The interactive prompts are tested the same way as everything else. The
+`answers` fixture scripts what a user would type and forces the numbered
+checklist, so the supplier menu and the selection flow run end to end without a
+tty. The arrow-key version is split into a state machine (`Checklist`), a
+renderer (`frame`) and a loop with injected I/O (`run_cursor`), all of which
+are driven directly by keypress; the terminal handling underneath is exercised
+against a real `pty`, including that raw mode is always restored.
 
 ### Notes for maintainers
 

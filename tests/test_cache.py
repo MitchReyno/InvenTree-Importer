@@ -74,8 +74,19 @@ def test_existing_cached_products_still_resolve():
     Every file already in the repo's product cache must be reachable by its
     SKU. If the key scheme changes, those entries silently become misses and
     the next run re-spends API quota.
+
+    The SKU is read out of the payload, not recovered from the filename: the
+    readable half of the name is sanitised and truncated, so a SKU containing
+    a character the filesystem dislikes cannot be reconstructed from it.
+    "MCP3208-CI/P-ND" is cached as "MCP3208-CI_P-ND__<digest of the real key>",
+    and only the real key hashes to that digest.
     """
     for path in REPO_PRODUCTS.glob("*.json"):
-        sku = path.name.rsplit("__", 1)[0]
-        assert cache.cache_path(REPO_PRODUCTS, sku) == path, (
-            f"{sku!r} no longer maps to its cached file")
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        product = payload.get("Product") or {}
+        skus = [variation.get("DigiKeyProductNumber")
+                for variation in (product.get("ProductVariations") or [])]
+        skus = [sku for sku in skus if sku]
+        assert skus, f"{path.name} has no SKU to check against"
+        assert any(cache.cache_path(REPO_PRODUCTS, sku) == path for sku in skus), (
+            f"{path.name} is no longer reachable by any of its SKUs {skus}")

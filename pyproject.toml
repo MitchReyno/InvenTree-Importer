@@ -13,8 +13,9 @@ dependencies = [
     # until it can be retested. test_client_models_point_at_the_530_routes
     # covers the override itself.
     "inventree>=0.13.5,<0.14",
-    "pandas>=2.3.3",
+    "pint>=0.25.3",
     "python-dotenv>=1.2.2",
+    "pyyaml>=6.0.3",
     "requests>=2.34.2",
 ]
 

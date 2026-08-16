@@ -1,0 +1,148 @@
+# Parameter templates, and how to read their values out of supplier data.
+#
+# Each entry becomes an InvenTree ParameterTemplate. `invimport parameters`
+# creates and updates them; nothing is ever deleted.
+#
+#   units        pint unit the value is stored in. Values are formatted into
+#                it with pint's compact short-pretty format - 100000 ohm is
+#                stored as "100 kΩ". InvenTree parses that back to derive
+#                data_numeric, so readable values still sort and filter.
+#   description  shown in the InvenTree UI
+#   choices      a fixed value set, comma-joined into the template
+#   checkbox     boolean parameter
+#   aliases      names the supplier may send this parameter under
+#   parse        how to turn the supplier's value text into ours (see
+#                invimport/inventree/values.py)
+#   values       canonical value -> the supplier spellings that mean it
+#
+# Seeded from the InvenTree instance, then extended. Units already on the
+# server are kept as they are.
+
+Capacitance:
+  units: F
+  description: Nominal capacitance
+  aliases:
+    - Capacitance
+  parse: quantity
+
+Composition:
+  description: Resistive element material
+  aliases:
+    - Composition
+    - Material
+  choices:
+    - Metal Film
+    - Carbon Film
+    - Carbon Composition
+    - Wire Wound
+    - Thick Film
+    - Thin Film
+
+ESR:
+  units: ohm
+  description: Equivalent series resistance
+  aliases:
+    - ESR (Equivalent Series Resistance)
+    - Equivalent Series Resistance(ESR)
+  parse: quantity
+
+Max Working Voltage:
+  units: V
+  description: Maximum continuous working voltage
+  aliases:
+    - Voltage - Rated
+    - Voltage Rating
+    - Voltage - Rated (AC)
+    - Voltage - Rated (DC)
+  parse: quantity
+
+Mounting:
+  description: Mounting style
+  aliases:
+    - Mounting Type
+    - Mounting Style
+  choices:
+    - Through Hole
+    - Surface Mount
+    - Chassis
+  values:
+    Through Hole:
+      - Through Hole
+      - Thru Hole
+      - Axial
+      - Radial
+    Surface Mount:
+      - Surface Mount
+      - SMD/SMT
+      - Surface Mount, MELF
+
+Operating Temp Max:
+  units: °C
+  description: Maximum rated operating temperature
+  aliases:
+    - Operating Temperature
+  parse: range_high
+
+Operating Temp Min:
+  units: °C
+  description: Minimum rated operating temperature
+  aliases:
+    - Operating Temperature
+  parse: range_low
+
+Package:
+  description: Body or lead style
+  aliases:
+    - Package / Case
+    - Supplier Device Package
+
+Polarity:
+  description: Polarised or not
+  aliases:
+    - Polarization
+  # Choices are the ones already on the server; the supplier spellings that
+  # mean them are mapped below rather than changing existing data.
+  choices:
+    - Bipolar
+    - Polar
+  values:
+    Bipolar:
+      - Bi-Polar
+      - Bipolar
+    Polar:
+      - Polar
+      - Polarized
+      - Polarised
+
+Power Rating:
+  units: W
+  description: Maximum continuous power dissipation
+  aliases:
+    - Power (Watts)
+    - Power Rating (Watts)
+    - Power - Max
+  parse: quantity_first
+
+Resistance:
+  units: ohm
+  description: Nominal resistance value
+  aliases:
+    - Resistance
+    - Resistance (Ohms)
+  parse: quantity
+
+Temperature Coefficient:
+  # pint's own composite - no custom unit needed. Not ppm/°C: degC is an
+  # absolute temperature, and a coefficient is per temperature *interval*.
+  units: ppm/K
+  description: Resistance change with temperature in ppm per degree C
+  aliases:
+    - Temperature Coefficient
+  parse: quantity
+
+Tolerance:
+  units: "%"
+  description: Component tolerance
+  aliases:
+    - Tolerance
+  parse: percent

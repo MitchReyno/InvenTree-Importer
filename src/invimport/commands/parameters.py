@@ -1,30 +1,24 @@
 """
-Create PartParameterTemplate records and attach PartParameter values to parts,
-via the InvenTree REST API.
+Create and update InvenTree parameter templates from config/parameters.yaml.
 
-Parameters cannot ride along in the Part import file: the CSV importer handles
-one model per file, and part-plus-parameter columns are a known failure. So
-parameters are loaded separately, and the API is the reliable route.
+Templates are the vocabulary the part import writes against: a category names
+the parameters its parts carry, and every one of those has to exist as a
+template with the right units before any value can be stored. This command
+puts the server in step with the config.
 
-Two stages, both idempotent:
-  1. Ensure every template in the templates CSV exists (create or update).
-  2. Ensure every (part, template) pair in the values CSV has the right value.
+    invimport parameters                  # dry run: report what would change
+    invimport parameters --write          # apply
+    invimport parameters --config ./other # a different config directory
 
-Re-running is safe. Nothing is deleted, ever.
+Custom units from config/units.yaml are ensured first: a template declares its
+unit by name and InvenTree rejects one it cannot resolve, so ppm_per_delta_degC
+has to exist before any template that uses it.
 
-Targets InvenTree API 530+ - see invimport/inventree/api.py for the route and
-model_type changes that entails.
+Idempotent, and nothing is ever deleted. A template on the server that the
+config does not mention is reported, not removed - parts may be using it.
 
-Input formats
--------------
-templates CSV: name, units, description, choices, checkbox
-values CSV:    part_ipn, template, data, source
-               'source' is documentation only - it is not sent to InvenTree.
-               Use it to record where each figure came from so a later reader
-               can tell a datasheet value from a supplier-listing value.
-
-    invimport parameters --templates t.csv --values v.csv          # dry run
-    invimport parameters --templates t.csv --values v.csv --write  # apply
+Parameter *values* are not set here; they come from supplier data as parts are
+imported. The templates/values CSV pair this command used to take is gone.
 
 The logic lives in invimport.inventree.parameters; this module is only the CLI.
 """
@@ -35,47 +29,72 @@ import argparse
 from pathlib import Path
 
 from ..inventree.api import connect
-from ..inventree.parameters import SyncResult, load_parameters
+from ..inventree.parameters import SyncResult, sync_config
+from ..inventree.units import UnitSyncResult
 
 NAME = "parameters"
-HELP = "load part parameter templates and values into InvenTree"
+HELP = "create and update InvenTree parameter templates from the config"
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--templates", type=Path, required=True)
-    parser.add_argument("--values", type=Path, required=True)
+    parser.add_argument("--config", type=Path, default=None, metavar="DIR",
+                        help="config directory (default: config/ at the repo "
+                             "root)")
     parser.add_argument("--write", action="store_true",
                         help="apply changes (default is dry run)")
 
 
-def report(result: SyncResult) -> None:
-    print("Stage 1: parameter templates")
-    for action in result.templates:
+def report_units(result: UnitSyncResult) -> None:
+    print("Custom units")
+
+    if not result.units:
+        print("  (none defined)")
+    for action in result.units:
         if action.action == "created":
-            print(f"  + template '{action.name}' (units={action.units or 'none'})")
+            print(f"  + {action.name} = {action.definition}")
         elif action.action == "updated":
-            drift = ", ".join(f"{k}: {old!r} -> {new!r}"
-                              for k, (old, new) in action.drift.items())
-            print(f"  ~ template '{action.name}' differs: {drift}")
+            drift = ", ".join(f"{key}: {old!r} -> {new!r}"
+                              for key, (old, new) in action.drift.items())
+            print(f"  ~ {action.name} differs: {drift}")
         else:
-            print(f"  = template '{action.name}' ok")
-
-    if result.templates_pending:
-        print("\nSome templates do not exist yet. In dry-run mode their parameter "
-              "values cannot be checked against the server.\nRe-run with --write "
-              "to create templates, then dry-run again to preview values.")
-        return
-
-    print("\nStage 2: part parameters")
-    for value in result.values:
-        if value.action == "created":
-            print(f"  + {value.ipn} {value.template} = {value.new}")
-        elif value.action == "updated":
-            print(f"  ~ {value.ipn} {value.template}: {value.old!r} -> {value.new!r}")
+            print(f"  = {action.name} ok")
 
     counts = result.counts()
     print(f"\n  created={counts['created']}  updated={counts['updated']}  "
           f"unchanged={counts['unchanged']}")
+
+    if result.unmanaged:
+        print(f"  {len(result.unmanaged)} custom unit(s) on the server are not "
+              f"in the config: {', '.join(result.unmanaged)}")
+
+    for problem in result.problems:
+        print(f"    ! {problem}")
+
+
+def report(result: SyncResult) -> None:
+    print("\nParameter templates")
+
+    for action in result.templates:
+        if action.action == "created":
+            print(f"  + {action.name} (units={action.units or 'none'})")
+        elif action.action == "updated":
+            drift = ", ".join(f"{key}: {old!r} -> {new!r}"
+                              for key, (old, new) in action.drift.items())
+            print(f"  ~ {action.name} differs: {drift}")
+        else:
+            print(f"  = {action.name} ok")
+
+    counts = result.counts()
+    print(f"\n  created={counts['created']}  updated={counts['updated']}  "
+          f"unchanged={counts['unchanged']}")
+
+    if result.unmanaged:
+        print(f"\n  {len(result.unmanaged)} template(s) on the server are not "
+              f"in the config:")
+        for name in result.unmanaged:
+            print(f"    ? {name}")
+        print("  Left alone - add them to config/parameters.yaml to manage "
+              "them, or\n  delete them in InvenTree if they are unused.")
 
     if result.problems:
         print(f"\n  {len(result.problems)} problem(s):")
@@ -84,13 +103,16 @@ def report(result: SyncResult) -> None:
 
 
 def run(args: argparse.Namespace) -> int:
-    api = connect()
     if not args.write:
         print("DRY RUN - nothing will be changed.\n")
 
-    result = load_parameters(args.templates, args.values, api, write=args.write)
+    api = connect()
+    # Units before templates: a template naming a unit the server cannot
+    # resolve is rejected, so the custom ones have to exist first.
+    units, result = sync_config(args.config, api, write=args.write)
+    report_units(units)
     report(result)
 
-    if not args.write and not result.templates_pending:
+    if not args.write:
         print("\nDRY RUN complete - re-run with --write to apply.")
     return 0

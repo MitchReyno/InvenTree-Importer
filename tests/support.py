@@ -18,6 +18,12 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+import requests
+
+# Captured before any fixture patches requests.get, so the DigiKey fake can
+# still reach the local InvenTree stub through it.
+REAL_GET = requests.get
+
 # Up out of the module, then tests/.
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SPEC_FILE = REPO_ROOT / "docs" / "InvenTree API.yaml"
@@ -33,6 +39,21 @@ PRODUCT_PAYLOAD: dict[str, Any] = {
         "ManufacturerProductNumber": "NE555P",
         "Manufacturer": {"Name": "Texas Instruments"},
         "Description": {"ProductDescription": "IC OSC SINGLE TIMER"},
+        # Shaped exactly as the real payloads in .cache/.digikey/products:
+        # one ChildCategories chain, and Parameters as name/value text.
+        "Category": {
+            "Name": "Integrated Circuits (ICs)",
+            "ChildCategories": [
+                {"Name": "Clock/Timing", "ChildCategories": []},
+            ],
+        },
+        "Parameters": [
+            {"ParameterText": "Mounting Type", "ValueText": "Through Hole"},
+            {"ParameterText": "Package / Case", "ValueText": "8-DIP"},
+            {"ParameterText": "Operating Temperature",
+             "ValueText": "0°C ~ 70°C"},
+            {"ParameterText": "Features", "ValueText": "-"},
+        ],
         "ProductVariations": [
             {
                 "DigiKeyProductNumber": "296-1411-1-ND",
@@ -111,7 +132,14 @@ class FakeDigiKey:
 
     Override .responses to change what an endpoint returns, or .pages to script
     a multi-page history sweep.
+
+    Only DigiKey URLs are intercepted. The fixture patches requests.get on the
+    shared requests module, which the inventree library uses too, so anything
+    else - notably the InvenTree stub - has to be let through untouched or the
+    two fakes cannot be used in the same test.
     """
+
+    HOSTS = ("api.digikey.com", "sandbox-api.digikey.com")
 
     def __init__(self):
         self.calls: list[dict[str, Any]] = []
@@ -128,7 +156,11 @@ class FakeDigiKey:
     def __len__(self) -> int:
         return len(self.calls)
 
-    def get(self, url, headers=None, params=None, timeout=None):
+    def get(self, url, headers=None, params=None, timeout=None, **kwargs):
+        if not any(host in url for host in self.HOSTS):
+            return REAL_GET(url, headers=headers, params=params,
+                            timeout=timeout, **kwargs)
+
         self.calls.append({"url": url, "params": params, "headers": dict(headers or {})})
         if self.status_code != 200:
             return Response({"detail": "boom"}, self.status_code)
@@ -157,6 +189,15 @@ def spec_paths() -> set[str]:
     return set(re.findall(r"^  (/[^:\s]*):", text, flags=re.MULTILINE))
 
 
+def _by(rows: list[dict[str, Any]], query: dict[str, list[str]],
+        field: str) -> list[dict[str, Any]]:
+    """Apply one integer query filter, the way the real list endpoints do."""
+    wanted = (query.get(field) or [None])[0]
+    if wanted is None:
+        return rows
+    return [row for row in rows if str(row.get(field)) == str(wanted)]
+
+
 def path_to_regex(path: str) -> re.Pattern:
     """Turn an OpenAPI path template into a matcher: /api/x/{id}/ -> /api/x/\\d+/."""
     return re.compile("^" + re.sub(r"\{[^}]+\}", r"[^/]+", re.escape(path)
@@ -178,8 +219,43 @@ class InvenTreeStub:
         self.bad_routes: list[str] = []
         self.parameter_queries: list[dict[str, list[str]]] = []
         self.saves: list[tuple[str, dict[str, Any]]] = []
+        # Every POST in order, so a test can assert on sequencing.
+        self.posts: list[tuple[str, dict[str, Any]]] = []
+        # Purchase order side: companies and supplier parts are seeded by the
+        # test, orders and line items accumulate as they are created.
+        # Custom units. "known" is what /api/units/all/ reports: pint's own
+        # names plus whatever has been created.
+        self.units: list[dict[str, Any]] = []
+        self.builtin_units = {"ohm", "F", "V", "W", "degC", "°C", "%", "Hz",
+                              "A", "ppm", "ppm/K"}
+        self.companies: list[dict[str, Any]] = []
+        self.supplier_parts: list[dict[str, Any]] = []
+        self.purchase_orders: list[dict[str, Any]] = []
+        self.line_items: list[dict[str, Any]] = []
         self._next_pk = 100
         self._server: HTTPServer | None = None
+
+    # -- seeding -----------------------------------------------------------
+    def add_company(self, name: str, pk: int = 1, **fields) -> dict[str, Any]:
+        row = {"pk": pk, "name": name, "is_supplier": True,
+               "is_manufacturer": False, "active": True, "description": "",
+               **fields}
+        self.companies.append(row)
+        return row
+
+    def add_unit(self, name: str, definition: str = "x", symbol: str = "",
+                 pk: int | None = None) -> dict[str, Any]:
+        row = {"pk": pk if pk is not None else len(self.units) + 1,
+               "name": name, "definition": definition, "symbol": symbol}
+        self.units.append(row)
+        return row
+
+    def add_supplier_part(self, sku: str, supplier: int = 1, part: int = 4,
+                          pk: int | None = None) -> dict[str, Any]:
+        row = {"pk": pk if pk is not None else len(self.supplier_parts) + 1,
+               "SKU": sku, "supplier": supplier, "part": part}
+        self.supplier_parts.append(row)
+        return row
 
     # -- lifecycle ---------------------------------------------------------
     def __enter__(self) -> InvenTreeStub:
@@ -228,7 +304,36 @@ class InvenTreeStub:
                 if parsed.path == "/api/parameter/":
                     stub.parameter_queries.append(query)
                     return self._send(200, stub.existing_parameters)
+                if parsed.path == "/api/units/":
+                    return self._send(200, stub.units)
+                if parsed.path == "/api/units/all/":
+                    names = stub.builtin_units | {u["name"] for u in stub.units}
+                    return self._send(200, {
+                        "default_system": "SI",
+                        "available_systems": ["SI"],
+                        "available_units": {n: {"name": n} for n in names},
+                    })
+                if parsed.path == "/api/company/":
+                    rows = stub.companies
+                    if (query.get("is_supplier") or [""])[0].lower() == "true":
+                        rows = [c for c in rows if c.get("is_supplier")]
+                    return self._send(200, rows)
+                if parsed.path == "/api/company/part/":
+                    return self._send(200, _by(stub.supplier_parts, query, "supplier"))
+                if parsed.path == "/api/order/po/":
+                    return self._send(200, _by(stub.purchase_orders, query, "supplier"))
                 return self._send(200, [])
+
+            def do_OPTIONS(self):
+                parsed = urlparse(self.path)
+                if not self._valid(parsed.path):
+                    return
+                # Only the bit the importer reads: the next free reference,
+                # which the real server derives from the orders it already has.
+                nxt = f"PO-{len(stub.purchase_orders) + 1:04d}"
+                return self._send(200, {
+                    "actions": {"POST": {"reference": {"default": nxt}}}
+                })
 
             def do_POST(self):
                 parsed = urlparse(self.path)
@@ -238,10 +343,21 @@ class InvenTreeStub:
                 body = json.loads(self.rfile.read(length) or b"{}")
                 stub._next_pk += 1
                 row = {"pk": stub._next_pk, **body}
+                stub.posts.append((parsed.path, body))
                 if parsed.path == "/api/parameter/template/":
                     stub.templates.append(row)
                 elif parsed.path == "/api/parameter/":
                     stub.parameters.append(row)
+                elif parsed.path == "/api/units/":
+                    stub.units.append(row)
+                elif parsed.path == "/api/company/":
+                    stub.companies.append(row)
+                elif parsed.path == "/api/company/part/":
+                    stub.supplier_parts.append(row)
+                elif parsed.path == "/api/order/po/":
+                    stub.purchase_orders.append(row)
+                elif parsed.path == "/api/order/po-line/":
+                    stub.line_items.append(row)
                 return self._send(201, row)
 
             def do_PATCH(self):

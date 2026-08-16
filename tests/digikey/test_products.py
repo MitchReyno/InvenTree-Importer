@@ -142,3 +142,60 @@ def test_summarise_counts(rows, expected):
 def test_dumps_is_a_json_list():
     import json
     assert json.loads(products.dumps([{"SKU": "a"}])) == [{"SKU": "a"}]
+
+
+# --------------------------------------------------------------------------
+# Categorisation and specs (for the part import)
+# --------------------------------------------------------------------------
+def test_category_path_flattens_the_nested_chain():
+    product = {"Category": {"Name": "Resistors", "ChildCategories": [
+        {"Name": "Through Hole Resistors", "ChildCategories": []}]}}
+    assert products.category_path(product) == ["Resistors",
+                                               "Through Hole Resistors"]
+
+
+def test_category_path_of_a_payload_without_one():
+    assert products.category_path({}) == []
+
+
+def test_category_path_survives_a_self_referencing_payload():
+    """A cycle must not spin forever."""
+    node = {"Name": "Loop"}
+    node["ChildCategories"] = [node]
+    assert products.category_path({"Category": node}) == ["Loop"]
+
+
+def test_parameters_are_flattened_by_name():
+    product = {"Parameters": [
+        {"ParameterText": "Resistance", "ValueText": "100 kOhms"},
+        {"ParameterText": "Tolerance", "ValueText": "±1%"},
+    ]}
+    assert products.parameters(product) == {"Resistance": "100 kOhms",
+                                            "Tolerance": "±1%"}
+
+
+def test_parameters_are_passed_through_untouched():
+    """'-' means absent, but deciding that belongs to the value layer."""
+    product = {"Parameters": [{"ParameterText": "Features", "ValueText": "-"}]}
+    assert products.parameters(product) == {"Features": "-"}
+
+
+def test_a_duplicated_parameter_keeps_the_first_value():
+    product = {"Parameters": [
+        {"ParameterText": "Package", "ValueText": "Axial"},
+        {"ParameterText": "Package", "ValueText": "Radial"},
+    ]}
+    assert products.parameters(product) == {"Package": "Axial"}
+
+
+def test_incomplete_parameter_entries_are_dropped():
+    product = {"Parameters": [{"ParameterText": "Resistance"},
+                              {"ValueText": "orphan"}]}
+    assert products.parameters(product) == {}
+
+
+def test_extract_carries_category_and_parameters():
+    row = products.extract(PRODUCT_PAYLOAD, "296-1411-1-ND")
+    assert row["category_path"] == ["Integrated Circuits (ICs)", "Clock/Timing"]
+    assert row["parameters"]["Package / Case"] == "8-DIP"
+    assert row["parameters"]["Operating Temperature"] == "0°C ~ 70°C"

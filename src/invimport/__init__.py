@@ -25,6 +25,7 @@ Library callers see no output by default. To surface the log messages:
     logging.getLogger("invimport").addHandler(logging.StreamHandler())
 """
 
+from .config import ConfigError, load_config
 from .digikey.api import Client, DigiKeyError
 from .digikey.api import connect as digikey_connect
 from .digikey.orders import fetch_orders, fetch_sales_orders, line_items
@@ -32,7 +33,15 @@ from .digikey.products import fetch_product, fetch_products
 from .env import DEFAULT_ENV_FILE, load_env_file
 from .inventree.api import InvenTreeError
 from .inventree.api import connect as inventree_connect
-from .inventree.parameters import SyncResult, load_parameters
+from .inventree.parameters import SyncResult, sync_config, sync_templates
+from .inventree.purchase_orders import (
+    ImportResult,
+    create_supplier,
+    find_supplier,
+    import_orders,
+    list_suppliers,
+)
+from .inventree.units import sync_units
 
 
 def load_env(path=None) -> int:
@@ -42,17 +51,26 @@ def load_env(path=None) -> int:
 
 __all__ = [
     "Client",
+    "ConfigError",
     "DigiKeyError",
+    "ImportResult",
     "InvenTreeError",
     "SyncResult",
+    "create_supplier",
     "digikey_connect",
     "fetch_orders",
     "fetch_product",
     "fetch_products",
     "fetch_sales_orders",
+    "find_supplier",
+    "import_orders",
     "inventree_connect",
     "line_items",
+    "list_suppliers",
+    "load_config",
     "load_env",
     "load_env_file",
-    "load_parameters",
+    "sync_config",
+    "sync_templates",
+    "sync_units",
 ]

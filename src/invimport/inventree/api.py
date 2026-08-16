@@ -20,9 +20,14 @@ log = logging.getLogger(__name__)
 
 try:
     from inventree.api import InvenTreeAPI
-    from inventree.part import Part  # noqa: F401  (re-exported for commands)
+    from inventree.base import InventreeObject
+    from inventree.company import Company  # noqa: F401  (re-exported for commands)
+    from inventree.company import SupplierPart  # noqa: F401
+    from inventree.part import Part  # noqa: F401
     from inventree.part import Parameter as _Parameter
     from inventree.part import ParameterTemplate as _ParameterTemplate
+    from inventree.purchase_order import PurchaseOrder  # noqa: F401
+    from inventree.purchase_order import PurchaseOrderLineItem  # noqa: F401
 except ImportError:
     print("ERROR: dependencies missing - run `uv sync`", file=sys.stderr)
     raise
@@ -41,6 +46,11 @@ except ImportError:
 # The inventree python library (0.13.5) still points at the pre-530 routes, so
 # a stock Parameter.list() 404s. Patch the URLs here rather than downgrade the
 # server or pin a library version that does not exist yet.
+#
+# Only parameters moved. Company, SupplierPart, PurchaseOrder and
+# PurchaseOrderLineItem still sit at the routes the library expects
+# (company/, company/part/, order/po/, order/po-line/), so they are re-exported
+# above unchanged.
 PART_MODEL_TYPE = "part.part"
 
 
@@ -50,6 +60,17 @@ class Parameter(_Parameter):
 
 class ParameterTemplate(_ParameterTemplate):
     URL = "parameter/template"
+
+
+class CustomUnit(InventreeObject):
+    """
+    A user-defined unit, e.g. ppm_per_delta_degC = 'ppm / delta_degC'.
+
+    The library ships no model for /api/units/, so it is declared here rather
+    than hand-rolling requests. Parameter templates reference units by name, so
+    a custom unit has to exist before any template that uses it.
+    """
+    URL = "units"
 
 
 class InvenTreeError(RuntimeError):

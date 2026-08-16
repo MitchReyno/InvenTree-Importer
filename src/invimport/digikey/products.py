@@ -56,7 +56,7 @@ def fetch_product_payload(sku: str, client: Client,
     if not refresh:
         cached = cache.load(cache_dir, sku)
         if cached is not None:
-            print(f"Loaded cached product payload for {sku}")
+            log.info("    %s: cached", sku)
             return cached
 
     template = SANDBOX_PRODUCT_DETAILS_URL if client.sandbox else PRODUCT_DETAILS_URL
@@ -71,6 +71,48 @@ def fetch_product_payload(sku: str, client: Client,
 # --------------------------------------------------------------------------
 # Parsing
 # --------------------------------------------------------------------------
+def category_path(product: dict[str, Any]) -> list[str]:
+    """
+    Flatten DigiKey's nested Category into a path.
+
+    The payload nests one ChildCategories chain per product, deepest last:
+    Resistors -> Through Hole Resistors. Only the first child at each level is
+    followed, which is all a single product ever has.
+    """
+    path: list[str] = []
+    node = product.get("Category")
+    seen: set[int] = set()
+
+    while isinstance(node, dict) and id(node) not in seen:
+        seen.add(id(node))                     # a self-referencing payload
+        name = dig(node, "Name")               # must not spin forever
+        if name:
+            path.append(str(name))
+        children = node.get("ChildCategories") or []
+        node = children[0] if children else None
+
+    return path
+
+
+def parameters(product: dict[str, Any]) -> dict[str, str]:
+    """
+    Flatten DigiKey's Parameters list into {name: value}.
+
+    Values are returned exactly as DigiKey sends them, "-" and all: deciding
+    what a value means is the caller's job, not this one's. A duplicated
+    parameter name keeps the first value, matching the order DigiKey lists
+    them in.
+    """
+    out: dict[str, str] = {}
+    for item in product.get("Parameters") or []:
+        name = dig(item, "ParameterText")
+        value = dig(item, "ValueText")
+        if name is None or value is None:
+            continue
+        out.setdefault(str(name), str(value))
+    return out
+
+
 def extract(payload: dict[str, Any], sku: str) -> dict[str, Any]:
     """
     Pull the fields we care about out of a productdetails payload.
@@ -95,6 +137,10 @@ def extract(payload: dict[str, Any], sku: str) -> dict[str, Any]:
         "moq": None,
         "unit_price": None,
         "variation_matched": False,
+        # Categorisation and specs, used by the part import. Not reported by
+        # the product command - see REPORTED_FIELDS.
+        "category_path": category_path(product),
+        "parameters": parameters(product),
     }
 
     variations = product.get("ProductVariations") or []

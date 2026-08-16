@@ -12,6 +12,7 @@ directory.
 
 from __future__ import annotations
 
+import io
 import os
 import sys
 from pathlib import Path
@@ -25,6 +26,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # this is only a fallback for running pytest without the project installed.
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from invimport.commands import _keys as keys  # noqa: E402
 from invimport.digikey import api as digikey_api  # noqa: E402
 from tests.support import FakeDigiKey, InvenTreeStub  # noqa: E402
 
@@ -75,6 +77,44 @@ def env_file(tmp_path):
 def client(digikey, digikey_env):
     """A connected Client backed by the fake transport."""
     return digikey_api.connect(need_account=True)
+
+
+class _Tty(io.StringIO):
+    """A stdin that claims to be a terminal, so the prompts engage."""
+
+    def isatty(self) -> bool:
+        return True
+
+
+@pytest.fixture
+def answers(monkeypatch):
+    """
+    Script the interactive prompts.
+
+    Call it with the lines a user would type; input() serves them in order and
+    raises EOFError once they run out, which the prompts treat as a cancel. The
+    lines are echoed so capsys shows the same transcript a terminal would.
+    """
+    queued: list[str] = []
+
+    def feed(*lines: str) -> None:
+        queued.extend(lines)
+
+    def fake_input(prompt: str = "") -> str:
+        print(prompt, end="")
+        if not queued:
+            raise EOFError
+        line = queued.pop(0)
+        print(line)
+        return line
+
+    monkeypatch.setattr("builtins.input", fake_input)
+    monkeypatch.setattr(sys, "stdin", _Tty())
+    # Force the line-reading checklist. Without this the cursor version would
+    # be chosen whenever pytest runs with -s, and it reads keys off the real
+    # terminal - the run would hang waiting for a keypress nobody makes.
+    monkeypatch.setenv(keys.PLAIN_ENV_VAR, "1")
+    return feed
 
 
 @pytest.fixture

@@ -1,21 +1,24 @@
 """
-InvenTree part parameters - templates and values.
+InvenTree parameter templates, defined in config/parameters.yaml.
 
 Importable as a library:
 
-    from invimport.inventree.parameters import load_parameters
+    from invimport.inventree.parameters import sync_templates
 
-    result = load_parameters("templates.csv", "values.csv", write=True)
+    result = sync_templates(write=True)
     print(result.counts())
     for problem in result.problems:
         print(problem)
 
-Two stages, both idempotent:
-  1. Ensure every template in the templates CSV exists (create or update).
-  2. Ensure every (part, template) pair in the values CSV has the right value.
+Idempotent: every template in the config is created if missing and updated if
+it has drifted. Nothing is deleted, ever - a template on the server that the
+config does not mention is reported, not removed, because parts may be using
+it. With write=False the API is only read from, and the returned actions
+describe what a write would do.
 
-Re-running is safe. Nothing is deleted, ever. With write=False the API is only
-read from, and the returned actions describe what a write would do.
+Parameter *values* are not set here. They come from supplier data as parts are
+imported (see invimport.inventree.values), rather than from a hand-maintained
+file - which is why the old CSV loader is gone.
 """
 
 from __future__ import annotations
@@ -25,9 +28,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
-
-from .api import PART_MODEL_TYPE, Parameter, ParameterTemplate, Part, connect
+from ..config import (
+    ParameterConfig,
+    UnitConfig,
+    load_parameters_config,
+    load_units_config,
+)
+from .api import PART_MODEL_TYPE, ParameterTemplate, connect
+from .units import UnitSyncResult, sync_units
+from .values import build_registry
 
 log = logging.getLogger(__name__)
 
@@ -46,28 +55,25 @@ class TemplateAction:
 
 
 @dataclass
-class ValueAction:
-    """What happened (or would happen) to one part parameter value."""
-    ipn: str
-    template: str
-    action: str                                  # created | updated | unchanged
-    new: str = ""
-    old: str | None = None
-
-
-@dataclass
 class SyncResult:
     templates: list[TemplateAction] = field(default_factory=list)
-    values: list[ValueAction] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
-    # True when a dry run could not resolve every template, so stage 2 was skipped.
-    templates_pending: bool = False
+    # Templates on the server that the config does not describe. Reported so
+    # they can be adopted or removed by hand; never touched automatically.
+    unmanaged: list[str] = field(default_factory=list)
+
+    def resolved(self) -> dict[str, int]:
+        """{name: pk} for every template that exists, for callers that need it."""
+        return {action.name: action.pk for action in self.templates
+                if action.pk not in (None, UNRESOLVED_PK)}
 
     def counts(self) -> dict[str, int]:
         return {
-            "created": sum(1 for v in self.values if v.action == "created"),
-            "updated": sum(1 for v in self.values if v.action == "updated"),
-            "unchanged": sum(1 for v in self.values if v.action == "unchanged"),
+            "created": sum(1 for t in self.templates if t.action == "created"),
+            "updated": sum(1 for t in self.templates if t.action == "updated"),
+            "unchanged": sum(1 for t in self.templates
+                             if t.action == "unchanged"),
+            "unmanaged": len(self.unmanaged),
             "problems": len(self.problems),
         }
 
@@ -85,175 +91,133 @@ def matches(current: Any, wanted: Any) -> bool:
     return str("" if current is None else current) == str(wanted)
 
 
-def clean(value) -> str:
-    """Normalise a CSV cell to a stripped string. NaN becomes empty."""
-    if value is None or (isinstance(value, float) and pd.isna(value)):
-        return ""
-    return str(value).strip()
+def payload_for(parameter: ParameterConfig) -> dict[str, Any]:
+    """The InvenTree template fields one config entry describes."""
+    return {
+        "name": parameter.name,
+        "units": parameter.units,
+        "description": parameter.description,
+        "choices": parameter.choices_csv,
+        "checkbox": parameter.checkbox,
+        # 530 templates declare which model they may attach to. Blank means
+        # "any model"; this importer only does part parameters.
+        "model_type": PART_MODEL_TYPE,
+    }
 
 
-def read_table(source: pd.DataFrame | Path | str) -> pd.DataFrame:
-    """Accept a DataFrame or a path to a CSV, so callers can pass either."""
-    if isinstance(source, pd.DataFrame):
-        return source
-    return pd.read_csv(source, dtype=str)
+def unknown_units(parameters: dict[str, ParameterConfig],
+                  registry) -> dict[str, str]:
+    """
+    Which parameters declare a unit that cannot be resolved?
 
-
-# --------------------------------------------------------------------------
-# Stage 1 - templates
-# --------------------------------------------------------------------------
-def sync_templates(api, df: pd.DataFrame, write: bool
-                   ) -> tuple[dict[str, int], list[TemplateAction]]:
-    """Create or update parameter templates. Returns ({name: pk}, actions)."""
-    existing = {t.name: t for t in ParameterTemplate.list(api, limit=1000)}
-    resolved: dict[str, int] = {}
-    actions: list[TemplateAction] = []
-
-    for _, row in df.iterrows():
-        name = clean(row.get("name"))
-        if not name:
+    Checked against a pint registry rather than the server's list of unit
+    names, because InvenTree validates a template unit with `unit in ureg` and
+    that resolves *expressions*: "ppm/K" is perfectly valid while being no
+    single entry in any list. The registry is built from config/units.yaml, so
+    a custom unit a dry run has not created on the server yet still counts as
+    known.
+    """
+    unknown: dict[str, str] = {}
+    for parameter in parameters.values():
+        if not parameter.units:
             continue
-
-        payload = {
-            "name": name,
-            "units": clean(row.get("units")),
-            "description": clean(row.get("description")),
-            "choices": clean(row.get("choices")),
-            "checkbox": clean(row.get("checkbox")).lower() in ("true", "1", "yes"),
-            # 530 templates declare which model they may be attached to.
-            # Blank means "any model"; this importer only does part parameters.
-            "model_type": PART_MODEL_TYPE,
-        }
-
-        if name in existing:
-            tmpl = existing[name]
-            drift = {
-                k: (getattr(tmpl, k, None), v)
-                for k, v in payload.items()
-                if k != "name" and not matches(getattr(tmpl, k, None), v)
-            }
-            if drift:
-                if write:
-                    tmpl.save(data=payload)
-                actions.append(TemplateAction(name, "updated", tmpl.pk,
-                                              payload["units"], drift))
-            else:
-                actions.append(TemplateAction(name, "unchanged", tmpl.pk,
-                                              payload["units"]))
-            resolved[name] = tmpl.pk
-        else:
-            if write:
-                created = ParameterTemplate.create(api, payload)
-                resolved[name] = created.pk
-            else:
-                resolved[name] = UNRESOLVED_PK
-            actions.append(TemplateAction(name, "created", resolved[name],
-                                          payload["units"]))
-
-    return resolved, actions
+        try:
+            resolvable = parameter.units in registry
+        except Exception:
+            resolvable = False
+        if not resolvable:
+            unknown[parameter.name] = parameter.units
+    return unknown
 
 
-# --------------------------------------------------------------------------
-# Stage 2 - parameter values
-# --------------------------------------------------------------------------
-def find_part(api, ipn: str):
-    """Look up a single part by IPN. Refuses to guess if the match is ambiguous."""
-    matches = Part.list(api, IPN=ipn)
-    if not matches:
-        return None, f"no part with IPN {ipn!r}"
-    if len(matches) > 1:
-        return None, f"IPN {ipn!r} matched {len(matches)} parts - not unique"
-    return matches[0], None
-
-
-def sync_values(api, df: pd.DataFrame, templates: dict[str, int], write: bool
-                ) -> tuple[list[ValueAction], list[str]]:
-    part_cache: dict[str, object] = {}
-    actions: list[ValueAction] = []
-    problems: list[str] = []
-
-    for _, row in df.iterrows():
-        ipn = clean(row.get("part_ipn"))
-        tmpl_name = clean(row.get("template"))
-        data = clean(row.get("data"))
-
-        if not (ipn and tmpl_name and data):
-            problems.append(
-                f"incomplete row: ipn={ipn!r} template={tmpl_name!r} data={data!r}")
-            continue
-
-        if tmpl_name not in templates:
-            problems.append(f"{ipn}: template {tmpl_name!r} not defined in templates CSV")
-            continue
-
-        if ipn not in part_cache:
-            part, err = find_part(api, ipn)
-            if err:
-                problems.append(err)
-                part_cache[ipn] = None
-            else:
-                part_cache[ipn] = part
-        part = part_cache[ipn]
-        if part is None:
-            continue
-
-        tmpl_pk = templates[tmpl_name]
-        # 530 filters parameters by the generic model reference, and can narrow
-        # by template server-side - no need to pull every parameter and sift.
-        current = Parameter.list(
-            api, model_type=PART_MODEL_TYPE, model_id=part.pk, template=tmpl_pk
-        )
-
-        if current:
-            existing_value = str(getattr(current[0], "data", "")).strip()
-            if existing_value == data:
-                actions.append(ValueAction(ipn, tmpl_name, "unchanged", data,
-                                           existing_value))
-                continue
-            if write:
-                current[0].save(data={"data": data})
-            actions.append(ValueAction(ipn, tmpl_name, "updated", data, existing_value))
-        else:
-            if write:
-                Parameter.create(api, {
-                    "model_type": PART_MODEL_TYPE,
-                    "model_id": part.pk,
-                    "template": tmpl_pk,
-                    "data": data,
-                })
-            actions.append(ValueAction(ipn, tmpl_name, "created", data))
-
-    return actions, problems
-
-
-# --------------------------------------------------------------------------
-# Public entrypoint
-# --------------------------------------------------------------------------
-def load_parameters(
-    templates: pd.DataFrame | Path | str,
-    values: pd.DataFrame | Path | str,
+def sync_templates(
+    parameters: dict[str, ParameterConfig] | Path | str | None = None,
     api=None,
     *,
     write: bool = False,
+    units: dict[str, UnitConfig] | None = None,
 ) -> SyncResult:
     """
-    Run both stages and return everything that happened.
+    Create or update every parameter template the config defines.
 
-    templates/values accept a DataFrame or a path to a CSV. Pass an existing
-    InvenTree api handle to reuse a connection; omit it and one is created from
-    the environment.
+    parameters accepts a loaded config, a path to a config directory, or None
+    to use config/ at the repo root. Pass an existing api handle to reuse a
+    connection; omit it and one is created from the environment.
+
+    Custom units must already exist - see sync_config(), which does units
+    first. units, if given, names the custom units the config declares so a
+    dry run does not report one it has not created yet as unknown.
     """
-    templates_df = read_table(templates)
-    values_df = read_table(values)
+    if parameters is None or isinstance(parameters, (str, Path)):
+        directory = Path(parameters) if parameters is not None else None
+        parameters = load_parameters_config(directory)
+
     api = api or connect()
+    existing = {t.name: t for t in ParameterTemplate.list(api, limit=1000)}
+    result = SyncResult()
 
-    resolved, template_actions = sync_templates(api, templates_df, write)
-    result = SyncResult(templates=template_actions)
+    # Checked before anything is written: InvenTree rejects a template whose
+    # unit it cannot resolve, and a named unit beats a bare HTTP 400.
+    for name, unit in unknown_units(parameters, build_registry(units)).items():
+        result.problems.append(
+            f"parameter {name!r} declares unit {unit!r}, which pint cannot "
+            f"resolve - define it in units.yaml or correct the spelling")
 
-    # A dry run cannot check values against templates that do not exist yet.
-    if not write and any(pk == UNRESOLVED_PK for pk in resolved.values()):
-        result.templates_pending = True
-        return result
+    for parameter in parameters.values():
+        payload = payload_for(parameter)
+        template = existing.get(parameter.name)
 
-    result.values, result.problems = sync_values(api, values_df, resolved, write)
+        if template is None:
+            pk = UNRESOLVED_PK
+            if write:
+                pk = ParameterTemplate.create(api, payload).pk
+            result.templates.append(TemplateAction(parameter.name, "created",
+                                                   pk, parameter.units))
+            continue
+
+        drift = {
+            key: (getattr(template, key, None), value)
+            for key, value in payload.items()
+            if key != "name" and not matches(getattr(template, key, None), value)
+        }
+        if drift:
+            if write:
+                template.save(data=payload)
+            result.templates.append(TemplateAction(parameter.name, "updated",
+                                                   template.pk,
+                                                   parameter.units, drift))
+        else:
+            result.templates.append(TemplateAction(parameter.name, "unchanged",
+                                                   template.pk,
+                                                   parameter.units))
+
+    result.unmanaged = sorted(name for name in existing
+                              if name not in parameters)
+    if result.unmanaged:
+        log.info("    %s template(s) on the server are not in the config: %s",
+                 len(result.unmanaged), ", ".join(result.unmanaged))
+
     return result
+
+
+def sync_config(
+    directory: Path | str | None = None,
+    api=None,
+    *,
+    write: bool = False,
+) -> tuple[UnitSyncResult, SyncResult]:
+    """
+    Bring the server in step with the config: units first, then templates.
+
+    The ordering is the point. A parameter template names its unit, and
+    InvenTree refuses one it cannot resolve, so a custom unit has to exist
+    before any template that uses it. Call this rather than the two separately.
+    """
+    api = api or connect()
+    units = load_units_config(Path(directory) if directory is not None else None)
+    parameters = load_parameters_config(
+        Path(directory) if directory is not None else None)
+
+    unit_result = sync_units(units, api, write=write)
+    template_result = sync_templates(parameters, api, write=write, units=units)
+    return unit_result, template_result
