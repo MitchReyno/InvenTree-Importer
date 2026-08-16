@@ -20,6 +20,8 @@ def test_extract_pulls_the_reported_fields():
     assert row["description"] == "IC OSC SINGLE TIMER"
     assert row["link"] == "https://www.digikey.com/x"
     assert row["datasheet"] == "https://example.com/ds.pdf"
+    assert row["image"] == "https://mm.digikey.com/photo/NE555P.jpg"
+    assert row["images"] == ["https://mm.digikey.com/photo/NE555P.jpg"]
 
 
 def test_extract_resolves_the_requested_variation():
@@ -45,6 +47,21 @@ def test_extract_flags_a_sku_that_matches_no_variation():
 
 def test_extract_is_case_insensitive_about_the_sku():
     assert extract(PRODUCT_PAYLOAD, "296-1411-1-nd")["variation_matched"] is True
+
+
+def test_extract_makes_protocol_relative_urls_absolute():
+    """DigiKey datasheets often arrive as '//mm.digikey.com/...'; InvenTree rejects those."""
+    payload = {
+        "Product": {
+            "ProductUrl": "//www.digikey.com/x",
+            "DatasheetUrl": "//mm.digikey.com/doc.pdf",
+            "PhotoUrl": "//mm.digikey.com/photo.jpg",
+        }
+    }
+    row = extract(payload, "P5166-ND")
+    assert row["link"] == "https://www.digikey.com/x"
+    assert row["datasheet"] == "https://mm.digikey.com/doc.pdf"
+    assert row["image"] == "https://mm.digikey.com/photo.jpg"
 
 
 def test_extract_survives_a_payload_with_nothing_in_it():
@@ -192,6 +209,16 @@ def test_incomplete_parameter_entries_are_dropped():
     product = {"Parameters": [{"ParameterText": "Resistance"},
                               {"ValueText": "orphan"}]}
     assert products.parameters(product) == {}
+
+
+def test_fetch_image_writes_to_the_cache(digikey, workspace):
+    path = products.fetch_image("https://mm.digikey.com/photo/NE555P.jpg")
+    assert path is not None
+    assert path.read_bytes() == b"\xff\xd8\xff\xd9"
+    assert path.resolve().parent == (workspace / ".cache/.digikey/images").resolve()
+    assert len(digikey) == 1
+    products.fetch_image("https://mm.digikey.com/photo/NE555P.jpg")
+    assert len(digikey) == 1, "second call should not hit the network"
 
 
 def test_extract_carries_category_and_parameters():

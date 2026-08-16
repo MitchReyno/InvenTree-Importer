@@ -109,7 +109,6 @@ Integrated Circuits:
 
   Microcontrollers:
     aliases:
-      - Development Boards, Kits, Programmers / Evaluation Boards / Embedded MCU, DSP Evaluation Boards
       - Integrated Circuits (ICs) / Embedded / Microcontrollers
   Analog to Digital Converters (ADC):
     aliases:
@@ -266,4 +265,5 @@ Kits:
       - Development Boards, Kits, Programmers / Accessories
   Evaluation Boards:
     aliases:
+      - Development Boards, Kits, Programmers / Evaluation Boards / Embedded MCU, DSP Evaluation Boards
       - Development Boards, Kits, Programmers / Evaluation Boards / RF, RFID, Wireless Evaluation Boards

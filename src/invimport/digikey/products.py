@@ -29,7 +29,7 @@ from .api import (
     Client,
     connect,
 )
-from ..util import dig
+from ..util import absolute_url, dig
 
 log = logging.getLogger(__name__)
 
@@ -113,6 +113,55 @@ def parameters(product: dict[str, Any]) -> dict[str, str]:
     return out
 
 
+def product_images(product: dict[str, Any]) -> list[str]:
+    """
+    Image URLs on a product, primary first.
+
+    DigiKey's productdetails payload has a single PhotoUrl. Extra
+    Photos/Images lists are collected if a payload ever carries them.
+    """
+    urls: list[str] = []
+    photo = absolute_url(dig(product, "PhotoUrl"))
+    if photo:
+        urls.append(photo)
+    for item in product.get("Photos") or product.get("Images") or []:
+        raw = (item if isinstance(item, str)
+               else dig(item, "Url") or dig(item, "PhotoUrl"))
+        url = absolute_url(raw)
+        if url and url not in urls:
+            urls.append(url)
+    return urls
+
+
+def fetch_image(url: str, cache_dir: Path = cache.IMAGES_DIR,
+                refresh: bool = False) -> Path | None:
+    """
+    Download a product image into the cache. Returns the file, or None.
+
+    PhotoUrl is a public CDN link, not a DigiKey API call, so this does
+    not use the API token. A cached file is reused unless refresh=True.
+    """
+    if not url:
+        return None
+    path = cache.image_path(cache_dir, url)
+    if path.exists() and not refresh:
+        return path
+
+    try:
+        response = requests.get(url, timeout=30)
+    except requests.RequestException as exc:
+        log.warning("    [warn] image %s: %s", url, exc)
+        return None
+    if response.status_code != 200 or not response.content:
+        log.warning("    [warn] image %s: HTTP %s", url, response.status_code)
+        return None
+
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(response.content)
+    log.info("    cached image %s", path.name)
+    return path
+
+
 def extract(payload: dict[str, Any], sku: str) -> dict[str, Any]:
     """
     Pull the fields we care about out of a productdetails payload.
@@ -124,8 +173,8 @@ def extract(payload: dict[str, Any], sku: str) -> dict[str, Any]:
     product = payload.get("Product", payload)
 
     out: dict[str, Any] = {
-        "link": dig(product, "ProductUrl"),
-        "datasheet": dig(product, "DatasheetUrl"),
+        "link": absolute_url(dig(product, "ProductUrl")),
+        "datasheet": absolute_url(dig(product, "DatasheetUrl")),
         "manufacturer_part": dig(product, "ManufacturerProductNumber"),
         "manufacturer_name": dig(product, "Manufacturer", "Name"),
         "description": (
@@ -141,7 +190,9 @@ def extract(payload: dict[str, Any], sku: str) -> dict[str, Any]:
         # the product command - see REPORTED_FIELDS.
         "category_path": category_path(product),
         "parameters": parameters(product),
+        "images": product_images(product),
     }
+    out["image"] = out["images"][0] if out["images"] else None
 
     variations = product.get("ProductVariations") or []
     chosen = None

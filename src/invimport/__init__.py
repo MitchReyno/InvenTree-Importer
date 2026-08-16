@@ -35,6 +35,7 @@ from .inventree.api import InvenTreeError
 from .inventree.api import connect as inventree_connect
 from .inventree.categories import sync_categories, sync_tree
 from .inventree.matching import match_name, match_path
+from .inventree.parts import import_supplier_parts
 from .inventree.parameters import SyncResult, sync_config, sync_templates
 from .inventree.values import from_supplier
 from .inventree.purchase_orders import (
@@ -68,6 +69,7 @@ __all__ = [
     "find_supplier",
     "from_supplier",
     "import_orders",
+    "import_supplier_parts",
     "match_name",
     "match_path",
     "inventree_connect",

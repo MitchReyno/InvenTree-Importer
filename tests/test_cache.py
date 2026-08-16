@@ -21,6 +21,7 @@ def test_cache_layout_is_the_common_root():
     assert str(cache.DIGIKEY_ROOT) == ".cache/.digikey"
     assert str(cache.PRODUCTS_DIR) == ".cache/.digikey/products"
     assert str(cache.ORDERS_DIR) == ".cache/.digikey/orders"
+    assert str(cache.IMAGES_DIR) == ".cache/.digikey/images"
 
 
 def test_cache_path_is_readable_plus_a_digest(workspace):

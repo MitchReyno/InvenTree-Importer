@@ -22,6 +22,7 @@ CACHE_ROOT = Path(".cache")
 DIGIKEY_ROOT = CACHE_ROOT / ".digikey"
 PRODUCTS_DIR = DIGIKEY_ROOT / "products"
 ORDERS_DIR = DIGIKEY_ROOT / "orders"
+IMAGES_DIR = DIGIKEY_ROOT / "images"
 
 
 def cache_path(cache_dir: Path, key: str) -> Path:
@@ -43,3 +44,20 @@ def load(cache_dir: Path, key: str) -> dict[str, Any] | None:
 def store(cache_dir: Path, key: str, data: dict[str, Any]) -> None:
     cache_dir.mkdir(parents=True, exist_ok=True)
     cache_path(cache_dir, key).write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def image_path(cache_dir: Path, url: str) -> Path:
+    """
+    Where a downloaded product image is stored.
+
+    Named from the URL's filename plus a digest of the full URL, so two
+    photos that share a basename stay distinct and the directory can
+    still be skimmed by eye.
+    """
+    from urllib.parse import unquote, urlparse
+
+    name = Path(unquote(urlparse(url).path)).name or "image"
+    stem, ext = (name.rsplit(".", 1) if "." in name else (name, "jpg"))
+    digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", stem)[:40]
+    return cache_dir / f"{safe}__{digest}.{ext}"

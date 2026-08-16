@@ -22,6 +22,7 @@ try:
     from inventree.api import InvenTreeAPI
     from inventree.base import InventreeObject
     from inventree.company import Company  # noqa: F401  (re-exported for commands)
+    from inventree.company import ManufacturerPart  # noqa: F401
     from inventree.company import SupplierPart  # noqa: F401
     from inventree.part import Part  # noqa: F401
     from inventree.part import PartCategory  # noqa: F401
@@ -29,6 +30,8 @@ try:
     from inventree.part import ParameterTemplate as _ParameterTemplate
     from inventree.purchase_order import PurchaseOrder  # noqa: F401
     from inventree.purchase_order import PurchaseOrderLineItem  # noqa: F401
+    from inventree.stock import StockItem  # noqa: F401
+    from inventree.stock import StockLocation  # noqa: F401
 except ImportError:
     print("ERROR: dependencies missing - run `uv sync`", file=sys.stderr)
     raise
@@ -48,10 +51,10 @@ except ImportError:
 # a stock Parameter.list() 404s. Patch the URLs here rather than downgrade the
 # server or pin a library version that does not exist yet.
 #
-# Only parameters moved. Company, SupplierPart, PurchaseOrder and
-# PurchaseOrderLineItem still sit at the routes the library expects
-# (company/, company/part/, order/po/, order/po-line/), so they are re-exported
-# above unchanged.
+# Only parameters moved. Company, SupplierPart, PurchaseOrder,
+# PurchaseOrderLineItem, StockItem and StockLocation still sit at the routes
+# the library expects (company/, company/part/, order/po/, order/po-line/,
+# stock/, stock/location/), so they are re-exported above unchanged.
 PART_MODEL_TYPE = "part.part"
 
 

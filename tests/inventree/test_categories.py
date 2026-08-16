@@ -225,5 +225,5 @@ def test_match_path_uses_the_repo_aliases():
     categories = load_categories_config()
     assert match_path(["Resistors", "Through Hole Resistors"],
                       categories).pathstring == "Resistors"
-    assert match_path(["Capacitors", "Tantalum Capacitors"],
+    assert match_path(["Capacitors", "Supercapacitors"],
                       categories) is None

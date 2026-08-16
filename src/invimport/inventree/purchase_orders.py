@@ -16,9 +16,11 @@ order: line items hang off the sales order, and a single DigiKey order can be
 split across several when it ships in parts.
 
 Nothing is deleted or overwritten. An order already imported is recognised by
-its supplier_reference and left alone, so re-running is safe. With write=False
-the API is only read from, and the returned actions describe what a write
-would do.
+its supplier_reference, so re-running will not book a second purchase order.
+Missing stock items are still created: each line is received against the
+order if that order does not already have a stock item for it. With
+write=False the API is only read from, and the returned actions describe
+what a write would do.
 
 Line items need a SupplierPart, and a SupplierPart needs an internal Part - so
 a DigiKey line can only be imported if its SKU is already stocked as a supplier
@@ -33,6 +35,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import date
+from types import SimpleNamespace
 from typing import Any, Iterable
 
 from ..util import dig
@@ -41,6 +44,8 @@ from .api import (
     InvenTreeError,
     PurchaseOrder,
     PurchaseOrderLineItem,
+    StockItem,
+    StockLocation,
     SupplierPart,
     connect,
 )
@@ -62,16 +67,22 @@ SUPPLIER_ALIASES = (
 # Enough to cover any realistic single supplier in one request.
 LIST_LIMIT = 1000
 
+# InvenTree status codes used when receiving imported stock.
+PO_PENDING = 10
+STOCK_OK = 10
+
 
 @dataclass
 class LineAction:
     """What happened (or would happen) to one DigiKey line item."""
     sku: str
-    action: str                                  # created | skipped
+    action: str                                  # created | exists | skipped
     quantity: float = 0
     unit_price: float | None = None
     supplier_part: int | None = None
     reason: str = ""
+    stock: str = ""                              # created | exists | skipped | ""
+    stock_item: int | None = None
     # DigiKey product details for this SKU, when they were fetched. Carried so
     # an unmatched line can say what the part actually is, rather than leaving
     # the reader to look the SKU up by hand.
@@ -104,6 +115,10 @@ class OrderImport:
         return sum(1 for line in self.lines if line.action == "created")
 
     @property
+    def imported_stock(self) -> int:
+        return sum(1 for line in self.lines if line.stock == "created")
+
+    @property
     def unmatched(self) -> list[LineAction]:
         return [line for line in self.lines if line.action == "skipped"]
 
@@ -112,6 +127,8 @@ class OrderImport:
 class ImportResult:
     orders: list[OrderImport] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
+    # Set when create_parts ran, so the CLI can report the parts too.
+    parts: Any = None
 
     def counts(self) -> dict[str, int]:
         return {
@@ -119,6 +136,7 @@ class ImportResult:
             "exists": sum(1 for o in self.orders if o.action == "exists"),
             "skipped": sum(1 for o in self.orders if o.action == "skipped"),
             "lines": sum(o.imported_lines for o in self.orders),
+            "stock": sum(o.imported_stock for o in self.orders),
             "unmatched": sum(len(o.unmatched) for o in self.orders),
             "problems": len(self.problems),
         }
@@ -224,6 +242,105 @@ def next_reference(api) -> str:
     return str(reference)
 
 
+def default_stock_location(api) -> int | None:
+    """
+    Pick a destination for received stock when the caller did not name one.
+
+    One location is unambiguous. Several: prefer a top-level location so
+    imported stock does not land in a nested bin by accident. None at all
+    means the order can still be booked, but nothing can be received.
+    """
+    locations = StockLocation.list(api, limit=LIST_LIMIT)
+    if not locations:
+        return None
+    if len(locations) == 1:
+        return locations[0].pk
+    roots = [loc for loc in locations
+             if getattr(loc, "parent", None) in (None, "")]
+    return (roots[0] if roots else locations[0]).pk
+
+
+def receive_stock(
+    api,
+    po,
+    booked: list[tuple[LineAction, Any]],
+    *,
+    write: bool,
+    location: int | None,
+) -> None:
+    """
+    Receive each line that does not already have a stock item on this order.
+
+    Existence is checked two ways: a StockItem already linked to the
+    purchase order for that supplier part, or the line's received quantity
+    already covering it. Either one is enough to leave the line alone, so a
+    re-run cannot double-book stock.
+
+    Receiving is the InvenTree path (issue, then POST receive) so line.received
+    stays in sync with the stock items. location is required by that endpoint;
+    without one the lines are marked skipped and nothing is posted.
+    """
+    existing: list[Any] = []
+    if po is not None:
+        existing = list(StockItem.list(api, purchase_order=po.pk, limit=LIST_LIMIT))
+    claimed: set[int] = set()
+
+    outstanding: list[dict[str, Any]] = []
+    for action, po_line in booked:
+        if action.action not in ("created", "exists"):
+            continue
+        if not action.supplier_part:
+            continue
+
+        match = next(
+            (item for item in existing
+             if item.pk not in claimed
+             and getattr(item, "supplier_part", None) == action.supplier_part),
+            None,
+        )
+        if match is not None:
+            claimed.add(match.pk)
+            action.stock = "exists"
+            action.stock_item = match.pk
+            continue
+
+        received = float(getattr(po_line, "received", 0) or 0) if po_line else 0
+        remaining = float(action.quantity) - received
+        if remaining <= 0:
+            action.stock = "exists"
+            continue
+
+        if location is None:
+            action.stock = "skipped"
+            continue
+
+        action.stock = "created"
+        if write and po is not None and po_line is not None:
+            outstanding.append({
+                "line_item": po_line.pk,
+                "supplier_part": action.supplier_part,
+                "quantity": remaining,
+                "status": STOCK_OK,
+                "location": location,
+            })
+
+    if not outstanding:
+        return
+
+    status = getattr(po, "status", PO_PENDING)
+    if status is None or int(status) == PO_PENDING:
+        api.post(f"order/po/{po.pk}/issue/", {})
+        try:
+            po.status = 20
+        except Exception:
+            pass
+
+    api.post(f"order/po/{po.pk}/receive/", {
+        "items": outstanding,
+        "location": location,
+    })
+
+
 # --------------------------------------------------------------------------
 # Import
 # --------------------------------------------------------------------------
@@ -287,6 +404,7 @@ def import_sales_order(
     write: bool,
     partial: bool,
     products: dict[str, dict[str, Any]] | None = None,
+    location: int | None = None,
 ) -> OrderImport:
     """Create one purchase order from one DigiKey sales order."""
     sales_order_id = sales_order.get("sales_order_id")
@@ -301,11 +419,24 @@ def import_sales_order(
     if not reference_key or reference_key == "None":
         return outcome("skipped", reason="sales order has no id to key an import on")
 
-    # Already imported: leave it alone rather than book the stock twice.
+    # Already imported: do not book a second purchase order, but still
+    # receive any line that has no stock item on this one yet.
     already = existing.get(reference_key)
     if already is not None:
+        parts_by_pk = {p.pk: p for p in parts.values()}
+        po_lines = PurchaseOrderLineItem.list(api, order=already.pk, limit=LIST_LIMIT)
+        actions: list[LineAction] = []
+        booked: list[tuple[LineAction, Any]] = []
+        for po_line in po_lines:
+            sp = parts_by_pk.get(po_line.part)
+            sku = str(getattr(sp, "SKU", "") or "")
+            action = LineAction(sku, "exists", float(po_line.quantity),
+                                supplier_part=po_line.part)
+            actions.append(action)
+            booked.append((action, po_line))
+        receive_stock(api, already, booked, write=write, location=location)
         return outcome("exists", reference=str(getattr(already, "reference", "")),
-                       pk=already.pk)
+                       pk=already.pk, lines=actions)
 
     lines = plan_lines(sales_order, parts, products)
     if not lines:
@@ -325,8 +456,11 @@ def import_sales_order(
         )
 
     # A dry run stops here: without a real purchase order there is no pk to
-    # hang line items off, so the plan above is as far as it can go.
+    # hang line items off, so the plan above is as far as it can go. Stock
+    # is still marked so the preview includes what a write would receive.
     if not write:
+        receive_stock(api, None, [(line, None) for line in lines],
+                      write=False, location=location)
         return outcome("created", lines=lines)
 
     payload = {
@@ -344,6 +478,7 @@ def import_sales_order(
     purchase_order = PurchaseOrder.create(api, payload)
     existing[reference_key] = purchase_order
 
+    booked: list[tuple[LineAction, Any]] = []
     for line in lines:
         if line.action != "created":
             continue
@@ -356,11 +491,14 @@ def import_sales_order(
             item["purchase_price"] = line.unit_price
             if currency:
                 item["purchase_price_currency"] = currency
-        PurchaseOrderLineItem.create(api, item)
+        booked.append((line, PurchaseOrderLineItem.create(api, item)))
 
-    log.info("    %s <- DigiKey sales order %s (%s line item(s))",
+    receive_stock(api, purchase_order, booked, write=True, location=location)
+
+    log.info("    %s <- DigiKey sales order %s (%s line item(s), %s stock)",
              purchase_order.reference, reference_key,
-             sum(1 for line in lines if line.action == "created"))
+             sum(1 for line in lines if line.action == "created"),
+             sum(1 for line in lines if line.stock == "created"))
 
     return outcome("created", reference=str(purchase_order.reference),
                    pk=purchase_order.pk, lines=lines)
@@ -374,6 +512,12 @@ def import_orders(
     write: bool = False,
     partial: bool = False,
     products: dict[str, dict[str, Any]] | None = None,
+    create_parts: bool = False,
+    directory: Any = None,
+    update_parameters: bool = False,
+    create_manufacturers: bool = False,
+    choose_manufacturer=None,
+    location: int | None = None,
 ) -> ImportResult:
     """
     Import DigiKey orders as InvenTree purchase orders.
@@ -386,18 +530,58 @@ def import_orders(
     returns; each line item carries its match so an unmatched SKU can be
     reported as a real part rather than a bare number.
 
+    create_parts sends unmatched SKUs through import_supplier_parts first.
+    In a dry run those SKUs are treated as if the supplier parts would
+    exist, so the order preview shows what a write would book.
+
+    location is the stock location pk received items land in. Omit it and
+    the only (or first top-level) location on the server is used. Without
+    any location, purchase orders are still created but stock is skipped.
+
     Returns everything that happened, or with write=False everything that
     would happen.
     """
     api = api or connect()
     supplier = supplier_pk(supplier)
+    if location is None:
+        location = default_stock_location(api)
 
     parts = supplier_parts_by_sku(api, supplier)
     existing = orders_by_reference(api, supplier)
     log.info("    %s supplier part(s), %s existing purchase order(s)",
              len(parts), len(existing))
 
-    result = ImportResult()
+    part_result = None
+    if create_parts:
+        orders = list(orders)
+        wanted = sorted({
+            str(item.get("digikey_part") or "").strip()
+            for order in orders
+            for sales_order in (order.get("sales_orders") or [])
+            for item in (sales_order.get("line_items") or [])
+            if item.get("digikey_part")
+        })
+        missing = [sku for sku in wanted if sku.upper() not in parts]
+        if missing:
+            from .parts import import_supplier_parts
+            created = import_supplier_parts(
+                missing, api, write=write, products=products,
+                directory=directory, supplier=supplier,
+                update_parameters=update_parameters,
+                create_manufacturers=create_manufacturers,
+                choose_manufacturer=choose_manufacturer,
+                fetch=not products,
+            )
+            if write:
+                parts = supplier_parts_by_sku(api, supplier)
+            else:
+                for action in created.skus:
+                    if action.action in ("created", "exists"):
+                        parts[action.sku.strip().upper()] = SimpleNamespace(
+                            pk=action.supplier_part or -1)
+            part_result = created
+
+    result = ImportResult(parts=part_result)
 
     for order in orders:
         sales_orders = order.get("sales_orders") or []
@@ -411,11 +595,20 @@ def import_orders(
                 result.orders.append(import_sales_order(
                     api, order, sales_order, supplier, parts, existing,
                     write=write, partial=partial, products=products,
+                    location=location,
                 ))
             except Exception as exc:                      # one bad order
                 # should not lose the rest of the batch
                 result.problems.append(
                     f"order {order.get('order_number')} / sales order "
                     f"{sales_order.get('sales_order_id')}: {exc}")
+
+    if any(line.stock == "skipped"
+           for imported in result.orders
+           for line in imported.lines):
+        result.problems.append(
+            "no stock location to receive into - create one in InvenTree "
+            "or pass location="
+        )
 
     return result

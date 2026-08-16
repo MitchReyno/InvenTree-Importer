@@ -120,7 +120,8 @@ def test_creates_a_purchase_order_with_its_line_item(api, inventree, order):
     result = import_orders([order], api, supplier=1, write=True)
 
     assert result.counts() == {"created": 1, "exists": 0, "skipped": 0,
-                               "lines": 1, "unmatched": 0, "problems": 0}
+                               "lines": 1, "stock": 1, "unmatched": 0,
+                               "problems": 0}
     assert len(inventree.purchase_orders) == 1
     created = inventree.purchase_orders[0]
     assert created["supplier"] == 1
@@ -136,13 +137,23 @@ def test_creates_a_purchase_order_with_its_line_item(api, inventree, order):
     assert line["quantity"] == 10
     assert line["purchase_price"] == 0.82
 
+    assert len(inventree.stock_items) == 1
+    stock = inventree.stock_items[0]
+    assert stock["purchase_order"] == created["pk"]
+    assert stock["supplier_part"] == 1
+    assert stock["part"] == 4             # the internal Part pk
+    assert stock["quantity"] == 10
+    assert line["received"] == 10
+
 
 def test_dry_run_writes_nothing(api, inventree, order):
     result = import_orders([order], api, supplier=1, write=False)
 
     assert result.counts()["created"] == 1        # what *would* happen
+    assert result.counts()["stock"] == 1
     assert inventree.purchase_orders == []
     assert inventree.line_items == []
+    assert inventree.stock_items == []
 
 
 def test_reimporting_the_same_order_is_a_no_op(api, inventree, order):
@@ -151,7 +162,9 @@ def test_reimporting_the_same_order_is_a_no_op(api, inventree, order):
 
     assert result.counts()["exists"] == 1
     assert result.counts()["created"] == 0
+    assert result.counts()["stock"] == 0          # already received
     assert len(inventree.purchase_orders) == 1    # not two
+    assert len(inventree.stock_items) == 1
 
 
 def test_a_duplicate_within_one_run_is_caught(api, inventree, order):
@@ -160,8 +173,10 @@ def test_a_duplicate_within_one_run_is_caught(api, inventree, order):
                            supplier=1, write=True)
 
     assert result.counts() == {"created": 1, "exists": 1, "skipped": 0,
-                               "lines": 1, "unmatched": 0, "problems": 0}
+                               "lines": 1, "stock": 1, "unmatched": 0,
+                               "problems": 0}
     assert len(inventree.purchase_orders) == 1
+    assert len(inventree.stock_items) == 1
 
 
 def test_references_advance_across_several_orders(api, inventree, order):
@@ -216,7 +231,9 @@ def test_partial_imports_only_the_matched_lines(api, inventree, order):
     assert result.counts()["created"] == 1
     assert result.counts()["lines"] == 1          # only the matched one
     assert result.counts()["unmatched"] == 1
+    assert result.counts()["stock"] == 1
     assert len(inventree.line_items) == 1
+    assert len(inventree.stock_items) == 1
 
 
 def test_partial_still_skips_an_order_with_nothing_matched(api, inventree, order):
@@ -252,7 +269,9 @@ def test_each_sales_order_becomes_its_own_purchase_order(api, inventree, order):
     result = import_orders([order], api, supplier=1, write=True)
 
     assert result.counts()["created"] == 2
+    assert result.counts()["stock"] == 2
     assert len(inventree.purchase_orders) == 2
+    assert len(inventree.stock_items) == 2
 
 
 def test_an_order_without_sales_orders_is_a_problem(api, order):
@@ -303,6 +322,39 @@ def test_lines_describe_nothing_without_product_data(api, order):
 def test_a_company_object_is_accepted_instead_of_a_pk(api, inventree, order):
     import_orders([order], api, supplier=find_supplier(api), write=True)
     assert inventree.purchase_orders[0]["supplier"] == 1
+
+
+def test_existing_order_without_stock_is_filled_in(api, inventree, order):
+    """Orders booked before stock was received still get a stock item."""
+    inventree.purchase_orders.append({
+        "pk": 50, "supplier": 1, "reference": "PO-0001",
+        "supplier_reference": "87654321", "status": 10,
+    })
+    inventree.line_items.append({
+        "pk": 51, "order": 50, "part": 1, "quantity": 10, "received": 0,
+    })
+
+    result = import_orders([order], api, supplier=1, write=True)
+
+    assert result.counts()["exists"] == 1
+    assert result.counts()["created"] == 0
+    assert result.counts()["stock"] == 1
+    assert len(inventree.purchase_orders) == 1
+    assert len(inventree.stock_items) == 1
+    assert inventree.stock_items[0]["purchase_order"] == 50
+    assert inventree.stock_items[0]["quantity"] == 10
+    assert inventree.line_items[0]["received"] == 10
+
+
+def test_no_location_skips_stock_but_still_books_the_order(api, inventree, order):
+    inventree.locations.clear()
+    result = import_orders([order], api, supplier=1, write=True)
+
+    assert result.counts()["created"] == 1
+    assert result.counts()["stock"] == 0
+    assert inventree.purchase_orders
+    assert inventree.stock_items == []
+    assert any("stock location" in problem for problem in result.problems)
 
 
 def test_the_stub_saw_no_stale_routes(api, inventree, order):

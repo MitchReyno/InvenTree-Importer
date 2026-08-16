@@ -125,6 +125,29 @@ def clean_number(value: float) -> str:
     return f"{rounded:g}"
 
 
+# SI prefixes used in generated part names: 100000 ohm -> "100k", 2.2e-7 F
+# -> "220n". Magnitudes in [0.001, 1000) stay plain so 0.25 W is "0.25".
+NAME_PREFIXES = (
+    (1e12, "T"), (1e9, "G"), (1e6, "M"), (1e3, "k"),
+    (1e-3, "m"), (1e-6, "u"), (1e-9, "n"), (1e-12, "p"), (1e-15, "f"),
+)
+
+
+def compact_for_name(magnitude: float) -> str:
+    """A magnitude as it appears in a generated part name, without a unit."""
+    if magnitude == 0:
+        return "0"
+    sign = "-" if magnitude < 0 else ""
+    number = abs(float(magnitude))
+    if 0.001 <= number < 1000:
+        return sign + clean_number(number)
+    for scale, symbol in NAME_PREFIXES:
+        mantissa = number / scale
+        if 1 <= mantissa < 1000:
+            return sign + clean_number(mantissa) + symbol
+    return sign + clean_number(number)
+
+
 class Formatter:
     """
     Renders magnitudes as unit-bearing strings InvenTree can read back.

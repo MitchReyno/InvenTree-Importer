@@ -143,6 +143,7 @@ def test_import_orders_is_a_dry_run_by_default(digikey, digikey_env, workspace,
     assert "Supplier: DigiKey (pk=1)" in out
     assert "re-run with --write" in out
     assert stocked.purchase_orders == []
+    assert stocked.stock_items == []
 
 
 def test_import_orders_writes_when_asked(digikey, digikey_env, workspace,
@@ -151,7 +152,10 @@ def test_import_orders_writes_when_asked(digikey, digikey_env, workspace,
     assert main(["import-orders", "--write"]) == 0
     assert len(stocked.purchase_orders) == 1
     assert stocked.purchase_orders[0]["supplier_reference"] == "87654321"
-    assert "PO-0001" in capsys.readouterr().out
+    assert len(stocked.stock_items) == 1
+    out = capsys.readouterr().out
+    assert "PO-0001" in out
+    assert "1 stock item(s)" in out
 
 
 def test_unselecting_the_only_order_imports_nothing(digikey, digikey_env,
@@ -429,6 +433,71 @@ def test_categories_learn_without_a_terminal_does_not_write(
     out = capsys.readouterr().out
     assert "not a terminal" in out
     assert "Resistors / Foo" not in (tmp_path / "categories.yaml").read_text()
+
+
+# --------------------------------------------------------------------------
+# supplier-parts
+# --------------------------------------------------------------------------
+def _part_config(tmp_path):
+    (tmp_path / "units.yaml").write_text("")
+    (tmp_path / "parameters.yaml").write_text("Package: {}\n")
+    (tmp_path / "categories.yaml").write_text(
+        "Integrated Circuits:\n"
+        "  identity: mpn\n"
+        "  parameters: [Package]\n"
+        "  Timers:\n"
+        "    aliases:\n"
+        "      - Integrated Circuits (ICs) / Clock/Timing\n")
+    (tmp_path / "manufacturers.yaml").write_text("")
+    return tmp_path
+
+
+def _seed_ic_tree(inventree):
+    parent = inventree.add_category("Integrated Circuits", pk=10, structural=True)
+    inventree.add_category("Timers", parent=parent["pk"], pk=11)
+    inventree.templates.append({"pk": 20, "name": "Package", "units": ""})
+    inventree.add_company("DigiKey", pk=1, is_supplier=True)
+
+
+def test_supplier_parts_is_a_dry_run_by_default(digikey, digikey_env, workspace,
+                                                inventree, tmp_path, capsys):
+    _seed_ic_tree(inventree)
+    _part_config(tmp_path)
+    assert main(["supplier-parts", "--config", str(tmp_path),
+                 "--create-manufacturers", "296-1411-1-ND"]) == 0
+    out = capsys.readouterr().out
+    assert "DRY RUN" in out
+    assert "296-1411-1-ND" in out
+    assert inventree.supplier_parts == []
+
+
+def test_supplier_parts_writes_when_asked(digikey, digikey_env, workspace,
+                                          inventree, tmp_path):
+    _seed_ic_tree(inventree)
+    _part_config(tmp_path)
+    assert main(["supplier-parts", "--config", str(tmp_path),
+                 "--create-manufacturers", "--write", "296-1411-1-ND"]) == 0
+    assert any(p["SKU"] == "296-1411-1-ND" for p in inventree.supplier_parts)
+    assert any(p.get("IPN") == "IC-000001" for p in inventree.part_rows)
+
+
+def test_supplier_parts_from_orders(digikey, digikey_env, workspace,
+                                    inventree, tmp_path):
+    _seed_ic_tree(inventree)
+    _part_config(tmp_path)
+    assert main(["supplier-parts", "--config", str(tmp_path),
+                 "--from-orders", "--create-manufacturers", "--write"]) == 0
+    assert any(p["SKU"] == "296-1411-1-ND" for p in inventree.supplier_parts)
+
+
+def test_import_orders_create_parts_books_an_unmatched_sku(
+        digikey, digikey_env, workspace, inventree, tmp_path):
+    _seed_ic_tree(inventree)
+    _part_config(tmp_path)
+    assert main(["import-orders", "--all", "--write", "--create-parts",
+                 "--create-manufacturers", "--config", str(tmp_path)]) == 0
+    assert any(p["SKU"] == "296-1411-1-ND" for p in inventree.supplier_parts)
+    assert len(inventree.purchase_orders) == 1
 
 
 # --------------------------------------------------------------------------

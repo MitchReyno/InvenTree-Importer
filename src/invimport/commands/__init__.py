@@ -11,7 +11,15 @@ Each module is self-contained and exposes the same four names:
 Adding a command means dropping a module here and listing it in COMMANDS.
 """
 
-from . import categories, import_orders, orders, parameters, product
+from . import (
+    categories,
+    import_orders,
+    orders,
+    parameters,
+    product,
+    supplier_parts,
+)
 
 # Registration order is the order shown in --help.
-COMMANDS = [product, orders, import_orders, parameters, categories]
+COMMANDS = [product, orders, import_orders, parameters, categories,
+            supplier_parts]

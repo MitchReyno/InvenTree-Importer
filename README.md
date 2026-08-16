@@ -12,15 +12,16 @@ order quantity, a datasheet URL — and those facts already exist in DigiKey's
 API. This tool fetches them, normalises them, and loads the parts of them that
 InvenTree's CSV importer cannot handle on its own.
 
-It provides five commands:
+It provides six commands:
 
-| Command         | What it does                                                                                                            |
-|-----------------|-------------------------------------------------------------------------------------------------------------------------|
-| `product`       | Look up DigiKey SKUs and report packaging, pack quantity, MOQ, description, datasheet and canonical product link        |
-| `orders`        | Fetch order history or a single sales order, with line items, ordered/shipped quantities, pricing and shipment tracking |
-| `import-orders` | Pick DigiKey orders from a checklist and book them into InvenTree as purchase orders                                    |
-| `parameters`    | Create and update InvenTree parameter templates from `config/parameters.yaml`                                          |
-| `categories`    | Create and update InvenTree part categories from `config/categories.yaml`, and learn DigiKey path aliases              |
+| Command          | What it does                                                                                                            |
+|------------------|-------------------------------------------------------------------------------------------------------------------------|
+| `product`        | Look up DigiKey SKUs and report packaging, pack quantity, MOQ, description, datasheet and canonical product link        |
+| `orders`         | Fetch order history or a single sales order, with line items, ordered/shipped quantities, pricing and shipment tracking |
+| `import-orders`  | Pick DigiKey orders from a checklist and book them into InvenTree as purchase orders                                    |
+| `parameters`     | Create and update InvenTree parameter templates from `config/parameters.yaml`                                          |
+| `categories`     | Create and update InvenTree part categories from `config/categories.yaml`, and learn DigiKey path aliases              |
+| `supplier-parts` | Create InvenTree parts, manufacturer parts and supplier parts from DigiKey SKUs                                         |
 
 Two design points worth knowing up front:
 
@@ -180,6 +181,7 @@ It takes the same date and scope flags as `orders`, plus:
 | `--all`               | Import everything found, skipping the checklist                      |
 | `--supplier NAME\|PK` | Use this supplier and skip the supplier prompt                       |
 | `--partial`           | Import an order even when some lines have no matching supplier part  |
+| `--location NAME\|PK` | Stock location to receive into (default: the only / first top-level) |
 | `--no-products`       | Skip the product lookup for the selected orders                      |
 | `--plain`             | Use the numbered checklist instead of the arrow-key one              |
 
@@ -233,21 +235,28 @@ DigiKey orders need a supplier to book against:
   q) cancel
 ```
 
-**Parts have to exist already.** An InvenTree purchase order line points at a
-`SupplierPart`, which in turn needs an internal `Part`, so a DigiKey line can
-only be imported if its SKU is already stocked as a supplier part under the
-chosen supplier. Nothing is invented: unmatched lines are reported by SKU, and
-by default an order with any unmatched line is skipped whole rather than
-creating a purchase order quietly missing half of what was bought. Use
-`--partial` to import the lines that do match.
+**Parts have to exist already**, unless you pass `--create-parts`. An
+InvenTree purchase order line points at a `SupplierPart`, which in turn
+needs an internal `Part`, so a DigiKey line can only be imported if its
+SKU is already stocked as a supplier part under the chosen supplier.
+Unmatched lines are reported by SKU, and by default an order with any
+unmatched line is skipped whole rather than creating a purchase order
+quietly missing half of what was bought. `--partial` imports the lines
+that do match. `--create-parts` runs the same path as
+`invimport supplier-parts` for unmatched SKUs first, then books the
+order.
 
 **Re-running is safe.** Each purchase order records its DigiKey sales order id
-in `supplier_reference`, and an order already imported is recognised and left
-alone. One purchase order is created per *sales* order, so a DigiKey order
-split across two shipments produces two — that is where the line items live.
+in `supplier_reference`, and an order already imported is recognised rather
+than booked twice. Missing stock is still filled in: each line is received
+as a stock item if that order does not already have one. One purchase order
+is created per *sales* order, so a DigiKey order split across two shipments
+produces two — that is where the line items live.
 
-Orders arrive as `PENDING`. Issuing them and receiving stock are deliberately
-left to you in InvenTree.
+Orders are issued and received as they are imported. Stock lands in
+`--location` if you name one, otherwise the only stock location on the
+server (or the first top-level one, if there are several). Without a
+location the purchase order is still created and stock is skipped.
 
 ### parameters
 
@@ -354,6 +363,44 @@ how many subcategories they have, and drills down with the arrow keys
 level; a slash in the name nests children. An unmapped path is never
 guessed — a part in the wrong category is worse than a part not imported.
 
+### supplier-parts
+
+Create the InvenTree records a DigiKey SKU needs: a `Part` (matched by
+MPN or by the category's parameter signature), a manufacturer `Company`
+if needed, a `ManufacturerPart`, and a `SupplierPart` with the
+variation's packaging, pack quantity, and the DigiKey product page as
+its link. Product photos (`PhotoUrl`) are downloaded into
+`.cache/.digikey/images/` and set as the part image when the part has
+none.
+
+```bash
+# dry run
+uv run invimport supplier-parts 296-1411-1-ND
+
+# apply
+uv run invimport supplier-parts 296-1411-1-ND --write
+
+# every SKU on recent orders
+uv run invimport supplier-parts --from-orders --start-date 2026-01-01 --write
+
+# from a file
+uv run invimport supplier-parts - < skus.txt --write
+```
+
+**Dry run is the default.** Re-running is a no-op: a SKU that is already
+a supplier part is reported and left alone. Existing parts are matched,
+never renamed. `--update-parameters` overwrites parameter values on a
+part that already exists.
+
+An unmapped DigiKey category skips the SKU. An unknown manufacturer
+does the same, unless you are at a terminal (fuzzy matches are offered
+and written back to `config/manufacturers.yaml`) or you pass
+`--create-manufacturers`.
+
+`identity: spec` categories generate a name from the category's
+`name:` template and a meaningless IPN (`R-000001`). `identity: mpn`
+categories use the manufacturer part number as the name (`IC-000001`).
+
 ### Global flags
 
 | Flag              | Effect                                              |
@@ -414,7 +461,8 @@ The public surface is re-exported from `invimport`: `fetch_products`,
 `fetch_product`, `fetch_orders`, `fetch_sales_orders`, `line_items`,
 `import_orders`, `find_supplier`, `list_suppliers`, `create_supplier`,
 `sync_templates`, `sync_categories`, `sync_tree`, `from_supplier`,
-`match_path`, `match_name`, `load_config`, `digikey_connect`,
+`import_supplier_parts`, `match_path`, `match_name`, `load_config`,
+`digikey_connect`,
 `inventree_connect`, `load_env`, `load_env_file`, `Client`, `SyncResult`,
 `ImportResult`, `ConfigError`, `DigiKeyError`, `InvenTreeError`.
 
@@ -429,6 +477,7 @@ DigiKey responses are cached to disk so re-runs do not burn API quota:
 ```
 .cache/.digikey/products/     productdetails payloads
 .cache/.digikey/orders/       order history pages and sales orders
+.cache/.digikey/images/       product photos, keyed by PhotoUrl
 ```
 
 One JSON file per request, named so a cache directory can be skimmed by eye.
@@ -464,6 +513,7 @@ src/
             values.py         parse DigiKey values, format them for InvenTree
             matching.py       normalise, learned aliases, fuzzy candidates
             categories.py     part categories, from config/categories.yaml
+            parts.py          find-or-create Part, ManufacturerPart, SupplierPart
             purchase_orders.py  suppliers and DigiKey order import
         commands/             thin CLI adapters over the above
             _keys.py          raw-mode key reading for the interactive prompts

@@ -31,13 +31,16 @@ Line items
 ----------
 A DigiKey line can only be imported if its SKU already exists as a supplier
 part in InvenTree, because a purchase order line points at a SupplierPart,
-which in turn needs an internal Part. Parts are never invented here: an order
-with unmatched lines is reported and skipped whole, so no purchase order is
-left quietly missing half of what was bought. --partial imports the lines that
-do match.
+which in turn needs an internal Part. By default parts are never invented:
+an order with unmatched lines is reported and skipped whole, so no purchase
+order is left quietly missing half of what was bought. --partial imports
+the lines that do match. --create-parts runs the same path as
+`invimport supplier-parts` for unmatched SKUs first, then books the order.
 
 Re-running is safe. An order already imported is recognised by its
-supplier_reference (the DigiKey sales order id) and skipped.
+supplier_reference (the DigiKey sales order id) and is not booked twice.
+Stock items are still created for any line that does not already have one
+on that order.
 
 The logic lives in invimport.inventree.purchase_orders; this module is the CLI
 and the prompts.
@@ -62,7 +65,10 @@ from ..digikey.orders import (
 from ..digikey.products import fetch_products
 from ..inventree.api import InvenTreeError
 from ..inventree.api import connect as inventree_connect
+from ..config import CONFIG_DIR
+from ..inventree.api import StockLocation
 from ..inventree.purchase_orders import (
+    LIST_LIMIT,
     SUPPLIER_NAME,
     ImportResult,
     create_supplier,
@@ -70,6 +76,7 @@ from ..inventree.purchase_orders import (
     import_orders,
     list_suppliers,
 )
+from .supplier_parts import learn_manufacturer, report as report_parts
 from ._args import add_digikey_args
 from ._prompt import choose_one, confirm, interactive, select_many
 from .orders import iso_date
@@ -96,6 +103,18 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--partial", action="store_true",
                         help="import an order even when some line items have no "
                              "matching supplier part")
+    parser.add_argument("--create-parts", action="store_true",
+                        help="create missing supplier parts from DigiKey "
+                             "product data before booking the order")
+    parser.add_argument("--create-manufacturers", action="store_true",
+                        help="create manufacturer companies that do not "
+                             "match; used with --create-parts")
+    parser.add_argument("--location", metavar="NAME|PK",
+                        help="stock location to receive into; defaults to "
+                             "the only location, or the first top-level one")
+    parser.add_argument("--config", type=Path, default=None, metavar="DIR",
+                        help="config directory for --create-parts "
+                             "(default: config/ at the repo root)")
     parser.add_argument("--plain", action="store_true",
                         help="use the numbered checklist instead of the arrow-key "
                              "one, for a terminal that mangles it")
@@ -248,6 +267,17 @@ def resolve_supplier(api, args: argparse.Namespace):
     return prompt_for_supplier(api, write=args.write)
 
 
+def named_location(api, wanted: str) -> int:
+    """Resolve --location, given as a pk or a name."""
+    if wanted.isdigit():
+        return int(wanted)
+    needle = wanted.strip().lower()
+    for location in StockLocation.list(api, limit=LIST_LIMIT):
+        if str(getattr(location, "name", "")).strip().lower() == needle:
+            return location.pk
+    raise InvenTreeError(f"no stock location named {wanted!r}")
+
+
 # --------------------------------------------------------------------------
 # Selection
 # --------------------------------------------------------------------------
@@ -294,10 +324,15 @@ def report(result: ImportResult, *, write: bool) -> None:
 
         if order.action == "created":
             reference = order.reference or "(reference assigned on write)"
-            print(f"  + {reference}  <- {label}  "
-                  f"{order.imported_lines} line item(s)")
+            extra = f"{order.imported_lines} line item(s)"
+            if order.imported_stock:
+                extra += f", {order.imported_stock} stock item(s)"
+            print(f"  + {reference}  <- {label}  {extra}")
         elif order.action == "exists":
-            print(f"  = {order.reference}  <- {label}  already imported")
+            extra = "already imported"
+            if order.imported_stock:
+                extra += f", created {order.imported_stock} stock item(s)"
+            print(f"  = {order.reference}  <- {label}  {extra}")
         else:
             print(f"  ! skipped {label}: {order.reason}")
 
@@ -310,7 +345,8 @@ def report(result: ImportResult, *, write: bool) -> None:
 
     counts = result.counts()
     print(f"\n  created={counts['created']}  already_imported={counts['exists']}  "
-          f"skipped={counts['skipped']}  line_items={counts['lines']}")
+          f"skipped={counts['skipped']}  line_items={counts['lines']}  "
+          f"stock_items={counts['stock']}")
 
     if counts["unmatched"]:
         print(f"\n  {counts['unmatched']} line item(s) had no matching supplier "
@@ -367,8 +403,22 @@ def run(args: argparse.Namespace) -> int:
 
     print(f"\n{'Importing' if args.write else 'Previewing'} {len(chosen)} "
           f"order(s)...")
-    result = import_orders(chosen, api, supplier=supplier, write=args.write,
-                           partial=args.partial, products=products)
+    chooser = None
+    if args.create_parts and not args.create_manufacturers and interactive():
+        chooser = learn_manufacturer(args.config or CONFIG_DIR)
+
+    location = named_location(api, args.location) if args.location else None
+    result = import_orders(
+        chosen, api, supplier=supplier, write=args.write,
+        partial=args.partial, products=products,
+        create_parts=args.create_parts,
+        directory=args.config or CONFIG_DIR,
+        create_manufacturers=args.create_manufacturers,
+        choose_manufacturer=chooser,
+        location=location,
+    )
+    if result.parts is not None:
+        report_parts(result.parts)
     report(result, write=args.write)
 
     if not args.write:
