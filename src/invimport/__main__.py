@@ -9,6 +9,7 @@ Commands
     orders         fetch DigiKey order history and sales orders
     import-orders  import DigiKey orders into InvenTree as purchase orders
     parameters     create and update InvenTree parameter templates
+    categories     create and update InvenTree part categories
 
 Run `invimport <command> --help` for a command's own options and notes.
 

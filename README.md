@@ -12,7 +12,7 @@ order quantity, a datasheet URL — and those facts already exist in DigiKey's
 API. This tool fetches them, normalises them, and loads the parts of them that
 InvenTree's CSV importer cannot handle on its own.
 
-It provides four commands:
+It provides five commands:
 
 | Command         | What it does                                                                                                            |
 |-----------------|-------------------------------------------------------------------------------------------------------------------------|
@@ -20,6 +20,7 @@ It provides four commands:
 | `orders`        | Fetch order history or a single sales order, with line items, ordered/shipped quantities, pricing and shipment tracking |
 | `import-orders` | Pick DigiKey orders from a checklist and book them into InvenTree as purchase orders                                    |
 | `parameters`    | Create and update InvenTree parameter templates from `config/parameters.yaml`                                          |
+| `categories`    | Create and update InvenTree part categories from `config/categories.yaml`, and learn DigiKey path aliases              |
 
 Two design points worth knowing up front:
 
@@ -322,7 +323,36 @@ reported by name rather than failing as a bare HTTP 400.
 import how to recognise a parameter in supplier data and how to read its value.
 
 Parameter *values* are not set by this command. They come from supplier data as
-parts are imported. See `PROPOSAL-part-import.md` for where that is heading.
+parts are imported. `from_supplier()` in `invimport.inventree.values` is how
+a DigiKey parameters dict becomes the stored strings — `100 kOhms` is
+`100 kΩ`, `±1%` is `1 %`, `-55°C ~ 155°C` splits into two temperatures.
+`-` means absent and is not written.
+
+### categories
+
+Create and update the InvenTree part category tree defined in
+`config/categories.yaml`. Templates are ensured first, because a category
+names the parameters its parts carry.
+
+```bash
+# dry run: reports what it would do, changes nothing on the server
+uv run invimport categories
+
+# apply
+uv run invimport categories --write
+
+# map unmapped DigiKey paths from the product cache (writes the YAML)
+uv run invimport categories --learn
+```
+
+**Dry run is the default** for the server. Nothing is created or renamed
+without `--write`, and nothing is deleted. `--learn` writes aliases back
+into the YAML so the same DigiKey path is never asked about twice. The
+menu starts at the top-level categories, marks which are structural and
+how many subcategories they have, and drills down with the arrow keys
+(or numbered choices over a pipe). Create is offered at the current
+level; a slash in the name nests children. An unmapped path is never
+guessed — a part in the wrong category is worse than a part not imported.
 
 ### Global flags
 
@@ -383,9 +413,10 @@ logging.getLogger("invimport").addHandler(logging.StreamHandler())
 The public surface is re-exported from `invimport`: `fetch_products`,
 `fetch_product`, `fetch_orders`, `fetch_sales_orders`, `line_items`,
 `import_orders`, `find_supplier`, `list_suppliers`, `create_supplier`,
-`sync_templates`, `load_config`, `digikey_connect`, `inventree_connect`,
-`load_env`, `load_env_file`, `Client`, `SyncResult`, `ImportResult`,
-`ConfigError`, `DigiKeyError`, `InvenTreeError`.
+`sync_templates`, `sync_categories`, `sync_tree`, `from_supplier`,
+`match_path`, `match_name`, `load_config`, `digikey_connect`,
+`inventree_connect`, `load_env`, `load_env_file`, `Client`, `SyncResult`,
+`ImportResult`, `ConfigError`, `DigiKeyError`, `InvenTreeError`.
 
 Note that `fetch_orders` and `fetch_products` write to the cache like the CLI
 does, relative to the working directory. Pass `cache_dir=` if you need them
@@ -415,6 +446,7 @@ config/
     units.yaml                custom units, created before any template needs them
     categories.yaml           part categories, their parameters and DigiKey aliases
     parameters.yaml           parameter templates and how to read supplier values
+    manufacturers.yaml        learned manufacturer name mappings
 src/
     invimport/
         __main__.py           CLI entrypoint and subcommand registry
@@ -429,7 +461,9 @@ src/
             api.py            connection and API 530 model overrides
             parameters.py     parameter templates, from config/parameters.yaml
             units.py          custom units, from config/units.yaml
-            values.py         pint registry and value formatting
+            values.py         parse DigiKey values, format them for InvenTree
+            matching.py       normalise, learned aliases, fuzzy candidates
+            categories.py     part categories, from config/categories.yaml
             purchase_orders.py  suppliers and DigiKey order import
         commands/             thin CLI adapters over the above
             _keys.py          raw-mode key reading for the interactive prompts

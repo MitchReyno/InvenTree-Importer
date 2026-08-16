@@ -33,7 +33,10 @@ from .digikey.products import fetch_product, fetch_products
 from .env import DEFAULT_ENV_FILE, load_env_file
 from .inventree.api import InvenTreeError
 from .inventree.api import connect as inventree_connect
+from .inventree.categories import sync_categories, sync_tree
+from .inventree.matching import match_name, match_path
 from .inventree.parameters import SyncResult, sync_config, sync_templates
+from .inventree.values import from_supplier
 from .inventree.purchase_orders import (
     ImportResult,
     create_supplier,
@@ -63,14 +66,19 @@ __all__ = [
     "fetch_products",
     "fetch_sales_orders",
     "find_supplier",
+    "from_supplier",
     "import_orders",
+    "match_name",
+    "match_path",
     "inventree_connect",
     "line_items",
     "list_suppliers",
     "load_config",
     "load_env",
     "load_env_file",
+    "sync_categories",
     "sync_config",
     "sync_templates",
+    "sync_tree",
     "sync_units",
 ]

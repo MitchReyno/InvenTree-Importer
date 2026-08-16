@@ -27,6 +27,8 @@ from typing import Iterator, Protocol
 # reads as 'up' instead of '<Key.UP: 1>'.
 UP = "up"
 DOWN = "down"
+LEFT = "left"
+RIGHT = "right"
 TOP = "top"
 BOTTOM = "bottom"
 PAGE_UP = "page-up"
@@ -50,6 +52,8 @@ ESC_TIMEOUT_S = 0.05
 SEQUENCES = {
     "[A": UP, "OA": UP,
     "[B": DOWN, "OB": DOWN,
+    "[C": RIGHT, "OC": RIGHT,
+    "[D": LEFT, "OD": LEFT,
     "[5~": PAGE_UP,
     "[6~": PAGE_DOWN,
     "[H": TOP, "OH": TOP, "[1~": TOP,
@@ -68,7 +72,10 @@ KEYS = {
     "a": ALL, "A": ALL,
     "n": NONE, "N": NONE,
     "j": DOWN, "k": UP,
+    "h": LEFT, "l": RIGHT,
     "g": TOP, "G": BOTTOM,
+    "\x7f": LEFT,                # backspace
+    "\x08": LEFT,
 }
 
 

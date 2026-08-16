@@ -226,6 +226,7 @@ class InvenTreeStub:
         # Custom units. "known" is what /api/units/all/ reports: pint's own
         # names plus whatever has been created.
         self.units: list[dict[str, Any]] = []
+        self.categories: list[dict[str, Any]] = []
         self.builtin_units = {"ohm", "F", "V", "W", "degC", "°C", "%", "Hz",
                               "A", "ppm", "ppm/K"}
         self.companies: list[dict[str, Any]] = []
@@ -248,6 +249,20 @@ class InvenTreeStub:
         row = {"pk": pk if pk is not None else len(self.units) + 1,
                "name": name, "definition": definition, "symbol": symbol}
         self.units.append(row)
+        return row
+
+    def add_category(self, name: str, parent: int | None = None,
+                     pk: int | None = None, **fields) -> dict[str, Any]:
+        path = name
+        if parent is not None:
+            parent_row = next(c for c in self.categories if c["pk"] == parent)
+            path = f"{parent_row['pathstring']}/{name}"
+        row = {"pk": pk if pk is not None else len(self.categories) + 1,
+               "name": name, "parent": parent, "pathstring": path,
+               "description": fields.get("description", ""),
+               "structural": fields.get("structural", False), **fields}
+        row["pathstring"] = path
+        self.categories.append(row)
         return row
 
     def add_supplier_part(self, sku: str, supplier: int = 1, part: int = 4,
@@ -313,6 +328,8 @@ class InvenTreeStub:
                         "available_systems": ["SI"],
                         "available_units": {n: {"name": n} for n in names},
                     })
+                if parsed.path == "/api/part/category/":
+                    return self._send(200, stub.categories)
                 if parsed.path == "/api/company/":
                     rows = stub.companies
                     if (query.get("is_supplier") or [""])[0].lower() == "true":
@@ -350,6 +367,19 @@ class InvenTreeStub:
                     stub.parameters.append(row)
                 elif parsed.path == "/api/units/":
                     stub.units.append(row)
+                elif parsed.path == "/api/part/category/":
+                    parent = body.get("parent")
+                    name = body.get("name", "")
+                    path = name
+                    if parent is not None:
+                        parent_row = next((c for c in stub.categories
+                                           if c["pk"] == parent), None)
+                        if parent_row:
+                            path = f"{parent_row['pathstring']}/{name}"
+                    row["pathstring"] = path
+                    row.setdefault("description", "")
+                    row.setdefault("structural", False)
+                    stub.categories.append(row)
                 elif parsed.path == "/api/company/":
                     stub.companies.append(row)
                 elif parsed.path == "/api/company/part/":

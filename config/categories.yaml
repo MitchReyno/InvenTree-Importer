@@ -15,7 +15,9 @@
 #                   subcategories and EXTENDED, not replaced.
 #   aliases         full DigiKey category paths that map here
 #   description     category description in InvenTree
-#   structural      category holds no parts directly, only subcategories
+#   structural      category holds no parts directly, only subcategories.
+#                   Defaults to true when this entry has children, false
+#                   for a leaf. Set it only to override that.
 #
 # identity/key_parameters/name are inherited by subcategories too.
 #
@@ -51,6 +53,9 @@ Capacitors:
     aliases:
       - Capacitors / Film Capacitors
 
+  Tantalum Capacitors:
+    aliases:
+      - Capacitors / Tantalum Capacitors
 Diodes:
   identity: mpn
   parameters:
@@ -102,6 +107,34 @@ Integrated Circuits:
       aliases:
         - Integrated Circuits (ICs) / Power Management (PMIC) / Voltage Regulators - Linear, Low Drop Out (LDO) Regulators
 
+  Microcontrollers:
+    aliases:
+      - Development Boards, Kits, Programmers / Evaluation Boards / Embedded MCU, DSP Evaluation Boards
+      - Integrated Circuits (ICs) / Embedded / Microcontrollers
+  Analog to Digital Converters (ADC):
+    aliases:
+      - Integrated Circuits (ICs) / Data Acquisition / Analog to Digital Converters (ADC)
+  Digital to Analog Converters (DAC):
+    aliases:
+      - Integrated Circuits (ICs) / Data Acquisition / Digital to Analog Converters (DAC)
+  "Analog Switches, Multiplexers, Demultiplexers":
+    aliases:
+      - Integrated Circuits (ICs) / Interface / Analog Switches, Multiplexers, Demultiplexers
+  Comparators:
+    aliases:
+      - Integrated Circuits (ICs) / Linear / Comparators
+  "Counters, Dividers":
+    aliases:
+      - Integrated Circuits (ICs) / Logic / Counters, Dividers
+  Latches:
+    aliases:
+      - Integrated Circuits (ICs) / Logic / Latches
+  Shift Registers:
+    aliases:
+      - Integrated Circuits (ICs) / Logic / Shift Registers
+  "Optocouplers, Optoisolators":
+    aliases:
+      - Isolators / Optocouplers, Optoisolators / Logic Output Optoisolators
 Optoelectronics:
   identity: mpn
   parameters:
@@ -180,3 +213,57 @@ Transistors:
   BJTs: {}
   JFETs: {}
   MOSFETs: {}
+
+"Cables & Wires":
+  aliases:
+    - Cables, Wires / Flat Ribbon Cables
+
+Connectors:
+  Rectangular Connectors:
+    aliases:
+      - Connectors, Interconnects / Rectangular Connectors / Free Hanging, Panel Mount
+      - Connectors, Interconnects / Rectangular Connectors / Headers, Male Pins
+      - Connectors, Interconnects / Rectangular Connectors / Headers, Receptacles, Female Sockets
+  Contacts:
+    aliases:
+      - Connectors, Interconnects / Rectangular Connectors / Rectangular Connector Contacts
+  Misc Connectors:
+    aliases:
+      - Connectors, Interconnects / Shunts, Jumpers
+  Pin Sockets:
+    aliases:
+      - Connectors, Interconnects / Sockets for ICs, Transistors / IC Sockets
+
+  "D-Sub, D-Shaped Connectors":
+    aliases:
+      - Connectors, Interconnects / D-Sub, D-Shaped Connectors / D-Sub Connector Assemblies
+"Crystals, Oscillators, Resonators":
+  aliases:
+    - Crystals, Oscillators, Resonators / Crystals
+
+"Filters, Ferrite Beads":
+  aliases:
+    - Filters / Ferrite Beads and Chips
+
+Hardware:
+  Knobs:
+    aliases:
+      - Hardware, Fasteners, Accessories / Knobs
+
+"Sensors, Transducers":
+  aliases:
+    - Sensors, Transducers / Encoders
+
+Tools:
+  "Soldering, Desoldering, Rework Products":
+    aliases:
+      - Soldering, Desoldering, Rework Products / Desoldering Braid, Wick, Pumps
+      - Soldering, Desoldering, Rework Products / Solder
+
+Kits:
+  Accessories:
+    aliases:
+      - Development Boards, Kits, Programmers / Accessories
+  Evaluation Boards:
+    aliases:
+      - Development Boards, Kits, Programmers / Evaluation Boards / RF, RFID, Wireless Evaluation Boards

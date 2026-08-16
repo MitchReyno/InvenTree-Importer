@@ -175,6 +175,68 @@ class Checklist:
         self.offset = max(0, min(self.offset, max(0, len(self.items) - visible)))
 
 
+@dataclass
+class Menu:
+    """
+    A single-select list: the cursor is the choice.
+
+    Same terminal-agnostic shape as Checklist, so the cursor and plain
+    front-ends can both drive it, and tests can send keypresses without a tty.
+    """
+    items: Sequence[Any]
+    render: Callable[[Any], str]
+    title: str
+    verb: str = "select"
+    help: str = ""
+    cursor: int = 0
+    offset: int = 0
+    message: str = ""
+
+    def move(self, delta: int) -> None:
+        if not self.items:
+            return
+        self.cursor = max(0, min(len(self.items) - 1, self.cursor + delta))
+
+    def handle(self, key: str) -> str | None:
+        """Apply one keypress. Returns SUBMIT, SELECT, RIGHT, LEFT, CANCEL, or None."""
+        self.message = ""
+        if key == keys.UP:
+            self.move(-1)
+        elif key == keys.DOWN:
+            self.move(1)
+        elif key == keys.TOP:
+            self.cursor = 0
+        elif key == keys.BOTTOM:
+            self.cursor = max(0, len(self.items) - 1)
+        elif key == keys.PAGE_UP:
+            self.move(-10)
+        elif key == keys.PAGE_DOWN:
+            self.move(10)
+        elif key == keys.SUBMIT:
+            return keys.SUBMIT
+        elif key == keys.TOGGLE:
+            return keys.TOGGLE                   # SPACE: select this, do not open
+        elif key == keys.RIGHT:
+            return keys.RIGHT
+        elif key == keys.LEFT:
+            return keys.LEFT
+        elif key == keys.CANCEL:
+            return keys.CANCEL
+        return None
+
+    def scroll(self, visible: int) -> None:
+        if self.cursor < self.offset:
+            self.offset = self.cursor
+        elif self.cursor >= self.offset + visible:
+            self.offset = self.cursor - visible + 1
+        self.offset = max(0, min(self.offset, max(0, len(self.items) - visible)))
+
+    def current(self) -> Any | None:
+        if not self.items:
+            return None
+        return self.items[self.cursor]
+
+
 # --------------------------------------------------------------------------
 # Cursor front-end
 # --------------------------------------------------------------------------
@@ -371,30 +433,198 @@ def select_many(
     return select_plain(checklist)
 
 
-def choose_one(
+MENU_HELP = "UP/DOWN move   ENTER {verb}   q cancel"
+# Browser: ENTER opens a folder or picks a leaf; SPACE picks the row as-is.
+BROWSER_HELP = ("UP/DOWN move   ENTER open/select   → open   ← back   "
+                "SPACE select this   q skip")
+PLAIN_MENU_HELP = "number=open/select   o N=open   s N=select this   c=create   b=back   q=skip"
+
+
+def menu_frame(menu: Menu, width: int, height: int,
+               final: bool = False) -> list[str]:
+    """One frame of a single-select menu, already cut to the terminal width."""
+    title_lines = menu.title.splitlines() or [""]
+    body = max(MIN_VISIBLE_ROWS,
+               height - CHROME_ROWS - (len(title_lines) - 1))
+    scrolling = len(menu.items) > body
+    visible = body - 1 if scrolling else body
+    menu.scroll(visible)
+
+    def cut(text: str) -> str:
+        return text[:max(1, width - 1)]
+
+    lines = [cut(line) for line in title_lines]
+    window = range(menu.offset, min(menu.offset + visible, len(menu.items)))
+    for index in window:
+        here = index == menu.cursor and not final
+        row = cut(f"  {'>' if here else ' '} {menu.render(menu.items[index])}")
+        lines.append(f"\x1b[7m{row}\x1b[0m" if here else row)
+
+    if scrolling:
+        above = menu.offset
+        below = len(menu.items) - (menu.offset + visible)
+        marker = "   ".join(
+            part for part in (f"  {above} more above" if above else "",
+                              f"{below} more below" if below else "") if part)
+        lines.append(cut(marker or "  "))
+
+    if not final:
+        lines.append("")
+        help_text = menu.help or MENU_HELP.format(verb=menu.verb)
+        lines.append(cut("  " + help_text))
+        if menu.message:
+            lines.append(cut(f"  {menu.message}"))
+    return lines
+
+
+def run_menu_cursor(menu: Menu, read: Callable[[], str],
+                    write: Callable[[str], None],
+                    size: Callable[[], tuple[int, int]]
+                    ) -> tuple[Any | None, str] | None:
+    """
+    Draw/read/apply for a single-select menu.
+
+    Returns (item, action) where action is SUBMIT, TOGGLE, RIGHT or LEFT, or
+    None if the user cancelled. LEFT returns (None, LEFT) so a browser can
+    go up a level.
+    """
+    previous = 0
+    try:
+        while True:
+            width, height = size()
+            lines = menu_frame(menu, width, height)
+            write(redraw(lines, previous))
+            previous = len(lines)
+
+            outcome = menu.handle(read())
+            if outcome is None:
+                continue
+
+            width, height = size()
+            write(redraw(menu_frame(menu, width, height, final=True), previous))
+            if outcome == keys.CANCEL:
+                return None
+            if outcome == keys.LEFT:
+                return (None, keys.LEFT)
+            return (menu.current(), outcome)
+    except KeyboardInterrupt:
+        write("\n")
+        return None
+
+
+def select_menu_cursor(menu: Menu) -> tuple[Any | None, str] | None:
+    reader = keys.StdinReader()
+    write = sys.stdout.write
+
+    def flushing(text: str) -> None:
+        write(text)
+        sys.stdout.flush()
+
+    with keys.raw_mode(reader.fd):
+        flushing("\x1b[?25l")
+        try:
+            return run_menu_cursor(menu, lambda: keys.read_key(reader),
+                                   flushing, terminal_size)
+        finally:
+            flushing("\x1b[?25h")
+
+
+def choose_one_plain(
     options: Sequence[Any],
     render: Callable[[Any], str],
     *,
     title: str,
     prompt: str = "  choose > ",
-) -> Any | None:
-    """Pick exactly one option. Returns the option, or None if cancelled."""
+    browser: bool = False,
+) -> tuple[Any | None, str] | None:
+    """
+    Numbered list. Returns (item, action) or None if cancelled.
+
+    In browser mode, extra verbs: o N opens, s N selects, c creates, b goes
+    back. A bare number opens a folder or selects a leaf - the caller decides
+    from the item.
+    """
     if not options:
-        return CANCELLED
+        return None
 
     while True:
         print(f"\n{title}")
         width = len(str(len(options)))
         for index, option in enumerate(options, start=1):
             print(f"  {index:>{width}}) {render(option)}")
+        if browser:
+            print(f"  {'b':>{width}}) back")
         print(f"  {'q':>{width}}) cancel")
+        if browser:
+            print(f"  {PLAIN_MENU_HELP}")
 
         answer = ask(prompt)
         if answer is None or answer.lower() == "q":
-            return CANCELLED
-        if answer.isdigit() and 1 <= int(answer) <= len(options):
-            return options[int(answer) - 1]
+            return None
+        if browser and answer.lower() == "b":
+            return (None, keys.LEFT)
+        if browser and answer.lower() == "c":
+            return ("__create__", keys.SUBMIT)
+
+        action = keys.SUBMIT
+        token = answer
+        if browser and len(answer) >= 2 and answer[0] in "osOS" and (
+                answer[1] == " " or answer[1:].isdigit()):
+            action = keys.RIGHT if answer[0] in "oO" else keys.TOGGLE
+            token = answer[1:].strip()
+
+        if token.isdigit() and 1 <= int(token) <= len(options):
+            return (options[int(token) - 1], action)
         print(f"  '{answer}' is not one of 1-{len(options)}")
+
+
+def choose_one(
+    options: Sequence[Any],
+    render: Callable[[Any], str],
+    *,
+    title: str,
+    prompt: str = "  choose > ",
+    plain: bool = False,
+) -> Any | None:
+    """Pick exactly one option. Arrow keys when the terminal allows."""
+    if not options:
+        return CANCELLED
+
+    if not plain and keys.supported():
+        menu = Menu(options, render, title, help=MENU_HELP.format(verb="select"))
+        result = select_menu_cursor(menu)
+        if result is None or result[1] == keys.LEFT:
+            return CANCELLED
+        return result[0]
+
+    picked = choose_one_plain(options, render, title=title, prompt=prompt)
+    if picked is None:
+        return CANCELLED
+    return picked[0]
+
+
+def choose_row(
+    options: Sequence[Any],
+    render: Callable[[Any], str],
+    *,
+    title: str,
+    prompt: str = "  choose > ",
+    plain: bool = False,
+) -> tuple[Any | None, str] | None:
+    """
+    Pick a row and say how. For a folder browser: ENTER, SPACE, →, ←.
+
+    Returns (item, action) or None if cancelled. action is SUBMIT, TOGGLE
+    (SPACE / s N), RIGHT (open) or LEFT (back).
+    """
+    if not options:
+        return None
+
+    if not plain and keys.supported():
+        menu = Menu(options, render, title, help=BROWSER_HELP)
+        return select_menu_cursor(menu)
+    return choose_one_plain(options, render, title=title, prompt=prompt,
+                            browser=True)
 
 
 def confirm(question: str, *, default: bool = False) -> bool:

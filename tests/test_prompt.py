@@ -16,13 +16,17 @@ def visible(text: str) -> str:
 from invimport.commands import _keys as keys
 from invimport.commands._prompt import (
     Checklist,
+    Menu,
     choose_one,
+    choose_row,
     confirm,
     frame,
     interactive,
+    menu_frame,
     parse_selection,
     redraw,
     run_cursor,
+    run_menu_cursor,
     select_many,
 )
 
@@ -343,6 +347,63 @@ def test_choose_one_can_be_cancelled(answers):
 
 def test_choose_one_with_no_options_is_a_cancel():
     assert choose_one([], render, title="t") is None
+
+
+# --------------------------------------------------------------------------
+# choose_row / Menu (folder browser)
+# --------------------------------------------------------------------------
+def drive_menu(keypresses, items=ITEMS, size=(80, 24), help=""):
+    menu = Menu(items, render, "t", help=help)
+    pressed = iter(keypresses)
+    frames: list[str] = []
+    result = run_menu_cursor(menu, lambda: next(pressed, keys.CANCEL),
+                             frames.append, lambda: size)
+    return result, frames
+
+
+def test_choose_row_a_number_submits_that_row(answers):
+    answers("2")
+    assert choose_row(ITEMS, render, title="t") == ("beta", keys.SUBMIT)
+
+
+def test_choose_row_can_open_select_create_and_go_back(answers):
+    answers("o 1")
+    assert choose_row(ITEMS, render, title="t") == ("alpha", keys.RIGHT)
+    answers("s 3")
+    assert choose_row(ITEMS, render, title="t") == ("gamma", keys.TOGGLE)
+    answers("c")
+    assert choose_row(ITEMS, render, title="t") == ("__create__", keys.SUBMIT)
+    answers("b")
+    assert choose_row(ITEMS, render, title="t") == (None, keys.LEFT)
+
+
+def test_choose_row_can_be_cancelled(answers):
+    answers("q")
+    assert choose_row(ITEMS, render, title="t") is None
+
+
+def test_menu_enter_submits_the_highlighted_row():
+    result, _ = drive_menu([keys.DOWN, keys.SUBMIT])
+    assert result == ("beta", keys.SUBMIT)
+
+
+def test_menu_space_selects_without_opening():
+    result, _ = drive_menu([keys.TOGGLE])
+    assert result == ("alpha", keys.TOGGLE)
+
+
+def test_menu_arrows_open_and_go_back():
+    assert drive_menu([keys.RIGHT])[0] == ("alpha", keys.RIGHT)
+    assert drive_menu([keys.LEFT])[0] == (None, keys.LEFT)
+
+
+def test_menu_frame_highlights_the_cursor_and_shows_help():
+    menu = Menu(ITEMS, render, "t", help="UP/DOWN move")
+    lines = menu_frame(menu, 80, 24)
+    assert "> alpha" in visible(lines[1])
+    assert "  beta" in visible(lines[2])
+    assert any("UP/DOWN move" in line for line in lines)
+    assert lines[1].startswith("\x1b[7m")
 
 
 # --------------------------------------------------------------------------

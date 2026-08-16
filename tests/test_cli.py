@@ -325,6 +325,113 @@ def test_the_product_cache_is_reused_on_a_second_run(digikey, digikey_env,
 
 
 # --------------------------------------------------------------------------
+# categories
+# --------------------------------------------------------------------------
+def test_categories_is_a_dry_run_by_default(inventree, capsys):
+    assert main(["categories"]) == 0
+    out = capsys.readouterr().out
+    assert "DRY RUN" in out
+    assert "Part categories" in out
+    assert inventree.categories == []
+
+
+def test_categories_writes_when_asked(inventree):
+    assert main(["categories", "--write"]) == 0
+    assert any(c["pathstring"] == "Resistors" for c in inventree.categories)
+
+
+def test_categories_learn_writes_an_alias(inventree, answers, tmp_path, capsys):
+    (tmp_path / "units.yaml").write_text("")
+    (tmp_path / "parameters.yaml").write_text("Package: {}\n")
+    (tmp_path / "categories.yaml").write_text(
+        "Resistors:\n  parameters: [Package]\n")
+    answers("1")
+    assert main(["categories", "--config", str(tmp_path), "--learn",
+                 "Resistors / Through Hole Resistors"]) == 0
+    written = (tmp_path / "categories.yaml").read_text()
+    assert "Resistors / Through Hole Resistors" in written
+    assert "Resistors / Through Hole Resistors" in capsys.readouterr().out
+
+
+def test_categories_learn_can_create_a_subcategory(inventree, answers,
+                                                   tmp_path, capsys):
+    (tmp_path / "units.yaml").write_text("")
+    (tmp_path / "parameters.yaml").write_text("Package: {}\n")
+    (tmp_path / "categories.yaml").write_text(
+        "Capacitors:\n  parameters: [Package]\n")
+    # Capacitors is a leaf here, so ENTER would map to it. Open it, then
+    # create a child at that level.
+    answers("o 1", "c", "Tantalum Capacitors")
+    assert main(["categories", "--config", str(tmp_path), "--learn",
+                 "Capacitors / Tantalum Capacitors"]) == 0
+    cats = (tmp_path / "categories.yaml").read_text()
+    assert "Tantalum Capacitors:" in cats
+    assert "Capacitors / Tantalum Capacitors" in cats
+    out = capsys.readouterr().out
+    assert "Capacitors/Tantalum Capacitors" in out
+
+
+def test_categories_learn_can_create_a_top_level(inventree, answers,
+                                                 tmp_path):
+    (tmp_path / "units.yaml").write_text("")
+    (tmp_path / "parameters.yaml").write_text("Package: {}\n")
+    (tmp_path / "categories.yaml").write_text(
+        "Resistors:\n  parameters: [Package]\n")
+    answers("c", "Connectors/Headers")
+    assert main(["categories", "--config", str(tmp_path), "--learn",
+                 "Connectors, Interconnects / Headers, Male Pins"]) == 0
+    written = (tmp_path / "categories.yaml").read_text()
+    assert "Connectors:" in written
+    assert "Headers:" in written
+
+
+def test_categories_learn_drills_into_a_parent(inventree, answers, tmp_path):
+    (tmp_path / "units.yaml").write_text("")
+    (tmp_path / "parameters.yaml").write_text("Package: {}\n")
+    (tmp_path / "categories.yaml").write_text(
+        "Capacitors:\n"
+        "  parameters: [Package]\n"
+        "  Film Capacitors:\n"
+        "    parameters: [Package]\n")
+    # ENTER on a folder opens it; ENTER on the leaf maps there.
+    answers("1", "1")
+    assert main(["categories", "--config", str(tmp_path), "--learn",
+                 "Capacitors / Film Capacitors"]) == 0
+    written = (tmp_path / "categories.yaml").read_text()
+    assert "Capacitors / Film Capacitors" in written
+
+
+def test_categories_learn_lists_top_level_with_hints(inventree, answers,
+                                                     tmp_path, capsys):
+    (tmp_path / "units.yaml").write_text("")
+    (tmp_path / "parameters.yaml").write_text("Package: {}\n")
+    (tmp_path / "categories.yaml").write_text(
+        "Capacitors:\n"
+        "  parameters: [Package]\n"
+        "  Ceramic Capacitors: {}\n"
+        "  Film Capacitors: {}\n")
+    answers("q")
+    main(["categories", "--config", str(tmp_path), "--learn",
+          "Capacitors / Tantalum Capacitors"])
+    out = capsys.readouterr().out
+    assert "Capacitors  (structural, 2 subcategories)" in out
+    assert "create a new category here" in out
+
+
+def test_categories_learn_without_a_terminal_does_not_write(
+        inventree, tmp_path, capsys):
+    (tmp_path / "units.yaml").write_text("")
+    (tmp_path / "parameters.yaml").write_text("Package: {}\n")
+    (tmp_path / "categories.yaml").write_text(
+        "Resistors:\n  parameters: [Package]\n")
+    assert main(["categories", "--config", str(tmp_path), "--learn",
+                 "Resistors / Foo"]) == 0
+    out = capsys.readouterr().out
+    assert "not a terminal" in out
+    assert "Resistors / Foo" not in (tmp_path / "categories.yaml").read_text()
+
+
+# --------------------------------------------------------------------------
 # credentials
 # --------------------------------------------------------------------------
 def test_env_file_supplies_credentials(digikey, workspace, env_file,

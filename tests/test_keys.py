@@ -31,8 +31,12 @@ class ScriptedReader:
 @pytest.mark.parametrize("sent,expected", [
     ("\x1b[A", keys.UP),
     ("\x1b[B", keys.DOWN),
+    ("\x1b[C", keys.RIGHT),
+    ("\x1b[D", keys.LEFT),
     ("\x1bOA", keys.UP),                 # application cursor mode
     ("\x1bOB", keys.DOWN),
+    ("\x1bOC", keys.RIGHT),
+    ("\x1bOD", keys.LEFT),
     ("\x1b[5~", keys.PAGE_UP),
     ("\x1b[6~", keys.PAGE_DOWN),
     ("\x1b[H", keys.TOP),
@@ -46,6 +50,10 @@ class ScriptedReader:
     ("n", keys.NONE),
     ("j", keys.DOWN),
     ("k", keys.UP),
+    ("h", keys.LEFT),
+    ("l", keys.RIGHT),
+    ("\x7f", keys.LEFT),                 # backspace
+    ("\x08", keys.LEFT),
     ("g", keys.TOP),
     ("G", keys.BOTTOM),
     ("\x03", keys.CANCEL),               # Ctrl-C

@@ -37,6 +37,10 @@ Composition:
     - Wire Wound
     - Thick Film
     - Thin Film
+  values:
+    Wire Wound:
+      - Wire Wound
+      - Wirewound
 
 ESR:
   units: ohm

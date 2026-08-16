@@ -1,0 +1,11 @@
+# Learned manufacturer name mappings. Starts empty; `invimport` writes an
+# alias here when you match a supplier spelling to a company, so the same
+# question is never asked twice.
+#
+#   YAGEO:
+#     aliases:
+#       - Yageo
+#       - Yageo Corporation
+#
+# Matching tries normalisation first (case, punctuation, Inc/Corp/Ltd), then
+# this file, then a fuzzy prompt. Nothing is created silently.

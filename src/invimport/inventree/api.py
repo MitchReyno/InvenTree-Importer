@@ -24,6 +24,7 @@ try:
     from inventree.company import Company  # noqa: F401  (re-exported for commands)
     from inventree.company import SupplierPart  # noqa: F401
     from inventree.part import Part  # noqa: F401
+    from inventree.part import PartCategory  # noqa: F401
     from inventree.part import Parameter as _Parameter
     from inventree.part import ParameterTemplate as _ParameterTemplate
     from inventree.purchase_order import PurchaseOrder  # noqa: F401
