@@ -41,6 +41,7 @@ from ..config import (
 from .matching import match_path
 from .values import (
     build_parse_registry,
+    fold_supplier_name,
     is_absent,
     split_magnitude,
     split_range,
@@ -164,7 +165,7 @@ def supplier_names(parameters: dict[str, ParameterConfig]) -> dict[str, str]:
     index: dict[str, str] = {}
     for parameter in parameters.values():
         for name in parameter.supplier_names():
-            index.setdefault(name.strip().casefold(), parameter.name)
+            index.setdefault(fold_supplier_name(name), parameter.name)
     return index
 
 
@@ -191,15 +192,15 @@ def discover(
 
         # What this category already reads, by supplier spelling.
         covered = {
-            name.strip().casefold()
+            fold_supplier_name(name)
             for parameter_name in category.parameters
             for name in (parameters[parameter_name].supplier_names()
                          if parameter_name in parameters else [])
         }
-        ignored = {name.strip().casefold() for name in category.ignore}
+        ignored = {fold_supplier_name(name) for name in category.ignore}
 
         for supplier_name, value in (product.get("parameters") or {}).items():
-            folded = supplier_name.strip().casefold()
+            folded = fold_supplier_name(supplier_name)
             if folded in covered or folded in ignored or is_absent(value):
                 continue
 

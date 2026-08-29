@@ -7,12 +7,16 @@ import pytest
 from invimport.config import ParameterConfig, load_parameters_config
 from invimport.inventree.values import (
     Formatter,
+    fold_supplier_name,
     from_supplier,
     parse,
     parse_percent,
     parse_quantity,
+    expand_rkm,
     parse_metric,
     parse_quantity_first,
+    split_range,
+    supplier_text,
     parse_range_high,
     parse_range_low,
     read_value,
@@ -166,6 +170,115 @@ def test_metric_ignores_a_measurement_point_note():
     """(TA) and (Max) are notes, not values - they must not be mistaken."""
     assert parse_metric('0.512" (Max) (13.00mm)', "mm") == pytest.approx(13.0)
     assert parse_metric("125 (TA)", "mm") is None
+
+
+@pytest.mark.parametrize("text,unit,expected", [
+    ("4k7", "ohm", 4700),                 # the marking on the part
+    ("4R7", "ohm", 4.7),                  # R is the decimal point, no multiplier
+    ("0R22", "ohm", 0.22),
+    ("2M2", "ohm", 2_200_000),
+    ("1R0", "ohm", 1),
+    ("4u7", "F", 4.7e-6),
+    ("2p2", "F", 2.2e-12),
+    ("4m7", "H", 4.7e-3),
+])
+def test_rkm_notation_reads_as_the_value_it_prints(text, unit, expected):
+    """
+    RKM code (IEC 60062) puts the multiplier where the decimal point goes.
+
+    Untreated, '4k7' reads as 4: split_magnitude takes the leading number and
+    'k7' is not a unit, so the trailing digits vanish and the value is wrong
+    by three orders of magnitude - silently, with nothing to notice.
+    """
+    assert parse_quantity(text, unit) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("text", [
+    "1N4007",                             # a part number, not a measurement
+    "47k",                                # already plain
+    "100R",
+    "8-DIP",
+    "",
+])
+def test_expand_rkm_leaves_alone_what_is_not_rkm(text):
+    assert expand_rkm(text) == text
+
+
+@pytest.mark.parametrize("text,unit,expected", [
+    ("0.25 W", "W", True),
+    ("0.25 W", "V", False),               # a number alone must not count
+    ("300 V", "V", True),
+    ("1 kohm", "ohm", True),
+    ("4k7", "ohm", False),                # expands to 4.7k - no unit to judge
+    ("Blue", "V", False),
+    ("5", "V", False),
+])
+def test_same_dimension_needs_a_unit_not_just_a_number(text, unit, expected):
+    """
+    parse_quantity falls back to the bare number when a unit will not convert,
+    so by that test '0.25 W' is a valid voltage. Dimensionality is what makes
+    a value usable as evidence of which parameter was meant.
+    """
+    from invimport.inventree.values import same_dimension
+    assert same_dimension(text, unit) is expected
+
+
+@pytest.mark.parametrize("text", [
+    "Board to Board",                # a connector style, not a measurement
+    "Board to Cable/Wire",
+    "Bottom to Top",
+    "Through Hole to Surface Mount",
+])
+def test_prose_containing_to_is_not_a_range(text):
+    """
+    ' to ' separates ranges *and* appears in ordinary English.
+
+    Without a numeric check, 'Board to Board' splits into ('Board', 'Board')
+    and gets offered as a two-parameter measurement. A parameter configured
+    from that suggestion then silently stores nothing.
+    """
+    assert split_range(text) is None
+
+
+@pytest.mark.parametrize("text,low,high", [
+    ("-40 to 85°C", "-40", "85°C"),   # a real range using the same word
+    ("3 V ~ 18 V", "3 V", "18 V"),
+])
+def test_a_numeric_range_still_splits(text, low, high):
+    assert split_range(text) == (low, high)
+
+
+@pytest.mark.parametrize("supplied", [
+    "Package / Case",                # exactly as configured
+    "package / case",                # agent lower-cased it
+    "Package/Case",                  # agent dropped the spaces
+    "PACKAGE/CASE",
+    "  Package / Case  ",
+])
+def test_an_alias_matches_whatever_the_spacing_and_case(supplied):
+    """
+    DigiKey is consistent; a hand- or agent-written file is not.
+
+    A near-miss used to return nothing at all, and discovery would not report
+    it either - its index was casefolded while this lookup was not - so the
+    value vanished with no way to notice.
+    """
+    parameter = ParameterConfig("Package", aliases=["Package / Case"])
+    assert supplier_text({supplied: "Axial"}, parameter) == "Axial"
+
+
+def test_an_exact_alias_still_wins_over_a_folded_one():
+    """Order is meaningful when a product carries two of a parameter's names."""
+    parameter = ParameterConfig(
+        "Package", aliases=["Package / Case", "Supplier Device Package"])
+    supplied = {"supplierdevicepackage": "TO-92",
+                "Package / Case": "TO-92-3"}
+    assert supplier_text(supplied, parameter) == "TO-92-3"
+
+
+def test_fold_ignores_only_case_and_whitespace():
+    assert fold_supplier_name("Package / Case") == fold_supplier_name("package/case")
+    assert fold_supplier_name("Resistance") != fold_supplier_name("Reactance")
 
 
 def test_a_rate_keeps_the_units_it_was_written_in():

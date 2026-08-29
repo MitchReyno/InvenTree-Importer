@@ -131,6 +131,32 @@ def test_a_parameter_the_config_knows_is_flagged_as_existing(conf):
     assert found[0].existing_parameter == "Composition"
 
 
+def test_discovery_and_import_agree_on_what_is_covered(conf):
+    """
+    The gap that used to swallow values silently.
+
+    Discovery's index was casefolded while the import lookup was exact, so a
+    field spelled 'package / case' was reported as already covered *and* read
+    as nothing. Whatever one of them considers a match, the other must too.
+    """
+    from invimport.inventree.values import from_supplier
+
+    directory = conf(parameters=PARAMETERS +
+                     "Package:\n  aliases: [Package / Case]\n",
+                     categories=CATEGORIES.replace(
+                         "parameters: [Resistance]",
+                         "parameters: [Resistance, Package]"))
+    categories, parameters = loaded(directory)
+    item = {"category_path": ["Resistors", "Through Hole Resistors"],
+            "parameters": {"package/case": "Axial"}}
+
+    read = from_supplier(item["parameters"], parameters, ["Package"])
+    reported = [d.supplier_name for d in discover([item], categories, parameters)]
+
+    assert read == {"Package": "Axial"}      # the import sees it
+    assert reported == []                     # and discovery agrees it is covered
+
+
 def test_supplier_names_indexes_every_alias(conf):
     _, parameters = loaded(conf())
     assert supplier_names(parameters)["resistance"] == "Resistance"

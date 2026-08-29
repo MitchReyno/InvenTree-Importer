@@ -345,6 +345,32 @@ def build_parse_registry(units: dict[str, UnitConfig] | None = None
     return registry
 
 
+# RKM code (IEC 60062): the multiplier stands in for the decimal point, so a
+# marking survives a photocopier that would lose a '.'. 4k7 is 4.7 kilo, 4R7 is
+# 4.7 with no multiplier, 2M2 is 2.2 mega. Digits are required on both sides,
+# which keeps part numbers like 1N4007 out of it.
+RKM = re.compile(r"^(\d+)\s*([RrKkMGgTtmuµnp])\s*(\d+)$")
+RKM_PREFIX = {"R": "", "r": "", "K": "k", "k": "k", "M": "M", "G": "G",
+              "g": "G", "T": "T", "t": "T", "m": "m", "u": "µ", "µ": "µ",
+              "n": "n", "p": "p"}
+
+
+def expand_rkm(text: str) -> str:
+    """
+    '4k7' -> '4.7k'. Unchanged if it is not RKM code.
+
+    Worth handling because it is what is printed on the part and what people
+    write on a bag. Left alone, '4k7' reads as 4 - the trailing digits are
+    silently dropped, giving a value wrong by three orders of magnitude with
+    nothing to indicate it.
+    """
+    match = RKM.match(str(text or "").strip())
+    if not match:
+        return text
+    whole, letter, fraction = match.groups()
+    return f"{whole}.{fraction}{RKM_PREFIX[letter]}"
+
+
 def parse_quantity(text: str, unit: str = "",
                    registry: pint.UnitRegistry | None = None) -> float | None:
     """
@@ -356,7 +382,7 @@ def parse_quantity(text: str, unit: str = "",
     taken first; conversion is applied only when the remaining unit is a
     safe scale of the target.
     """
-    cleaned = strip_decoration(text)
+    cleaned = expand_rkm(strip_decoration(text))
     if not cleaned:
         return None
 
@@ -445,14 +471,25 @@ def parse_metric(text: str, unit: str = "",
 
 
 def split_range(text: str) -> tuple[str, str] | None:
-    """'-55°C ~ 155°C' -> ('-55°C', '155°C')."""
+    """
+    '-55°C ~ 155°C' -> ('-55°C', '155°C'); prose stays prose.
+
+    Both halves must start with a number. Without that check the ' to '
+    separator turns any phrase containing the word into a range - a
+    connector's 'Board to Board' splits into ('Board', 'Board') and gets
+    offered as a two-parameter measurement, and a parameter configured that
+    way then silently stores nothing.
+    """
     cleaned = strip_decoration(text)
     if not cleaned:
         return None
     parts = RANGE_SPLIT.split(cleaned)
     if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
         return None
-    return parts[0].strip(), parts[1].strip()
+    low, high = parts[0].strip(), parts[1].strip()
+    if split_magnitude(low)[0] is None or split_magnitude(high)[0] is None:
+        return None
+    return low, high
 
 
 def parse_range_low(text: str, unit: str = "",
@@ -561,12 +598,59 @@ def read_value(text: str, parameter: ParameterConfig,
     return raw
 
 
+def same_dimension(text: str, unit: str,
+                   registry: pint.UnitRegistry | None = None) -> bool:
+    """
+    Does this value carry a unit measuring the same thing as `unit`?
+
+    Stricter than "does it parse": parse_quantity deliberately falls back to
+    the bare number when the trailing unit will not convert, so by that test
+    '0.25 W' is a valid voltage. Comparing dimensionality is what makes a
+    value usable as evidence of which parameter was meant.
+    """
+    if not unit:
+        return False
+    registry = registry or build_parse_registry()
+    magnitude, given = split_magnitude(expand_rkm(strip_decoration(str(text))))
+    if magnitude is None or not given.strip():
+        return False
+    try:
+        return (registry.Unit(given.strip()).dimensionality
+                == registry.Unit(unit).dimensionality)
+    except Exception:
+        return False
+
+
+def fold_supplier_name(name: str) -> str:
+    """
+    The form two spellings of one supplier field have in common.
+
+    Case and whitespace only: 'Package / Case', 'Package/Case' and
+    'package / case' are the same field. DigiKey is consistent enough not to
+    need this, but a file written by hand or by an agent is not, and a
+    parameter that silently stores nothing is the worst way to find out.
+    """
+    return re.sub(r"\s+", "", str(name or "")).casefold()
+
+
 def supplier_text(supplier: dict[str, str],
                   parameter: ParameterConfig) -> str | None:
-    """The first supplier field this parameter recognises, or None."""
+    """
+    The first supplier field this parameter recognises, or None.
+
+    Exact matches are tried first, in the order supplier_names() gives them,
+    so a product carrying two of a parameter's aliases resolves to whichever
+    the config lists first. Only then is the folded comparison tried.
+    """
     for name in parameter.supplier_names():
         if name in supplier:
             return supplier[name]
+
+    folded = {fold_supplier_name(key): value for key, value in supplier.items()}
+    for name in parameter.supplier_names():
+        match = folded.get(fold_supplier_name(name))
+        if match is not None:
+            return match
     return None
 
 

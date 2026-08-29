@@ -662,3 +662,98 @@ def test_discover_can_be_limited_to_one_category(discover_config, workspace,
     assert main(["discover", "--config", str(directory),
                  "--cache-dir", str(products), "--category", "Nowhere"]) == 0
     assert "Nothing unmapped" in capsys.readouterr().out
+
+
+# --------------------------------------------------------------------------
+# import-stock
+# --------------------------------------------------------------------------
+def _stock_config(tmp_path):
+    (tmp_path / "units.yaml").write_text("")
+    (tmp_path / "manufacturers.yaml").write_text("")
+    (tmp_path / "parameters.yaml").write_text(
+        "Resistance:\n  units: ohm\n  parse: quantity\n")
+    (tmp_path / "categories.yaml").write_text(
+        "Resistors:\n"
+        "  ipn_prefix: RES\n"
+        "  identity: spec\n"
+        "  key_parameters: [Resistance]\n"
+        "  parameters: [Resistance]\n"
+        "  Through Hole Resistors: {}\n")
+    return tmp_path
+
+
+def _stock_file(tmp_path, lines, name="stock.json"):
+    path = tmp_path / name
+    path.write_text(json.dumps({"lines": lines}))
+    return path
+
+
+def test_import_stock_schema_is_valid_json(capsys):
+    assert main(["import-stock", "--schema"]) == 0
+    schema = json.loads(capsys.readouterr().out)
+    assert schema["properties"]["lines"]["items"]["required"] == [
+        "id", "quantity", "category"]
+
+
+def test_import_stock_vocabulary_lists_the_real_config(capsys, tmp_path):
+    """An agent cannot guess these names, so they are generated, not written."""
+    directory = _stock_config(tmp_path)
+    assert main(["import-stock", "--config", str(directory), "--vocabulary"]) == 0
+    vocabulary = json.loads(capsys.readouterr().out)
+    paths = [c["path"] for c in vocabulary["categories"]]
+    assert "Resistors/Through Hole Resistors" in paths
+    assert "Resistors" not in paths           # structural: cannot hold parts
+    assert any(p["name"] == "Resistance" and p["units"] == "ohm"
+               for p in vocabulary["parameters"])
+
+
+def test_import_stock_reports_a_readable_file(capsys, tmp_path):
+    directory = _stock_config(tmp_path)
+    path = _stock_file(tmp_path, [
+        {"id": "a", "quantity": 25,
+         "category": "Resistors/Through Hole Resistors",
+         "parameters": {"Resistance": "1 kohm"}}])
+    assert main(["import-stock", "--config", str(directory), str(path)]) == 0
+    out = capsys.readouterr().out
+    assert "1 line(s), 0 error(s)" in out
+    assert "Resistance=1 kΩ" in out
+
+
+def test_import_stock_validate_emits_machine_readable_errors(capsys, tmp_path):
+    directory = _stock_config(tmp_path)
+    path = _stock_file(tmp_path, [
+        {"id": "a", "quantity": 1, "category": "Resistors/SMD"}])
+
+    assert main(["import-stock", "--config", str(directory),
+                 "--validate", str(path)]) == 1
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    error = payload["files"][0]["by_line"][0]["errors"][0]
+    assert error["field"] == "category"
+    assert error["did_you_mean"]
+
+
+def test_import_stock_reports_an_unreadable_file(capsys, tmp_path):
+    directory = _stock_config(tmp_path)
+    path = tmp_path / "broken.json"
+    path.write_text("{not json")
+    assert main(["import-stock", "--config", str(directory), str(path)]) == 1
+    assert "could not be read" in capsys.readouterr().err
+
+
+def test_import_stock_needs_a_file(capsys):
+    assert main(["import-stock"]) == 2
+    assert "name a file" in capsys.readouterr().err
+
+
+def test_import_stock_write_says_it_is_not_built_yet(capsys, tmp_path):
+    """Better a clear refusal than silently reporting and writing nothing."""
+    directory = _stock_config(tmp_path)
+    path = _stock_file(tmp_path, [{"id": "a", "quantity": 1,
+                                   "category": "Resistors/Through Hole Resistors",
+                                   "parameters": {"Resistance": "1 ohm"}}])
+    assert main(["import-stock", "--config", str(directory),
+                 "--write", str(path)]) == 2
+    assert "not implemented yet" in capsys.readouterr().err
+

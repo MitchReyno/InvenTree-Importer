@@ -441,6 +441,243 @@ def cache_product_images(product: dict[str, Any], cache_dir: Path,
 
 
 # --------------------------------------------------------------------------
+# The supplier-agnostic core
+#
+# A Part, its ManufacturerPart and their parameters are the same records
+# whether the row came from a DigiKey payload or a file someone typed. What
+# differs is only what the caller is willing to require: DigiKey always knows
+# the MPN and the manufacturer, a hand-written list often knows neither.
+#
+# So the shape below carries the facts, PartPolicy carries the demands, and
+# import_sku() is left as the DigiKey-specific part - the SKU, the supplier
+# part and the images.
+# --------------------------------------------------------------------------
+@dataclass
+class PartLine:
+    """One part to find-or-create, described without reference to a supplier."""
+    category_path: list[str] | str = ""      # supplier path, matched by alias
+    mpn: str = ""
+    manufacturer: str = ""
+    description: str = ""
+    parameters: dict[str, str] = field(default_factory=dict)
+    link: str = ""                           # product page
+    datasheet: str = ""
+
+    @classmethod
+    def from_product(cls, product: dict[str, Any]) -> "PartLine":
+        """The normalised row fetch_products() returns."""
+        return cls(
+            category_path=product.get("category_path") or [],
+            mpn=str(product.get("manufacturer_part") or "").strip(),
+            manufacturer=str(product.get("manufacturer_name") or ""),
+            description=str(product.get("description") or ""),
+            parameters=product.get("parameters") or {},
+            link=str(product.get("link") or ""),
+            datasheet=str(product.get("datasheet") or ""),
+        )
+
+
+@dataclass
+class ImportContext:
+    """Config and server lookups every line resolution needs."""
+    categories: dict[str, CategoryConfig]
+    parameters: dict[str, ParameterConfig]
+    manufacturers: dict[str, ManufacturerConfig]
+    server_categories: dict[str, Any]
+    templates: dict[str, Any]
+    manufacturer_cache: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class PartPolicy:
+    """
+    What a caller insists on before a part may be created.
+
+    The DigiKey path requires both, because a product payload that lacks
+    either is a payload we failed to read. A file may legitimately supply
+    neither - half of real stock has no MPN - so the file importer relaxes
+    them and accepts a part with no ManufacturerPart at all.
+    """
+    require_mpn: bool = True
+    require_manufacturer: bool = True
+    create_manufacturers: bool = False
+    choose_manufacturer: ChooseManufacturer | None = None
+
+
+@dataclass
+class PartResolution:
+    """The outcome of resolving one PartLine. reason set means it did not."""
+    reason: str = ""
+    # The category is reported alongside a failure when one was resolved, so
+    # the caller can say which category a skipped row belonged to.
+    category: CategoryConfig | None = None
+    report_category: bool = False
+    part: Any | None = None
+    manufacturer_part: Any | None = None
+    values: dict[str, str] = field(default_factory=dict)
+    part_values: dict[str, str] = field(default_factory=dict)
+    ipn: str = ""
+    name: str = ""
+    part_parameters: int = 0
+    manufacturer_parameters: int = 0
+
+    @property
+    def ok(self) -> bool:
+        return not self.reason
+
+
+def resolve_category(line: PartLine, ctx: ImportContext) -> PartResolution:
+    """Map a line's supplier category path onto a usable server category."""
+    path = line.category_path or []
+    category = match_path(path, ctx.categories)
+    if category is None:
+        text = path_text(path) or "(no category)"
+        return PartResolution(reason=f"unmapped category {text}")
+
+    if category.structural:
+        return PartResolution(
+            reason=f"category {category.pathstring} is structural",
+            category=category, report_category=True)
+
+    if ctx.server_categories.get(category.pathstring) is None:
+        return PartResolution(
+            reason=f"category {category.pathstring} is not on the server "
+                   f"- run invimport categories --write",
+            category=category, report_category=True)
+
+    return PartResolution(category=category)
+
+
+def resolve_part(
+    api,
+    line: PartLine,
+    ctx: ImportContext,
+    *,
+    write: bool,
+    update_parameters: bool = False,
+    policy: PartPolicy | None = None,
+) -> PartResolution:
+    """
+    Find-or-create the Part and ManufacturerPart one line describes.
+
+    Everything up to, but not including, the supplier part: the category, the
+    part, its parameters, the manufacturer and the manufacturer part. Returns
+    a PartResolution whose `reason` is set when the line could not be used.
+    """
+    policy = policy or PartPolicy()
+
+    found = resolve_category(line, ctx)
+    if not found.ok:
+        return found
+    category = found.category
+    assert category is not None
+    server_cat = ctx.server_categories[category.pathstring]
+
+    def refused(reason: str, *, name_category: bool) -> PartResolution:
+        return PartResolution(reason=reason, category=category,
+                              report_category=name_category)
+
+    if policy.require_mpn and not line.mpn:
+        # Historically reported without the category; kept that way so the
+        # DigiKey path's output does not shift under the refactor.
+        return refused("product has no manufacturer part number",
+                       name_category=False)
+
+    manufacturer = None
+    if line.manufacturer:
+        manufacturer = resolve_manufacturer(
+            api, line.manufacturer, ctx.manufacturers,
+            choose=policy.choose_manufacturer,
+            create=policy.create_manufacturers, write=write,
+            cache=ctx.manufacturer_cache)
+    if manufacturer is None and policy.require_manufacturer:
+        return refused(f"unresolved manufacturer {line.manufacturer!r}",
+                       name_category=True)
+
+    values = from_supplier(line.parameters, ctx.parameters,
+                           category.parameters)
+
+    # Only the parameters that identify a part belong on the part itself.
+    # Everything else - packaging, temperature range, tolerance grade - may
+    # legitimately differ between manufacturers of the same specification, and
+    # pinning one manufacturer's figures to the shared part would make them
+    # look authoritative. Under mpn identity there is one part per MPN, so
+    # there is no variation to keep out and the part carries the lot.
+    if category.identity == "spec" and category.key_parameters:
+        part_values = {name: value for name, value in values.items()
+                       if name in category.key_parameters}
+    else:
+        part_values = values
+
+    if category.identity == "spec":
+        part = find_part_by_spec(api, server_cat.pk, category.key_parameters,
+                                 values, ctx.templates, ctx.parameters)
+    else:
+        part = find_part_by_mpn(api, line.mpn)
+
+    ipn = str(getattr(part, "IPN", "") or "") if part is not None else ""
+    name = str(getattr(part, "name", "") or "") if part is not None else ""
+
+    if part is None:
+        name = part_name(category, line.mpn, values, ctx.parameters)
+        ipn = next_ipn(api, ipn_prefix(category))
+        if write:
+            payload = {
+                "name": name,
+                "description": line.description[:250],
+                "category": server_cat.pk,
+                "IPN": ipn,
+            }
+            link = absolute_url(line.datasheet) or absolute_url(line.link)
+            if link:
+                payload["link"] = link
+            part = Part.create(api, payload)
+            part_written = apply_parameters(api, part.pk, part_values,
+                                            ctx.templates, write=True)
+        else:
+            part = SimpleNamespace(pk=UNRESOLVED_PK, IPN=ipn, name=name)
+            part_written = len({n for n in part_values if n in ctx.templates})
+    elif write and update_parameters:
+        part_written = apply_parameters(api, part.pk, part_values,
+                                        ctx.templates, write=True, update=True)
+    else:
+        part_written = 0
+
+    mfr_part = None
+    # No manufacturer means no ManufacturerPart - nothing is invented to stand
+    # in for one. A part may legitimately have none.
+    if part.pk != UNRESOLVED_PK and manufacturer is not None and line.mpn:
+        existing = ManufacturerPart.list(api, part=part.pk, MPN=line.mpn,
+                                         limit=LIST_LIMIT)
+        mfr_part = existing[0] if existing else None
+        if mfr_part is None and write:
+            payload = {
+                "part": part.pk,
+                "manufacturer": manufacturer.pk,
+                "MPN": line.mpn,
+            }
+            datasheet = absolute_url(line.datasheet)
+            if datasheet:
+                payload["link"] = datasheet
+            if line.description:
+                payload["description"] = line.description[:250]
+            mfr_part = ManufacturerPart.create(api, payload)
+
+    # The manufacturer part is one manufacturer's realisation of the spec, so
+    # it carries every parameter, including the ones kept off the part.
+    mfr_written = apply_parameters(
+        api, getattr(mfr_part, "pk", None), values, ctx.templates,
+        write=write, update=update_parameters,
+        model_type=MANUFACTURER_PART_MODEL_TYPE)
+
+    return PartResolution(
+        category=category, part=part, manufacturer_part=mfr_part,
+        values=values, part_values=part_values, ipn=ipn, name=name,
+        part_parameters=part_written, manufacturer_parameters=mfr_written,
+    )
+
+
+# --------------------------------------------------------------------------
 # One SKU
 # --------------------------------------------------------------------------
 def _skipped(sku: str, reason: str, product=None, **kw) -> SkuAction:
@@ -478,113 +715,31 @@ def import_sku(
     if product.get("error"):
         return _skipped(sku, product["error"], product)
 
-    path = product.get("category_path") or []
-    category = match_path(path, categories)
-    if category is None:
-        text = path_text(path) or "(no category)"
-        return _skipped(sku, f"unmapped category {text}", product)
+    ctx = ImportContext(
+        categories=categories, parameters=parameters,
+        manufacturers=manufacturers, server_categories=server_categories,
+        templates=templates, manufacturer_cache=manufacturer_cache)
 
-    if category.structural:
-        return _skipped(sku, f"category {category.pathstring} is structural",
-                        product, category=category.pathstring)
+    # DigiKey always states both, so a payload missing either is one we failed
+    # to read rather than a part that genuinely has none.
+    resolved = resolve_part(
+        api, PartLine.from_product(product), ctx,
+        write=write, update_parameters=update_parameters,
+        policy=PartPolicy(require_mpn=True, require_manufacturer=True,
+                          create_manufacturers=create_manufacturers,
+                          choose_manufacturer=choose_manufacturer))
 
-    server_cat = server_categories.get(category.pathstring)
-    if server_cat is None:
-        return _skipped(
-            sku,
-            f"category {category.pathstring} is not on the server "
-            f"- run invimport categories --write",
-            product, category=category.pathstring)
+    if not resolved.ok:
+        extra = ({"category": resolved.category.pathstring}
+                 if resolved.report_category and resolved.category else {})
+        return _skipped(sku, resolved.reason, product, **extra)
 
-    mpn = str(product.get("manufacturer_part") or "").strip()
-    if not mpn:
-        return _skipped(sku, "product has no manufacturer part number", product)
-
-    manufacturer = resolve_manufacturer(
-        api, str(product.get("manufacturer_name") or ""),
-        manufacturers, choose=choose_manufacturer,
-        create=create_manufacturers, write=write, cache=manufacturer_cache)
-    if manufacturer is None:
-        return _skipped(
-            sku,
-            f"unresolved manufacturer "
-            f"{product.get('manufacturer_name')!r}",
-            product, category=category.pathstring)
-
-    values = from_supplier(product.get("parameters") or {}, parameters,
-                           category.parameters)
-
-    # Only the parameters that identify a part belong on the part itself.
-    # Everything else - packaging, temperature range, tolerance grade - may
-    # legitimately differ between manufacturers of the same specification, and
-    # pinning one manufacturer's figures to the shared part would make them
-    # look authoritative. Under mpn identity there is one part per MPN, so
-    # there is no variation to keep out and the part carries the lot.
-    if category.identity == "spec" and category.key_parameters:
-        part_values = {name: value for name, value in values.items()
-                       if name in category.key_parameters}
-    else:
-        part_values = values
-
-    if category.identity == "spec":
-        part = find_part_by_spec(api, server_cat.pk, category.key_parameters,
-                                 values, templates, parameters)
-    else:
-        part = find_part_by_mpn(api, mpn)
-
-    ipn = str(getattr(part, "IPN", "") or "") if part is not None else ""
-    name = str(getattr(part, "name", "") or "") if part is not None else ""
-
-    if part is None:
-        name = part_name(category, mpn, values, parameters)
-        ipn = next_ipn(api, ipn_prefix(category))
-        if write:
-            payload = {
-                "name": name,
-                "description": str(product.get("description") or "")[:250],
-                "category": server_cat.pk,
-                "IPN": ipn,
-            }
-            link = (absolute_url(product.get("datasheet"))
-                    or absolute_url(product.get("link")))
-            if link:
-                payload["link"] = link
-            part = Part.create(api, payload)
-            part_written = apply_parameters(api, part.pk, part_values,
-                                            templates, write=True)
-        else:
-            part = SimpleNamespace(pk=UNRESOLVED_PK, IPN=ipn, name=name)
-            part_written = len({n for n in part_values if n in templates})
-    elif write and update_parameters:
-        part_written = apply_parameters(api, part.pk, part_values, templates,
-                                        write=True, update=True)
-    else:
-        part_written = 0
-
-    mfr_part = None
-    if part.pk != UNRESOLVED_PK:
-        found = ManufacturerPart.list(api, part=part.pk, MPN=mpn,
-                                      limit=LIST_LIMIT)
-        mfr_part = found[0] if found else None
-        if mfr_part is None and write:
-            payload = {
-                "part": part.pk,
-                "manufacturer": manufacturer.pk,
-                "MPN": mpn,
-            }
-            datasheet = absolute_url(product.get("datasheet"))
-            if datasheet:
-                payload["link"] = datasheet
-            if product.get("description"):
-                payload["description"] = str(product["description"])[:250]
-            mfr_part = ManufacturerPart.create(api, payload)
-
-    # The manufacturer part is one manufacturer's realisation of the spec, so
-    # it carries every parameter, including the ones kept off the part.
-    mfr_written = apply_parameters(
-        api, getattr(mfr_part, "pk", None), values, templates,
-        write=write, update=update_parameters,
-        model_type=MANUFACTURER_PART_MODEL_TYPE)
+    category = resolved.category
+    assert category is not None
+    part, mfr_part = resolved.part, resolved.manufacturer_part
+    values, ipn, name = resolved.values, resolved.ipn, resolved.name
+    part_written = resolved.part_parameters
+    mfr_written = resolved.manufacturer_parameters
 
     supplier_part = None
     if write and part.pk != UNRESOLVED_PK:

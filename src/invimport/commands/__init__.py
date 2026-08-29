@@ -15,6 +15,7 @@ from . import (
     categories,
     discover,
     import_orders,
+    import_stock,
     orders,
     parameters,
     product,
@@ -23,4 +24,4 @@ from . import (
 
 # Registration order is the order shown in --help.
 COMMANDS = [product, orders, import_orders, parameters, categories,
-            discover, supplier_parts]
+            discover, supplier_parts, import_stock]

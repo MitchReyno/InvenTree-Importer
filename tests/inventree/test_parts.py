@@ -9,10 +9,14 @@ from invimport.config import (
 from invimport.inventree.api import connect
 from invimport.inventree.parts import (
     UNRESOLVED_PK,
+    ImportContext,
+    PartLine,
+    PartPolicy,
     fill_name,
     import_supplier_parts,
     ipn_prefix,
     next_ipn,
+    resolve_part,
 )
 from invimport.inventree.values import compact_for_name
 
@@ -89,6 +93,106 @@ def seed_resistors(inventree):
     inventree.templates.append({"pk": 22, "name": "Tolerance", "units": "%"})
     inventree.templates.append({"pk": 23, "name": "Package", "units": ""})
     inventree.add_company("DigiKey", pk=1, is_supplier=True)
+
+
+def context(api, directory):
+    """The lookups resolve_part() needs, assembled as the importer does."""
+    from invimport.config import (
+        load_categories_config,
+        load_manufacturers_config,
+        load_parameters_config,
+    )
+    from invimport.inventree.api import PartCategory, ParameterTemplate
+
+    return ImportContext(
+        categories=load_categories_config(directory),
+        parameters=load_parameters_config(directory),
+        manufacturers=load_manufacturers_config(directory),
+        server_categories={c.pathstring: c
+                           for c in PartCategory.list(api, limit=1000)
+                           if getattr(c, "pathstring", None)},
+        templates={t.name: t for t in ParameterTemplate.list(api, limit=1000)},
+    )
+
+
+# --------------------------------------------------------------------------
+# The supplier-agnostic core
+#
+# import_sku() is one caller of this; the file importer will be another. These
+# cover the seam itself - what the core does when a caller relaxes what the
+# DigiKey path insists on.
+# --------------------------------------------------------------------------
+def test_part_line_reads_a_normalised_product():
+    line = PartLine.from_product(IC_PRODUCT)
+    assert line.mpn == "NE555P"
+    assert line.manufacturer == "Texas Instruments"
+    assert line.category_path == ["Integrated Circuits (ICs)", "Clock/Timing"]
+    assert line.parameters["Package / Case"] == "8-DIP"
+
+
+def test_a_line_with_no_mpn_is_refused_by_default(inventree, tmp_path):
+    """The DigiKey path's contract: a payload without an MPN is unreadable."""
+    seed_resistors(inventree)
+    api = connect()
+    line = PartLine.from_product({**RESISTOR_PRODUCT, "manufacturer_part": ""})
+
+    resolved = resolve_part(api, line, context(api, config_dir(tmp_path, RESISTORS)),
+                            write=False)
+
+    assert not resolved.ok
+    assert "manufacturer part number" in resolved.reason
+
+
+def test_a_relaxed_policy_creates_a_part_with_no_manufacturer_part(
+        inventree, tmp_path):
+    """
+    Half of real stock has no MPN and no manufacturer. Under `spec` identity
+    the key parameters are the identity, so such a part is fully specified -
+    and it gets no ManufacturerPart rather than a placeholder one.
+    """
+    seed_resistors(inventree)
+    api = connect()
+    line = PartLine.from_product({**RESISTOR_PRODUCT, "manufacturer_part": "",
+                                  "manufacturer_name": ""})
+
+    resolved = resolve_part(
+        api, line, context(api, config_dir(tmp_path, RESISTORS)), write=True,
+        policy=PartPolicy(require_mpn=False, require_manufacturer=False))
+
+    assert resolved.ok, resolved.reason
+    assert resolved.ipn == "RES-00001"
+    assert resolved.manufacturer_part is None
+    assert inventree.manufacturer_parts == []
+    assert inventree.part_rows[-1]["IPN"] == "RES-00001"
+
+
+def test_a_relaxed_policy_still_uses_a_manufacturer_when_there_is_one(
+        inventree, tmp_path):
+    """Relaxing the requirement must not mean ignoring the data."""
+    seed_resistors(inventree)
+    api = connect()
+
+    resolved = resolve_part(
+        api, PartLine.from_product(RESISTOR_PRODUCT),
+        context(api, config_dir(tmp_path, RESISTORS)), write=True,
+        policy=PartPolicy(require_mpn=False, require_manufacturer=False,
+                          create_manufacturers=True))
+
+    assert resolved.manufacturer_part is not None
+    assert inventree.manufacturer_parts[0]["MPN"] == "MFR25SFBE52-100K"
+
+
+def test_a_relaxed_policy_reports_an_unmapped_category(inventree, tmp_path):
+    seed_resistors(inventree)
+    api = connect()
+    line = PartLine(category_path=["Nowhere", "At All"])
+
+    resolved = resolve_part(
+        api, line, context(api, config_dir(tmp_path, RESISTORS)), write=False,
+        policy=PartPolicy(require_mpn=False, require_manufacturer=False))
+
+    assert not resolved.ok
+    assert "unmapped category" in resolved.reason
 
 
 # --------------------------------------------------------------------------
