@@ -56,6 +56,15 @@ except ImportError:
 # the library expects (company/, company/part/, order/po/, order/po-line/,
 # stock/, stock/location/), so they are re-exported above unchanged.
 PART_MODEL_TYPE = "part.part"
+MANUFACTURER_PART_MODEL_TYPE = "company.manufacturerpart"
+SUPPLIER_PART_MODEL_TYPE = "company.supplierpart"
+
+# A parameter template with a blank model_type applies to every model, which is
+# what lets one "Package" template carry a value on a Part, a ManufacturerPart
+# and a SupplierPart at once. InvenTree spells this as (None, 'All models') in
+# common/validators.py, and its own template filter documents that "templates
+# with a blank 'model_type' are considered to apply to all models".
+ANY_MODEL_TYPE = ""
 
 
 class Parameter(_Parameter):

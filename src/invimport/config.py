@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -41,15 +42,21 @@ MANUFACTURERS_FILE = "manufacturers.yaml"
 # Keys a category may carry that describe the category itself rather than a
 # child category. Everything else at that level is a subcategory.
 CATEGORY_KEYS = {"identity", "key_parameters", "name", "parameters", "aliases",
-                 "description", "structural"}
+                 "description", "structural", "ignore", "ipn_prefix"}
 
 IDENTITY_MODES = ("spec", "mpn")
+
+# An IPN prefix is a short mnemonic that reads at a glance on a label or in a
+# BOM: RES-00042, IC-00117. Letters and digits only, so it cannot collide with
+# the '-' separating it from the sequence number.
+IPN_PREFIX_PATTERN = re.compile(r"^[A-Z0-9]{1,10}$")
 
 # How a supplier value is read. Named in parameters.yaml as `parse:`; the
 # functions live in inventree/values.py. An empty parse means the text is
 # used as-is (after the values: map and a choices check).
 PARSE_KINDS = frozenset({
     "quantity", "percent", "quantity_first", "range_low", "range_high",
+    "metric",
 })
 
 
@@ -111,12 +118,19 @@ class CategoryConfig:
     name: str
     path: list[str]
     identity: str = "mpn"
+    # Prefix for generated IPNs, inherited by subcategories. Usually set on a
+    # top-level category, but a subcategory that deserves its own numbering
+    # overrides it - Potentiometers is POT, its Trimpots child is TRM.
+    ipn_prefix: str = ""
     key_parameters: list[str] = field(default_factory=list)
     name_template: str = ""
     parameters: list[str] = field(default_factory=list)
     aliases: list[str] = field(default_factory=list)
     description: str = ""
     structural: bool = False
+    # Supplier parameter names deliberately not imported for this category.
+    # Recorded so discovery does not offer the same one twice.
+    ignore: list[str] = field(default_factory=list)
 
     @property
     def pathstring(self) -> str:
@@ -240,9 +254,9 @@ def parse_categories(data: dict[str, Any], path: Path
     """
     Walk the category tree depth-first.
 
-    identity, key_parameters and the name template are inherited by children;
-    parameters are inherited and *extended*, so a subcategory adds to its
-    parent's set rather than restating it.
+    identity, ipn_prefix, key_parameters and the name template are inherited
+    by children; parameters are inherited and *extended*, so a subcategory adds
+    to its parent's set rather than restating it.
     """
     categories: dict[str, CategoryConfig] = {}
 
@@ -264,6 +278,13 @@ def parse_categories(data: dict[str, Any], path: Path
                     f"{path.name}: category {'/'.join(here)} has identity "
                     f"{identity!r}, expected one of {IDENTITY_MODES}")
 
+            prefix = str(body.get("ipn_prefix")
+                         or (inherited.ipn_prefix if inherited else "")).strip()
+            if prefix and not IPN_PREFIX_PATTERN.match(prefix.upper()):
+                raise ConfigError(
+                    f"{path.name}: category {'/'.join(here)} has ipn_prefix "
+                    f"{prefix!r}, expected 1-10 letters or digits")
+
             own = as_list(body.get("parameters"), path, f"{key} parameters")
             inherited_params = list(inherited.parameters) if inherited else []
             merged = inherited_params + [p for p in own
@@ -273,6 +294,7 @@ def parse_categories(data: dict[str, Any], path: Path
                 name=str(key),
                 path=here,
                 identity=identity,
+                ipn_prefix=prefix.upper(),
                 key_parameters=as_list(body.get("key_parameters"), path,
                                        f"{key} key_parameters")
                 or (list(inherited.key_parameters) if inherited else []),
@@ -286,6 +308,12 @@ def parse_categories(data: dict[str, Any], path: Path
                 # the file says otherwise. A leaf holds parts.
                 structural=bool(body["structural"]) if "structural" in body
                 else any(child not in CATEGORY_KEYS for child in body),
+                # Inherited, so ignoring a supplier parameter for a parent
+                # covers its children too.
+                ignore=(list(inherited.ignore) if inherited else [])
+                + [name for name in as_list(body.get("ignore"), path,
+                                            f"{key} ignore")
+                   if not inherited or name not in inherited.ignore],
             )
 
             if config.pathstring in categories:
@@ -435,17 +463,26 @@ def _body_end(lines: list[str], key_index: int) -> int:
 
 
 def add_alias(path: Path, keys: list[str], alias: str) -> bool:
+    """Add `alias` to the aliases list of the mapping at `keys`."""
+    return add_list_item(path, keys, "aliases", alias)
+
+
+def add_list_item(path: Path, keys: list[str], list_key: str,
+                  value: str) -> bool:
     """
-    Add `alias` to the aliases list of the mapping at `keys`.
+    Add `value` to the `list_key` list of the mapping at `keys`.
 
     Walks the file by indentation so comments and ordering survive. Creates
-    the aliases list if the node has none. A missing top-level key (a new
-    manufacturer) is appended as a new block; a missing nested key is an
-    error, because that would invent a category. Returns True if the file
-    changed.
+    the list if the node has none. A missing top-level key is appended as a
+    new block when adding an alias (a new manufacturer); a missing nested key
+    is an error, because that would invent a category. Returns True if the
+    file changed.
+
+    Used for aliases, and for filing a discovered parameter into a category's
+    parameters, key_parameters or ignore list.
     """
     if not keys:
-        raise ConfigError("add_alias needs a key path")
+        raise ConfigError("add_list_item needs a key path")
 
     text = path.read_text(encoding="utf-8") if path.exists() else ""
     lines = text.splitlines(keepends=True)
@@ -457,11 +494,11 @@ def add_alias(path: Path, keys: list[str], alias: str) -> bool:
     for key in keys:
         key_index = _find_key(lines, start, end, key, indent)
         if key_index is None:
-            if len(keys) == 1 and indent == 0:
-                return _append_alias_block(path, lines, keys[0], alias)
+            if len(keys) == 1 and indent == 0 and list_key == "aliases":
+                return _append_alias_block(path, lines, keys[0], value)
             raise ConfigError(
-                f"{path.name}: cannot add an alias under {'/'.join(keys)} - "
-                f"that entry does not exist")
+                f"{path.name}: cannot add to {list_key} under "
+                f"{'/'.join(keys)} - that entry does not exist")
         start = key_index + 1
         end = _body_end(lines, key_index)
         indent += 2
@@ -470,12 +507,25 @@ def add_alias(path: Path, keys: list[str], alias: str) -> bool:
     _as_block_mapping(lines, key_index)
     end = _body_end(lines, key_index)
     aliases_indent = _indent_of(lines[key_index]) + 2
-    aliases_at = _find_key(lines, key_index + 1, end, "aliases", aliases_indent)
+    aliases_at = _find_key(lines, key_index + 1, end, list_key, aliases_indent)
 
-    item = f"{' ' * (aliases_indent + 2)}- {alias}\n"
+    item = f"{' ' * (aliases_indent + 2)}- {format_yaml_key(value)}\n"
     if aliases_at is None:
-        insertion = f"{' ' * aliases_indent}aliases:\n{item}"
+        insertion = f"{' ' * aliases_indent}{list_key}:\n{item}"
         lines.insert(key_index + 1, insertion)
+        path.write_text("".join(lines), encoding="utf-8")
+        return True
+
+    # A flow sequence - `parameters: [Resistance]` - cannot take a block item
+    # underneath it; that is invalid YAML. Extend it in place instead, which
+    # also keeps the author's chosen style.
+    flow = _flow_items(lines[aliases_at])
+    if flow is not None:
+        if value in flow:
+            return False
+        rendered = ", ".join([*flow, format_yaml_key(value)])
+        head = lines[aliases_at].split(":", 1)[0]
+        lines[aliases_at] = f"{head}: [{rendered}]\n"
         path.write_text("".join(lines), encoding="utf-8")
         return True
 
@@ -483,7 +533,7 @@ def add_alias(path: Path, keys: list[str], alias: str) -> bool:
     for index in range(aliases_at + 1, aliases_end):
         if lines[index].lstrip().startswith("- "):
             existing = lines[index].lstrip()[2:].strip()
-            if existing == alias or existing.strip("\"'") == alias:
+            if existing == value or existing.strip("\"'") == value:
                 return False
 
     # Insert after the last list item, or right after `aliases:` if empty.
@@ -495,6 +545,25 @@ def add_alias(path: Path, keys: list[str], alias: str) -> bool:
     lines.insert(insert_at, item)
     path.write_text("".join(lines), encoding="utf-8")
     return True
+
+
+def _flow_items(line: str) -> list[str] | None:
+    """
+    The items of a one-line flow sequence, or None if the line is not one.
+
+    `parameters: [Resistance, Tolerance]` -> ['Resistance', 'Tolerance'].
+    Only single-line sequences are handled; a multi-line flow sequence is
+    rare enough in a hand-written config to leave to the block path.
+    """
+    _, _, value = line.partition(":")
+    value = value.strip()
+    if not (value.startswith("[") and value.endswith("]")):
+        return None
+    inner = value[1:-1].strip()
+    if not inner:
+        return []
+    return [item.strip().strip("\"'") for item in inner.split(",")
+            if item.strip()]
 
 
 def _append_block(path: Path, lines: list[str], block: str) -> bool:

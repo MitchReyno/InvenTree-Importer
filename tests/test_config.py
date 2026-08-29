@@ -110,6 +110,44 @@ def test_a_subcategory_inherits_identity(conf):
     assert load_categories_config(conf())["Integrated Circuits/Op-Amps"].identity == "mpn"
 
 
+def test_an_ipn_prefix_is_inherited_by_subcategories(tmp_path):
+    """Set once on the top level, every child numbers under it."""
+    (tmp_path / "categories.yaml").write_text(
+        "Capacitors:\n  ipn_prefix: CAP\n  Film Capacitors: {}\n")
+    cats = load_categories_config(tmp_path)
+    assert cats["Capacitors/Film Capacitors"].ipn_prefix == "CAP"
+
+
+def test_a_subcategory_can_claim_its_own_ipn_prefix(tmp_path):
+    """Trimpots are counted apart from the potentiometers they sit under."""
+    (tmp_path / "categories.yaml").write_text(
+        "Potentiometers:\n  ipn_prefix: POT\n"
+        "  Trimpots:\n    ipn_prefix: TRM\n"
+        "  Rotary Potentiometers: {}\n")
+    cats = load_categories_config(tmp_path)
+    assert cats["Potentiometers/Trimpots"].ipn_prefix == "TRM"
+    assert cats["Potentiometers/Rotary Potentiometers"].ipn_prefix == "POT"
+
+
+def test_an_ipn_prefix_is_upper_cased(tmp_path):
+    (tmp_path / "categories.yaml").write_text("Resistors:\n  ipn_prefix: res\n")
+    assert load_categories_config(tmp_path)["Resistors"].ipn_prefix == "RES"
+
+
+def test_a_category_may_have_no_ipn_prefix(tmp_path):
+    (tmp_path / "categories.yaml").write_text("Resistors: {}\n")
+    assert load_categories_config(tmp_path)["Resistors"].ipn_prefix == ""
+
+
+@pytest.mark.parametrize("prefix", ["RES-1", "R ES", "TOOLONGPREFIX"])
+def test_an_unusable_ipn_prefix_is_rejected(tmp_path, prefix):
+    """A '-' or a space would break the IPN back apart at the wrong place."""
+    (tmp_path / "categories.yaml").write_text(
+        f"Resistors:\n  ipn_prefix: {prefix!r}\n")
+    with pytest.raises(ConfigError, match="ipn_prefix"):
+        load_categories_config(tmp_path)
+
+
 def test_a_subcategory_extends_its_parents_parameters(conf):
     """Inherited and added, not replaced - otherwise every child restates."""
     op_amps = load_categories_config(conf())["Integrated Circuits/Op-Amps"]
@@ -370,9 +408,40 @@ def test_repo_parents_are_structural():
     categories, _ = load_config()
     assert categories["Capacitors"].structural is True
     assert categories["Integrated Circuits/Power Management"].structural is True
-    assert categories["Resistors"].structural is False
+    assert categories["Resistors"].structural is True
+    assert categories["Resistors/Through Hole Resistors"].structural is False
     assert categories["Inductors"].structural is False
     assert categories["Capacitors/Film Capacitors"].structural is False
+
+
+@pytest.mark.skipif(not CONFIG_DIR.exists(), reason="no config/ in the repo")
+@pytest.mark.parametrize("supplier,stored", [
+    ("Radial, Can", "Radial"),
+    ("Radial, Can - SMD", "Radial"),
+    ("Radial, Can - Snap-In", "Radial"),
+    ("Radial", "Radial"),
+    ("Axial", "Axial"),
+])
+def test_a_can_style_reads_as_a_plain_lead_style(supplier, stored):
+    """'Radial, Can - SMD' is a lead style plus a mounting; keep the former."""
+    from invimport.inventree.values import read_value
+
+    _, parameters = load_config()
+    assert read_value(supplier, parameters["Package"]) == stored
+
+
+@pytest.mark.skipif(not CONFIG_DIR.exists(), reason="no config/ in the repo")
+@pytest.mark.parametrize("package", [
+    "DO-204AH, DO-35, Axial",                     # a real diode outline
+    "TO-92-3",
+    "1206 (3216 Metric)",
+])
+def test_a_named_package_outline_survives_untouched(package):
+    """Only the can family is folded - these name a package, not a lead style."""
+    from invimport.inventree.values import read_value
+
+    _, parameters = load_config()
+    assert read_value(package, parameters["Package"]) == package
 
 
 @pytest.mark.skipif(not CONFIG_DIR.exists(), reason="no config/ in the repo")

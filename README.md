@@ -22,6 +22,7 @@ It provides six commands:
 | `parameters`     | Create and update InvenTree parameter templates from `config/parameters.yaml`                                          |
 | `categories`     | Create and update InvenTree part categories from `config/categories.yaml`, and learn DigiKey path aliases              |
 | `supplier-parts` | Create InvenTree parts, manufacturer parts and supplier parts from DigiKey SKUs                                         |
+| `discover`       | Triage supplier parameters a category is receiving but not importing                                                   |
 
 Two design points worth knowing up front:
 
@@ -401,6 +402,77 @@ and written back to `config/manufacturers.yaml`) or you pass
 `name:` template and a meaningless IPN (`R-000001`). `identity: mpn`
 categories use the manufacturer part number as the name (`IC-000001`).
 
+**Where parameter values land.** All three records carry parameters, but not
+the same ones:
+
+| Record | Carries |
+|---|---|
+| `Part` | the category's `key_parameters` only |
+| `ManufacturerPart` | every parameter the category maps |
+| `SupplierPart` | every parameter the category maps |
+
+Only the key parameters identify a part, so only those belong on it. Everything
+else — packaging, temperature range, tolerance grade — may legitimately differ
+between manufacturers of the same specification, and pinning one manufacturer's
+figures to the shared part would make them look authoritative. Under
+`identity: mpn` there is one part per MPN, so there is no variation to keep out
+and the part carries the lot.
+
+This is why parameter templates are created with a **blank `model_type`**:
+InvenTree reads that as "all models", which is what lets one `Package` template
+carry a value on a part, a manufacturer part and a supplier part at once.
+
+### discover
+
+A new category starts with no parameters, and DigiKey sends far more than are
+worth keeping — 264 distinct parameter names across the products in a modest
+cache. This reports what each category is receiving and not importing, then
+asks what to do with each one.
+
+```bash
+# report only
+uv run invimport discover
+
+# decide, and record the answers
+uv run invimport discover --write
+
+# one category at a time
+uv run invimport discover --write --category Resistors
+```
+
+| Flag              | Effect                                                        |
+|-------------------|----------------------------------------------------------------|
+| `--write`         | Ask about each parameter and record the answers                |
+| `--category NAME` | Only this category, by full path or leaf name                  |
+| `--limit N`       | Stop after N parameters                                        |
+| `--sku SKU`       | Fetch these SKUs instead of reading the product cache          |
+
+Products come from the DigiKey product cache by default, so a report costs no
+API calls.
+
+Each parameter offers four answers, chosen with the arrow keys:
+
+```
+Resistors
+  Composition  (on 38 products)
+  values: Metal Film, Carbon Film, Wirewound
+  looks like: 3 choices
+  > key parameter    identifies the part - changes how parts are matched
+    parameter        recorded on the part, not identifying
+    ignore           never import this one for this category
+    skip             leave undecided, ask again next time
+```
+
+Answers are written straight to `config/parameters.yaml` and
+`config/categories.yaml`, so nothing is asked twice — including `ignore`, which
+is recorded per category and inherited by subcategories. Units, parse mode and
+choices are **suggested** from the observed values (`300 V` → `units: V`,
+`±1%` → `parse: percent`), never applied on their own: filing a key parameter
+changes what makes two parts the same part.
+
+A value like `-55°C ~ 155°C` is flagged as a range, which needs two parameters
+(a min and a max). Filing it records the low end; add the high one by hand.
+
 ### Global flags
 
 | Flag              | Effect                                              |
@@ -515,6 +587,7 @@ src/
             categories.py     part categories, from config/categories.yaml
             parts.py          find-or-create Part, ManufacturerPart, SupplierPart
             purchase_orders.py  suppliers and DigiKey order import
+            discovery.py      unmapped supplier parameters, and filing them
         commands/             thin CLI adapters over the above
             _keys.py          raw-mode key reading for the interactive prompts
             _prompt.py        checklist and menu prompts

@@ -16,6 +16,8 @@ from invimport.inventree.purchase_orders import (
     next_reference,
     supplier_parts_by_sku,
 )
+from invimport.inventree.parts import import_supplier_parts
+from tests.inventree.test_parts import IC, IC_PRODUCT, config_dir, seed_ic
 from tests.support import ORDER_PAYLOAD
 
 # The shape fetch_orders() returns, which is what import_orders() consumes.
@@ -344,6 +346,28 @@ def test_existing_order_without_stock_is_filled_in(api, inventree, order):
     assert inventree.stock_items[0]["purchase_order"] == 50
     assert inventree.stock_items[0]["quantity"] == 10
     assert inventree.line_items[0]["received"] == 10
+
+
+def test_stock_received_is_what_was_ordered(inventree, tmp_path, order):
+    """
+    Ten ordered has to arrive as ten in stock, whatever the reel size is.
+
+    End to end over the pair that broke: the supplier part comes from the part
+    importer and the order is received against it. InvenTree stores
+    quantity x pack_quantity, so a supplier part carrying DigiKey's 2500-piece
+    StandardPackage as its pack turned an order for 10 into 25000 in stock.
+    """
+    seed_ic(inventree)
+    api = connect()
+    import_supplier_parts(
+        ["296-1411-1-ND"], api, write=True, directory=config_dir(tmp_path, IC),
+        products={"296-1411-1-ND": IC_PRODUCT}, fetch=False,
+        create_manufacturers=True)
+
+    result = import_orders([order], api, supplier=1, write=True)
+
+    assert result.counts()["stock"] == 1
+    assert inventree.stock_items[0]["quantity"] == 10
 
 
 def test_no_location_skips_stock_but_still_books_the_order(api, inventree, order):

@@ -171,6 +171,11 @@ class Formatter:
         """Would SI-prefixing this unit help, or just compound two scales?"""
         if unit in self.custom:
             return False
+        if "/" in unit:
+            # A rate reads best in the units it was written in. Compacting
+            # only moves the prefix across the divide: an op-amp's 13 V/µs
+            # becomes 13 MV/s, which is the same number and nobody's idiom.
+            return False
         try:
             constituents = set(self.registry.Unit(unit)._units)
         except Exception:
@@ -407,6 +412,38 @@ def parse_quantity_first(text: str, unit: str = "",
     return parse_quantity(first, unit, registry)
 
 
+# The parenthesised metric equivalent DigiKey appends to an imperial
+# dimension: 0.197" Dia (5.00mm). Requires a number and a length unit, so
+# measurement-point notes like (TA) and (Max) never match.
+PARENS_GROUP = re.compile(r"\(([^()]*)\)")
+METRIC_LENGTH = re.compile(r"[\d.]+\s*(?:nm|µm|um|mm|cm|m)\b", re.IGNORECASE)
+
+
+def parse_metric(text: str, unit: str = "",
+                 registry: pint.UnitRegistry | None = None) -> float | None:
+    """
+    '0.197" Dia (5.00mm)' -> 5.0 - the metric value, not the imperial one.
+
+    DigiKey states a dimension imperial-first with the metric equivalent in
+    parentheses, which is exactly what strip_decoration() throws away. Taking
+    the number off the front instead reads 0.197 as though it were already in
+    the target unit, storing 197 µm for a 5 mm can - wrong by 25.4x, and
+    silently so.
+
+    A value naming two dimensions at once ('0.094" Dia x 0.248" L (2.40mm x
+    6.30mm)', a resistor body) is not one measurement, so it returns None
+    rather than picking a side.
+    """
+    groups = PARENS_GROUP.findall(text or "")
+    metric = [g for g in groups if METRIC_LENGTH.search(g)]
+    if not metric:
+        return None
+    inner = metric[-1].strip()
+    if re.search(r"\bx\b", inner, re.IGNORECASE):
+        return None                              # two dimensions, not one
+    return parse_quantity(inner, unit, registry)
+
+
 def split_range(text: str) -> tuple[str, str] | None:
     """'-55°C ~ 155°C' -> ('-55°C', '155°C')."""
     cleaned = strip_decoration(text)
@@ -440,6 +477,7 @@ PARSERS = {
     "quantity_first": parse_quantity_first,
     "range_low": parse_range_low,
     "range_high": parse_range_high,
+    "metric": parse_metric,
 }
 
 

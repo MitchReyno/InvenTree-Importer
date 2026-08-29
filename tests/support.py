@@ -60,7 +60,9 @@ PRODUCT_PAYLOAD: dict[str, Any] = {
                 "DigiKeyProductNumber": "296-1411-1-ND",
                 "PackageType": {"Name": "Cut Tape"},
                 "MinimumOrderQuantity": 1,
-                "StandardPackage": 1,
+                # The manufacturer's reel size. You still buy these one at a
+                # time - see test_a_reel_size_is_not_a_pack_quantity.
+                "StandardPackage": 2500,
                 "StandardPricing": [
                     {"BreakQuantity": 10, "UnitPrice": 0.71},
                     {"BreakQuantity": 1, "UnitPrice": 0.82},
@@ -495,10 +497,15 @@ class InvenTreeStub:
                         sp_pk = item.get("supplier_part") or (line or {}).get("part")
                         sp = next((p for p in stub.supplier_parts
                                    if p["pk"] == sp_pk), None)
+                        # InvenTree receives in supplier units and stores base
+                        # units: SupplierPart.base_quantity() scales by the
+                        # pack. Mirrored here so a wrong pack shows up as wrong
+                        # stock, which is how it shows up in a real instance.
+                        pack = float((sp or {}).get("pack_quantity") or 1)
                         stock = {
                             "pk": stub._next_pk,
                             "part": (sp or {}).get("part"),
-                            "quantity": qty,
+                            "quantity": float(qty) * pack,
                             "purchase_order": po_pk,
                             "supplier_part": sp_pk,
                             "status": item.get("status", 10),

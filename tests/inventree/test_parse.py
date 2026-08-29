@@ -11,6 +11,7 @@ from invimport.inventree.values import (
     parse,
     parse_percent,
     parse_quantity,
+    parse_metric,
     parse_quantity_first,
     parse_range_high,
     parse_range_low,
@@ -127,6 +128,51 @@ def test_quantity_first_takes_the_decimal_form(text, expected):
         assert got is None
     else:
         assert got == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("text,expected", [
+    ('0.197" Dia (5.00mm)', 5.0),
+    ('0.512" (13.00mm)', 13.0),
+    ('0.079" (2.00mm)', 2.0),
+    ('0.846" (21.50mm)', 21.5),
+    ('0.248" Dia (6.30mm)', 6.3),
+])
+def test_metric_reads_the_bracketed_value_not_the_imperial_one(text, expected):
+    """
+    The number in front is inches; storing it as mm is wrong by 25.4x.
+
+    0.197" Dia (5.00mm) is a 5 mm can. Reading the leading number the way
+    parse_quantity does gives 0.197, which formats as 197 µm - a silently
+    wrong value, not a failure anyone would notice.
+    """
+    assert parse_metric(text, "mm") == pytest.approx(expected)
+    assert parse_metric(text, "mm") != pytest.approx(
+        parse_quantity(text, "mm"))     # the trap this parser exists to avoid
+
+
+@pytest.mark.parametrize("text", [
+    '0.094" Dia x 0.248" L (2.40mm x 6.30mm)',    # a resistor body: two dims
+    '0.260" L x 0.307" W (6.60mm x 7.80mm)',      # an SMD land size
+    "Flash",                                       # no measurement at all
+    "-",
+    "0.500 in",                                    # no bracketed metric value
+])
+def test_metric_refuses_what_is_not_one_measurement(text):
+    """Better nothing stored than one of two dimensions, picked arbitrarily."""
+    assert parse_metric(text, "mm") is None
+
+
+def test_metric_ignores_a_measurement_point_note():
+    """(TA) and (Max) are notes, not values - they must not be mistaken."""
+    assert parse_metric('0.512" (Max) (13.00mm)', "mm") == pytest.approx(13.0)
+    assert parse_metric("125 (TA)", "mm") is None
+
+
+def test_a_rate_keeps_the_units_it_was_written_in():
+    """13 V/µs must not compact to 13 MV/s - same number, nobody's idiom."""
+    cfg = ParameterConfig("Slew Rate", units="V/µs", parse="quantity")
+    assert read_value("13V/µs", cfg) == "13 V/µs"
+    assert read_value("0.5V/µs", cfg) == "0.5 V/µs"
 
 
 @pytest.mark.parametrize("text,low,high", [

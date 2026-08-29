@@ -222,8 +222,11 @@ def test_cached_category_paths_reads_productdetails(tmp_path):
 
 
 def test_match_path_uses_the_repo_aliases():
+    """The two resistor mountings are separate categories, and stay separate."""
     categories = load_categories_config()
     assert match_path(["Resistors", "Through Hole Resistors"],
-                      categories).pathstring == "Resistors"
+                      categories).pathstring == "Resistors/Through Hole Resistors"
+    assert match_path(["Resistors", "Chip Resistor - Surface Mount"],
+                      categories).pathstring == "Resistors/Surface Mount Resistors"
     assert match_path(["Capacitors", "Supercapacitors"],
                       categories) is None

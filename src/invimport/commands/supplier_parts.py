@@ -153,6 +153,12 @@ def report(result: PartImportResult) -> None:
             print(f"  + {item.sku}  -> {dest}")
             if item.name and item.ipn:
                 print(f"      {item.ipn}  {item.name}")
+            if item.supplier_parameters or item.part_parameters:
+                # The part carries only what identifies it; the manufacturer
+                # and supplier parts carry the full specification.
+                print(f"      parameters: part {item.part_parameters}, "
+                      f"manufacturer part {item.manufacturer_parameters}, "
+                      f"supplier part {item.supplier_parameters}")
         elif item.action == "exists":
             print(f"  = {item.sku}  already a supplier part")
         else:
@@ -162,7 +168,8 @@ def report(result: PartImportResult) -> None:
 
     counts = result.counts()
     print(f"\n  created={counts['created']}  exists={counts['exists']}  "
-          f"skipped={counts['skipped']}")
+          f"skipped={counts['skipped']}  "
+          f"parameter_values={counts['parameters']}")
 
     if result.problems:
         print(f"\n  {len(result.problems)} problem(s):")

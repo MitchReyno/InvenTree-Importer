@@ -81,10 +81,14 @@ def test_choices_are_sent_as_one_comma_separated_string(api, inventree):
     assert inventree.templates[0]["choices"] == "Through Hole,Surface Mount"
 
 
-def test_templates_are_scoped_to_part_parameters(api, inventree):
-    """530 templates declare the model they attach to."""
+def test_templates_apply_to_every_model(api, inventree):
+    """
+    Blank model_type means "all models" in InvenTree. It has to be blank: the
+    same parameter is carried by a Part, a ManufacturerPart and a
+    SupplierPart, and a template pinned to part.part could only serve the Part.
+    """
     sync_templates(config(), api, write=True)
-    assert inventree.templates[0]["model_type"] == "part.part"
+    assert inventree.templates[0]["model_type"] == ""
 
 
 # --------------------------------------------------------------------------
@@ -143,7 +147,7 @@ def test_payload_carries_every_managed_field():
                                           checkbox=True))
     assert payload == {"name": "Tolerance", "units": "%", "description": "d",
                        "choices": "a,b", "checkbox": True,
-                       "model_type": "part.part"}
+                       "model_type": ""}
 
 
 def test_the_repo_config_syncs_against_the_stub(api, inventree):
@@ -212,3 +216,20 @@ def test_units_are_created_before_templates(api, inventree, tmp_path):
 def test_the_stub_saw_no_stale_routes(api, inventree):
     sync_templates(config(), api, write=True)
     assert inventree.bad_routes == []
+
+
+def test_a_blank_model_type_does_not_look_like_drift_next_run(api, inventree):
+    """
+    The server stores a blank model_type as null and returns it as null, so
+    the comparison has to treat None and "" as the same. Otherwise every run
+    would re-save all thirteen templates - the same trap the checkbox
+    comparison fell into.
+    """
+    sync_templates(config(), api, write=True)
+    inventree.templates[0]["model_type"] = None   # what the server sends back
+    inventree.saves.clear()
+
+    result = sync_templates(config(), api, write=True)
+
+    assert result.counts()["unchanged"] == 1
+    assert inventree.saves == []

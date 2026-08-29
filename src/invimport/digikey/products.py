@@ -39,7 +39,7 @@ REPORTED_FIELDS = [
     "manufacturer_name",
     "description",
     "packaging",
-    "pack_quantity",
+    "standard_package",
     "moq",
     "link",
     "datasheet",
@@ -182,7 +182,7 @@ def extract(payload: dict[str, Any], sku: str) -> dict[str, Any]:
             or dig(product, "Description", "DetailedDescription")
         ),
         "packaging": None,
-        "pack_quantity": None,
+        "standard_package": None,
         "moq": None,
         "unit_price": None,
         "variation_matched": False,
@@ -205,8 +205,11 @@ def extract(payload: dict[str, Any], sku: str) -> dict[str, Any]:
         out["variation_matched"] = True
         out["packaging"] = dig(chosen, "PackageType", "Name")
         out["moq"] = dig(chosen, "MinimumOrderQuantity")
-        # StandardPackage is how many pieces come in one supplier unit.
-        out["pack_quantity"] = dig(chosen, "StandardPackage") or 1
+        # The manufacturer's full-package size (a 1000-piece reel, a 25-piece
+        # tube). Informational only: DigiKey still sells and prices this SKU by
+        # the piece, so it is NOT InvenTree's pack_quantity. Mapping it there
+        # multiplies every receipt by the reel size - see import_sku().
+        out["standard_package"] = dig(chosen, "StandardPackage") or None
         breaks = chosen.get("StandardPricing") or []
         if breaks:
             cheapest_entry = min(breaks, key=lambda b: b.get("BreakQuantity", 0) or 0)
@@ -247,7 +250,7 @@ def fetch_products(
             entry = {"SKU": sku, **extract(payload, sku)}
             if not entry["variation_matched"]:
                 log.warning("    [warn] %s did not match any ProductVariation - "
-                            "packaging and pack_quantity unavailable, verify "
+                            "packaging and standard_package unavailable, verify "
                             "manually", sku)
         results.append(entry)
         if on_result:

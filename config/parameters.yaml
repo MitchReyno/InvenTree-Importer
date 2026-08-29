@@ -42,6 +42,19 @@ Composition:
       - Wire Wound
       - Wirewound
 
+Diameter:
+  units: mm
+  description: Body or can diameter
+  aliases:
+    - Size / Dimension
+    - Diameter
+  # DigiKey writes dimensions imperial-first with the metric equivalent in
+  # brackets: 0.197" Dia (5.00mm). `metric` reads the bracketed value; taking
+  # the leading number would store 0.197 as though it were already mm.
+  # A value naming two dimensions ("0.094" Dia x 0.248" L") stores nothing
+  # rather than guessing which one is meant.
+  parse: metric
+
 ESR:
   units: ohm
   description: Equivalent series resistance
@@ -49,6 +62,30 @@ ESR:
     - ESR (Equivalent Series Resistance)
     - Equivalent Series Resistance(ESR)
   parse: quantity
+
+Height:
+  units: mm
+  description: Seated height above the board
+  aliases:
+    - Height - Seated (Max)
+    - Height
+    - Height (Max)
+  parse: metric
+
+Inductance:
+  units: H
+  description: Nominal inductance
+  aliases:
+    - Inductance
+  parse: quantity
+
+Lead Spacing:
+  units: mm
+  description: Distance between lead centres
+  aliases:
+    - Lead Spacing
+    - Lead Pitch
+  parse: metric
 
 Max Working Voltage:
   units: V
@@ -99,6 +136,19 @@ Package:
   aliases:
     - Package / Case
     - Supplier Device Package
+  # DigiKey qualifies the can style and the mounting into the package name.
+  # Both are recorded elsewhere - Mounting carries through-hole vs SMD - so
+  # the package itself reads as just the lead style. Only the "Radial, Can"
+  # family is folded: DO-35, TO-92 and the rest name a real package outline
+  # and are left exactly as the supplier states them.
+  values:
+    Radial:
+      - Radial
+      - Radial, Can
+      - Radial, Can - SMD
+      - Radial, Can - Snap-In
+    Axial:
+      - Axial
 
 Polarity:
   description: Polarised or not
@@ -150,3 +200,165 @@ Tolerance:
   aliases:
     - Tolerance
   parse: percent
+
+Max Forward Voltage Drop:
+  units: V
+  description: Maximum forward voltage drop
+  aliases:
+    - Forward Voltage
+    - Forward Voltage (Max)
+    - Forward Voltage (Max) (Vf)
+    - Voltage - Forward (Max) @ If
+    - Voltage - Forward (Max) (Vf)
+    - Voltage - Forward (Vf) (Max) @ If
+  parse: quantity
+
+Max Impedance:
+  units: ohm
+  description: Maximum impedance
+  aliases:
+    - Impedance (Max)
+    - Impedance (Max) (Zzt)
+  parse: quantity
+
+Zener Voltage:
+  units: V
+  description: Zener voltage
+  aliases:
+    - Zener Voltage
+    - Zener Voltage (Vz)
+    - Voltage - Zener
+    - Voltage - Zener (Nom)
+    - Voltage - Zener (Nom) (Vz)
+  parse: quantity
+
+# --------------------------------------------------------------------------
+# Connectors
+# --------------------------------------------------------------------------
+Current Rating:
+  units: A
+  description: Maximum rated contact current
+  aliases:
+    - Current Rating (Amps)
+    - Current Rating (Max)
+  parse: quantity
+
+Connector Type:
+  description: Plug, receptacle, header
+  aliases:
+    - Connector Type
+
+Contact Type:
+  description: What the contact itself is
+  aliases:
+    - Contact Type
+
+Contact Finish:
+  description: Plating on the mating surface
+  aliases:
+    - Contact Finish
+    - Contact Finish - Mating
+
+Termination Style:
+  description: How the connector attaches to the board or wire
+  aliases:
+    - Termination Style
+    - Termination
+
+# --------------------------------------------------------------------------
+# Amplifiers
+# --------------------------------------------------------------------------
+Gain Bandwidth Product:
+  units: Hz
+  description: Frequency at which open-loop gain falls to unity
+  aliases:
+    - Gain Bandwidth Product
+  parse: quantity
+
+Slew Rate:
+  # V/µs is kept as written rather than compacted to MV/s - see
+  # Formatter.compactable().
+  units: V/µs
+  description: Maximum rate of output voltage change
+  aliases:
+    - Slew Rate
+  parse: quantity
+
+Input Offset Voltage:
+  units: V
+  description: Differential input voltage needed to null the output
+  aliases:
+    - Voltage - Input Offset
+  parse: quantity
+
+Supply Current:
+  units: A
+  description: Current drawn from the supply in normal operation
+  aliases:
+    - Current - Supply
+    - Current - Supply (Max)
+  parse: quantity
+
+# --------------------------------------------------------------------------
+# Power management
+# --------------------------------------------------------------------------
+Input Voltage Min:
+  units: V
+  description: Minimum usable input supply voltage
+  aliases:
+    - Voltage - Input (Min)
+  parse: quantity
+
+Input Voltage Max:
+  units: V
+  description: Maximum usable input supply voltage
+  aliases:
+    - Voltage - Input (Max)
+  parse: quantity
+
+Output Voltage Min:
+  units: V
+  description: Output voltage, or the low end of an adjustable range
+  aliases:
+    - Voltage - Output (Min/Fixed)
+  parse: quantity
+
+Output Voltage Max:
+  units: V
+  description: High end of an adjustable output range
+  aliases:
+    - Voltage - Output (Max)
+  parse: quantity
+
+Output Current:
+  units: A
+  description: Maximum current the output can source
+  aliases:
+    - Current - Output
+    - Current - Output / Channel
+  parse: quantity
+
+Quiescent Current:
+  units: A
+  description: Current drawn with no load
+  aliases:
+    - Current - Quiescent (Iq)
+    - Current - Quiescent (Max)
+  parse: quantity
+
+# --------------------------------------------------------------------------
+# Crystals and oscillators
+# --------------------------------------------------------------------------
+Frequency:
+  units: Hz
+  description: Nominal operating frequency
+  aliases:
+    - Frequency
+  parse: quantity
+
+Load Capacitance:
+  units: F
+  description: Capacitance the crystal is specified against
+  aliases:
+    - Load Capacitance
+  parse: quantity

@@ -13,6 +13,7 @@ Adding a command means dropping a module here and listing it in COMMANDS.
 
 from . import (
     categories,
+    discover,
     import_orders,
     orders,
     parameters,
@@ -22,4 +23,4 @@ from . import (
 
 # Registration order is the order shown in --help.
 COMMANDS = [product, orders, import_orders, parameters, categories,
-            supplier_parts]
+            discover, supplier_parts]

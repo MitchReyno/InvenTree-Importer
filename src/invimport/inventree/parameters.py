@@ -34,7 +34,7 @@ from ..config import (
     load_parameters_config,
     load_units_config,
 )
-from .api import PART_MODEL_TYPE, ParameterTemplate, connect
+from .api import ANY_MODEL_TYPE, ParameterTemplate, connect
 from .units import UnitSyncResult, sync_units
 from .values import build_registry
 
@@ -99,9 +99,11 @@ def payload_for(parameter: ParameterConfig) -> dict[str, Any]:
         "description": parameter.description,
         "choices": parameter.choices_csv,
         "checkbox": parameter.checkbox,
-        # 530 templates declare which model they may attach to. Blank means
-        # "any model"; this importer only does part parameters.
-        "model_type": PART_MODEL_TYPE,
+        # Blank, meaning "all models". The same parameter is carried by a Part,
+        # a ManufacturerPart and a SupplierPart - a "Package" value belongs on
+        # all three - and a template pinned to part.part could only serve the
+        # first. InvenTree treats a blank model_type as applying to everything.
+        "model_type": ANY_MODEL_TYPE,
     }
 
 

@@ -1,7 +1,7 @@
 """
 Fetch canonical product data from the DigiKey Product Information API v4.
 
-Reports: link (canonical ProductUrl), datasheet, packaging, pack_quantity,
+Reports: link (canonical ProductUrl), datasheet, packaging, standard_package,
          description, manufacturer_part, MOQ, and optionally unit price.
 
 Every raw response is cached to .cache/.digikey/products (--cache-dir). Re-runs

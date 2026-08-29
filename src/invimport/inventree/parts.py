@@ -43,7 +43,9 @@ from ..config import (
 )
 from ..digikey.products import fetch_image, fetch_products
 from .api import (
+    MANUFACTURER_PART_MODEL_TYPE,
     PART_MODEL_TYPE,
+    SUPPLIER_PART_MODEL_TYPE,
     Company,
     ManufacturerPart,
     Parameter,
@@ -67,11 +69,13 @@ from .values import compact_for_name, from_supplier, parse_quantity
 log = logging.getLogger(__name__)
 
 UNRESOLVED_PK = -1
-IPN_WIDTH = 6
+IPN_WIDTH = 5
 LIST_LIMIT = 1000
 
-# Words skipped when turning "Integrated Circuits" into "IC".
-PREFIX_SKIP = frozenset({"and", "of", "the", "or", "for"})
+# Where a part whose category declares no ipn_prefix is numbered. A prefix is
+# a deliberate choice - guessing one from the category name produces initials
+# nobody recognises - so an unconfigured category lands here visibly instead.
+FALLBACK_PREFIX = "MISC"
 
 ChooseManufacturer = Callable[[str, list[tuple[Any, float]]], Any | str | None]
 
@@ -89,6 +93,11 @@ class SkuAction:
     name: str = ""
     category: str = ""
     product: dict[str, Any] | None = None
+    # Parameter values written, per record. The part carries only the ones
+    # that identify it; the manufacturer and supplier parts carry everything.
+    part_parameters: int = 0
+    manufacturer_parameters: int = 0
+    supplier_parameters: int = 0
 
     def describe(self) -> str:
         if not self.product:
@@ -109,6 +118,8 @@ class PartImportResult:
             "created": sum(1 for s in self.skus if s.action == "created"),
             "exists": sum(1 for s in self.skus if s.action == "exists"),
             "skipped": sum(1 for s in self.skus if s.action == "skipped"),
+            "parameters": sum(s.part_parameters + s.manufacturer_parameters
+                              + s.supplier_parameters for s in self.skus),
             "problems": len(self.problems),
         }
 
@@ -123,19 +134,21 @@ class PartImportResult:
 # --------------------------------------------------------------------------
 def ipn_prefix(category: CategoryConfig) -> str:
     """
-    The prefix of a meaningless IPN, from the top-level category name.
+    The prefix of a meaningless IPN, as declared by the category.
 
-    'Resistors' -> 'R', 'Integrated Circuits' -> 'IC'. Small words are
-    dropped so '&' and 'of' do not become letters.
+    ipn_prefix is inherited, so it is normally set once on a top-level
+    category and every child numbers under it: Capacitors -> CAP-00118. A
+    subcategory worth counting separately overrides it - Potentiometers is
+    POT, its Trimpots child is TRM.
+
+    Categories sharing a prefix share one sequence, which is the point: DIO
+    on both Signal Diodes and Zener Diodes numbers all diodes together.
     """
-    words = re.findall(r"[A-Za-z0-9]+", category.path[0] if category.path else "")
-    letters = [word[0].upper() for word in words
-               if word.casefold() not in PREFIX_SKIP]
-    return "".join(letters) or "P"
+    return category.ipn_prefix or FALLBACK_PREFIX
 
 
 def next_ipn(api, prefix: str) -> str:
-    """The next unused '{prefix}-000001' on the server."""
+    """The next unused '{prefix}-00001' on the server."""
     existing = Part.list(api, IPN_regex=rf"^{re.escape(prefix)}-\d+$",
                          limit=LIST_LIMIT)
     numbers: list[int] = []
@@ -348,20 +361,30 @@ def resolve_manufacturer(
 # --------------------------------------------------------------------------
 def apply_parameters(
     api,
-    part_pk: int,
+    model_id: int,
     values: dict[str, str],
     templates: dict[str, Any],
     *,
     write: bool,
     update: bool = False,
-) -> None:
-    """Create missing parameter values; optionally overwrite drifted ones."""
-    if part_pk == UNRESOLVED_PK or not values:
-        return
-    existing = Parameter.list(api, model_type=PART_MODEL_TYPE,
-                              model_id=part_pk, limit=LIST_LIMIT)
+    model_type: str = PART_MODEL_TYPE,
+) -> int:
+    """
+    Create missing parameter values; optionally overwrite drifted ones.
+
+    model_type says what the values hang off - a Part, a ManufacturerPart or a
+    SupplierPart. API 530 addresses all of them through the same endpoint, and
+    the templates are model-agnostic, so the only difference is this field.
+
+    Returns how many values were created or updated.
+    """
+    if model_id in (None, UNRESOLVED_PK) or not values:
+        return 0
+    existing = Parameter.list(api, model_type=model_type,
+                              model_id=model_id, limit=LIST_LIMIT)
     by_template = {int(p.template): p for p in existing
                    if getattr(p, "template", None) is not None}
+    touched = 0
 
     for name, value in values.items():
         template = templates.get(name)
@@ -371,13 +394,18 @@ def apply_parameters(
         if current is None:
             if write:
                 Parameter.create(api, {
-                    "model_type": PART_MODEL_TYPE,
-                    "model_id": part_pk,
+                    "model_type": model_type,
+                    "model_id": model_id,
                     "template": template.pk,
                     "data": value,
                 })
-        elif update and str(current.data) != value and write:
-            current.save(data={"data": value})
+            touched += 1
+        elif update and str(current.data) != value:
+            if write:
+                current.save(data={"data": value})
+            touched += 1
+
+    return touched
 
 
 # --------------------------------------------------------------------------
@@ -486,6 +514,18 @@ def import_sku(
     values = from_supplier(product.get("parameters") or {}, parameters,
                            category.parameters)
 
+    # Only the parameters that identify a part belong on the part itself.
+    # Everything else - packaging, temperature range, tolerance grade - may
+    # legitimately differ between manufacturers of the same specification, and
+    # pinning one manufacturer's figures to the shared part would make them
+    # look authoritative. Under mpn identity there is one part per MPN, so
+    # there is no variation to keep out and the part carries the lot.
+    if category.identity == "spec" and category.key_parameters:
+        part_values = {name: value for name, value in values.items()
+                       if name in category.key_parameters}
+    else:
+        part_values = values
+
     if category.identity == "spec":
         part = find_part_by_spec(api, server_cat.pk, category.key_parameters,
                                  values, templates, parameters)
@@ -510,12 +550,16 @@ def import_sku(
             if link:
                 payload["link"] = link
             part = Part.create(api, payload)
-            apply_parameters(api, part.pk, values, templates, write=True)
+            part_written = apply_parameters(api, part.pk, part_values,
+                                            templates, write=True)
         else:
             part = SimpleNamespace(pk=UNRESOLVED_PK, IPN=ipn, name=name)
+            part_written = len({n for n in part_values if n in templates})
     elif write and update_parameters:
-        apply_parameters(api, part.pk, values, templates,
-                         write=True, update=True)
+        part_written = apply_parameters(api, part.pk, part_values, templates,
+                                        write=True, update=True)
+    else:
+        part_written = 0
 
     mfr_part = None
     if part.pk != UNRESOLVED_PK:
@@ -535,14 +579,25 @@ def import_sku(
                 payload["description"] = str(product["description"])[:250]
             mfr_part = ManufacturerPart.create(api, payload)
 
+    # The manufacturer part is one manufacturer's realisation of the spec, so
+    # it carries every parameter, including the ones kept off the part.
+    mfr_written = apply_parameters(
+        api, getattr(mfr_part, "pk", None), values, templates,
+        write=write, update=update_parameters,
+        model_type=MANUFACTURER_PART_MODEL_TYPE)
+
     supplier_part = None
     if write and part.pk != UNRESOLVED_PK:
+        # pack_quantity is deliberately left unset (InvenTree defaults it to 1).
+        # DigiKey sells and prices this SKU by the piece, so one ordered unit is
+        # one piece. Setting it from the product's standard_package - the
+        # manufacturer's reel or tube size - would make InvenTree receive
+        # quantity x reel size on every purchase order line.
         payload = {
             "part": part.pk,
             "supplier": supplier,
             "SKU": sku,
             "packaging": str(product.get("packaging") or "")[:50],
-            "pack_quantity": str(product.get("pack_quantity") or ""),
         }
         if mfr_part is not None:
             payload["manufacturer_part"] = mfr_part.pk
@@ -553,6 +608,13 @@ def import_sku(
             payload["description"] = str(product["description"])[:250]
         supplier_part = SupplierPart.create(api, payload)
         supplier_parts[sku.strip().upper()] = supplier_part
+
+    # And so does the supplier part: it is what you actually buy, so it is
+    # where the full specification of this SKU is worth reading off.
+    supplier_written = apply_parameters(
+        api, getattr(supplier_part, "pk", None), values, templates,
+        write=write, update=update_parameters,
+        model_type=SUPPLIER_PART_MODEL_TYPE)
 
     images = cache_product_images(product, image_cache_dir, refresh=refresh)
     if write and part.pk != UNRESOLVED_PK and images:
@@ -565,6 +627,9 @@ def import_sku(
         supplier_part=getattr(supplier_part, "pk", None),
         ipn=ipn, name=name, category=category.pathstring,
         product=product,
+        part_parameters=part_written,
+        manufacturer_parameters=mfr_written,
+        supplier_parameters=supplier_written,
     )
 
 

@@ -443,6 +443,7 @@ def _part_config(tmp_path):
     (tmp_path / "parameters.yaml").write_text("Package: {}\n")
     (tmp_path / "categories.yaml").write_text(
         "Integrated Circuits:\n"
+        "  ipn_prefix: IC\n"
         "  identity: mpn\n"
         "  parameters: [Package]\n"
         "  Timers:\n"
@@ -478,7 +479,7 @@ def test_supplier_parts_writes_when_asked(digikey, digikey_env, workspace,
     assert main(["supplier-parts", "--config", str(tmp_path),
                  "--create-manufacturers", "--write", "296-1411-1-ND"]) == 0
     assert any(p["SKU"] == "296-1411-1-ND" for p in inventree.supplier_parts)
-    assert any(p.get("IPN") == "IC-000001" for p in inventree.part_rows)
+    assert any(p.get("IPN") == "IC-00001" for p in inventree.part_rows)
 
 
 def test_supplier_parts_from_orders(digikey, digikey_env, workspace,
@@ -557,3 +558,107 @@ def test_program_name_matches_how_it_was_invoked(monkeypatch, argv0, expected):
     """Help text should show the command the user actually typed."""
     monkeypatch.setattr("sys.argv", [argv0])
     assert program_name() == expected
+
+
+# --------------------------------------------------------------------------
+# discover
+# --------------------------------------------------------------------------
+DISCOVER_CATEGORIES = """
+Resistors:
+  identity: spec
+  key_parameters: [Resistance]
+  parameters: [Resistance]
+  aliases:
+    - Resistors / Through Hole Resistors
+"""
+
+DISCOVER_PARAMETERS = (
+    "Resistance:\n  units: ohm\n  aliases: [Resistance]\n  parse: quantity\n")
+
+
+@pytest.fixture
+def discover_config(tmp_path):
+    """A config directory plus a product cache holding one resistor."""
+    import json
+
+    directory = tmp_path / "config"
+    directory.mkdir()
+    (directory / "units.yaml").write_text("")
+    (directory / "categories.yaml").write_text(DISCOVER_CATEGORIES)
+    (directory / "parameters.yaml").write_text(DISCOVER_PARAMETERS)
+    (directory / "manufacturers.yaml").write_text("")
+
+    products = tmp_path / "products"
+    products.mkdir()
+    (products / "r.json").write_text(json.dumps({"Product": {
+        "Category": {"Name": "Resistors", "ChildCategories": [
+            {"Name": "Through Hole Resistors", "ChildCategories": []}]},
+        "Parameters": [
+            {"ParameterText": "Resistance", "ValueText": "100 kOhms"},
+            {"ParameterText": "Composition", "ValueText": "Metal Film"},
+            {"ParameterText": "Size / Dimension", "ValueText": "1mm x 2mm"},
+        ],
+    }}))
+    return directory, products
+
+
+def test_discover_reports_without_writing(discover_config, workspace, capsys):
+    directory, products = discover_config
+    before = (directory / "categories.yaml").read_text()
+
+    assert main(["discover", "--config", str(directory),
+                 "--cache-dir", str(products)]) == 0
+
+    out = capsys.readouterr().out
+    assert "2 unmapped parameter(s)" in out
+    assert "Composition" in out
+    assert "Resistance" not in out.split("Resistors")[-1].split("Composition")[0]
+    assert (directory / "categories.yaml").read_text() == before
+
+
+def test_discover_files_answers_into_the_config(discover_config, workspace,
+                                                answers, capsys):
+    directory, products = discover_config
+    # Composition -> key parameter, keep the suggested name;
+    # Size / Dimension -> ignore.
+    answers("1", "1", "3")
+
+    assert main(["discover", "--config", str(directory),
+                 "--cache-dir", str(products), "--write"]) == 0
+
+    from invimport.config import load_categories_config, load_parameters_config
+    categories = load_categories_config(directory)
+    parameters = load_parameters_config(directory)
+
+    assert "Composition" in categories["Resistors"].key_parameters
+    assert "Composition" in categories["Resistors"].parameters
+    assert "Composition" in parameters
+    assert "Size / Dimension" in categories["Resistors"].ignore
+
+
+def test_a_filed_parameter_is_not_offered_again(discover_config, workspace,
+                                                answers, capsys):
+    directory, products = discover_config
+    answers("2", "1", "3")                        # other, keep name, ignore
+    main(["discover", "--config", str(directory),
+          "--cache-dir", str(products), "--write"])
+    capsys.readouterr()
+
+    assert main(["discover", "--config", str(directory),
+                 "--cache-dir", str(products)]) == 0
+    assert "Nothing unmapped" in capsys.readouterr().out
+
+
+def test_discover_needs_a_terminal_to_ask(discover_config, workspace, capsys):
+    directory, products = discover_config
+    assert main(["discover", "--config", str(directory),
+                 "--cache-dir", str(products), "--write"]) == 2
+    assert "needs a terminal" in capsys.readouterr().err
+
+
+def test_discover_can_be_limited_to_one_category(discover_config, workspace,
+                                                 capsys):
+    directory, products = discover_config
+    assert main(["discover", "--config", str(directory),
+                 "--cache-dir", str(products), "--category", "Nowhere"]) == 0
+    assert "Nothing unmapped" in capsys.readouterr().out

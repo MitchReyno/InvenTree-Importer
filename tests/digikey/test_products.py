@@ -30,7 +30,7 @@ def test_extract_resolves_the_requested_variation():
     assert row["variation_matched"] is True
     assert row["packaging"] == "Cut Tape"
     assert row["moq"] == 1
-    assert row["pack_quantity"] == 1
+    assert row["standard_package"] == 2500
 
 
 def test_extract_prices_at_the_lowest_break_quantity():
@@ -42,7 +42,7 @@ def test_extract_flags_a_sku_that_matches_no_variation():
     row = extract(PRODUCT_PAYLOAD, "296-DIFFERENT-ND")
     assert row["variation_matched"] is False
     assert row["packaging"] is None
-    assert row["pack_quantity"] is None
+    assert row["standard_package"] is None
 
 
 def test_extract_is_case_insensitive_about_the_sku():
