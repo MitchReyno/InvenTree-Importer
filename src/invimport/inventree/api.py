@@ -90,6 +90,43 @@ class InvenTreeError(RuntimeError):
     pass
 
 
+# A create can be answered with a list rather than the object that was made:
+#
+#     POST /api/stock/  ->  [{"pk": 406, ...}]
+#
+# Five endpoints are declared that way in the spec, because one POST can make
+# several rows at once (serialising, disassembling, receiving against an
+# order). /api/stock/ is the one this tool creates through, and it answers
+# with a list even for the single item it was asked for.
+#
+# The library's InventreeObject.create() passes the response straight to the
+# model constructor, which calls .get('pk') on it and raises AttributeError on
+# a list. That happens *after* the server has written the row, so the failure
+# is not a failed create - it is an invisible one. add_stock() never reaches
+# the line that stamps its import barcode on the new item, and the stock is
+# left with nothing naming it: exactly the untracked pile the barcode exists
+# to prevent, because the next run finds no barcode and creates it all again.
+#
+# So unwrap a list into the single object every caller here asked for. A dict
+# response - the other 126 POST endpoints - is passed through untouched.
+def _create(cls, api, data, **kwargs):
+    """Create one object, whether the server answers with it or with a list."""
+    cls.checkApiVersion(api)
+    payload = {key: value for key, value in data.items() if key != "pk"}
+    response = api.post(cls.URL, payload, **kwargs)
+
+    if isinstance(response, list):
+        response = response[0] if response else None
+    if not response:
+        raise InvenTreeError(
+            f"creating {cls.__name__} at /api/{cls.URL}/ returned nothing"
+        )
+    return cls(api, data=response)
+
+
+InventreeObject.create = classmethod(_create)
+
+
 def connect() -> InvenTreeAPI:
     url = os.getenv("INVENTREE_URL")
     token = os.getenv("INVENTREE_TOKEN")

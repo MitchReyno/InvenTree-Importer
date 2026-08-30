@@ -626,6 +626,11 @@ class InvenTreeStub:
                 elif parsed.path == "/api/stock/":
                     row.setdefault("status", 10)
                     stub.stock_items.append(row)
+                    # The spec declares this 201 as an array, and the server
+                    # answers with one even for a single item. Anything that
+                    # creates stock has to cope with that, so serve the real
+                    # shape rather than the convenient one.
+                    return self._send(201, [row])
                 elif parsed.path == "/api/stock/location/":
                     parent = body.get("parent")
                     name = body.get("name", "")
