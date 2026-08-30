@@ -228,6 +228,10 @@ importing cost API calls. Results land in the same product cache `invimport
 product` uses, so a second run over the same orders is free. `--no-products`
 skips the step.
 
+Progress is printed as it happens — each product lookup, each part record
+(manufacturer, part, manufacturer part, supplier part), and each purchase-order
+line item — rather than buffering until the run finishes.
+
 **The supplier.** Orders are booked against a company named `DigiKey` flagged
 as a supplier. The usual spellings (`Digi-Key`, `DigiKey Electronics` and so
 on) are recognised, so an instance set up by hand does not end up with a second

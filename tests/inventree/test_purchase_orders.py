@@ -387,6 +387,30 @@ def test_the_stub_saw_no_stale_routes(api, inventree, order):
     assert inventree.bad_routes == []
 
 
+def test_on_line_fires_per_line_item(api, order):
+    seen = []
+    import_orders([order], api, supplier=1, write=True, on_line=seen.append)
+    assert [line.sku for line in seen] == ["296-1411-1-ND"]
+    assert seen[0].action == "created"
+
+
+def test_on_order_callbacks_fire_per_sales_order(api, order):
+    starts = []
+    done = []
+    import_orders(
+        [order], api, supplier=1, write=True,
+        on_order_start=lambda n, sid, i, t: starts.append((n, sid, i, t)),
+        on_order=done.append)
+    assert starts == [(12345678, 87654321, 1, 1)]
+    assert [o.action for o in done] == ["created"]
+
+
+def test_progress_callbacks_are_silent_when_omitted(api, order, capsys):
+    """The library still owns no output; the CLI prints via the callbacks."""
+    import_orders([order], api, supplier=1, write=True)
+    assert capsys.readouterr().out == ""
+
+
 # --------------------------------------------------------------------------
 # Helpers
 # --------------------------------------------------------------------------

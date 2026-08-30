@@ -857,6 +857,45 @@ def test_reimporting_does_not_duplicate_parameters(inventree, tmp_path):
     assert len(inventree.parameters) == before
 
 
+def test_on_sku_fires_as_each_sku_finishes(inventree, tmp_path):
+    seed_ic(inventree)
+    seen = []
+    import_supplier_parts(
+        ["296-1411-1-ND"], connect(), write=True,
+        directory=config_dir(tmp_path, IC),
+        products={"296-1411-1-ND": IC_PRODUCT}, fetch=False,
+        create_manufacturers=True, on_sku=seen.append)
+    assert [a.sku for a in seen] == ["296-1411-1-ND"]
+    assert seen[0].action == "created"
+
+
+def test_on_step_reports_write_actions_in_order(inventree, tmp_path):
+    """Callers see each record as it is written, not only the finished SKU."""
+    seed_ic(inventree)
+    steps = []
+    import_supplier_parts(
+        ["296-1411-1-ND"], connect(), write=True,
+        directory=config_dir(tmp_path, IC),
+        products={"296-1411-1-ND": IC_PRODUCT}, fetch=False,
+        create_manufacturers=True,
+        on_step=lambda sku, step, i, n: steps.append((sku, step, i, n)))
+    assert steps[0] == ("296-1411-1-ND", "start", 1, 1)
+    assert [s[1] for s in steps] == [
+        "start", "manufacturer", "part", "manufacturer_part", "supplier_part"]
+
+
+def test_on_step_skips_write_actions_on_a_dry_run(inventree, tmp_path):
+    seed_ic(inventree)
+    steps = []
+    import_supplier_parts(
+        ["296-1411-1-ND"], connect(), write=False,
+        directory=config_dir(tmp_path, IC),
+        products={"296-1411-1-ND": IC_PRODUCT}, fetch=False,
+        create_manufacturers=True,
+        on_step=lambda sku, step, i, n: steps.append(step))
+    assert steps == ["start"]
+
+
 # --------------------------------------------------------------------------
 # Preferred SI prefixes
 # --------------------------------------------------------------------------
@@ -906,3 +945,52 @@ def test_a_capacitor_name_uses_the_configured_prefixes():
                       "Package": "Radial"},
                      parameters)
     assert name == "Capacitor 3300u 16V 20% Through Hole Radial"
+
+
+# --------------------------------------------------------------------------
+# RKM notation
+# --------------------------------------------------------------------------
+OHM = ["M", "k", "R"]
+
+
+def test_rkm_puts_the_prefix_where_the_decimal_point_goes():
+    assert compact_for_name(4.7, OHM, "rkm") == "4R7"
+    assert compact_for_name(3300, OHM, "rkm") == "3k3"
+    assert compact_for_name(2.2e6, OHM, "rkm") == "2M2"
+    assert compact_for_name(4.75, OHM, "rkm") == "4R75"
+
+
+def test_a_whole_number_takes_the_symbol_as_a_suffix():
+    assert compact_for_name(4, OHM, "rkm") == "4R"
+    assert compact_for_name(7000, OHM, "rkm") == "7k"
+    assert compact_for_name(100, OHM, "rkm") == "100R"
+    assert compact_for_name(1e7, OHM, "rkm") == "10M"
+
+
+def test_a_value_below_one_keeps_its_decimal_point():
+    """'0R5' reads worse than '0.5R', and 'R05' worse still."""
+    assert compact_for_name(0.5, OHM, "rkm") == "0.5R"
+    assert compact_for_name(0.05, OHM, "rkm") == "0.05R"
+
+
+def test_resistance_never_goes_below_ohms():
+    """No milliohms: R is the floor, so a shunt stays in ohms."""
+    assert "m" not in compact_for_name(0.05, OHM, "rkm")
+    assert compact_for_name(0.0047, OHM, "rkm") == "0.0047R"
+
+
+def test_rkm_is_off_unless_the_style_asks_for_it():
+    assert compact_for_name(3300, OHM) == "3.3k"
+
+
+def test_a_resistor_name_uses_rkm_through_the_real_config():
+    from invimport.config import load_config
+
+    categories, parameters = load_config()
+    category = categories["Resistors/Through Hole Resistors"]
+    name = fill_name(category.name_template,
+                     {"Resistance": "3.3 kΩ", "Tolerance": "1 %",
+                      "Power Rating": "0.25 W", "Composition": "Metal Film",
+                      "Mounting": "Through Hole", "Package": "Axial"},
+                     parameters)
+    assert name == "Resistor 3k3 1% 0.25W Metal Film Through Hole Axial"

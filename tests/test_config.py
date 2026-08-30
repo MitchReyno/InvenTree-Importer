@@ -535,3 +535,15 @@ def test_prefixes_load_in_order(conf):
 
 def test_a_parameter_without_prefixes_has_none(conf):
     assert load_parameters_config(conf())["Resistance"].prefixes == []
+
+
+def test_name_style_must_be_known(conf):
+    parameters = PARAMETERS + "\nCapacitance:\n  units: F\n  prefixes: [u]\n  name_style: fancy\n"
+    with pytest.raises(ConfigError, match="name_style"):
+        load_parameters_config(conf(parameters=parameters))
+
+
+def test_name_style_needs_prefixes_to_write_around(conf):
+    parameters = PARAMETERS + "\nCapacitance:\n  units: F\n  name_style: rkm\n"
+    with pytest.raises(ConfigError, match="no prefixes"):
+        load_parameters_config(conf(parameters=parameters))

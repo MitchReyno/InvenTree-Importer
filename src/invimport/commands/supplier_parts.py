@@ -199,32 +199,55 @@ def learn_categories(products: dict[str, Any], skus, directory,
     return len(learned)
 
 
-def report(result: PartImportResult) -> None:
-    print("\nSupplier parts")
+def report_sku(item) -> None:
+    """One SKU, as it finishes. Used live and by the summary."""
+    if item.action == "created":
+        dest = item.ipn or item.name or item.category
+        print(f"  + {item.sku}  -> {dest}", flush=True)
+        if item.name and item.ipn:
+            print(f"      {item.ipn}  {item.name}", flush=True)
+        if item.supplier_parameters or item.part_parameters:
+            # The part carries only what identifies it; the manufacturer
+            # and supplier parts carry the full specification.
+            print(f"      parameters: part {item.part_parameters}, "
+                  f"manufacturer part {item.manufacturer_parameters}, "
+                  f"supplier part {item.supplier_parameters}", flush=True)
+    elif item.action == "exists":
+        print(f"  = {item.sku}  already a supplier part", flush=True)
+    else:
+        print(f"  ! {item.sku}: {item.reason}", flush=True)
+        if item.describe():
+            print(f"      {item.describe()}", flush=True)
 
-    for item in result.skus:
-        if item.action == "created":
-            dest = item.ipn or item.name or item.category
-            print(f"  + {item.sku}  -> {dest}")
-            if item.name and item.ipn:
-                print(f"      {item.ipn}  {item.name}")
-            if item.supplier_parameters or item.part_parameters:
-                # The part carries only what identifies it; the manufacturer
-                # and supplier parts carry the full specification.
-                print(f"      parameters: part {item.part_parameters}, "
-                      f"manufacturer part {item.manufacturer_parameters}, "
-                      f"supplier part {item.supplier_parameters}")
-        elif item.action == "exists":
-            print(f"  = {item.sku}  already a supplier part")
-        else:
-            print(f"  ! {item.sku}: {item.reason}")
-            if item.describe():
-                print(f"      {item.describe()}")
+
+STEP_LABELS = {
+    "manufacturer": "manufacturer",
+    "part": "part",
+    "manufacturer_part": "manufacturer part",
+    "supplier_part": "supplier part",
+    "image": "image",
+}
+
+
+def report_step(sku: str, step: str, index: int, total: int) -> None:
+    """Live progress as a SKU moves through its write actions."""
+    if step == "start":
+        print(f"  [{index}/{total}] {sku}", flush=True)
+        return
+    label = STEP_LABELS.get(step, step.replace("_", " "))
+    print(f"    {label}", flush=True)
+
+
+def report(result: PartImportResult, *, items: bool = True) -> None:
+    if items:
+        print("\nSupplier parts")
+        for item in result.skus:
+            report_sku(item)
 
     counts = result.counts()
     print(f"\n  created={counts['created']}  exists={counts['exists']}  "
           f"skipped={counts['skipped']}  "
-          f"parameter_values={counts['parameters']}")
+          f"parameter_values={counts['parameters']}", flush=True)
 
     if result.problems:
         print(f"\n  {len(result.problems)} problem(s):")
@@ -268,7 +291,9 @@ def run(args: argparse.Namespace) -> int:
 
     print(f"\n{'Importing' if args.write else 'Previewing'} {len(skus)} "
           f"SKU(s)...")
+
     def run_import(wanted):
+        print("\nSupplier parts", flush=True)
         return import_supplier_parts(
             wanted, api, write=args.write, directory=directory,
             supplier=supplier,
@@ -276,6 +301,7 @@ def run(args: argparse.Namespace) -> int:
             create_manufacturers=args.create_manufacturers,
             choose_manufacturer=chooser,
             cache_dir=args.cache_dir, refresh=args.refresh,
+            on_sku=report_sku, on_step=report_step,
         )
 
     result = run_import(skus)
@@ -297,7 +323,7 @@ def run(args: argparse.Namespace) -> int:
             result.skus = [done.get(a.sku.upper(), a) for a in result.skus]
             result.problems.extend(retried.problems)
 
-    report(result)
+    report(result, items=False)
 
     if not args.write:
         print("\nDRY RUN complete - re-run with --write to apply.")

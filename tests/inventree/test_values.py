@@ -7,8 +7,8 @@ import pytest
 from invimport.config import UnitConfig
 from invimport.inventree.units import ambiguous_symbols
 from invimport.inventree.values import (
-    BASE_DEFINITIONS,
     Formatter,
+    build_parse_registry,
     build_registry,
     clean_number,
     definition_for,
@@ -133,10 +133,16 @@ def test_the_registry_matches_inventrees_overrides():
     assert registry.Quantity("1R").to("ohm").magnitude == pytest.approx(1)
 
 
-@pytest.mark.parametrize("definition", BASE_DEFINITIONS)
-def test_every_base_definition_is_accepted_by_pint(definition):
+def test_every_base_definition_is_accepted_by_pint():
     build_registry({})                            # raises if any is malformed
-    assert definition
+
+
+def test_the_default_registry_is_reused():
+    """Parsers used to spend ~100ms building a pint registry on every call."""
+    assert build_registry() is build_registry()
+    assert build_parse_registry() is build_parse_registry()
+    assert build_registry() is not build_parse_registry()
+    assert build_registry({}) is not build_registry()
 
 
 def test_custom_units_from_the_config_are_defined():

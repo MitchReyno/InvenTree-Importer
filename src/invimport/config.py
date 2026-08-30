@@ -58,6 +58,9 @@ CATEGORY_KEYS = {"identity", "key_parameters", "name", "parameters", "aliases",
 #          the part.
 IDENTITY_MODES = ("spec", "mpn", "type")
 
+# How a parameter value is written in a generated part name.
+NAME_STYLES = frozenset({"rkm"})
+
 # An IPN prefix is a short mnemonic that reads at a glance on a label or in a
 # BOM: RES-00042, IC-00117. Letters and digits only, so it cannot collide with
 # the '-' separating it from the sequence number.
@@ -104,6 +107,9 @@ class ParameterConfig:
     # largest first. Capacitance uses [u, n, p] because a 3300 uF part is
     # written '3300u', never '3.3m'. Empty means "pick whatever fits".
     prefixes: list[str] = field(default_factory=list)
+    # How the value is written in a generated part name. "rkm" puts the
+    # prefix where the decimal point goes - 4R7, 3k3 - per IEC 60062.
+    name_style: str = ""
     # Canonical value -> the supplier spellings that mean it.
     values: dict[str, list[str]] = field(default_factory=dict)
 
@@ -253,6 +259,16 @@ def parse_parameters(data: dict[str, Any], path: Path
                 f"{path.name}: {name!r} prefixes {unknown} are not SI "
                 f"prefixes; expected some of "
                 f"{[sym for _, sym in NAME_PREFIXES]}")
+        style = str(body.get("name_style") or "")
+        if style and style not in NAME_STYLES:
+            raise ConfigError(
+                f"{path.name}: {name!r} name_style {style!r} is not one of "
+                f"{sorted(NAME_STYLES)}")
+        if style and not prefixes:
+            raise ConfigError(
+                f"{path.name}: {name!r} sets name_style but no prefixes, so "
+                f"there is no prefix to write the value around")
+
         if prefixes and not body.get("units"):
             raise ConfigError(
                 f"{path.name}: {name!r} sets prefixes but has no units, so "
@@ -267,6 +283,7 @@ def parse_parameters(data: dict[str, Any], path: Path
             aliases=as_list(body.get("aliases"), path, f"{name} aliases"),
             parse=parse,
             prefixes=prefixes,
+            name_style=style,
             values={str(k): as_list(v, path, f"{name} values {k}")
                     for k, v in values.items()},
         )

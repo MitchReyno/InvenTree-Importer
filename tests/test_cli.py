@@ -504,6 +504,34 @@ def test_products_are_fetched_for_the_selected_orders(digikey, digikey_env,
     assert any("296-1411-1-ND" in url for url in product_lookups(digikey))
 
 
+def test_import_orders_prints_progress_as_it_goes(
+        digikey, digikey_env, workspace, stocked, capsys):
+    """Parts, line items and orders are printed as they happen, not at the end."""
+    assert main(["import-orders", "--all", "--write"]) == 0
+    out = capsys.readouterr().out
+    assert "[1/1] 296-1411-1-ND" in out
+    assert "[1/1] DigiKey 12345678 / sales order 87654321" in out
+    assert "+ 296-1411-1-ND  x10" in out
+    assert "PO-0001" in out
+    assert "1 stock item(s)" in out
+
+
+def test_import_orders_create_parts_prints_each_write_action(
+        digikey, digikey_env, workspace, unstocked, capsys, tmp_path):
+    directory = _part_config_at(tmp_path)
+    assert main(["import-orders", "--all", "--write", "--create-parts",
+                 "--create-manufacturers", "--config", str(directory)]) == 0
+    out = capsys.readouterr().out
+    assert "Supplier parts" in out
+    assert "[1/1] 296-1411-1-ND" in out
+    assert "    manufacturer" in out
+    assert "    part" in out
+    assert "    manufacturer part" in out
+    assert "    supplier part" in out
+    assert "Purchase orders" in out
+    assert "+ 296-1411-1-ND  x10" in out
+
+
 def test_only_the_selected_orders_cost_product_calls(digikey, digikey_env,
                                                      workspace, stocked, answers):
     """The lookup runs after submission, so a deselected order is not paid for."""

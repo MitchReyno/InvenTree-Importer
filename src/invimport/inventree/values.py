@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import logging
 import re
+from functools import lru_cache
 from typing import Any
 
 import pint
@@ -84,16 +85,10 @@ def definition_for(unit: UnitConfig) -> str:
     return text
 
 
-def build_registry(units: dict[str, UnitConfig] | None = None
-                   ) -> pint.UnitRegistry:
-    """Build a registry equivalent to the one the server parses values with."""
+def _new_registry(units: dict[str, UnitConfig]) -> pint.UnitRegistry:
     registry = pint.UnitRegistry(autoconvert_offset_to_baseunit=True)
-
     for definition in BASE_DEFINITIONS:
         registry.define(definition)
-
-    if units is None:
-        units = load_units_config()
     for unit in units.values():
         try:
             registry.define(definition_for(unit))
@@ -101,6 +96,24 @@ def build_registry(units: dict[str, UnitConfig] | None = None
             log.warning("    [warn] custom unit %s is not usable: %s",
                         unit.name, exc)          # break every other value
     return registry
+
+
+@lru_cache(maxsize=1)
+def _default_registry() -> pint.UnitRegistry:
+    return _new_registry(load_units_config())
+
+
+def build_registry(units: dict[str, UnitConfig] | None = None
+                   ) -> pint.UnitRegistry:
+    """Build a registry equivalent to the one the server parses values with.
+
+    The default (config/units.yaml) is built once and reused: constructing a
+    pint registry is ~100ms, and parsers used to pay that on every call.
+    Pass an explicit units dict for a private registry that will not be cached.
+    """
+    if units is None:
+        return _default_registry()
+    return _new_registry(units)
 
 
 def clean_number(value: float) -> str:
@@ -133,12 +146,55 @@ NAME_PREFIXES = (
 )
 
 
-# Symbol -> scale, for looking a configured prefix up by name.
+# Symbol -> scale, for looking a configured prefix up by name. "" is the
+# unprefixed unit itself, and "R" is how RKM writes it for ohms - both are
+# unity, and both let a parameter say "never go below the base unit".
 NAME_PREFIX_SCALE = {symbol: scale for scale, symbol in NAME_PREFIXES}
+NAME_PREFIX_SCALE[""] = 1.0
+NAME_PREFIX_SCALE["R"] = 1.0
+
+# The SI prefix a configured symbol contributes to a *stored* value. Names may
+# write 4.7 ohm as "4R7", but a stored value has the unit spelled out beside
+# it, so unity contributes nothing and "u" is written the way pint prints it.
+STORED_PREFIX = {"": "", "R": "", "u": "µ"}
+
+
+def choose_prefix(number: float, prefixes: list[str]) -> tuple[float, str]:
+    """
+    The prefix a value is written with, given the set it may use.
+
+    Largest first, so a value keeps the biggest unit it can fill; the smallest
+    is the floor, because below it there is nothing left to step down to.
+    Returns (scale, symbol).
+    """
+    allowed = sorted(((NAME_PREFIX_SCALE[p], p) for p in prefixes
+                      if p in NAME_PREFIX_SCALE), reverse=True)
+    if not allowed:
+        return 1.0, ""
+    return next(((sc, sym) for sc, sym in allowed if abs(number) / sc >= 1),
+                allowed[-1])
+
+
+def rkm(mantissa: float, symbol: str) -> str:
+    """
+    A value in RKM notation (IEC 60062): 4R7, 3k3, 2M2, 7k.
+
+    The prefix stands where the decimal point would, which is the point of the
+    notation - it cannot be lost to a bad photocopy or a narrow column. A
+    whole number just takes the symbol as a suffix, and a value below 1 keeps
+    its decimal point, because "0R5" reads worse than "0.5R".
+    """
+    text = clean_number(abs(mantissa))
+    sign = "-" if mantissa < 0 else ""
+    whole, _, fraction = text.partition(".")
+    if not fraction or whole in ("0", ""):
+        return sign + text + symbol
+    return sign + whole + symbol + fraction
 
 
 def compact_for_name(magnitude: float,
-                     prefixes: list[str] | None = None) -> str:
+                     prefixes: list[str] | None = None,
+                     style: str = "") -> str:
     """
     A magnitude as it appears in a generated part name, without a unit.
 
@@ -151,6 +207,8 @@ def compact_for_name(magnitude: float,
     Without them, any prefix may be used, and a number that already reads
     plainly is left alone - '0.25' for a quarter-watt rating, whose template
     supplies the 'W' itself.
+
+    style="rkm" writes the prefix where the decimal point would go: 4R7, 3k3.
     """
     if magnitude == 0:
         return "0"
@@ -158,16 +216,10 @@ def compact_for_name(magnitude: float,
     number = abs(float(magnitude))
 
     if prefixes:
-        allowed = sorted(((NAME_PREFIX_SCALE[p], p) for p in prefixes
-                          if p in NAME_PREFIX_SCALE), reverse=True)
-        if allowed:
-            # Largest prefix first, so a value keeps the biggest unit it can
-            # fill. The smallest is the fallback: below it there is nothing
-            # left to move down to, and '0.5p' still beats '5e-13'.
-            scale, symbol = next(
-                ((sc, sym) for sc, sym in allowed if number / sc >= 1),
-                allowed[-1])
-            return sign + clean_number(number / scale) + symbol
+        scale, symbol = choose_prefix(number, prefixes)
+        if style == "rkm":
+            return sign + rkm(number / scale, symbol)
+        return sign + clean_number(number / scale) + symbol
 
     if 0.001 <= number < 1000:
         return sign + clean_number(number)
@@ -188,9 +240,13 @@ class Formatter:
 
     def __init__(self, units: dict[str, UnitConfig] | None = None,
                  registry: pint.UnitRegistry | None = None):
-        if units is None:
+        default = units is None
+        if default:
             units = load_units_config()
-        self.registry = registry or build_registry(units)
+        # The default config hits the cached registry; an explicit dict
+        # (tests, a caller with its own units) gets a private one.
+        self.registry = registry or (build_registry() if default
+                                     else build_registry(units))
         # Custom units are defined at the scale they are used at, so SI
         # prefixing them helps nobody. Built-in units do benefit - 0.25 W
         # really is nicer as 250 mW - so compaction is skipped only for these
@@ -224,19 +280,40 @@ class Formatter:
             abs(float(magnitude)) * ROUND_TRIP_TOLERANCE + 1e-12)
 
     # -- formatting --------------------------------------------------------
-    def candidates(self, magnitude: float, unit: str) -> list[str]:
+    def preferred(self, quantity, unit: str, prefixes: list[str]):
+        """
+        The quantity rescaled to the prefix its parameter is written with.
+
+        Keeps a stored value in the unit the part table should show it in -
+        3300 µF rather than the 3.3 mF pint's own compaction picks, and 0.05 Ω
+        rather than 50 mΩ. Returns None if the rescale is not possible, and
+        the caller falls back to compaction as before.
+        """
+        scale, symbol = choose_prefix(float(quantity.magnitude), prefixes)
+        si = STORED_PREFIX.get(symbol, symbol)
+        try:
+            return quantity.to(f"{si}{self.registry.Unit(unit):~P}")
+        except Exception:
+            return None
+
+    def candidates(self, magnitude: float, unit: str,
+                   prefixes: list[str] | None = None) -> list[str]:
         """
         Renderings to try, best-looking first.
 
-        1. Compact short-pretty - "100 kΩ", the readable form.
-        2. Short-pretty without rescaling, for a unit compaction mangles.
-        3. The unit's full name - "50 ppm_per_delta_degC". Ugly, but it parses.
+        1. The parameter's preferred prefix, where it names one.
+        2. Compact short-pretty - "100 kΩ", the readable form.
+        3. Short-pretty without rescaling, for a unit compaction mangles.
+        4. The unit's full name - "50 ppm_per_delta_degC". Ugly, but it parses.
         """
         quantity = self.registry.Quantity(magnitude, unit)
         options: list[str] = []
-        compact = self._compact(quantity) if self.compactable(unit) else None
+        rescalable = self.compactable(unit)
+        wanted = (self.preferred(quantity, unit, prefixes)
+                  if prefixes and rescalable else None)
+        compact = self._compact(quantity) if rescalable else None
 
-        for candidate in (compact, quantity):
+        for candidate in (wanted, compact, quantity):
             if candidate is None:
                 continue
             symbol = f"{candidate.units:~P}".strip()
@@ -256,7 +333,8 @@ class Formatter:
         except Exception:
             return None
 
-    def format(self, magnitude: Any, unit: str = "") -> str:
+    def format(self, magnitude: Any, unit: str = "",
+               prefixes: list[str] | None = None) -> str:
         """
         Render a magnitude in a unit as a readable, re-readable string.
 
@@ -276,7 +354,7 @@ class Formatter:
         if not unit:
             return clean_number(number)
 
-        for text in self.candidates(number, unit):
+        for text in self.candidates(number, unit, prefixes):
             if self.parses_to(text, number, unit):
                 return text
 
@@ -363,16 +441,29 @@ def divides_by_offset(unit: str) -> bool:
     return any(marker.casefold() in lowered for marker in OFFSET_MARKERS)
 
 
-def build_parse_registry(units: dict[str, UnitConfig] | None = None
-                         ) -> pint.UnitRegistry:
-    """InvenTree's registry plus the DigiKey spellings it does not know."""
-    registry = build_registry(units)
+@lru_cache(maxsize=1)
+def _default_parse_registry() -> pint.UnitRegistry:
+    return _new_parse_registry(load_units_config())
+
+
+def _new_parse_registry(units: dict[str, UnitConfig]) -> pint.UnitRegistry:
+    # Built from scratch, not from the cached InvenTree registry: supplier
+    # aliases are extra definitions and must not leak into Formatter's copy.
+    registry = _new_registry(units)
     for definition in SUPPLIER_DEFINITIONS:
         try:
             registry.define(definition)
         except Exception:
             pass                                 # already defined is fine
     return registry
+
+
+def build_parse_registry(units: dict[str, UnitConfig] | None = None
+                         ) -> pint.UnitRegistry:
+    """InvenTree's registry plus the DigiKey spellings it does not know."""
+    if units is None:
+        return _default_parse_registry()
+    return _new_parse_registry(units)
 
 
 # RKM code (IEC 60062): the multiplier stands in for the decimal point, so a
@@ -615,7 +706,8 @@ def read_value(text: str, parameter: ParameterConfig,
         if magnitude is None:
             return None
         formatter = formatter or Formatter()
-        return formatter.format(magnitude, parameter.units)
+        return formatter.format(magnitude, parameter.units,
+                                parameter.prefixes)
 
     if parameter.values or parameter.choices:
         chosen = choice_value(raw, parameter)

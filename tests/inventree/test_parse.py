@@ -415,3 +415,54 @@ def test_the_repo_config_reads_the_proposal_resistor():
     assert got["Operating Temp Max"] == "155 °C"
     assert got["Composition"] == "Metal Film"
     assert got["Package"] == "Axial"
+
+
+# --------------------------------------------------------------------------
+# Stored values follow the configured prefixes
+# --------------------------------------------------------------------------
+def test_a_stored_capacitance_stays_in_microfarads():
+    """The part table should read 3300 µF, not the 3.3 mF pint compacts to."""
+    from invimport.config import load_config
+    from invimport.inventree.values import read_value
+
+    _, parameters = load_config()
+    assert read_value("3300 µF", parameters["Capacitance"]) == "3300 µF"
+    assert read_value("1000 µF", parameters["Capacitance"]) == "1000 µF"
+
+
+def test_a_stored_capacitance_still_steps_down_below_a_microfarad():
+    from invimport.config import load_config
+    from invimport.inventree.values import read_value
+
+    _, parameters = load_config()
+    assert read_value("0.47 µF", parameters["Capacitance"]) == "470 nF"
+    assert read_value("100 pF", parameters["Capacitance"]) == "100 pF"
+
+
+def test_a_stored_resistance_never_reaches_milliohms():
+    from invimport.config import load_config
+    from invimport.inventree.values import read_value
+
+    _, parameters = load_config()
+    assert read_value("0.05 Ohms", parameters["Resistance"]) == "0.05 Ω"
+    assert read_value("3.3 kOhms", parameters["Resistance"]) == "3.3 kΩ"
+
+
+def test_a_stored_value_still_parses_back_to_its_own_number():
+    """
+    InvenTree re-reads the stored string to derive data_numeric. A value it
+    cannot parse sorts and filters as nothing, which is the whole reason for
+    storing a readable form rather than RKM.
+    """
+    from invimport.config import load_config
+    from invimport.inventree.values import Formatter, read_value
+
+    _, parameters = load_config()
+    formatter = Formatter()
+    for text, magnitude in [("3300 µF", 0.0033), ("1000 µF", 0.001),
+                            ("100 pF", 1e-10)]:
+        stored = read_value(text, parameters["Capacitance"], formatter)
+        assert formatter.parses_to(stored, magnitude, "F")
+    for text, magnitude in [("0.05 Ohms", 0.05), ("3.3 kOhms", 3300)]:
+        stored = read_value(text, parameters["Resistance"], formatter)
+        assert formatter.parses_to(stored, magnitude, "ohm")

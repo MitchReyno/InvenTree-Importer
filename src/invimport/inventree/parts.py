@@ -78,6 +78,10 @@ LIST_LIMIT = 1000
 FALLBACK_PREFIX = "MISC"
 
 ChooseManufacturer = Callable[[str, list[tuple[Any, float]]], Any | str | None]
+# sku, step, 1-based index, total. step is "start" or a write action
+# (manufacturer, part, manufacturer_part, supplier_part, image).
+OnStep = Callable[[str, str, int, int], None]
+OnSku = Callable[["SkuAction"], None]
 
 
 @dataclass
@@ -180,7 +184,8 @@ def fill_name(template: str, values: dict[str, str],
         if parameter and parameter.units:
             magnitude = parse_quantity(text, parameter.units)
             if magnitude is not None:
-                return compact_for_name(magnitude, parameter.prefixes)
+                return compact_for_name(magnitude, parameter.prefixes,
+                                        parameter.name_style)
         return text
 
     return re.sub(r"\{([^}]+)\}", replacer, template).strip()
@@ -651,6 +656,7 @@ def resolve_part(
     write: bool,
     update_parameters: bool = False,
     policy: PartPolicy | None = None,
+    on_step: Callable[[str], None] | None = None,
 ) -> PartResolution:
     """
     Find-or-create the Part and ManufacturerPart one line describes.
@@ -658,8 +664,16 @@ def resolve_part(
     Everything up to, but not including, the supplier part: the category, the
     part, its parameters, the manufacturer and the manufacturer part. Returns
     a PartResolution whose `reason` is set when the line could not be used.
+
+    on_step, if given, is called with a short action name just before each
+    write (manufacturer, part, manufacturer_part) so a caller can show
+    progress without buffering until the SKU is done.
     """
     policy = policy or PartPolicy()
+
+    def step(name: str) -> None:
+        if on_step and write:
+            on_step(name)
 
     found = resolve_category(line, ctx)
     if not found.ok:
@@ -680,6 +694,7 @@ def resolve_part(
 
     manufacturer = None
     if line.manufacturer:
+        step("manufacturer")
         manufacturer = resolve_manufacturer(
             api, line.manufacturer, ctx.manufacturers,
             choose=policy.choose_manufacturer,
@@ -707,6 +722,7 @@ def resolve_part(
     # Identity, most specific first. An explicit IPN is an instruction, not a
     # guess; an MPN or a type designator names the part directly; a spec is
     # matched on the parameters that identify it.
+    step("part")
     part = find_part_by_ipn(api, line.ipn)
     if part is None and line.mpn:
         part = find_part_by_mpn(api, line.mpn)
@@ -785,6 +801,7 @@ def resolve_part(
     # No manufacturer means no ManufacturerPart - nothing is invented to stand
     # in for one. A part may legitimately have none.
     if part.pk != UNRESOLVED_PK and manufacturer is not None and line.mpn:
+        step("manufacturer_part")
         existing = ManufacturerPart.list(api, part=part.pk, MPN=line.mpn,
                                          limit=LIST_LIMIT)
         mfr_part = existing[0] if existing else None
@@ -841,8 +858,13 @@ def import_sku(
     manufacturer_cache: dict[str, Any],
     image_cache_dir: Path,
     refresh: bool,
+    on_step: Callable[[str], None] | None = None,
 ) -> SkuAction:
     """Find-or-create the records one SKU needs. Does not fetch."""
+    def step(name: str) -> None:
+        if on_step and write:
+            on_step(name)
+
     existing = supplier_parts.get(sku.strip().upper())
     if existing is not None:
         return SkuAction(sku, "exists",
@@ -870,7 +892,8 @@ def import_sku(
                           # and this path has never prompted. The partial-spec
                           # question belongs to hand-written files, where a
                           # missing value means nobody knew it.
-                          on_partial="new"))
+                          on_partial="new"),
+                on_step=step)
 
     if resolved.needs_choice:                    # cannot happen under "new"
         return _skipped(sku, "partial specification", product,
@@ -891,6 +914,7 @@ def import_sku(
 
     supplier_part = None
     if write and part.pk != UNRESOLVED_PK:
+        step("supplier_part")
         # pack_quantity is deliberately left unset (InvenTree defaults it to 1).
         # DigiKey sells and prices this SKU by the piece, so one ordered unit is
         # one piece. Setting it from the product's standard_package - the
@@ -921,6 +945,7 @@ def import_sku(
 
     images = cache_product_images(product, image_cache_dir, refresh=refresh)
     if write and part.pk != UNRESOLVED_PK and images:
+        step("image")
         attach_part_image(part, images[0])
 
     return SkuAction(
@@ -957,6 +982,8 @@ def import_supplier_parts(
     cache_dir: Path | None = None,
     image_cache_dir: Path | None = None,
     refresh: bool = False,
+    on_sku: OnSku | None = None,
+    on_step: OnStep | None = None,
 ) -> PartImportResult:
     """
     Find-or-create the InvenTree records each SKU needs.
@@ -968,6 +995,10 @@ def import_supplier_parts(
     choose_manufacturer(name, [(company, score), ...]) returns an existing
     Company, a name to create, or None to skip. The CLI writes the answer
     back to manufacturers.yaml; this function does not.
+
+    on_sku is called as each SKU finishes. on_step(sku, action, index, total)
+    is called just before each write action (and with action "start" as the
+    SKU begins), so a caller can print progress without buffering.
     """
     api = api or connect()
     directory = Path(directory) if directory is not None else CONFIG_DIR
@@ -991,7 +1022,10 @@ def import_supplier_parts(
         result.problems.append(
             "no DigiKey supplier on the server - create one, or pass supplier=")
         for sku in wanted:
-            result.skus.append(_skipped(sku, "no DigiKey supplier"))
+            action = _skipped(sku, "no DigiKey supplier")
+            result.skus.append(action)
+            if on_sku:
+                on_sku(action)
         return result
     supplier_pk = supplier if isinstance(supplier, int) else supplier.pk
 
@@ -1013,11 +1047,15 @@ def import_supplier_parts(
     existing_parts = supplier_parts_by_sku(api, supplier_pk)
     manufacturer_cache: dict[str, Any] = {}
 
-    for sku in wanted:
+    for index, sku in enumerate(wanted, 1):
+        if on_step:
+            on_step(sku, "start", index, len(wanted))
         product = indexed.get(sku.strip().upper()) or {
             "SKU": sku, "error": "no product data"}
+        notify = ((lambda name, sku=sku, index=index: on_step(
+            sku, name, index, len(wanted))) if on_step else None)
         try:
-            result.skus.append(import_sku(
+            action = import_sku(
                 sku, product, api,
                 categories=categories,
                 parameters=parameters,
@@ -1033,9 +1071,13 @@ def import_supplier_parts(
                 manufacturer_cache=manufacturer_cache,
                 image_cache_dir=image_cache_dir or cache.IMAGES_DIR,
                 refresh=refresh,
-            ))
+                on_step=notify,
+            )
         except Exception as exc:
             result.problems.append(f"{sku}: {exc}")
-            result.skus.append(_skipped(sku, str(exc), product))
+            action = _skipped(sku, str(exc), product)
+        result.skus.append(action)
+        if on_sku:
+            on_sku(action)
 
     return result

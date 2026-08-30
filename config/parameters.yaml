@@ -13,10 +13,15 @@
 #   aliases      names the supplier may send this parameter under
 #   parse        how to turn the supplier's value text into ours (see
 #                invimport/inventree/values.py)
-#   prefixes     SI prefixes this parameter is written with in generated part
-#                names, largest first. Capacitance uses [u, n, p] so 3300 uF
-#                reads "3300u" rather than "3.3m". Omit to let any prefix be
-#                chosen; needs units.
+#   prefixes     SI prefixes this parameter is written with, largest first,
+#                in both stored values and generated part names. Capacitance
+#                uses [u, n, p] so 3300 uF reads "3300u" and stores as
+#                "3300 µF" rather than "3.3 mF". "R" (or "") means the
+#                unprefixed unit, and is the floor when listed last. Omit to
+#                let any prefix be chosen; needs units.
+#   name_style   how the value is written in a part name. "rkm" puts the
+#                prefix where the decimal point goes - 4R7, 3k3 (IEC 60062).
+#                Needs prefixes.
 #   values       canonical value -> the supplier spellings that mean it
 #
 # Seeded from the InvenTree instance, then extended. Units already on the
@@ -193,6 +198,11 @@ Resistance:
     - Resistance
     - Resistance (Ohms)
   parse: quantity
+  # Ohms at the bottom - a 0.05 ohm shunt is "0.05 Ω", never "50 mΩ". R is the
+  # unprefixed ohm, so the set is really ohms, kilohms and megohms.
+  prefixes: [M, k, R]
+  # Part names read 4R7 and 3k3 rather than 4.7 and 3.3k.
+  name_style: rkm
 
 Temperature Coefficient:
   # pint's own composite - no custom unit needed. Not ppm/°C: degC is an

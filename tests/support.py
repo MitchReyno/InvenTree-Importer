@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 import threading
+from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
@@ -226,15 +227,22 @@ class FakeDigiKey:
 # --------------------------------------------------------------------------
 # InvenTree stub server
 # --------------------------------------------------------------------------
-def spec_paths() -> set[str]:
+@lru_cache(maxsize=1)
+def spec_paths() -> frozenset[str]:
     """
     The API paths declared in docs/InvenTree API.yaml.
 
     Read straight from the spec so the stub cannot drift from the real server
     contract - this is what catches calls to routes that no longer exist.
+    Cached: the spec is large and every inventree test used to re-parse it.
     """
     text = SPEC_FILE.read_text(encoding="utf-8")
-    return set(re.findall(r"^  (/[^:\s]*):", text, flags=re.MULTILINE))
+    return frozenset(re.findall(r"^  (/[^:\s]*):", text, flags=re.MULTILINE))
+
+
+@lru_cache(maxsize=1)
+def spec_path_regexes() -> tuple[re.Pattern, ...]:
+    return tuple(path_to_regex(p) for p in spec_paths())
 
 
 def _by(rows: list[dict[str, Any]], query: dict[str, list[str]],
@@ -259,7 +267,7 @@ class InvenTreeStub:
     """
 
     def __init__(self, parts: dict[str, int] | None = None):
-        self.valid = [path_to_regex(p) for p in spec_paths()]
+        self.valid = spec_path_regexes()
         self.parts = parts if parts is not None else {"R-0402-10K": 7}
         self.templates: list[dict[str, Any]] = []
         self.parameters: list[dict[str, Any]] = []
@@ -678,7 +686,13 @@ class InvenTreeStub:
                 return self._send(204, {})
 
         self._server = HTTPServer(("127.0.0.1", 0), Handler)
-        threading.Thread(target=self._server.serve_forever, daemon=True).start()
+        # serve_forever polls at 0.5s by default, so shutdown() waits that long
+        # on every test. 0.01s is still plenty for the stub.
+        threading.Thread(
+            target=self._server.serve_forever,
+            kwargs={"poll_interval": 0.01},
+            daemon=True,
+        ).start()
         return self
 
     def __exit__(self, *exc):

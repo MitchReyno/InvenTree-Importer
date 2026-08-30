@@ -37,7 +37,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date
 from types import SimpleNamespace
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from ..util import dig
 from .matching import candidates, company_aliases, match_name
@@ -72,6 +72,13 @@ LIST_LIMIT = 1000
 # InvenTree status codes used when receiving imported stock.
 PO_PENDING = 10
 STOCK_OK = 10
+
+# Progress callbacks. Index is 1-based. on_order_start fires before the sales
+# order is processed; on_line as each line is booked (or skipped); on_order
+# with the finished OrderImport.
+OnOrderStart = Callable[[Any, Any, int, int], None]
+OnLine = Callable[["LineAction"], None]
+OnOrder = Callable[["OrderImport"], None]
 
 
 @dataclass
@@ -519,6 +526,7 @@ def import_sales_order(
     partial: bool,
     products: dict[str, dict[str, Any]] | None = None,
     location: int | None = None,
+    on_line: OnLine | None = None,
 ) -> OrderImport:
     """Create one purchase order from one DigiKey sales order."""
     sales_order_id = sales_order.get("sales_order_id")
@@ -529,6 +537,11 @@ def import_sales_order(
     def outcome(action: str, **kw) -> OrderImport:
         return OrderImport(order_number, sales_order_id, action,
                            currency=currency, **kw)
+
+    def emit_lines(actions: list[LineAction]) -> None:
+        if on_line:
+            for action in actions:
+                on_line(action)
 
     if not reference_key or reference_key == "None":
         return outcome("skipped", reason="sales order has no id to key an import on")
@@ -548,6 +561,7 @@ def import_sales_order(
                                 supplier_part=po_line.part)
             actions.append(action)
             booked.append((action, po_line))
+        emit_lines(actions)
         receive_stock(api, already, booked, write=write, location=location)
         return outcome("exists", reference=str(getattr(already, "reference", "")),
                        pk=already.pk, lines=actions)
@@ -560,9 +574,11 @@ def import_sales_order(
     # Checked before the strict guard below: with nothing to import there is no
     # "rest", and pointing at --partial would be advice that cannot help.
     if len(unmatched) == len(lines):
+        emit_lines(lines)
         return outcome("skipped", lines=lines,
                        reason="no line item matched a supplier part")
     if unmatched and not partial:
+        emit_lines(lines)
         return outcome(
             "skipped", lines=lines,
             reason=f"{len(unmatched)} of {len(lines)} line item(s) have no "
@@ -573,6 +589,7 @@ def import_sales_order(
     # hang line items off, so the plan above is as far as it can go. Stock
     # is still marked so the preview includes what a write would receive.
     if not write:
+        emit_lines(lines)
         receive_stock(api, None, [(line, None) for line in lines],
                       write=False, location=location)
         return outcome("created", lines=lines)
@@ -594,18 +611,19 @@ def import_sales_order(
 
     booked: list[tuple[LineAction, Any]] = []
     for line in lines:
-        if line.action != "created":
-            continue
-        item = {
-            "order": purchase_order.pk,
-            "part": line.supplier_part,
-            "quantity": line.quantity,
-        }
-        if line.unit_price is not None:
-            item["purchase_price"] = line.unit_price
-            if currency:
-                item["purchase_price_currency"] = currency
-        booked.append((line, PurchaseOrderLineItem.create(api, item)))
+        if line.action == "created":
+            item = {
+                "order": purchase_order.pk,
+                "part": line.supplier_part,
+                "quantity": line.quantity,
+            }
+            if line.unit_price is not None:
+                item["purchase_price"] = line.unit_price
+                if currency:
+                    item["purchase_price_currency"] = currency
+            booked.append((line, PurchaseOrderLineItem.create(api, item)))
+        if on_line:
+            on_line(line)
 
     receive_stock(api, purchase_order, booked, write=True, location=location)
 
@@ -632,6 +650,12 @@ def import_orders(
     create_manufacturers: bool = False,
     choose_manufacturer=None,
     location: int | None = None,
+    on_sku=None,
+    on_step=None,
+    on_parts=None,
+    on_order_start: OnOrderStart | None = None,
+    on_line: OnLine | None = None,
+    on_order: OnOrder | None = None,
 ) -> ImportResult:
     """
     Import DigiKey orders as InvenTree purchase orders.
@@ -651,6 +675,12 @@ def import_orders(
     location is the stock location pk received items land in. Omit it and
     the only (or first top-level) location on the server is used. Without
     any location, purchase orders are still created but stock is skipped.
+
+    on_sku / on_step are forwarded to import_supplier_parts when create_parts
+    runs. on_parts is called with that result once the parts phase finishes.
+    on_order_start(order_number, sales_order_id, index, total) fires before
+    each sales order is processed; on_line as each line is booked or skipped;
+    on_order with the finished OrderImport.
 
     Returns everything that happened, or with write=False everything that
     would happen.
@@ -678,6 +708,7 @@ def import_orders(
                 create_manufacturers=create_manufacturers,
                 choose_manufacturer=choose_manufacturer,
                 fetch=not products,
+                on_sku=on_sku, on_step=on_step,
             )
             if write:
                 parts = supplier_parts_by_sku(api, supplier)
@@ -687,28 +718,41 @@ def import_orders(
                         parts[action.sku.strip().upper()] = SimpleNamespace(
                             pk=action.supplier_part or -1)
             part_result = created
+            if on_parts:
+                on_parts(created)
 
     result = ImportResult(parts=part_result)
 
+    work: list[tuple[dict[str, Any], dict[str, Any]]] = []
     for order in orders:
         sales_orders = order.get("sales_orders") or []
         if not sales_orders:
             result.problems.append(
                 f"order {order.get('order_number')}: no sales orders to import")
             continue
-
         for sales_order in sales_orders:
-            try:
-                result.orders.append(import_sales_order(
-                    api, order, sales_order, supplier, parts, existing,
-                    write=write, partial=partial, products=products,
-                    location=location,
-                ))
-            except Exception as exc:                      # one bad order
-                # should not lose the rest of the batch
-                result.problems.append(
-                    f"order {order.get('order_number')} / sales order "
-                    f"{sales_order.get('sales_order_id')}: {exc}")
+            work.append((order, sales_order))
+
+    total = len(work)
+    for index, (order, sales_order) in enumerate(work, 1):
+        if on_order_start:
+            on_order_start(order.get("order_number"),
+                           sales_order.get("sales_order_id"),
+                           index, total)
+        try:
+            imported = import_sales_order(
+                api, order, sales_order, supplier, parts, existing,
+                write=write, partial=partial, products=products,
+                location=location, on_line=on_line,
+            )
+            result.orders.append(imported)
+            if on_order:
+                on_order(imported)
+        except Exception as exc:                      # one bad order
+            # should not lose the rest of the batch
+            result.problems.append(
+                f"order {order.get('order_number')} / sales order "
+                f"{sales_order.get('sales_order_id')}: {exc}")
 
     if any(line.stock == "skipped"
            for imported in result.orders

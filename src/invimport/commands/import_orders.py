@@ -88,6 +88,8 @@ from .supplier_parts import (
     learn_categories,
     learn_manufacturer,
     report as report_parts,
+    report_sku,
+    report_step,
 )
 from ._args import add_digikey_args
 from ._prompt import choose_one, confirm, interactive, select_many
@@ -187,13 +189,29 @@ def collect_products(orders: list[dict[str, Any]], client,
         return {}
 
     print(f"\nFetching product details for {len(skus)} SKU(s)...")
+    done = 0
+
+    def on_result(entry, payload):
+        nonlocal done
+        done += 1
+        sku = entry.get("SKU") or "?"
+        if entry.get("error"):
+            print(f"  [{done}/{len(skus)}] {sku}  not found", flush=True)
+            return
+        detail = "  ".join(str(entry[field]) for field in
+                           ("manufacturer_part", "description")
+                           if entry.get(field))
+        print(f"  [{done}/{len(skus)}] {sku}"
+              + (f"  {detail}" if detail else ""), flush=True)
+
     rows = fetch_products(skus, client, cache_dir=args.product_cache_dir,
-                          refresh=args.refresh)
+                          refresh=args.refresh, on_result=on_result)
 
     products = {str(row["SKU"]).strip().upper(): row for row in rows
                 if not row.get("error")}
     missing = len(rows) - len(products)
-    print(f"  {len(products)} found" + (f", {missing} not found" if missing else ""))
+    print(f"  {len(products)} found" + (f", {missing} not found" if missing else ""),
+          flush=True)
     return products
 
 
@@ -358,38 +376,75 @@ def unmatched_advice(result: ImportResult, *, tried_creating: bool) -> str:
     return "\n  ".join(lines)
 
 
+def report_line(line) -> None:
+    """One line item as it is booked, skipped, or found already on the order."""
+    sku = line.sku or "(no SKU)"
+    if line.action == "created":
+        extra = f"  x{line.quantity:g}"
+        if line.unit_price is not None:
+            extra += f"  {line.unit_price}"
+        print(f"    + {sku}{extra}", flush=True)
+    elif line.action == "exists":
+        extra = f"  x{line.quantity:g}" if line.quantity else ""
+        print(f"    = {sku}{extra}  already on order", flush=True)
+    else:
+        print(f"    - {sku}: {line.reason}", flush=True)
+        if line.describe():
+            print(f"          {line.describe()}", flush=True)
+
+
+def report_order_start(order_number, sales_order_id, index: int, total: int
+                       ) -> None:
+    print(f"  [{index}/{total}] DigiKey {order_number} / sales order "
+          f"{sales_order_id}", flush=True)
+
+
+def report_order_done(order) -> None:
+    """The sales order's outcome, once its lines are finished."""
+    if order.action == "created":
+        reference = order.reference or "(reference assigned on write)"
+        extra = f"{order.imported_lines} line item(s)"
+        if order.imported_stock:
+            extra += f", {order.imported_stock} stock item(s)"
+        print(f"  + {reference}  {extra}", flush=True)
+    elif order.action == "exists":
+        extra = "already imported"
+        if order.imported_stock:
+            extra += f", created {order.imported_stock} stock item(s)"
+        print(f"  = {order.reference}  {extra}", flush=True)
+    else:
+        print(f"  ! skipped: {order.reason}", flush=True)
+
+
 def report(result: ImportResult, *, write: bool,
-           tried_creating: bool = False) -> None:
-    print("\nPurchase orders")
-
-    for order in result.orders:
-        label = f"DigiKey {order.order_number} / sales order {order.sales_order_id}"
-
-        if order.action == "created":
-            reference = order.reference or "(reference assigned on write)"
-            extra = f"{order.imported_lines} line item(s)"
-            if order.imported_stock:
-                extra += f", {order.imported_stock} stock item(s)"
-            print(f"  + {reference}  <- {label}  {extra}")
-        elif order.action == "exists":
-            extra = "already imported"
-            if order.imported_stock:
-                extra += f", created {order.imported_stock} stock item(s)"
-            print(f"  = {order.reference}  <- {label}  {extra}")
-        else:
-            print(f"  ! skipped {label}: {order.reason}")
-
-        for line in order.unmatched:
-            print(f"      - {line.sku or '(no SKU)'}: {line.reason}")
-            # What the part actually is, so the supplier part can be created
-            # without going back to DigiKey to look the SKU up again.
-            if line.describe():
-                print(f"          {line.describe()}")
+           tried_creating: bool = False, items: bool = True) -> None:
+    if items:
+        print("\nPurchase orders")
+        for order in result.orders:
+            label = (f"DigiKey {order.order_number} / sales order "
+                     f"{order.sales_order_id}")
+            if order.action == "created":
+                reference = order.reference or "(reference assigned on write)"
+                extra = f"{order.imported_lines} line item(s)"
+                if order.imported_stock:
+                    extra += f", {order.imported_stock} stock item(s)"
+                print(f"  + {reference}  <- {label}  {extra}")
+            elif order.action == "exists":
+                extra = "already imported"
+                if order.imported_stock:
+                    extra += f", created {order.imported_stock} stock item(s)"
+                print(f"  = {order.reference}  <- {label}  {extra}")
+            else:
+                print(f"  ! skipped {label}: {order.reason}")
+            for line in order.unmatched:
+                print(f"      - {line.sku or '(no SKU)'}: {line.reason}")
+                if line.describe():
+                    print(f"          {line.describe()}")
 
     counts = result.counts()
     print(f"\n  created={counts['created']}  already_imported={counts['exists']}  "
           f"skipped={counts['skipped']}  line_items={counts['lines']}  "
-          f"stock_items={counts['stock']}")
+          f"stock_items={counts['stock']}", flush=True)
 
     if counts["unmatched"]:
         print(f"\n  {counts['unmatched']} line item(s) had no matching supplier "
@@ -514,12 +569,43 @@ def run(args: argparse.Namespace) -> int:
                              api, write=args.write)
 
     print(f"\n{'Importing' if args.write else 'Previewing'} {len(chosen)} "
-          f"order(s)...")
+          f"order(s)...", flush=True)
     chooser = None
     if create_parts and not args.create_manufacturers and interactive():
         chooser = learn_manufacturer(args.config or CONFIG_DIR)
 
     location = named_location(api, args.location) if args.location else None
+
+    parts_header = False
+    orders_header = False
+    parts_reported = False
+
+    def on_step(sku, step, index, total):
+        nonlocal parts_header
+        if not parts_header:
+            print("\nSupplier parts", flush=True)
+            parts_header = True
+        report_step(sku, step, index, total)
+
+    def on_sku(action):
+        nonlocal parts_header
+        if not parts_header:
+            print("\nSupplier parts", flush=True)
+            parts_header = True
+        report_sku(action)
+
+    def on_parts(parts_result):
+        nonlocal parts_reported
+        report_parts(parts_result, items=False)
+        parts_reported = True
+
+    def on_order_start(order_number, sales_order_id, index, total):
+        nonlocal orders_header
+        if not orders_header:
+            print("\nPurchase orders", flush=True)
+            orders_header = True
+        report_order_start(order_number, sales_order_id, index, total)
+
     result = import_orders(
         chosen, api, supplier=supplier, write=args.write,
         partial=partial, products=products,
@@ -528,10 +614,13 @@ def run(args: argparse.Namespace) -> int:
         create_manufacturers=args.create_manufacturers,
         choose_manufacturer=chooser,
         location=location,
+        on_sku=on_sku, on_step=on_step, on_parts=on_parts,
+        on_order_start=on_order_start, on_line=report_line,
+        on_order=report_order_done,
     )
-    if result.parts is not None:
+    if result.parts is not None and not parts_reported:
         report_parts(result.parts)
-    report(result, write=args.write, tried_creating=create_parts)
+    report(result, write=args.write, tried_creating=create_parts, items=False)
 
     if not args.write:
         print("\nDRY RUN complete - re-run with --write to apply.")
