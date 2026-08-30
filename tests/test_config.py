@@ -459,6 +459,17 @@ def test_repo_spec_categories_can_name_their_parts():
                 f"is not one of its parameters")
 
 
+@pytest.mark.skipif(not CONFIG_DIR.exists(), reason="no config/ in the repo")
+def test_ics_inherit_supply_voltage():
+    categories, _ = load_config()
+    for path in ("Integrated Circuits",
+                 "Integrated Circuits/Op-Amps",
+                 "Integrated Circuits/Microcontrollers",
+                 "Integrated Circuits/Power Management"):
+        assert "Supply Voltage Min" in categories[path].parameters
+        assert "Supply Voltage Max" in categories[path].parameters
+
+
 # --------------------------------------------------------------------------
 # Inherited identity
 # --------------------------------------------------------------------------

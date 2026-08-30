@@ -857,6 +857,41 @@ def test_reimporting_does_not_duplicate_parameters(inventree, tmp_path):
     assert len(inventree.parameters) == before
 
 
+def test_update_parameters_fills_missing_values_on_an_existing_sku(
+        inventree, tmp_path):
+    """
+    --update-parameters used to no-op: a SKU that was already a supplier part
+    returned before any parameter code ran.
+    """
+    import_resistor(inventree, tmp_path)
+    names = {t["pk"]: t["name"] for t in inventree.templates}
+    # Drop Mounting everywhere, and a key parameter from the Part, so the
+    # write has to touch the existing Part as well as the manufacturer and
+    # supplier records.
+    inventree.parameters[:] = [
+        p for p in inventree.parameters
+        if names.get(p["template"]) != "Mounting"
+        and not (names.get(p["template"]) == "Resistance"
+                 and p["model_type"] == "part.part")]
+
+    product = {**RESISTOR_PRODUCT,
+               "parameters": {**RESISTOR_PRODUCT["parameters"],
+                              "Mounting Type": "Through Hole"}}
+    result = import_supplier_parts(
+        ["13-MFR-ND"], connect(), write=True,
+        directory=config_dir(tmp_path, RESISTORS_WITH_EXTRA, RESISTOR_PARAMETERS),
+        products={"13-MFR-ND": product}, fetch=False,
+        create_manufacturers=True, update_parameters=True)
+
+    assert result.counts()["exists"] == 1
+    assert result.counts()["created"] == 0
+    assert result.counts()["parameters"] > 0
+    assert len(inventree.supplier_parts) == 1
+    assert "Resistance" in written(inventree, "part.part")
+    assert "Mounting" in written(inventree, "company.manufacturerpart")
+    assert "Mounting" in written(inventree, "company.supplierpart")
+
+
 def test_on_sku_fires_as_each_sku_finishes(inventree, tmp_path):
     seed_ic(inventree)
     seen = []
@@ -933,18 +968,23 @@ def test_no_preferred_prefix_leaves_the_general_rule_alone():
     assert compact_for_name(100000, None) == "100k"
 
 
-def test_a_capacitor_name_uses_the_configured_prefixes():
+@pytest.mark.parametrize("path,kind", [
+    ("Capacitors/Ceramic Capacitors", "Ceramic Capacitor"),
+    ("Capacitors/Electrolytic Capacitors", "Electrolytic Capacitor"),
+    ("Capacitors/Film Capacitors", "Film Capacitor"),
+    ("Capacitors/Tantalum Capacitors", "Tantalum Capacitor"),
+])
+def test_a_capacitor_name_includes_its_type(path, kind):
     """End to end, through the real config."""
     from invimport.config import load_config
 
     categories, parameters = load_config()
-    category = categories["Capacitors/Electrolytic Capacitors"]
-    name = fill_name(category.name_template,
+    name = fill_name(categories[path].name_template,
                      {"Capacitance": "3.3 mF", "Max Working Voltage": "16 V",
                       "Tolerance": "20 %", "Mounting": "Through Hole",
                       "Package": "Radial"},
                      parameters)
-    assert name == "Capacitor 3300u 16V 20% Through Hole Radial"
+    assert name == f"{kind} 3300u 16V 20% Through Hole Radial"
 
 
 # --------------------------------------------------------------------------
@@ -993,4 +1033,4 @@ def test_a_resistor_name_uses_rkm_through_the_real_config():
                       "Power Rating": "0.25 W", "Composition": "Metal Film",
                       "Mounting": "Through Hole", "Package": "Axial"},
                      parameters)
-    assert name == "Resistor 3k3 1% 0.25W Metal Film Through Hole Axial"
+    assert name == "Resistor 3k3 1% 0.25W Metal Film"

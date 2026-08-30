@@ -566,29 +566,75 @@ PARENS_GROUP = re.compile(r"\(([^()]*)\)")
 METRIC_LENGTH = re.compile(r"[\d.]+\s*(?:nm|µm|um|mm|cm|m)\b", re.IGNORECASE)
 
 
+def metric_measurements(text: str) -> list[str] | None:
+    """
+    The metric length measurements in a DigiKey (or already-metric) dimension.
+
+    DigiKey states a dimension imperial-first with the metric equivalent in
+    parentheses: 0.197" Dia (5.00mm), or 0.094" Dia x 0.248" L (2.40mm x
+    6.30mm). That parenthesised group is what we want; taking the number off
+    the front instead reads 0.197 as though it were already mm, storing
+    197 µm for a 5 mm can - wrong by 25.4x, and silently so.
+
+    A stock file already written in millimetres ('2.4 mm', '2.4 mm x 6.3 mm')
+    has no such group, and is used as-is. Returns None when nothing metric is
+    there, so an imperial value without a conversion is not stored as though
+    it were already mm.
+    """
+    groups = PARENS_GROUP.findall(text or "")
+    metric = [g for g in groups if METRIC_LENGTH.search(g)]
+    if metric:
+        inner = metric[-1].strip()
+    else:
+        inner = (text or "").strip()
+        if not METRIC_LENGTH.search(inner):
+            return None
+    parts = [p.strip() for p in re.split(r"\s*x\s*", inner, flags=re.IGNORECASE)
+             if p.strip()]
+    return parts or None
+
+
 def parse_metric(text: str, unit: str = "",
                  registry: pint.UnitRegistry | None = None) -> float | None:
     """
     '0.197" Dia (5.00mm)' -> 5.0 - the metric value, not the imperial one.
 
-    DigiKey states a dimension imperial-first with the metric equivalent in
-    parentheses, which is exactly what strip_decoration() throws away. Taking
-    the number off the front instead reads 0.197 as though it were already in
-    the target unit, storing 197 µm for a 5 mm can - wrong by 25.4x, and
-    silently so.
-
     A value naming two dimensions at once ('0.094" Dia x 0.248" L (2.40mm x
     6.30mm)', a resistor body) is not one measurement, so it returns None
-    rather than picking a side.
+    rather than picking a side. metric_first / metric_last split those.
     """
-    groups = PARENS_GROUP.findall(text or "")
-    metric = [g for g in groups if METRIC_LENGTH.search(g)]
-    if not metric:
+    parts = metric_measurements(text)
+    if not parts or len(parts) != 1:
         return None
-    inner = metric[-1].strip()
-    if re.search(r"\bx\b", inner, re.IGNORECASE):
-        return None                              # two dimensions, not one
-    return parse_quantity(inner, unit, registry)
+    return parse_quantity(parts[0], unit, registry)
+
+
+def parse_metric_first(text: str, unit: str = "",
+                       registry: pint.UnitRegistry | None = None
+                       ) -> float | None:
+    """
+    The first metric measurement: diameter of '2.40mm x 6.30mm', or the
+    only one of a single-dimension can.
+    """
+    parts = metric_measurements(text)
+    if not parts:
+        return None
+    return parse_quantity(parts[0], unit, registry)
+
+
+def parse_metric_last(text: str, unit: str = "",
+                      registry: pint.UnitRegistry | None = None
+                      ) -> float | None:
+    """
+    The last metric measurement: body length of '2.40mm x 6.30mm'.
+
+    A single dimension is not a pair, so it returns None rather than
+    duplicating the diameter as a length.
+    """
+    parts = metric_measurements(text)
+    if not parts or len(parts) < 2:
+        return None
+    return parse_quantity(parts[-1], unit, registry)
 
 
 def split_range(text: str) -> tuple[str, str] | None:
@@ -613,9 +659,31 @@ def split_range(text: str) -> tuple[str, str] | None:
     return low, high
 
 
+def range_bounds(text: str) -> tuple[str, str] | None:
+    """
+    The low and high of a supplier range, or the same value twice.
+
+    DigiKey's op-amp supply is '2.7V ~ 5.5V, ±1.35V ~ 2.75V': the first
+    comma-separated group is the single-supply range, the dual follows.
+    Taking the first group is the same rule as quantity_first. A lone
+    value ('5V') is a range of one, so both ends are that value rather
+    than storing nothing.
+    """
+    cleaned = strip_decoration(text)
+    if not cleaned:
+        return None
+    first = cleaned.split(",", 1)[0].strip()
+    parts = split_range(first)
+    if parts is not None:
+        return parts
+    if split_magnitude(first)[0] is None:
+        return None
+    return first, first
+
+
 def parse_range_low(text: str, unit: str = "",
                     registry: pint.UnitRegistry | None = None) -> float | None:
-    parts = split_range(text)
+    parts = range_bounds(text)
     if parts is None:
         return None
     return parse_quantity(parts[0], unit, registry)
@@ -623,7 +691,7 @@ def parse_range_low(text: str, unit: str = "",
 
 def parse_range_high(text: str, unit: str = "",
                      registry: pint.UnitRegistry | None = None) -> float | None:
-    parts = split_range(text)
+    parts = range_bounds(text)
     if parts is None:
         return None
     return parse_quantity(parts[1], unit, registry)
@@ -636,6 +704,8 @@ PARSERS = {
     "range_low": parse_range_low,
     "range_high": parse_range_high,
     "metric": parse_metric,
+    "metric_first": parse_metric_first,
+    "metric_last": parse_metric_last,
 }
 
 

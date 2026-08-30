@@ -417,8 +417,9 @@ uv run invimport supplier-parts - < skus.txt --write
 
 **Dry run is the default.** Re-running is a no-op: a SKU that is already
 a supplier part is reported and left alone. Existing parts are matched,
-never renamed. `--update-parameters` overwrites parameter values on a
-part that already exists.
+never renamed. `--update-parameters` fills missing parameter values (and
+overwrites drifted ones) on a Part / ManufacturerPart / SupplierPart that
+already exist.
 
 An unmapped DigiKey category skips the SKU. An unknown manufacturer
 does the same, unless you are at a terminal (fuzzy matches are offered

@@ -49,9 +49,11 @@ Capacitors:
     - Package
     - Tolerance
   Ceramic Capacitors:
+    name: "Ceramic Capacitor {Capacitance} {Max Working Voltage}V {Tolerance}% {Mounting} {Package}"
     aliases:
       - Capacitors / Ceramic Capacitors
   Electrolytic Capacitors:
+    name: "Electrolytic Capacitor {Capacitance} {Max Working Voltage}V {Tolerance}% {Mounting} {Package}"
     key_parameters:
       - Polarity
     parameters:
@@ -63,10 +65,12 @@ Capacitors:
     aliases:
       - Capacitors / Aluminum Electrolytic Capacitors
   Film Capacitors:
+    name: "Film Capacitor {Capacitance} {Max Working Voltage}V {Tolerance}% {Mounting} {Package}"
     aliases:
       - Capacitors / Film Capacitors
 
   Tantalum Capacitors:
+    name: "Tantalum Capacitor {Capacitance} {Max Working Voltage}V {Tolerance}% {Mounting} {Package}"
     parameters:
       - ESR
       - Diameter
@@ -132,6 +136,8 @@ Integrated Circuits:
     - Operating Temp Max
     - Operating Temp Min
     - Package
+    - Supply Voltage Min
+    - Supply Voltage Max
   Memory:
     ipn_prefix: ROM
   Op-Amps:
@@ -239,7 +245,7 @@ Resistors:
     - Composition
     - Mounting
     - Package
-  name: "Resistor {Resistance} {Tolerance}% {Power Rating}W {Composition} {Mounting} {Package}"
+  name: 
   parameters:
     - Composition
     - Max Working Voltage
@@ -252,9 +258,14 @@ Resistors:
     - Temperature Coefficient
     - Tolerance
   Through Hole Resistors:
+    name: "Resistor {Resistance} {Tolerance}% {Power Rating}W {Composition}"
+    parameters:
+      - Diameter
+      - Length
     aliases:
       - Resistors / Through Hole Resistors
   Surface Mount Resistors:
+    name: "SMD Resistor {Resistance} {Tolerance}% {Power Rating}W {Composition} {Package}"
     aliases:
       - Resistors / Chip Resistor - Surface Mount
 

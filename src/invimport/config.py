@@ -71,7 +71,7 @@ IPN_PREFIX_PATTERN = re.compile(r"^[A-Z0-9]{1,10}$")
 # used as-is (after the values: map and a choices check).
 PARSE_KINDS = frozenset({
     "quantity", "percent", "quantity_first", "range_low", "range_high",
-    "metric",
+    "metric", "metric_first", "metric_last",
 })
 
 

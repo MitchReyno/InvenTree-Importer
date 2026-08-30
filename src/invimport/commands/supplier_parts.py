@@ -66,8 +66,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--write", action="store_true",
                         help="apply changes (default is dry run)")
     parser.add_argument("--update-parameters", action="store_true",
-                        help="overwrite parameter values on parts that "
-                             "already exist")
+                        help="fill missing parameter values (and overwrite "
+                             "drifted ones) on parts that already exist")
     parser.add_argument("--create-manufacturers", action="store_true",
                         help="create a manufacturer company for any name "
                              "that does not match; without this, "
@@ -214,6 +214,11 @@ def report_sku(item) -> None:
                   f"supplier part {item.supplier_parameters}", flush=True)
     elif item.action == "exists":
         print(f"  = {item.sku}  already a supplier part", flush=True)
+        if (item.part_parameters or item.manufacturer_parameters
+                or item.supplier_parameters):
+            print(f"      parameters: part {item.part_parameters}, "
+                  f"manufacturer part {item.manufacturer_parameters}, "
+                  f"supplier part {item.supplier_parameters}", flush=True)
     else:
         print(f"  ! {item.sku}: {item.reason}", flush=True)
         if item.describe():

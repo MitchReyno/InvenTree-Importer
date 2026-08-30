@@ -14,7 +14,10 @@ from invimport.inventree.values import (
     parse_quantity,
     expand_rkm,
     parse_metric,
+    parse_metric_first,
+    parse_metric_last,
     parse_quantity_first,
+    range_bounds,
     split_range,
     supplier_text,
     parse_range_high,
@@ -172,6 +175,35 @@ def test_metric_ignores_a_measurement_point_note():
     assert parse_metric("125 (TA)", "mm") is None
 
 
+@pytest.mark.parametrize("text,expected", [
+    ("5 mm", 5.0),
+    ("2.4mm", 2.4),
+    ("13.00 mm", 13.0),
+])
+def test_metric_reads_a_value_already_in_metric(text, expected):
+    """A stock file writes '5 mm', not DigiKey's imperial-first form."""
+    assert parse_metric(text, "mm") == pytest.approx(expected)
+
+
+RESISTOR_BODY = '0.094" Dia x 0.248" L (2.40mm x 6.30mm)'
+
+
+def test_metric_first_takes_the_diameter_of_a_resistor_body():
+    assert parse_metric_first(RESISTOR_BODY, "mm") == pytest.approx(2.4)
+    assert parse_metric_last(RESISTOR_BODY, "mm") == pytest.approx(6.3)
+
+
+def test_metric_first_still_reads_a_single_dimension_can():
+    """Electrolytic Size / Dimension is just the diameter."""
+    assert parse_metric_first('0.197" Dia (5.00mm)', "mm") == pytest.approx(5.0)
+    assert parse_metric_last('0.197" Dia (5.00mm)', "mm") is None
+
+
+def test_metric_first_and_last_split_an_already_metric_pair():
+    assert parse_metric_first("2.4 mm x 6.3 mm", "mm") == pytest.approx(2.4)
+    assert parse_metric_last("2.4 mm x 6.3 mm", "mm") == pytest.approx(6.3)
+
+
 @pytest.mark.parametrize("text,unit,expected", [
     ("4k7", "ohm", 4700),                 # the marking on the part
     ("4R7", "ohm", 4.7),                  # R is the decimal point, no multiplier
@@ -302,6 +334,28 @@ def test_a_temperature_range_splits_into_two_magnitudes(text, low, high):
     assert parse_range_high(text, "°C") == (None if high is None else pytest.approx(high))
 
 
+@pytest.mark.parametrize("text,low,high", [
+    ("2.7V ~ 5.5V", 2.7, 5.5),
+    ("2 V ~ 6 V", 2, 6),
+    ("1.8V ~ 5.5V", 1.8, 5.5),
+    # Single-supply first, dual after the comma.
+    ("2.7V ~ 5.5V, ±1.35V ~ 2.75V", 2.7, 5.5),
+    ("4.5V ~ 16V, ±2.25V ~ 8V", 4.5, 16),
+    ("±5V ~ 15V", 5, 15),                     # dual-only; ± is decoration
+    ("5V", 5, 5),                             # a single rail, not a span
+    ("3.3V", 3.3, 3.3),
+    ("-", None, None),
+])
+def test_a_supply_range_splits_into_two_magnitudes(text, low, high):
+    assert parse_range_low(text, "V") == (None if low is None else pytest.approx(low))
+    assert parse_range_high(text, "V") == (None if high is None else pytest.approx(high))
+
+
+def test_range_bounds_takes_the_first_comma_group():
+    assert range_bounds("2.7V ~ 5.5V, ±1.35V ~ 2.75V") == ("2.7V", "5.5V")
+    assert range_bounds("5V") == ("5V", "5V")
+
+
 # --------------------------------------------------------------------------
 # read_value - parse then format
 # --------------------------------------------------------------------------
@@ -369,7 +423,7 @@ PARAMS = {
                             aliases=["Operating Temperature"]),
     "Composition": P("Composition", choices=["Metal Film", "Wire Wound"]),
     "Mounting": P("Mounting", choices=["Through Hole", "Surface Mount"],
-                  aliases=["Mounting Type"],
+                  aliases=["Mounting Type", "Package / Case"],
                   values={"Through Hole": ["Axial", "Thru Hole"]}),
     "Package": P("Package", aliases=["Package / Case"]),
     "Features": P("Features"),
@@ -414,6 +468,81 @@ def test_the_repo_config_reads_the_proposal_resistor():
     assert got["Operating Temp Min"] == "-55 °C"
     assert got["Operating Temp Max"] == "155 °C"
     assert got["Composition"] == "Metal Film"
+    assert got["Mounting"] == "Through Hole"
+    assert got["Package"] == "Axial"
+
+
+def test_the_repo_config_splits_a_resistor_body_into_diameter_and_length():
+    """
+    DigiKey packs both measurements into Size / Dimension. Diameter and
+    Length share that alias and each take one side, the same way the two
+    operating-temperature parameters share one supplier field.
+    """
+    parameters = load_parameters_config()
+    got = from_supplier(
+        {"Size / Dimension": '0.094" Dia x 0.248" L (2.40mm x 6.30mm)'},
+        parameters, names=["Diameter", "Length", "Height"])
+    assert got == {"Diameter": "2.4 mm", "Length": "6.3 mm"}
+
+
+def test_a_single_dimension_can_fills_diameter_not_length():
+    parameters = load_parameters_config()
+    got = from_supplier(
+        {"Size / Dimension": '0.197" Dia (5.00mm)'},
+        parameters, names=["Diameter", "Length"])
+    assert got == {"Diameter": "5 mm"}
+
+
+def test_the_repo_config_reads_an_op_amp_supply_range():
+    """
+    DigiKey states single-supply then dual in one field. The two supply
+    parameters share that alias and each take one end of the first range.
+    """
+    parameters = load_parameters_config()
+    got = from_supplier(
+        {"Voltage - Supply, Single/Dual (±)": "2.7V ~ 5.5V, ±1.35V ~ 2.75V"},
+        parameters, names=["Supply Voltage Min", "Supply Voltage Max",
+                           "Input Voltage Min"])
+    assert got == {"Supply Voltage Min": "2.7 V", "Supply Voltage Max": "5.5 V"}
+
+
+def test_a_logic_ic_supply_range_uses_the_generic_field_name():
+    parameters = load_parameters_config()
+    got = from_supplier(
+        {"Voltage - Supply": "2V ~ 6V"},
+        parameters, names=["Supply Voltage Min", "Supply Voltage Max"])
+    assert got == {"Supply Voltage Min": "2 V", "Supply Voltage Max": "6 V"}
+
+
+def test_a_single_supply_rail_fills_both_min_and_max():
+    parameters = load_parameters_config()
+    got = from_supplier(
+        {"Voltage - Supply": "5V"},
+        parameters, names=["Supply Voltage Min", "Supply Voltage Max"])
+    assert got == {"Supply Voltage Min": "5 V", "Supply Voltage Max": "5 V"}
+
+
+def test_mounting_falls_back_to_package_when_digikey_omits_it():
+    """
+    Through-hole resistors have Package / Case: Axial and no Mounting Type.
+    Axial already maps to Through Hole; Mounting has to look at that field.
+    """
+    parameters = load_parameters_config()
+    product = {key: value for key, value in RESISTOR.items()
+               if key != "Mounting Type"}
+    got = from_supplier(product, parameters)
+    assert "Mounting Type" not in product
+    assert got["Mounting"] == "Through Hole"
+    assert got["Package"] == "Axial"
+
+
+def test_mounting_type_wins_over_package_case():
+    """A part that states both must not take mounting from the package."""
+    parameters = load_parameters_config()
+    product = {**RESISTOR, "Mounting Type": "Surface Mount",
+               "Package / Case": "Axial"}
+    got = from_supplier(product, parameters)
+    assert got["Mounting"] == "Surface Mount"
     assert got["Package"] == "Axial"
 
 

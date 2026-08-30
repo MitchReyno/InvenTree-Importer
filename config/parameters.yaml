@@ -61,11 +61,21 @@ Diameter:
     - Size / Dimension
     - Diameter
   # DigiKey writes dimensions imperial-first with the metric equivalent in
-  # brackets: 0.197" Dia (5.00mm). `metric` reads the bracketed value; taking
-  # the leading number would store 0.197 as though it were already mm.
-  # A value naming two dimensions ("0.094" Dia x 0.248" L") stores nothing
-  # rather than guessing which one is meant.
-  parse: metric
+  # brackets: 0.197" Dia (5.00mm). `metric_first` reads the bracketed value;
+  # taking the leading number would store 0.197 as though it were already mm.
+  # A resistor body names two ("0.094" Dia x 0.248" L (2.40mm x 6.30mm)"):
+  # this takes the first (Dia), Length takes the last.
+  parse: metric_first
+
+Length:
+  units: mm
+  description: Body length
+  aliases:
+    - Size / Dimension
+    - Length
+  # Same DigiKey field as Diameter; the last of the two metric measurements.
+  # A single-dimension can ("0.197" Dia (5.00mm)") is not a length.
+  parse: metric_last
 
 ESR:
   units: ohm
@@ -115,6 +125,10 @@ Mounting:
   aliases:
     - Mounting Type
     - Mounting Style
+    # DigiKey through-hole resistors omit Mounting Type and only say Axial
+    # (or Radial) in Package / Case. The values map already treats those as
+    # Through Hole; this alias is how that field is seen.
+    - Package / Case
   choices:
     - Through Hole
     - Surface Mount
@@ -317,6 +331,32 @@ Supply Current:
     - Current - Supply
     - Current - Supply (Max)
   parse: quantity
+
+Supply Voltage Min:
+  units: V
+  description: Minimum supply voltage
+  aliases:
+    - Voltage - Supply, Single (V+)
+    - Voltage - Supply, Single/Dual (±)
+    - Voltage - Supply
+    - Voltage - Supply (Vcc/Vdd)
+    - Voltage - Supply, Analog
+    - Voltage - Supply, Digital
+    - Supply Voltage
+  parse: range_low
+
+Supply Voltage Max:
+  units: V
+  description: Maximum supply voltage
+  aliases:
+    - Voltage - Supply, Single (V+)
+    - Voltage - Supply, Single/Dual (±)
+    - Voltage - Supply
+    - Voltage - Supply (Vcc/Vdd)
+    - Voltage - Supply, Analog
+    - Voltage - Supply, Digital
+    - Supply Voltage
+  parse: range_high
 
 # --------------------------------------------------------------------------
 # Power management

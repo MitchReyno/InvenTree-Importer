@@ -7,7 +7,9 @@ Find-or-create Part, ManufacturerPart and SupplierPart from DigiKey SKUs.
     print(result.counts())
 
 Idempotent: a SKU that is already a supplier part is reported and left
-alone. A Part is matched by the category's identity rule - MPN via an
+alone, unless update_parameters is set, in which case missing and drifted
+parameter values are written on the existing Part, ManufacturerPart and
+SupplierPart. A Part is matched by the category's identity rule - MPN via an
 existing ManufacturerPart, or the parameter signature - never by the
 generated name, so changing a name template does not duplicate parts.
 
@@ -791,9 +793,10 @@ def resolve_part(
         else:
             part = SimpleNamespace(pk=UNRESOLVED_PK, IPN=ipn, name=name)
             part_written = len({n for n in part_values if n in ctx.templates})
-    elif write and update_parameters:
+    elif update_parameters:
         part_written = apply_parameters(api, part.pk, part_values,
-                                        ctx.templates, write=True, update=True)
+                                        ctx.templates, write=write,
+                                        update=True)
     else:
         part_written = 0
 
@@ -866,13 +869,18 @@ def import_sku(
             on_step(name)
 
     existing = supplier_parts.get(sku.strip().upper())
-    if existing is not None:
+    if existing is not None and not update_parameters:
         return SkuAction(sku, "exists",
                          part=getattr(existing, "part", None),
                          supplier_part=existing.pk,
                          product=product)
 
     if product.get("error"):
+        if existing is not None:
+            return SkuAction(sku, "exists",
+                             part=getattr(existing, "part", None),
+                             supplier_part=existing.pk,
+                             product=product)
         return _skipped(sku, product["error"], product)
 
     ctx = ImportContext(
@@ -912,8 +920,8 @@ def import_sku(
     part_written = resolved.part_parameters
     mfr_written = resolved.manufacturer_parameters
 
-    supplier_part = None
-    if write and part.pk != UNRESOLVED_PK:
+    supplier_part = existing
+    if write and part.pk != UNRESOLVED_PK and existing is None:
         step("supplier_part")
         # pack_quantity is deliberately left unset (InvenTree defaults it to 1).
         # DigiKey sells and prices this SKU by the piece, so one ordered unit is
@@ -949,7 +957,7 @@ def import_sku(
         attach_part_image(part, images[0])
 
     return SkuAction(
-        sku, "created",
+        sku, "exists" if existing is not None else "created",
         part=part.pk,
         manufacturer_part=getattr(mfr_part, "pk", None),
         supplier_part=getattr(supplier_part, "pk", None),
