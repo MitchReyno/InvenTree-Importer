@@ -264,9 +264,14 @@ class InvenTreeStub:
         # A default bin so import-orders can receive without every test
         # having to seed one. Tests that care can clear or replace it.
         self.locations: list[dict[str, Any]] = [
-            {"pk": 1, "name": "Stock", "parent": None},
+            {"pk": 1, "name": "Stock", "parent": None, "pathstring": "Stock"},
         ]
         self.images: list[int] = []
+        # barcode string -> {"stockitem": pk}. InvenTree enforces uniqueness
+        # here, which is what makes a double import impossible rather than
+        # merely guarded against - so the stub enforces it too.
+        self.barcodes: dict[str, dict[str, Any]] = {}
+        self.deletes: list[str] = []
         self._next_pk = 100
         self._server: HTTPServer | None = None
 
@@ -325,8 +330,14 @@ class InvenTreeStub:
 
     def add_location(self, name: str, pk: int | None = None,
                      parent: int | None = None, **fields) -> dict[str, Any]:
+        path = name
+        if parent is not None:
+            above = next((loc for loc in self.locations
+                          if loc["pk"] == parent), None)
+            if above:
+                path = f"{above.get('pathstring', above['name'])}/{name}"
         row = {"pk": pk if pk is not None else len(self.locations) + 1,
-               "name": name, "parent": parent, **fields}
+               "name": name, "parent": parent, "pathstring": path, **fields}
         self.locations.append(row)
         return row
 
@@ -483,6 +494,28 @@ class InvenTreeStub:
                             po["status"] = 20
                             return self._send(201, po)
                     return self._send(404, {"detail": "Not found."})
+                if parsed.path == "/api/barcode/":
+                    key = body.get("barcode")
+                    found = stub.barcodes.get(key)
+                    if found is None:
+                        return self._send(400, {"error": "No match found for "
+                                                         "barcode data"})
+                    return self._send(200, {"barcode_data": key, **found})
+
+                if parsed.path == "/api/barcode/link/":
+                    key = body.get("barcode")
+                    if key in stub.barcodes:
+                        # Exactly what the real server does: assigning a
+                        # barcode that already exists is a validation error.
+                        return self._send(400, {
+                            "error": "Barcode matches existing item",
+                            "barcode_data": key})
+                    item = body.get("stockitem")
+                    if item is None:
+                        return self._send(400, {"error": "no target"})
+                    stub.barcodes[key] = {"stockitem": int(item)}
+                    return self._send(200, {"success": "Barcode associated"})
+
                 receive = re.match(r"^/api/order/po/(\d+)/receive/$", parsed.path)
                 if receive:
                     po_pk = int(receive.group(1))
@@ -554,7 +587,20 @@ class InvenTreeStub:
                     row.setdefault("received", 0)
                     stub.line_items.append(row)
                 elif parsed.path == "/api/stock/":
+                    row.setdefault("status", 10)
                     stub.stock_items.append(row)
+                elif parsed.path == "/api/stock/location/":
+                    parent = body.get("parent")
+                    name = body.get("name", "")
+                    path = name
+                    if parent is not None:
+                        parent_row = next((loc for loc in stub.locations
+                                           if loc["pk"] == parent), None)
+                        if parent_row:
+                            path = f"{parent_row.get('pathstring', parent_row['name'])}/{name}"
+                    row["pathstring"] = path
+                    row.setdefault("parent", parent)
+                    stub.locations.append(row)
                 return self._send(201, row)
 
             def do_PATCH(self):
@@ -578,6 +624,29 @@ class InvenTreeStub:
                 return self._send(200, {"pk": 1, **body})
 
             do_PUT = do_PATCH
+
+            def do_DELETE(self):
+                parsed = urlparse(self.path)
+                if not self._valid(parsed.path):
+                    return
+                pk_match = re.search(r"/(\d+)/?$", parsed.path)
+                pk = int(pk_match.group(1)) if pk_match else None
+                collections = {
+                    "/api/stock/": stub.stock_items,
+                    "/api/part/": stub.part_rows,
+                    "/api/company/part/": stub.supplier_parts,
+                    "/api/company/part/manufacturer/": stub.manufacturer_parts,
+                    "/api/stock/location/": stub.locations,
+                }
+                for prefix, rows in collections.items():
+                    if parsed.path.startswith(prefix) and pk is not None:
+                        for index, row in enumerate(rows):
+                            if row.get("pk") == pk:
+                                rows.pop(index)
+                                break
+                        break
+                stub.deletes.append(parsed.path)
+                return self._send(204, {})
 
         self._server = HTTPServer(("127.0.0.1", 0), Handler)
         threading.Thread(target=self._server.serve_forever, daemon=True).start()

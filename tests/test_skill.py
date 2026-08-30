@@ -134,6 +134,26 @@ def test_the_skill_tells_the_agent_to_read_the_vocabulary_first(text):
     assert "--validate" in text
 
 
-def test_the_skill_does_not_promise_that_writing_works(text):
-    """--write is not implemented; a skill that implies otherwise misleads."""
-    assert re.search(r"not (built|implemented)", text)
+def test_the_skill_requires_consent_before_writing(text):
+    """
+    --write creates real inventory records.
+
+    The skill has to say so unambiguously: an agent that writes because the
+    dry run looked fine has skipped the only human check in the loop.
+    """
+    assert re.search(r"[Nn]ever run `--write` without", text)
+    assert "--write" in text and "--validate" in text
+
+
+def test_the_skill_warns_about_renumbering_ids(text):
+    """
+    Stable ids are what stop a re-import doubling the stock.
+
+    It is also the mistake an agent is most likely to make unprompted, since
+    regenerating a file from the same photo feels like a fresh start.
+    """
+    assert re.search(r"keep the ids you already used", text)
+
+
+def test_the_skill_does_not_overclaim_what_ran(text):
+    assert re.search(r"[Dd]o not claim stock was imported", text)

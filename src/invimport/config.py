@@ -38,13 +38,22 @@ UNITS_FILE = "units.yaml"
 PARAMETERS_FILE = "parameters.yaml"
 CATEGORIES_FILE = "categories.yaml"
 MANUFACTURERS_FILE = "manufacturers.yaml"
+SUPPLIERS_FILE = "suppliers.yaml"
 
 # Keys a category may carry that describe the category itself rather than a
 # child category. Everything else at that level is a subcategory.
 CATEGORY_KEYS = {"identity", "key_parameters", "name", "parameters", "aliases",
                  "description", "structural", "ignore", "ipn_prefix"}
 
-IDENTITY_MODES = ("spec", "mpn")
+# How a Part in a category is identified.
+#   spec - a specification you would accept any brand of; matched on
+#          key_parameters. Needs no MPN at all.
+#   mpn  - the manufacturer part number IS the spec.
+#   type - a type designator identifies it regardless of who made it:
+#          1N4007, 2N3904, XR-2206, IN-1. Half of real stock has no MPN, and
+#          for a JEDEC number the maker is a property of the stock, not of
+#          the part.
+IDENTITY_MODES = ("spec", "mpn", "type")
 
 # An IPN prefix is a short mnemonic that reads at a glance on a label or in a
 # BOM: RES-00042, IC-00117. Letters and digits only, so it cannot collide with
@@ -106,10 +115,18 @@ class ParameterConfig:
 
 
 @dataclass
-class ManufacturerConfig:
-    """A manufacturer name, and the supplier spellings that mean it."""
+class CompanyConfig:
+    """A company name, and the spellings that mean it."""
     name: str
     aliases: list[str] = field(default_factory=list)
+
+
+# Manufacturers and suppliers are the same shape - a canonical name plus the
+# spellings that mean it - and are matched the same way. They stay separate
+# files, and separate names here, because an error should say which one it
+# read, and because a company can be both.
+ManufacturerConfig = CompanyConfig
+SupplierConfig = CompanyConfig
 
 
 @dataclass
@@ -234,19 +251,29 @@ def parse_parameters(data: dict[str, Any], path: Path
     return parameters
 
 
-def parse_manufacturers(data: dict[str, Any], path: Path
-                        ) -> dict[str, ManufacturerConfig]:
-    manufacturers: dict[str, ManufacturerConfig] = {}
+def parse_companies(data: dict[str, Any], path: Path, kind: str
+                    ) -> dict[str, CompanyConfig]:
+    companies: dict[str, CompanyConfig] = {}
     for name, body in data.items():
         body = body or {}
         if not isinstance(body, dict):
-            raise ConfigError(f"{path.name}: manufacturer {name!r} must be a "
+            raise ConfigError(f"{path.name}: {kind} {name!r} must be a "
                               f"mapping, got {type(body).__name__}")
-        manufacturers[str(name)] = ManufacturerConfig(
+        companies[str(name)] = CompanyConfig(
             name=str(name),
             aliases=as_list(body.get("aliases"), path, f"{name} aliases"),
         )
-    return manufacturers
+    return companies
+
+
+def parse_manufacturers(data: dict[str, Any], path: Path
+                        ) -> dict[str, ManufacturerConfig]:
+    return parse_companies(data, path, "manufacturer")
+
+
+def parse_suppliers(data: dict[str, Any], path: Path
+                    ) -> dict[str, SupplierConfig]:
+    return parse_companies(data, path, "supplier")
 
 
 def parse_categories(data: dict[str, Any], path: Path
@@ -386,6 +413,14 @@ def load_manufacturers_config(directory: Path | None = None
     if not path.exists():
         return {}
     return parse_manufacturers(read_yaml(path), path)
+
+
+def load_suppliers_config(directory: Path | None = None
+                          ) -> dict[str, SupplierConfig]:
+    path = (directory or CONFIG_DIR) / SUPPLIERS_FILE
+    if not path.exists():
+        return {}
+    return parse_suppliers(read_yaml(path), path)
 
 
 def load_config(directory: Path | None = None

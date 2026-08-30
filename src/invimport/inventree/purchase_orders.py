@@ -33,12 +33,14 @@ lines that do match.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from types import SimpleNamespace
 from typing import Any, Iterable
 
 from ..util import dig
+from .matching import candidates, company_aliases, match_name
 from .api import (
     Company,
     InvenTreeError,
@@ -181,12 +183,100 @@ def create_supplier(api, name: str = SUPPLIER_NAME, **fields) -> Any:
     payload = {
         "name": name,
         "description": fields.pop("description", "Electronic component distributor"),
-        "website": fields.pop("website", "https://www.digikey.com"),
         "is_supplier": True,
         **fields,
     }
+    # Only DigiKey gets a default website. Stamping digikey.com onto a company
+    # called 'Rockby Electronics' would be a fact nobody stated.
+    website = fields.pop("website", None)
+    if website:
+        payload["website"] = website
+    elif name.strip().casefold() in SUPPLIER_ALIASES or name == SUPPLIER_NAME:
+        payload["website"] = "https://www.digikey.com"
     company = Company.create(api, payload)
     log.info("    created supplier %r (pk=%s)", name, company.pk)
+    return company
+
+
+# 'salash (eBay)', '33audiomarko (eBay)' - a seller on a marketplace, not a
+# distributor. The parenthesised part names the company; the rest is who sold
+# it, which belongs on the stock item, not in the company list.
+MARKETPLACE = re.compile(r"^\s*(?P<seller>.+?)\s*\(\s*(?P<market>[^()]+?)\s*\)\s*$")
+
+
+def split_marketplace(name: str, suppliers: dict[str, Any]
+                      ) -> tuple[str, str]:
+    """
+    'salash (eBay)' -> ('eBay', 'salash'), when eBay is a configured supplier.
+
+    Driven by suppliers.yaml rather than a hard-coded list, so adding
+    Tindie or AliExpress is a config change. A name whose bracketed part is
+    not a known supplier is left alone - '(Max)' and '(2024)' are not
+    marketplaces.
+    """
+    match = MARKETPLACE.match(name or "")
+    if not match:
+        return name, ""
+    market = match.group("market")
+    matched = match_name(market, list(suppliers), company_aliases(suppliers))
+    if not matched:
+        return name, ""
+    return matched, match.group("seller").strip()
+
+
+def resolve_supplier(
+    api,
+    name: str,
+    suppliers: dict[str, Any],
+    *,
+    choose=None,
+    create: bool = False,
+    write: bool = False,
+    cache: dict[str, Any] | None = None,
+) -> Any | None:
+    """
+    The supplier Company this spelling means, or None.
+
+    The same shape as resolve_manufacturer: exact after normalisation, then a
+    learned alias, then - only if the caller offers a chooser - a fuzzy prompt.
+    Nothing is created silently.
+    """
+    if not name or not name.strip():
+        return None
+    name = name.strip()
+    if cache is not None and name in cache:
+        return cache[name]
+
+    wanted, _seller = split_marketplace(name, suppliers)
+
+    existing = list_suppliers(api)
+    names = [c.name for c in existing]
+    matched = match_name(wanted, names, company_aliases(suppliers))
+    company = None
+    if matched:
+        company = next((c for c in existing if c.name == matched), None)
+        if company is None and (create or write):
+            company = (create_supplier(api, matched) if write
+                       else SimpleNamespace(pk=-1, name=matched))
+
+    if company is None and create:
+        company = (create_supplier(api, wanted) if write
+                   else SimpleNamespace(pk=-1, name=wanted))
+
+    if company is None and choose is not None:
+        offered = [(c, score) for c, score in
+                   ((next((x for x in existing if x.name == n), None), s)
+                    for n, s in candidates(wanted, names))
+                   if c is not None]
+        picked = choose(wanted, offered)
+        if isinstance(picked, str) and picked.strip():
+            company = (create_supplier(api, picked.strip()) if write
+                       else SimpleNamespace(pk=-1, name=picked.strip()))
+        elif picked is not None and not isinstance(picked, str):
+            company = picked
+
+    if cache is not None:
+        cache[name] = company
     return company
 
 

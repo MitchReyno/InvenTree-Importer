@@ -186,13 +186,22 @@ def fill_name(template: str, values: dict[str, str],
     return re.sub(r"\{([^}]+)\}", replacer, template).strip()
 
 
-def part_name(category: CategoryConfig, mpn: str, values: dict[str, str],
-              parameters: dict[str, ParameterConfig]) -> str:
+def part_name(category: CategoryConfig, designator: str,
+              values: dict[str, str],
+              parameters: dict[str, ParameterConfig],
+              description: str = "") -> str:
+    """
+    What to call a new part.
+
+    A spec category fills its template from the values. Otherwise the
+    designator names it - a type number or an MPN. Old stock sometimes has
+    neither, and a description is better than an empty name.
+    """
     if category.identity == "spec" and category.name_template:
         name = fill_name(category.name_template, values, parameters)
         if name:
             return name
-    return mpn
+    return designator or str(description or "")[:100]
 
 
 # --------------------------------------------------------------------------
@@ -223,6 +232,32 @@ def find_part_by_mpn(api, mpn: str) -> Any | None:
         return None
     matches = Part.list(api, limit=LIST_LIMIT)
     return next((part for part in matches if part.pk == pk), None)
+
+
+def find_part_by_type(api, category_pk: int, designator: str) -> Any | None:
+    """
+    The Part in this category already named by this type designator.
+
+    1N4007 from Diotec and 1N4007 from an unmarked bag are the same part for
+    stock purposes - that is what a JEDEC number is for. So the designator is
+    matched against the part name within the category, and who made it is
+    recorded on the stock rather than used to tell two parts apart.
+    """
+    if not designator:
+        return None
+    wanted = designator.strip().casefold()
+    for part in Part.list(api, category=category_pk, limit=LIST_LIMIT):
+        if str(getattr(part, "name", "") or "").strip().casefold() == wanted:
+            return part
+    return None
+
+
+def find_part_by_ipn(api, ipn: str) -> Any | None:
+    """The Part with this IPN. An explicit override - no matching involved."""
+    if not ipn:
+        return None
+    found = Part.list(api, IPN=ipn, limit=LIST_LIMIT)
+    return found[0] if found else None
 
 
 def find_part_by_spec(
@@ -456,7 +491,10 @@ def cache_product_images(product: dict[str, Any], cache_dir: Path,
 class PartLine:
     """One part to find-or-create, described without reference to a supplier."""
     category_path: list[str] | str = ""      # supplier path, matched by alias
+    category: CategoryConfig | None = None   # already resolved, by a file
     mpn: str = ""
+    type: str = ""                           # type designator: 1N4007, XR-2206
+    ipn: str = ""                            # explicit part, skips matching
     manufacturer: str = ""
     description: str = ""
     parameters: dict[str, str] = field(default_factory=dict)
@@ -502,6 +540,13 @@ class PartPolicy:
     require_manufacturer: bool = True
     create_manufacturers: bool = False
     choose_manufacturer: ChooseManufacturer | None = None
+    # What to do when a spec category's key parameters are only partly
+    # supplied. Matching on a subset can merge two different parts; creating
+    # instead can duplicate one you already have. Both are wrong and neither
+    # announces itself, and InvenTree cannot merge parts afterwards - so the
+    # default refuses to guess.
+    on_partial: str = "ask"                  # ask | new | skip
+    choose_part: Callable[[PartLine, list[Any]], Any | None] | None = None
 
 
 @dataclass
@@ -520,16 +565,23 @@ class PartResolution:
     name: str = ""
     part_parameters: int = 0
     manufacturer_parameters: int = 0
+    # Set when a partial spec could not be decided without a human. The
+    # candidates are existing parts matching the subset that was supplied.
+    needs_choice: bool = False
+    candidates: list[Any] = field(default_factory=list)
+    missing: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
-        return not self.reason
+        return not self.reason and not self.needs_choice
 
 
 def resolve_category(line: PartLine, ctx: ImportContext) -> PartResolution:
     """Map a line's supplier category path onto a usable server category."""
+    category = line.category
     path = line.category_path or []
-    category = match_path(path, ctx.categories)
+    if category is None:
+        category = match_path(path, ctx.categories)
     if category is None:
         text = path_text(path) or "(no category)"
         return PartResolution(reason=f"unmapped category {text}")
@@ -546,6 +598,49 @@ def resolve_category(line: PartLine, ctx: ImportContext) -> PartResolution:
             category=category, report_category=True)
 
     return PartResolution(category=category)
+
+
+def parts_matching_partial_spec(
+    api,
+    category_pk: int,
+    supplied: dict[str, str],
+    templates: dict[str, Any],
+    parameters: dict[str, ParameterConfig],
+) -> list[Any]:
+    """
+    Parts in this category that agree with every value we were given.
+
+    Used only to offer candidates for a partial spec. They agree on what was
+    supplied and say nothing about what was not, which is exactly why the
+    choice belongs to a human.
+    """
+    if not supplied:
+        return []
+    stored = Parameter.list(api, model_type=PART_MODEL_TYPE, limit=LIST_LIMIT)
+    by_part: dict[int, dict[int, str]] = {}
+    for row in stored:
+        model_id = getattr(row, "model_id", None)
+        template = getattr(row, "template", None)
+        if model_id is None or template is None:
+            continue
+        by_part.setdefault(int(model_id), {})[int(template)] = str(row.data)
+
+    template_pk = {name: tmpl.pk for name, tmpl in templates.items()}
+    found = []
+    for part in Part.list(api, category=category_pk, limit=LIST_LIMIT):
+        have = by_part.get(part.pk, {})
+        agrees = True
+        for name, value in supplied.items():
+            tmpl_pk = template_pk.get(name)
+            if tmpl_pk is None or tmpl_pk not in have:
+                agrees = False
+                break
+            if not values_match(have[tmpl_pk], value, parameters.get(name)):
+                agrees = False
+                break
+        if agrees:
+            found.append(part)
+    return found
 
 
 def resolve_part(
@@ -609,17 +704,60 @@ def resolve_part(
     else:
         part_values = values
 
-    if category.identity == "spec":
-        part = find_part_by_spec(api, server_cat.pk, category.key_parameters,
-                                 values, ctx.templates, ctx.parameters)
-    else:
+    # Identity, most specific first. An explicit IPN is an instruction, not a
+    # guess; an MPN or a type designator names the part directly; a spec is
+    # matched on the parameters that identify it.
+    part = find_part_by_ipn(api, line.ipn)
+    if part is None and line.mpn:
         part = find_part_by_mpn(api, line.mpn)
+    if part is None and line.type and category.identity == "type":
+        # Only where the category says a designator identifies the part. Under
+        # `mpn` identity the manufacturer part number is the identity, and
+        # matching on a name instead would quietly merge parts the category
+        # says are distinct.
+        part = find_part_by_type(api, server_cat.pk, line.type)
+
+    if part is None and category.identity == "spec":
+        supplied = {name: value for name, value in values.items()
+                    if name in category.key_parameters}
+        missing = [name for name in category.key_parameters
+                   if name not in supplied]
+
+        if missing and supplied:
+            # A partial spec. It cannot be matched - a subset match may be a
+            # different part - and it must not be created blind, because that
+            # may duplicate one already there. InvenTree has no part merge, so
+            # both mistakes are cleaned up by hand.
+            offered = parts_matching_partial_spec(
+                api, server_cat.pk, supplied, ctx.templates, ctx.parameters)
+            chosen = None
+            if policy.choose_part is not None:
+                chosen = policy.choose_part(line, offered)
+            if chosen is not None:
+                part = chosen
+            elif policy.on_partial == "new":
+                pass                         # fall through and create one
+            elif policy.on_partial == "skip":
+                return PartResolution(
+                    reason=f"partial specification: missing "
+                           f"{', '.join(missing)}",
+                    category=category, report_category=True)
+            else:
+                return PartResolution(
+                    category=category, report_category=True,
+                    needs_choice=True, candidates=offered, missing=missing,
+                    reason="")
+        else:
+            part = find_part_by_spec(api, server_cat.pk,
+                                     category.key_parameters, values,
+                                     ctx.templates, ctx.parameters)
 
     ipn = str(getattr(part, "IPN", "") or "") if part is not None else ""
     name = str(getattr(part, "name", "") or "") if part is not None else ""
 
     if part is None:
-        name = part_name(category, line.mpn, values, ctx.parameters)
+        name = part_name(category, line.type or line.mpn, values,
+                         ctx.parameters, line.description)
         ipn = next_ipn(api, ipn_prefix(category))
         if write:
             payload = {
@@ -727,7 +865,17 @@ def import_sku(
         write=write, update_parameters=update_parameters,
         policy=PartPolicy(require_mpn=True, require_manufacturer=True,
                           create_manufacturers=create_manufacturers,
-                          choose_manufacturer=choose_manufacturer))
+                          choose_manufacturer=choose_manufacturer,
+                          # DigiKey states a full parameter set consistently,
+                          # and this path has never prompted. The partial-spec
+                          # question belongs to hand-written files, where a
+                          # missing value means nobody knew it.
+                          on_partial="new"))
+
+    if resolved.needs_choice:                    # cannot happen under "new"
+        return _skipped(sku, "partial specification", product,
+                        category=resolved.category.pathstring
+                        if resolved.category else "")
 
     if not resolved.ok:
         extra = ({"category": resolved.category.pathstring}

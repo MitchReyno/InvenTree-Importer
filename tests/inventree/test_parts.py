@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from invimport.config import (
     CategoryConfig,
     ParameterConfig,
@@ -18,6 +20,7 @@ from invimport.inventree.parts import (
     next_ipn,
     resolve_part,
 )
+from invimport.inventree.parts import find_part_by_type, part_name
 from invimport.inventree.values import compact_for_name
 
 
@@ -39,6 +42,14 @@ Integrated Circuits:
     aliases:
       - Integrated Circuits (ICs) / Clock/Timing
 """
+
+# Enough of parameters.yaml for a resistor's whole identity. The default in
+# config_dir() defines only Package, which makes every resistor a *partial*
+# spec - a different code path.
+RESISTOR_PARAMETERS = (
+    "Resistance:\n  units: ohm\n  aliases: [Resistance]\n  parse: quantity\n"
+    "Tolerance:\n  units: '%'\n  aliases: [Tolerance]\n  parse: percent\n"
+    "Package:\n  aliases: [Package / Case]\n")
 
 RESISTORS = """
 Resistors:
@@ -135,9 +146,9 @@ def test_a_line_with_no_mpn_is_refused_by_default(inventree, tmp_path):
     seed_resistors(inventree)
     api = connect()
     line = PartLine.from_product({**RESISTOR_PRODUCT, "manufacturer_part": ""})
+    directory = config_dir(tmp_path, RESISTORS, RESISTOR_PARAMETERS)
 
-    resolved = resolve_part(api, line, context(api, config_dir(tmp_path, RESISTORS)),
-                            write=False)
+    resolved = resolve_part(api, line, context(api, directory), write=False)
 
     assert not resolved.ok
     assert "manufacturer part number" in resolved.reason
@@ -156,7 +167,8 @@ def test_a_relaxed_policy_creates_a_part_with_no_manufacturer_part(
                                   "manufacturer_name": ""})
 
     resolved = resolve_part(
-        api, line, context(api, config_dir(tmp_path, RESISTORS)), write=True,
+        api, line, context(api, config_dir(tmp_path, RESISTORS,
+                                           RESISTOR_PARAMETERS)), write=True,
         policy=PartPolicy(require_mpn=False, require_manufacturer=False))
 
     assert resolved.ok, resolved.reason
@@ -174,7 +186,8 @@ def test_a_relaxed_policy_still_uses_a_manufacturer_when_there_is_one(
 
     resolved = resolve_part(
         api, PartLine.from_product(RESISTOR_PRODUCT),
-        context(api, config_dir(tmp_path, RESISTORS)), write=True,
+        context(api, config_dir(tmp_path, RESISTORS, RESISTOR_PARAMETERS)),
+        write=True,
         policy=PartPolicy(require_mpn=False, require_manufacturer=False,
                           create_manufacturers=True))
 
@@ -188,11 +201,267 @@ def test_a_relaxed_policy_reports_an_unmapped_category(inventree, tmp_path):
     line = PartLine(category_path=["Nowhere", "At All"])
 
     resolved = resolve_part(
-        api, line, context(api, config_dir(tmp_path, RESISTORS)), write=False,
+        api, line, context(api, config_dir(tmp_path, RESISTORS,
+                                           RESISTOR_PARAMETERS)), write=False,
         policy=PartPolicy(require_mpn=False, require_manufacturer=False))
 
     assert not resolved.ok
     assert "unmapped category" in resolved.reason
+
+
+# --------------------------------------------------------------------------
+# identity: type - a designator names the part, whoever made it
+# --------------------------------------------------------------------------
+TYPED = """
+Diodes:
+  ipn_prefix: DIOD
+  identity: type
+  parameters: [Package]
+  Signal Diodes:
+    aliases:
+      - Discrete Semiconductor Products / Diodes / Rectifiers / Single Diodes
+"""
+
+
+def seed_diodes(inventree):
+    parent = inventree.add_category("Diodes", pk=40, structural=True)
+    inventree.add_category("Signal Diodes", parent=parent["pk"], pk=41)
+    inventree.templates.append({"pk": 24, "name": "Package", "units": ""})
+    inventree.add_company("DigiKey", pk=1, is_supplier=True)
+
+
+DIODE = {
+    "category_path": ["Discrete Semiconductor Products", "Diodes",
+                      "Rectifiers", "Single Diodes"],
+    "parameters": {"Package / Case": "DO-41"},
+    "description": "DIODE STANDARD 1000V 1A DO-41",
+}
+
+
+def typed_line(**overrides):
+    line = PartLine.from_product({**DIODE, "manufacturer_part": "",
+                                  "manufacturer_name": ""})
+    for key, value in overrides.items():
+        setattr(line, key, value)
+    return line
+
+
+RELAXED = PartPolicy(require_mpn=False, require_manufacturer=False)
+
+
+def parts_in(inventree, category_pk):
+    """The stub is seeded with unrelated parts, so count only ours."""
+    return [p for p in inventree.part_rows if p.get("category") == category_pk]
+
+
+def test_a_type_designator_creates_a_part_named_after_it(inventree, tmp_path):
+    seed_diodes(inventree)
+    api = connect()
+    directory = config_dir(tmp_path, TYPED)
+
+    resolved = resolve_part(api, typed_line(type="1N4007"),
+                            context(api, directory), write=True, policy=RELAXED)
+
+    assert resolved.ok, resolved.reason
+    assert resolved.name == "1N4007"
+    assert resolved.ipn == "DIOD-00001"
+    assert resolved.manufacturer_part is None
+
+
+def test_the_same_type_from_a_different_maker_is_the_same_part(inventree, tmp_path):
+    """
+    A JEDEC number identifies a generic part; the maker is a stock property.
+
+    1N4007 from Diotec and 1N4007 from an unmarked bag are one part, or every
+    bag of the commonest rectifier on earth becomes its own inventory line.
+    """
+    seed_diodes(inventree)
+    api = connect()
+    ctx = context(api, config_dir(tmp_path, TYPED))
+
+    first = resolve_part(api, typed_line(type="1N4007"), ctx, write=True,
+                         policy=RELAXED)
+    second = resolve_part(
+        api, typed_line(type="1N4007", manufacturer="Diotec Semiconductor",
+                        mpn="1N4007-DIO"),
+        ctx, write=True,
+        policy=PartPolicy(require_mpn=False, require_manufacturer=False,
+                          create_manufacturers=True))
+
+    assert second.part.pk == first.part.pk
+    assert len(parts_in(inventree, 41)) == 1
+    # The maker is still recorded - as a manufacturer part on the shared part.
+    assert inventree.manufacturer_parts[0]["MPN"] == "1N4007-DIO"
+
+
+def test_a_different_type_is_a_different_part(inventree, tmp_path):
+    seed_diodes(inventree)
+    api = connect()
+    ctx = context(api, config_dir(tmp_path, TYPED))
+
+    first = resolve_part(api, typed_line(type="1N4007"), ctx, write=True,
+                         policy=RELAXED)
+    second = resolve_part(api, typed_line(type="1N4148"), ctx, write=True,
+                          policy=RELAXED)
+
+    assert second.part.pk != first.part.pk
+    assert {"1N4007", "1N4148"} == {p["name"] for p in parts_in(inventree, 41)}
+
+
+def test_an_mpn_category_does_not_match_on_a_type_designator(inventree, tmp_path):
+    """
+    The mode has to mean something.
+
+    Under `identity: mpn` the manufacturer part number is the identity, so a
+    bare designator must not match by name - that would merge parts the
+    category says are distinct. It creates a new part instead.
+    """
+    seed_diodes(inventree)
+    api = connect()
+    ctx = context(api, config_dir(tmp_path, TYPED.replace("identity: type",
+                                                          "identity: mpn")))
+
+    first = resolve_part(api, typed_line(type="1N4007"), ctx, write=True,
+                         policy=RELAXED)
+    second = resolve_part(api, typed_line(type="1N4007"), ctx, write=True,
+                          policy=RELAXED)
+
+    assert second.part.pk != first.part.pk
+    assert len(parts_in(inventree, 41)) == 2
+
+
+def test_find_part_by_type_ignores_case(inventree):
+    seed_diodes(inventree)
+    inventree.add_part("1N4007", pk=99, category=41)
+    assert find_part_by_type(connect(), 41, "1n4007").pk == 99
+
+
+def test_a_part_with_no_identifier_at_all_is_named_from_its_description(
+        inventree, tmp_path):
+    """Old stock: a marking nobody recognises. Better filed than refused."""
+    seed_diodes(inventree)
+    api = connect()
+
+    resolved = resolve_part(api, typed_line(), context(api, config_dir(tmp_path, TYPED)),
+                            write=True, policy=RELAXED)
+
+    assert resolved.ok, resolved.reason
+    assert resolved.name == "DIODE STANDARD 1000V 1A DO-41"
+
+
+# --------------------------------------------------------------------------
+# Partial specifications - the case that must not guess
+# --------------------------------------------------------------------------
+def partial_line(**overrides):
+    """A resistor giving only its resistance, not the full key set."""
+    line = PartLine.from_product({
+        **RESISTOR_PRODUCT, "manufacturer_part": "", "manufacturer_name": "",
+        "parameters": {"Resistance": "100 kOhms"}})
+    for key, value in overrides.items():
+        setattr(line, key, value)
+    return line
+
+
+def test_a_partial_spec_asks_rather_than_guessing(inventree, tmp_path):
+    """
+    Matching on a subset can merge two different parts; creating instead can
+    duplicate one. InvenTree cannot merge parts, so neither is recoverable.
+    """
+    seed_resistors(inventree)
+    api = connect()
+    ctx = context(api, config_dir(tmp_path, RESISTORS, RESISTOR_PARAMETERS))
+
+    before = len(inventree.part_rows)
+
+    resolved = resolve_part(api, partial_line(), ctx, write=True,
+                            policy=RELAXED)
+
+    assert resolved.needs_choice is True
+    assert not resolved.ok
+    assert set(resolved.missing) == {"Tolerance", "Package"}
+    assert len(inventree.part_rows) == before    # nothing created while asking
+
+
+def test_a_partial_spec_offers_the_parts_that_agree_so_far(inventree, tmp_path):
+    seed_resistors(inventree)
+    api = connect()
+    ctx = context(api, config_dir(tmp_path, RESISTORS, RESISTOR_PARAMETERS))
+    complete = resolve_part(
+        api, PartLine.from_product({**RESISTOR_PRODUCT, "manufacturer_part": "",
+                                    "manufacturer_name": ""}),
+        ctx, write=True, policy=RELAXED)
+
+    resolved = resolve_part(api, partial_line(), ctx, write=True, policy=RELAXED)
+
+    assert [p.pk for p in resolved.candidates] == [complete.part.pk]
+
+
+def test_a_chooser_settles_a_partial_spec(inventree, tmp_path):
+    seed_resistors(inventree)
+    api = connect()
+    ctx = context(api, config_dir(tmp_path, RESISTORS, RESISTOR_PARAMETERS))
+    complete = resolve_part(
+        api, PartLine.from_product({**RESISTOR_PRODUCT, "manufacturer_part": "",
+                                    "manufacturer_name": ""}),
+        ctx, write=True, policy=RELAXED)
+
+    resolved = resolve_part(
+        api, partial_line(), ctx, write=True,
+        policy=PartPolicy(require_mpn=False, require_manufacturer=False,
+                          choose_part=lambda line, offered: offered[0]))
+
+    assert resolved.ok
+    assert resolved.part.pk == complete.part.pk
+    assert len(parts_in(inventree, 12)) == 1     # reused, not duplicated
+
+
+@pytest.mark.parametrize("mode,creates", [("new", True), ("skip", False)])
+def test_on_partial_may_be_set_for_unattended_runs(inventree, tmp_path,
+                                                   mode, creates):
+    seed_resistors(inventree)
+    api = connect()
+    ctx = context(api, config_dir(tmp_path, RESISTORS, RESISTOR_PARAMETERS))
+
+    before = len(inventree.part_rows)
+
+    resolved = resolve_part(
+        api, partial_line(), ctx, write=True,
+        policy=PartPolicy(require_mpn=False, require_manufacturer=False,
+                          on_partial=mode))
+
+    assert (len(inventree.part_rows) > before) is creates
+    assert resolved.needs_choice is False
+    if not creates:
+        assert "partial specification" in resolved.reason
+
+
+def test_a_complete_spec_never_asks(inventree, tmp_path):
+    seed_resistors(inventree)
+    api = connect()
+    resolved = resolve_part(
+        api, PartLine.from_product({**RESISTOR_PRODUCT, "manufacturer_part": "",
+                                    "manufacturer_name": ""}),
+        context(api, config_dir(tmp_path, RESISTORS, RESISTOR_PARAMETERS)),
+        write=True, policy=RELAXED)
+    assert resolved.needs_choice is False
+    assert resolved.ok
+
+
+def test_a_spec_with_no_parameters_at_all_creates_rather_than_asking(
+        inventree, tmp_path):
+    """Nothing supplied is not a partial answer - there is nothing to weigh."""
+    seed_resistors(inventree)
+    api = connect()
+    line = PartLine.from_product({**RESISTOR_PRODUCT, "manufacturer_part": "",
+                                  "manufacturer_name": "", "parameters": {}})
+
+    resolved = resolve_part(
+        api, line, context(api, config_dir(tmp_path, RESISTORS,
+                                           RESISTOR_PARAMETERS)),
+        write=True, policy=RELAXED)
+
+    assert resolved.needs_choice is False
+    assert resolved.ok
 
 
 # --------------------------------------------------------------------------

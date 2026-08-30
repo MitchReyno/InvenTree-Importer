@@ -707,16 +707,66 @@ def test_import_stock_vocabulary_lists_the_real_config(capsys, tmp_path):
                for p in vocabulary["parameters"])
 
 
-def test_import_stock_reports_a_readable_file(capsys, tmp_path):
+def _seed_stock_tree(inventree):
+    parent = inventree.add_category("Resistors", pk=12, structural=True)
+    inventree.add_category("Through Hole Resistors", parent=parent["pk"], pk=13)
+    inventree.templates.append({"pk": 21, "name": "Resistance", "units": "ohm"})
+
+
+def test_import_stock_dry_runs_against_the_server(capsys, inventree, tmp_path):
+    """
+    The default asks the server what would happen; --validate does not.
+
+    A dry run has to know whether the part already exists, which is a question
+    only InvenTree can answer.
+    """
+    _seed_stock_tree(inventree)
     directory = _stock_config(tmp_path)
     path = _stock_file(tmp_path, [
         {"id": "a", "quantity": 25,
          "category": "Resistors/Through Hole Resistors",
          "parameters": {"Resistance": "1 kohm"}}])
+
     assert main(["import-stock", "--config", str(directory), str(path)]) == 0
+
     out = capsys.readouterr().out
-    assert "1 line(s), 0 error(s)" in out
     assert "Resistance=1 kΩ" in out
+    assert "nothing was written" in out
+    assert inventree.stock_items == []
+
+
+def test_import_stock_writes_when_asked(capsys, inventree, tmp_path):
+    _seed_stock_tree(inventree)
+    directory = _stock_config(tmp_path)
+    path = _stock_file(tmp_path, [
+        {"id": "a", "quantity": 25,
+         "category": "Resistors/Through Hole Resistors",
+         "parameters": {"Resistance": "1 kohm"}}])
+
+    assert main(["import-stock", "--config", str(directory),
+                 "--write", "--yes", str(path)]) == 0
+
+    assert inventree.stock_items[0]["quantity"] == 25
+    assert "1 created" in capsys.readouterr().out
+
+
+def test_import_stock_re_run_creates_nothing(capsys, inventree, tmp_path):
+    """The barcode key makes a second run of the same file a no-op."""
+    _seed_stock_tree(inventree)
+    directory = _stock_config(tmp_path)
+    path = _stock_file(tmp_path, [
+        {"id": "a", "quantity": 25,
+         "category": "Resistors/Through Hole Resistors",
+         "parameters": {"Resistance": "1 kohm"}}])
+    argv = ["import-stock", "--config", str(directory), "--write", "--yes",
+            str(path)]
+
+    main(argv)
+    capsys.readouterr()
+    main(argv)
+
+    assert len(inventree.stock_items) == 1
+    assert "1 already there" in capsys.readouterr().out
 
 
 def test_import_stock_validate_emits_machine_readable_errors(capsys, tmp_path):
@@ -747,13 +797,44 @@ def test_import_stock_needs_a_file(capsys):
     assert "name a file" in capsys.readouterr().err
 
 
-def test_import_stock_write_says_it_is_not_built_yet(capsys, tmp_path):
-    """Better a clear refusal than silently reporting and writing nothing."""
+def test_import_stock_holds_an_unknown_category_without_a_terminal(
+        capsys, inventree, tmp_path):
+    """
+    Nothing is created unattended.
+
+    A category the file proposes with suggest_category passes validation as a
+    warning - the author meant it - but without a terminal to confirm on, the
+    line is held rather than created. A taxonomy that grows itself from typos
+    stops being a taxonomy.
+    """
+    _seed_stock_tree(inventree)
     directory = _stock_config(tmp_path)
     path = _stock_file(tmp_path, [{"id": "a", "quantity": 1,
-                                   "category": "Resistors/Through Hole Resistors",
-                                   "parameters": {"Resistance": "1 ohm"}}])
+                                   "category": "Resistors/Wirewound",
+                                   "suggest_category": {"identity": "spec"}}])
+
     assert main(["import-stock", "--config", str(directory),
-                 "--write", str(path)]) == 2
-    assert "not implemented yet" in capsys.readouterr().err
+                 "--write", "--yes", str(path)]) == 1
+
+    out = capsys.readouterr().out
+    assert "need review" in out
+    assert "Resistors/Through Hole Resistors" in out   # the near miss offered
+    assert inventree.stock_items == []
+
+
+def test_import_stock_rejects_an_unknown_category_before_connecting(
+        capsys, inventree, tmp_path):
+    """A plain typo is an error with a suggestion, caught before any writing."""
+    _seed_stock_tree(inventree)
+    directory = _stock_config(tmp_path)
+    path = _stock_file(tmp_path, [{"id": "a", "quantity": 1,
+                                   "category": "Resistors/SMD"}])
+
+    assert main(["import-stock", "--config", str(directory),
+                 "--write", "--yes", str(path)]) == 1
+
+    out = capsys.readouterr().out
+    assert "unknown category" in out
+    assert "Resistors/Through Hole Resistors" in out
+    assert inventree.stock_items == []
 

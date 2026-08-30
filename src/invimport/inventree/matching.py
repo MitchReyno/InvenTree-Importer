@@ -135,6 +135,10 @@ def unmapped_paths(paths: Iterable[list[str] | str],
                    if match_path(path, categories) is None and path_text(path)})
 
 
-def manufacturer_aliases(manufacturers) -> dict[str, list[str]]:
-    """{canonical name: aliases} from a loaded manufacturers config."""
-    return {m.name: list(m.aliases) for m in manufacturers.values()}
+def company_aliases(companies) -> dict[str, list[str]]:
+    """{canonical name: aliases} from a loaded manufacturers or suppliers config."""
+    return {c.name: list(c.aliases) for c in companies.values()}
+
+
+# Manufacturers and suppliers carry the same shape, so one helper serves both.
+manufacturer_aliases = company_aliases

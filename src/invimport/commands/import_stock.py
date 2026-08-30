@@ -14,8 +14,16 @@ agent handed a photo produces values that land in the schema rather than near
 it. Pair it with `--validate`, whose errors carry `did_you_mean`, and an agent
 can iterate to a clean file without touching InvenTree at all.
 
-Creating the records is phases 4-6 of the proposal and is not built yet; this
-command reads, checks and reports.
+`--write` creates the records: parts, manufacturer and supplier parts, purchase
+orders and stock. Re-running the same file is a no-op - each stock item carries
+a barcode naming the line that made it, and InvenTree refuses to assign one
+twice.
+
+Anything ambiguous stops and asks, with the same arrow-key prompts the other
+commands use: an unknown category offers close matches before creating one, and
+a partly-specified part offers the parts that match what was given. Neither is
+guessed, because InvenTree has no part merge and both mistakes are cleaned up
+by hand.
 """
 
 from __future__ import annotations
@@ -34,7 +42,17 @@ from ..stockfile import (
     StockFileError,
     read_file,
 )
-from ..validate import validate
+from ..inventree.api import connect
+from ..inventree.stockimport import (
+    CREATED,
+    EXISTS,
+    REVIEW,
+    SKIPPED,
+    ImportOptions,
+    import_stock,
+)
+from ..validate import category_candidates, validate
+from . import _prompt
 
 NAME = "import-stock"
 HELP = "import stock from a JSON/YAML/CSV file"
@@ -55,7 +73,22 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help="print the categories, parameters and units this "
                              "config defines, for generating a file")
     parser.add_argument("--write", action="store_true",
-                        help="apply (not implemented yet - phases 4-6)")
+                        help="create the records (default is a dry run)")
+    parser.add_argument("--location", metavar="PATH",
+                        help="where stock with no location of its own goes")
+    parser.add_argument("--on-partial", choices=("ask", "new", "skip"),
+                        default="ask",
+                        help="a part whose key parameters are only partly "
+                             "given (default: ask)")
+    parser.add_argument("--min-confidence", type=float, default=0.0,
+                        metavar="N",
+                        help="hold any line the file rates below this, 0-1")
+    parser.add_argument("--no-orders", action="store_true",
+                        help="import the stock without creating purchase "
+                             "orders for it")
+    parser.add_argument("--yes", action="store_true",
+                        help="do not prompt; report anything ambiguous "
+                             "instead")
 
 
 # --------------------------------------------------------------------------
@@ -232,6 +265,137 @@ def report_file(document, report, resolved_preview: bool = True) -> None:
         print(report.text())
 
 
+# --------------------------------------------------------------------------
+# Prompts
+# --------------------------------------------------------------------------
+def ask_category(line, near: list[str]):
+    """
+    An unknown category. Existing matches first, then create, then skip.
+
+    Leading with what already exists is the point: inventing
+    'Resistors/SMD' when 'Resistors/Surface Mount Resistors' is right there is
+    the failure this is here to prevent.
+    """
+    title = f"  line {line.id}: category {line.category!r} is not in the config"
+    if line.description:
+        title += f"\n    {line.description}"
+    because = (line.suggest_category or {}).get("because")
+    if because:
+        title += f"\n    the file says: {because}"
+
+    options = [(path, f"use {path}") for path in near]
+    options.append((None, f"skip this line"))
+    picked = _prompt.choose_one(options, lambda o: o[1], title=title,
+                                prompt="  category > ")
+    return None if picked is None else picked[0]
+
+
+def ask_part(line, offered: list[Any]):
+    """
+    A partial specification: which existing part, or a new one.
+
+    Offered parts agree with every value the line gave and say nothing about
+    the ones it did not - which is exactly why a human picks.
+    """
+    title = (f"  line {line.id}: {line.description or line.category} gives "
+             f"only part of its specification")
+    if line.parameters:
+        title += ("\n    given: "
+                  + ", ".join(f"{k}={v}" for k, v in line.parameters.items()))
+
+    options = [(part, f"{getattr(part, 'IPN', '?')}  "
+                      f"{getattr(part, 'name', '')}") for part in offered]
+    options.append((None, "create a new part"))
+    picked = _prompt.choose_one(options, lambda o: o[1], title=title,
+                                prompt="  part > ")
+    return None if picked is None else picked[0]
+
+
+def ask_company(kind: str):
+    """A chooser for an unmatched manufacturer or supplier name."""
+    def choose(name: str, offered: list[tuple[Any, float]]):
+        options = [(company, f"{company.name}  ({score:.0%} match)")
+                   for company, score in offered]
+        options.append((name, f"create {kind} {name!r}"))
+        options.append((None, "skip"))
+        picked = _prompt.choose_one(
+            options, lambda o: o[1],
+            title=f"  {kind} {name!r} is not on the server",
+            prompt=f"  {kind} > ")
+        return None if picked is None else picked[0]
+    return choose
+
+
+def report_actions(document, result, resolved=None) -> None:
+    """
+    One line per line: what it is, and what happened to it.
+
+    The parsed parameter values are shown underneath because they are how a
+    human checks a transcription - seeing '4k7' read back as '4.7 kΩ' is the
+    point at which a misreading becomes obvious.
+    """
+    resolved = resolved or {}
+    name = document.path.name if document.path else "(input)"
+    print(f"\n{name}: {len(result.lines)} line(s), file id {document.file_id}")
+    for action in result.lines:
+        mark = {CREATED: "+", EXISTS: "=", SKIPPED: "-", REVIEW: "?"}.get(
+            action.action, " ")
+        print(f"  {mark} {action.id:<8} {action.quantity:>8g}  "
+              f"{action.ipn or '-':<12} {action.name or action.category}")
+        values = resolved.get(action.id)
+        if values:
+            print(f"      {', '.join(f'{k}={v}' for k, v in values.items())}")
+        detail = []
+        if action.location:
+            detail.append(action.location)
+        if action.supplier_part:
+            detail.append(f"supplier part {action.supplier_part}")
+        if action.purchase_order:
+            detail.append(f"order {action.purchase_order}")
+        if detail:
+            print(f"      {'  '.join(detail)}")
+        if action.reason:
+            print(f"      {action.reason}")
+        for candidate in action.candidates[:3]:
+            shown = candidate if isinstance(candidate, str) else (
+                f"{getattr(candidate, 'IPN', '')} "
+                f"{getattr(candidate, 'name', '')}".strip())
+            print(f"        -> {shown}")
+
+
+def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
+    interactive = _prompt.interactive() and not args.yes
+    options = ImportOptions(
+        write=args.write,
+        default_location=args.location or "",
+        on_partial=args.on_partial,
+        min_confidence=args.min_confidence,
+        create_orders=not args.no_orders,
+        choose_category=ask_category if interactive else None,
+        choose_part=ask_part if interactive else None,
+        choose_manufacturer=ask_company("manufacturer") if interactive else None,
+        choose_supplier=ask_company("supplier") if interactive else None,
+    )
+
+    api = connect()
+    totals = {"created": 0, "exists": 0, "skipped": 0, "review": 0}
+    for document, report in reports:
+        result = import_stock(document, api, directory=args.config,
+                              options=options)
+        report_actions(document, result, report.resolved)
+        for key in totals:
+            totals[key] += result.counts()[key]
+
+    print(f"\n{totals['created']} created, {totals['exists']} already there, "
+          f"{totals['skipped']} skipped, {totals['review']} need review.")
+    if not args.write:
+        print("Dry run - nothing was written. Re-run with --write to apply.")
+    if totals["review"]:
+        print("Lines needing review were left alone; run interactively to "
+              "settle them.")
+    return 1 if totals["skipped"] or totals["review"] else 0
+
+
 def run(args: argparse.Namespace) -> int:
     if args.schema:
         print(json.dumps(schema(), indent=2))
@@ -244,12 +408,6 @@ def run(args: argparse.Namespace) -> int:
     if not args.files:
         print("ERROR: name a file to import, or use --schema / --vocabulary",
               file=sys.stderr)
-        return 2
-
-    if args.write:
-        print("ERROR: --write is not implemented yet. Creating the records is "
-              "phases 4-6 of PROPOSAL-stock-import.md; this command currently "
-              "reads, checks and reports.", file=sys.stderr)
         return 2
 
     categories = load_categories_config(args.config)
@@ -285,17 +443,21 @@ def run(args: argparse.Namespace) -> int:
         print(json.dumps(payload, indent=2))
         return 0 if payload["ok"] else 1
 
-    for document, report in reports:
-        report_file(document, report)
-
     problems = sum(len(report.problems) for _, report in reports)
     warnings = sum(len(report.warnings) for _, report in reports)
     total = sum(len(doc.lines) for doc, _ in reports)
-    print(f"\n{total} line(s), {problems} error(s), {warnings} warning(s).")
+
     if problems:
+        for document, report in reports:
+            report_file(document, report)
+        print(f"\n{total} line(s), {problems} error(s), {warnings} warning(s).")
         print("Fix the errors, or re-run with --validate for machine-readable "
               "output.")
         return 1
-    print("Nothing written - creating the records is not implemented yet "
-          "(phases 4-6).")
-    return 0
+
+    if warnings:
+        for _, report in reports:
+            for warning in report.warnings:
+                print(f"  warn  {warning.describe()}")
+
+    return write_run(args, reports)

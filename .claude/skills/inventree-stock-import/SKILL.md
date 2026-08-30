@@ -51,9 +51,24 @@ uv run invimport import-stock stock.json
 Human-readable, with the parsed parameter values so they can check your reading.
 **Always let the user see this before anything is written.**
 
-**5. Writing is not built yet.** `--write` exits with an error; phases 4–6 of
-`PROPOSAL-stock-import.md` are outstanding. Say so rather than implying the
-stock was imported.
+**5. Only then, write — and only if the user says to.**
+
+```bash
+uv run invimport import-stock stock.json --write
+```
+
+**Never run `--write` without the user having seen the dry run and agreed.**
+This creates real inventory records.
+
+Re-running the same file is safe: each stock item carries a barcode naming the
+line that made it, and InvenTree refuses to assign one twice, so a second run
+reports `already there` rather than doubling the quantity. That safety depends
+entirely on line ids staying stable — see below.
+
+A run stops and asks about anything ambiguous: an unknown category, or a part
+whose key parameters are only partly given. Those prompts are for the user, not
+for you. If you are running non-interactively, pass `--yes` and report the held
+lines back to them.
 
 ## The file
 
@@ -96,11 +111,15 @@ that you cannot actually see. Omit the field. A part with no manufacturer is
 normal and gets no ManufacturerPart — that is the designed behaviour, not a
 degraded one.
 
-**Every line needs a stable, unique `id`.** It is half of the key that makes
-re-running an import a no-op instead of doubling the stock. Use `l01`, `l02`… in
-reading order, and set `source.reference` to the photo or invoice filename. If
-you regenerate the file later, **keep the ids you already used** — append new
-ones rather than renumbering, or previously imported lines will import again.
+**Every line needs a stable, unique `id`.** With `source.reference`, it forms
+the barcode that makes re-running an import a no-op instead of doubling the
+stock. Use `l01`, `l02`… in reading order, and set `source.reference` to the
+photo or invoice filename.
+
+If you regenerate the file later, **keep the ids you already used** — append new
+ones rather than renumbering. Renumbering makes previously imported lines look
+new, and they will import a second time. This is the single most damaging
+mistake available to you here.
 
 **Categories come from `--vocabulary`, exactly as written.** If nothing fits,
 still name the category you want and add `suggest_category`; the import will
@@ -184,6 +203,7 @@ Report to the user:
 - **anything you guessed, inferred or could not read** — list these explicitly
 - any line the validator warned about, especially partial `spec` identities that
   will make the import stop and ask
-- that nothing has been written yet, and `--write` is not implemented
+- whether anything was written, and what
 
-Do not claim stock was imported. It was not.
+Do not claim stock was imported unless you ran `--write` and it reported
+`created`. A dry run has written nothing.

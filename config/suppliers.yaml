@@ -1,0 +1,19 @@
+# Learned supplier name mappings, in the same shape as manufacturers.yaml.
+# `invimport` writes an alias here when you match a spelling to a company, so
+# the same question is never asked twice.
+#
+#   Rockby Electronics:
+#     aliases:
+#       - Rockby
+#       - Rockby Electronics Pty Ltd
+#
+# Matching tries normalisation first (case, punctuation, Pty/Inc/Ltd), then
+# this file, then a fuzzy prompt. Nothing is created silently.
+
+# One company for every eBay seller. Eight one-off sellers would be eight
+# companies you never use again; the seller is a fact about the purchase, not
+# a distributor you have a relationship with, so it goes in the stock note.
+eBay:
+  aliases:
+    - ebay
+    - eBay seller

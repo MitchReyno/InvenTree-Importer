@@ -76,7 +76,9 @@ Capacitors:
       - Capacitors / Tantalum Capacitors
 Diodes:
   ipn_prefix: DIOD
-  identity: mpn
+  # A JEDEC number identifies these regardless of who made them: a
+  # 1N4007 is a 1N4007. The maker is a property of the stock.
+  identity: type
   key_parameters:
     - Max Working Voltage
     - Mounting
@@ -270,7 +272,9 @@ Switches:
 
 Transistors:
   ipn_prefix: SEM
-  identity: mpn
+  # A JEDEC number identifies these regardless of who made them: a
+  # 1N4007 is a 1N4007. The maker is a property of the stock.
+  identity: type
   parameters:
     - Max Working Voltage
     - Mounting
