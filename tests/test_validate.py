@@ -225,7 +225,7 @@ def test_resolved_values_are_reported_for_preview(config):
     report = check(config, {"category": "Resistors/Through Hole Resistors",
                             "parameters": {"Resistance": "1 kohm",
                                            "Tolerance": "1%"}})
-    assert report.resolved["1"] == {"Resistance": "1 kΩ", "Tolerance": "1 %"}
+    assert report.resolved["1"] == {"Resistance": "1 k", "Tolerance": "1"}
 
 
 # --------------------------------------------------------------------------

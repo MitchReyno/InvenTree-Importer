@@ -325,21 +325,21 @@ Mounting:
 
 `units` matters twice over. InvenTree computes `data_numeric` by parsing the
 stored value against the template's unit, which is what makes a parameter
-sortable and filterable — and it is what values are formatted into. Values are
-stored unit-bearing and human-readable, using pint's compact short-pretty
-format:
+sortable and filterable. The stored string is the number plus any SI prefix
+that is not the base unit — the template already carries V, Ω, F, °C:
 
 | Magnitude | Unit | Stored as |
 |---|---|---|
-| 100000 | `ohm` | `100 kΩ` |
-| 0.25 | `W` | `250 mW` |
-| 2.2e-7 | `F` | `220 nF` |
-| -55 | `°C` | `-55 °C` |
+| 100000 | `ohm` | `100 k` |
+| 0.25 | `W` | `250 m` |
+| 2.2e-7 | `F` | `220 n` |
+| 16 | `V` | `16` |
+| -55 | `°C` | `-55` |
 
-That costs nothing in sortability, because InvenTree parses the string back.
-Every formatted value is round-trip checked before it is stored — a unit whose
-display symbol cannot be parsed back falls through to a plainer form rather
-than being written wrongly.
+InvenTree concatenates that with the template unit (`100 k` + `ohm` →
+`100kohm`) so prefixes still sort. Every formatted value is round-trip
+checked before it is stored — a form that cannot be parsed back falls
+through to a plainer one rather than being written wrongly.
 
 **Custom units are created first.** A template names its unit, and InvenTree
 rejects one it cannot resolve, so anything pint does not already know has to
@@ -362,7 +362,7 @@ import how to recognise a parameter in supplier data and how to read its value.
 Parameter *values* are not set by this command. They come from supplier data as
 parts are imported. `from_supplier()` in `invimport.inventree.values` is how
 a DigiKey parameters dict becomes the stored strings — `100 kOhms` is
-`100 kΩ`, `±1%` is `1 %`, `-55°C ~ 155°C` splits into two temperatures.
+`100 k`, `±1%` is `1`, `-55°C ~ 155°C` splits into two temperatures.
 `-` means absent and is not written.
 
 ### categories

@@ -4,14 +4,16 @@ Parameter values: parse DigiKey text, format it for InvenTree.
     from invimport.inventree.values import Formatter, from_supplier
 
     fmt = Formatter()
-    fmt.format(100000, "ohm")              # "100 kΩ"
+    fmt.format(100000, "ohm")              # "100 k"
+    fmt.format(16, "V")                    # "16"
     from_supplier({"Resistance": "100 kOhms"}, parameters)
-    # {"Resistance": "100 kΩ"}
+    # {"Resistance": "100 k"}
 
-Values are stored unit-bearing and human-readable rather than as bare numbers.
-That costs nothing in sortability: InvenTree's convert_physical_value() parses
-the stored string with pint against the template's unit and derives
-data_numeric from it, so "100 kΩ" filters and sorts exactly as 100000 does.
+The template already carries the unit, so the stored string is the number plus
+any SI prefix that is not the base unit: 100000 ohm is "100 k", 16 V is "16",
+3300 µF is "3300 µ". InvenTree's convert_physical_value() concatenates that
+with the template unit ("100 k" + "ohm" -> "100kohm") and derives data_numeric
+from it, so prefixes still sort and filter as the real magnitude.
 
 The registry mirrors the one InvenTree builds in
 InvenTree/conversion.py::reload_unit_registry - the same aliases, the same
@@ -19,13 +21,9 @@ R = ohm override, and the custom units from config/units.yaml declared the same
 way. Formatting against a different registry than the server parses with would
 be how subtly wrong values get in.
 
-Round-trips are verified, not assumed. Pint's short-pretty format renders a
-unit by its symbol, so the symbol has to parse back to the same quantity.
-Operators are not the problem - "ppm/K" round-trips fine - but a symbol naming
-a *different* quantity is: ppm_per_delta_degC displayed as "ppm/°C" re-reads as
-ppm divided by an absolute temperature rather than a temperature interval, and
-50 becomes 0.18. Every formatted value is parsed back and checked before it is
-returned, so an ambiguous symbol falls back to a form that does round-trip.
+Round-trips are verified, not assumed. A candidate is parsed the way InvenTree
+will parse it - the text alone, then the text glued to the template unit -
+and rejected if it does not read back as the same magnitude.
 """
 
 from __future__ import annotations
@@ -154,8 +152,9 @@ NAME_PREFIX_SCALE[""] = 1.0
 NAME_PREFIX_SCALE["R"] = 1.0
 
 # The SI prefix a configured symbol contributes to a *stored* value. Names may
-# write 4.7 ohm as "4R7", but a stored value has the unit spelled out beside
-# it, so unity contributes nothing and "u" is written the way pint prints it.
+# write 4.7 ohm as "4R7", but a stored value keeps the prefix beside the
+# number ("4.7 k") and leaves the unit on the template, so unity contributes
+# nothing and "u" is written the way pint prints it.
 STORED_PREFIX = {"": "", "R": "", "u": "µ"}
 
 
@@ -232,8 +231,9 @@ def compact_for_name(magnitude: float,
 
 class Formatter:
     """
-    Renders magnitudes as unit-bearing strings InvenTree can read back.
+    Renders magnitudes as number-plus-prefix strings InvenTree can read back.
 
+    The template holds the unit, so "100 k" is stored rather than "100 kΩ".
     One instance holds one registry; build it once and reuse it, since
     constructing a pint registry is not cheap.
     """
@@ -270,14 +270,37 @@ class Formatter:
 
     # -- checking ----------------------------------------------------------
     def parses_to(self, text: str, magnitude: float, unit: str) -> bool:
-        """Does this text read back as the number we meant, in the right unit?"""
-        try:
-            parsed = self.registry.Quantity(text)
-            value = parsed.to(unit).magnitude if unit else parsed.magnitude
-        except Exception:
-            return False
-        return abs(float(value) - float(magnitude)) <= (
-            abs(float(magnitude)) * ROUND_TRIP_TOLERANCE + 1e-12)
+        """Does this text read back as the number we meant, in the right unit?
+
+        Mirrors InvenTree's convert_physical_value(): try the text as a
+        quantity, then glue it to the template unit ("100 k" + "ohm" ->
+        "100 kohm") so a stored prefix still names a real magnitude.
+        """
+        attempts = [text]
+        if unit:
+            glued = text.replace(" ", "")
+            attempts.extend((f"{text}{unit}", f"{text} {unit}",
+                             f"{glued}{unit}"))
+        seen: set[str] = set()
+        for attempt in attempts:
+            if attempt in seen:
+                continue
+            seen.add(attempt)
+            try:
+                parsed = self.registry.Quantity(attempt)
+                if unit:
+                    if getattr(parsed, "dimensionless", False):
+                        parsed = self.registry.Quantity(
+                            parsed.to_base_units().magnitude, unit)
+                    value = parsed.to(unit).magnitude
+                else:
+                    value = parsed.magnitude
+            except Exception:
+                continue
+            if abs(float(value) - float(magnitude)) <= (
+                    abs(float(magnitude)) * ROUND_TRIP_TOLERANCE + 1e-12):
+                return True
+        return False
 
     # -- formatting --------------------------------------------------------
     def preferred(self, quantity, unit: str, prefixes: list[str]):
@@ -285,8 +308,8 @@ class Formatter:
         The quantity rescaled to the prefix its parameter is written with.
 
         Keeps a stored value in the unit the part table should show it in -
-        3300 µF rather than the 3.3 mF pint's own compaction picks, and 0.05 Ω
-        rather than 50 mΩ. Returns None if the rescale is not possible, and
+        3300 µ rather than the 3.3 m pint's own compaction picks, and 0.05
+        rather than 50 m. Returns None if the rescale is not possible, and
         the caller falls back to compaction as before.
         """
         scale, symbol = choose_prefix(float(quantity.magnitude), prefixes)
@@ -296,15 +319,30 @@ class Formatter:
         except Exception:
             return None
 
+    def _without_unit(self, quantity, unit: str) -> str | None:
+        """Number plus SI prefix, with the template's base unit dropped."""
+        number = clean_number(quantity.magnitude)
+        symbol = f"{quantity.units:~P}".strip()
+        try:
+            base = f"{self.registry.Unit(unit):~P}".strip()
+        except Exception:
+            return None
+        if not symbol or symbol == base:
+            return number
+        if symbol.endswith(base):
+            prefix = symbol[:-len(base)].strip()
+            return f"{number} {prefix}" if prefix else number
+        return None
+
     def candidates(self, magnitude: float, unit: str,
                    prefixes: list[str] | None = None) -> list[str]:
         """
         Renderings to try, best-looking first.
 
-        1. The parameter's preferred prefix, where it names one.
-        2. Compact short-pretty - "100 kΩ", the readable form.
-        3. Short-pretty without rescaling, for a unit compaction mangles.
-        4. The unit's full name - "50 ppm_per_delta_degC". Ugly, but it parses.
+        1. The parameter's preferred prefix, without the base unit ("3300 µ").
+        2. Compact short-pretty, without the base unit ("100 k").
+        3. The unprefixed number, for a value already in the template unit.
+        4. Unit-bearing fallbacks, if a stripped form will not round-trip.
         """
         quantity = self.registry.Quantity(magnitude, unit)
         options: list[str] = []
@@ -313,17 +351,20 @@ class Formatter:
                   if prefixes and rescalable else None)
         compact = self._compact(quantity) if rescalable else None
 
+        def add(text: str | None) -> None:
+            if text and text not in options:
+                options.append(text)
+
         for candidate in (wanted, compact, quantity):
             if candidate is None:
                 continue
+            add(self._without_unit(candidate, unit))
             symbol = f"{candidate.units:~P}".strip()
             number = clean_number(candidate.magnitude)
-            text = f"{number} {symbol}" if symbol else number
-            if text not in options:
-                options.append(text)
+            add(f"{number} {symbol}" if symbol else number)
 
         if unit:
-            options.append(f"{clean_number(magnitude)} {unit}")
+            add(f"{clean_number(magnitude)} {unit}")
         return options
 
     def _compact(self, quantity):
@@ -336,7 +377,7 @@ class Formatter:
     def format(self, magnitude: Any, unit: str = "",
                prefixes: list[str] | None = None) -> str:
         """
-        Render a magnitude in a unit as a readable, re-readable string.
+        Render a magnitude as a number plus SI prefix, without the base unit.
 
         Falls back through progressively plainer forms until one parses back to
         the value it started as. If none does - which would mean the unit

@@ -3,10 +3,11 @@
 # Each entry becomes an InvenTree ParameterTemplate. `invimport parameters`
 # creates and updates them; nothing is ever deleted.
 #
-#   units        pint unit the value is stored in. Values are formatted into
-#                it with pint's compact short-pretty format - 100000 ohm is
-#                stored as "100 kΩ". InvenTree parses that back to derive
-#                data_numeric, so readable values still sort and filter.
+#   units        pint unit the value is stored against. The stored string is
+#                the number plus any SI prefix that is not the base unit -
+#                100000 ohm is "100 k", 16 V is "16". InvenTree concatenates
+#                that with this field to derive data_numeric, so prefixes
+#                still sort and filter.
 #   description  shown in the InvenTree UI
 #   choices      a fixed value set, comma-joined into the template
 #   checkbox     boolean parameter
@@ -16,7 +17,7 @@
 #   prefixes     SI prefixes this parameter is written with, largest first,
 #                in both stored values and generated part names. Capacitance
 #                uses [u, n, p] so 3300 uF reads "3300u" and stores as
-#                "3300 µF" rather than "3.3 mF". "R" (or "") means the
+#                "3300 µ" rather than "3.3 m". "R" (or "") means the
 #                unprefixed unit, and is the floor when listed last. Omit to
 #                let any prefix be chosen; needs units.
 #   name_style   how the value is written in a part name. "rkm" puts the
@@ -212,7 +213,7 @@ Resistance:
     - Resistance
     - Resistance (Ohms)
   parse: quantity
-  # Ohms at the bottom - a 0.05 ohm shunt is "0.05 Ω", never "50 mΩ". R is the
+  # Ohms at the bottom - a 0.05 ohm shunt is "0.05", never "50 m". R is the
   # unprefixed ohm, so the set is really ohms, kilohms and megohms.
   prefixes: [M, k, R]
   # Part names read 4R7 and 3k3 rather than 4.7 and 3.3k.

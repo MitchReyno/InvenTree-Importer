@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
@@ -73,6 +74,10 @@ log = logging.getLogger(__name__)
 UNRESOLVED_PK = -1
 IPN_WIDTH = 5
 LIST_LIMIT = 1000
+# Concurrent POSTs for the values hanging off one record. A typical part
+# carries a handful of parameters; each create is a round trip, so the
+# workers are waiting on the server rather than on the CPU.
+PARAMETER_WORKERS = 8
 
 # Where a part whose category declares no ipn_prefix is numbered. A prefix is
 # a deliberate choice - guessing one from the category name produces initials
@@ -175,7 +180,7 @@ def fill_name(template: str, values: dict[str, str],
 
     Unit-bearing values are compacted without the unit, because the
     template already writes '%', 'W', 'V' next to the placeholder:
-    '100 kΩ' -> '100k', '1 %' -> '1', '250 mW' -> '0.25'.
+    '100 k' -> '100k', '1' -> '1', '250 m' -> '0.25'.
     """
     def replacer(match: re.Match) -> str:
         key = match.group(1)
@@ -278,7 +283,7 @@ def find_part_by_spec(
     """
     The Part in this category whose key parameters match `values`.
 
-    Compared as quantities when the template has units, so '100' and
+    Compared as quantities when the template has units, so '100 k' and
     '100 kΩ' are the same resistance. A missing key on either side is
     not a match.
     """
@@ -418,6 +423,9 @@ def apply_parameters(
     SupplierPart. API 530 addresses all of them through the same endpoint, and
     the templates are model-agnostic, so the only difference is this field.
 
+    Writes for one record are issued concurrently: each Parameter.create is
+    its own round trip, and a part's values do not depend on each other.
+
     Returns how many values were created or updated.
     """
     if model_id in (None, UNRESOLVED_PK) or not values:
@@ -427,6 +435,7 @@ def apply_parameters(
     by_template = {int(p.template): p for p in existing
                    if getattr(p, "template", None) is not None}
     touched = 0
+    writes: list[Callable[[], Any]] = []
 
     for name, value in values.items():
         template = templates.get(name)
@@ -435,19 +444,35 @@ def apply_parameters(
         current = by_template.get(template.pk)
         if current is None:
             if write:
-                Parameter.create(api, {
+                payload = {
                     "model_type": model_type,
                     "model_id": model_id,
                     "template": template.pk,
                     "data": value,
-                })
+                }
+                writes.append(lambda payload=payload: Parameter.create(api, payload))
             touched += 1
         elif update and str(current.data) != value:
             if write:
-                current.save(data={"data": value})
+                writes.append(
+                    lambda current=current, value=value: current.save(
+                        data={"data": value}))
             touched += 1
 
+    _write_parameters(writes)
     return touched
+
+
+def _write_parameters(writes: list[Callable[[], Any]]) -> None:
+    """Run the collected Parameter.create / save calls, concurrently if many."""
+    if not writes:
+        return
+    if len(writes) == 1:
+        writes[0]()
+        return
+    workers = min(PARAMETER_WORKERS, len(writes))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        list(pool.map(lambda fn: fn(), writes))
 
 
 # --------------------------------------------------------------------------

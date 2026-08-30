@@ -973,7 +973,7 @@ def test_import_stock_dry_runs_against_the_server(capsys, inventree, tmp_path):
     assert main(["import-stock", "--config", str(directory), str(path)]) == 0
 
     out = capsys.readouterr().out
-    assert "Resistance=1 kΩ" in out
+    assert "Resistance=1 k" in out
     assert "nothing was written" in out
     assert inventree.stock_items == []
 

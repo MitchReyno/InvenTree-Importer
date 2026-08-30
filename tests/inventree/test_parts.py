@@ -492,7 +492,7 @@ def test_fill_name_strips_units_the_template_already_writes():
     }
     name = fill_name(
         "Resistor {Resistance} {Tolerance}% {Package}",
-        {"Resistance": "100 kΩ", "Tolerance": "1 %", "Package": "Axial"},
+        {"Resistance": "100 k", "Tolerance": "1", "Package": "Axial"},
         parameters)
     assert name == "Resistor 100k 1% Axial"
 
@@ -817,7 +817,7 @@ def test_the_supplier_part_carries_everything(inventree, tmp_path):
 
     values = written(inventree, "company.supplierpart")
     assert set(values) == {"Resistance", "Tolerance", "Package", "Mounting"}
-    assert values["Resistance"] == "100 kΩ"
+    assert values["Resistance"] == "100 k"
 
 
 def test_parameters_are_counted_per_record(inventree, tmp_path):

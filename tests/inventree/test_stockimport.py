@@ -91,8 +91,8 @@ def test_a_line_becomes_a_part_and_some_stock(config, server):
 def test_the_parameters_are_stored_on_the_part(config, server):
     _, result = run(config, RESISTOR)
     stored = {p["data"] for p in server.parameters}
-    assert "4.7 kΩ" in stored          # RKM notation read correctly
-    assert "1 %" in stored
+    assert "4.7 k" in stored          # RKM notation read correctly
+    assert "1" in stored
 
 
 def test_a_part_with_no_mpn_or_manufacturer_is_fine(config, server):

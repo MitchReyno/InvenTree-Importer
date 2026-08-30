@@ -314,10 +314,10 @@ def test_fold_ignores_only_case_and_whitespace():
 
 
 def test_a_rate_keeps_the_units_it_was_written_in():
-    """13 V/µs must not compact to 13 MV/s - same number, nobody's idiom."""
+    """13 V/µs must not compact to 13 M (from MV/s) - same number, nobody's idiom."""
     cfg = ParameterConfig("Slew Rate", units="V/µs", parse="quantity")
-    assert read_value("13V/µs", cfg) == "13 V/µs"
-    assert read_value("0.5V/µs", cfg) == "0.5 V/µs"
+    assert read_value("13V/µs", cfg) == "13"
+    assert read_value("0.5V/µs", cfg) == "0.5"
 
 
 @pytest.mark.parametrize("text,low,high", [
@@ -369,13 +369,13 @@ def P(name, **kw) -> ParameterConfig:
 
 
 @pytest.mark.parametrize("text,parameter,expected", [
-    ("100 kOhms", P("Resistance", units="ohm", parse="quantity"), "100 kΩ"),
-    ("±1%", P("Tolerance", units="%", parse="percent"), "1 %"),
-    ("0.25W, 1/4W", P("Power Rating", units="W", parse="quantity_first"), "250 mW"),
-    ("±50ppm/°C", P("Tempco", units="ppm/K", parse="quantity"), "50 ppm/K"),
-    ("-55°C ~ 155°C", P("Tmin", units="°C", parse="range_low"), "-55 °C"),
-    ("-55°C ~ 155°C", P("Tmax", units="°C", parse="range_high"), "155 °C"),
-    ("0.02 µF", P("Capacitance", units="F", parse="quantity"), "20 nF"),
+    ("100 kOhms", P("Resistance", units="ohm", parse="quantity"), "100 k"),
+    ("±1%", P("Tolerance", units="%", parse="percent"), "1"),
+    ("0.25W, 1/4W", P("Power Rating", units="W", parse="quantity_first"), "250 m"),
+    ("±50ppm/°C", P("Tempco", units="ppm/K", parse="quantity"), "50"),
+    ("-55°C ~ 155°C", P("Tmin", units="°C", parse="range_low"), "-55"),
+    ("-55°C ~ 155°C", P("Tmax", units="°C", parse="range_high"), "155"),
+    ("0.02 µF", P("Capacitance", units="F", parse="quantity"), "20 n"),
     ("-", P("Resistance", units="ohm", parse="quantity"), None),
     ("Metal Film", P("Composition", choices=["Metal Film", "Carbon Film"]),
      "Metal Film"),
@@ -433,12 +433,12 @@ PARAMS = {
 def test_from_supplier_reads_a_resistor(fmt):
     got = from_supplier(RESISTOR, PARAMS, formatter=fmt)
     assert got == {
-        "Resistance": "100 kΩ",
-        "Tolerance": "1 %",
-        "Power Rating": "250 mW",
-        "Temperature Coefficient": "50 ppm/K",
-        "Operating Temp Min": "-55 °C",
-        "Operating Temp Max": "155 °C",
+        "Resistance": "100 k",
+        "Tolerance": "1",
+        "Power Rating": "250 m",
+        "Temperature Coefficient": "50",
+        "Operating Temp Min": "-55",
+        "Operating Temp Max": "155",
         "Composition": "Metal Film",
         "Mounting": "Through Hole",
         "Package": "Axial",
@@ -454,19 +454,19 @@ def test_from_supplier_restricts_to_the_names_asked_for(fmt):
 
 def test_from_supplier_omits_a_parameter_the_payload_does_not_have(fmt):
     got = from_supplier({"Resistance": "10 Ohms"}, PARAMS, formatter=fmt)
-    assert got == {"Resistance": "10 Ω"}
+    assert got == {"Resistance": "10"}
 
 
 def test_the_repo_config_reads_the_proposal_resistor():
     """The real parameters.yaml must produce the values the design promised."""
     parameters = load_parameters_config()
     got = from_supplier(RESISTOR, parameters)
-    assert got["Resistance"] == "100 kΩ"
-    assert got["Tolerance"] == "1 %"
-    assert got["Power Rating"] == "250 mW"
-    assert got["Temperature Coefficient"] == "50 ppm/K"
-    assert got["Operating Temp Min"] == "-55 °C"
-    assert got["Operating Temp Max"] == "155 °C"
+    assert got["Resistance"] == "100 k"
+    assert got["Tolerance"] == "1"
+    assert got["Power Rating"] == "250 m"
+    assert got["Temperature Coefficient"] == "50"
+    assert got["Operating Temp Min"] == "-55"
+    assert got["Operating Temp Max"] == "155"
     assert got["Composition"] == "Metal Film"
     assert got["Mounting"] == "Through Hole"
     assert got["Package"] == "Axial"
@@ -482,7 +482,7 @@ def test_the_repo_config_splits_a_resistor_body_into_diameter_and_length():
     got = from_supplier(
         {"Size / Dimension": '0.094" Dia x 0.248" L (2.40mm x 6.30mm)'},
         parameters, names=["Diameter", "Length", "Height"])
-    assert got == {"Diameter": "2.4 mm", "Length": "6.3 mm"}
+    assert got == {"Diameter": "2.4", "Length": "6.3"}
 
 
 def test_a_single_dimension_can_fills_diameter_not_length():
@@ -490,7 +490,7 @@ def test_a_single_dimension_can_fills_diameter_not_length():
     got = from_supplier(
         {"Size / Dimension": '0.197" Dia (5.00mm)'},
         parameters, names=["Diameter", "Length"])
-    assert got == {"Diameter": "5 mm"}
+    assert got == {"Diameter": "5"}
 
 
 def test_the_repo_config_reads_an_op_amp_supply_range():
@@ -503,7 +503,7 @@ def test_the_repo_config_reads_an_op_amp_supply_range():
         {"Voltage - Supply, Single/Dual (±)": "2.7V ~ 5.5V, ±1.35V ~ 2.75V"},
         parameters, names=["Supply Voltage Min", "Supply Voltage Max",
                            "Input Voltage Min"])
-    assert got == {"Supply Voltage Min": "2.7 V", "Supply Voltage Max": "5.5 V"}
+    assert got == {"Supply Voltage Min": "2.7", "Supply Voltage Max": "5.5"}
 
 
 def test_a_logic_ic_supply_range_uses_the_generic_field_name():
@@ -511,7 +511,7 @@ def test_a_logic_ic_supply_range_uses_the_generic_field_name():
     got = from_supplier(
         {"Voltage - Supply": "2V ~ 6V"},
         parameters, names=["Supply Voltage Min", "Supply Voltage Max"])
-    assert got == {"Supply Voltage Min": "2 V", "Supply Voltage Max": "6 V"}
+    assert got == {"Supply Voltage Min": "2", "Supply Voltage Max": "6"}
 
 
 def test_a_single_supply_rail_fills_both_min_and_max():
@@ -519,7 +519,7 @@ def test_a_single_supply_rail_fills_both_min_and_max():
     got = from_supplier(
         {"Voltage - Supply": "5V"},
         parameters, names=["Supply Voltage Min", "Supply Voltage Max"])
-    assert got == {"Supply Voltage Min": "5 V", "Supply Voltage Max": "5 V"}
+    assert got == {"Supply Voltage Min": "5", "Supply Voltage Max": "5"}
 
 
 def test_mounting_falls_back_to_package_when_digikey_omits_it():
@@ -550,13 +550,13 @@ def test_mounting_type_wins_over_package_case():
 # Stored values follow the configured prefixes
 # --------------------------------------------------------------------------
 def test_a_stored_capacitance_stays_in_microfarads():
-    """The part table should read 3300 µF, not the 3.3 mF pint compacts to."""
+    """The part table should read 3300 µ, not the 3.3 m pint compacts to."""
     from invimport.config import load_config
     from invimport.inventree.values import read_value
 
     _, parameters = load_config()
-    assert read_value("3300 µF", parameters["Capacitance"]) == "3300 µF"
-    assert read_value("1000 µF", parameters["Capacitance"]) == "1000 µF"
+    assert read_value("3300 µF", parameters["Capacitance"]) == "3300 µ"
+    assert read_value("1000 µF", parameters["Capacitance"]) == "1000 µ"
 
 
 def test_a_stored_capacitance_still_steps_down_below_a_microfarad():
@@ -564,8 +564,8 @@ def test_a_stored_capacitance_still_steps_down_below_a_microfarad():
     from invimport.inventree.values import read_value
 
     _, parameters = load_config()
-    assert read_value("0.47 µF", parameters["Capacitance"]) == "470 nF"
-    assert read_value("100 pF", parameters["Capacitance"]) == "100 pF"
+    assert read_value("0.47 µF", parameters["Capacitance"]) == "470 n"
+    assert read_value("100 pF", parameters["Capacitance"]) == "100 p"
 
 
 def test_a_stored_resistance_never_reaches_milliohms():
@@ -573,8 +573,8 @@ def test_a_stored_resistance_never_reaches_milliohms():
     from invimport.inventree.values import read_value
 
     _, parameters = load_config()
-    assert read_value("0.05 Ohms", parameters["Resistance"]) == "0.05 Ω"
-    assert read_value("3.3 kOhms", parameters["Resistance"]) == "3.3 kΩ"
+    assert read_value("0.05 Ohms", parameters["Resistance"]) == "0.05"
+    assert read_value("3.3 kOhms", parameters["Resistance"]) == "3.3 k"
 
 
 def test_a_stored_value_still_parses_back_to_its_own_number():

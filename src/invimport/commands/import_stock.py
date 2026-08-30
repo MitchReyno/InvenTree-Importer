@@ -331,7 +331,7 @@ def report_actions(document, result, resolved=None) -> None:
     One line per line: what it is, and what happened to it.
 
     The parsed parameter values are shown underneath because they are how a
-    human checks a transcription - seeing '4k7' read back as '4.7 kΩ' is the
+    human checks a transcription - seeing '4k7' read back as '4.7 k' is the
     point at which a misreading becomes obvious.
     """
     resolved = resolved or {}

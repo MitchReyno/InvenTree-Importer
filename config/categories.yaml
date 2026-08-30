@@ -78,6 +78,9 @@ Capacitors:
       - Lead Spacing
     aliases:
       - Capacitors / Tantalum Capacitors
+  Motor Capacitors:
+    aliases:
+      - Capacitors / Motor Start, Motor Run Capacitors (AC)
 Diodes:
   ipn_prefix: DIOD
   # A JEDEC number identifies these regardless of who made them: a
@@ -125,6 +128,9 @@ Inductors:
     - Package
     - Tolerance
 
+  Fixed Inductors:
+    aliases:
+      - Inductors, Coils, Chokes / Fixed Inductors
 Integrated Circuits:
   ipn_prefix: IC
   identity: mpn
@@ -169,6 +175,10 @@ Integrated Circuits:
       aliases:
         - Integrated Circuits (ICs) / Power Management (PMIC) / Voltage Regulators - Linear, Low Drop Out (LDO) Regulators
 
+    Current Regulation:
+      Management:
+        aliases:
+          - Integrated Circuits (ICs) / Power Management (PMIC) / Current Regulation/Management
   Microcontrollers:
     aliases:
       - Integrated Circuits (ICs) / Embedded / Microcontrollers
@@ -199,6 +209,13 @@ Integrated Circuits:
   Audio Amplifiers:
     aliases:
       - Integrated Circuits (ICs) / Linear / Amplifiers / Audio Amplifiers
+  Logic:
+    Flip Flops:
+      aliases:
+        - Integrated Circuits (ICs) / Logic / Flip Flops
+    Gates and Inverters:
+      aliases:
+        - Integrated Circuits (ICs) / Logic / Gates and Inverters
 Optoelectronics:
   ipn_prefix: OPTO
   identity: mpn
@@ -300,9 +317,13 @@ Transistors:
     - Operating Temp Min
     - Package
     - Power Rating
-  BJTs: {}
+  BJTs:
+    aliases:
+      - Discrete Semiconductor Products / Transistors / Bipolar (BJT) / Single Bipolar Transistors
   JFETs: {}
-  MOSFETs: {}
+  MOSFETs:
+    aliases:
+      - "Discrete Semiconductor Products / Transistors / FETs, MOSFETs / Single FETs, MOSFETs"
 
 "Cables & Wires":
   parameters:
@@ -311,6 +332,7 @@ Transistors:
   ipn_prefix: WIRE
   aliases:
     - Cables, Wires / Flat Ribbon Cables
+    - "Kits / Cables, Wires - Single Conductors Kits"
 
 Connectors:
   parameters:
@@ -343,6 +365,9 @@ Connectors:
   "D-Sub, D-Shaped Connectors":
     aliases:
       - Connectors, Interconnects / D-Sub, D-Shaped Connectors / D-Sub Connector Assemblies
+  Audio Connectors:
+    aliases:
+      - Connectors, Interconnects / Barrel Connectors / Audio Connectors
 "Crystals, Oscillators, Resonators":
   parameters:
     - Package
@@ -374,6 +399,9 @@ Hardware:
     aliases:
       - Hardware, Fasteners, Accessories / Knobs
 
+  Bearings:
+    aliases:
+      - Hardware, Fasteners, Accessories / Bearings
 "Sensors, Transducers":
   parameters:
     - Mounting
@@ -390,6 +418,12 @@ Tools:
       - Soldering, Desoldering, Rework Products / Desoldering Braid, Wick, Pumps
       - Soldering, Desoldering, Rework Products / Solder
 
+  Test Equipment:
+    aliases:
+      - Test and Measurement / Test Equipment / Specialty Equipment
+  Specialized Tools:
+    aliases:
+      - Tools / Specialized Tools
 Kits:
   ipn_prefix: MOD
   Accessories:
@@ -406,7 +440,19 @@ Kits:
     aliases:
       - Prototyping, Fabrication Products / Adapter, Breakout Boards
 
+  Component Kits:
+    aliases:
+      - Kits / Potentiometer Kits
 Prototyping + Fabrication Products:
   Prototype Boards:
     aliases:
       - Prototyping, Fabrication Products / Prototype Boards Perforated
+
+Controls:
+  Meters:
+    aliases:
+      - Industrial Automation and Controls / Panel Meters / Meters
+
+Power Supplies + Power Management:
+  aliases:
+    - Power Supplies - External/Internal (Off-Board) / DC DC Converters

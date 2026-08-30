@@ -685,7 +685,12 @@ class InvenTreeStub:
                 stub.deletes.append(parsed.path)
                 return self._send(204, {})
 
-        self._server = HTTPServer(("127.0.0.1", 0), Handler)
+        # Parameter writes fan out a handful of concurrent POSTs; the default
+        # listen backlog of 5 would refuse the extras.
+        class _StubServer(HTTPServer):
+            request_queue_size = 64
+
+        self._server = _StubServer(("127.0.0.1", 0), Handler)
         # serve_forever polls at 0.5s by default, so shutdown() waits that long
         # on every test. 0.01s is still plenty for the stub.
         threading.Thread(

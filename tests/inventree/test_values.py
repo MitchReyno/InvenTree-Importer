@@ -28,25 +28,25 @@ def fmt() -> Formatter:
 # Readable output
 # --------------------------------------------------------------------------
 @pytest.mark.parametrize("magnitude,unit,expected", [
-    (100000, "ohm", "100 kΩ"),
-    (4700, "ohm", "4.7 kΩ"),
-    (4870, "ohm", "4.87 kΩ"),
-    (10, "ohm", "10 Ω"),
-    (0.47, "ohm", "470 mΩ"),
-    (1e9, "ohm", "1 GΩ"),
-    (0.25, "W", "250 mW"),
-    (0.125, "W", "125 mW"),
-    (6, "W", "6 W"),
-    (1e-6, "F", "1 µF"),
-    (4.7e-11, "F", "47 pF"),
-    (1, "%", "1 %"),
-    (0.5, "%", "0.5 %"),
-    (-55, "°C", "-55 °C"),
-    (155, "°C", "155 °C"),
-    (-55, "degC", "-55 °C"),
-    (155, "degC", "155 °C"),
-    (250, "V", "250 V"),
-    (6.3, "V", "6.3 V"),
+    (100000, "ohm", "100 k"),
+    (4700, "ohm", "4.7 k"),
+    (4870, "ohm", "4.87 k"),
+    (10, "ohm", "10"),
+    (0.47, "ohm", "470 m"),
+    (1e9, "ohm", "1 G"),
+    (0.25, "W", "250 m"),
+    (0.125, "W", "125 m"),
+    (6, "W", "6"),
+    (1e-6, "F", "1 µ"),
+    (4.7e-11, "F", "47 p"),
+    (1, "%", "1"),
+    (0.5, "%", "0.5"),
+    (-55, "°C", "-55"),
+    (155, "°C", "155"),
+    (-55, "degC", "-55"),
+    (155, "degC", "155"),
+    (250, "V", "250"),
+    (6.3, "V", "6.3"),
 ])
 def test_values_are_compact_and_readable(fmt, magnitude, unit, expected):
     assert fmt.format(magnitude, unit) == expected
@@ -54,11 +54,11 @@ def test_values_are_compact_and_readable(fmt, magnitude, unit, expected):
 
 def test_floating_point_noise_is_rounded_away(fmt):
     """2.2e-7 F rescales to 219.99999999999997 nF before rounding."""
-    assert fmt.format(2.2e-7, "F") == "220 nF"
+    assert fmt.format(2.2e-7, "F") == "220 n"
 
 
 def test_a_whole_number_keeps_no_trailing_zero(fmt):
-    assert fmt.format(100000, "ohm") == "100 kΩ"        # not "100.0 kΩ"
+    assert fmt.format(100000, "ohm") == "100 k"        # not "100.0 k"
 
 
 def test_a_value_with_no_unit_is_just_the_number(fmt):
@@ -94,13 +94,14 @@ def test_every_formatted_value_reads_back_as_itself(fmt, magnitude, unit):
     assert fmt.parses_to(fmt.format(magnitude, unit), magnitude, unit)
 
 
-def test_an_ambiguous_symbol_falls_back_to_the_unit_name(fmt):
+def test_an_ambiguous_symbol_is_not_stored(fmt):
     """
     'ppm/°C' parses as ppm divided by an absolute temperature, turning 50 into
-    0.18. The pretty form must be rejected in favour of one that survives.
+    0.18. The template already has the unit, so the value is just the number.
     """
     text = fmt.format(50, "ppm_per_delta_degC")
-    assert text == "50 ppm_per_delta_degC"
+    assert text == "50"
+    assert "ppm" not in text
     assert fmt.parses_to(text, 50, "ppm_per_delta_degC")
 
 
@@ -111,7 +112,7 @@ def test_the_pretty_form_really_is_broken_for_that_unit(fmt):
 
 def test_candidates_are_ordered_prettiest_first(fmt):
     candidates = fmt.candidates(100000, "ohm")
-    assert candidates[0] == "100 kΩ"
+    assert candidates[0] == "100 k"
     assert candidates[-1] == "100000 ohm"
 
 
@@ -210,29 +211,18 @@ def test_a_unit_without_a_symbol_is_not_reported():
 # --------------------------------------------------------------------------
 # Which symbols survive a round trip
 # --------------------------------------------------------------------------
-@pytest.mark.parametrize("symbol,expected", [
-    # Operators are fine when the expression means the same thing.
-    ("ppm/K", "50 ppm/K"),
-    ("ppm/delta_degC", "50 ppm/delta_degC"),
-    ("ppm*K^-1", "50 ppm*K^-1"),
-    # Unicode notation parses as a single token.
-    ("ppm·K⁻¹", "50 ppm·K⁻¹"),
-    ("ppmK", "50 ppmK"),
-    # degC is an *absolute* temperature: dividing by it is a different
-    # quantity, so these fall back to the unit's full name.
-    ("ppm/°C", "50 ppm_per_delta_degC"),
-    ("ppm/degC", "50 ppm_per_delta_degC"),
-    # No symbol at all renders the canonical name.
-    ("", "50 ppm_per_delta_degC"),
+@pytest.mark.parametrize("symbol", [
+    "ppm/K", "ppm/delta_degC", "ppm*K^-1", "ppm·K⁻¹", "ppmK",
+    "ppm/°C", "ppm/degC", "",
 ])
-def test_symbol_choice_decides_how_a_value_reads(symbol, expected):
+def test_a_custom_unit_stores_the_number_without_the_unit(symbol):
+    """The template carries the unit; an ambiguous symbol never reaches storage."""
     units = {"ppm_per_delta_degC": UnitConfig("ppm_per_delta_degC",
                                               "ppm / delta_degC", symbol)}
     formatter = Formatter(units)
     text = formatter.format(50, "ppm_per_delta_degC")
 
-    assert text == expected
-    # Whatever form it lands on must read back as 50.
+    assert text == "50"
     assert formatter.parses_to(text, 50, "ppm_per_delta_degC")
 
 
@@ -261,10 +251,10 @@ CLEAN_TEMPCO = {"ppm_per_delta_degC": UnitConfig("ppm_per_delta_degC",
 
 
 @pytest.mark.parametrize("magnitude,expected", [
-    (0.5, "0.5 ppm/K"),
-    (5, "5 ppm/K"),
-    (50, "50 ppm/K"),
-    (1500, "1500 ppm/K"),
+    (0.5, "0.5"),
+    (5, "5"),
+    (50, "50"),
+    (1500, "1500"),
 ])
 def test_a_custom_unit_is_never_si_prefixed(magnitude, expected):
     """
@@ -276,9 +266,9 @@ def test_a_custom_unit_is_never_si_prefixed(magnitude, expected):
 
 
 @pytest.mark.parametrize("magnitude,unit,expected", [
-    (0.25, "W", "250 mW"),
-    (100000, "ohm", "100 kΩ"),
-    (2.2e-7, "F", "220 nF"),
+    (0.25, "W", "250 m"),
+    (100000, "ohm", "100 k"),
+    (2.2e-7, "F", "220 n"),
 ])
 def test_built_in_units_are_still_compacted(magnitude, unit, expected):
     assert Formatter(CLEAN_TEMPCO).format(magnitude, unit) == expected

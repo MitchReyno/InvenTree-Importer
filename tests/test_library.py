@@ -161,5 +161,5 @@ def test_a_stock_file_can_be_read_and_checked_without_the_api(tmp_path):
                             load_parameters_config(tmp_path))
 
     assert report.ok, report.text()
-    assert report.resolved["l01"] == {"Resistance": "4.7 kΩ"}
+    assert report.resolved["l01"] == {"Resistance": "4.7 k"}
 
