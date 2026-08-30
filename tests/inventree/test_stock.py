@@ -82,6 +82,23 @@ def test_two_different_lines_do_not_collide(inventree):
     assert first.pk != second.pk
 
 
+def test_stock_created_from_a_list_response_still_carries_its_barcode(inventree):
+    """
+    /api/stock/ answers a create with a list, not the item it made.
+
+    Taken at face value that list reaches the model constructor and raises
+    AttributeError - but only after the server has already written the row.
+    The item exists, nothing names it, and the barcode that makes a re-import
+    a no-op was never attached, so the next run creates the quantity again.
+    A create has to survive the real response shape to keep that promise.
+    """
+    api = connect()
+    item = add_stock(api, part=4, quantity=25, location=1, key=KEY)
+
+    assert item.pk == inventree.stock_items[-1]["pk"]
+    assert already_imported(api, KEY) == item.pk
+
+
 # --------------------------------------------------------------------------
 # Conditions
 # --------------------------------------------------------------------------
