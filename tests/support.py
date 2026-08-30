@@ -23,6 +23,7 @@ import requests
 # Captured before any fixture patches requests.get, so the DigiKey fake can
 # still reach the local InvenTree stub through it.
 REAL_GET = requests.get
+REAL_POST = requests.post
 
 # Up out of the module, then tests/.
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -163,6 +164,11 @@ class FakeDigiKey:
         self.pages: list[dict[str, Any]] | None = None
         self.image = TINY_JPEG
         self.status_code = 200
+        # Set to a SKU to make productdetails 404 for it, as DigiKey does for
+        # a retired part number. search_results is what keyword search then
+        # returns - the fallback that recovers the product.
+        self.retired: set[str] = set()
+        self.search_results: list[dict[str, Any]] | None = None
 
     @property
     def urls(self) -> list[str]:
@@ -184,6 +190,8 @@ class FakeDigiKey:
         if self.status_code != 200:
             return Response({"detail": "boom"}, self.status_code)
         if "productdetails" in url:
+            if any(sku.lower() in url.lower() for sku in self.retired):
+                return Response({"detail": "Not Found"}, 404)
             return Response(self.product)
         if url.endswith("/orders"):
             if self.pages is not None:
@@ -192,6 +200,27 @@ class FakeDigiKey:
                 return Response(page)
             return Response(self.history)
         return Response(self.sales_order)
+
+    def post(self, url, headers=None, json=None, timeout=None, **kwargs):
+        """
+        DigiKey's keyword search, used when productdetails 404s.
+
+        requests.post is patched globally, so anything not aimed at DigiKey -
+        the InvenTree stub, most of all - has to pass straight through.
+        """
+        if not any(host in url for host in self.HOSTS):
+            return REAL_POST(url, headers=headers, json=json, timeout=timeout,
+                             **kwargs)
+        self.calls.append({"url": url, "params": json,
+                           "headers": dict(headers or {})})
+        if self.status_code != 200:
+            return Response({"detail": "boom"}, self.status_code)
+        if "search/keyword" in url:
+            products = (self.search_results
+                        if self.search_results is not None
+                        else [self.product["Product"]])
+            return Response({"Products": products, "ExactMatches": []})
+        return Response({})
 
 
 # --------------------------------------------------------------------------

@@ -32,10 +32,17 @@ log = logging.getLogger(__name__)
 # --------------------------------------------------------------------------
 TOKEN_URL = "https://api.digikey.com/v1/oauth2/token"
 PRODUCT_DETAILS_URL = "https://api.digikey.com/products/v4/search/{pn}/productdetails"
+# Searched when productdetails 404s. DigiKey retires part numbers - a SKU on a
+# 2024 invoice may not resolve today - but the search still finds the product
+# the old number referred to.
+KEYWORD_SEARCH_URL = "https://api.digikey.com/products/v4/search/keyword"
 
 SANDBOX_TOKEN_URL = "https://sandbox-api.digikey.com/v1/oauth2/token"
 SANDBOX_PRODUCT_DETAILS_URL = (
     "https://sandbox-api.digikey.com/products/v4/search/{pn}/productdetails"
+)
+SANDBOX_KEYWORD_SEARCH_URL = (
+    "https://sandbox-api.digikey.com/products/v4/search/keyword"
 )
 
 # OrderStatus API v4 (basePath /orderstatus/v4).
@@ -159,6 +166,11 @@ class Client:
             label: str = "", with_account: bool = False) -> dict[str, Any] | None:
         return request_json(url, self.headers(with_account), params, label)
 
+    def post(self, url: str, body: dict[str, Any],
+             label: str = "") -> dict[str, Any] | None:
+        headers = {**self.headers(), "Content-Type": "application/json"}
+        return request_json(url, headers, label=label, json_body=body)
+
 
 def connect(sandbox: bool = False, need_account: bool = False) -> Client:
     """Resolve credentials from the environment and acquire a token."""
@@ -183,16 +195,23 @@ def request_json(
     headers: dict[str, str],
     params: dict[str, Any] | None = None,
     label: str = "",
+    json_body: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """
-    GET a DigiKey endpoint with retry/backoff. Returns the parsed body, or None
-    if the resource is absent (404) or every attempt failed.
+    Call a DigiKey endpoint with retry/backoff. Returns the parsed body, or
+    None if the resource is absent (404) or every attempt failed.
+
+    POSTs when json_body is given; GETs otherwise.
 
     Raises DigiKeyError on 401/403, which mean the token or the app's API
     subscriptions are wrong - retrying those just wastes quota.
     """
     for attempt in range(1, MAX_RETRIES + 1):
-        resp = requests.get(url, headers=headers, params=params, timeout=30)
+        if json_body is None:
+            resp = requests.get(url, headers=headers, params=params, timeout=30)
+        else:
+            resp = requests.post(url, headers=headers, json=json_body,
+                                 timeout=30)
 
         if resp.status_code == 200:
             time.sleep(REQUEST_DELAY_S)

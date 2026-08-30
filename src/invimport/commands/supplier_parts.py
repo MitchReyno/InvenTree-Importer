@@ -25,13 +25,14 @@ from pathlib import Path
 from typing import Any
 
 from .. import cache
-from ..config import CONFIG_DIR, add_alias
+from ..config import CONFIG_DIR, add_alias, load_categories_config
 from ..digikey.api import connect as digikey_connect
 from ..digikey.orders import DEFAULT_DAYS, default_range, fetch_orders, line_items
 from ..inventree.api import InvenTreeError
 from ..inventree.api import connect as inventree_connect
 from ..inventree.parts import PartImportResult, import_supplier_parts
 from ..inventree.purchase_orders import find_supplier, list_suppliers
+from . import _prompt
 from ._args import add_digikey_args
 from ._prompt import choose_one, interactive
 from .orders import iso_date
@@ -144,6 +145,60 @@ def learn_manufacturer(directory: Path):
     return choose
 
 
+def learn_categories(products: dict[str, Any], skus, directory,
+                     api=None, *, write: bool) -> int:
+    """
+    Offer to map any DigiKey category these SKUs land in but the config lacks.
+
+    An unmapped category stops a part being created at all, and the fix - an
+    alias in categories.yaml - is a question, not a lookup: only a human knows
+    whether 'Chip Resistor - Surface Mount' belongs under an existing category
+    or wants a new one. Asking here, with the products already fetched, saves
+    running `invimport categories --learn` and then starting over.
+
+    Returns how many paths were learned. Writes nothing without a terminal.
+    """
+    from ..inventree.categories import learn_aliases, sync_tree
+    from ..inventree.matching import unmapped_paths
+    from .categories import _choose
+
+    loaded = load_categories_config(directory)
+    paths = [products[sku.upper()].get("category_path")
+             for sku in skus if products.get(sku.upper())]
+    unmapped = unmapped_paths([p for p in paths if p], loaded)
+    if not unmapped:
+        return 0
+
+    print(f"\n  {len(unmapped)} DigiKey category path(s) are not mapped to a "
+          f"category:")
+    for path in unmapped:
+        print(f"    {path}")
+
+    if not _prompt.interactive():
+        print("  Not a terminal - run `invimport categories --learn` to map "
+              "them.")
+        return 0
+
+    if not _prompt.confirm("  Map them now?", default=True):
+        return 0
+
+    learned = learn_aliases(unmapped, loaded, directory, choose=_choose)
+    for path, destination in learned:
+        print(f"    + {path} -> {destination}")
+    still = [p for p in unmapped if p not in {a for a, _ in learned}]
+    for path in still:
+        print(f"    ? {path} left unmapped")
+
+    # A learned alias may name a category the server does not have yet.
+    if learned and write and api is not None:
+        _, _, synced = sync_tree(directory, api, write=True)
+        made = synced.counts()["created"]
+        if made:
+            print(f"    created {made} categor"
+                  f"{'y' if made == 1 else 'ies'} on the server")
+    return len(learned)
+
+
 def report(result: PartImportResult) -> None:
     print("\nSupplier parts")
 
@@ -213,13 +268,35 @@ def run(args: argparse.Namespace) -> int:
 
     print(f"\n{'Importing' if args.write else 'Previewing'} {len(skus)} "
           f"SKU(s)...")
-    result = import_supplier_parts(
-        skus, api, write=args.write, directory=directory, supplier=supplier,
-        update_parameters=args.update_parameters,
-        create_manufacturers=args.create_manufacturers,
-        choose_manufacturer=chooser,
-        cache_dir=args.cache_dir, refresh=args.refresh,
-    )
+    def run_import(wanted):
+        return import_supplier_parts(
+            wanted, api, write=args.write, directory=directory,
+            supplier=supplier,
+            update_parameters=args.update_parameters,
+            create_manufacturers=args.create_manufacturers,
+            choose_manufacturer=chooser,
+            cache_dir=args.cache_dir, refresh=args.refresh,
+        )
+
+    result = run_import(skus)
+
+    # An unmapped category is a question, not a failure. Ask it rather than
+    # reporting a skipped SKU and leaving the user to run `categories --learn`
+    # and start again. The products are cached by now, so the retry is free.
+    blocked = [action for action in result.skus
+               if action.action == "skipped"
+               and "unmapped category" in action.reason]
+    if blocked and interactive():
+        products = {action.sku.upper(): action.product
+                    for action in blocked if action.product}
+        if learn_categories(products, [a.sku for a in blocked], directory,
+                            api, write=args.write):
+            print(f"\nRetrying {len(blocked)} SKU(s) with the new mapping...")
+            retried = run_import([action.sku for action in blocked])
+            done = {a.sku.upper(): a for a in retried.skus}
+            result.skus = [done.get(a.sku.upper(), a) for a in result.skus]
+            result.problems.extend(retried.problems)
+
     report(result)
 
     if not args.write:

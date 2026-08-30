@@ -226,3 +226,132 @@ def test_extract_carries_category_and_parameters():
     assert row["category_path"] == ["Integrated Circuits (ICs)", "Clock/Timing"]
     assert row["parameters"]["Package / Case"] == "8-DIP"
     assert row["parameters"]["Operating Temperature"] == "0°C ~ 70°C"
+
+
+# --------------------------------------------------------------------------
+# Retired part numbers
+#
+# DigiKey retires part numbers. A SKU on a 2024 invoice can 404 today even
+# though the product is still listed under a new one, and an order full of
+# historical SKUs would otherwise import nothing.
+# --------------------------------------------------------------------------
+def test_a_retired_part_number_is_found_by_search(digikey, digikey_env,
+                                                  workspace):
+    from invimport.digikey.products import fetch_product
+
+    digikey.retired = {"296-1411-1-ND"}          # productdetails 404s for it
+
+    row = fetch_product("296-1411-1-ND")
+
+    assert row["manufacturer_part"] == "NE555P"
+    assert row.get("error") is None
+
+
+def _renumbered_as(new_pn: str) -> dict:
+    """The canned product, listed under a different part number than asked for."""
+    import copy
+
+    product = copy.deepcopy(PRODUCT_PAYLOAD["Product"])
+    product["ProductVariations"][0]["DigiKeyProductNumber"] = new_pn
+    return product
+
+
+def test_the_current_part_number_is_reported(digikey, digikey_env, workspace):
+    """The user should know the SKU they asked for is not the current one."""
+    from invimport.digikey.products import fetch_product
+
+    digikey.retired = {"296-1411-1-ND"}
+    digikey.search_results = [_renumbered_as("296-NE555P-ND")]
+
+    row = fetch_product("296-1411-1-ND")
+
+    assert row["renumbered"] == "296-NE555P-ND"
+
+
+def test_a_renumbered_product_still_yields_packaging_and_price(
+        digikey, digikey_env, workspace):
+    """
+    The old number named this product, and it has one variation.
+
+    Without this the fallback recovers the identity but drops the packaging,
+    MOQ and price - most of why the lookup exists - because the requested SKU
+    matches no variation any more.
+    """
+    from invimport.digikey.products import fetch_product
+
+    digikey.retired = {"296-1411-1-ND"}
+    digikey.search_results = [_renumbered_as("296-NE555P-ND")]
+
+    row = fetch_product("296-1411-1-ND")
+
+    assert row["variation_matched"] is True
+    assert row["packaging"] == "Cut Tape"
+    assert row["unit_price"] == 0.82
+
+
+def test_a_product_with_several_variations_is_not_assumed(digikey, digikey_env,
+                                                          workspace):
+    """
+    One variation means there is nothing to choose between.
+
+    With several, the retired number picked one of them and we no longer know
+    which - so the packaging is left unset rather than guessed.
+    """
+    import copy
+
+    from invimport.digikey.products import fetch_product
+
+    product = copy.deepcopy(PRODUCT_PAYLOAD["Product"])
+    first = product["ProductVariations"][0]
+    product["ProductVariations"] = [
+        {**first, "DigiKeyProductNumber": "296-NE555P-ND"},
+        {**first, "DigiKeyProductNumber": "296-NE555P-TR-ND",
+         "PackageType": {"Name": "Tape & Reel"}},
+    ]
+    digikey.retired = {"296-1411-1-ND"}
+    digikey.search_results = [product]
+
+    row = fetch_product("296-1411-1-ND")
+
+    assert row["manufacturer_part"] == "NE555P"   # identity still recovered
+    assert row["variation_matched"] is False
+    assert row["packaging"] is None
+
+
+def test_an_ambiguous_search_is_not_guessed_at(digikey, digikey_env, workspace):
+    """
+    Several matches means the old number does not identify one product.
+
+    Picking one is how the wrong part ends up in an inventory, so nothing is
+    returned and the SKU is reported as not found.
+    """
+    from invimport.digikey.products import fetch_product
+
+    product = PRODUCT_PAYLOAD["Product"]
+    digikey.retired = {"296-1411-1-ND"}
+    digikey.search_results = [product, {**product, "ManufacturerProductNumber": "OTHER"}]
+
+    row = fetch_product("296-1411-1-ND")
+
+    assert row["error"] == "no API result"
+
+
+def test_a_search_with_no_match_is_still_not_found(digikey, digikey_env,
+                                                   workspace):
+    from invimport.digikey.products import fetch_product
+
+    digikey.retired = {"NOPE-ND"}
+    digikey.search_results = []
+
+    assert fetch_product("NOPE-ND")["error"] == "no API result"
+
+
+def test_a_current_part_number_never_reaches_the_search(digikey, digikey_env,
+                                                        workspace):
+    """The fallback must cost nothing when productdetails answers."""
+    from invimport.digikey.products import fetch_product
+
+    fetch_product("296-1411-1-ND")
+
+    assert not any("search/keyword" in call["url"] for call in digikey.calls)
+

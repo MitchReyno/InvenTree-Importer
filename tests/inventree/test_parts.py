@@ -855,3 +855,54 @@ def test_reimporting_does_not_duplicate_parameters(inventree, tmp_path):
     before = len(inventree.parameters)
     import_resistor(inventree, tmp_path)
     assert len(inventree.parameters) == before
+
+
+# --------------------------------------------------------------------------
+# Preferred SI prefixes
+# --------------------------------------------------------------------------
+FARAD = ["u", "n", "p"]
+
+
+def test_a_preferred_prefix_keeps_a_big_capacitor_in_microfarads():
+    """3300 uF is written '3300u'. A free choice of prefix gives '3.3m'."""
+    assert compact_for_name(0.0033, FARAD) == "3300u"
+    assert compact_for_name(0.001, FARAD) == "1000u"
+    assert compact_for_name(0.0056, FARAD) == "5600u"
+
+
+def test_a_preferred_prefix_steps_down_as_the_value_shrinks():
+    assert compact_for_name(16e-6, FARAD) == "16u"
+    assert compact_for_name(4.7e-7, FARAD) == "470n"
+    assert compact_for_name(1e-9, FARAD) == "1n"
+    assert compact_for_name(1e-10, FARAD) == "100p"
+    assert compact_for_name(2.2e-11, FARAD) == "22p"
+
+
+def test_the_smallest_preferred_prefix_is_the_floor():
+    """Below the last prefix there is nothing to step down to."""
+    assert compact_for_name(5e-13, FARAD) == "0.5p"
+
+
+def test_a_preferred_prefix_never_leaves_the_allowed_set():
+    """Milli is available to the general rule but not to capacitance."""
+    assert compact_for_name(0.0033) == "0.0033"
+    assert "m" not in compact_for_name(0.0033, FARAD)
+
+
+def test_no_preferred_prefix_leaves_the_general_rule_alone():
+    assert compact_for_name(0.25, []) == "0.25"
+    assert compact_for_name(100000, None) == "100k"
+
+
+def test_a_capacitor_name_uses_the_configured_prefixes():
+    """End to end, through the real config."""
+    from invimport.config import load_config
+
+    categories, parameters = load_config()
+    category = categories["Capacitors/Electrolytic Capacitors"]
+    name = fill_name(category.name_template,
+                     {"Capacitance": "3.3 mF", "Max Working Voltage": "16 V",
+                      "Tolerance": "20 %", "Mounting": "Through Hole",
+                      "Package": "Radial"},
+                     parameters)
+    assert name == "Capacitor 3300u 16V 20% Through Hole Radial"

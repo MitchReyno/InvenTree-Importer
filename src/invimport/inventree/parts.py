@@ -180,7 +180,7 @@ def fill_name(template: str, values: dict[str, str],
         if parameter and parameter.units:
             magnitude = parse_quantity(text, parameter.units)
             if magnitude is not None:
-                return compact_for_name(magnitude)
+                return compact_for_name(magnitude, parameter.prefixes)
         return text
 
     return re.sub(r"\{([^}]+)\}", replacer, template).strip()

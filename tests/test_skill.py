@@ -1,5 +1,5 @@
 """
-The stock-import skill must stay true as the config changes.
+The stock-import skill and README must stay true as the config changes.
 
 A skill is instructions an agent follows without checking them, so a stale
 example is worse than no example: it produces a file that fails validation, and
@@ -157,3 +157,71 @@ def test_the_skill_warns_about_renumbering_ids(text):
 
 def test_the_skill_does_not_overclaim_what_ran(text):
     assert re.search(r"[Dd]o not claim stock was imported", text)
+
+
+# --------------------------------------------------------------------------
+# The README
+#
+# Same argument as the skill: an example someone copies has to work. These are
+# the two blocks under `### import-stock`.
+# --------------------------------------------------------------------------
+README = CONFIG_DIR.parent / "README.md"
+
+readme_only = pytest.mark.skipif(not README.exists(), reason="no README")
+
+
+def _import_stock_section() -> str:
+    text = README.read_text(encoding="utf-8")
+    start = text.index("### import-stock")
+    end = text.index("### Global flags", start)
+    return text[start:end]
+
+
+@readme_only
+def test_the_readme_json_example_validates_cleanly(tmp_path):
+    section = _import_stock_section()
+    block = re.search(r"```json\n(\{.*?\n\})\n```", section, re.S)
+    assert block, "the README should show a complete example file"
+
+    path = tmp_path / "example.json"
+    path.write_text(block.group(1))
+    report = validate(read_file(path), load_categories_config(),
+                      load_parameters_config())
+
+    assert report.ok, report.text()
+    assert report.warnings == [], report.text()
+
+
+@readme_only
+def test_the_readme_csv_example_validates_cleanly(tmp_path):
+    """A documented CSV that prompts on import teaches the wrong lesson."""
+    section = _import_stock_section()
+    block = re.search(r"```csv\n(.*?)```", section, re.S)
+    assert block, "the README should show a CSV example"
+
+    path = tmp_path / "example.csv"
+    path.write_text(block.group(1))
+    report = validate(read_file(path), load_categories_config(),
+                      load_parameters_config())
+
+    assert report.ok, report.text()
+    assert report.warnings == [], report.text()
+
+
+@readme_only
+def test_the_readme_documents_every_import_stock_flag():
+    """A flag that exists and is undocumented will not be found."""
+    import argparse
+
+    from invimport.commands import import_stock as command
+
+    parser = argparse.ArgumentParser()
+    command.add_arguments(parser)
+    section = _import_stock_section()
+
+    for action in parser._actions:
+        for flag in action.option_strings:
+            if flag in ("-h", "--help", "--config"):
+                continue
+            assert flag in section, f"{flag} is not documented in the README"
+

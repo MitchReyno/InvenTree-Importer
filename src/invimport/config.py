@@ -42,6 +42,9 @@ SUPPLIERS_FILE = "suppliers.yaml"
 
 # Keys a category may carry that describe the category itself rather than a
 # child category. Everything else at that level is a subcategory.
+# Placeholders in a category name template: "Resistor {Resistance} ...".
+NAME_PLACEHOLDER = re.compile(r"\{([^}]+)\}")
+
 CATEGORY_KEYS = {"identity", "key_parameters", "name", "parameters", "aliases",
                  "description", "structural", "ignore", "ipn_prefix"}
 
@@ -97,6 +100,10 @@ class ParameterConfig:
     checkbox: bool = False
     aliases: list[str] = field(default_factory=list)
     parse: str = ""
+    # SI prefixes this parameter is written with in generated part names,
+    # largest first. Capacitance uses [u, n, p] because a 3300 uF part is
+    # written '3300u', never '3.3m'. Empty means "pick whatever fits".
+    prefixes: list[str] = field(default_factory=list)
     # Canonical value -> the supplier spellings that mean it.
     values: dict[str, list[str]] = field(default_factory=dict)
 
@@ -236,6 +243,21 @@ def parse_parameters(data: dict[str, Any], path: Path
                 f"{path.name}: {name!r} parse {parse!r} is not one of "
                 f"{sorted(PARSE_KINDS)}")
 
+        # Imported here, not at module scope: values imports this module.
+        from .inventree.values import NAME_PREFIXES, NAME_PREFIX_SCALE
+
+        prefixes = as_list(body.get("prefixes"), path, f"{name} prefixes")
+        unknown = [p for p in prefixes if p not in NAME_PREFIX_SCALE]
+        if unknown:
+            raise ConfigError(
+                f"{path.name}: {name!r} prefixes {unknown} are not SI "
+                f"prefixes; expected some of "
+                f"{[sym for _, sym in NAME_PREFIXES]}")
+        if prefixes and not body.get("units"):
+            raise ConfigError(
+                f"{path.name}: {name!r} sets prefixes but has no units, so "
+                f"there is no magnitude to prefix")
+
         parameters[str(name)] = ParameterConfig(
             name=str(name),
             units=str(body.get("units") or ""),
@@ -244,6 +266,7 @@ def parse_parameters(data: dict[str, Any], path: Path
             checkbox=bool(body.get("checkbox", False)),
             aliases=as_list(body.get("aliases"), path, f"{name} aliases"),
             parse=parse,
+            prefixes=prefixes,
             values={str(k): as_list(v, path, f"{name} values {k}")
                     for k, v in values.items()},
         )
@@ -281,9 +304,9 @@ def parse_categories(data: dict[str, Any], path: Path
     """
     Walk the category tree depth-first.
 
-    identity, ipn_prefix, key_parameters and the name template are inherited
-    by children; parameters are inherited and *extended*, so a subcategory adds
-    to its parent's set rather than restating it.
+    identity, ipn_prefix and the name template are inherited by children;
+    parameters and key_parameters are inherited and *extended*, so a
+    subcategory adds to its parent's set rather than restating it.
     """
     categories: dict[str, CategoryConfig] = {}
 
@@ -317,14 +340,24 @@ def parse_categories(data: dict[str, Any], path: Path
             merged = inherited_params + [p for p in own
                                          if p not in inherited_params]
 
+            # Key parameters extend the parent's, exactly as parameters do. A
+            # subcategory naming one is adding a discriminator, not restating
+            # the whole identity: 'Electrolytic Capacitors: key_parameters:
+            # [Polarity]' means "a capacitor, and also polarised", not "any
+            # part whose Polarity agrees". Replacing here made every
+            # electrolytic match the first one, because they are all Polar.
+            own_keys = as_list(body.get("key_parameters"), path,
+                               f"{key} key_parameters")
+            inherited_keys = list(inherited.key_parameters) if inherited else []
+            merged_keys = inherited_keys + [k for k in own_keys
+                                            if k not in inherited_keys]
+
             config = CategoryConfig(
                 name=str(key),
                 path=here,
                 identity=identity,
                 ipn_prefix=prefix.upper(),
-                key_parameters=as_list(body.get("key_parameters"), path,
-                                       f"{key} key_parameters")
-                or (list(inherited.key_parameters) if inherited else []),
+                key_parameters=merged_keys,
                 name_template=str(body.get("name")
                                   or (inherited.name_template if inherited
                                       else "")),
@@ -378,6 +411,17 @@ def check_consistency(categories: dict[str, CategoryConfig],
                     problems.append(
                         f"category {category.pathstring!r} has key_parameter "
                         f"{name!r}, which is not among its parameters")
+            # Whatever the name distinguishes must also distinguish the part.
+            # A field in the name but not in key_parameters means two parts
+            # that would be given different names are treated as the same
+            # part, and the second one is silently absorbed by the first.
+            named = set(NAME_PLACEHOLDER.findall(category.name_template))
+            for name in sorted(named - set(category.key_parameters)):
+                problems.append(
+                    f"category {category.pathstring!r} names {name!r} in its "
+                    f"name template but does not identify parts by it, so "
+                    f"parts with different names would be matched as one - "
+                    f"add it to key_parameters or drop it from the name")
 
     if problems:
         raise ConfigError("config is inconsistent:\n  - "

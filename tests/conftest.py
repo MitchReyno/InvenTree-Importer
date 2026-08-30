@@ -36,6 +36,7 @@ def digikey():
     """Patch the DigiKey transport and token grant; yields the FakeDigiKey."""
     fake = FakeDigiKey()
     with mock.patch.object(digikey_api.requests, "get", fake.get), \
+         mock.patch.object(digikey_api.requests, "post", fake.post), \
          mock.patch.object(digikey_api, "REQUEST_DELAY_S", 0), \
          mock.patch.object(digikey_api, "get_access_token", lambda *a, **k: "tok"):
         yield fake

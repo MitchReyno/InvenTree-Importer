@@ -87,6 +87,9 @@ def test_existing_cached_products_still_resolve():
         product = payload.get("Product") or {}
         skus = [variation.get("DigiKeyProductNumber")
                 for variation in (product.get("ProductVariations") or [])]
+        # A product recovered by keyword search is cached under the retired
+        # part number that was asked for, which no variation carries any more.
+        skus.append(payload.get("_requested_sku"))
         skus = [sku for sku in skus if sku]
         assert skus, f"{path.name} has no SKU to check against"
         assert any(cache.cache_path(REPO_PRODUCTS, sku) == path for sku in skus), (

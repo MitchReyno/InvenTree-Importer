@@ -24,6 +24,8 @@ import requests
 
 from .. import cache
 from .api import (
+    KEYWORD_SEARCH_URL,
+    SANDBOX_KEYWORD_SEARCH_URL,
     PRODUCT_DETAILS_URL,
     SANDBOX_PRODUCT_DETAILS_URL,
     Client,
@@ -35,6 +37,7 @@ log = logging.getLogger(__name__)
 
 # Fields worth reporting for every SKU, in display order.
 REPORTED_FIELDS = [
+    "renumbered",
     "manufacturer_part",
     "manufacturer_name",
     "description",
@@ -63,9 +66,50 @@ def fetch_product_payload(sku: str, client: Client,
     url = template.format(pn=requests.utils.quote(sku, safe=""))
 
     data = client.get(url, label=sku)
+    if data is None:
+        data = search_for_product(sku, client)
     if data is not None:
         cache.store(cache_dir, sku, data)
     return data
+
+
+def search_for_product(sku: str, client: Client) -> dict[str, Any] | None:
+    """
+    Find a product whose part number productdetails no longer recognises.
+
+    DigiKey retires part numbers. A SKU on a 2024 invoice can 404 today even
+    though the product is still listed under a new number - 1568-1246-ND is
+    now 1568-11723-ND - and an order full of historical SKUs would otherwise
+    import nothing.
+
+    Only an unambiguous answer is accepted. One product means the old number
+    referred to that product; several means guessing, which is how the wrong
+    part ends up in your inventory.
+    """
+    template = (SANDBOX_KEYWORD_SEARCH_URL if client.sandbox
+                else KEYWORD_SEARCH_URL)
+    found = client.post(template, {"Keywords": sku, "Limit": 5, "Offset": 0},
+                        label=sku)
+    if not found:
+        return None
+
+    products = found.get("ExactMatches") or found.get("Products") or []
+    if len(products) != 1:
+        if products:
+            log.warning("    [ambiguous] %s matched %s products by search - "
+                        "not guessing", sku, len(products))
+        return None
+
+    product = products[0]
+    current = [str(v.get("DigiKeyProductNumber") or "")
+               for v in (product.get("ProductVariations") or [])]
+    log.warning("    [renumbered] %s is not a current part number; found it by "
+                "search as %s", sku, ", ".join(current) or "(no variation)")
+    # The requested SKU is recorded because the cache is keyed on it: without
+    # this a file named 1568-1246-ND__... would hold a product listing only
+    # 1568-11723-ND, with nothing to say why.
+    return {"Product": product, "_found_by_search": True,
+            "_requested_sku": sku}
 
 
 # --------------------------------------------------------------------------
@@ -182,6 +226,9 @@ def extract(payload: dict[str, Any], sku: str) -> dict[str, Any]:
             or dig(product, "Description", "DetailedDescription")
         ),
         "packaging": None,
+        # Set when the requested SKU is a retired part number and the product
+        # was found by search: the number DigiKey lists it under now.
+        "renumbered": None,
         "standard_package": None,
         "moq": None,
         "unit_price": None,
@@ -200,6 +247,13 @@ def extract(payload: dict[str, Any], sku: str) -> dict[str, Any]:
         if str(dig(var, "DigiKeyProductNumber", default="")).strip().upper() == sku.strip().upper():
             chosen = var
             break
+
+    if chosen is None and len(variations) == 1 and payload.get("_found_by_search"):
+        # A retired part number found by search. It named this product, and
+        # this product has exactly one variation, so the packaging and price
+        # are that variation's - there is nothing else they could be.
+        chosen = variations[0]
+        out["renumbered"] = str(dig(chosen, "DigiKeyProductNumber", default=""))
 
     if chosen is not None:
         out["variation_matched"] = True

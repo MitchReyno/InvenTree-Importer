@@ -109,3 +109,57 @@ def test_log_output_is_opt_in(digikey, digikey_env, workspace):
         logger.removeHandler(handler)
 
     assert any("Access token" in message for message in records)
+
+
+def test_the_readme_lists_every_public_name():
+    """
+    A re-export nobody documents is one nobody finds.
+
+    The README's public-surface paragraph is the only place the whole set is
+    written down, so it has to keep up with __all__.
+    """
+    import re
+    from pathlib import Path
+
+    readme = Path(__file__).resolve().parents[1] / "README.md"
+    if not readme.exists():                      # pragma: no cover
+        pytest.skip("no README")
+    text = readme.read_text(encoding="utf-8")
+    start = text.index("The public surface is re-exported")
+    listed = set(re.findall(r"`([A-Za-z_][A-Za-z0-9_]*)`",
+                            text[start:start + 1200]))
+
+    missing = sorted(set(invimport.__all__) - listed)
+    assert not missing, f"undocumented public names: {missing}"
+
+
+def test_a_stock_file_can_be_read_and_checked_without_the_api(tmp_path):
+    """The offline half of the stock import, as a library call."""
+    import json
+
+    from invimport import read_stock_file, validate_stock
+
+    (tmp_path / "units.yaml").write_text("")
+    (tmp_path / "manufacturers.yaml").write_text("")
+    (tmp_path / "parameters.yaml").write_text(
+        "Resistance:\n  units: ohm\n  parse: quantity\n")
+    (tmp_path / "categories.yaml").write_text(
+        "Resistors:\n  ipn_prefix: RES\n  identity: spec\n"
+        "  key_parameters: [Resistance]\n  parameters: [Resistance]\n"
+        "  Through Hole Resistors: {}\n")
+
+    path = tmp_path / "stock.json"
+    path.write_text(json.dumps({"lines": [
+        {"id": "l01", "quantity": 5,
+         "category": "Resistors/Through Hole Resistors",
+         "parameters": {"Resistance": "4k7"}}]}))
+
+    from invimport.config import load_categories_config, load_parameters_config
+
+    document = read_stock_file(path)
+    report = validate_stock(document, load_categories_config(tmp_path),
+                            load_parameters_config(tmp_path))
+
+    assert report.ok, report.text()
+    assert report.resolved["l01"] == {"Resistance": "4.7 kΩ"}
+

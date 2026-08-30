@@ -190,6 +190,9 @@ Integrated Circuits:
   "Optocouplers, Optoisolators":
     aliases:
       - Isolators / Optocouplers, Optoisolators / Logic Output Optoisolators
+  Audio Amplifiers:
+    aliases:
+      - Integrated Circuits (ICs) / Linear / Amplifiers / Audio Amplifiers
 Optoelectronics:
   ipn_prefix: OPTO
   identity: mpn
@@ -216,7 +219,9 @@ Potentiometers:
   Rotary Potentiometers:
     aliases:
       - Potentiometers, Variable Resistors / Rotary Potentiometers, Rheostats
-  Slide Potentiometers: {}
+  Slide Potentiometers:
+    aliases:
+      - "Potentiometers, Variable Resistors / Slide Potentiometers"
   Trimpots:
     parameters:
       - Temperature Coefficient
@@ -268,7 +273,9 @@ Switches:
   Slide Switches:
     aliases:
       - Switches / Slide Switches
-  Throw Switches: {}
+  Throw Switches:
+    aliases:
+      - Switches / Toggle Switches
 
 Transistors:
   ipn_prefix: SEM
@@ -383,3 +390,12 @@ Kits:
     aliases:
       - Development Boards, Kits, Programmers / Evaluation Boards / Embedded MCU, DSP Evaluation Boards
       - Development Boards, Kits, Programmers / Evaluation Boards / RF, RFID, Wireless Evaluation Boards
+      - "Development Boards, Kits, Programmers / Evaluation Boards / Expansion Boards, Daughter Cards"
+  "Adapter, Breakout Boards":
+    aliases:
+      - Prototyping, Fabrication Products / Adapter, Breakout Boards
+
+Prototyping + Fabrication Products:
+  Prototype Boards:
+    aliases:
+      - Prototyping, Fabrication Products / Prototype Boards Perforated

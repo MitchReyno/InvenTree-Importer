@@ -457,3 +457,81 @@ def test_repo_spec_categories_can_name_their_parts():
             assert field in category.parameters, (
                 f"{category.pathstring}: name template uses {field!r}, which "
                 f"is not one of its parameters")
+
+
+# --------------------------------------------------------------------------
+# Inherited identity
+# --------------------------------------------------------------------------
+INHERITED = """
+Capacitors:
+  identity: spec
+  key_parameters: [Resistance, Tolerance]
+  name: "Capacitor {Resistance} {Tolerance}%"
+  parameters: [Resistance, Tolerance, Composition, Package]
+  Electrolytic Capacitors:
+    key_parameters: [Composition]
+"""
+
+
+def test_a_subcategory_extends_its_parents_key_parameters(conf):
+    """
+    A subcategory naming a key parameter is adding a discriminator.
+
+    Replacing the parent's list instead of extending it made every
+    electrolytic capacitor match the first one, because the only key left was
+    Polarity and they are all polarised.
+    """
+    categories = load_categories_config(conf(categories=INHERITED))
+    child = categories["Capacitors/Electrolytic Capacitors"]
+    assert child.key_parameters == ["Resistance", "Tolerance", "Composition"]
+
+
+def test_a_subcategory_inherits_key_parameters_it_does_not_mention(conf):
+    categories = load_categories_config(conf(categories=INHERITED))
+    assert (categories["Capacitors"].key_parameters
+            == ["Resistance", "Tolerance"])
+
+
+def test_a_name_field_that_does_not_identify_the_part_is_caught(conf):
+    """
+    A spec category must identify parts by everything its name shows.
+
+    Otherwise two parts that would be given different names match as one, and
+    the second is silently absorbed into the first.
+    """
+    categories = """
+Resistors:
+  identity: spec
+  key_parameters: [Tolerance]
+  name: "Resistor {Resistance} {Tolerance}%"
+  parameters: [Resistance, Tolerance]
+"""
+    with pytest.raises(ConfigError, match="does not identify parts by it"):
+        load_config(conf(categories=categories))
+
+
+def test_a_name_field_covered_by_the_parents_keys_is_accepted(conf):
+    """The check reads the merged list, not just what the child restates."""
+    load_config(conf(categories=INHERITED))
+
+
+def test_prefixes_must_be_si_prefixes(conf):
+    parameters = PARAMETERS + "\nCapacitance:\n  units: F\n  prefixes: [u, q]\n"
+    with pytest.raises(ConfigError, match="not SI prefixes"):
+        load_parameters_config(conf(parameters=parameters))
+
+
+def test_prefixes_need_units_to_apply_to(conf):
+    parameters = PARAMETERS + "\nCapacitance:\n  prefixes: [u]\n"
+    with pytest.raises(ConfigError, match="no units"):
+        load_parameters_config(conf(parameters=parameters))
+
+
+def test_prefixes_load_in_order(conf):
+    parameters = PARAMETERS + "\nCapacitance:\n  units: F\n  prefixes: [u, n, p]\n"
+    loaded = load_parameters_config(conf(parameters=parameters))
+    assert loaded["Capacitance"].prefixes == ["u", "n", "p"]
+
+
+def test_a_parameter_without_prefixes_has_none(conf):
+    assert load_parameters_config(conf())["Resistance"].prefixes == []

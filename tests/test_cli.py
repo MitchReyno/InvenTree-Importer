@@ -134,6 +134,221 @@ def stocked(inventree):
     return inventree
 
 
+@pytest.fixture
+def unstocked(inventree):
+    """A DigiKey supplier, but none of the order's SKUs as supplier parts."""
+    inventree.add_company("DigiKey", pk=1)
+    inventree.add_category("Integrated Circuits", pk=10, structural=True)
+    inventree.add_category("Timers", parent=10, pk=11)
+    inventree.templates.append({"pk": 20, "name": "Package", "units": ""})
+    return inventree
+
+
+def _part_config_at(path):
+    (path / "units.yaml").write_text("")
+    (path / "manufacturers.yaml").write_text("")
+    (path / "parameters.yaml").write_text("Package: {}\n")
+    (path / "categories.yaml").write_text(
+        "Integrated Circuits:\n"
+        "  ipn_prefix: IC\n"
+        "  identity: mpn\n"
+        "  parameters: [Package]\n"
+        "  Timers:\n"
+        "    aliases:\n"
+        "      - Integrated Circuits (ICs) / Clock/Timing\n")
+    return path
+
+
+# --------------------------------------------------------------------------
+# Unmatched SKUs: asked about, not reported after the fact
+# --------------------------------------------------------------------------
+def test_import_orders_offers_to_create_missing_supplier_parts(
+        digikey, digikey_env, workspace, unstocked, answers, capsys, tmp_path):
+    """
+    A line item needs a supplier part, so without one the order cannot be
+    booked. Being told that afterwards means running the command again; the
+    question is asked before anything is booked instead.
+    """
+    directory = _part_config_at(tmp_path)
+    answers("", "1", "")                          # checklist, then "create"
+
+    assert main(["import-orders", "--write", "--create-manufacturers",
+                 "--config", str(directory)]) == 0
+
+    out = capsys.readouterr().out
+    assert "not supplier parts yet" in out
+    assert "296-1411-1-ND" in out
+    assert unstocked.supplier_parts, "the missing part should have been created"
+    assert len(unstocked.purchase_orders) == 1
+
+
+def test_import_orders_can_import_only_the_matching_lines(
+        digikey, digikey_env, workspace, unstocked, answers, capsys):
+    """The second answer: book what can be booked, leave the rest."""
+    answers("", "2")                              # checklist, then "partial"
+
+    assert main(["import-orders", "--write"]) == 0
+
+    out = capsys.readouterr().out
+    assert "not supplier parts yet" in out
+    assert unstocked.supplier_parts == []
+
+
+def test_import_orders_backing_out_of_the_question_imports_nothing(
+        digikey, digikey_env, workspace, unstocked, answers, capsys):
+    answers("")                                   # checklist, then EOF = cancel
+
+    assert main(["import-orders", "--write"]) == 0
+
+    assert "Cancelled" in capsys.readouterr().out
+    assert unstocked.purchase_orders == []
+    assert unstocked.supplier_parts == []
+
+
+def test_import_orders_does_not_ask_when_nothing_is_missing(
+        digikey, digikey_env, workspace, stocked, answers, capsys):
+    """The question only earns its place when there is something to answer."""
+    answers("")
+    assert main(["import-orders"]) == 0
+    assert "not supplier parts yet" not in capsys.readouterr().out
+
+
+def test_import_orders_without_a_terminal_names_the_flags(
+        digikey, digikey_env, workspace, unstocked, capsys):
+    """
+    Unattended, it cannot ask - so it must say what would have answered.
+
+    The old message told the user to go and create the parts by hand, which
+    the tool can do itself.
+
+    Note the exit code stays 0 even though nothing was imported - that is
+    pre-existing behaviour for a skipped order, left alone here.
+    """
+    assert main(["import-orders", "--all", "--write"]) == 0
+
+    out = capsys.readouterr().out
+    assert "--create-parts" in out
+    assert "--partial" in out
+    assert unstocked.purchase_orders == []
+
+
+def test_import_orders_create_parts_flag_skips_the_question(
+        digikey, digikey_env, workspace, unstocked, answers, capsys, tmp_path):
+    """--create-parts is how a non-interactive run answers up front."""
+    directory = _part_config_at(tmp_path)
+    answers("")                                   # checklist only
+
+    assert main(["import-orders", "--write", "--create-parts",
+                 "--create-manufacturers", "--config", str(directory)]) == 0
+
+    out = capsys.readouterr().out
+    assert "not supplier parts yet" not in out
+    assert unstocked.supplier_parts
+
+
+# --------------------------------------------------------------------------
+# Unmapped categories: asked about, not reported as a dead end
+# --------------------------------------------------------------------------
+def _unmapped_config(path):
+    """A config with the categories, but no alias claiming the DigiKey path."""
+    (path / "units.yaml").write_text("")
+    (path / "manufacturers.yaml").write_text("")
+    (path / "parameters.yaml").write_text("Package: {}\n")
+    (path / "categories.yaml").write_text(
+        "Integrated Circuits:\n"
+        "  ipn_prefix: IC\n"
+        "  identity: mpn\n"
+        "  parameters: [Package]\n"
+        "  Timers: {}\n")
+    return path
+
+
+def test_supplier_parts_offers_to_map_an_unmapped_category(
+        digikey, digikey_env, workspace, inventree, answers, capsys, tmp_path):
+    """
+    An unmapped DigiKey path stops the part being created at all.
+
+    Reporting that and stopping leaves the user to run `categories --learn`
+    and start over. It is a question, so it gets asked - and the SKU is
+    retried once answered.
+    """
+    directory = _unmapped_config(tmp_path)
+    inventree.add_company("DigiKey", pk=1, is_supplier=True)
+    parent = inventree.add_category("Integrated Circuits", pk=10,
+                                    structural=True)
+    inventree.add_category("Timers", parent=parent["pk"], pk=11)
+    inventree.templates.append({"pk": 20, "name": "Package", "units": ""})
+    # y = map them now; 1 opens Integrated Circuits; 1 picks Timers.
+    answers("y", "1", "1")
+
+    assert main(["supplier-parts", "--config", str(directory), "--write",
+                 "--create-manufacturers", "296-1411-1-ND"]) == 0
+
+    out = capsys.readouterr().out
+    assert "not mapped to a category" in out
+    assert "Integrated Circuits (ICs) / Clock/Timing" in out
+    # The alias was written back, so the next run needs no question.
+    assert "Clock/Timing" in (directory / "categories.yaml").read_text()
+
+
+def test_supplier_parts_declining_leaves_the_sku_skipped(
+        digikey, digikey_env, workspace, inventree, answers, capsys, tmp_path):
+    directory = _unmapped_config(tmp_path)
+    inventree.add_company("DigiKey", pk=1, is_supplier=True)
+    answers("n")
+
+    assert main(["supplier-parts", "--config", str(directory), "--write",
+                 "--create-manufacturers", "296-1411-1-ND"]) == 0
+
+    out = capsys.readouterr().out
+    assert "not mapped to a category" in out
+    assert "unmapped category" in out
+    assert inventree.supplier_parts == []
+
+
+def test_supplier_parts_says_what_to_run_without_a_terminal(
+        digikey, digikey_env, workspace, inventree, capsys, tmp_path):
+    directory = _unmapped_config(tmp_path)
+    inventree.add_company("DigiKey", pk=1, is_supplier=True)
+
+    assert main(["supplier-parts", "--config", str(directory), "--write",
+                 "--create-manufacturers", "296-1411-1-ND"]) == 0
+
+    assert "unmapped category" in capsys.readouterr().out
+
+
+def test_import_orders_does_not_advise_a_flag_already_passed(
+        digikey, digikey_env, workspace, unstocked, answers, capsys, tmp_path):
+    """
+    Telling someone to pass --create-parts when they just did is worse than
+    silence: it implies the tool did not hear them, and buries the real
+    reason. Here the category is missing from the server, which is what the
+    summary has to say.
+    """
+    directory = _part_config_at(tmp_path)
+    # The config knows the category; the server does not.
+    unstocked.categories.clear()
+    answers("")
+
+    assert main(["import-orders", "--write", "--create-parts",
+                 "--create-manufacturers", "--config", str(directory)]) == 0
+
+    out = capsys.readouterr().out
+    assert "Re-run with --create-parts" not in out
+    assert "--create-parts ran, but" in out
+    assert "not on the server" in out
+
+
+def test_import_orders_still_advises_the_flag_when_it_was_not_used(
+        digikey, digikey_env, workspace, unstocked, answers, capsys):
+    """The advice is right when it has not already been taken."""
+    answers("", "3")                              # checklist, then "skip"
+
+    assert main(["import-orders", "--write"]) == 0
+
+    assert "Re-run with --create-parts" in capsys.readouterr().out
+
+
 def test_import_orders_is_a_dry_run_by_default(digikey, digikey_env, workspace,
                                                stocked, answers, capsys):
     answers("")                                   # accept the whole checklist

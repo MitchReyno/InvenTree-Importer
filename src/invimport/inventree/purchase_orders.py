@@ -444,6 +444,30 @@ def as_date(value: Any) -> str | None:
         return None
 
 
+def line_skus(orders: Iterable[dict[str, Any]]) -> list[str]:
+    """Every DigiKey part number across these orders, sorted and deduplicated."""
+    return sorted({
+        str(item.get("digikey_part") or "").strip()
+        for order in orders
+        for sales_order in (order.get("sales_orders") or [])
+        for item in (sales_order.get("line_items") or [])
+        if item.get("digikey_part")
+    })
+
+
+def unmatched_skus(orders: Iterable[dict[str, Any]],
+                   parts: dict[str, Any]) -> list[str]:
+    """
+    The SKUs in these orders that are not yet supplier parts.
+
+    Worth knowing *before* booking anything: a line item needs a supplier
+    part, so these are exactly the lines that would be reported as unmatched
+    and skipped. The CLI asks whether to create them rather than failing and
+    telling the user to go and do it by hand.
+    """
+    return [sku for sku in line_skus(orders) if sku.upper() not in parts]
+
+
 def plan_lines(sales_order: dict[str, Any], parts: dict[str, Any],
                products: dict[str, dict[str, Any]] | None = None
                ) -> list[LineAction]:
@@ -644,14 +668,7 @@ def import_orders(
     part_result = None
     if create_parts:
         orders = list(orders)
-        wanted = sorted({
-            str(item.get("digikey_part") or "").strip()
-            for order in orders
-            for sales_order in (order.get("sales_orders") or [])
-            for item in (sales_order.get("line_items") or [])
-            if item.get("digikey_part")
-        })
-        missing = [sku for sku in wanted if sku.upper() not in parts]
+        missing = unmatched_skus(orders, parts)
         if missing:
             from .parts import import_supplier_parts
             created = import_supplier_parts(

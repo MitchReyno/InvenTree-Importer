@@ -10,9 +10,11 @@ Populating an InvenTree instance from scratch means gathering the same handful
 of facts for every part — the manufacturer part number, packaging, minimum
 order quantity, a datasheet URL — and those facts already exist in DigiKey's
 API. This tool fetches them, normalises them, and loads the parts of them that
-InvenTree's CSV importer cannot handle on its own.
+InvenTree's CSV importer cannot handle on its own. It also takes stock from
+anywhere else — a receipt, a hand-written list, a drawer with no paperwork —
+through a file format built to be generated as easily by an LLM as by a person.
 
-It provides six commands:
+It provides eight commands:
 
 | Command          | What it does                                                                                                            |
 |------------------|-------------------------------------------------------------------------------------------------------------------------|
@@ -23,6 +25,7 @@ It provides six commands:
 | `categories`     | Create and update InvenTree part categories from `config/categories.yaml`, and learn DigiKey path aliases              |
 | `supplier-parts` | Create InvenTree parts, manufacturer parts and supplier parts from DigiKey SKUs                                         |
 | `discover`       | Triage supplier parameters a category is receiving but not importing                                                   |
+| `import-stock`   | Import stock from a JSON/YAML/CSV file, for parts DigiKey cannot describe                                              |
 
 Two design points worth knowing up front:
 
@@ -31,6 +34,11 @@ Two design points worth knowing up front:
   packaging and pack quantities. `product` resolves the SKU you asked for
   against `ProductVariations`, so the packaging reported is the one you would
   actually receive — not a property of the product in general.
+* **Half of real stock has no manufacturer part number.** Measured across a
+  359-row inventory: 52% have no MPN, 29% no order, 13% no supplier at all.
+  `import-stock` therefore treats all three as optional and invents none of
+  them — a part with an unknown manufacturer gets no ManufacturerPart rather
+  than a placeholder one.
 * **Every command is also a library.** The CLI modules are thin adapters over
   importable functions that return data and print nothing, so you can compose
   new tooling from them. See [Using it as a library](#using-it-as-a-library).
@@ -236,16 +244,31 @@ DigiKey orders need a supplier to book against:
   q) cancel
 ```
 
-**Parts have to exist already**, unless you pass `--create-parts`. An
-InvenTree purchase order line points at a `SupplierPart`, which in turn
-needs an internal `Part`, so a DigiKey line can only be imported if its
-SKU is already stocked as a supplier part under the chosen supplier.
-Unmatched lines are reported by SKU, and by default an order with any
-unmatched line is skipped whole rather than creating a purchase order
-quietly missing half of what was bought. `--partial` imports the lines
-that do match. `--create-parts` runs the same path as
-`invimport supplier-parts` for unmatched SKUs first, then books the
-order.
+**Missing parts are asked about, not just reported.** An InvenTree purchase
+order line points at a `SupplierPart`, which in turn needs an internal `Part`,
+so a DigiKey line can only be booked if its SKU is already a supplier part
+under the chosen supplier. When a selected order has SKUs that are not, the run
+stops **before booking anything** and asks:
+
+```
+  3 SKU(s) in these orders are not supplier parts yet:
+    296-1411-1-ND   NE555P  IC OSC SINGLE TIMER
+    13-MFR-25FTE52-1RCT-ND   MFR-25FTE52-1R  RES 1 OHM 1% 1/4W AXIAL
+
+  These lines cannot be booked without a supplier part.
+  > create 3 part(s), then import the orders
+    import only the line items that already match
+    import nothing that has an unmatched line
+```
+
+Creating runs the same path as `invimport supplier-parts`, reusing the product
+data already fetched for the selection — so it costs no extra API calls.
+
+`--create-parts` and `--partial` answer that question up front, which is how a
+non-interactive run says what it wants. Without a terminal and without either,
+unmatched lines are reported with the flags that would have fixed it, and their
+orders are skipped whole rather than creating a purchase order quietly missing
+half of what was bought.
 
 **Re-running is safe.** Each purchase order records its DigiKey sales order id
 in `supplier_reference`, and an order already imported is recognised rather
@@ -473,6 +496,144 @@ changes what makes two parts the same part.
 A value like `-55°C ~ 155°C` is flagged as a range, which needs two parameters
 (a min and a max). Filing it records the low end; add the high one by hand.
 
+### import-stock
+
+Everything DigiKey cannot tell us about: parts from Rockby, Tayda, Jaycar and
+eBay sellers, parts out of a drawer with no paperwork, and parts transcribed
+from a photographed receipt or a hand-written list.
+
+```bash
+# check the file against the config - no API calls, nothing written
+uv run invimport import-stock stock.json --validate
+
+# dry run: ask the server what would happen
+uv run invimport import-stock stock.json
+
+# create the records
+uv run invimport import-stock stock.json --write
+```
+
+| Flag                 | Effect                                                     |
+|----------------------|------------------------------------------------------------|
+| `--write`            | Create the records (default is a dry run)                  |
+| `--validate`         | Check only, reporting as JSON with `did_you_mean` hints    |
+| `--schema`           | Print the input format as JSON Schema                      |
+| `--vocabulary`       | Print the category and parameter names this config defines |
+| `--location PATH`    | Where stock with no location of its own goes               |
+| `--on-partial MODE`  | `ask` (default), `new` or `skip` for a partial spec        |
+| `--min-confidence N` | Hold any line the file rates below this, 0-1               |
+| `--no-orders`        | Import the stock without creating purchase orders          |
+| `--yes`              | Do not prompt; report anything ambiguous instead           |
+
+#### The file
+
+JSON is canonical; YAML and CSV read into the same shape. Everything except
+`id`, `quantity` and `category` is optional, and that is the point — **half of
+real stock has no manufacturer part number**, a third has no order, and an
+eighth has no supplier at all.
+
+```json
+{
+  "version": 1,
+  "source": {"kind": "handwritten", "reference": "drawer-notes.jpg"},
+  "defaults": {"supplier": "Rockby Electronics", "currency": "AUD",
+               "location": "Workshop/Drawer A"},
+  "lines": [
+    {"id": "l01", "quantity": 40,
+     "category": "Resistors/Through Hole Resistors",
+     "parameters": {"Resistance": "4k7", "Tolerance": "1%",
+                    "Power Rating": "0.25 W", "Composition": "Metal Film",
+                    "Package": "Axial", "Mounting": "Through Hole"}},
+
+    {"id": "l02", "quantity": 300, "category": "Diodes/Signal Diodes",
+     "type": "1N4007", "condition": "unopened", "approximate": true,
+     "supplier": "salash (eBay)", "notes": "NOS, original packaging"}
+  ]
+}
+```
+
+`defaults` are merged into every line and a line always wins. `order` merges
+key by key, so a file-wide date with a per-line reference works.
+
+CSV is the same shape flattened, with dotted columns for the nested parts:
+
+```csv
+id,quantity,category,type,supplier,order.reference,param.Package
+l02,300,Diodes/Signal Diodes,1N4007,Rockby Electronics,R-99213,DO-41
+```
+
+A `spec` category needs *all* of its key parameters on one row, which makes for
+a wide CSV; a `type` category like this one needs only the designator.
+
+Run `uv run invimport import-stock --schema` for the full field reference.
+
+#### Re-running is safe
+
+Each stock item created carries a barcode naming the line that made it —
+`invimport:<file id>:<line id>`. InvenTree enforces barcode uniqueness itself,
+so a second run of the same file reports `already there` rather than doubling
+the quantity. That is a database constraint, not a check this tool performs:
+the import cannot double your stock even if the code above it is wrong.
+
+The file id comes from `source.reference` when the file names itself, so a
+regenerated file still matches; otherwise it is a hash of the contents. **Line
+ids must be stable.** Renumbering them makes previously imported lines look
+new, and they import a second time.
+
+#### What it will not guess
+
+Two situations stop and ask, with the usual arrow-key prompt:
+
+- **An unknown category.** Existing near-matches are offered first, because
+  writing `Resistors/SMD` when `Resistors/Surface Mount Resistors` exists is
+  the common failure. Creating one writes to both `categories.yaml` and the
+  server, or neither.
+- **A partial specification.** A `spec` category identifies its parts by their
+  key parameters, so a line giving only some of them can neither be matched —
+  a subset match may be a different part — nor safely created, which may
+  duplicate one already there. The parts that agree with what *was* given are
+  offered instead.
+
+Both refuse rather than guess because **InvenTree has no part merge**: undoing
+either mistake means moving stock and deleting a part by hand.
+
+Without a terminal, or with `--yes`, these are reported as `needs review` and
+the line is left alone. Nothing is created unattended.
+
+#### Identity, and what is optional
+
+A line finds its part by, in order: an explicit `ipn`, an `mpn`, a `type`
+designator (only where the category says `identity: type`), then the key
+parameters of a `spec` category.
+
+`type` is for designators that identify a part regardless of who made it —
+`1N4007`, `2N3904`, `XR-2206`. A 1N4007 from Diotec and one from an unmarked
+bag are the same part; the maker is a property of the stock.
+
+Where the manufacturer is unknown, **no ManufacturerPart is created** — there
+is no placeholder company. When you later learn who made it, adding a
+manufacturer part to the existing part costs nothing: the IPN, the parameters
+and the stock all stay put.
+
+#### Conditions
+
+`condition` may be `ok`, `unopened`, `attention`, `damaged` or `quarantined`.
+`unopened` maps to InvenTree's `ATTENTION` status, which **is** in its
+available-stock codes — so a sealed packet still counts toward what you have,
+carrying a flag that says "not verified" rather than "unusable". Pair it with
+`"approximate": true` when you are trusting a number printed on the bag.
+
+#### Generating one with an LLM
+
+`--vocabulary` emits the category paths, parameter names, units and choices
+**from this config**, so an agent handed a photo produces values that land in
+your schema instead of near it. Paired with `--validate`, whose errors carry
+`did_you_mean`, an agent can iterate to a clean file without touching InvenTree
+at all.
+
+A Claude skill wrapping that loop lives in
+`.claude/skills/inventree-stock-import/`.
+
 ### Global flags
 
 | Flag              | Effect                                              |
@@ -532,11 +693,30 @@ logging.getLogger("invimport").addHandler(logging.StreamHandler())
 The public surface is re-exported from `invimport`: `fetch_products`,
 `fetch_product`, `fetch_orders`, `fetch_sales_orders`, `line_items`,
 `import_orders`, `find_supplier`, `list_suppliers`, `create_supplier`,
-`sync_templates`, `sync_categories`, `sync_tree`, `from_supplier`,
+`sync_templates`, `sync_config`, `sync_units`, `sync_categories`, `sync_tree`,
+`from_supplier`,
 `import_supplier_parts`, `match_path`, `match_name`, `load_config`,
-`digikey_connect`,
+`read_stock_file`, `validate_stock`, `import_stock`, `digikey_connect`,
 `inventree_connect`, `load_env`, `load_env_file`, `Client`, `SyncResult`,
-`ImportResult`, `ConfigError`, `DigiKeyError`, `InvenTreeError`.
+`ImportResult`, `ImportOptions`, `ConfigError`, `DigiKeyError`,
+`InvenTreeError`, `StockFileError`.
+
+Importing stock from a file, end to end:
+
+```python
+from invimport import ImportOptions, import_stock, read_stock_file, validate_stock
+from invimport import load_config
+
+document = read_stock_file("stock.json")
+report = validate_stock(document, *load_config())
+if not report.ok:
+    raise SystemExit(report.text())
+
+result = import_stock(document, options=ImportOptions(write=True))
+print(result.counts())
+```
+
+`validate_stock` makes no API calls, so it is the cheap check to run first.
 
 Note that `fetch_orders` and `fetch_products` write to the cache like the CLI
 does, relative to the working directory. Pass `cache_dir=` if you need them
@@ -568,12 +748,15 @@ config/
     categories.yaml           part categories, their parameters and DigiKey aliases
     parameters.yaml           parameter templates and how to read supplier values
     manufacturers.yaml        learned manufacturer name mappings
+    suppliers.yaml            learned supplier name mappings, incl. marketplaces
 src/
     invimport/
         __main__.py           CLI entrypoint and subcommand registry
         cache.py              on-disk response cache
         config.py             YAML config loading and validation
         env.py                .env loading
+        stockfile.py          read a stock import file (JSON/YAML/CSV)
+        validate.py           check one against the config, without the API
         digikey/
             api.py            auth, endpoints, HTTP retry, Client
             products.py       Product Information API
@@ -588,6 +771,8 @@ src/
             parts.py          find-or-create Part, ManufacturerPart, SupplierPart
             purchase_orders.py  suppliers and DigiKey order import
             discovery.py      unmapped supplier parameters, and filing them
+            stock.py          stock items, locations, barcode idempotence
+            stockimport.py    a stock file becoming InvenTree records
         commands/             thin CLI adapters over the above
             _keys.py          raw-mode key reading for the interactive prompts
             _prompt.py        checklist and menu prompts
@@ -603,6 +788,9 @@ tests/                        mirrors the package
         test_orders.py
     inventree/
         test_parameters.py
+.claude/
+    skills/
+        inventree-stock-import/   a Claude skill that generates a stock file
 docs/
     InvenTree API.yaml        OpenAPI spec, used by the test suite
 ```
@@ -615,6 +803,44 @@ installed package rather than accidentally importing loose source.
 Adding a command means dropping a module in `commands/` exposing `NAME`,
 `HELP`, `add_arguments(parser)` and `run(args)`, then listing it in
 `commands/__init__.py`.
+
+## Starting over
+
+`scripts/wipe-inventory.py` deletes everything the importers load, and keeps
+everything that describes it.
+
+```bash
+uv run scripts/wipe-inventory.py                # dry run: what would go
+uv run scripts/wipe-inventory.py --write        # do it, backing up first
+```
+
+| Deleted                                     | Kept                          |
+|---------------------------------------------|-------------------------------|
+| stock items                                 | part categories               |
+| purchase orders, and their line items       | companies                     |
+| supplier parts                              | parameter templates           |
+| manufacturer parts                          | custom units                  |
+| parts                                       | stock locations               |
+
+The kept column is the configuration you built up; the deleted column is the
+data you loaded with it. So a wipe leaves you ready to import again rather than
+back at an empty instance.
+
+Three safeguards, because there is no undo through the API:
+
+* **Dry run by default.** `--write` is required to delete anything.
+* **A backup first**, via `docker exec … pg_dump`, into `backups/` (gitignored,
+  since a dump contains your whole inventory). `--no-backup` skips it.
+* **It refuses to start** if any build order, BOM item or sales order exists.
+  Those reference parts and are not deleted here, so the wipe would fail
+  half-way through — worse than not running at all.
+
+Interactively it also asks you to type `delete`; `--yes` skips that, and
+without a terminal it refuses to run unattended unless you pass it.
+
+Assigned barcodes go with their stock item, so a wipe does not leave keys
+behind that would make the next `import-stock` report `already there` and
+create nothing.
 
 ## Development
 

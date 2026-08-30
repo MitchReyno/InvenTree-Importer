@@ -13,6 +13,10 @@
 #   aliases      names the supplier may send this parameter under
 #   parse        how to turn the supplier's value text into ours (see
 #                invimport/inventree/values.py)
+#   prefixes     SI prefixes this parameter is written with in generated part
+#                names, largest first. Capacitance uses [u, n, p] so 3300 uF
+#                reads "3300u" rather than "3.3m". Omit to let any prefix be
+#                chosen; needs units.
 #   values       canonical value -> the supplier spellings that mean it
 #
 # Seeded from the InvenTree instance, then extended. Units already on the
@@ -24,6 +28,9 @@ Capacitance:
   aliases:
     - Capacitance
   parse: quantity
+  # Written the way capacitors are written: 3300u, not the 3.3m a free choice
+  # of prefix gives, and 100p rather than 0.1n.
+  prefixes: [u, n, p]
 
 Composition:
   description: Resistive element material
@@ -78,6 +85,7 @@ Inductance:
   aliases:
     - Inductance
   parse: quantity
+  prefixes: [m, u, n]
 
 Lead Spacing:
   units: mm
@@ -149,6 +157,7 @@ Package:
       - Radial, Can - Snap-In
     Axial:
       - Axial
+      - Axial, Can
 
 Polarity:
   description: Polarised or not

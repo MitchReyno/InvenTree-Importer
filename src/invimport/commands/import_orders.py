@@ -31,11 +31,16 @@ Line items
 ----------
 A DigiKey line can only be imported if its SKU already exists as a supplier
 part in InvenTree, because a purchase order line points at a SupplierPart,
-which in turn needs an internal Part. By default parts are never invented:
-an order with unmatched lines is reported and skipped whole, so no purchase
-order is left quietly missing half of what was bought. --partial imports
-the lines that do match. --create-parts runs the same path as
-`invimport supplier-parts` for unmatched SKUs first, then books the order.
+which in turn needs an internal Part. Parts are never invented silently: when
+a selected order has SKUs that are not supplier parts yet, the run stops and
+asks whether to create them, import only the lines that match, or leave those
+orders alone. Creating runs the same path as `invimport supplier-parts`, using
+the product data already fetched for the selection.
+
+--create-parts and --partial answer that question up front, which is how a
+non-interactive run says what it wants. Without a terminal and without either
+flag, unmatched lines are reported and their orders skipped whole, so no
+purchase order is left quietly missing half of what was bought.
 
 Re-running is safe. An order already imported is recognised by its
 supplier_reference (the DigiKey sales order id) and is not booked twice.
@@ -75,8 +80,15 @@ from ..inventree.purchase_orders import (
     find_supplier,
     import_orders,
     list_suppliers,
+    supplier_parts_by_sku,
+    supplier_pk,
+    unmatched_skus,
 )
-from .supplier_parts import learn_manufacturer, report as report_parts
+from .supplier_parts import (
+    learn_categories,
+    learn_manufacturer,
+    report as report_parts,
+)
 from ._args import add_digikey_args
 from ._prompt import choose_one, confirm, interactive, select_many
 from .orders import iso_date
@@ -316,7 +328,38 @@ def select_orders(orders: list[dict[str, Any]],
 # --------------------------------------------------------------------------
 # Reporting
 # --------------------------------------------------------------------------
-def report(result: ImportResult, *, write: bool) -> None:
+def unmatched_advice(result: ImportResult, *, tried_creating: bool) -> str:
+    """
+    What to do about line items with no supplier part.
+
+    Telling someone to pass a flag they already passed is worse than saying
+    nothing: it implies the tool did not hear them, and hides the real reason,
+    which is printed per SKU further up. So when creation was attempted and
+    the SKUs still did not resolve, this repeats *why* instead.
+    """
+    if not tried_creating:
+        return ("Re-run with --create-parts to create them from DigiKey's "
+                "product data,\n  or --partial to import the lines that do "
+                "match.")
+
+    reasons: dict[str, int] = {}
+    for action in (result.parts.skus if result.parts else []):
+        if action.action == "skipped" and action.reason:
+            reasons[action.reason] = reasons.get(action.reason, 0) + 1
+
+    if not reasons:
+        return ("--create-parts was used, so these SKUs had no product data "
+                "to build from.\n  Check the DigiKey lookups above.")
+
+    lines = ["--create-parts ran, but these SKUs could not be turned into "
+             "parts:"]
+    for reason, count in sorted(reasons.items(), key=lambda kv: -kv[1]):
+        lines.append(f"    {count:>3}x  {reason}")
+    return "\n  ".join(lines)
+
+
+def report(result: ImportResult, *, write: bool,
+           tried_creating: bool = False) -> None:
     print("\nPurchase orders")
 
     for order in result.orders:
@@ -350,13 +393,48 @@ def report(result: ImportResult, *, write: bool) -> None:
 
     if counts["unmatched"]:
         print(f"\n  {counts['unmatched']} line item(s) had no matching supplier "
-              f"part.\n  Add them to InvenTree as supplier parts under this "
-              f"supplier, then re-run.")
+              f"part.\n  "
+              + unmatched_advice(result, tried_creating=tried_creating))
 
     if result.problems:
         print(f"\n  {len(result.problems)} problem(s):")
         for problem in result.problems:
             print(f"    ! {problem}")
+
+
+def ask_about_missing(missing: list[str], products: dict[str, Any],
+                     *, write: bool) -> str | None:
+    """
+    Offer to create the supplier parts an order needs, before booking it.
+
+    A line item needs a supplier part, so without these the order is either
+    skipped whole or booked short. Both used to require noticing the message,
+    reading the flags, and running the command again - when the tool can do
+    the work now, with the product data it has already fetched.
+
+    Returns "create", "partial", "skip", or None if the user backed out.
+    """
+    print(f"\n  {len(missing)} SKU(s) in these orders are not supplier parts "
+          f"yet:")
+    for sku in missing[:10]:
+        product = products.get(sku.upper()) or {}
+        detail = "  ".join(str(product[field]) for field in
+                           ("manufacturer_part", "description")
+                           if product.get(field))
+        print(f"    {sku}{'   ' + detail if detail else ''}")
+    if len(missing) > 10:
+        print(f"    ... and {len(missing) - 10} more")
+
+    options = [
+        ("create", f"create {len(missing)} part(s), then import the orders"),
+        ("partial", "import only the line items that already match"),
+        ("skip", "import nothing that has an unmatched line"),
+    ]
+    picked = choose_one(
+        options, lambda o: o[1],
+        title="  These lines cannot be booked without a supplier part.",
+        prompt="  > ")
+    return None if picked is None else picked[0]
 
 
 # --------------------------------------------------------------------------
@@ -401,17 +479,51 @@ def run(args: argparse.Namespace) -> int:
     # Only now, with the selection in, is it worth spending calls on products.
     products = collect_products(chosen, client, args) if args.products else {}
 
+    # Ask before booking, not after. By the time an order is skipped for an
+    # unmatched line it is too late to do anything but run the command again.
+    create_parts, partial = args.create_parts, args.partial
+    if not create_parts:
+        stocked = supplier_parts_by_sku(api, supplier_pk(supplier))
+        missing = unmatched_skus(chosen, stocked)
+        if missing:
+            if interactive():
+                answer = ask_about_missing(missing, products, write=args.write)
+                if answer is None:
+                    print("\nCancelled - nothing imported.")
+                    return 0
+                create_parts = answer == "create"
+                partial = partial or answer == "partial"
+                if create_parts:
+                    # An unmapped DigiKey category stops a part being created
+                    # at all, so it has to be settled before the attempt, not
+                    # reported after it as a reason nothing happened.
+                    learn_categories(products, missing,
+                                     args.config or CONFIG_DIR, api,
+                                     write=args.write)
+            else:
+                print(f"\n  {len(missing)} SKU(s) have no supplier part. "
+                      f"Pass --create-parts to create them, or --partial to "
+                      f"import the lines that match.")
+
+    if args.create_parts and interactive():
+        # The flag answers "create them", but not "into which category".
+        stocked = supplier_parts_by_sku(api, supplier_pk(supplier))
+        flagged = unmatched_skus(chosen, stocked)
+        if flagged:
+            learn_categories(products, flagged, args.config or CONFIG_DIR,
+                             api, write=args.write)
+
     print(f"\n{'Importing' if args.write else 'Previewing'} {len(chosen)} "
           f"order(s)...")
     chooser = None
-    if args.create_parts and not args.create_manufacturers and interactive():
+    if create_parts and not args.create_manufacturers and interactive():
         chooser = learn_manufacturer(args.config or CONFIG_DIR)
 
     location = named_location(api, args.location) if args.location else None
     result = import_orders(
         chosen, api, supplier=supplier, write=args.write,
-        partial=args.partial, products=products,
-        create_parts=args.create_parts,
+        partial=partial, products=products,
+        create_parts=create_parts,
         directory=args.config or CONFIG_DIR,
         create_manufacturers=args.create_manufacturers,
         choose_manufacturer=chooser,
@@ -419,7 +531,7 @@ def run(args: argparse.Namespace) -> int:
     )
     if result.parts is not None:
         report_parts(result.parts)
-    report(result, write=args.write)
+    report(result, write=args.write, tried_creating=create_parts)
 
     if not args.write:
         print("\nDRY RUN complete - re-run with --write to apply.")

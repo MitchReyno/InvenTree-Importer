@@ -133,12 +133,42 @@ NAME_PREFIXES = (
 )
 
 
-def compact_for_name(magnitude: float) -> str:
-    """A magnitude as it appears in a generated part name, without a unit."""
+# Symbol -> scale, for looking a configured prefix up by name.
+NAME_PREFIX_SCALE = {symbol: scale for scale, symbol in NAME_PREFIXES}
+
+
+def compact_for_name(magnitude: float,
+                     prefixes: list[str] | None = None) -> str:
+    """
+    A magnitude as it appears in a generated part name, without a unit.
+
+    With `prefixes`, the parameter is written only with those SI prefixes,
+    largest first, and the smallest one that leaves a mantissa of at least 1
+    wins. That is how component values are actually written: a 3300 uF
+    capacitor is '3300u', not the '3.3m' a free choice of prefix would give,
+    and 100 pF stays '100p' rather than becoming '0.1n'.
+
+    Without them, any prefix may be used, and a number that already reads
+    plainly is left alone - '0.25' for a quarter-watt rating, whose template
+    supplies the 'W' itself.
+    """
     if magnitude == 0:
         return "0"
     sign = "-" if magnitude < 0 else ""
     number = abs(float(magnitude))
+
+    if prefixes:
+        allowed = sorted(((NAME_PREFIX_SCALE[p], p) for p in prefixes
+                          if p in NAME_PREFIX_SCALE), reverse=True)
+        if allowed:
+            # Largest prefix first, so a value keeps the biggest unit it can
+            # fill. The smallest is the fallback: below it there is nothing
+            # left to move down to, and '0.5p' still beats '5e-13'.
+            scale, symbol = next(
+                ((sc, sym) for sc, sym in allowed if number / sc >= 1),
+                allowed[-1])
+            return sign + clean_number(number / scale) + symbol
+
     if 0.001 <= number < 1000:
         return sign + clean_number(number)
     for scale, symbol in NAME_PREFIXES:

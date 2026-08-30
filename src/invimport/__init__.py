@@ -46,6 +46,9 @@ from .inventree.purchase_orders import (
     list_suppliers,
 )
 from .inventree.units import sync_units
+from .inventree.stockimport import ImportOptions, import_stock
+from .stockfile import StockFileError, read_file as read_stock_file
+from .validate import validate as validate_stock
 
 
 def load_env(path=None) -> int:
@@ -59,6 +62,8 @@ __all__ = [
     "DigiKeyError",
     "ImportResult",
     "InvenTreeError",
+    "ImportOptions",
+    "StockFileError",
     "SyncResult",
     "create_supplier",
     "digikey_connect",
@@ -69,6 +74,7 @@ __all__ = [
     "find_supplier",
     "from_supplier",
     "import_orders",
+    "import_stock",
     "import_supplier_parts",
     "match_name",
     "match_path",
@@ -82,5 +88,7 @@ __all__ = [
     "sync_config",
     "sync_templates",
     "sync_tree",
+    "read_stock_file",
     "sync_units",
+    "validate_stock",
 ]
