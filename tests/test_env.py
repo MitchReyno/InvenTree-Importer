@@ -13,6 +13,7 @@ import os
 import pytest
 
 from invimport.env import DEFAULT_ENV_FILE, load_env_file
+from tests.support import REPO_ROOT
 
 
 @pytest.fixture
@@ -133,6 +134,15 @@ def test_a_set_variable_is_not_expanded_either(tmp_path, clean_env, monkeypatch)
 # Default location
 # --------------------------------------------------------------------------
 def test_default_env_file_is_the_repo_root():
+    """
+    Located by walking up from the module, not by the directory's name.
+
+    A clone can sit in a directory called anything, and a git worktree always
+    does, so naming one here fails on a checkout that is otherwise perfectly
+    correct. Compare against the root the test suite finds for itself: that
+    still pins the .env to the repo rather than to wherever the package was
+    installed, which is the part worth holding.
+    """
     assert DEFAULT_ENV_FILE.name == ".env"
-    assert DEFAULT_ENV_FILE.parent.name == "InvenTree-Importer"
+    assert DEFAULT_ENV_FILE == REPO_ROOT / ".env"
     assert "site-packages" not in str(DEFAULT_ENV_FILE)

@@ -410,8 +410,14 @@ def test_repo_parents_are_structural():
     assert categories["Integrated Circuits/Power Management"].structural is True
     assert categories["Resistors"].structural is True
     assert categories["Resistors/Through Hole Resistors"].structural is False
-    assert categories["Inductors"].structural is False
     assert categories["Capacitors/Film Capacitors"].structural is False
+
+    # Inductors was a top-level leaf until it was given a Fixed Inductors
+    # child, which is what makes it structural - so keep a category that is
+    # still childless here, or the "holds parts" half stops being covered.
+    assert categories["Inductors"].structural is True
+    assert categories["Inductors/Fixed Inductors"].structural is False
+    assert categories["Sensors, Transducers"].structural is False
 
 
 @pytest.mark.skipif(not CONFIG_DIR.exists(), reason="no config/ in the repo")
