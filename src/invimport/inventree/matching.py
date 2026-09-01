@@ -6,9 +6,9 @@ Name matching: normalise, learned aliases, fuzzy candidates.
     match_name("Yageo Corporation", ["YAGEO"])          # "YAGEO"
     match_path(["Resistors", "Through Hole Resistors"], categories)
 
-Used for manufacturers and for category --learn. The library never prompts:
-it returns what it knows and a list of candidates. The CLI asks, then writes
-the answer back through config.add_alias().
+Used for manufacturers, category --learn, and unmapped parameter names.
+The library never prompts: it returns what it knows and a list of candidates.
+The CLI asks, then writes the answer back through config.add_alias().
 
 Fuzzy results are only ever *offered*. The threshold decides what appears in
 the menu, not what gets used - a wrongly merged manufacturer is tedious to
@@ -21,7 +21,7 @@ import re
 from difflib import SequenceMatcher
 from typing import Iterable
 
-from ..config import CategoryConfig
+from ..config import CategoryConfig, ParameterConfig
 
 # Dropped after punctuation is stripped, so "Yageo Corporation" and "YAGEO"
 # both become "yageo". The list is the usual corporate suffixes, not a guess
@@ -86,17 +86,73 @@ def ratio(left: str, right: str) -> float:
     return SequenceMatcher(None, a, b).ratio()
 
 
+def token_ratio(left: str, right: str) -> float:
+    """
+    Shared-word similarity: 1 when the shorter name's words all appear in
+    the longer ('Mounting Type' vs 'Mounting'), and when the words are the
+    same in a different order ('Current Output' vs 'Output Current').
+    """
+    a = set(normalise(left).split())
+    b = set(normalise(right).split())
+    if not a or not b:
+        return 0.0
+    overlap = len(a & b)
+    if not overlap:
+        return 0.0
+    containment = overlap / min(len(a), len(b))
+    jaccard = overlap / len(a | b)
+    return 0.7 * containment + 0.3 * jaccard
+
+
+def name_ratio(left: str, right: str) -> float:
+    """
+    Similarity for parameter and choice names.
+
+    SequenceMatcher catches close spellings (Thru / Through); shared tokens
+    catch a qualifier on an otherwise identical name, and swapped word order.
+    Manufacturer matching stays on ratio() - corporate names are a
+    different shape.
+    """
+    return max(ratio(left, right), token_ratio(left, right))
+
+
 def candidates(name: str, existing: Iterable[str],
                *, threshold: float = FUZZY_THRESHOLD,
-               limit: int = 5) -> list[tuple[str, float]]:
+               limit: int = 5,
+               scorer=ratio) -> list[tuple[str, float]]:
     """
     Existing names similar to `name`, best first.
 
     Anything below the threshold is dropped. The caller offers these; it
-    does not pick one.
+    does not pick one. scorer defaults to ratio() so manufacturer matching
+    is unchanged; pass name_ratio for parameter and choice names.
     """
-    scored = [(item, ratio(name, item)) for item in existing]
+    scored = [(item, scorer(name, item)) for item in existing]
     scored = [(item, score) for item, score in scored if score >= threshold]
+    scored.sort(key=lambda pair: (-pair[1], pair[0].casefold()))
+    return scored[:limit]
+
+
+def parameter_candidates(
+    name: str,
+    parameters: dict[str, ParameterConfig],
+    *,
+    threshold: float = FUZZY_THRESHOLD,
+    limit: int = 5,
+) -> list[tuple[str, float]]:
+    """
+    Existing parameters similar to a supplier field name, best first.
+
+    Each parameter is scored against its own name and its aliases; the
+    highest score wins. Offered only - never applied on its own.
+    """
+    scored: list[tuple[str, float]] = []
+    for parameter in parameters.values():
+        best = name_ratio(name, parameter.name)
+        for alias in parameter.aliases:
+            best = max(best, name_ratio(name, alias))
+        if best >= threshold:
+            scored.append((parameter.name, best))
     scored.sort(key=lambda pair: (-pair[1], pair[0].casefold()))
     return scored[:limit]
 

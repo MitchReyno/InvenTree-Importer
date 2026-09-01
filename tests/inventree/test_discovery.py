@@ -15,11 +15,13 @@ from invimport.inventree.discovery import (
     OTHER,
     SKIP,
     discover,
+    file_choice,
     file_discovery,
     infer,
     parameter_block,
     reload,
     supplier_names,
+    unknown_choices,
 )
 
 CATEGORIES = """
@@ -371,3 +373,80 @@ def test_parameter_block_includes_choices():
         "Composition", "Composition",
         Suggestion(choices=["Metal Film", "Carbon Film"])))
     assert parsed["Composition"]["choices"] == ["Metal Film", "Carbon Film"]
+
+
+def test_parameter_block_includes_optional_config():
+    import yaml
+
+    from invimport.inventree.discovery import Suggestion
+
+    parsed = yaml.safe_load(parameter_block(
+        "Capacitance", "Capacitance",
+        Suggestion(units="F", parse="quantity", description="Nominal",
+                   prefixes=["u", "n", "p"])))
+    assert parsed["Capacitance"]["description"] == "Nominal"
+    assert parsed["Capacitance"]["prefixes"] == ["u", "n", "p"]
+
+
+MOUNTING = (
+    PARAMETERS +
+    "Mounting:\n  aliases: [Mounting Type]\n"
+    "  choices: [Through Hole, Surface Mount]\n")
+MOUNTING_CATEGORIES = CATEGORIES.replace(
+    "parameters: [Resistance]", "parameters: [Resistance, Mounting]")
+
+
+def test_an_unknown_choice_is_found(conf):
+    categories, parameters = loaded(conf(
+        categories=MOUNTING_CATEGORIES, parameters=MOUNTING))
+    found = unknown_choices(
+        [product(**{"Resistance": "1k", "Mounting Type": "Board Mount"})],
+        categories, parameters)
+    assert [item.value for item in found] == ["Board Mount"]
+    assert found[0].parameter == "Mounting"
+
+
+def test_a_known_choice_is_not_reported(conf):
+    categories, parameters = loaded(conf(
+        categories=MOUNTING_CATEGORIES, parameters=MOUNTING))
+    found = unknown_choices(
+        [product(**{"Resistance": "1k", "Mounting Type": "Through Hole"})],
+        categories, parameters)
+    assert found == []
+
+
+def test_a_mapped_choice_alias_is_not_reported(conf):
+    parameters = (MOUNTING +
+                  "  values:\n    Through Hole:\n      - Board Mount\n")
+    categories, loaded_params = loaded(conf(
+        categories=MOUNTING_CATEGORIES, parameters=parameters))
+    found = unknown_choices(
+        [product(**{"Resistance": "1k", "Mounting Type": "Board Mount"})],
+        categories, loaded_params)
+    assert found == []
+
+
+def test_file_choice_maps_a_spelling_to_an_existing_choice(conf):
+    directory = conf(categories=MOUNTING_CATEGORIES, parameters=MOUNTING)
+    categories, parameters = loaded(directory)
+    item = unknown_choices(
+        [product(**{"Resistance": "1k", "Mounting Type": "Board Mount"})],
+        categories, parameters)[0]
+    changed = file_choice(item, "Through Hole", directory=directory)
+    assert any("Board Mount" in line for line in changed)
+    _, parameters = loaded(directory)
+    from invimport.inventree.values import choice_value
+    assert choice_value("Board Mount", parameters["Mounting"]) == "Through Hole"
+
+
+def test_file_choice_creates_a_new_choice(conf):
+    directory = conf(categories=MOUNTING_CATEGORIES, parameters=MOUNTING)
+    categories, parameters = loaded(directory)
+    item = unknown_choices(
+        [product(**{"Resistance": "1k", "Mounting Type": "Chassis"})],
+        categories, parameters)[0]
+    file_choice(item, "Chassis", create=True, directory=directory)
+    _, parameters = loaded(directory)
+    assert "Chassis" in parameters["Mounting"].choices
+    from invimport.inventree.values import choice_value
+    assert choice_value("Chassis", parameters["Mounting"]) == "Chassis"

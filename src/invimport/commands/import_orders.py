@@ -91,6 +91,7 @@ from .supplier_parts import (
     report_sku,
     report_step,
 )
+from .learn import learn_choices, learn_parameters
 from ._args import add_digikey_args
 from ._prompt import choose_one, confirm, interactive, select_many
 from .orders import iso_date
@@ -574,6 +575,14 @@ def run(args: argparse.Namespace) -> int:
     if create_parts and not args.create_manufacturers and interactive():
         chooser = learn_manufacturer(args.config or CONFIG_DIR)
 
+    directory = args.config or CONFIG_DIR
+
+    def on_learn_parameters(items):
+        learn_parameters(items, directory, api, write=args.write)
+
+    def on_learn_choices(items):
+        learn_choices(items, directory, api, write=args.write)
+
     location = named_location(api, args.location) if args.location else None
 
     parts_header = False
@@ -613,6 +622,8 @@ def run(args: argparse.Namespace) -> int:
         directory=args.config or CONFIG_DIR,
         create_manufacturers=args.create_manufacturers,
         choose_manufacturer=chooser,
+        on_learn_parameters=on_learn_parameters if interactive() else None,
+        on_learn_choices=on_learn_choices if interactive() else None,
         location=location,
         on_sku=on_sku, on_step=on_step, on_parts=on_parts,
         on_order_start=on_order_start, on_line=report_line,

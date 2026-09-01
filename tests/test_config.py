@@ -9,6 +9,7 @@ from invimport.config import (
     ConfigError,
     add_alias,
     add_category,
+    add_value_alias,
     load_categories_config,
     load_config,
     load_manufacturers_config,
@@ -374,6 +375,43 @@ def test_add_alias_cannot_invent_a_nested_category(tmp_path):
     path.write_text("Resistors: {}\n")
     with pytest.raises(ConfigError, match="does not exist"):
         add_alias(path, ["Resistors", "No Such Child"], "x")
+
+
+def test_add_value_alias_extends_an_existing_map(tmp_path):
+    path = tmp_path / "parameters.yaml"
+    path.write_text(
+        "Mounting:\n  choices: [Through Hole, Surface Mount]\n"
+        "  values:\n    Through Hole:\n      - Axial\n")
+    assert add_value_alias(path, "Mounting", "Through Hole", "Radial") is True
+    loaded = load_parameters_config(tmp_path)["Mounting"]
+    assert loaded.values["Through Hole"] == ["Axial", "Radial"]
+
+
+def test_add_value_alias_creates_the_values_mapping(tmp_path):
+    path = tmp_path / "parameters.yaml"
+    path.write_text("Mounting:\n  choices: [Through Hole]\n")
+    assert add_value_alias(path, "Mounting", "Through Hole", "Axial")
+    assert load_parameters_config(tmp_path)["Mounting"].values["Through Hole"] == [
+        "Axial"]
+
+
+def test_add_value_alias_creates_a_new_canonical_key(tmp_path):
+    path = tmp_path / "parameters.yaml"
+    path.write_text(
+        "Mounting:\n  values:\n    Through Hole:\n      - Axial\n")
+    assert add_value_alias(path, "Mounting", "Surface Mount", "SMD/SMT")
+    loaded = load_parameters_config(tmp_path)["Mounting"]
+    assert loaded.values["Surface Mount"] == ["SMD/SMT"]
+    assert loaded.values["Through Hole"] == ["Axial"]
+
+
+def test_add_value_alias_is_idempotent(tmp_path):
+    path = tmp_path / "parameters.yaml"
+    path.write_text(
+        "Mounting:\n  values:\n    Through Hole:\n      - Axial\n")
+    assert add_value_alias(path, "Mounting", "Through Hole", "Axial") is False
+    assert path.read_text() == (
+        "Mounting:\n  values:\n    Through Hole:\n      - Axial\n")
 
 
 # --------------------------------------------------------------------------

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from invimport.config import CategoryConfig
+from invimport.config import CategoryConfig, ParameterConfig
 from invimport.inventree.matching import (
     candidates,
     match_name,
     match_path,
+    name_ratio,
     normalise,
+    parameter_candidates,
     path_text,
     unmapped_paths,
 )
@@ -79,3 +81,35 @@ def test_an_unmapped_path_is_reported():
 def test_path_text_joins_with_spaces_around_the_slash():
     assert path_text(["Resistors", "Through Hole Resistors"]) == (
         "Resistors / Through Hole Resistors")
+
+
+def test_name_ratio_treats_a_qualifier_as_the_same_name():
+    assert name_ratio("Mounting Type", "Mounting") >= 0.6
+    assert name_ratio("Package / Case", "Package") >= 0.6
+    assert name_ratio("Number of Positions", "Positions") >= 0.6
+
+
+def test_name_ratio_treats_swapped_word_order_as_the_same_name():
+    assert name_ratio("Current - Output", "Output Current") >= 0.6
+
+
+def test_name_ratio_does_not_match_unrelated_names():
+    assert name_ratio("Mounting Type", "Package") < 0.6
+    assert name_ratio("Through Hole", "Surface Mount") < 0.6
+
+
+def test_parameter_candidates_match_on_name_and_alias():
+    parameters = {
+        "Mounting": ParameterConfig("Mounting"),
+        "Diameter": ParameterConfig(
+            "Diameter", aliases=["Size / Dimension"]),
+        "Package": ParameterConfig("Package", aliases=["Package / Case"]),
+    }
+    names = [name for name, _ in parameter_candidates("Mounting Type",
+                                                      parameters)]
+    assert names[0] == "Mounting"
+    assert "Package" not in names
+
+    names = [name for name, _ in parameter_candidates("Size / Dimension",
+                                                      parameters)]
+    assert names[0] == "Diameter"

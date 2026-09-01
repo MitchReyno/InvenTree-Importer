@@ -725,6 +725,122 @@ def test_supplier_parts_writes_when_asked(digikey, digikey_env, workspace,
     assert any(p.get("IPN") == "IC-00001" for p in inventree.part_rows)
 
 
+def _choice_config(tmp_path, choices="Surface Mount"):
+    (tmp_path / "units.yaml").write_text("")
+    (tmp_path / "manufacturers.yaml").write_text("")
+    (tmp_path / "parameters.yaml").write_text(
+        "Package:\n  aliases: [Package / Case]\n"
+        "Mounting:\n  aliases: [Mounting Type]\n"
+        f"  choices: [{choices}]\n")
+    (tmp_path / "categories.yaml").write_text(
+        "Integrated Circuits:\n"
+        "  ipn_prefix: IC\n"
+        "  identity: mpn\n"
+        "  parameters: [Package, Mounting]\n"
+        "  ignore: [Operating Temperature]\n"
+        "  Timers:\n"
+        "    aliases:\n"
+        "      - Integrated Circuits (ICs) / Clock/Timing\n")
+    return tmp_path
+
+
+def test_supplier_parts_maps_an_unmapped_parameter(
+        digikey, digikey_env, workspace, inventree, tmp_path, answers):
+    _seed_ic_tree(inventree)
+    _part_config(tmp_path)
+    # confirm; create; keep supplier name; accept inferred config; not key
+    answers("y", "2", "1", "", "", "", "", "", "")
+
+    assert main(["supplier-parts", "--config", str(tmp_path),
+                 "--create-manufacturers", "--write", "296-1411-1-ND"]) == 0
+
+    from invimport.config import load_categories_config, load_parameters_config
+    parameters = load_parameters_config(tmp_path)
+    categories = load_categories_config(tmp_path)
+    assert "Mounting Type" in parameters
+    assert "Mounting Type" in categories["Integrated Circuits/Timers"].parameters
+
+
+def test_supplier_parts_suggests_a_similar_parameter(
+        digikey, digikey_env, workspace, inventree, tmp_path, answers):
+    _seed_ic_tree(inventree)
+    inventree.templates.append({"pk": 21, "name": "Mounting", "units": ""})
+    (tmp_path / "units.yaml").write_text("")
+    (tmp_path / "manufacturers.yaml").write_text("")
+    (tmp_path / "parameters.yaml").write_text(
+        "Package:\n  aliases: [Package / Case]\n"
+        "Mounting: {}\n")
+    (tmp_path / "categories.yaml").write_text(
+        "Integrated Circuits:\n"
+        "  ipn_prefix: IC\n"
+        "  identity: mpn\n"
+        "  parameters: [Package, Mounting]\n"
+        "  ignore: [Operating Temperature]\n"
+        "  Timers:\n"
+        "    aliases:\n"
+        "      - Integrated Circuits (ICs) / Clock/Timing\n")
+    # confirm; first option is map to Mounting (similar name)
+    answers("y", "1")
+
+    assert main(["supplier-parts", "--config", str(tmp_path),
+                 "--create-manufacturers", "--write", "296-1411-1-ND"]) == 0
+
+    from invimport.config import load_parameters_config
+    assert "Mounting Type" in load_parameters_config(tmp_path)["Mounting"].aliases
+
+
+def test_supplier_parts_maps_an_unknown_choice(
+        digikey, digikey_env, workspace, inventree, tmp_path, answers):
+    _seed_ic_tree(inventree)
+    inventree.templates.append({"pk": 21, "name": "Mounting", "units": ""})
+    _choice_config(tmp_path)
+    # confirm; map to the only existing choice (Surface Mount)
+    answers("y", "1", "1")
+
+    assert main(["supplier-parts", "--config", str(tmp_path),
+                 "--create-manufacturers", "--write", "296-1411-1-ND"]) == 0
+
+    from invimport.config import load_parameters_config
+    from invimport.inventree.values import choice_value
+    mounting = load_parameters_config(tmp_path)["Mounting"]
+    assert choice_value("Through Hole", mounting) == "Surface Mount"
+
+
+def test_supplier_parts_suggests_a_similar_choice(
+        digikey, digikey_env, workspace, inventree, tmp_path, answers):
+    _seed_ic_tree(inventree)
+    inventree.templates.append({"pk": 21, "name": "Mounting", "units": ""})
+    _choice_config(tmp_path, choices="Through-hole")
+    # confirm; first option is map to Through-hole (same words, different punctuation)
+    answers("y", "1")
+
+    assert main(["supplier-parts", "--config", str(tmp_path),
+                 "--create-manufacturers", "--write", "296-1411-1-ND"]) == 0
+
+    from invimport.config import load_parameters_config
+    from invimport.inventree.values import choice_value
+    mounting = load_parameters_config(tmp_path)["Mounting"]
+    assert choice_value("Through Hole", mounting) == "Through-hole"
+
+
+def test_supplier_parts_creates_an_unknown_choice(
+        digikey, digikey_env, workspace, inventree, tmp_path, answers):
+    _seed_ic_tree(inventree)
+    inventree.templates.append({"pk": 21, "name": "Mounting", "units": ""})
+    _choice_config(tmp_path)
+    # confirm; create; name it Through-hole rather than the supplier spelling
+    answers("y", "2", "Through-hole")
+
+    assert main(["supplier-parts", "--config", str(tmp_path),
+                 "--create-manufacturers", "--write", "296-1411-1-ND"]) == 0
+
+    from invimport.config import load_parameters_config
+    from invimport.inventree.values import choice_value
+    mounting = load_parameters_config(tmp_path)["Mounting"]
+    assert "Through-hole" in mounting.choices
+    assert choice_value("Through Hole", mounting) == "Through-hole"
+
+
 def test_supplier_parts_from_orders(digikey, digikey_env, workspace,
                                     inventree, tmp_path):
     _seed_ic_tree(inventree)

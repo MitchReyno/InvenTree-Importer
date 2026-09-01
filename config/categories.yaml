@@ -62,6 +62,9 @@ Capacitors:
       - Diameter
       - Height
       - Lead Spacing
+      - "Lifetime @ Temp."
+      - "Ripple Current @ Low Frequency"
+      - "Ripple Current @ High Frequency"
     aliases:
       - Capacitors / Aluminum Electrolytic Capacitors
   Film Capacitors:

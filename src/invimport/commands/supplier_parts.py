@@ -10,9 +10,11 @@ parameter signature), resolve the manufacturer, then create the
 ManufacturerPart and SupplierPart. Dry run by default; nothing is deleted.
 
 An unmapped category or an unknown manufacturer skips that SKU rather than
-guessing. Interactive runs offer fuzzy manufacturer matches and write the
-answer back to config/manufacturers.yaml. Non-interactive runs skip unless
-`--create-manufacturers` is passed.
+guessing. Interactive runs offer to map unmapped supplier parameters (as an
+alias of an existing one, or as a new parameter) and unknown choice spellings
+the same way, and write the answers back to the YAML. Fuzzy manufacturer
+matches are written to config/manufacturers.yaml. Non-interactive runs skip
+unknown manufacturers unless `--create-manufacturers` is passed.
 
 The logic lives in invimport.inventree.parts; this module is the CLI.
 """
@@ -35,6 +37,7 @@ from ..inventree.purchase_orders import find_supplier, list_suppliers
 from . import _prompt
 from ._args import add_digikey_args
 from ._prompt import choose_one, interactive
+from .learn import learn_choices, learn_parameters
 from .orders import iso_date
 from .product import read_skus
 
@@ -294,6 +297,12 @@ def run(args: argparse.Namespace) -> int:
     if not args.create_manufacturers and interactive():
         chooser = learn_manufacturer(directory)
 
+    def on_learn_parameters(items):
+        learn_parameters(items, directory, api, write=args.write)
+
+    def on_learn_choices(items):
+        learn_choices(items, directory, api, write=args.write)
+
     print(f"\n{'Importing' if args.write else 'Previewing'} {len(skus)} "
           f"SKU(s)...")
 
@@ -305,6 +314,8 @@ def run(args: argparse.Namespace) -> int:
             update_parameters=args.update_parameters,
             create_manufacturers=args.create_manufacturers,
             choose_manufacturer=chooser,
+            on_learn_parameters=on_learn_parameters if interactive() else None,
+            on_learn_choices=on_learn_choices if interactive() else None,
             cache_dir=args.cache_dir, refresh=args.refresh,
             on_sku=report_sku, on_step=report_step,
         )

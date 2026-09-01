@@ -649,6 +649,8 @@ def import_orders(
     update_parameters: bool = False,
     create_manufacturers: bool = False,
     choose_manufacturer=None,
+    on_learn_parameters=None,
+    on_learn_choices=None,
     location: int | None = None,
     on_sku=None,
     on_step=None,
@@ -707,6 +709,8 @@ def import_orders(
                 update_parameters=update_parameters,
                 create_manufacturers=create_manufacturers,
                 choose_manufacturer=choose_manufacturer,
+                on_learn_parameters=on_learn_parameters,
+                on_learn_choices=on_learn_choices,
                 fetch=not products,
                 on_sku=on_sku, on_step=on_step,
             )

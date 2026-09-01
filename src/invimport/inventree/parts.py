@@ -68,6 +68,7 @@ from .matching import (
 from ..util import absolute_url
 from .purchase_orders import find_supplier, supplier_parts_by_sku
 from .values import compact_for_name, from_supplier, parse_quantity
+from .discovery import Discovery, UnknownChoice, discover, unknown_choices
 
 log = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ LIST_LIMIT = 1000
 # Concurrent POSTs for the values hanging off one record. A typical part
 # carries a handful of parameters; each create is a round trip, so the
 # workers are waiting on the server rather than on the CPU.
-PARAMETER_WORKERS = 8
+PARAMETER_WORKERS = 5
 
 # Where a part whose category declares no ipn_prefix is numbered. A prefix is
 # a deliberate choice - guessing one from the category name produces initials
@@ -89,6 +90,10 @@ ChooseManufacturer = Callable[[str, list[tuple[Any, float]]], Any | str | None]
 # (manufacturer, part, manufacturer_part, supplier_part, image).
 OnStep = Callable[[str, str, int, int], None]
 OnSku = Callable[["SkuAction"], None]
+# Unmapped supplier fields / unknown choice spellings. The callback writes
+# the answers back to the config; this function reloads afterwards.
+OnLearnParameters = Callable[[list[Discovery]], None]
+OnLearnChoices = Callable[[list[UnknownChoice]], None]
 
 
 @dataclass
@@ -1011,6 +1016,8 @@ def import_supplier_parts(
     update_parameters: bool = False,
     create_manufacturers: bool = False,
     choose_manufacturer: ChooseManufacturer | None = None,
+    on_learn_parameters: OnLearnParameters | None = None,
+    on_learn_choices: OnLearnChoices | None = None,
     fetch: bool = True,
     cache_dir: Path | None = None,
     image_cache_dir: Path | None = None,
@@ -1028,6 +1035,11 @@ def import_supplier_parts(
     choose_manufacturer(name, [(company, score), ...]) returns an existing
     Company, a name to create, or None to skip. The CLI writes the answer
     back to manufacturers.yaml; this function does not.
+
+    on_learn_parameters / on_learn_choices are called after products are
+    fetched with supplier fields this category does not yet map, and with
+    choice-parameter values that are not in the allowed set. The callback
+    writes the config; this function reloads it before creating records.
 
     on_sku is called as each SKU finishes. on_step(sku, action, index, total)
     is called just before each write action (and with action "start" as the
@@ -1072,6 +1084,19 @@ def import_supplier_parts(
         for row in fetched:
             rows[str(row["SKU"]).strip().upper()] = row
     indexed = {str(key).strip().upper(): value for key, value in rows.items()}
+
+    usable = [row for row in indexed.values() if not row.get("error")]
+    if on_learn_parameters:
+        found = discover(usable, categories, parameters)
+        if found:
+            on_learn_parameters(found)
+            categories = load_categories_config(directory)
+            parameters = load_parameters_config(directory)
+    if on_learn_choices:
+        found = unknown_choices(usable, categories, parameters)
+        if found:
+            on_learn_choices(found)
+            parameters = load_parameters_config(directory)
 
     server_categories = {c.pathstring: c
                          for c in PartCategory.list(api, limit=LIST_LIMIT)

@@ -643,6 +643,63 @@ def add_list_item(path: Path, keys: list[str], list_key: str,
     return True
 
 
+def add_choice(path: Path, parameter: str, choice: str) -> bool:
+    """Add `choice` to a parameter's choices list."""
+    return add_list_item(path, [parameter], "choices", choice)
+
+
+def add_value_alias(path: Path, parameter: str, canonical: str,
+                    spelling: str) -> bool:
+    """
+    Record that `spelling` means `canonical` under a parameter's values map.
+
+    Creates the `values:` mapping and the canonical key if they are missing.
+    Idempotent: a spelling already listed is left alone.
+    """
+    if not path.exists():
+        raise ConfigError(f"{path.name}: cannot add a value alias - "
+                          f"the file does not exist")
+
+    text = path.read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+    if lines and not lines[-1].endswith("\n"):
+        lines[-1] += "\n"
+
+    param_at = _find_key(lines, 0, len(lines), parameter, 0)
+    if param_at is None:
+        raise ConfigError(
+            f"{path.name}: cannot add a value alias under {parameter!r} - "
+            f"that entry does not exist")
+    _as_block_mapping(lines, param_at)
+    param_end = _body_end(lines, param_at)
+    child_indent = _indent_of(lines[param_at]) + 2
+
+    values_at = _find_key(lines, param_at + 1, param_end, "values", child_indent)
+    if values_at is None:
+        block = (
+            f"{' ' * child_indent}values:\n"
+            f"{' ' * (child_indent + 2)}{format_yaml_key(canonical)}:\n"
+            f"{' ' * (child_indent + 4)}- {format_yaml_key(spelling)}\n"
+        )
+        lines.insert(param_at + 1, block)
+        path.write_text("".join(lines), encoding="utf-8")
+        return True
+
+    values_end = _body_end(lines, values_at)
+    can_indent = _indent_of(lines[values_at]) + 2
+    can_at = _find_key(lines, values_at + 1, values_end, canonical, can_indent)
+    if can_at is None:
+        block = (
+            f"{' ' * can_indent}{format_yaml_key(canonical)}:\n"
+            f"{' ' * (can_indent + 2)}- {format_yaml_key(spelling)}\n"
+        )
+        lines.insert(values_end, block)
+        path.write_text("".join(lines), encoding="utf-8")
+        return True
+
+    return add_list_item(path, [parameter, "values"], canonical, spelling)
+
+
 def _flow_items(line: str) -> list[str] | None:
     """
     The items of a one-line flow sequence, or None if the line is not one.

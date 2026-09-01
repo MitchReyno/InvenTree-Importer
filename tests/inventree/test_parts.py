@@ -892,6 +892,61 @@ def test_update_parameters_fills_missing_values_on_an_existing_sku(
     assert "Mounting" in written(inventree, "company.supplierpart")
 
 
+def test_learning_an_unmapped_parameter_stores_it(inventree, tmp_path):
+    seed_resistors(inventree)
+    inventree.templates.append({"pk": 24, "name": "Composition", "units": ""})
+    product = {**RESISTOR_PRODUCT,
+               "parameters": {**RESISTOR_PRODUCT["parameters"],
+                              "Composition": "Metal Film"}}
+    directory = config_dir(tmp_path, RESISTORS, RESISTOR_PARAMETERS)
+
+    def learn(items):
+        from invimport.config import load_categories_config, load_parameters_config
+        from invimport.inventree.discovery import OTHER, file_discovery, reload
+        cats = load_categories_config(directory)
+        params = load_parameters_config(directory)
+        for item in items:
+            if item.supplier_name == "Composition":
+                file_discovery(item, OTHER, "Composition", cats, params,
+                               directory)
+                cats, params = reload(directory)
+
+    import_supplier_parts(
+        ["13-MFR-ND"], connect(), write=True, directory=directory,
+        products={"13-MFR-ND": product}, fetch=False,
+        create_manufacturers=True, on_learn_parameters=learn)
+
+    assert written(inventree, "company.manufacturerpart")["Composition"] == (
+        "Metal Film")
+
+
+def test_learning_an_unknown_choice_stores_the_canonical(inventree, tmp_path):
+    seed_resistors(inventree)
+    inventree.templates.append({"pk": 24, "name": "Mounting", "units": ""})
+    parameters = (
+        "Resistance:\n  units: ohm\n  aliases: [Resistance]\n  parse: quantity\n"
+        "Tolerance:\n  units: '%'\n  aliases: [Tolerance]\n  parse: percent\n"
+        "Package:\n  aliases: [Package / Case]\n"
+        "Mounting:\n  aliases: [Mounting Type]\n"
+        "  choices: [Through Hole, Surface Mount]\n")
+    product = {**RESISTOR_PRODUCT,
+               "parameters": {**RESISTOR_PRODUCT["parameters"],
+                              "Mounting Type": "Board Mount"}}
+    directory = config_dir(tmp_path, RESISTORS_WITH_EXTRA, parameters)
+
+    def learn(items):
+        from invimport.inventree.discovery import file_choice
+        file_choice(items[0], "Through Hole", directory=directory)
+
+    import_supplier_parts(
+        ["13-MFR-ND"], connect(), write=True, directory=directory,
+        products={"13-MFR-ND": product}, fetch=False,
+        create_manufacturers=True, on_learn_choices=learn)
+
+    assert written(inventree, "company.manufacturerpart")["Mounting"] == (
+        "Through Hole")
+
+
 def test_on_sku_fires_as_each_sku_finishes(inventree, tmp_path):
     seed_ic(inventree)
     seen = []

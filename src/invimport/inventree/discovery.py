@@ -33,7 +33,9 @@ from ..config import (
     CONFIG_DIR,
     CategoryConfig,
     ParameterConfig,
+    add_choice,
     add_list_item,
+    add_value_alias,
     format_yaml_key,
     load_categories_config,
     load_parameters_config,
@@ -41,10 +43,12 @@ from ..config import (
 from .matching import match_path
 from .values import (
     build_parse_registry,
+    choice_value,
     fold_supplier_name,
     is_absent,
     split_magnitude,
     split_range,
+    supplier_text,
 )
 
 log = logging.getLogger(__name__)
@@ -72,6 +76,9 @@ class Suggestion:
     # Set when the values are ranges ("-55°C ~ 155°C"), which need two
     # parameters rather than one.
     ranged: bool = False
+    description: str = ""
+    prefixes: list[str] = field(default_factory=list)
+    name_style: str = ""
 
     def describe(self) -> str:
         bits = []
@@ -101,6 +108,20 @@ class Discovery:
 
     def sample(self) -> str:
         return ", ".join(self.values[:SAMPLE_LIMIT])
+
+
+@dataclass
+class UnknownChoice:
+    """A supplier spelling that a choices-parameter does not yet accept."""
+    parameter: str
+    supplier_name: str
+    value: str
+    choices: list[str] = field(default_factory=list)
+    count: int = 0
+    category: str = ""
+
+    def sample(self) -> str:
+        return self.value
 
 
 # --------------------------------------------------------------------------
@@ -222,6 +243,53 @@ def discover(
                   key=lambda d: (d.category, -d.count, d.supplier_name))
 
 
+def unknown_choices(
+    products: Iterable[dict[str, Any]],
+    categories: dict[str, CategoryConfig],
+    parameters: dict[str, ParameterConfig],
+) -> list[UnknownChoice]:
+    """
+    Choice-parameter values the supplier sent that are not in the allowed set.
+
+    A parameter with a `choices` list refuses anything outside it, so an
+    unseen spelling is dropped rather than stored. These are the spellings
+    worth mapping as an alias or adding as a new choice.
+    """
+    found: dict[tuple[str, str], UnknownChoice] = {}
+    for product in products:
+        category = match_path(product.get("category_path") or [], categories)
+        if category is None:
+            continue
+        supplied = product.get("parameters") or {}
+        for name in category.parameters:
+            parameter = parameters.get(name)
+            if parameter is None or not parameter.choices:
+                continue
+            text = supplier_text(supplied, parameter)
+            if text is None or is_absent(text):
+                continue
+            if choice_value(text, parameter) is not None:
+                continue
+            key = (parameter.name, text)
+            item = found.get(key)
+            if item is None:
+                item = UnknownChoice(
+                    parameter=parameter.name,
+                    supplier_name=next(
+                        (alias for alias in parameter.supplier_names()
+                         if alias in supplied or fold_supplier_name(alias)
+                         in {fold_supplier_name(k) for k in supplied}),
+                        parameter.name),
+                    value=text,
+                    choices=list(parameter.choices),
+                    category=category.pathstring,
+                )
+                found[key] = item
+            item.count += 1
+    return sorted(found.values(),
+                  key=lambda c: (c.parameter, -c.count, c.value))
+
+
 # --------------------------------------------------------------------------
 # Writing a decision back
 # --------------------------------------------------------------------------
@@ -231,8 +299,15 @@ def parameter_block(name: str, supplier_name: str,
     lines = [f"{format_yaml_key(name)}:"]
     if suggestion.units:
         lines.append(f"  units: {format_yaml_key(suggestion.units)}")
+    if suggestion.description:
+        lines.append(f"  description: {format_yaml_key(suggestion.description)}")
     if suggestion.parse:
         lines.append(f"  parse: {suggestion.parse}")
+    if suggestion.prefixes:
+        rendered = ", ".join(format_yaml_key(p) for p in suggestion.prefixes)
+        lines.append(f"  prefixes: [{rendered}]")
+    if suggestion.name_style:
+        lines.append(f"  name_style: {suggestion.name_style}")
     if suggestion.choices:
         lines.append("  choices:")
         lines.extend(f"    - {format_yaml_key(choice)}"
@@ -303,6 +378,33 @@ def file_discovery(
             changed.append(
                 f"{item.category}: key_parameters += {parameter_name}")
 
+    return changed
+
+
+def file_choice(
+    item: UnknownChoice,
+    canonical: str,
+    *,
+    create: bool = False,
+    directory: Path | None = None,
+) -> list[str]:
+    """
+    Record that `item.value` means `canonical` for a choices-parameter.
+
+    If create is set, `canonical` is added to the choices list as well as
+    being the values-map key. Mapping to an existing choice only adds the
+    supplier spelling as an alias.
+    """
+    directory = Path(directory) if directory is not None else CONFIG_DIR
+    parameters_file = directory / "parameters.yaml"
+    changed: list[str] = []
+
+    if create:
+        if add_choice(parameters_file, item.parameter, canonical):
+            changed.append(f"{item.parameter}: choices += {canonical!r}")
+
+    if add_value_alias(parameters_file, item.parameter, canonical, item.value):
+        changed.append(f"{item.parameter}: {item.value!r} -> {canonical!r}")
     return changed
 
 

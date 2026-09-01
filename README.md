@@ -424,7 +424,9 @@ already exist.
 An unmapped DigiKey category skips the SKU. An unknown manufacturer
 does the same, unless you are at a terminal (fuzzy matches are offered
 and written back to `config/manufacturers.yaml`) or you pass
-`--create-manufacturers`.
+`--create-manufacturers`. Unmapped supplier parameter names, and choice
+values that are not in a parameter's allowed set, are asked about the
+same way: map as an alias, or create a new parameter / choice.
 
 `identity: spec` categories generate a name from the category's
 `name:` template and a meaningless IPN (`R-000001`). `identity: mpn`
