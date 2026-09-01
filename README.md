@@ -192,26 +192,26 @@ It takes the same date and scope flags as `orders`, plus:
 | `--partial`           | Import an order even when some lines have no matching supplier part  |
 | `--location NAME\|PK` | Stock location to receive into (default: the only / first top-level) |
 | `--no-products`       | Skip the product lookup for the selected orders                      |
-| `--plain`             | Use the numbered checklist instead of the arrow-key one              |
+| `--plain`             | Use the numbered checklist instead of the interactive one            |
 
 The checklist starts with everything selected. Move with the arrow keys (or
 `j`/`k`), toggle with `SPACE`, `a` for all, `n` for none, and `ENTER` to
 submit. `q` or `ESC` cancels.
 
 ```
-Orders found (3):
-  > [x] 12345678      2026-07-01      41.50 AUD  1 line  [Shipped]
-    [x] 12345679      2026-07-14      12.05 AUD  1 line  [Shipped]
-    [ ] 12345680      2026-08-02       8.20 AUD  1 line  [Shipped]
-
-  2 of 3 selected
-  UP/DOWN move   SPACE toggle   a all   n none   ENTER import   q cancel
+? Orders found (3):
+  ❯ ◉  12345678      2026-07-01      41.50 AUD  1 line  [Shipped]
+    ◉  12345679      2026-07-14      12.05 AUD  1 line  [Shipped]
+    ○  12345680      2026-08-02       8.20 AUD  1 line  [Shipped]
+  SPACE toggle   a all   n none   ENTER import   q cancel
 ```
 
-Long lists scroll to fit the terminal. If the terminal cannot support that —
-piped output, a `dumb` terminal, Windows — it falls back automatically to a
-numbered list where you type numbers or ranges (`1 3-5`) to toggle. `--plain`
-forces that version, as does setting `INVIMPORT_PLAIN_PROMPT=1`.
+Long lists scroll to fit the terminal. Choosing from a long vocabulary
+(parameters, choice spellings, category paths) is a type-to-filter search
+rather than a scrolling menu. If the terminal cannot support that — piped
+output, a `dumb` terminal — it falls back automatically to a numbered list
+where you type numbers or ranges (`1 3-5`) to toggle. `--plain` forces that
+version, as does setting `INVIMPORT_PLAIN_PROMPT=1`.
 
 **Product details are fetched once you submit.** Every SKU across the selected
 orders is looked up against the Product Information API, which is what lets an
@@ -589,7 +589,7 @@ new, and they import a second time.
 
 #### What it will not guess
 
-Two situations stop and ask, with the usual arrow-key prompt:
+Two situations stop and ask, with the usual interactive prompt:
 
 - **An unknown category.** Existing near-matches are offered first, because
   writing `Resistors/SMD` when `Resistors/Surface Mount Resistors` exists is
@@ -781,8 +781,9 @@ src/
             stock.py          stock items, locations, barcode idempotence
             stockimport.py    a stock file becoming InvenTree records
         commands/             thin CLI adapters over the above
-            _keys.py          raw-mode key reading for the interactive prompts
-            _prompt.py        checklist and menu prompts
+            _keys.py          raw-mode key reading for the category browser
+            _prompt.py        prompt façade (InquirerPy, or numbered fallback)
+            _fancy.py         InquirerPy menus, fuzzy search, Rich chrome
 tests/                        mirrors the package
     conftest.py               shared fixtures
     support.py                test doubles: fake DigiKey, stub InvenTree
@@ -874,10 +875,12 @@ permissive mock.
 
 The interactive prompts are tested the same way as everything else. The
 `answers` fixture scripts what a user would type and forces the numbered
-checklist, so the supplier menu and the selection flow run end to end without a
-tty. The arrow-key version is split into a state machine (`Checklist`), a
-renderer (`frame`) and a loop with injected I/O (`run_cursor`), all of which
-are driven directly by keypress; the terminal handling underneath is exercised
+fallback (`INVIMPORT_PLAIN_PROMPT`), so the supplier menu and the selection
+flow run end to end without a tty. InquirerPy itself is not driven in tests;
+the façade is checked by swapping in a fake when the terminal would allow it.
+The category folder browser is still a custom cursor widget, split into a
+state machine (`Menu`), a renderer (`menu_frame`) and a loop with injected
+I/O (`run_menu_cursor`). The terminal handling underneath is exercised
 against a real `pty`, including that raw mode is always restored.
 
 ### Notes for maintainers

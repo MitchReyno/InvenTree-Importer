@@ -131,8 +131,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help="config directory for --create-parts "
                              "(default: config/ at the repo root)")
     parser.add_argument("--plain", action="store_true",
-                        help="use the numbered checklist instead of the arrow-key "
-                             "one, for a terminal that mangles it")
+                        help="use the numbered checklist instead of the "
+                             "interactive one, for a terminal that mangles it")
     parser.add_argument("--write", action="store_true",
                         help="apply changes (default is dry run)")
     parser.add_argument("--no-products", action="store_false", dest="products",

@@ -1,15 +1,15 @@
 """
 Interactive prompts shared by the CLI commands.
 
-The checklist comes in two forms over one state machine:
+Two front-ends over one façade:
 
-    cursor   arrow keys move, SPACE toggles, ENTER submits. Needs a terminal
-             on both stdin and stdout, and puts it into raw mode to do it.
-    plain    a numbered list; type numbers or ranges to toggle, ENTER submits.
+    fancy    InquirerPy menus, fuzzy search on long lists, Rich chrome.
+             Used when stdin and stdout are a real terminal.
+    plain    a numbered list; type a number, or numbers/ranges to toggle.
              Works anywhere - over a pipe, in a dumb terminal, under pytest.
 
-select_many() picks whichever the terminal can support, so the caller never
-has to care. Neither needs a dependency beyond the standard library.
+The category folder browser (choose_row) is still a custom cursor widget:
+InquirerPy has no equivalent for ENTER-vs-SPACE-vs-arrow on one row.
 
 Every prompt returns None when the user backs out (q, ESC, Ctrl-C or EOF) so
 callers can treat "cancelled" as an ordinary outcome rather than an exception.
@@ -19,18 +19,21 @@ Only the CLI layer prompts. Library code takes its answers as arguments.
 
 from __future__ import annotations
 
+import re
 import shutil
 import sys
 from dataclasses import dataclass, field
 from typing import Any, Callable, Sequence
 
+from . import _fancy
 from . import _keys as keys
+
+console = _fancy.console
+
+_PROMPT_TAIL = re.compile(r"[\s>]+$")
 
 CANCELLED = None
 
-# Drawn below the list; kept short enough to survive a narrow terminal.
-CURSOR_HELP = ("UP/DOWN move   SPACE toggle   a all   n none   "
-               "ENTER {verb}   q cancel")
 PLAIN_HELP = ("toggle: numbers or ranges (e.g. 1 3-5)   a=all   n=none   "
               "q=cancel")
 
@@ -54,6 +57,24 @@ def ask(prompt: str) -> str | None:
     except (EOFError, KeyboardInterrupt):
         print()
         return CANCELLED
+
+
+def question_and_context(title: str, prompt: str = "") -> tuple[str, str]:
+    """
+    Split a title into the InquirerPy question and optional Rich chrome.
+
+    A single line is the question. Several lines are context (shown in a
+    panel) plus a short question taken from `prompt`, so the sample values
+    sit above the menu instead of being crammed into it.
+    """
+    lines = title.splitlines()
+    while lines and not lines[-1].strip():
+        lines.pop()
+    question = _PROMPT_TAIL.sub("", prompt.strip())
+    if len(lines) > 1:
+        return (question or "choose", "\n".join(lines))
+    heading = lines[0].strip() if lines else ""
+    return (heading or question or "choose", "")
 
 
 def parse_selection(text: str, count: int) -> tuple[set[int], list[str]]:
@@ -96,25 +117,21 @@ def parse_selection(text: str, count: int) -> tuple[set[int], list[str]]:
 @dataclass
 class Checklist:
     """
-    What is in the list, what is ticked, and where the cursor is.
+    What is in the list and what is ticked.
 
-    Deliberately knows nothing about terminals: both front-ends drive this,
-    and it can be exercised key by key in a test without a tty.
+    The numbered fallback drives this; InquirerPy owns the TTY checklist.
     """
     items: Sequence[Any]
     render: Callable[[Any], str]
     title: str
     verb: str = "continue"
     state: list[bool] = field(default_factory=list)
-    cursor: int = 0
-    offset: int = 0
     message: str = ""
 
     def __post_init__(self) -> None:
         if not self.state:
             self.state = [True] * len(self.items)
 
-    # -- selection ---------------------------------------------------------
     @property
     def count(self) -> int:
         return sum(self.state)
@@ -127,52 +144,6 @@ class Checklist:
 
     def set_all(self, value: bool) -> None:
         self.state = [value] * len(self.items)
-
-    # -- cursor ------------------------------------------------------------
-    def move(self, delta: int) -> None:
-        self.cursor = max(0, min(len(self.items) - 1, self.cursor + delta))
-
-    def handle(self, key: str) -> str | None:
-        """Apply one keypress. Returns SUBMIT, CANCEL, or None to carry on."""
-        self.message = ""
-
-        if key == keys.UP:
-            self.move(-1)
-        elif key == keys.DOWN:
-            self.move(1)
-        elif key == keys.TOP:
-            self.cursor = 0
-        elif key == keys.BOTTOM:
-            self.cursor = len(self.items) - 1
-        elif key == keys.PAGE_UP:
-            self.move(-10)
-        elif key == keys.PAGE_DOWN:
-            self.move(10)
-        elif key == keys.TOGGLE:
-            self.toggle(self.cursor)
-        elif key == keys.ALL:
-            self.set_all(True)
-        elif key == keys.NONE:
-            self.set_all(False)
-        elif key == keys.CANCEL:
-            return keys.CANCEL
-        elif key == keys.SUBMIT:
-            if not self.count:
-                self.message = ("nothing selected - press SPACE to pick at "
-                                "least one, or q to cancel")
-                return None
-            return keys.SUBMIT
-        return None
-
-    # -- viewport ----------------------------------------------------------
-    def scroll(self, visible: int) -> None:
-        """Keep the cursor inside the window, moving the window as little as
-        possible so the list does not jump about under the user."""
-        if self.cursor < self.offset:
-            self.offset = self.cursor
-        elif self.cursor >= self.offset + visible:
-            self.offset = self.cursor - visible + 1
-        self.offset = max(0, min(self.offset, max(0, len(self.items) - visible)))
 
 
 @dataclass
@@ -238,52 +209,8 @@ class Menu:
 
 
 # --------------------------------------------------------------------------
-# Cursor front-end
+# Folder-browser cursor front-end
 # --------------------------------------------------------------------------
-def frame(checklist: Checklist, width: int, height: int,
-          final: bool = False) -> list[str]:
-    """
-    Render one frame as a list of lines, each already cut to the terminal
-    width. Wrapping would break the redraw, which counts lines to move back up.
-    """
-    body = max(MIN_VISIBLE_ROWS, height - CHROME_ROWS)
-    scrolling = len(checklist.items) > body
-    visible = body - 1 if scrolling else body
-    checklist.scroll(visible)
-
-    def cut(text: str) -> str:
-        return text[:max(1, width - 1)]
-
-    lines = [cut(checklist.title)]
-
-    window = range(checklist.offset,
-                   min(checklist.offset + visible, len(checklist.items)))
-    for index in window:
-        mark = "x" if checklist.state[index] else " "
-        here = index == checklist.cursor and not final
-        row = cut(f"  {'>' if here else ' '} [{mark}] "
-                  f"{checklist.render(checklist.items[index])}")
-        # Reverse video for the cursor row: applied after the cut so the escape
-        # codes cannot be sliced in half.
-        lines.append(f"\x1b[7m{row}\x1b[0m" if here else row)
-
-    if scrolling:
-        above = checklist.offset
-        below = len(checklist.items) - (checklist.offset + visible)
-        marker = "   ".join(
-            part for part in (f"  {above} more above" if above else "",
-                              f"{below} more below" if below else "") if part)
-        lines.append(cut(marker or "  "))
-
-    lines.append("")
-    lines.append(cut(f"  {checklist.count} of {len(checklist.items)} selected"))
-    if not final:
-        lines.append(cut("  " + CURSOR_HELP.format(verb=checklist.verb)))
-        if checklist.message:
-            lines.append(cut(f"  {checklist.message}"))
-    return lines
-
-
 def redraw(lines: list[str], previous: int) -> str:
     """
     The escape sequence that replaces the previous frame with this one.
@@ -306,59 +233,9 @@ def redraw(lines: list[str], previous: int) -> str:
     return "".join(out)
 
 
-def run_cursor(checklist: Checklist, read: Callable[[], str],
-               write: Callable[[str], None],
-               size: Callable[[], tuple[int, int]]) -> list[Any] | None:
-    """
-    The draw/read/apply loop.
-
-    read, write and size are injected so the loop can be driven by a scripted
-    list of keypresses in a test - the terminal handling around it is what
-    select_cursor() adds.
-    """
-    previous = 0
-    try:
-        while True:
-            width, height = size()
-            lines = frame(checklist, width, height)
-            write(redraw(lines, previous))
-            previous = len(lines)
-
-            outcome = checklist.handle(read())
-            if outcome is None:
-                continue
-
-            # Redraw one last time without the cursor or the help, leaving the
-            # final state of the list on screen as a record of what was picked.
-            width, height = size()
-            write(redraw(frame(checklist, width, height, final=True), previous))
-            return checklist.chosen() if outcome == keys.SUBMIT else CANCELLED
-    except KeyboardInterrupt:
-        write("\n")
-        return CANCELLED
-
-
 def terminal_size() -> tuple[int, int]:
     size = shutil.get_terminal_size(fallback=(80, 24))
     return size.columns, size.lines
-
-
-def select_cursor(checklist: Checklist) -> list[Any] | None:
-    """Drive the checklist with the real terminal in raw mode."""
-    reader = keys.StdinReader()
-    write = sys.stdout.write
-
-    def flushing(text: str) -> None:
-        write(text)
-        sys.stdout.flush()
-
-    with keys.raw_mode(reader.fd):
-        flushing("\x1b[?25l")                     # hide the cursor
-        try:
-            return run_cursor(checklist, lambda: keys.read_key(reader),
-                              flushing, terminal_size)
-        finally:
-            flushing("\x1b[?25h")                 # and always put it back
 
 
 # --------------------------------------------------------------------------
@@ -419,17 +296,20 @@ def select_many(
     """
     Toggle a checklist, then submit it.
 
-    Uses arrow keys and SPACE when the terminal allows, and a numbered list
-    when it does not. Returns the chosen items in list order, or None if the
-    user quit.
+    InquirerPy checkboxes when the terminal allows, a numbered list when it
+    does not. Returns the chosen items in list order, or None if the user quit.
     """
     if not items:
         return []
 
+    if not plain and _fancy.supported():
+        message, context = question_and_context(title)
+        return _fancy.select_many(
+            items, render, message=message, verb=verb, selected=selected,
+            context=context)
+
     checklist = Checklist(items, render, title, verb,
                           state=[selected] * len(items))
-    if not plain and keys.supported():
-        return select_cursor(checklist)
     return select_plain(checklist)
 
 
@@ -585,17 +465,21 @@ def choose_one(
     title: str,
     prompt: str = "  choose > ",
     plain: bool = False,
+    fuzzy: bool | None = None,
 ) -> Any | None:
-    """Pick exactly one option. Arrow keys when the terminal allows."""
+    """
+    Pick exactly one option.
+
+    InquirerPy select, or fuzzy search when the list is long (or fuzzy=True).
+    Numbered list when the terminal cannot support that.
+    """
     if not options:
         return CANCELLED
 
-    if not plain and keys.supported():
-        menu = Menu(options, render, title, help=MENU_HELP.format(verb="select"))
-        result = select_menu_cursor(menu)
-        if result is None or result[1] == keys.LEFT:
-            return CANCELLED
-        return result[0]
+    if not plain and _fancy.supported():
+        message, context = question_and_context(title, prompt)
+        return _fancy.choose_one(
+            options, render, message=message, context=context, fuzzy=fuzzy)
 
     picked = choose_one_plain(options, render, title=title, prompt=prompt)
     if picked is None:
@@ -628,7 +512,10 @@ def choose_row(
 
 
 def confirm(question: str, *, default: bool = False) -> bool:
-    """Yes/no. EOF or Ctrl-C answers with the default rather than hanging."""
+    """Yes/no. EOF, Ctrl-C or skip answers with the default rather than hanging."""
+    if _fancy.supported():
+        picked = _fancy.confirm(question, default=default)
+        return default if picked is None else picked
     suffix = "[Y/n]" if default else "[y/N]"
     answer = ask(f"{question} {suffix} ")
     if answer is None or answer == "":

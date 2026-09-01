@@ -166,12 +166,14 @@ def report(found: list[Discovery]) -> None:
     for item in found:
         if item.category != current:
             current = item.category
-            print(f"\n{current}")
-        known = (f"  -> {item.existing_parameter}"
+            _prompt.console.print()
+            _prompt.console.print(f"[bold]{current}[/bold]")
+        known = (f"  [green]-> {item.existing_parameter}[/green]"
                  if item.existing_parameter else "")
-        print(f"  {item.supplier_name:<34} x{item.count:<4} "
-              f"{item.suggestion.describe()}{known}")
-        print(f"      {item.sample()}")
+        _prompt.console.print(
+            f"  {item.supplier_name:<34} [dim]x{item.count:<4}[/dim] "
+            f"[cyan]{item.suggestion.describe()}[/cyan]{known}")
+        _prompt.console.print(f"      [dim]{item.sample()}[/dim]")
 
 
 def run(args: argparse.Namespace) -> int:

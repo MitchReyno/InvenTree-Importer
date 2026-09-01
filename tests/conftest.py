@@ -111,9 +111,8 @@ def answers(monkeypatch):
 
     monkeypatch.setattr("builtins.input", fake_input)
     monkeypatch.setattr(sys, "stdin", _Tty())
-    # Force the line-reading checklist. Without this the cursor version would
-    # be chosen whenever pytest runs with -s, and it reads keys off the real
-    # terminal - the run would hang waiting for a keypress nobody makes.
+    # Force the numbered fallback. Without this InquirerPy would take over
+    # whenever pytest runs with -s, and it reads keys off the real terminal.
     monkeypatch.setenv(keys.PLAIN_ENV_VAR, "1")
     return feed
 

@@ -19,7 +19,7 @@ orders and stock. Re-running the same file is a no-op - each stock item carries
 a barcode naming the line that made it, and InvenTree refuses to assign one
 twice.
 
-Anything ambiguous stops and asks, with the same arrow-key prompts the other
+Anything ambiguous stops and asks, with the same interactive prompts the other
 commands use: an unknown category offers close matches before creating one, and
 a partly-specified part offers the parts that match what was given. Neither is
 guessed, because InvenTree has no part merge and both mistakes are cleaned up

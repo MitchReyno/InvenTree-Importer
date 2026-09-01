@@ -53,9 +53,12 @@ Capacitors:
     aliases:
       - Capacitors / Ceramic Capacitors
   Electrolytic Capacitors:
+    ignore:
+      - Ratings
     name: "Electrolytic Capacitor {Capacitance} {Max Working Voltage}V {Tolerance}% {Mounting} {Package}"
     key_parameters:
       - Polarity
+      - Surface Mount Land Size
     parameters:
       - ESR
       - Polarity
@@ -65,9 +68,20 @@ Capacitors:
       - "Lifetime @ Temp."
       - "Ripple Current @ Low Frequency"
       - "Ripple Current @ High Frequency"
+      - Applications
+      - Impedance
+      - Surface Mount Land Size
     aliases:
       - Capacitors / Aluminum Electrolytic Capacitors
   Film Capacitors:
+    ignore:
+      - Ratings
+    key_parameters:
+      - Dielectric Material
+    parameters:
+      - Dielectric Material
+      - Applications
+      - Termination Style
     name: "Film Capacitor {Capacitance} {Max Working Voltage}V {Tolerance}% {Mounting} {Package}"
     aliases:
       - Capacitors / Film Capacitors
@@ -79,6 +93,9 @@ Capacitors:
       - Diameter
       - Height
       - Lead Spacing
+      - Features
+      - "Lifetime @ Temp."
+      - Manufacturer Size Code
     aliases:
       - Capacitors / Tantalum Capacitors
   Motor Capacitors:
@@ -102,14 +119,26 @@ Diodes:
     - Max Forward Voltage Drop
   Schottky Diodes: {}
   Signal Diodes:
+    key_parameters:
+      - "Current - Reverse Leakage @ Vr"
+      - Technology
+      - Voltage - DC Reverse (Vr) (Max)
+    parameters:
+      - "Current - Reverse Leakage @ Vr"
+      - Technology
+      - Voltage - DC Reverse (Vr) (Max)
     aliases:
       - Discrete Semiconductor Products / Diodes / Rectifiers / Single Diodes
   Zener Diodes:
+    ignore:
+      - Qualification
     parameters:
       - Zener Voltage
       - Max Impedance
       - Power Rating
       - Tolerance
+      - "Current - Reverse Leakage @ Vr"
+      - Grade
     aliases:
       - Discrete Semiconductor Products / Diodes / Zener / Single Zener Diodes
     key_parameters:
@@ -349,8 +378,35 @@ Connectors:
     - Termination Style
   ipn_prefix: CONN
   Rectangular Connectors:
+    key_parameters:
+      - Contact Length - Post
+      - Fastening Type
+      - Number of Positions Loaded
+      - Pitch - Mating
+      - Contact Shape
+      - Insulation Material
+      - Shrouding
+      - Contact Length - Mating
+      - Row Spacing - Mating
     parameters:
       - Max Working Voltage
+      - Contact Finish - Post
+      - Contact Length - Post
+      - Fastening Type
+      - Color
+      - Height
+      - Material Flammability Rating
+      - Number of Positions
+      - Number of Positions Loaded
+      - Number of Rows
+      - Pitch - Mating
+      - Connector Style
+      - Contact Material - Mating
+      - Contact Shape
+      - Insulation Material
+      - Shrouding
+      - Contact Length - Mating
+      - Row Spacing - Mating
     aliases:
       - Connectors, Interconnects / Rectangular Connectors / Free Hanging, Panel Mount
       - Connectors, Interconnects / Rectangular Connectors / Headers, Male Pins
@@ -359,19 +415,68 @@ Connectors:
     aliases:
       - Connectors, Interconnects / Rectangular Connectors / Rectangular Connector Contacts
   Misc Connectors:
+    key_parameters:
+      - Gender
+      - Housing Material
+      - Number of Positions or Pins (Grid)
+      - Pitch
+    parameters:
+      - Color
+      - Gender
+      - Height
+      - Housing Material
+      - Material Flammability Rating
+      - Number of Positions or Pins (Grid)
+      - Pitch
     aliases:
       - Connectors, Interconnects / Shunts, Jumpers
   Pin Sockets:
+    key_parameters:
+      - Contact Finish - Post
+      - Contact Material - Mating
+      - Pitch - Post
+    parameters:
+      - Contact Finish - Post
+      - Contact Material - Mating
+      - Features
+      - Housing Material
+      - Number of Positions or Pins (Grid)
+      - Pitch - Post
     aliases:
       - Connectors, Interconnects / Sockets for ICs, Transistors / IC Sockets
 
   "D-Sub, D-Shaped Connectors":
+    ignore:
+      - Material Flammability Rating
+    key_parameters:
+      - Backset Spacing
+      - Connector Style
+      - Contact Finish Thickness
+      - Flange Feature
+      - Number of Positions
+      - Number of Rows
+      - "Shell Material, Finish"
+      - "Shell Size, Connector Layout"
+    parameters:
+      - Backset Spacing
+      - Connector Style
+      - Contact Finish Thickness
+      - Features
+      - Flange Feature
+      - Number of Positions
+      - Number of Rows
+      - "Shell Material, Finish"
+      - "Shell Size, Connector Layout"
     aliases:
       - Connectors, Interconnects / D-Sub, D-Shaped Connectors / D-Sub Connector Assemblies
   Audio Connectors:
     aliases:
       - Connectors, Interconnects / Barrel Connectors / Audio Connectors
 "Crystals, Oscillators, Resonators":
+  key_parameters:
+    - Frequency Stability
+    - Height - Seated (Max)
+    - Operating Mode
   parameters:
     - Package
     - Mounting
@@ -380,16 +485,26 @@ Connectors:
     - Operating Temp Min
     - Frequency
     - Load Capacitance
+    - Frequency Stability
+    - Height - Seated (Max)
+    - Operating Mode
   ipn_prefix: XTAL
   aliases:
     - Crystals, Oscillators, Resonators / Crystals
 
 "Filters, Ferrite Beads":
+  key_parameters:
+    - DC Resistance (DCR) (Max)
+    - "Impedance @ Frequency"
   parameters:
     - Package
     - Mounting
     - Operating Temp Max
     - Operating Temp Min
+    - Current Rating
+    - DC Resistance (DCR) (Max)
+    - "Impedance @ Frequency"
+    - Height - Seated (Max)
   ipn_prefix: FILT
   aliases:
     - Filters / Ferrite Beads and Chips

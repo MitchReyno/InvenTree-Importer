@@ -13,19 +13,18 @@ def visible(text: str) -> str:
     """What a row occupies on screen, with the escape codes taken out."""
     return ANSI.sub("", text)
 
+from invimport.commands import _fancy
 from invimport.commands import _keys as keys
 from invimport.commands._prompt import (
-    Checklist,
     Menu,
     choose_one,
     choose_row,
     confirm,
-    frame,
     interactive,
     menu_frame,
     parse_selection,
+    question_and_context,
     redraw,
-    run_cursor,
     run_menu_cursor,
     select_many,
 )
@@ -35,25 +34,6 @@ ITEMS = ["alpha", "beta", "gamma", "delta"]
 
 def render(item: str) -> str:
     return item
-
-
-def checklist(items=ITEMS, **kw) -> Checklist:
-    return Checklist(items, render, kw.pop("title", "t"), **kw)
-
-
-def drive(keypresses, items=ITEMS, size=(80, 24), selected=True):
-    """
-    Run the cursor loop over a scripted list of keypresses.
-
-    Returns (result, frames) - the frames being every escape-sequence write, so
-    a test can assert on what was drawn as well as what came back.
-    """
-    lst = Checklist(items, render, "t", state=[selected] * len(items))
-    pressed = iter(keypresses)
-    frames: list[str] = []
-    result = run_cursor(lst, lambda: next(pressed, keys.CANCEL),
-                        frames.append, lambda: size)
-    return result, frames
 
 
 # --------------------------------------------------------------------------
@@ -152,130 +132,22 @@ def test_the_checklist_shows_marks_and_a_count(answers, capsys):
 
 
 # --------------------------------------------------------------------------
-# select_many: cursor version
+# question_and_context
 # --------------------------------------------------------------------------
-def test_space_toggles_the_row_under_the_cursor():
-    result, _ = drive([keys.TOGGLE, keys.SUBMIT])
-    assert result == ["beta", "gamma", "delta"]
+def test_a_single_line_title_is_the_question():
+    question, context = question_and_context("Orders found (4):")
+    assert question == "Orders found (4):"
+    assert context == ""
 
 
-def test_arrows_move_the_cursor_before_toggling():
-    result, _ = drive([keys.DOWN, keys.DOWN, keys.TOGGLE, keys.SUBMIT])
-    assert result == ["alpha", "beta", "delta"]
-
-
-def test_the_cursor_stops_at_the_top():
-    """Holding up past the first row must not wrap round to the bottom."""
-    result, _ = drive([keys.UP, keys.UP, keys.UP, keys.TOGGLE, keys.SUBMIT])
-    assert result == ["beta", "gamma", "delta"]
-
-
-def test_the_cursor_stops_at_the_bottom():
-    result, _ = drive([keys.BOTTOM, keys.DOWN, keys.DOWN, keys.TOGGLE,
-                       keys.SUBMIT])
-    assert result == ["alpha", "beta", "gamma"]
-
-
-def test_top_and_bottom_jump():
-    result, _ = drive([keys.BOTTOM, keys.TOGGLE, keys.TOP, keys.TOGGLE,
-                       keys.SUBMIT])
-    assert result == ["beta", "gamma"]
-
-
-def test_all_and_none_still_work_from_the_cursor_version():
-    result, _ = drive([keys.NONE, keys.DOWN, keys.TOGGLE, keys.SUBMIT])
-    assert result == ["beta"]
-
-
-def test_cancel_returns_nothing():
-    assert drive([keys.CANCEL])[0] is None
-
-
-def test_running_out_of_keys_cancels():
-    """A terminal that goes away mid-prompt backs out rather than looping."""
-    assert drive([keys.DOWN])[0] is None
-
-
-def test_unknown_keys_are_ignored():
-    result, _ = drive([keys.UNKNOWN, keys.UNKNOWN, keys.TOGGLE, keys.SUBMIT])
-    assert result == ["beta", "gamma", "delta"]
-
-
-def test_submitting_nothing_is_refused_and_says_so():
-    result, frames = drive([keys.NONE, keys.SUBMIT, keys.TOGGLE, keys.SUBMIT])
-    assert result == ["alpha"]
-    assert "nothing selected" in "".join(frames)
-
-
-def test_ctrl_c_during_a_redraw_cancels_cleanly():
-    """KeyboardInterrupt must not escape into the command as a traceback."""
-    lst = checklist()
-
-    def boom():
-        raise KeyboardInterrupt
-
-    assert run_cursor(lst, boom, lambda _: None, lambda: (80, 24)) is None
-
-
-# --------------------------------------------------------------------------
-# Frame rendering
-# --------------------------------------------------------------------------
-def test_the_frame_marks_the_cursor_and_the_ticks():
-    lines = frame(checklist(), 80, 24)
-    assert lines[0] == "t"
-    assert "> [x] alpha" in lines[1]
-    assert lines[2] == "    [x] beta"
-    assert "  4 of 4 selected" in lines
-    assert any("SPACE toggle" in line for line in lines)
-
-
-def test_the_cursor_row_is_highlighted():
-    lines = frame(checklist(), 80, 24)
-    assert lines[1].startswith("\x1b[7m") and lines[1].endswith("\x1b[0m")
-    assert "\x1b[7m" not in lines[2]
-
-
-def test_the_final_frame_drops_the_cursor_and_the_help():
-    lines = frame(checklist(), 80, 24, final=True)
-    assert not any("\x1b[7m" in line for line in lines)
-    assert not any("SPACE toggle" in line for line in lines)
-    assert "  4 of 4 selected" in lines
-
-
-def test_long_rows_are_cut_to_the_terminal_width():
-    """
-    Wrapping would desync the redraw, which counts lines to move back up.
-    Measured without the escape codes: they take no space on screen.
-    """
-    lines = frame(checklist(["x" * 200]), 40, 24)
-    assert all(len(visible(line)) < 40 for line in lines)
-
-
-def test_a_long_list_scrolls_instead_of_overflowing():
-    items = [f"item {n}" for n in range(50)]
-    lines = frame(checklist(items), 80, 24)
-    assert len(lines) <= 24
-    assert any("more below" in line for line in lines)
-
-
-def test_scrolling_follows_the_cursor_down_the_list():
-    items = [f"item {n}" for n in range(50)]
-    lst = checklist(items)
-    lst.cursor = 40
-    text = "\n".join(frame(lst, 80, 24))
-    assert "item 40" in text
-    assert "item 0" not in text
-    assert "more above" in text
-
-
-def test_a_short_list_needs_no_scroll_markers():
-    text = "\n".join(frame(checklist(), 80, 24))
-    assert "more below" not in text and "more above" not in text
-
-
-def test_a_tiny_terminal_still_renders_some_rows():
-    lines = frame(checklist(), 80, 4)
-    assert any("alpha" in line for line in lines)
+def test_a_multiline_title_becomes_context_and_the_prompt_is_the_question():
+    title = ("Resistors\n"
+             "  Resistance  (on 12 products)\n"
+             "  values: 10k")
+    question, context = question_and_context(title, prompt="  file as > ")
+    assert question == "file as"
+    assert context.startswith("Resistors")
+    assert "10k" in context
 
 
 # --------------------------------------------------------------------------
@@ -311,19 +183,90 @@ def test_the_plain_version_is_used_without_a_terminal(answers, capsys):
 
 
 def test_plain_can_be_asked_for_explicitly(answers, capsys, monkeypatch):
-    monkeypatch.setattr(keys, "supported", lambda *a, **k: True)
+    monkeypatch.setattr(_fancy, "supported", lambda *a, **k: True)
     answers("")
     assert select_many(ITEMS, render, title="t", plain=True) == ITEMS
     assert "toggle: numbers or ranges" in capsys.readouterr().out
 
 
-def test_the_cursor_version_is_used_when_the_terminal_allows(monkeypatch):
+def test_the_fancy_version_is_used_when_the_terminal_allows(monkeypatch):
     seen = {}
-    monkeypatch.setattr(keys, "supported", lambda *a, **k: True)
-    monkeypatch.setattr("invimport.commands._prompt.select_cursor",
-                        lambda lst: seen.setdefault("items", list(lst.items)))
-    select_many(ITEMS, render, title="t")
+
+    def fake_select(items, render, *, message, verb, selected, context):
+        seen["items"] = list(items)
+        seen["message"] = message
+        return list(items)
+
+    monkeypatch.setattr(_fancy, "supported", lambda *a, **k: True)
+    monkeypatch.setattr(_fancy, "select_many", fake_select)
+    assert select_many(ITEMS, render, title="Orders found (4):") == ITEMS
     assert seen["items"] == ITEMS
+    assert seen["message"] == "Orders found (4):"
+
+
+def test_choose_one_uses_the_fancy_version_when_the_terminal_allows(monkeypatch):
+    seen = {}
+
+    def fake_choose(options, render, *, message, context, fuzzy):
+        seen["options"] = list(options)
+        seen["fuzzy"] = fuzzy
+        seen["context"] = context
+        return options[1]
+
+    monkeypatch.setattr(_fancy, "supported", lambda *a, **k: True)
+    monkeypatch.setattr(_fancy, "choose_one", fake_choose)
+    title = "Resistors\n  Resistance  (on 12 products)"
+    assert choose_one(ITEMS, render, title=title, prompt="  file as > ",
+                      fuzzy=True) == "beta"
+    assert seen["options"] == ITEMS
+    assert seen["fuzzy"] is True
+    assert "Resistance" in seen["context"]
+
+
+def test_confirm_uses_the_fancy_version_when_the_terminal_allows(monkeypatch):
+    monkeypatch.setattr(_fancy, "supported", lambda *a, **k: True)
+    monkeypatch.setattr(_fancy, "confirm", lambda q, *, default: True)
+    assert confirm("Map them now?", default=False) is True
+
+
+def test_confirm_skip_takes_the_default(monkeypatch):
+    monkeypatch.setattr(_fancy, "supported", lambda *a, **k: True)
+    monkeypatch.setattr(_fancy, "confirm", lambda q, *, default: None)
+    assert confirm("Map them now?", default=True) is True
+
+
+# --------------------------------------------------------------------------
+# _fancy.supported
+# --------------------------------------------------------------------------
+class _FakeStream:
+    def __init__(self, tty: bool):
+        self._tty = tty
+
+    def isatty(self) -> bool:
+        return self._tty
+
+    def fileno(self) -> int:
+        return 0
+
+
+def test_fancy_needs_a_terminal_at_both_ends(monkeypatch):
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.delenv(keys.PLAIN_ENV_VAR, raising=False)
+    assert _fancy.supported(_FakeStream(True), _FakeStream(True)) is True
+    assert _fancy.supported(_FakeStream(True), _FakeStream(False)) is False
+    assert _fancy.supported(_FakeStream(False), _FakeStream(True)) is False
+
+
+def test_fancy_rejects_a_dumb_terminal(monkeypatch):
+    monkeypatch.delenv(keys.PLAIN_ENV_VAR, raising=False)
+    monkeypatch.setenv("TERM", "dumb")
+    assert _fancy.supported(_FakeStream(True), _FakeStream(True)) is False
+
+
+def test_fancy_respects_the_plain_override(monkeypatch):
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.setenv(keys.PLAIN_ENV_VAR, "1")
+    assert _fancy.supported(_FakeStream(True), _FakeStream(True)) is False
 
 
 # --------------------------------------------------------------------------

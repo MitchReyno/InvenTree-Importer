@@ -119,25 +119,16 @@ def ask_existing_parameter(
 
     options: list[tuple[str, str]] = [
         (name, labels.get(name, f"use {name}")) for name in offered]
-    if rest:
-        if len(rest) <= 12:
-            options.extend((name, f"use {name}") for name in rest)
-        else:
-            options.append(("__all__", "pick from all parameters..."))
+    options.extend((name, f"use {name}") for name in rest)
     options.append(("__type__", "type a name"))
 
     picked = _prompt.choose_one(
         options, lambda o: o[1],
         title=f"  map {item.supplier_name!r} to:",
-        prompt="  parameter > ")
+        prompt="  parameter > ", fuzzy=True)
     if picked is None:
         return None
     name = picked[0]
-    if name == "__all__":
-        picked = _prompt.choose_one(
-            [(n, n) for n in names], lambda o: o[1],
-            title="  all parameters:", prompt="  parameter > ")
-        return None if picked is None else picked[0]
     if name == "__type__":
         typed = _prompt.ask("  parameter name > ")
         return None if typed is None else typed.strip()
@@ -324,7 +315,7 @@ def ask_existing_choice(item: UnknownChoice) -> str | None:
     picked = _prompt.choose_one(
         options, lambda o: o[1],
         title=f"  map {item.value!r} to:",
-        prompt="  choice > ")
+        prompt="  choice > ", fuzzy=True)
     return None if picked is None else picked[0]
 
 

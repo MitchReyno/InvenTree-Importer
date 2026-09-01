@@ -6,6 +6,7 @@ description = "Import DigiKey product and order data into InvenTree"
 # throughout and would likely run on 3.10+, but that is unverified.
 requires-python = ">=3.12"
 dependencies = [
+    "inquirerpy>=0.3.4",
     # Upper bound is deliberate. src/invimport/inventree/api.py overrides
     # Parameter.URL and ParameterTemplate.URL because 0.13.x still ships the
     # pre-530 /api/part/parameter/ routes. If a later release fixes those
@@ -17,6 +18,7 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "pyyaml>=6.0.3",
     "requests>=2.34.2",
+    "rich>=15.0.0",
 ]
 
 [project.scripts]
