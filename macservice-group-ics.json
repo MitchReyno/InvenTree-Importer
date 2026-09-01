@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "source": {
+    "kind": "typed-description",
+    "reference": "macservice-group-ics",
+    "captured": "2026-09-02",
+    "agent": "claude-opus-5"
+  },
+  "defaults": {
+    "supplier": "MacService Group"
+  },
+  "lines": [
+    {
+      "id": "macservice-01",
+      "quantity": 12,
+      "category": "Integrated Circuits/Memory",
+      "description": "IC FLASH 2M (256K x 8) CMOS 200ns 32-PIN PDIP",
+      "mpn": "P28F020-200",
+      "manufacturer": "Intel",
+      "parameters": {
+        "Mounting": "Through Hole",
+        "Package": "32-Pin PDIP",
+        "Operating Temp Min": "0 °C",
+        "Operating Temp Max": "70 °C",
+        "Supply Voltage Min": "4.50 V",
+        "Supply Voltage Max": "5.50 V"
+      },
+      "datasheet": "https://www.futurlec.com/Datasheet/Memory/28F020.pdf",
+      "notes": "Tube 1 of 2. Speed grade -200 (200 ns) is not listed in the Intel 28F020 datasheet revisions checked (290245-009 lists -90/-120/-150; the earlier rev lists -70/-90/-150); Octopart lists P28F020-200 as Intel PDIP-32, 200 ns. Package/temp/supply read off the 28F020 datasheet: P = 32-Pin PDIP, blank temperature prefix = commercial 0-70 C, Vcc 4.50-5.50 V.",
+      "confidence": 0.9
+    },
+    {
+      "id": "macservice-02",
+      "quantity": 4,
+      "category": "Integrated Circuits/Memory",
+      "description": "IC FLASH 2M (256K x 8) CMOS 200ns 32-PIN PDIP",
+      "mpn": "P28F020-200",
+      "manufacturer": "Intel",
+      "parameters": {
+        "Mounting": "Through Hole",
+        "Package": "32-Pin PDIP",
+        "Operating Temp Min": "0 °C",
+        "Operating Temp Max": "70 °C",
+        "Supply Voltage Min": "4.50 V",
+        "Supply Voltage Max": "5.50 V"
+      },
+      "datasheet": "https://www.futurlec.com/Datasheet/Memory/28F020.pdf",
+      "notes": "Tube 2 of 2. Same part as macservice-01.",
+      "confidence": 0.9
+    },
+    {
+      "id": "macservice-03",
+      "quantity": 11,
+      "category": "Integrated Circuits/Memory",
+      "description": "IC 2048-BIT STATIC HMOS RAM (256 x 8) WITH I/O PORTS AND TIMER, 40-PIN PDIP",
+      "mpn": "P8155H",
+      "manufacturer": "Intel",
+      "parameters": {
+        "Mounting": "Through Hole",
+        "Package": "40-Pin PDIP",
+        "Operating Temp Min": "0 °C",
+        "Operating Temp Max": "70 °C",
+        "Supply Voltage Min": "4.5 V",
+        "Supply Voltage Max": "5.5 V"
+      },
+      "datasheet": "https://76h.org/MCS-80/Intel-P8155H-datasheet.pdf",
+      "notes": "Tube 1 of 2. Datasheet (Intel 231719-001, Dec 1986) gives TA = 0 C to 70 C and Vcc = 5 V +/-10%; pin configuration is a 40-pin DIP. The P prefix means plastic DIP in Intel's ordering scheme (legend seen in the 28F020 datasheet); this datasheet has no ordering-information page of its own.",
+      "confidence": 0.95
+    },
+    {
+      "id": "macservice-04",
+      "quantity": 9,
+      "category": "Integrated Circuits/Memory",
+      "description": "IC 2048-BIT STATIC HMOS RAM (256 x 8) WITH I/O PORTS AND TIMER, 40-PIN PDIP",
+      "mpn": "P8155H",
+      "manufacturer": "Intel",
+      "parameters": {
+        "Mounting": "Through Hole",
+        "Package": "40-Pin PDIP",
+        "Operating Temp Min": "0 °C",
+        "Operating Temp Max": "70 °C",
+        "Supply Voltage Min": "4.5 V",
+        "Supply Voltage Max": "5.5 V"
+      },
+      "datasheet": "https://76h.org/MCS-80/Intel-P8155H-datasheet.pdf",
+      "notes": "Tube 2 of 2. Same part as macservice-03.",
+      "confidence": 0.95
+    },
+    {
+      "id": "macservice-05",
+      "quantity": 9,
+      "category": "Integrated Circuits/Memory",
+      "description": "IC 2048-BIT STATIC MOS RAM (256 x 8) WITH I/O PORTS AND TIMER, 40-PIN PLASTIC DIP",
+      "mpn": "D8155C",
+      "manufacturer": "NEC",
+      "parameters": {
+        "Mounting": "Through Hole",
+        "Package": "40-pin plastic DIP",
+        "Operating Temp Min": "0 °C",
+        "Operating Temp Max": "70 °C",
+        "Supply Voltage Min": "4.5 V",
+        "Supply Voltage Max": "5.5 V"
+      },
+      "datasheet": "https://pdf.datasheet.live/cfd7fb71/necel.com/UPD8155C.pdf",
+      "notes": "Tube 1 of 2. NEC uPD8155/56 datasheet: ordering information lists uPD8155C as 40-pin plastic DIP, 3 MHz max; single +5 V +/-10% supply; AC characteristics at TA = 0 C to +70 C, Vcc = 5 V +/-10%.",
+      "confidence": 0.95
+    },
+    {
+      "id": "macservice-06",
+      "quantity": 5,
+      "category": "Integrated Circuits/Memory",
+      "description": "IC 2048-BIT STATIC MOS RAM (256 x 8) WITH I/O PORTS AND TIMER, 40-PIN PLASTIC DIP",
+      "mpn": "D8155C",
+      "manufacturer": "NEC",
+      "parameters": {
+        "Mounting": "Through Hole",
+        "Package": "40-pin plastic DIP",
+        "Operating Temp Min": "0 °C",
+        "Operating Temp Max": "70 °C",
+        "Supply Voltage Min": "4.5 V",
+        "Supply Voltage Max": "5.5 V"
+      },
+      "datasheet": "https://pdf.datasheet.live/cfd7fb71/necel.com/UPD8155C.pdf",
+      "notes": "Tube 2 of 2. Same part as macservice-05.",
+      "confidence": 0.95
+    }
+  ]
+}
