@@ -6,6 +6,9 @@
     "captured": "2026-09-02",
     "agent": "claude-opus-5"
   },
+  "defaults": {
+    "supplier": "MacService Group"
+  },
   "lines": [
     {
       "id": "l01",
