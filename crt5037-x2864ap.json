@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "source": {
+    "kind": "typed-description",
+    "reference": "crt5037-x2864ap",
+    "captured": "2026-09-02",
+    "agent": "claude-opus-5"
+  },
+  "lines": [
+    {
+      "id": "l01",
+      "quantity": 5,
+      "category": "Integrated Circuits/Display Drivers, Controllers",
+      "suggest_category": {
+        "identity": "mpn",
+        "ipn_prefix": "IC",
+        "because": "CRT video timer and controller (VTAC); no existing IC subcategory covers video/display controllers"
+      },
+      "description": "IC CRT VIDEO TIMER AND CONTROLLER (VTAC), 40-PIN DIP, +5V/+12V",
+      "mpn": "CRT5037",
+      "parameters": {
+        "Mounting": "Through Hole",
+        "Package": "40-Pin D.I.P.",
+        "Operating Temp Min": "0 °C",
+        "Operating Temp Max": "70 °C"
+      },
+      "datasheet": "https://www.bitsavers.org/components/standardMicrosystems/_dataBooks/1982_StandardMicrosystems.pdf",
+      "notes": "Tube 1 of 2. Standard Microsystems CRT 5027/5037/5057 VTAC datasheet, in the 1982 SMC data catalog (19 MB; the VTAC section is the datasheet). Reads: PACKAGE: 40-Pin D.I.P.; operating temperature range 0 C to +70 C. Dual supply - Vcc = +5 V +/-5% and Vdd = +12 V +/-5% - so Supply Voltage Min/Max are left off rather than record only one rail. No manufacturer given on the source, so none recorded; CRT5037 is Standard Microsystems' part number.",
+      "confidence": 0.9
+    },
+    {
+      "id": "l02",
+      "quantity": 4,
+      "category": "Integrated Circuits/Display Drivers, Controllers",
+      "suggest_category": {
+        "identity": "mpn",
+        "ipn_prefix": "IC",
+        "because": "CRT video timer and controller (VTAC); no existing IC subcategory covers video/display controllers"
+      },
+      "description": "IC CRT VIDEO TIMER AND CONTROLLER (VTAC), 40-PIN DIP, +5V/+12V",
+      "mpn": "CRT5037",
+      "parameters": {
+        "Mounting": "Through Hole",
+        "Package": "40-Pin D.I.P.",
+        "Operating Temp Min": "0 °C",
+        "Operating Temp Max": "70 °C"
+      },
+      "datasheet": "https://www.bitsavers.org/components/standardMicrosystems/_dataBooks/1982_StandardMicrosystems.pdf",
+      "notes": "Tube 2 of 2. Same part as l01.",
+      "confidence": 0.9
+    },
+    {
+      "id": "l03",
+      "quantity": 10,
+      "category": "Integrated Circuits/Memory",
+      "description": "IC EEPROM 64K (8K x 8) PARALLEL 28-PIN PLASTIC DIP",
+      "mpn": "X2864AP-32",
+      "manufacturer": "Xicor",
+      "parameters": {
+        "Mounting": "Through Hole",
+        "Package": "28-Pin Plastic DIP",
+        "Operating Temp Min": "0 °C",
+        "Operating Temp Max": "70 °C",
+        "Supply Voltage Min": "4.75 V",
+        "Supply Voltage Max": "5.25 V"
+      },
+      "datasheet": "https://www.bitsavers.org/components/xicor/1987_Xicor_Data_Book.pdf",
+      "notes": "One tube. Xicor 1987 data book: X2864A is an 8K x 8 E2PROM, 28 pins, TA = 0 C to +70 C, Vcc = +5 V +/-5%; ordering information gives P = Plastic DIP. The -32 suffix is NOT listed anywhere in that book - Xicor's speed grades for this part are -25 (250 ns), blank (300 ns), -35 and -45, and Octopart lists only X2864AP, -25, -35 and -45. Marking transcribed as given; please re-check the tube label.",
+      "needs_review": true,
+      "confidence": 0.75
+    }
+  ]
+}
