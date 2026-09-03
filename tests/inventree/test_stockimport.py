@@ -408,3 +408,35 @@ def test_a_missing_image_does_not_fail_the_import(config, server):
     assert result.lines[0].stock_item
     part = next(p for p in server.part_rows if p.get("IPN") == "RES-00001")
     assert not part.get("image")
+
+
+# --------------------------------------------------------------------------
+# Tags and the batch code
+# --------------------------------------------------------------------------
+def test_tags_and_batch_reach_the_stock_item(config, server):
+    """
+    Both describe the lot, not the part. New old stock is a claim about where
+    this quantity came from - the same component can arrive as NOS in one
+    delivery and current production in the next - so they are written to the
+    stock item, where they can differ, rather than to the part, where they
+    could not.
+    """
+    _, result = run(config, {**RESISTOR,
+                             "tags": ["NOS", "new old stock"],
+                             "batch": "8231",
+                             "notes": "sealed tube from a surplus dealer"})
+
+    assert result.lines[0].action == CREATED
+    item = server.stock_items[0]
+    assert item["tags"] == ["NOS", "new old stock"]
+    assert item["batch"] == "8231"
+    assert "sealed tube from a surplus dealer" in item["notes"]
+
+
+def test_stock_without_tags_or_batch_sends_neither(config, server):
+    """An absent tag list is not an empty one - do not write fields we were
+    not given, or every item gets a blank batch it never had."""
+    run(config, RESISTOR)
+    item = server.stock_items[0]
+    assert "tags" not in item
+    assert "batch" not in item

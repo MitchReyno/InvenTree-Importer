@@ -554,7 +554,8 @@ eighth has no supplier at all.
 
     {"id": "l02", "quantity": 300, "category": "Diodes/Signal Diodes",
      "type": "1N4007", "condition": "unopened", "approximate": true,
-     "supplier": "salash (eBay)", "notes": "NOS, original packaging"}
+     "supplier": "salash (eBay)", "tags": ["NOS", "new old stock"],
+     "notes": "original packaging"}
   ]
 }
 ```
@@ -635,6 +636,38 @@ and the stock all stay put.
 available-stock codes — so a sealed packet still counts toward what you have,
 carrying a flag that says "not verified" rather than "unusable". Pair it with
 `"approximate": true` when you are trusting a number printed on the bag.
+
+#### Tags and the batch code
+
+`tags` is a list of free-text labels, and `batch` is the lot the quantity came
+out of. Both are written to the **stock item**, not the part, and that is the
+whole point of them: the same component can arrive as new old stock from a
+surplus dealer in one delivery and as current production in the next. A part
+attribute would be claimed by every quantity you ever hold; a stock attribute
+can differ per lot, which is what provenance actually does.
+
+So **new old stock is tags plus a batch code**, not a part flag:
+
+```json
+{"id": "ic-03", "quantity": 5, "category": "Integrated Circuits/Memory",
+ "mpn": "X2864AP", "condition": "unopened",
+ "tags": ["NOS", "new old stock"], "batch": "8231",
+ "notes": "sealed tube, bought as surplus"}
+```
+
+The date code in `batch` is the evidence — `8231` says week 31 of 1982 far
+more usefully than any boolean, and it is what you will want if a chip later
+turns out to be counterfeit or remarked.
+
+Both may be set in `defaults` for the whole file, which is the normal case for
+a single delivery. `tags` **merge** rather than replace, so a file-wide `NOS`
+and a per-line `sealed tube` both survive; duplicates are dropped
+case-insensitively, so repeating a file-wide tag on a line is harmless. In CSV,
+where there is no way to write a list, `tags` is a comma-separated cell.
+
+What *does* belong on the part is obsolescence — "no longer manufactured" is
+true of the component for everyone, forever, and is a parameter rather than a
+tag.
 
 #### Generating one with an LLM
 

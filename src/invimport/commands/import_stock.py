@@ -151,6 +151,17 @@ def schema() -> dict[str, Any]:
                          "description": "Stock location path; created if it "
                                         "does not exist."},
             "notes": {"type": "string"},
+            "tags": {
+                "type": "array", "items": {"type": "string"},
+                "description": "Labels for the stock item, not the part. New "
+                               "old stock is [\"NOS\", \"new old stock\"]; "
+                               "use both spellings so either search finds it. "
+                               "A comma-separated string in CSV.",
+            },
+            "batch": {"type": "string",
+                      "description": "Lot or date code for this quantity, "
+                                     "e.g. 8231 for week 31 of 1982. Stored "
+                                     "on the stock item."},
             "link": {"type": "string", "format": "uri",
                      "description": "Product or listing page. Stored on the "
                                     "Part (if there is no datasheet) and on "
@@ -194,7 +205,7 @@ def schema() -> dict[str, Any]:
             },
             "defaults": {
                 "type": "object",
-                "description": "Merged into every line; a line always wins.",
+                "description": "Merged into every line; a line always wins, except tags and order, which merge.",
             },
             "lines": {"type": "array", "items": line},
         },

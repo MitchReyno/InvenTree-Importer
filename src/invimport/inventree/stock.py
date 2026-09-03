@@ -898,6 +898,8 @@ def add_stock(
     currency: str = "",
     condition: str = "ok",
     notes: str = "",
+    batch: str = "",
+    tags: list[str] | None = None,
     key: str = "",
 ) -> Any:
     """
@@ -922,6 +924,10 @@ def add_stock(
             payload["purchase_price_currency"] = currency
     if notes:
         payload["notes"] = notes
+    if batch:
+        payload["batch"] = batch
+    if tags:
+        payload["tags"] = list(tags)
 
     item = StockItem.create(api, payload)
     if key:

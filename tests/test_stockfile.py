@@ -279,3 +279,77 @@ def test_csv_images_are_a_comma_separated_cell():
             "a,1,X,front.jpg,\"front.jpg, back.jpg\"\n")
     document = parse_document(parse_text(text, ".csv"))
     assert document.lines[0].images == ["front.jpg", "back.jpg"]
+
+
+# --------------------------------------------------------------------------
+# Tags and the batch code
+# --------------------------------------------------------------------------
+def test_tags_are_read_as_a_list():
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X",
+        "tags": ["NOS", "new old stock"],
+    }]))
+    assert document.lines[0].tags == ["NOS", "new old stock"]
+
+
+def test_csv_tags_are_a_comma_separated_cell():
+    """A spreadsheet has no way to write a list, so a cell has to be one."""
+    text = ("id,quantity,category,tags\n"
+            "a,1,X,\"NOS, new old stock\"\n")
+    document = parse_document(parse_text(text, ".csv"))
+    assert document.lines[0].tags == ["NOS", "new old stock"]
+
+
+def test_tags_are_deduplicated_case_insensitively():
+    """`NOS` and `nos` are one tag, and the spelling written first wins."""
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X",
+        "tags": ["NOS", "nos", "  ", "NOS"],
+    }]))
+    assert document.lines[0].tags == ["NOS"]
+
+
+def test_file_wide_tags_merge_with_a_line_of_its_own():
+    """
+    Both are true at once. Replacing would silently drop the file-wide tag,
+    which is the one that describes every line in the delivery.
+    """
+    document = parse_document(doc(
+        defaults={"tags": ["NOS", "new old stock"]},
+        lines=[{"id": "a", "quantity": 1, "category": "X",
+                "tags": ["sealed tube"]},
+               {"id": "b", "quantity": 1, "category": "X"}]))
+    assert document.lines[0].tags == ["NOS", "new old stock", "sealed tube"]
+    assert document.lines[1].tags == ["NOS", "new old stock"]
+
+
+def test_a_line_repeating_a_file_wide_tag_does_not_get_it_twice():
+    document = parse_document(doc(
+        defaults={"tags": ["NOS"]},
+        lines=[{"id": "a", "quantity": 1, "category": "X", "tags": ["nos"]}]))
+    assert document.lines[0].tags == ["NOS"]
+
+
+def test_a_batch_code_is_kept():
+    """The date code is the evidence for new old stock, so it gets a field."""
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X", "batch": "8231",
+    }]))
+    assert document.lines[0].batch == "8231"
+
+
+def test_a_file_wide_batch_applies_to_every_line():
+    document = parse_document(doc(
+        defaults={"batch": "8231"},
+        lines=[{"id": "a", "quantity": 1, "category": "X"},
+               {"id": "b", "quantity": 1, "category": "X", "batch": "8244"}]))
+    assert document.lines[0].batch == "8231"
+    assert document.lines[1].batch == "8244"      # a line still wins
+
+
+def test_tags_that_are_neither_a_list_nor_a_string_are_refused():
+    with pytest.raises(StockFileError) as caught:
+        parse_document(doc(lines=[{
+            "id": "a", "quantity": 1, "category": "X", "tags": {"NOS": True},
+        }]))
+    assert "tags" in str(caught.value)

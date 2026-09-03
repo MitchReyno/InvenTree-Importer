@@ -1165,3 +1165,62 @@ async def test_keyboard_tab_does_not_look_up_inventree(ui, opts):
         assert looked == []
         assert typed == ["PART-4"]
         assert app._current_hit is None
+
+
+def shown_keys(app):
+    return set(app.screen.active_bindings)
+
+
+CONNECTION_KEYS = {"s", "c", "d", "a", "f", "g", "r", "u"}
+TAB_KEYS = {"1", "2", "3", "4", "5"}
+
+
+@SKIP_TUI
+async def test_connection_keys_only_show_on_the_connections_tab(ui, opts):
+    app = ui.ScannerApp(**opts())
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.query_one("#nearby").focus()
+        await pilot.pause()
+        keys = shown_keys(app)
+        assert TAB_KEYS <= keys
+        assert CONNECTION_KEYS <= keys
+        assert "e" not in keys
+        assert "o" not in keys
+        await on_tab(pilot, "2")
+        keys = shown_keys(app)
+        assert CONNECTION_KEYS.isdisjoint(keys)
+        assert "o" in keys
+        assert "e" not in keys
+        await on_tab(pilot, "4")
+        keys = shown_keys(app)
+        assert CONNECTION_KEYS.isdisjoint(keys)
+        assert "e" in keys
+        assert "o" not in keys
+        await on_tab(pilot, "5")
+        keys = shown_keys(app)
+        assert CONNECTION_KEYS.isdisjoint(keys)
+        assert "e" not in keys
+        assert "o" not in keys
+        assert "x" in keys
+        assert "q" in keys
+
+
+@SKIP_TUI
+async def test_connection_keys_do_nothing_off_the_connections_tab(ui, opts):
+    app = fake_session_app(ui)(**opts())
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        see_ble(app, ui)
+        await pilot.pause()
+        await on_tab(pilot, "2")
+        app.query_one("#lookup-history").focus()
+        await pilot.press("c")
+        await pilot.pause()
+        assert app.phase != "connected"
+        assert app.connected_key is None
+        await on_tab(pilot, "1")
+        app.query_one("#nearby").focus()
+        await pilot.press("c")
+        await pilot.pause(0.2)
+        assert app.phase == "connected"

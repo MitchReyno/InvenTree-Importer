@@ -924,6 +924,24 @@ def tui():
             Binding("q", "quit", "Quit"),
         ]
 
+        # Shown in the footer only on the tab that owns them. Tab switchers,
+        # clear, and quit stay global.
+        CONNECTION_ACTIONS = frozenset({
+            "scan", "connect", "disconnect", "toggle_auto", "forget",
+            "gatt", "toggle_reconnect", "toggle_unnamed",
+        })
+        TAB_ACTIONS = {
+            "view-connections": CONNECTION_ACTIONS,
+            "view-lookup": frozenset({"open_item"}),
+            "view-scanin": frozenset({"open_item"}),
+            "view-create": frozenset({"export_pending"}),
+            "view-keyboard": frozenset(),
+        }
+        GLOBAL_ACTIONS = frozenset({
+            "show_connections", "show_lookup", "show_scanin",
+            "show_create", "show_keyboard", "clear_scans", "quit",
+        })
+
         CSS = """
         #status {
             height: 1;
@@ -1917,7 +1935,25 @@ def tui():
             self.post_message(ScanArrived(scan))
 
         def active_view(self) -> str:
-            return self.query_one("#views", TabbedContent).active
+            try:
+                return self.query_one("#views", TabbedContent).active
+            except Exception:
+                return "view-connections"
+
+        def check_action(self, action: str, parameters: tuple[object, ...]
+                         ) -> bool | None:
+            if action in self.GLOBAL_ACTIONS:
+                return True
+            allowed = self.TAB_ACTIONS.get(self.active_view(), frozenset())
+            if action in allowed:
+                return True
+            scoped = self.CONNECTION_ACTIONS.union(*self.TAB_ACTIONS.values())
+            if action in scoped:
+                return False
+            return True
+
+        def on_tabbed_content_tab_activated(self, event) -> None:
+            self.refresh_bindings()
 
         def inventree_api(self):
             if self._inventree_api is not None:

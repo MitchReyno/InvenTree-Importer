@@ -221,6 +221,25 @@ made it; an MPN belongs to one manufacturer.
 **eBay purchases:** `"supplier": "eBay"`, with the seller name in `notes`. Do
 not create a supplier per seller.
 
+**New old stock is tags plus a batch code, never a part flag.** Unused but old
+stock — vintage ICs, a surplus dealer's sealed tubes, anything bought long after
+it stopped being made — is tagged on the stock item:
+
+```json
+"tags": ["NOS", "new old stock"], "batch": "8231",
+"condition": "unopened", "notes": "sealed tube, surplus dealer"
+```
+
+Use **both** spellings, `NOS` and `new old stock`, so either search finds it.
+Put the date code in `batch` if the packaging or the chips show one — `8231` is
+week 31 of 1982 — and say in `notes` where it came from. Never record this as a
+part parameter: the same component may arrive as current production next time,
+and a part attribute would then be wrong for every quantity you hold.
+
+Set them in `defaults` when a whole delivery is NOS. File-wide `tags` merge with
+a line's own rather than replacing them, so per-line labels like `sealed tube`
+can be added freely.
+
 **Prices are ex-tax, per piece.** If an invoice shows a line total, divide by the
 quantity. If it is tax-inclusive and you cannot separate the tax, omit
 `unit_price` rather than recording a wrong one.

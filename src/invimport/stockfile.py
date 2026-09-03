@@ -43,7 +43,7 @@ LINE_KEYS = {
     "category", "suggest_category", "description", "type", "mpn", "ipn",
     "manufacturer", "parameters",
     "supplier", "sku", "unit_price", "currency", "order",
-    "location", "notes",
+    "location", "notes", "tags", "batch",
     "link", "datasheet", "image", "images",
     "confidence", "needs_review",
 }
@@ -54,7 +54,7 @@ SUGGEST_KEYS = {"identity", "ipn_prefix", "description", "because"}
 # Defaults may set anything a line may set, except what identifies the line or
 # the part it names. A file-wide "mpn" would be nonsense.
 DEFAULTABLE = {"supplier", "currency", "location", "order", "condition",
-               "category", "notes"}
+               "category", "notes", "tags", "batch"}
 
 CONDITIONS = ("ok", "unopened", "attention", "damaged", "quarantined")
 
@@ -118,6 +118,13 @@ class StockLine:
 
     location: str = ""
     notes: str = ""
+
+    # Labels and the lot this quantity came out of. Both describe the stock
+    # rather than the part: the same component can arrive as new old stock in
+    # one delivery and current production in the next, so neither belongs on
+    # the part, where it would be claimed by every quantity you ever hold.
+    tags: list[str] = field(default_factory=list)
+    batch: str = ""
 
     # Product page, datasheet, photos. Same facts DigiKey's payload carries;
     # a file may have any, all, or none of them.
@@ -255,6 +262,46 @@ def _as_number(value: Any, field_name: str, line_id: str,
         return None
 
 
+def _tag_items(value: Any) -> list[str] | None:
+    """Tags as written: a list, or the comma-separated cell CSV has to use.
+
+    None means the value was neither, which is the caller's to report.
+    """
+    if value in (None, ""):
+        return []
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",")]
+    if isinstance(value, (list, tuple)):
+        return [str(item).strip() for item in value]
+    return None
+
+
+def _as_tags(raw: dict[str, Any], line_id: str,
+             problems: list[Problem]) -> list[str]:
+    """
+    Labels for the stock this line creates.
+
+    Duplicates are dropped case-insensitively - `NOS` and `nos` are one tag,
+    and a file-wide default merged with a per-line repeat should not write it
+    twice - keeping the first spelling, because that is the one chosen.
+    """
+    items = _tag_items(raw.get("tags"))
+    if items is None:
+        problems.append(Problem(
+            line_id, "tags",
+            "must be a list, or a comma-separated string"))
+        return []
+
+    tags: list[str] = []
+    seen: set[str] = set()
+    for tag in items:
+        if not tag or tag.casefold() in seen:
+            continue
+        seen.add(tag.casefold())
+        tags.append(tag)
+    return tags
+
+
 def _line_from(raw: dict[str, Any], index: int,
                problems: list[Problem]) -> StockLine:
     line_id = str(raw.get("id") or "").strip()
@@ -291,7 +338,7 @@ def _line_from(raw: dict[str, Any], index: int,
 
     for name in ("category", "description", "type", "mpn", "ipn",
                  "manufacturer", "supplier", "sku", "currency", "location",
-                 "notes"):
+                 "notes", "batch"):
         setattr(line, name, str(raw.get(name) or "").strip())
 
     line.link = _as_url(raw.get("link"), "link", line_id, problems)
@@ -299,6 +346,7 @@ def _line_from(raw: dict[str, Any], index: int,
                              problems)
     line.images = _as_images(raw, line_id, problems)
     line.image = line.images[0] if line.images else ""
+    line.tags = _as_tags(raw, line_id, problems)
 
     line.approximate = _as_bool(raw.get("approximate"))
     line.needs_review = _as_bool(raw.get("needs_review"))
@@ -367,6 +415,15 @@ def _apply_defaults(raw: dict[str, Any],
         order = dict(defaults.get("order") or {})
         order.update(raw.get("order") or {})
         merged["order"] = order
+    # tags are a list, so they merge for the same reason: a file-wide "NOS"
+    # and a per-line "sealed tube" are both true, and making the line's tags
+    # replace the file's would silently drop the one that applies to
+    # everything. A value that is neither list nor string is left alone, so
+    # that _as_tags reports it rather than this quietly discarding it.
+    file_tags = _tag_items(defaults.get("tags"))
+    line_tags = _tag_items(raw.get("tags"))
+    if file_tags is not None and line_tags is not None and (file_tags or line_tags):
+        merged["tags"] = file_tags + line_tags
     return merged
 
 

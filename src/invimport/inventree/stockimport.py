@@ -299,7 +299,8 @@ def _import_line(api, document: StockFile, line: StockLine,
             location=getattr(location, "pk", None),
             supplier_part=action.supplier_part,
             purchase_price=line.unit_price, currency=line.currency,
-            condition=line.condition, notes=notes, key=key)
+            condition=line.condition, notes=notes,
+            batch=line.batch, tags=line.tags, key=key)
     except BarcodeInUse:
         # Something else claimed the key between the check above and now.
         action.action = EXISTS
