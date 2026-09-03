@@ -21,6 +21,15 @@ dependencies = [
     "rich>=15.0.0",
 ]
 
+[project.optional-dependencies]
+# Only scripts/register-scans.py needs these, and only on a machine with the
+# scanner attached, so they stay out of the default install: `uv sync --extra
+# scanner`. pyserial covers the Virtual COM path, bleak the BLE one.
+scanner = [
+    "pyserial>=3.5",
+    "bleak>=0.22",
+]
+
 [project.scripts]
 invimport = "invimport.__main__:cli"
 
