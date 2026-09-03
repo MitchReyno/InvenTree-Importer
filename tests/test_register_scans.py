@@ -167,6 +167,24 @@ def test_store_round_trips_a_scanner(rs, tmp_path):
     assert third.get(saved.key) is None
 
 
+def test_pending_import_omits_blank_fields(rs):
+    doc = rs.pending_import_document(
+        [rs.PendingStock(id="s01", barcode="123456", quantity="25",
+                         manufacturer="Yageo", notes=""),
+         rs.PendingStock(id="s02", barcode="999", quantity="1.5")],
+        reference="scan-create-test", captured="2026-09-03")
+    assert doc["version"] == 1
+    assert doc["source"]["kind"] == "scanner"
+    assert doc["source"]["reference"] == "scan-create-test"
+    assert doc["lines"][0] == {
+        "id": "s01", "sku": "123456", "quantity": 25,
+        "manufacturer": "Yageo", "needs_review": True,
+    }
+    assert doc["lines"][1]["quantity"] == 1.5
+    assert "manufacturer" not in doc["lines"][1]
+    assert "notes" not in doc["lines"][0]
+
+
 # --------------------------------------------------------------------------
 # TUI
 # --------------------------------------------------------------------------
@@ -662,6 +680,11 @@ def _hits(*items):
     return table.get
 
 
+async def on_tab(pilot, key):
+    await pilot.press(key)
+    await pilot.pause()
+
+
 @SKIP_TUI
 async def test_lookup_tab_is_separate_from_connections(ui, opts):
     app = ui.ScannerApp(**opts())
@@ -676,6 +699,15 @@ async def test_lookup_tab_is_separate_from_connections(ui, opts):
         await pilot.press("1")
         await pilot.pause()
         assert app.query_one("#views").active == "view-connections"
+        await pilot.press("3")
+        await pilot.pause()
+        assert app.query_one("#views").active == "view-scanin"
+        await pilot.press("4")
+        await pilot.pause()
+        assert app.query_one("#views").active == "view-create"
+        await pilot.press("5")
+        await pilot.pause()
+        assert app.query_one("#views").active == "view-keyboard"
 
 
 @SKIP_TUI
@@ -702,6 +734,7 @@ async def test_a_part_scan_shows_details_and_opens_inventree(ui, opts):
         open_url=opened.append))
     async with app.run_test() as pilot:
         await pilot.pause()
+        await on_tab(pilot, "2")
         app.post_message(ui.ScanArrived("PART-4"))
         await pilot.pause()
         assert app._current_hit is not None
@@ -748,6 +781,7 @@ async def test_a_stock_item_scan_shows_quantity_and_location(ui, opts):
         lookup=lookup, inventree_url="http://inv.example"))
     async with app.run_test() as pilot:
         await pilot.pause()
+        await on_tab(pilot, "2")
         app.post_message(ui.ScanArrived("STK-9"))
         await pilot.pause()
         body = pretty_text(app)
@@ -783,6 +817,7 @@ async def test_a_location_scan_shows_the_path(ui, opts):
         lookup=lookup, inventree_url="http://inv.example"))
     async with app.run_test() as pilot:
         await pilot.pause()
+        await on_tab(pilot, "2")
         app.post_message(ui.ScanArrived("LOC-1"))
         await pilot.pause()
         assert app._current_hit.kind == "stocklocation"
@@ -814,6 +849,7 @@ async def test_clicking_a_stock_item_location_opens_its_details(ui, opts):
         lookup=lookup, inventree_url="http://inv.example"))
     async with app.run_test() as pilot:
         await pilot.pause()
+        await on_tab(pilot, "2")
         app.post_message(ui.ScanArrived("STK-9"))
         await pilot.pause()
         link = app.query_one("LocationName")
@@ -841,6 +877,7 @@ async def test_clicking_a_part_stock_location_opens_its_details(ui, opts):
         lookup=lookup, inventree_url="http://inv.example"))
     async with app.run_test() as pilot:
         await pilot.pause()
+        await on_tab(pilot, "2")
         app.post_message(ui.ScanArrived("PART-4"))
         await pilot.pause()
         links = app.query("LocationName")
@@ -856,6 +893,7 @@ async def test_an_unknown_barcode_says_so(ui, opts):
     app = ui.ScannerApp(**opts(lookup=lambda scan: None))
     async with app.run_test() as pilot:
         await pilot.pause()
+        await on_tab(pilot, "2")
         app.post_message(ui.ScanArrived("NOPE"))
         await pilot.pause()
         assert app._current_hit is None
@@ -876,3 +914,254 @@ async def test_lookup_still_logs_the_scan_on_connections(ui, opts):
         await pilot.pause()
         assert "PART-4" in log_text(app)
         assert app.scan_count == 1
+        assert app.query_one("#views").active == "view-connections"
+        assert app._current_hit is None
+
+
+def capture_notify(app):
+    notes = []
+    original = app.notify
+
+    def wrapped(message, **kwargs):
+        notes.append(str(message))
+        return original(message, **kwargs)
+
+    app.notify = wrapped
+    return notes
+
+
+# --------------------------------------------------------------------------
+# Scan-in
+# --------------------------------------------------------------------------
+@SKIP_TUI
+async def test_scanin_sets_the_active_location_then_moves_stock(ui, opts):
+    moved = []
+    lookup = _hits(
+        ("LOC-1", "stocklocation", 1,
+         {"pk": 1, "name": "Bins", "pathstring": "Workshop/Bins"}),
+        ("STK-9", "stockitem", 9,
+         {"pk": 9, "quantity": 25,
+          "part_detail": {"name": "NE555P"}}),
+        ("LOC-2", "stocklocation", 2,
+         {"pk": 2, "name": "Shelf", "pathstring": "Workshop/Shelf"}),
+    )
+    app = ui.ScannerApp(**opts(
+        lookup=lookup, transfer=lambda *a, **k: moved.append((a, k)),
+        inventree_url="http://inv.example"))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await on_tab(pilot, "3")
+        app.post_message(ui.ScanArrived("LOC-1"))
+        await pilot.pause()
+        assert app._active_location is not None
+        assert app._active_location.pk == 1
+        assert "Workshop/Bins" in str(app.query_one("#scanin-title").render())
+        app.post_message(ui.ScanArrived("STK-9"))
+        await pilot.pause()
+        assert moved == [((9, 1), {"quantity": 25, "notes": "scan-in"})]
+        log = "\n".join(app.query_one("#scanin-log").lines)
+        assert "NE555P" in log
+        assert "Workshop/Bins" in log
+        app.post_message(ui.ScanArrived("LOC-2"))
+        await pilot.pause()
+        assert app._active_location.pk == 2
+        assert "Workshop/Shelf" in str(app.query_one("#scanin-title").render())
+
+
+@SKIP_TUI
+async def test_scanin_stock_without_a_location_asks_first(ui, opts):
+    moved = []
+    lookup = _hits((
+        "STK-9", "stockitem", 9,
+        {"pk": 9, "quantity": 25, "part_detail": {"name": "NE555P"}},
+    ))
+    app = ui.ScannerApp(**opts(
+        lookup=lookup, transfer=lambda *a, **k: moved.append((a, k))))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        notes = capture_notify(app)
+        await on_tab(pilot, "3")
+        app.post_message(ui.ScanArrived("STK-9"))
+        await pilot.pause()
+        assert moved == []
+        assert any("location first" in n.lower() for n in notes)
+
+
+@SKIP_TUI
+async def test_scanin_ignores_parts_and_unknown_barcodes(ui, opts):
+    moved = []
+    lookup = _hits((
+        "PART-4", "part", 4, {"pk": 4, "name": "NE555P"},
+    ))
+    app = ui.ScannerApp(**opts(
+        lookup=lookup, transfer=lambda *a, **k: moved.append((a, k))))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        notes = capture_notify(app)
+        await on_tab(pilot, "3")
+        app.post_message(ui.ScanArrived("PART-4"))
+        app.post_message(ui.ScanArrived("NOPE"))
+        await pilot.pause()
+        assert moved == []
+        assert any("not stock" in n.lower() for n in notes)
+        assert any("not in inventree" in n.lower() for n in notes)
+
+
+# --------------------------------------------------------------------------
+# Stock creation aid
+# --------------------------------------------------------------------------
+@SKIP_TUI
+async def test_create_adds_unknown_barcodes_and_edits_fields(ui, opts):
+    saved = []
+    app = ui.ScannerApp(**opts(
+        lookup=lambda scan: None, export=saved.append))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await on_tab(pilot, "4")
+        app.post_message(ui.ScanArrived("1234567890123"))
+        await pilot.pause()
+        assert len(app._pending) == 1
+        assert app._pending[0].barcode == "1234567890123"
+        assert app._pending[0].quantity == "1"
+        app.query_one("#create-qty-s01").value = "25"
+        app.query_one("#create-mfr-s01").value = "Yageo"
+        app.query_one("#create-notes-s01").value = "from the drawer"
+        await pilot.pause()
+        assert app._pending[0].quantity == "25"
+        assert app._pending[0].manufacturer == "Yageo"
+        assert app._pending[0].notes == "from the drawer"
+        await pilot.press("e")
+        await pilot.pause()
+        assert len(saved) == 1
+        line = saved[0]["lines"][0]
+        assert line["sku"] == "1234567890123"
+        assert line["quantity"] == 25
+        assert line["manufacturer"] == "Yageo"
+        assert line["notes"] == "from the drawer"
+        assert line["needs_review"] is True
+
+
+@SKIP_TUI
+async def test_create_duplicate_scan_increments_quantity(ui, opts):
+    app = ui.ScannerApp(**opts(lookup=lambda scan: None))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await on_tab(pilot, "4")
+        app.post_message(ui.ScanArrived("ABC"))
+        await pilot.pause()
+        app.post_message(ui.ScanArrived("ABC"))
+        await pilot.pause()
+        assert len(app._pending) == 1
+        assert app._pending[0].quantity == "2"
+
+
+@SKIP_TUI
+async def test_create_skips_barcodes_already_in_inventree(ui, opts):
+    lookup = _hits((
+        "PART-4", "part", 4, {"pk": 4, "name": "NE555P"},
+    ))
+    app = ui.ScannerApp(**opts(lookup=lookup))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        notes = capture_notify(app)
+        await on_tab(pilot, "4")
+        app.post_message(ui.ScanArrived("PART-4"))
+        await pilot.pause()
+        assert app._pending == []
+        assert any("already a part" in n.lower() for n in notes)
+
+
+@SKIP_TUI
+async def test_create_remove_drops_a_pending_item(ui, opts):
+    app = ui.ScannerApp(**opts(lookup=lambda scan: None))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await on_tab(pilot, "4")
+        app.post_message(ui.ScanArrived("ABC"))
+        await pilot.pause()
+        app.query_one("#create-remove-s01").press()
+        await pilot.pause()
+        assert app._pending == []
+        assert app.query_one("#create-save").disabled is True
+
+
+def test_type_as_keyboard_types_then_enter(rs):
+    class Fake:
+        def __init__(self):
+            self.calls = []
+
+        def type(self, text):
+            self.calls.append(("type", text))
+
+        def press(self, key):
+            self.calls.append(("press", key))
+
+        def release(self, key):
+            self.calls.append(("release", key))
+
+    keyboard = Fake()
+    rs.type_as_keyboard("abc", enter=True, keyboard=keyboard, enter_key="enter")
+    assert keyboard.calls == [
+        ("type", "abc"), ("press", "enter"), ("release", "enter")]
+    keyboard.calls.clear()
+    rs.type_as_keyboard("xyz", enter=False, keyboard=keyboard)
+    assert keyboard.calls == [("type", "xyz")]
+
+
+# --------------------------------------------------------------------------
+# Keyboard wedge
+# --------------------------------------------------------------------------
+@SKIP_TUI
+async def test_keyboard_tab_types_the_scan_and_enter(ui, opts):
+    typed = []
+    app = ui.ScannerApp(**opts(
+        type_keys=lambda text, *, enter=True: typed.append((text, enter))))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await on_tab(pilot, "5")
+        app.post_message(ui.ScanArrived("hello"))
+        await pilot.pause()
+        assert typed == [("hello", True)]
+        log = "\n".join(app.query_one("#keyboard-log").lines)
+        assert "hello" in log
+        assert "Enter" in log
+
+
+@SKIP_TUI
+async def test_keyboard_tab_can_skip_enter(ui, opts):
+    typed = []
+    app = ui.ScannerApp(**opts(
+        type_keys=lambda text, *, enter=True: typed.append((text, enter))))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await on_tab(pilot, "5")
+        app.query_one("#keyboard-enter").value = False
+        app.post_message(ui.ScanArrived("world"))
+        await pilot.pause()
+        assert typed == [("world", False)]
+        log = "\n".join(app.query_one("#keyboard-log").lines)
+        assert "world" in log
+        assert "Enter" not in log
+
+
+@SKIP_TUI
+async def test_keyboard_tab_does_not_look_up_inventree(ui, opts):
+    looked = []
+    typed = []
+    lookup = _hits(("PART-4", "part", 4, {"pk": 4, "name": "NE555P"}))
+
+    def capture(scan):
+        looked.append(scan)
+        return lookup(scan)
+
+    app = ui.ScannerApp(**opts(
+        lookup=capture,
+        type_keys=lambda text, *, enter=True: typed.append(text)))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await on_tab(pilot, "5")
+        app.post_message(ui.ScanArrived("PART-4"))
+        await pilot.pause()
+        assert looked == []
+        assert typed == ["PART-4"]
+        assert app._current_hit is None

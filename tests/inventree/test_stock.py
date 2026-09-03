@@ -21,6 +21,7 @@ from invimport.inventree.stock import (
     lookup_barcode,
     resolve_location,
     stock_note,
+    transfer_stock,
     web_url,
 )
 
@@ -425,3 +426,34 @@ def test_fetch_stock_unwraps_a_paginated_response():
     items = fetch_stock_items(Pages(), location=1)
     assert len(items) == 1
     assert items[0]["pk"] == 9
+
+
+# --------------------------------------------------------------------------
+# Transfer
+# --------------------------------------------------------------------------
+def test_transfer_moves_stock_to_the_location(inventree):
+    api = connect()
+    item = add_stock(api, part=4, quantity=25, location=1)
+    inventree.add_location("Bins", pk=2)
+
+    transfer_stock(api, item.pk, 2, notes="scan-in")
+
+    moved = next(row for row in inventree.stock_items if row["pk"] == item.pk)
+    assert moved["location"] == 2
+    path, body = inventree.posts[-1]
+    assert path == "/api/stock/transfer/"
+    assert body["location"] == 2
+    assert body["notes"] == "scan-in"
+    assert body["items"][0]["pk"] == item.pk
+    assert body["items"][0]["quantity"] == "25"
+
+
+def test_transfer_reads_quantity_when_not_given(inventree):
+    api = connect()
+    item = add_stock(api, part=4, quantity=10, location=1)
+    inventree.add_location("Bins", pk=2)
+
+    transfer_stock(api, item.pk, 2)
+
+    _, body = inventree.posts[-1]
+    assert body["items"][0]["quantity"] == "10"

@@ -12,10 +12,12 @@ Live scanner console: find a barcode scanner, connect to it, watch scans arrive.
 The TUI is the default whenever stdout is a terminal. It scans for serial
 ports and BLE advertisements, lets you pick one, and shows connection state
 and incoming scans as they happen. Settings (baud, reconnect, characteristic,
-auto-connect) are per remembered scanner. A second tab looks each scan up
-in InvenTree (part, stock item or location) and offers a link to open it.
-`--list` and `--dump` stay one-shot for scripts; `--cli` is the original
-print-each-scan loop, including `--forever`.
+auto-connect) are per remembered scanner. Scans are handled by the active
+tab: Lookup resolves a part, stock item or location; Scan-in sets a location
+then moves stock items there; Create collects unknown product barcodes into
+a draft import file; Keyboard types each scan into the focused window the
+way a HID scanner would. `--list` and `--dump` stay one-shot for scripts;
+`--cli` is the original print-each-scan loop, including `--forever`.
 
 Scanners you have connected to are remembered across sessions, in a file that
 does not live in the repo:
@@ -74,6 +76,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import importlib
+import json
 import os
 import sys
 import threading
@@ -203,6 +206,30 @@ class ScanBuffer:
 # --------------------------------------------------------------------------
 # Display
 # --------------------------------------------------------------------------
+def type_as_keyboard(text: str, *, enter: bool = True,
+                     keyboard=None, enter_key=None) -> None:
+    """Type `text` into the focused window, like a USB HID scanner.
+
+    The real controller is pynput; tests pass a fake. Enter is the usual
+    scanner suffix — most keyboard-wedge devices send Return after the code.
+    """
+    if keyboard is None:
+        try:
+            from pynput.keyboard import Controller, Key
+        except ImportError as exc:
+            raise ConfigError(
+                "pynput is not installed - it is an optional scanner "
+                "dependency.\n    uv sync --extra scanner") from exc
+        keyboard = Controller()
+        enter_key = Key.enter
+    elif enter_key is None:
+        enter_key = "enter"
+    keyboard.type(text)
+    if enter:
+        keyboard.press(enter_key)
+        keyboard.release(enter_key)
+
+
 def printable(scan: str) -> str:
     """Control characters shown rather than executed.
 
@@ -519,6 +546,52 @@ async def list_sources(name: str | None, timeout: float) -> int:
 # Live interface
 # --------------------------------------------------------------------------
 @dataclass
+class PendingStock:
+    """One scanned product barcode waiting to become an import line."""
+
+    id: str
+    barcode: str
+    quantity: str = "1"
+    manufacturer: str = ""
+    notes: str = ""
+
+
+def _pending_quantity(raw: str) -> int | float:
+    try:
+        number = float((raw or "").strip() or "1")
+    except ValueError:
+        return 1
+    if number.is_integer():
+        return int(number)
+    return number
+
+
+def pending_import_document(items: list[PendingStock], *,
+                            reference: str,
+                            captured: str | None = None) -> dict:
+    """A stock-file shaped draft the import skill can finish later."""
+    lines = []
+    for item in items:
+        line: dict = {
+            "id": item.id,
+            "sku": item.barcode,
+            "quantity": _pending_quantity(item.quantity),
+            "needs_review": True,
+        }
+        manufacturer = item.manufacturer.strip()
+        if manufacturer:
+            line["manufacturer"] = manufacturer
+        notes = item.notes.strip()
+        if notes:
+            line["notes"] = notes
+        lines.append(line)
+    source: dict = {"kind": "scanner", "reference": reference}
+    if captured:
+        source["captured"] = captured
+    return {"version": 1, "source": source, "lines": lines}
+
+
+@dataclass
 class Found:
     """A serial port or a BLE advertisement the table can show."""
 
@@ -677,7 +750,8 @@ def tui():
     from invimport.inventree.stock import (
         BarcodeHit, DetailSection, child_location_ref, enrich_hit,
         format_count, location_hit, location_ref, lookup_barcode,
-        render_hit, render_section, stock_expand_fields, stock_line, web_url)
+        render_hit, render_section, stock_expand_fields, stock_line,
+        transfer_stock, web_url)
 
     LOOKUP_IDLE = (
         "Scan a **location**, **stock item** or **part** barcode.\n\n"
@@ -686,6 +760,21 @@ def tui():
         "InvenTree is not configured. Set `INVENTREE_URL` and "
         "`INVENTREE_TOKEN` (or user and password) in the `.env` or the "
         "environment, then restart.")
+    SCANIN_IDLE = (
+        "Scan a **location** barcode to set the destination.\n\n"
+        "Stock item scans then move into that location. Scanning another "
+        "location switches the destination.")
+    CREATE_IDLE = (
+        "Scan a product barcode that is **not** in InvenTree.\n\n"
+        "Each scan becomes a pending import line. Fill in quantity, "
+        "manufacturer and notes if you know them, then save a draft file.")
+    KEYBOARD_IDLE = (
+        "Focus the window that should receive the scan, then pull the trigger.\n\n"
+        "Each barcode is typed as keystrokes into whichever app is in front, "
+        "the way a USB HID scanner works. Enter is sent after the code unless "
+        "you turn that off.\n\n"
+        "On macOS, grant **Accessibility** permission to this terminal "
+        "(System Settings → Privacy & Security) the first time.")
 
     class ScanArrived(Message):
         def __init__(self, scan: str) -> None:
@@ -721,12 +810,30 @@ def tui():
             self.text = text
 
     class LookupReady(Message):
-        def __init__(self, scan: str, hit: BarcodeHit | None) -> None:
+        def __init__(self, scan: str, hit: BarcodeHit | None,
+                     purpose: str = "lookup") -> None:
             super().__init__()
             self.scan = scan
             self.hit = hit
+            self.purpose = purpose
 
     class LookupFailed(Message):
+        def __init__(self, scan: str, error: str,
+                     purpose: str = "lookup") -> None:
+            super().__init__()
+            self.scan = scan
+            self.error = error
+            self.purpose = purpose
+
+    class ScaninMoved(Message):
+        def __init__(self, scan: str, hit: BarcodeHit,
+                     location_title: str) -> None:
+            super().__init__()
+            self.scan = scan
+            self.hit = hit
+            self.location_title = location_title
+
+    class ScaninFailed(Message):
         def __init__(self, scan: str, error: str) -> None:
             super().__init__()
             self.scan = scan
@@ -800,6 +907,9 @@ def tui():
         BINDINGS = [
             Binding("1", "show_connections", "Connections"),
             Binding("2", "show_lookup", "Lookup"),
+            Binding("3", "show_scanin", "Scan-in"),
+            Binding("4", "show_create", "Create"),
+            Binding("5", "show_keyboard", "Keyboard"),
             Binding("s", "scan", "Scan"),
             Binding("c", "connect", "Connect"),
             Binding("d", "disconnect", "Disconnect"),
@@ -807,6 +917,7 @@ def tui():
             Binding("f", "forget", "Forget"),
             Binding("g", "gatt", "GATT"),
             Binding("x", "clear_scans", "Clear"),
+            Binding("e", "export_pending", "Save"),
             Binding("o", "open_item", "Open"),
             Binding("r", "toggle_reconnect", "Reconnect"),
             Binding("u", "toggle_unnamed", "Unnamed"),
@@ -889,6 +1000,76 @@ def tui():
         #lookup-open { width: auto; min-width: 20; }
         #lookup-history { height: 1fr; }
 
+        #scanin-body { height: 1fr; padding: 0 1 1 1; }
+        #scanin-title { height: auto; text-style: bold; padding: 1 0 1 0; }
+        #scanin-md { height: auto; }
+        #scanin-log-panel {
+            height: 1fr;
+            border: round $primary;
+        }
+        #scanin-log { height: 1fr; }
+
+        #create-body { height: 1fr; }
+        #create-main {
+            width: 3fr;
+            padding: 0 1 1 1;
+        }
+        #create-title { height: auto; text-style: bold; padding: 1 0 1 0; }
+        #create-idle { height: auto; }
+        #create-scroll { height: 1fr; }
+        #create-list { height: auto; }
+        #create-header {
+            height: 1;
+            padding: 0 1;
+            background: $boost;
+        }
+        .create-row {
+            height: 3;
+            padding: 0 1;
+            align: left middle;
+        }
+        .create-barcode {
+            width: 22;
+            height: 1;
+            text-style: bold;
+        }
+        .create-qty { width: 10; height: 1; border: none; background: $boost; }
+        .create-mfr { width: 20; height: 1; border: none; background: $boost; }
+        .create-notes { width: 1fr; height: 1; border: none; background: $boost; }
+        .create-remove { width: auto; min-width: 10; }
+        #create-actions {
+            height: auto;
+            padding: 0 0 1 0;
+            align: left middle;
+        }
+        #create-save { width: auto; min-width: 20; }
+
+        #keyboard-body { height: 1fr; padding: 0 1 1 1; }
+        #keyboard-title { height: auto; text-style: bold; padding: 1 0 1 0; }
+        #keyboard-md { height: auto; }
+        #keyboard-settings {
+            height: 3;
+            padding: 0 1;
+            background: $panel;
+            align: left middle;
+        }
+        #keyboard-settings Label {
+            width: auto;
+            height: 1;
+            padding: 0 1 0 2;
+            content-align: left middle;
+        }
+        #keyboard-settings Switch {
+            background: transparent;
+            border: none;
+            padding: 0;
+        }
+        #keyboard-log-panel {
+            height: 1fr;
+            border: round $primary;
+        }
+        #keyboard-log { height: 1fr; }
+
         #devices-panel, #scans-panel {
             height: 1fr;
             border: round $primary;
@@ -963,6 +1144,10 @@ def tui():
             self._lookup_fn = opts.pop("lookup", None)
             self._open_url = opts.pop("open_url", None)
             self._inventree_url = opts.pop("inventree_url", None)
+            self._transfer_fn = opts.pop("transfer", None)
+            self._export_fn = opts.pop("export", None)
+            self._export_dir = opts.pop("export_dir", None)
+            self._type_keys = opts.pop("type_keys", None)
             self._opts = opts
             self.store = ScannerStore(config_path)
             self.store.load()
@@ -985,6 +1170,9 @@ def tui():
             self._current_hit: BarcodeHit | None = None
             self._lookup_seq = 0
             self._hits_by_row: dict[str, tuple[str, BarcodeHit | None]] = {}
+            self._active_location: BarcodeHit | None = None
+            self._pending: list[PendingStock] = []
+            self._pending_seq = 0
 
         def compose(self) -> ComposeResult:
             yield Header(show_clock=True)
@@ -1054,6 +1242,47 @@ def tui():
                             yield DataTable(id="lookup-history",
                                             cursor_type="row",
                                             zebra_stripes=True)
+                with TabPane("Scan-in", id="view-scanin"):
+                    with Vertical(id="scanin-body"):
+                        yield Label("Scan a location to begin",
+                                    id="scanin-title")
+                        yield Markdown(SCANIN_IDLE, id="scanin-md")
+                        with Vertical(id="scanin-log-panel"):
+                            yield Label("Moves", classes="panel-header")
+                            yield Log(id="scanin-log", highlight=True,
+                                      max_lines=2000)
+                with TabPane("Create", id="view-create"):
+                    with Vertical(id="create-body"):
+                        with Vertical(id="create-main"):
+                            yield Label(
+                                "Scan a product barcode to add a pending item",
+                                id="create-title")
+                            with ScrollableContainer(id="create-scroll"):
+                                yield Markdown(CREATE_IDLE, id="create-idle")
+                                with Horizontal(id="create-header"):
+                                    yield Label("Barcode", classes="create-barcode")
+                                    yield Label("Qty", classes="create-qty")
+                                    yield Label("Manufacturer",
+                                                classes="create-mfr")
+                                    yield Label("Notes", classes="create-notes")
+                                    yield Label("")
+                                yield Vertical(id="create-list")
+                            with Horizontal(id="create-actions"):
+                                yield Button("Save import file",
+                                             id="create-save", disabled=True)
+                with TabPane("Keyboard", id="view-keyboard"):
+                    with Vertical(id="keyboard-body"):
+                        yield Label("Keyboard wedge", id="keyboard-title")
+                        yield Markdown(KEYBOARD_IDLE, id="keyboard-md")
+                        with Horizontal(id="keyboard-settings"):
+                            yield Label("Enter")
+                            yield Switch(
+                                value=True, id="keyboard-enter",
+                                tooltip="Send Enter after each scan, like a HID scanner")
+                        with Vertical(id="keyboard-log-panel"):
+                            yield Label("Typed", classes="panel-header")
+                            yield Log(id="keyboard-log", highlight=True,
+                                      max_lines=2000)
             yield Static("starting", id="status")
             yield Footer(show_command_palette=False)
 
@@ -1076,6 +1305,7 @@ def tui():
             history.add_column("Item", key="item")
             self.query_one("#lookup-link", Link).display = False
             self.query_one("#lookup-pretty", Static).display = False
+            self.query_one("#create-header", Horizontal).display = False
             if self.live and self._lookup_fn is None:
                 self.connect_inventree()
             if self._opts["port"]:
@@ -1489,6 +1719,8 @@ def tui():
                 self.rebuild_table()
             elif event.input.id in {"baud", "characteristic"}:
                 self.persist_selected_settings()
+            else:
+                self._pending_input_changed(event.input.id, event.value)
 
         def on_switch_changed(self, event: Switch.Changed) -> None:
             if event.switch.id == "unnamed":
@@ -1561,11 +1793,21 @@ def tui():
             self.query_one("#unnamed", Switch).toggle()
 
         def action_clear_scans(self) -> None:
-            if self.active_view() == "view-lookup":
+            view = self.active_view()
+            if view == "view-lookup":
                 self.query_one("#lookup-history", DataTable).clear()
                 self._hits_by_row.clear()
                 self._lookup_seq = 0
                 self.show_lookup_idle()
+                return
+            if view == "view-scanin":
+                self.query_one("#scanin-log", Log).clear()
+                return
+            if view == "view-create":
+                self.clear_pending()
+                return
+            if view == "view-keyboard":
+                self.query_one("#keyboard-log", Log).clear()
                 return
             self.scan_count = 0
             self.query_one("#scans", Log).clear()
@@ -1577,6 +1819,22 @@ def tui():
         def action_show_lookup(self) -> None:
             self.query_one("#views", TabbedContent).active = "view-lookup"
 
+        def action_show_scanin(self) -> None:
+            self.query_one("#views", TabbedContent).active = "view-scanin"
+
+        def action_show_create(self) -> None:
+            self.query_one("#views", TabbedContent).active = "view-create"
+
+        def action_show_keyboard(self) -> None:
+            self.query_one("#views", TabbedContent).active = "view-keyboard"
+
+        def action_export_pending(self) -> None:
+            if not self._pending and self.active_view() != "view-create":
+                self.notify("Nothing to save")
+                return
+            self.query_one("#views", TabbedContent).active = "view-create"
+            self.save_pending()
+
         def action_open_item(self) -> None:
             url = self.current_web_url()
             if not url:
@@ -1585,8 +1843,13 @@ def tui():
             self.open_web(url)
 
         def on_button_pressed(self, event: Button.Pressed) -> None:
-            if event.button.id == "lookup-open":
+            button_id = event.button.id or ""
+            if button_id == "lookup-open":
                 self.action_open_item()
+            elif button_id == "create-save":
+                self.save_pending()
+            elif button_id.startswith("create-remove-"):
+                self.remove_pending(button_id.removeprefix("create-remove-"))
 
         def action_connect(self) -> None:
             device = self.selected_device()
@@ -1682,6 +1945,11 @@ def tui():
                     "", self._inventree_error or LOOKUP_MISSING))
 
         def current_web_url(self) -> str | None:
+            if (self.active_view() == "view-scanin"
+                    and self._active_location is not None):
+                return web_url(self._inventree_url,
+                               self._active_location.kind,
+                               self._active_location.pk)
             if self._current_hit is None:
                 return None
             return web_url(self._inventree_url, self._current_hit.kind,
@@ -1860,41 +2128,282 @@ def tui():
             self.show_hit(hit, scan=scan)
             self.query_one("#views", TabbedContent).active = "view-lookup"
 
+        def scan_purpose(self) -> str | None:
+            return {
+                "view-lookup": "lookup",
+                "view-scanin": "scanin",
+                "view-create": "create",
+                "view-keyboard": "keyboard",
+            }.get(self.active_view())
+
+        def dispatch_scan(self, scan: str, hit: BarcodeHit | None,
+                          purpose: str) -> None:
+            if purpose == "scanin":
+                self.apply_scanin(scan, hit)
+            elif purpose == "create":
+                self.apply_create(scan, hit)
+            elif purpose == "keyboard":
+                self.apply_keyboard(scan)
+            else:
+                self.apply_lookup(scan, hit)
+
         def on_scan_arrived(self, event: ScanArrived) -> None:
             self.scan_count += 1
             stamp = datetime.now().strftime("%H:%M:%S")
             self.query_one("#scans", Log).write_line(
                 f"{stamp}  {self.scan_count:>4}  {printable(event.scan)}")
             self.refresh_status()
+            purpose = self.scan_purpose()
+            if purpose is None:
+                return
+            if purpose == "keyboard":
+                self.apply_keyboard(event.scan)
+                return
             if self._lookup_fn is not None:
                 try:
-                    self.apply_lookup(event.scan, self._lookup_fn(event.scan))
+                    self.dispatch_scan(
+                        event.scan, self._lookup_fn(event.scan), purpose)
                 except Exception as exc:
-                    self.query_one("#views", TabbedContent).active = (
-                        "view-lookup")
-                    self.show_lookup_error(event.scan, str(exc))
+                    self.handle_lookup_error(event.scan, str(exc), purpose)
             elif self.live:
-                self.lookup_scan(event.scan)
+                self.lookup_scan(event.scan, purpose)
+            elif purpose == "create":
+                self.apply_create(event.scan, None)
+            elif purpose == "scanin":
+                self.notify("InvenTree is not configured")
 
         def on_lookup_ready(self, event: LookupReady) -> None:
-            self.apply_lookup(event.scan, event.hit)
+            self.dispatch_scan(event.scan, event.hit, event.purpose)
 
         def on_lookup_failed(self, event: LookupFailed) -> None:
-            if event.scan:
+            self.handle_lookup_error(event.scan, event.error, event.purpose)
+
+        def handle_lookup_error(self, scan: str, error: str,
+                                purpose: str) -> None:
+            if purpose == "scanin":
+                self.scanin_log(f"{printable(scan)}  lookup failed")
+                self.notify(error)
+                return
+            if purpose == "create":
+                self.notify(error)
+                return
+            if scan:
                 self.query_one("#views", TabbedContent).active = "view-lookup"
-            self.show_lookup_error(event.scan, event.error)
+            self.show_lookup_error(scan, error)
+
+        def apply_keyboard(self, scan: str) -> None:
+            enter = self.query_one("#keyboard-enter", Switch).value
+            try:
+                if self._type_keys is not None:
+                    self._type_keys(scan, enter=enter)
+                else:
+                    type_as_keyboard(scan, enter=enter)
+            except Exception as exc:
+                self.notify(str(exc).splitlines()[0])
+                self.keyboard_log(f"{printable(scan)}  {reason(exc)}")
+                return
+            suffix = " + Enter" if enter else ""
+            self.keyboard_log(f"{printable(scan)}{suffix}")
+
+        def keyboard_log(self, text: str) -> None:
+            stamp = datetime.now().strftime("%H:%M:%S")
+            self.query_one("#keyboard-log", Log).write_line(f"{stamp}  {text}")
 
         @work(group="lookup", exclusive=True, thread=True, exit_on_error=False)
-        def lookup_scan(self, scan: str) -> None:
+        def lookup_scan(self, scan: str, purpose: str = "lookup") -> None:
             try:
                 api = self.inventree_api()
                 if api is None:
                     self.post_message(LookupFailed(
+                        scan, self._inventree_error or LOOKUP_MISSING,
+                        purpose))
+                    return
+                self.post_message(LookupReady(
+                    scan, lookup_barcode(api, scan), purpose))
+            except Exception as exc:
+                self.post_message(LookupFailed(scan, str(exc), purpose))
+
+        def scanin_log(self, text: str) -> None:
+            stamp = datetime.now().strftime("%H:%M:%S")
+            self.query_one("#scanin-log", Log).write_line(f"{stamp}  {text}")
+
+        def show_scanin_location(self, hit: BarcodeHit) -> None:
+            self.query_one("#scanin-title", Label).update(
+                f"Active location · {hit.title}")
+            self.query_one("#scanin-md", Markdown).update(
+                f"Stock item scans move to **{hit.title}**.\n\n"
+                "Scan another location to switch.")
+
+        def apply_scanin(self, scan: str, hit: BarcodeHit | None) -> None:
+            shown = printable(scan)
+            if hit is None:
+                self.notify(f"{shown} is not in InvenTree")
+                self.scanin_log(f"{shown}  not in InvenTree")
+                return
+            if hit.kind == "stocklocation":
+                self._active_location = hit
+                self.show_scanin_location(hit)
+                self.notify(f"Active location: {hit.title}")
+                self.scanin_log(f"location  {hit.title}")
+                return
+            if hit.kind != "stockitem":
+                self.notify(f"{hit.type_label} barcodes are not stock items")
+                self.scanin_log(f"{shown}  {hit.type_label}, not moved")
+                return
+            loc = self._active_location
+            if loc is None:
+                self.notify("Scan a location first")
+                self.scanin_log(f"{shown}  no location set")
+                return
+            qty = hit.payload.get("quantity")
+            if self._transfer_fn is not None:
+                try:
+                    self._transfer_fn(
+                        hit.pk, loc.pk, quantity=qty, notes="scan-in")
+                except Exception as exc:
+                    self.notify(str(exc))
+                    self.scanin_log(f"{shown}  {exc}")
+                    return
+                self.finish_scanin_move(scan, hit, loc.title)
+                return
+            if self.live:
+                self.run_transfer(scan, hit, loc.pk, loc.title)
+                return
+            self.notify("InvenTree is not configured")
+
+        def finish_scanin_move(self, scan: str, hit: BarcodeHit,
+                               location_title: str) -> None:
+            label = hit.title
+            self.notify(f"Moved {label} to {location_title}")
+            self.scanin_log(
+                f"{printable(scan)}  {label} → {location_title}")
+
+        def on_scanin_moved(self, event: ScaninMoved) -> None:
+            self.finish_scanin_move(
+                event.scan, event.hit, event.location_title)
+
+        def on_scanin_failed(self, event: ScaninFailed) -> None:
+            self.notify(event.error)
+            self.scanin_log(f"{printable(event.scan)}  {event.error}")
+
+        @work(group="scanin", exclusive=True, thread=True, exit_on_error=False)
+        def run_transfer(self, scan: str, hit: BarcodeHit,
+                         location_pk: int, location_title: str) -> None:
+            try:
+                api = self.inventree_api()
+                if api is None:
+                    self.post_message(ScaninFailed(
                         scan, self._inventree_error or LOOKUP_MISSING))
                     return
-                self.post_message(LookupReady(scan, lookup_barcode(api, scan)))
+                transfer_stock(
+                    api, hit.pk, location_pk,
+                    quantity=hit.payload.get("quantity"),
+                    notes="scan-in")
+                self.post_message(ScaninMoved(scan, hit, location_title))
             except Exception as exc:
-                self.post_message(LookupFailed(scan, str(exc)))
+                self.post_message(ScaninFailed(scan, str(exc)))
+
+        def pending_by_id(self, item_id: str) -> PendingStock | None:
+            return next((item for item in self._pending if item.id == item_id),
+                        None)
+
+        def refresh_create_chrome(self) -> None:
+            has_items = bool(self._pending)
+            self.query_one("#create-idle", Markdown).display = not has_items
+            self.query_one("#create-header", Horizontal).display = has_items
+            self.query_one("#create-save", Button).disabled = not has_items
+            count = len(self._pending)
+            if not has_items:
+                self.query_one("#create-title", Label).update(
+                    "Scan a product barcode to add a pending item")
+            else:
+                noun = "item" if count == 1 else "items"
+                self.query_one("#create-title", Label).update(
+                    f"{count} pending {noun}")
+
+        def mount_pending_row(self, item: PendingStock) -> None:
+            self.query_one("#create-list", Vertical).mount(Horizontal(
+                Label(printable(item.barcode), classes="create-barcode"),
+                Input(item.quantity, id=f"create-qty-{item.id}",
+                      classes="create-qty", type="number",
+                      placeholder="qty"),
+                Input(item.manufacturer, id=f"create-mfr-{item.id}",
+                      classes="create-mfr", placeholder="manufacturer"),
+                Input(item.notes, id=f"create-notes-{item.id}",
+                      classes="create-notes", placeholder="notes"),
+                Button("Remove", id=f"create-remove-{item.id}",
+                       classes="create-remove"),
+                classes="create-row",
+                id=f"create-row-{item.id}",
+            ))
+
+        def apply_create(self, scan: str, hit: BarcodeHit | None) -> None:
+            if hit is not None:
+                self.notify(
+                    f"{printable(scan)} is already a {hit.type_label.lower()}")
+                return
+            existing = next((item for item in self._pending
+                             if item.barcode == scan), None)
+            if existing is not None:
+                existing.quantity = str(_pending_quantity(existing.quantity) + 1)
+                self.query_one(f"#create-qty-{existing.id}", Input).value = (
+                    existing.quantity)
+                self.notify(
+                    f"{printable(scan)} quantity now {existing.quantity}")
+                return
+            self._pending_seq += 1
+            item = PendingStock(
+                id=f"s{self._pending_seq:02d}", barcode=scan)
+            self._pending.append(item)
+            self.mount_pending_row(item)
+            self.refresh_create_chrome()
+
+        def _pending_input_changed(self, widget_id: str | None,
+                                   value: str) -> None:
+            if not widget_id:
+                return
+            for prefix, field in (
+                    ("create-qty-", "quantity"),
+                    ("create-mfr-", "manufacturer"),
+                    ("create-notes-", "notes")):
+                if widget_id.startswith(prefix):
+                    item = self.pending_by_id(widget_id.removeprefix(prefix))
+                    if item is not None:
+                        setattr(item, field, value)
+                    return
+
+        def remove_pending(self, item_id: str) -> None:
+            self._pending = [item for item in self._pending
+                             if item.id != item_id]
+            row = self.query_one(f"#create-row-{item_id}", Horizontal)
+            row.remove()
+            self.refresh_create_chrome()
+
+        def clear_pending(self) -> None:
+            self._pending.clear()
+            self._pending_seq = 0
+            self.query_one("#create-list", Vertical).remove_children()
+            self.refresh_create_chrome()
+
+        def save_pending(self) -> None:
+            if not self._pending:
+                self.notify("Nothing to save — scan a product barcode first")
+                return
+            stamp = datetime.now().strftime("%Y-%m-%dT%H%M%S")
+            reference = f"scan-create-{stamp}"
+            document = pending_import_document(
+                self._pending, reference=reference, captured=stamp)
+            if self._export_fn is not None:
+                self._export_fn(document)
+                self.notify(f"Saved {len(self._pending)} pending items")
+                return
+            folder = Path(self._export_dir) if self._export_dir else Path(
+                ".local_imports")
+            path = folder / f"{reference}.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(document, indent=2) + "\n",
+                            encoding="utf-8")
+            self.notify(f"Wrote {path}")
 
         def on_link_state(self, event: LinkState) -> None:
             if event.phase == "connected" and self.connected_key:

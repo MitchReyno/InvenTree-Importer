@@ -574,6 +574,28 @@ class InvenTreeStub:
                     stub.barcodes[key] = {"stockitem": int(item)}
                     return self._send(200, {"success": "Barcode associated"})
 
+                if parsed.path == "/api/stock/transfer/":
+                    location = body.get("location")
+                    items = body.get("items") or []
+                    if location is None or not items:
+                        return self._send(400, {
+                            "error": "items and location are required"})
+                    loc = next((row for row in stub.locations
+                                if row["pk"] == location), None)
+                    moved = []
+                    for item in items:
+                        pk = item.get("pk")
+                        row = next((s for s in stub.stock_items
+                                    if s["pk"] == pk), None)
+                        if row is None:
+                            return self._send(400, {
+                                "error": f"stock item {pk} not found"})
+                        row["location"] = location
+                        if loc is not None:
+                            row["location_detail"] = loc
+                        moved.append(row)
+                    return self._send(201, body)
+
                 receive = re.match(r"^/api/order/po/(\d+)/receive/$", parsed.path)
                 if receive:
                     po_pk = int(receive.group(1))

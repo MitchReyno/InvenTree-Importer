@@ -321,6 +321,45 @@ def lookup_barcode(api, key: str) -> BarcodeHit | None:
     return enrich_hit(api, hit)
 
 
+def _quantity_payload(value: Any) -> str:
+    """StockAdjustmentItem.quantity is a decimal string in the spec."""
+    if isinstance(value, bool):
+        raise RuntimeError("quantity cannot be a boolean")
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return str(int(value)) if value.is_integer() else str(value)
+    text = str(value).strip()
+    if not text:
+        raise RuntimeError("quantity is empty")
+    number = float(text)
+    return str(int(number)) if number.is_integer() else text
+
+
+def transfer_stock(
+    api,
+    item_pk: int,
+    location_pk: int,
+    *,
+    quantity: Any = None,
+    notes: str = "",
+) -> Any:
+    """Move a stock item to a location via POST /api/stock/transfer/."""
+    qty = quantity
+    if qty in (None, ""):
+        item = _api_get(api, f"stock/{item_pk}/")
+        if not isinstance(item, dict) or item.get("quantity") in (None, ""):
+            raise RuntimeError(f"stock item {item_pk} has no quantity to move")
+        qty = item["quantity"]
+    body: dict[str, Any] = {
+        "location": location_pk,
+        "items": [{"pk": item_pk, "quantity": _quantity_payload(qty)}],
+    }
+    if notes:
+        body["notes"] = notes
+    return api.post("stock/transfer/", body)
+
+
 # Stock counts arrive as floats from InvenTree (`25.0`). Whole numbers are
 # shown as integers; a genuine fraction is left as-is.
 COUNT_KEYS = {

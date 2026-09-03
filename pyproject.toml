@@ -25,11 +25,12 @@ dependencies = [
 # Only scripts/register-scans.py needs these, and only on a machine with the
 # scanner attached, so they stay out of the default install: `uv sync --extra
 # scanner`. pyserial covers the Virtual COM path, bleak the BLE one,
-# textual the live TUI.
+# textual the live TUI, pynput the HID-style keyboard wedge.
 scanner = [
     "pyserial>=3.5",
     "bleak>=0.22",
     "textual>=2.0",
+    "pynput>=1.7",
 ]
 
 [project.scripts]
