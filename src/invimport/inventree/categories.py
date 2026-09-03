@@ -205,6 +205,36 @@ class NewCategory:
         return "/".join(self.path)
 
 
+def ensure_on_server(
+    api,
+    path: list[str],
+    existing: dict[str, Any],
+    configs: dict[str, CategoryConfig],
+) -> Any:
+    """
+    The server category at this path, creating any missing parents.
+
+    `existing` is the pathstring → PartCategory map, updated in place so a
+    later call in the same run sees what was just made.
+    """
+    parent_pk = None
+    found = None
+    walked: list[str] = []
+    for name in path:
+        walked.append(name)
+        pathstring = "/".join(walked)
+        found = existing.get(pathstring)
+        if found is None:
+            config = configs.get(pathstring) or CategoryConfig(
+                name=name, path=list(walked),
+                structural=pathstring != "/".join(path))
+            found = PartCategory.create(api, payload_for(config, parent_pk))
+            existing[pathstring] = found
+            log.info("    created category %s", pathstring)
+        parent_pk = found.pk
+    return found
+
+
 def children_of(
     parent: CategoryConfig | None,
     categories: dict[str, CategoryConfig] | Iterable[CategoryConfig],

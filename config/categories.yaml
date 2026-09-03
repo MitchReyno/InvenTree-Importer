@@ -248,6 +248,9 @@ Integrated Circuits:
     Gates and Inverters:
       aliases:
         - Integrated Circuits (ICs) / Logic / Gates and Inverters
+  "Display Drivers, Controllers":
+    identity: mpn
+    ipn_prefix: IC
 Optoelectronics:
   ipn_prefix: OPTO
   identity: mpn

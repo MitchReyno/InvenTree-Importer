@@ -572,6 +572,12 @@ l02,300,Diodes/Signal Diodes,1N4007,Rockby Electronics,R-99213,DO-41
 A `spec` category needs *all* of its key parameters on one row, which makes for
 a wide CSV; a `type` category like this one needs only the designator.
 
+A line may also carry `link` (a product or listing page), `datasheet` (a PDF
+URL) and `image` (a photo URL, or a path next to the file). They land on the
+part the same way DigiKey's do: the datasheet on the Part and ManufacturerPart,
+the product page on the SupplierPart, the first photo as the part image when
+it has none. A missing or unreadable image is skipped, not a reason to stop.
+
 Run `uv run invimport import-stock --schema` for the full field reference.
 
 #### Re-running is safe

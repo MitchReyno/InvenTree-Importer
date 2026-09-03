@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
+from invimport.config import load_categories_config
 from invimport.inventree.api import connect
 from invimport.inventree.stockimport import (
     CREATED,
@@ -13,7 +16,7 @@ from invimport.inventree.stockimport import (
     ImportOptions,
     import_stock,
 )
-from invimport.stockfile import parse_document
+from invimport.stockfile import parse_document, read_file
 
 CATEGORIES = """
 Resistors:
@@ -240,6 +243,57 @@ def test_a_chooser_settles_an_unknown_category(config, server):
     assert result.lines[0].category == "Resistors/Through Hole Resistors"
 
 
+def test_a_chooser_can_create_the_proposed_category(config, server):
+    """Picking the path the file named writes it to the config and the server."""
+    calls = []
+
+    def choose(line, near):
+        calls.append(line.id)
+        return line.category
+
+    before = (config / "categories.yaml").read_text()
+    _, result = run(
+        config,
+        {"category": "Resistors/Wirewound",
+         "suggest_category": {"identity": "spec", "ipn_prefix": "WW"},
+         "parameters": {"Resistance": "4k7", "Tolerance": "1%"}},
+        {"category": "Resistors/Wirewound",
+         "suggest_category": {"identity": "spec"},
+         "parameters": {"Resistance": "10k", "Tolerance": "1%"}},
+        choose_category=choose)
+
+    assert calls == ["1"]                         # the second line reuses it
+    assert [a.action for a in result.lines] == [CREATED, CREATED]
+    assert {a.category for a in result.lines} == {"Resistors/Wirewound"}
+    cats = load_categories_config(config)
+    assert "Resistors/Wirewound" in cats
+    assert cats["Resistors/Wirewound"].ipn_prefix == "WW"
+    assert before != (config / "categories.yaml").read_text()
+    assert any(c.get("pathstring") == "Resistors/Wirewound"
+               for c in server.categories)
+
+
+def test_creating_a_category_in_a_dry_run_writes_nothing(config, server):
+    yaml_before = (config / "categories.yaml").read_text()
+    categories_before = len(server.categories)
+    document = parse_document({"source": {"reference": "notes.jpg"}, "lines": [
+        {"id": "1", "quantity": 1, "category": "Resistors/Wirewound",
+         "suggest_category": {"identity": "spec"},
+         "parameters": {"Resistance": "4k7", "Tolerance": "1%"}}]})
+
+    result = import_stock(
+        document, connect(), directory=config,
+        options=ImportOptions(
+            write=False,
+            choose_category=lambda line, near: line.category))
+
+    assert result.lines[0].action == CREATED
+    assert result.lines[0].category == "Resistors/Wirewound"
+    assert (config / "categories.yaml").read_text() == yaml_before
+    assert len(server.categories) == categories_before
+    assert server.stock_items == []
+
+
 def test_a_low_confidence_line_is_held_when_a_floor_is_set(config, server):
     _, result = run(config, {**RESISTOR, "confidence": 0.4},
                     min_confidence=0.7)
@@ -276,3 +330,81 @@ def test_a_dry_run_writes_nothing(config, server):
     assert server.stock_items == []
     assert len(server.part_rows) == before
     assert server.barcodes == {}
+
+
+# --------------------------------------------------------------------------
+# URLs and images
+# --------------------------------------------------------------------------
+def test_a_datasheet_is_stored_on_the_part_and_the_manufacturer_part(
+        config, server):
+    _, result = run(config, {
+        **RESISTOR, "manufacturer": "YAGEO", "mpn": "MFR-25FTE52-4K7",
+        "datasheet": "https://www.yageo.com/ds.pdf",
+        "link": "https://www.rockby.com.au/product/123",
+        "supplier": "Rockby Electronics", "sku": "R-4K7",
+    })
+    assert result.lines[0].action == CREATED
+    part = next(p for p in server.part_rows if p.get("IPN") == "RES-00001")
+    assert part["link"] == "https://www.yageo.com/ds.pdf"
+    assert server.manufacturer_parts[0]["link"] == "https://www.yageo.com/ds.pdf"
+    assert server.supplier_parts[0]["link"] == "https://www.rockby.com.au/product/123"
+
+
+def test_a_link_alone_becomes_the_part_link(config, server):
+    """No datasheet: the product page is still worth keeping."""
+    run(config, {**RESISTOR, "link": "https://www.rockby.com.au/product/123"})
+    part = next(p for p in server.part_rows if p.get("IPN") == "RES-00001")
+    assert part["link"] == "https://www.rockby.com.au/product/123"
+
+
+def test_a_local_image_is_uploaded_as_the_part_picture(config, server, tmp_path):
+    photo = tmp_path / "packet.jpg"
+    photo.write_bytes(b"\xff\xd8\xff\xd9")
+    document = parse_document({
+        "source": {"reference": "notes.jpg"},
+        "lines": [{"id": "1", "quantity": 1, **RESISTOR,
+                   "image": str(photo)}]})
+    import_stock(document, connect(), directory=config,
+                 options=ImportOptions(write=True))
+    part = next(p for p in server.part_rows if p.get("IPN") == "RES-00001")
+    assert part.get("image")
+    assert server.images
+
+
+def test_an_image_next_to_the_file_is_found_by_relative_path(
+        config, server, tmp_path):
+    photo = tmp_path / "packet.jpg"
+    photo.write_bytes(b"\xff\xd8\xff\xd9")
+    path = tmp_path / "stock.json"
+    path.write_text(json.dumps({
+        "source": {"reference": "notes.jpg"},
+        "lines": [{"id": "1", "quantity": 1, **RESISTOR,
+                   "image": "packet.jpg"}]}))
+    import_stock(read_file(path), connect(), directory=config,
+                 options=ImportOptions(write=True))
+    part = next(p for p in server.part_rows if p.get("IPN") == "RES-00001")
+    assert part.get("image")
+
+
+def test_an_image_url_is_downloaded_and_uploaded(config, server, tmp_path,
+                                                 monkeypatch):
+    photo = tmp_path / "NE555P.jpg"
+    photo.write_bytes(b"\xff\xd8\xff\xd9")
+
+    def fake_fetch(url, cache_dir=None, refresh=False):
+        assert url == "https://example.com/photo.jpg"
+        return photo
+
+    monkeypatch.setattr("invimport.inventree.parts.fetch_image", fake_fetch)
+    run(config, {**RESISTOR, "image": "https://example.com/photo.jpg"})
+    part = next(p for p in server.part_rows if p.get("IPN") == "RES-00001")
+    assert part.get("image")
+
+
+def test_a_missing_image_does_not_fail_the_import(config, server):
+    """A part with no picture is better than an import that stops."""
+    _, result = run(config, {**RESISTOR, "image": "no-such-file.jpg"})
+    assert result.lines[0].action == CREATED
+    assert result.lines[0].stock_item
+    part = next(p for p in server.part_rows if p.get("IPN") == "RES-00001")
+    assert not part.get("image")

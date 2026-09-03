@@ -34,6 +34,8 @@ from typing import Any
 
 import yaml
 
+from .util import absolute_url
+
 # What a line may say. Anything else is a mistake worth reporting rather than
 # ignoring - a misspelled key is otherwise indistinguishable from an omission.
 LINE_KEYS = {
@@ -42,6 +44,7 @@ LINE_KEYS = {
     "manufacturer", "parameters",
     "supplier", "sku", "unit_price", "currency", "order",
     "location", "notes",
+    "link", "datasheet", "image", "images",
     "confidence", "needs_review",
 }
 ORDER_KEYS = {"reference", "date"}
@@ -116,6 +119,13 @@ class StockLine:
     location: str = ""
     notes: str = ""
 
+    # Product page, datasheet, photos. Same facts DigiKey's payload carries;
+    # a file may have any, all, or none of them.
+    link: str = ""
+    datasheet: str = ""
+    image: str = ""                              # primary; first of `images`
+    images: list[str] = field(default_factory=list)
+
     # Agent hints. Read by the CLI to decide what to confirm; never written to
     # InvenTree, because a number a model made up does not belong in an
     # inventory record.
@@ -181,6 +191,58 @@ def _as_bool(value: Any) -> bool:
     return str(value).strip().casefold() in ("true", "yes", "y", "1")
 
 
+def _as_url(value: Any, field_name: str, line_id: str,
+            problems: list[Problem]) -> str:
+    """A URL InvenTree will accept, or '' if none was given."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    url = absolute_url(text)
+    if url is None:
+        problems.append(Problem(
+            line_id, field_name,
+            f"{text!r} is not a URL - it needs a scheme (https://...)"))
+        return ""
+    return url
+
+
+def _as_images(raw: dict[str, Any], line_id: str,
+               problems: list[Problem]) -> list[str]:
+    """
+    Photo URLs or local paths, primary first.
+
+    `image` is one; `images` is several. A CSV cell is a comma-separated
+    list. Duplicates are dropped so writing both fields with the same
+    value does not upload twice.
+    """
+    collected: list[str] = []
+
+    primary = raw.get("image")
+    if isinstance(primary, list):
+        problems.append(Problem(
+            line_id, "image",
+            "must be a single URL or path; use 'images' for several"))
+        primary = None
+    text = str(primary or "").strip()
+    if text:
+        collected.append(text)
+
+    extra = raw.get("images")
+    if extra in (None, ""):
+        extra = []
+    elif isinstance(extra, str):
+        extra = [item.strip() for item in extra.split(",") if item.strip()]
+    elif not isinstance(extra, list):
+        problems.append(Problem(line_id, "images",
+                                "must be a list of URLs or paths"))
+        extra = []
+    for item in extra:
+        text = str(item).strip()
+        if text and text not in collected:
+            collected.append(text)
+    return collected
+
+
 def _as_number(value: Any, field_name: str, line_id: str,
                problems: list[Problem]) -> float | None:
     if value in (None, ""):
@@ -231,6 +293,12 @@ def _line_from(raw: dict[str, Any], index: int,
                  "manufacturer", "supplier", "sku", "currency", "location",
                  "notes"):
         setattr(line, name, str(raw.get(name) or "").strip())
+
+    line.link = _as_url(raw.get("link"), "link", line_id, problems)
+    line.datasheet = _as_url(raw.get("datasheet"), "datasheet", line_id,
+                             problems)
+    line.images = _as_images(raw, line_id, problems)
+    line.image = line.images[0] if line.images else ""
 
     line.approximate = _as_bool(raw.get("approximate"))
     line.needs_review = _as_bool(raw.get("needs_review"))

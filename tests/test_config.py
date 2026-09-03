@@ -370,6 +370,17 @@ def test_add_category_on_an_existing_path_just_adds_the_alias(tmp_path):
         "Resistors / Through Hole"]
 
 
+def test_add_category_writes_identity_on_the_leaf(tmp_path):
+    path = tmp_path / "categories.yaml"
+    path.write_text("Resistors:\n  identity: spec\n  Through Hole Resistors: {}\n")
+    assert add_category(path, ["Resistors", "Wirewound Resistors"],
+                        fields={"identity": "spec", "ipn_prefix": "WW"})
+    cats = load_categories_config(tmp_path)
+    assert cats["Resistors/Wirewound Resistors"].identity == "spec"
+    assert cats["Resistors/Wirewound Resistors"].ipn_prefix == "WW"
+    assert "Through Hole Resistors" in path.read_text()
+
+
 def test_add_alias_cannot_invent_a_nested_category(tmp_path):
     path = tmp_path / "categories.yaml"
     path.write_text("Resistors: {}\n")

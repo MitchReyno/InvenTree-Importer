@@ -159,6 +159,32 @@ def test_the_skill_does_not_overclaim_what_ran(text):
     assert re.search(r"[Dd]o not claim stock was imported", text)
 
 
+def test_the_skill_tells_the_agent_to_look_up_datasheets_and_images(text):
+    """
+    Identified parts should arrive with a datasheet and a photo, fetched,
+    not constructed from a typical URL pattern.
+    """
+    assert "Looking a part up" in text
+    assert re.search(r"datasheet URL", text)
+    assert re.search(r"one product (photo|image)", text)
+    assert re.search(r"Do not construct a\s+datasheet URL", text)
+
+
+def test_the_skill_tells_the_agent_to_fill_the_category_parameters(text):
+    """Key parameters identify the part; the rest still belong on it."""
+    assert re.search(
+        r"every (remaining )?parameter this category (lists|stores)", text)
+    assert "do not" in text.casefold() and "typical part" in text
+
+
+def test_the_worked_example_includes_a_datasheet_and_an_image(example):
+    line = example["lines"][0]
+    assert line.get("datasheet", "").startswith("https://")
+    assert line.get("image", "").startswith("https://")
+    # The packet's key parameters are not the whole set this category stores.
+    assert "Temperature Coefficient" in line["parameters"]
+
+
 # --------------------------------------------------------------------------
 # The README
 #

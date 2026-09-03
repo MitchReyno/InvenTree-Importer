@@ -221,3 +221,61 @@ def test_a_missing_file_says_which(tmp_path):
 def test_the_path_is_kept_for_reporting(tmp_path):
     path = write(tmp_path, doc())
     assert read_file(path).path == path
+
+
+# --------------------------------------------------------------------------
+# URLs and images
+# --------------------------------------------------------------------------
+def test_link_and_datasheet_are_kept():
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X",
+        "link": "https://www.rockby.com.au/product/123",
+        "datasheet": "https://www.yageo.com/ds.pdf",
+    }]))
+    line = document.lines[0]
+    assert line.link == "https://www.rockby.com.au/product/123"
+    assert line.datasheet == "https://www.yageo.com/ds.pdf"
+
+
+def test_a_protocol_relative_url_is_made_absolute():
+    """DigiKey-style '//host/path' is what InvenTree's validator rejects."""
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X",
+        "datasheet": "//www.yageo.com/ds.pdf",
+    }]))
+    assert document.lines[0].datasheet == "https://www.yageo.com/ds.pdf"
+
+
+def test_a_link_without_a_scheme_is_refused():
+    with pytest.raises(StockFileError, match="not a URL"):
+        parse_document(doc(lines=[{
+            "id": "a", "quantity": 1, "category": "X",
+            "link": "www.rockby.com.au/product/123",
+        }]))
+
+
+def test_image_is_a_url_or_a_path():
+    """Photos are allowed to be local files; product pages are not."""
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X",
+        "image": "packets/l01.jpg",
+    }]))
+    assert document.lines[0].image == "packets/l01.jpg"
+    assert document.lines[0].images == ["packets/l01.jpg"]
+
+
+def test_images_are_collected_with_the_primary_first():
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X",
+        "image": "https://example.com/a.jpg",
+        "images": ["https://example.com/a.jpg", "https://example.com/b.jpg"],
+    }]))
+    assert document.lines[0].images == [
+        "https://example.com/a.jpg", "https://example.com/b.jpg"]
+
+
+def test_csv_images_are_a_comma_separated_cell():
+    text = ("id,quantity,category,image,images\n"
+            "a,1,X,front.jpg,\"front.jpg, back.jpg\"\n")
+    document = parse_document(parse_text(text, ".csv"))
+    assert document.lines[0].images == ["front.jpg", "back.jpg"]

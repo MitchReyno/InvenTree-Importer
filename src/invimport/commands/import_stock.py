@@ -151,6 +151,21 @@ def schema() -> dict[str, Any]:
                          "description": "Stock location path; created if it "
                                         "does not exist."},
             "notes": {"type": "string"},
+            "link": {"type": "string", "format": "uri",
+                     "description": "Product or listing page. Stored on the "
+                                    "Part (if there is no datasheet) and on "
+                                    "the SupplierPart."},
+            "datasheet": {"type": "string", "format": "uri",
+                          "description": "Datasheet URL. Stored on the Part "
+                                         "and on the ManufacturerPart."},
+            "image": {"type": "string",
+                      "description": "Product photo: an http(s) URL, or a "
+                                     "path relative to this file. Becomes "
+                                     "the Part's image when it has none."},
+            "images": {"type": "array", "items": {"type": "string"},
+                       "description": "Additional photos; the first "
+                                      "resolvable one is used if image is "
+                                      "absent."},
             "confidence": {"type": "number", "minimum": 0, "maximum": 1,
                            "description": "Agent hint. Never stored."},
             "needs_review": {"type": "boolean",
@@ -231,6 +246,11 @@ def vocabulary(directory: Path | None) -> dict[str, Any]:
             "key_parameters; supply all of them or the import will stop and "
             "ask.",
             "Every line needs a stable, unique id.",
+            "link and datasheet must be URLs (https://...). image may be a "
+            "URL or a path relative to the stock file.",
+            "Once a part is identified, look up its datasheet URL, one "
+            "product image, and every remaining parameter this category "
+            "lists. Copy what you opened; do not invent a typical part.",
         ],
     }
 
@@ -284,7 +304,8 @@ def ask_category(line, near: list[str]):
         title += f"\n    the file says: {because}"
 
     options = [(path, f"use {path}") for path in near]
-    options.append((None, f"skip this line"))
+    options.append((line.category, f"create {line.category}"))
+    options.append((None, "skip this line"))
     picked = _prompt.choose_one(options, lambda o: o[1], title=title,
                                 prompt="  category > ")
     return None if picked is None else picked[0]

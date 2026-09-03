@@ -748,29 +748,36 @@ def format_yaml_key(name: str) -> str:
     return name
 
 
-def _category_block(keys: list[str], indent: int, alias: str | None) -> str:
-    """A nested category mapping, leaf either empty or carrying an alias."""
+def _category_block(keys: list[str], indent: int, alias: str | None,
+                    fields: dict[str, Any] | None = None) -> str:
+    """A nested category mapping, leaf either empty or carrying properties."""
+    fields = {name: value for name, value in (fields or {}).items()
+              if value not in (None, "")}
     lines: list[str] = []
     for index, key in enumerate(keys):
         pad = " " * (indent + 2 * index)
-        if index == len(keys) - 1 and not alias:
+        if index == len(keys) - 1 and not alias and not fields:
             lines.append(f"{pad}{format_yaml_key(key)}: {{}}")
         else:
             lines.append(f"{pad}{format_yaml_key(key)}:")
+    pad = " " * (indent + 2 * len(keys))
+    for name, value in fields.items():
+        lines.append(f"{pad}{name}: {format_yaml_key(str(value))}")
     if alias:
-        pad = " " * (indent + 2 * len(keys))
         lines.append(f"{pad}aliases:")
         lines.append(f"{pad}  - {alias}")
     return "\n".join(lines) + "\n"
 
 
-def add_category(path: Path, keys: list[str], alias: str | None = None) -> bool:
+def add_category(path: Path, keys: list[str], alias: str | None = None,
+                 fields: dict[str, Any] | None = None) -> bool:
     """
     Ensure the category at `keys` exists, creating any missing parents.
 
     Walks the file by indentation so comments survive. The leaf gets `alias`
-    if given. An already-complete path just adds the alias. Returns True if
-    the file changed.
+    and `fields` (identity, ipn_prefix, description, ...) if given. An
+    already-complete path just adds the alias. Returns True if the file
+    changed.
     """
     if not keys:
         raise ConfigError("add_category needs a key path")
@@ -795,7 +802,7 @@ def add_category(path: Path, keys: list[str], alias: str | None = None) -> bool:
     else:
         return add_alias(path, keys, alias) if alias else False
 
-    block = _category_block(keys[missing_from:], indent, alias)
+    block = _category_block(keys[missing_from:], indent, alias, fields)
     if parent_index is None:
         return _append_block(path, lines, block)
 

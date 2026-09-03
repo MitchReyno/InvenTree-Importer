@@ -9,12 +9,20 @@ Turn an unstructured description of components — a photo, a receipt, a scribbl
 list, a spoken inventory — into a JSON file that `invimport import-stock` can
 check and import.
 
-Your job is **transcription, not invention**. The file you write becomes stock
-records in someone's real inventory. A wrong quantity means they build a circuit
-and run out of parts. A guessed manufacturer means a part that claims a fact
-nobody verified. When you cannot read something, leave it out — the tool is
-built to accept partial rows, and half of real stock genuinely has no
-manufacturer part number.
+Two jobs, in that order: **transcribe, then look up**.
+
+The file you write becomes stock records in someone's real inventory. A wrong
+quantity means they build a circuit and run out of parts. A guessed
+manufacturer means a part that claims a fact nobody verified. Quantity, price,
+order number, and the MPN or markings as printed are transcription — when you
+cannot read them, leave them out. The tool accepts partial rows, and half of
+real stock genuinely has no manufacturer part number.
+
+Once a line is identified — an MPN, a type designator, or a complete spec —
+**look the part up**. Every such line should carry a datasheet URL, a product
+image, and every remaining parameter this category lists in `--vocabulary`
+that the datasheet or product page actually states. A URL you did not open,
+or a parameter you filled from "typical 100k 1/4W metal film", is invention.
 
 ## The loop
 
@@ -31,9 +39,13 @@ choices *this* config defines. You cannot guess these — the category is
 `Resistors/Through Hole Resistors`, not `Resistors/THT`; the parameter is
 `Power Rating`, not `Wattage`. Read it before you write anything.
 
-**2. Write the file** (see the shape below).
+**2. Identify, then look up.** Read the source. For every line you can
+identify, fetch (do not invent) a datasheet URL, one product image, and the
+category's remaining parameters — see [Looking a part up](#looking-a-part-up).
 
-**3. Validate. Fix. Repeat.**
+**3. Write the file** (see the shape below).
+
+**4. Validate. Fix. Repeat.**
 
 ```bash
 uv run invimport import-stock stock.json --validate
@@ -42,7 +54,7 @@ uv run invimport import-stock stock.json --validate
 Returns JSON with `errors` carrying `did_you_mean`. No API calls, nothing
 written — loop here as long as you need. Exit code 0 means clean.
 
-**4. Show the dry run to the user.**
+**5. Show the dry run to the user.**
 
 ```bash
 uv run invimport import-stock stock.json
@@ -51,7 +63,7 @@ uv run invimport import-stock stock.json
 Human-readable, with the parsed parameter values so they can check your reading.
 **Always let the user see this before anything is written.**
 
-**5. Only then, write — and only if the user says to.**
+**6. Only then, write — and only if the user says to.**
 
 ```bash
 uv run invimport import-stock stock.json --write
@@ -89,7 +101,16 @@ lines back to them.
       "manufacturer": "YAGEO",
       "parameters": {"Resistance": "100 kohm", "Tolerance": "1%",
                      "Power Rating": "0.25 W", "Composition": "Metal Film",
-                     "Package": "Axial", "Mounting": "Through Hole"},
+                     "Package": "Axial", "Mounting": "Through Hole",
+                     "Temperature Coefficient": "±50 ppm/°C",
+                     "Max Working Voltage": "250 V",
+                     "Operating Temp Min": "-55°C ~ 155°C",
+                     "Operating Temp Max": "-55°C ~ 155°C",
+                     "Diameter": "2.40mm x 6.30mm",
+                     "Length": "2.40mm x 6.30mm"},
+      "link": "https://www.yageo.com/en/ProductSearch/Search?k=MFR-25FTE52-100K",
+      "datasheet": "https://www.yageo.com/upload/media/product/products/datasheet/lr/YAGEO_RCHIP_MFR_datasheets.pdf",
+      "image": "https://mm.digikey.com/Volume0/opasdata/d220001/medias/images/1094/MFG_MFR-25.jpg",
       "unit_price": 0.0996,
       "confidence": 0.95
     }
@@ -104,12 +125,57 @@ and CSV are accepted too; CSV uses dotted columns (`param.Resistance`,
 `defaults` are merged into every line and a line always wins, so put the
 supplier, currency and order there once rather than repeating them.
 
+`link` is a product or listing page (stored on the SupplierPart, and on the
+Part if there is no datasheet). `datasheet` is a PDF URL (stored on the Part
+and the ManufacturerPart). `image` is a product photo: an `http(s)` URL, or a
+path relative to the stock file. Extra photos go in `images`. A missing or
+unreadable image is skipped — it does not fail the import.
+
+## Looking a part up
+
+Do this for every line you can identify. An MPN (`MFR-25FTE52-100K`), a type
+designator (`1N4007`), or a complete spec (value, tolerance, wattage,
+composition, package, mounting) is enough to search on. A bag that only says
+`4k7` is not — transcribe what is there and leave `datasheet`, `image` and
+extra parameters off.
+
+**Open the sources. Copy what they actually say.** Do not construct a
+datasheet URL from a manufacturer's typical path, and do not fill parameters
+from memory of the series. If you cannot fetch a page, omit the field and say
+so in your summary.
+
+For each identified line:
+
+1. **Datasheet.** Search for this MPN or type plus "datasheet". Prefer the
+   manufacturer's PDF for this part or series. Put the URL you opened in
+   `datasheet`. A distributor product page is `link`, not a datasheet. A PDF
+   for a similar-looking part (another 100k resistor, another 1N400x) is
+   wrong — leave `datasheet` off.
+2. **Image.** One product photo of this part, in `image`. Manufacturer or
+   distributor is fine. The photo the user sent you is the *source*, not the
+   part image, unless it is a clear picture of this one component. A path
+   relative to the stock file is accepted (`"packets/l01.jpg"`).
+3. **Parameters.** The vocabulary lists every parameter this category stores,
+   not just the `key_parameters` that identify it. Read the datasheet and
+   product page, and fill every one of those names they actually state —
+   temperature coefficient, voltage rating, operating temperature, body size,
+   and so on. Use the vocabulary's names (`Power Rating`, not `Wattage`) and
+   write values as printed (`"±50 ppm/°C"`, `"-55°C ~ 155°C"`,
+   `"2.40mm x 6.30mm"`). Skip any parameter the source does not give; do not
+   round out the set from a typical part.
+
+A line that already has its key parameters from the packet still needs this
+pass: the packet rarely has a datasheet URL or a TCR.
+
 ## Rules that matter
 
-**Never invent.** No MPN, manufacturer, order number, price or parameter value
-that you cannot actually see. Omit the field. A part with no manufacturer is
-normal and gets no ManufacturerPart — that is the designed behaviour, not a
-degraded one.
+**Never invent.** Quantity, price, order number, and the MPN, manufacturer or
+markings as printed: only what you can see on the source. A datasheet you
+opened for this part is not invention; a datasheet for a similar-looking part
+is. A parameter copied from "typical 100k 1/4W metal film" without checking
+this part's datasheet is invention. Omit anything you did not find. A part
+with no manufacturer is normal and gets no ManufacturerPart — that is the
+designed behaviour, not a degraded one.
 
 **Every line needs a stable, unique `id`.** With `source.reference`, it forms
 the barcode that makes re-running an import a no-op instead of doubling the
@@ -137,9 +203,9 @@ exists is the most common failure.
 
 **Fill every `key_parameter` for `spec` categories.** The vocabulary lists them
 per category. Under `identity: spec` those parameters *are* the part's identity,
-so a partial set makes the import stop and ask a human rather than guess. If the
-information is on the packet, read it; if it genuinely is not there, leave the
-line partial and expect the prompt.
+so a partial set makes the import stop and ask a human rather than guess. Read
+them off the packet first; if any are missing, take them from the datasheet.
+Only leave the line partial if neither source has them.
 
 **Write values as they are printed.** `"4.7 kohm"`, `"±1%"`, `"0.25 W"`,
 `"-55°C ~ 125°C"`. Units are parsed, not assumed. Do not normalise to bare
@@ -180,20 +246,27 @@ guessing at should be `0.4` with `"needs_review": true`, not `0.9`.
 **Invoice or receipt photo** — the richest source. Expect distributor part
 numbers, MPNs, quantities and prices. Put the order number and date in
 `defaults.order`. Watch for pack quantities in the description (`"10-pack"`)
-where the line quantity is packs, not pieces: the import wants **pieces**.
+where the line quantity is packs, not pieces: the import wants **pieces**. An
+MPN on an invoice is enough to look the part up; do that before writing the
+file.
 
 **Hand-written list** — usually value, quantity and not much else. Resistors and
 capacitors are `spec` categories, so a value plus tolerance plus wattage may be
 a complete identity with no MPN at all. Ask about ambiguous shorthand rather
-than guessing: `4k7`, `4R7` and `47k` are three different resistors.
+than guessing: `4k7`, `4R7` and `47k` are three different resistors. Look the
+part up only when the line is identified well enough that a datasheet could
+only be this part.
 
 **Photo of the components themselves** — read markings literally and transcribe
 them into `type` or `description`. Do not "correct" a marking into a part you
 recognise unless you are certain. Colour-code a resistor only if the bands are
-unambiguous in the image; say when you are inferring rather than reading.
+unambiguous in the image; say when you are inferring rather than reading. A
+legible MPN or type is enough to look up; a photo of the bag is not the part
+image.
 
 **Verbal or typed description** — ask for what is missing before writing the
-file, particularly quantities and whether packets are sealed.
+file, particularly quantities and whether packets are sealed. Look up anything
+identified.
 
 ## When you are done
 
@@ -201,6 +274,8 @@ Report to the user:
 
 - how many lines, and the dry-run output
 - **anything you guessed, inferred or could not read** — list these explicitly
+- which lines have no `datasheet` or `image`, and why (unidentified, or looked
+  up and not found)
 - any line the validator warned about, especially partial `spec` identities that
   will make the import stop and ask
 - whether anything was written, and what

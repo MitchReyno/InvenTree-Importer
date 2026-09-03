@@ -25,11 +25,16 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Callable
 
 from ..config import (
+    CATEGORIES_FILE,
     CONFIG_DIR,
+    IDENTITY_MODES,
+    IPN_PREFIX_PATTERN,
     CategoryConfig,
+    add_category,
     load_categories_config,
     load_manufacturers_config,
     load_parameters_config,
@@ -45,12 +50,14 @@ from .api import (
     SupplierPart,
     connect,
 )
+from .categories import ensure_on_server
 from .parts import (
     UNRESOLVED_PK,
     ImportContext,
     PartLine,
     PartPolicy,
     apply_parameters,
+    attach_line_images,
     resolve_part,
 )
 from .purchase_orders import (
@@ -176,6 +183,7 @@ def import_stock(
     for line in document.lines:
         result.lines.append(_import_line(
             api, document, line, ctx, suppliers, options,
+            directory=directory,
             supplier_cache=supplier_cache, location_cache=location_cache,
             order_cache=order_cache, supplier_parts=supplier_parts))
 
@@ -184,6 +192,7 @@ def import_stock(
 
 def _import_line(api, document: StockFile, line: StockLine,
                  ctx: ImportContext, suppliers, options: ImportOptions, *,
+                 directory: Path,
                  supplier_cache, location_cache, order_cache,
                  supplier_parts) -> LineAction:
     action = LineAction(id=line.id, quantity=line.quantity)
@@ -206,7 +215,8 @@ def _import_line(api, document: StockFile, line: StockLine,
 
     category = resolve_category(line, ctx.categories)
     if category is None:
-        category = _offer_category(line, ctx, options, action)
+        category = _offer_category(line, ctx, options, action,
+                                   api=api, directory=directory)
         if category is None:
             return action
     action.category = category.pathstring
@@ -222,7 +232,8 @@ def _import_line(api, document: StockFile, line: StockLine,
         api,
         PartLine(category=category, mpn=line.mpn, type=line.type,
                  ipn=line.ipn, manufacturer=line.manufacturer,
-                 description=line.description, parameters=line.parameters),
+                 description=line.description, parameters=line.parameters,
+                 link=line.link, datasheet=line.datasheet),
         ctx, write=options.write,
         policy=PartPolicy(
             require_mpn=False, require_manufacturer=False,
@@ -271,6 +282,11 @@ def _import_line(api, document: StockFile, line: StockLine,
     if not options.write or action.part in (None, UNRESOLVED_PK):
         return action
 
+    if line.images:
+        attach_line_images(
+            resolved.part, line.images,
+            base_dir=document.path.parent if document.path else None)
+
     notes = stock_note(
         f"sold by {seller}" if seller else "",
         "quantity is approximate" if line.approximate else "",
@@ -305,7 +321,8 @@ def _import_line(api, document: StockFile, line: StockLine,
 # --------------------------------------------------------------------------
 def _offer_category(line: StockLine, ctx: ImportContext,
                     options: ImportOptions,
-                    action: LineAction) -> CategoryConfig | None:
+                    action: LineAction, *,
+                    api, directory: Path) -> CategoryConfig | None:
     """
     A category the config does not have. Suggest, confirm, create - never
     silently: a taxonomy that grows itself from typos stops being a taxonomy.
@@ -324,14 +341,93 @@ def _offer_category(line: StockLine, ctx: ImportContext,
         action.action = SKIPPED
         action.reason = f"unknown category {line.category!r}"
         return None
-    if isinstance(picked, str):
-        chosen = ctx.categories.get(picked)
+    if not isinstance(picked, str):
+        return picked
+    chosen = ctx.categories.get(picked)
+    if chosen is not None:
+        return chosen
+    return _create_category(picked, line, ctx, options, action,
+                            api=api, directory=directory)
+
+
+def _suggestion_fields(line: StockLine) -> dict[str, str]:
+    """What suggest_category asked to store. `because` is never written."""
+    suggest = line.suggest_category or {}
+    fields: dict[str, str] = {}
+    identity = str(suggest.get("identity") or "").strip()
+    if identity in IDENTITY_MODES:
+        fields["identity"] = identity
+    prefix = str(suggest.get("ipn_prefix") or "").strip().upper()
+    if prefix and IPN_PREFIX_PATTERN.match(prefix):
+        fields["ipn_prefix"] = prefix
+    description = str(suggest.get("description") or "").strip()
+    if description:
+        fields["description"] = description
+    return fields
+
+
+def _category_from_suggestion(
+    keys: list[str], line: StockLine,
+    categories: dict[str, CategoryConfig],
+) -> CategoryConfig:
+    """In-memory category for a dry run, inheriting from the nearest parent."""
+    parent = None
+    for depth in range(len(keys) - 1, 0, -1):
+        parent = categories.get("/".join(keys[:depth]))
+        if parent is not None:
+            break
+    fields = _suggestion_fields(line)
+    return CategoryConfig(
+        name=keys[-1],
+        path=list(keys),
+        identity=fields.get("identity") or (parent.identity if parent else "mpn"),
+        ipn_prefix=fields.get("ipn_prefix") or (
+            parent.ipn_prefix if parent else ""),
+        key_parameters=list(parent.key_parameters) if parent else [],
+        name_template=parent.name_template if parent else "",
+        parameters=list(parent.parameters) if parent else [],
+        description=fields.get("description") or "",
+        structural=False,
+        ignore=list(parent.ignore) if parent else [],
+    )
+
+
+def _create_category(pathstring: str, line: StockLine, ctx: ImportContext,
+                     options: ImportOptions, action: LineAction, *,
+                     api, directory: Path) -> CategoryConfig | None:
+    """
+    Write the proposed path to the config and the server, or to neither.
+
+    A dry run keeps an in-memory copy so later lines of the same file can
+    share it, without leaving a taxonomy entry the human did not confirm
+    with --write.
+    """
+    keys = [part.strip() for part in pathstring.split("/") if part.strip()]
+    if not keys:
+        action.action = SKIPPED
+        action.reason = f"unknown category {pathstring!r}"
+        return None
+
+    if options.write:
+        add_category(directory / CATEGORIES_FILE, keys,
+                     fields=_suggestion_fields(line) or None)
+        fresh = load_categories_config(directory)
+        ctx.categories.clear()
+        ctx.categories.update(fresh)
+        chosen = ctx.categories.get("/".join(keys))
         if chosen is None:
             action.action = SKIPPED
-            action.reason = f"unknown category {picked!r}"
+            action.reason = f"unknown category {pathstring!r}"
             return None
+        ensure_on_server(api, chosen.path, ctx.server_categories,
+                         ctx.categories)
         return chosen
-    return picked
+
+    chosen = _category_from_suggestion(keys, line, ctx.categories)
+    ctx.categories[chosen.pathstring] = chosen
+    ctx.server_categories[chosen.pathstring] = SimpleNamespace(
+        pk=UNRESOLVED_PK, pathstring=chosen.pathstring, name=chosen.name)
+    return chosen
 
 
 def _resolve_supplier(api, line: StockLine, suppliers,
@@ -369,6 +465,8 @@ def _supplier_part(api, line: StockLine, supplier, resolved,
         payload["manufacturer_part"] = resolved.manufacturer_part.pk
     if line.description:
         payload["description"] = line.description[:250]
+    if line.link:
+        payload["link"] = line.link
     created = SupplierPart.create(api, payload)
     supplier_parts[key] = created
     return created

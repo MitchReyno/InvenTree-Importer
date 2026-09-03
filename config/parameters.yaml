@@ -43,24 +43,6 @@ Composition:
   aliases:
     - Composition
     - Material
-  choices:
-    - Metal Film
-    - Carbon Film
-    - Carbon Composition
-    - Wire Wound
-    - Thick Film
-    - Thin Film
-    - Sn96.5Ag3Cu0.5 (96.5/3/0.5)
-    - Metal Oxide Film
-    - Metal Foil
-  values:
-    Wire Wound:
-      - Wire Wound
-      - Wirewound
-    Metal Oxide Film:
-      - Metal Oxide Film
-    Metal Foil:
-      - Metal Foil
 Diameter:
   units: mm
   description: Body or can diameter
@@ -139,30 +121,6 @@ Mounting:
     # (or Radial) in Package / Case. The values map already treats those as
     # Through Hole; this alias is how that field is seen.
     - Package / Case
-  choices:
-    - Through Hole
-    - Surface Mount
-    - Chassis
-    - "Through Hole, Right Angle"
-    - Fixed
-    - Panel Mount
-  values:
-    Through Hole:
-      - Through Hole
-      - Thru Hole
-      - Axial
-      - Radial
-    Surface Mount:
-      - Surface Mount
-      - SMD/SMT
-      - Surface Mount, MELF
-
-    "Through Hole, Right Angle":
-      - "Through Hole, Right Angle"
-    Fixed:
-      - Fixed
-    Panel Mount:
-      - Panel Mount
 Operating Temp Max:
   units: °C
   description: Maximum rated operating temperature
@@ -527,8 +485,6 @@ Color:
     - Insulation Color
 
 Gender:
-  choices:
-    - Female Sockets
   aliases:
     - Gender
 
@@ -537,8 +493,6 @@ Housing Material:
     - Housing Material
 
 Material Flammability Rating:
-  choices:
-    - UL94 V-0
   aliases:
     - Material Flammability Rating
 
@@ -553,23 +507,11 @@ Pitch:
     - Pitch
 
 Contact Finish - Post:
-  values:
-    Gold:
-      - Gold
-  choices:
-    - Tin
-    - Gold
   aliases:
     - Contact Finish - Post
     - Contact Material - Post
 
 Contact Material - Mating:
-  values:
-    Brass:
-      - Brass
-  choices:
-    - Phosphor Bronze
-    - Brass
   aliases:
     - Contact Material - Mating
 
@@ -586,9 +528,6 @@ Contact Length - Post:
     - Contact Length - Post
 
 Fastening Type:
-  choices:
-    - Latch Holder
-    - Push-Pull
   aliases:
     - Fastening Type
 
@@ -603,8 +542,6 @@ Pitch - Mating:
     - Pitch - Mating
 
 Contact Shape:
-  choices:
-    - Square
   aliases:
     - Contact Shape
 
@@ -660,8 +597,6 @@ Voltage - DC Reverse (Vr) (Max):
     - Voltage - DC Reverse (Vr) (Max)
 
 Grade:
-  choices:
-    - Automotive
   aliases:
     - Grade
 

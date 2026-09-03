@@ -1052,6 +1052,11 @@ def test_import_stock_schema_is_valid_json(capsys):
     schema = json.loads(capsys.readouterr().out)
     assert schema["properties"]["lines"]["items"]["required"] == [
         "id", "quantity", "category"]
+    properties = schema["properties"]["lines"]["items"]["properties"]
+    assert "link" in properties
+    assert "datasheet" in properties
+    assert "image" in properties
+    assert "images" in properties
 
 
 def test_import_stock_vocabulary_lists_the_real_config(capsys, tmp_path):
@@ -1179,6 +1184,37 @@ def test_import_stock_holds_an_unknown_category_without_a_terminal(
     assert "need review" in out
     assert "Resistors/Through Hole Resistors" in out   # the near miss offered
     assert inventree.stock_items == []
+
+
+def test_import_stock_offers_to_create_an_unknown_category(
+        capsys, inventree, answers, tmp_path):
+    """
+    Existing matches first, then create, then skip.
+
+    Picking create writes the category to the config and the server in the
+    same run as the stock - or, without --write, to neither.
+    """
+    from invimport.config import load_categories_config
+
+    _seed_stock_tree(inventree)
+    directory = _stock_config(tmp_path)
+    path = _stock_file(tmp_path, [{"id": "a", "quantity": 1,
+                                   "category": "Resistors/Wirewound",
+                                   "suggest_category": {"identity": "spec"},
+                                   "parameters": {"Resistance": "1 kohm"}}])
+    answers("2")                                  # 1 = near match, 2 = create
+
+    assert main(["import-stock", "--config", str(directory),
+                 "--write", str(path)]) == 0
+
+    out = capsys.readouterr().out
+    assert "use Resistors/Through Hole Resistors" in out
+    assert "create Resistors/Wirewound" in out
+    assert "skip this line" in out
+    assert "Resistors/Wirewound" in load_categories_config(directory)
+    assert any(c.get("pathstring") == "Resistors/Wirewound"
+               for c in inventree.categories)
+    assert inventree.stock_items
 
 
 def test_import_stock_rejects_an_unknown_category_before_connecting(

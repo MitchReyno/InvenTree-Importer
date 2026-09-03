@@ -512,6 +512,46 @@ def cache_product_images(product: dict[str, Any], cache_dir: Path,
     return paths
 
 
+def resolve_image_source(source: str, cache_dir: Path = cache.IMAGES_DIR,
+                         *, base_dir: Path | None = None,
+                         refresh: bool = False) -> Path | None:
+    """
+    A local image file, or a downloaded URL. Returns the file, or None.
+
+    Relative paths are resolved against base_dir (the stock file's folder).
+    Failures log and are skipped, matching DigiKey's missing-PhotoUrl
+    behaviour: a part with no picture is better than an import that stops.
+    """
+    text = str(source or "").strip()
+    if not text:
+        return None
+    url = absolute_url(text)
+    if url:
+        return fetch_image(url, cache_dir=cache_dir, refresh=refresh)
+    path = Path(text).expanduser()
+    if not path.is_absolute() and base_dir is not None:
+        path = base_dir / path
+    if path.is_file():
+        return path
+    log.warning("    [warn] image %s: not a file", source)
+    return None
+
+
+def attach_line_images(part, sources: list[str], *,
+                       cache_dir: Path = cache.IMAGES_DIR,
+                       base_dir: Path | None = None) -> bool:
+    """Upload the first resolvable image as the part's picture."""
+    if (not sources or part is None
+            or getattr(part, "pk", None) in (None, UNRESOLVED_PK)
+            or getattr(part, "image", None)):
+        return False
+    for source in sources:
+        path = resolve_image_source(source, cache_dir, base_dir=base_dir)
+        if path is not None:
+            return attach_part_image(part, path)
+    return False
+
+
 # --------------------------------------------------------------------------
 # The supplier-agnostic core
 #
@@ -521,8 +561,9 @@ def cache_product_images(product: dict[str, Any], cache_dir: Path,
 # the MPN and the manufacturer, a hand-written list often knows neither.
 #
 # So the shape below carries the facts, PartPolicy carries the demands, and
-# import_sku() is left as the DigiKey-specific part - the SKU, the supplier
-# part and the images.
+# import_sku() is left as the DigiKey-specific part - the SKU and the
+# supplier part. Images and URLs are shared: a file names them the same way
+# a product payload does.
 # --------------------------------------------------------------------------
 @dataclass
 class PartLine:
