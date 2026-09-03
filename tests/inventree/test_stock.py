@@ -10,12 +10,17 @@ from invimport.inventree.stock import (
     STATUS_ATTENTION,
     STATUS_OK,
     STATUS_QUARANTINED,
+    BarcodeHit,
     BarcodeInUse,
     add_stock,
     already_imported,
+    barcode_hit,
+    hit_rows,
     link_barcode,
+    lookup_barcode,
     resolve_location,
     stock_note,
+    web_url,
 )
 
 KEY = "invimport:notes-2026-08-29.jpg:l01"
@@ -190,3 +195,75 @@ def test_a_note_joins_only_what_was_said():
     assert stock_note("sold by salash", "", None, "approximate") == (
         "sold by salash\napproximate")
     assert stock_note("", "   ") == ""
+
+
+# --------------------------------------------------------------------------
+# Barcode lookup (part / stock item / location)
+# --------------------------------------------------------------------------
+def test_lookup_returns_a_stock_item(inventree):
+    inventree.barcodes["S-1"] = {
+        "stockitem": {"pk": 9, "quantity": 25, "part": 4}}
+    hit = lookup_barcode(connect(), "S-1")
+    assert hit is not None
+    assert hit.kind == "stockitem"
+    assert hit.pk == 9
+    assert hit.payload["quantity"] == 25
+
+
+def test_lookup_returns_a_part(inventree):
+    inventree.add_part("NE555P", ipn="NE555P", pk=4, description="timer")
+    inventree.barcodes["P-4"] = {"part": {"pk": 4}}
+    hit = lookup_barcode(connect(), "P-4")
+    assert hit is not None
+    assert hit.kind == "part"
+    assert hit.pk == 4
+    assert hit.payload.get("name") == "NE555P"
+
+
+def test_lookup_returns_a_location(inventree):
+    inventree.barcodes["LOC-1"] = {
+        "stocklocation": {"pk": 1, "name": "Stock", "pathstring": "Stock"}}
+    hit = lookup_barcode(connect(), "LOC-1")
+    assert hit is not None
+    assert hit.kind == "stocklocation"
+    assert hit.pk == 1
+    assert hit.title == "Stock"
+
+
+def test_lookup_unknown_is_none(inventree):
+    assert lookup_barcode(connect(), "nope") is None
+
+
+def test_lookup_accepts_a_bare_pk(inventree):
+    inventree.barcodes["S-int"] = {"stockitem": 12}
+    hit = lookup_barcode(connect(), "S-int")
+    assert hit is not None
+    assert hit.kind == "stockitem"
+    assert hit.pk == 12
+
+
+def test_web_url_points_at_the_pui():
+    assert web_url("http://inv.example/", "part", 4) == (
+        "http://inv.example/web/part/4/")
+    assert web_url("http://inv.example", "stockitem", 9) == (
+        "http://inv.example/web/stock/item/9/")
+    assert web_url("http://inv.example", "stocklocation", 1) == (
+        "http://inv.example/web/stock/location/1/")
+    assert web_url(None, "part", 4) is None
+
+
+def test_barcode_hit_picks_stock_before_part():
+    hit = barcode_hit({"stockitem": {"pk": 3}, "part": {"pk": 4}})
+    assert hit is not None
+    assert hit.kind == "stockitem"
+    assert hit.pk == 3
+
+
+def test_hit_rows_list_part_fields():
+    hit = BarcodeHit(
+        kind="part", pk=4,
+        payload={"pk": 4, "IPN": "NE555P", "name": "NE555P",
+                 "description": "timer", "total_in_stock": 12})
+    rows = dict(hit_rows(hit))
+    assert rows["IPN"] == "NE555P"
+    assert rows["In stock"] == "12"

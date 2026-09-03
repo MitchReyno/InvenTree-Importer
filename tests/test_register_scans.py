@@ -642,3 +642,125 @@ async def test_f_forgets_a_remembered_scanner(ui, opts):
         see_ble(app, ui)
         await pilot.pause()
         assert app.query_one("#nearby").row_count == 1
+
+
+# --------------------------------------------------------------------------
+# Lookup tab
+# --------------------------------------------------------------------------
+def _hits(*items):
+    from invimport.inventree.stock import BarcodeHit
+    table = {}
+    for scan, kind, pk, payload in items:
+        table[scan] = BarcodeHit(kind=kind, pk=pk, payload=payload, scan=scan)
+    return table.get
+
+
+@SKIP_TUI
+async def test_lookup_tab_is_separate_from_connections(ui, opts):
+    app = ui.ScannerApp(**opts())
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert app.query_one("#nearby") is not None
+        assert app.query_one("#lookup-md") is not None
+        app.query_one("#nearby").focus()
+        await pilot.press("2")
+        await pilot.pause()
+        assert app.query_one("#views").active == "view-lookup"
+        await pilot.press("1")
+        await pilot.pause()
+        assert app.query_one("#views").active == "view-connections"
+
+
+@SKIP_TUI
+async def test_a_part_scan_shows_details_and_opens_inventree(ui, opts):
+    opened = []
+    lookup = _hits((
+        "PART-4", "part", 4,
+        {"pk": 4, "name": "NE555P", "IPN": "NE555P", "description": "timer"},
+    ))
+    app = ui.ScannerApp(**opts(
+        lookup=lookup, inventree_url="http://inv.example",
+        open_url=opened.append))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.post_message(ui.ScanArrived("PART-4"))
+        await pilot.pause()
+        assert app._current_hit is not None
+        assert app._current_hit.kind == "part"
+        assert app._current_hit.pk == 4
+        assert app.query_one("#views").active == "view-lookup"
+        assert "NE555P" in app.query_one("#lookup-md").source
+        assert "timer" in app.query_one("#lookup-md").source
+        url = "http://inv.example/web/part/4/"
+        assert app.query_one("#lookup-link").url == url
+        assert app.query_one("#lookup-open").disabled is False
+        await pilot.press("o")
+        await pilot.pause()
+        assert opened == [url]
+
+
+@SKIP_TUI
+async def test_a_stock_item_scan_shows_quantity_and_location(ui, opts):
+    lookup = _hits((
+        "STK-9", "stockitem", 9,
+        {"pk": 9, "quantity": 25,
+         "part_detail": {"IPN": "NE555P", "name": "NE555P"},
+         "location_detail": {"pathstring": "Workshop/Bins"}},
+    ))
+    app = ui.ScannerApp(**opts(
+        lookup=lookup, inventree_url="http://inv.example"))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.post_message(ui.ScanArrived("STK-9"))
+        await pilot.pause()
+        body = app.query_one("#lookup-md").source
+        assert "NE555P" in body
+        assert "25" in body
+        assert "Workshop/Bins" in body
+        assert app.query_one("#lookup-link").url == (
+            "http://inv.example/web/stock/item/9/")
+
+
+@SKIP_TUI
+async def test_a_location_scan_shows_the_path(ui, opts):
+    lookup = _hits((
+        "LOC-1", "stocklocation", 1,
+        {"pk": 1, "name": "Bins", "pathstring": "Workshop/Bins"},
+    ))
+    app = ui.ScannerApp(**opts(
+        lookup=lookup, inventree_url="http://inv.example"))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.post_message(ui.ScanArrived("LOC-1"))
+        await pilot.pause()
+        assert app._current_hit.kind == "stocklocation"
+        assert "Workshop/Bins" in app.query_one("#lookup-md").source
+        assert app.query_one("#lookup-link").url == (
+            "http://inv.example/web/stock/location/1/")
+
+
+@SKIP_TUI
+async def test_an_unknown_barcode_says_so(ui, opts):
+    app = ui.ScannerApp(**opts(lookup=lambda scan: None))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.post_message(ui.ScanArrived("NOPE"))
+        await pilot.pause()
+        assert app._current_hit is None
+        assert "not in InvenTree" in str(app.query_one("#lookup-title").render())
+        assert app.query_one("#lookup-open").disabled is True
+        assert app.query_one("#lookup-history").row_count == 1
+
+
+@SKIP_TUI
+async def test_lookup_still_logs_the_scan_on_connections(ui, opts):
+    lookup = _hits((
+        "PART-4", "part", 4, {"pk": 4, "name": "NE555P"},
+    ))
+    app = ui.ScannerApp(**opts(lookup=lookup, inventree_url="http://inv.example"))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.post_message(ui.ScanArrived("PART-4"))
+        await pilot.pause()
+        assert "PART-4" in log_text(app)
+        assert app.scan_count == 1

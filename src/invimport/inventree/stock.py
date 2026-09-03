@@ -20,6 +20,7 @@ twice" from something this code checks into something the database refuses.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 from .api import StockItem, StockLocation
@@ -49,6 +50,184 @@ CONDITION_STATUS = {
 
 class BarcodeInUse(RuntimeError):
     """The server refused a barcode because something already has it."""
+
+
+KIND_LABELS = {
+    "part": "Part",
+    "stockitem": "Stock item",
+    "stocklocation": "Location",
+}
+
+# PUI paths. The barcode endpoint's `url` is an API route, not the page a
+# human wants to open, so these are built from kind + pk against INVENTREE_URL.
+WEB_PATHS = {
+    "part": "/web/part/{pk}/",
+    "stockitem": "/web/stock/item/{pk}/",
+    "stocklocation": "/web/stock/location/{pk}/",
+}
+
+ENRICH_PATHS = {
+    "part": "part/{pk}/",
+    "stockitem": "stock/{pk}/",
+    "stocklocation": "stock/location/{pk}/",
+}
+
+
+@dataclass
+class BarcodeHit:
+    """A barcode that resolved to a part, stock item or location."""
+
+    kind: str
+    pk: int
+    payload: dict[str, Any]
+    scan: str = ""
+    url: str | None = None
+
+    @property
+    def type_label(self) -> str:
+        return KIND_LABELS.get(self.kind, self.kind)
+
+    @property
+    def title(self) -> str:
+        data = self.payload
+        if self.kind == "part":
+            return str(data.get("full_name") or data.get("name")
+                       or data.get("IPN") or f"Part {self.pk}")
+        if self.kind == "stockitem":
+            part = data.get("part_detail") or {}
+            if isinstance(part, dict):
+                name = part.get("full_name") or part.get("name") or part.get("IPN")
+                if name:
+                    return str(name)
+            return f"Stock item {self.pk}"
+        if self.kind == "stocklocation":
+            return str(data.get("pathstring") or data.get("name")
+                       or f"Location {self.pk}")
+        return f"{self.type_label} {self.pk}"
+
+
+def web_url(base: str | None, kind: str, pk: int) -> str | None:
+    """The PUI page for this object, or None if we cannot form one."""
+    if not base or not pk:
+        return None
+    path = WEB_PATHS.get(kind)
+    if not path:
+        return None
+    return base.rstrip("/") + path.format(pk=pk)
+
+
+def barcode_hit(found: dict[str, Any], scan: str = "") -> BarcodeHit | None:
+    """Pick part / stock item / location out of a /api/barcode/ response."""
+    for kind in ("stockitem", "stocklocation", "part"):
+        if kind not in found:
+            continue
+        payload = found[kind]
+        if isinstance(payload, int):
+            pk, payload = payload, {"pk": payload}
+        elif isinstance(payload, dict):
+            pk = payload.get("pk")
+        else:
+            continue
+        if not pk:
+            continue
+        return BarcodeHit(
+            kind=kind, pk=int(pk), payload=payload,
+            scan=scan, url=found.get("url"))
+    return None
+
+
+def enrich_hit(api, hit: BarcodeHit) -> BarcodeHit:
+    """Fill in details the barcode response omitted, if the object is there."""
+    path = ENRICH_PATHS.get(hit.kind)
+    if not path:
+        return hit
+    try:
+        extra = api.get(path.format(pk=hit.pk))
+    except Exception:
+        return hit
+    if not isinstance(extra, dict):
+        return hit
+    return BarcodeHit(
+        kind=hit.kind, pk=hit.pk,
+        payload={**hit.payload, **extra},
+        scan=hit.scan, url=hit.url,
+    )
+
+
+def lookup_barcode(api, key: str) -> BarcodeHit | None:
+    """Resolve a scan to a part, stock item or location, or None."""
+    if not key:
+        return None
+    try:
+        found = api.post("barcode/", {"barcode": key})
+    except Exception:
+        return None
+    if not isinstance(found, dict):
+        return None
+    hit = barcode_hit(found, scan=key)
+    if hit is None:
+        return None
+    return enrich_hit(api, hit)
+
+
+def hit_rows(hit: BarcodeHit) -> list[tuple[str, str]]:
+    """Labelled fields worth showing for this hit."""
+    data = hit.payload
+    rows: list[tuple[str, str]] = [
+        ("Type", hit.type_label),
+        ("ID", str(hit.pk)),
+    ]
+
+    def add(key: str, label: str, source: dict | None = None) -> None:
+        value = (source or data).get(key)
+        if value not in (None, ""):
+            rows.append((label, str(value)))
+
+    if hit.kind == "part":
+        add("IPN", "IPN")
+        add("name", "Name")
+        add("description", "Description")
+        add("units", "Units")
+        add("total_in_stock", "In stock")
+        category = data.get("category_detail")
+        if isinstance(category, dict) and category.get("pathstring"):
+            rows.append(("Category", str(category["pathstring"])))
+        elif data.get("category_path"):
+            rows.append(("Category", str(data["category_path"])))
+    elif hit.kind == "stockitem":
+        part = data.get("part_detail") if isinstance(data.get("part_detail"), dict) else {}
+        location = data.get("location_detail") if isinstance(
+            data.get("location_detail"), dict) else {}
+        part_name = " ".join(
+            str(v) for v in (part.get("IPN"), part.get("full_name") or part.get("name"))
+            if v)
+        if part_name:
+            rows.append(("Part", part_name))
+        elif data.get("part"):
+            rows.append(("Part", str(data["part"])))
+        add("quantity", "Quantity")
+        add("serial", "Serial")
+        add("batch", "Batch")
+        add("status_text", "Status")
+        path = location.get("pathstring") or location.get("name")
+        if path:
+            rows.append(("Location", str(path)))
+        elif data.get("location"):
+            rows.append(("Location", str(data["location"])))
+    elif hit.kind == "stocklocation":
+        add("name", "Name")
+        add("pathstring", "Path")
+        add("description", "Description")
+    return rows
+
+
+def hit_markdown(hit: BarcodeHit) -> str:
+    lines = [f"**{hit.type_label}** `{hit.pk}` — {hit.title}", ""]
+    for label, value in hit_rows(hit):
+        if label in {"Type", "ID"}:
+            continue
+        lines.append(f"- **{label}:** {value}")
+    return "\n".join(lines)
 
 
 # --------------------------------------------------------------------------

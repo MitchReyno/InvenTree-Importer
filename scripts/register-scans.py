@@ -12,9 +12,10 @@ Live scanner console: find a barcode scanner, connect to it, watch scans arrive.
 The TUI is the default whenever stdout is a terminal. It scans for serial
 ports and BLE advertisements, lets you pick one, and shows connection state
 and incoming scans as they happen. Settings (baud, reconnect, characteristic,
-auto-connect) are per remembered scanner. `--list` and `--dump` stay one-shot
-for scripts; `--cli` is the original print-each-scan loop, including
-`--forever`.
+auto-connect) are per remembered scanner. A second tab looks each scan up
+in InvenTree (part, stock item or location) and offers a link to open it.
+`--list` and `--dump` stay one-shot for scripts; `--cli` is the original
+print-each-scan loop, including `--forever`.
 
 Scanners you have connected to are remembered across sessions, in a file that
 does not live in the repo:
@@ -668,9 +669,21 @@ def tui():
     from textual.message import Message
     from textual.reactive import reactive
     from textual.screen import ModalScreen
-    from textual.widgets import (DataTable, Footer, Header, Input, Label, Log,
-                                 Static, Switch)
+    from textual.widgets import (Button, DataTable, Footer, Header, Input,
+                                 Label, Link, Log, Markdown, Static, Switch,
+                                 TabbedContent, TabPane)
     from textual.worker import Worker, WorkerState, get_current_worker
+
+    from invimport.inventree.stock import (
+        BarcodeHit, hit_markdown, lookup_barcode, web_url)
+
+    LOOKUP_IDLE = (
+        "Scan a **location**, **stock item** or **part** barcode.\n\n"
+        "The match and a link to its InvenTree page will land here.")
+    LOOKUP_MISSING = (
+        "InvenTree is not configured. Set `INVENTREE_URL` and "
+        "`INVENTREE_TOKEN` (or user and password) in the `.env` or the "
+        "environment, then restart.")
 
     class ScanArrived(Message):
         def __init__(self, scan: str) -> None:
@@ -704,6 +717,18 @@ def tui():
         def __init__(self, text: str) -> None:
             super().__init__()
             self.text = text
+
+    class LookupReady(Message):
+        def __init__(self, scan: str, hit: BarcodeHit | None) -> None:
+            super().__init__()
+            self.scan = scan
+            self.hit = hit
+
+    class LookupFailed(Message):
+        def __init__(self, scan: str, error: str) -> None:
+            super().__init__()
+            self.scan = scan
+            self.error = error
 
     class GattScreen(ModalScreen):
         BINDINGS = [Binding("escape,q,g", "dismiss", "Close")]
@@ -740,6 +765,8 @@ def tui():
         ENABLE_COMMAND_PALETTE = False
 
         BINDINGS = [
+            Binding("1", "show_connections", "Connections"),
+            Binding("2", "show_lookup", "Lookup"),
             Binding("s", "scan", "Scan"),
             Binding("c", "connect", "Connect"),
             Binding("d", "disconnect", "Disconnect"),
@@ -747,6 +774,7 @@ def tui():
             Binding("f", "forget", "Forget"),
             Binding("g", "gatt", "GATT"),
             Binding("x", "clear_scans", "Clear"),
+            Binding("o", "open_item", "Open"),
             Binding("r", "toggle_reconnect", "Reconnect"),
             Binding("u", "toggle_unnamed", "Unnamed"),
             Binding("q", "quit", "Quit"),
@@ -772,7 +800,30 @@ def tui():
             color: $text;
         }
 
+        #views { height: 1fr; }
+        #connections { height: 1fr; }
         #body { height: 1fr; }
+
+        #lookup-body { height: 1fr; }
+        #lookup-detail {
+            width: 3fr;
+            padding: 0 1 1 1;
+        }
+        #lookup-history-panel {
+            width: 2fr;
+            height: 1fr;
+            border: round $primary;
+        }
+        #lookup-history-panel:focus-within { border: round $accent; }
+        #lookup-title {
+            height: auto;
+            text-style: bold;
+            padding: 1 0 0 0;
+        }
+        #lookup-md { height: 1fr; }
+        #lookup-link { height: 1; padding: 0 0 1 0; }
+        #lookup-open { width: auto; margin: 0 0 1 0; }
+        #lookup-history { height: 1fr; }
 
         #devices-panel, #scans-panel {
             height: 1fr;
@@ -845,6 +896,9 @@ def tui():
             # poll serial ports. The rest of the UI is identical.
             self.live = opts.pop("live", True)
             config_path = opts.pop("config_path", None)
+            self._lookup_fn = opts.pop("lookup", None)
+            self._open_url = opts.pop("open_url", None)
+            self._inventree_url = opts.pop("inventree_url", None)
             self._opts = opts
             self.store = ScannerStore(config_path)
             self.store.load()
@@ -862,45 +916,77 @@ def tui():
             self._async_stop: asyncio.Event | None = None
             self._serial_link = None
             self._ble_client = None
+            self._inventree_api = None
+            self._inventree_error: str | None = None
+            self._current_hit: BarcodeHit | None = None
+            self._lookup_seq = 0
+            self._hits_by_row: dict[str, tuple[str, BarcodeHit | None]] = {}
 
         def compose(self) -> ComposeResult:
             yield Header(show_clock=True)
             yield Static("starting", id="status")
-            with Horizontal(id="body"):
-                with Vertical(id="devices-panel"):
-                    with Vertical(id="remembered-panel"):
-                        yield Label("Remembered", classes="panel-header")
-                        yield DataTable(id="remembered", cursor_type="row",
+            with TabbedContent(id="views"):
+                with TabPane("Connections", id="view-connections"):
+                    with Vertical(id="connections"):
+                        with Horizontal(id="body"):
+                            with Vertical(id="devices-panel"):
+                                with Vertical(id="remembered-panel"):
+                                    yield Label("Remembered",
+                                                classes="panel-header")
+                                    yield DataTable(
+                                        id="remembered", cursor_type="row",
                                         zebra_stripes=True)
-                    with Vertical(id="nearby-panel"):
-                        with Horizontal(id="devices-header"):
-                            yield Label("Nearby")
-                            yield Input(placeholder="filter", id="filter")
-                        yield DataTable(id="nearby", cursor_type="row",
+                                with Vertical(id="nearby-panel"):
+                                    with Horizontal(id="devices-header"):
+                                        yield Label("Nearby")
+                                        yield Input(placeholder="filter",
+                                                    id="filter")
+                                    yield DataTable(
+                                        id="nearby", cursor_type="row",
                                         zebra_stripes=True)
-                with Vertical(id="scans-panel"):
-                    yield Label("Scans", id="scans-header")
-                    yield Log(id="scans", highlight=True, max_lines=2000)
-            with Horizontal(id="settings"):
-                yield Label("Auto")
-                yield Switch(value=False, id="auto",
-                             tooltip="Connect this scanner when it appears")
-                yield Label("Reconnect")
-                yield Switch(value=self._opts["reconnect"], id="reconnect",
-                             tooltip="Retry when this scanner drops")
-                yield Label("Baud")
-                yield Input(str(self._opts["baud"]), id="baud",
-                            type="integer", tooltip="Serial speed")
-                yield Label("Characteristic")
-                yield Input(
-                    self._opts["characteristic"] or "",
-                    id="characteristic",
-                    placeholder="auto",
-                    tooltip="BLE notify UUID; blank picks a known one",
-                )
-                yield Label("Unnamed")
-                yield Switch(value=False, id="unnamed",
-                             tooltip="Show BLE devices that advertise no name")
+                            with Vertical(id="scans-panel"):
+                                yield Label("Scans", id="scans-header")
+                                yield Log(id="scans", highlight=True,
+                                          max_lines=2000)
+                        with Horizontal(id="settings"):
+                            yield Label("Auto")
+                            yield Switch(
+                                value=False, id="auto",
+                                tooltip="Connect this scanner when it appears")
+                            yield Label("Reconnect")
+                            yield Switch(
+                                value=self._opts["reconnect"], id="reconnect",
+                                tooltip="Retry when this scanner drops")
+                            yield Label("Baud")
+                            yield Input(str(self._opts["baud"]), id="baud",
+                                        type="integer", tooltip="Serial speed")
+                            yield Label("Characteristic")
+                            yield Input(
+                                self._opts["characteristic"] or "",
+                                id="characteristic",
+                                placeholder="auto",
+                                tooltip="BLE notify UUID; blank picks a known one",
+                            )
+                            yield Label("Unnamed")
+                            yield Switch(
+                                value=False, id="unnamed",
+                                tooltip="Show BLE devices that advertise no name")
+                with TabPane("Lookup", id="view-lookup"):
+                    with Horizontal(id="lookup-body"):
+                        with Vertical(id="lookup-detail"):
+                            yield Label(
+                                "Scan a location, stock item or part",
+                                id="lookup-title")
+                            yield Markdown(LOOKUP_IDLE, id="lookup-md")
+                            yield Link("Open in InvenTree", url="",
+                                       id="lookup-link")
+                            yield Button("Open in InvenTree",
+                                         id="lookup-open", disabled=True)
+                        with Vertical(id="lookup-history-panel"):
+                            yield Label("History", classes="panel-header")
+                            yield DataTable(id="lookup-history",
+                                            cursor_type="row",
+                                            zebra_stripes=True)
             yield Footer(show_command_palette=False)
 
         def on_mount(self) -> None:
@@ -915,6 +1001,14 @@ def tui():
             nearby.add_column("Signal", key="signal", width=8)
             nearby.add_column("Device", key="device")
             nearby.add_column("Detail", key="detail")
+            history = self.query_one("#lookup-history", DataTable)
+            history.add_column("When", key="when", width=8)
+            history.add_column("Type", key="type", width=12)
+            history.add_column("Scan", key="scan")
+            history.add_column("Item", key="item")
+            self.query_one("#lookup-link", Link).display = False
+            if self.live and self._lookup_fn is None:
+                self.connect_inventree()
             if self._opts["port"]:
                 self.upsert(Found(
                     kind="serial",
@@ -1252,6 +1346,11 @@ def tui():
                 self.apply_saved_settings(self.store.get(key))
             elif event.data_table.id == "nearby":
                 self._settings_key = None
+            elif event.data_table.id == "lookup-history":
+                key = event.row_key.value if event.row_key is not None else None
+                if key in self._hits_by_row:
+                    scan, hit = self._hits_by_row[key]
+                    self.show_hit(hit, scan=scan)
 
         def start_ble_scan(self) -> None:
             if not self.live or self._scanning:
@@ -1393,9 +1492,32 @@ def tui():
             self.query_one("#unnamed", Switch).toggle()
 
         def action_clear_scans(self) -> None:
+            if self.active_view() == "view-lookup":
+                self.query_one("#lookup-history", DataTable).clear()
+                self._hits_by_row.clear()
+                self._lookup_seq = 0
+                self.show_lookup_idle()
+                return
             self.scan_count = 0
             self.query_one("#scans", Log).clear()
             self.refresh_status()
+
+        def action_show_connections(self) -> None:
+            self.query_one("#views", TabbedContent).active = "view-connections"
+
+        def action_show_lookup(self) -> None:
+            self.query_one("#views", TabbedContent).active = "view-lookup"
+
+        def action_open_item(self) -> None:
+            url = self.current_web_url()
+            if not url:
+                self.notify("Nothing to open — scan something first")
+                return
+            self.open_web(url)
+
+        def on_button_pressed(self, event: Button.Pressed) -> None:
+            if event.button.id == "lookup-open":
+                self.action_open_item()
 
         def action_connect(self) -> None:
             device = self.selected_device()
@@ -1462,12 +1584,147 @@ def tui():
         def emit_scan(self, scan: str) -> None:
             self.post_message(ScanArrived(scan))
 
+        def active_view(self) -> str:
+            return self.query_one("#views", TabbedContent).active
+
+        def inventree_api(self):
+            if self._inventree_api is not None:
+                return self._inventree_api
+            if self._inventree_error:
+                return None
+            try:
+                from invimport.env import DEFAULT_ENV_FILE, load_env_file
+                from invimport.inventree.api import connect
+                load_env_file(DEFAULT_ENV_FILE)
+                self._inventree_api = connect()
+                if not self._inventree_url:
+                    self._inventree_url = os.getenv("INVENTREE_URL")
+                return self._inventree_api
+            except Exception as exc:
+                self._inventree_error = str(exc)
+                return None
+
+        @work(group="inventree", exclusive=True, thread=True,
+              exit_on_error=False)
+        def connect_inventree(self) -> None:
+            api = self.inventree_api()
+            if api is None:
+                self.post_message(LookupFailed(
+                    "", self._inventree_error or LOOKUP_MISSING))
+
+        def current_web_url(self) -> str | None:
+            if self._current_hit is None:
+                return None
+            return web_url(self._inventree_url, self._current_hit.kind,
+                           self._current_hit.pk)
+
+        def open_web(self, url: str) -> None:
+            if self._open_url is not None:
+                self._open_url(url)
+                return
+            import webbrowser
+            webbrowser.open(url)
+
+        def show_lookup_idle(self) -> None:
+            self._current_hit = None
+            self.query_one("#lookup-title", Label).update(
+                "Scan a location, stock item or part")
+            self.query_one("#lookup-md", Markdown).update(LOOKUP_IDLE)
+            link = self.query_one("#lookup-link", Link)
+            link.url = ""
+            link.display = False
+            self.query_one("#lookup-open", Button).disabled = True
+
+        def show_lookup_error(self, scan: str, error: str) -> None:
+            self._current_hit = None
+            title = "InvenTree is not configured" if not scan else (
+                f"Could not look up {printable(scan)}")
+            self.query_one("#lookup-title", Label).update(title)
+            self.query_one("#lookup-md", Markdown).update(
+                error or LOOKUP_MISSING)
+            link = self.query_one("#lookup-link", Link)
+            link.url = ""
+            link.display = False
+            self.query_one("#lookup-open", Button).disabled = True
+
+        def show_hit(self, hit: BarcodeHit | None, scan: str = "") -> None:
+            self._current_hit = hit
+            if hit is None:
+                shown = printable(scan) if scan else "(empty)"
+                self.query_one("#lookup-title", Label).update(
+                    f"{shown} is not in InvenTree")
+                self.query_one("#lookup-md", Markdown).update(
+                    f"`{shown}` did not match a part, stock item or location.")
+                link = self.query_one("#lookup-link", Link)
+                link.url = ""
+                link.display = False
+                self.query_one("#lookup-open", Button).disabled = True
+                return
+            url = web_url(self._inventree_url, hit.kind, hit.pk)
+            self.query_one("#lookup-title", Label).update(
+                f"{hit.type_label} · {hit.title}")
+            self.query_one("#lookup-md", Markdown).update(hit_markdown(hit))
+            link = self.query_one("#lookup-link", Link)
+            if url:
+                link.update(url)
+                link.url = url
+                link.display = True
+            else:
+                link.url = ""
+                link.display = False
+            button = self.query_one("#lookup-open", Button)
+            button.disabled = url is None
+
+        def record_lookup(self, scan: str, hit: BarcodeHit | None) -> None:
+            self._lookup_seq += 1
+            key = str(self._lookup_seq)
+            self._hits_by_row[key] = (scan, hit)
+            table = self.query_one("#lookup-history", DataTable)
+            stamp = datetime.now().strftime("%H:%M:%S")
+            kind = hit.type_label if hit else "—"
+            title = hit.title if hit else "not in InvenTree"
+            table.add_row(stamp, kind, printable(scan), title, key=key)
+
+        def apply_lookup(self, scan: str, hit: BarcodeHit | None) -> None:
+            self.record_lookup(scan, hit)
+            self.show_hit(hit, scan=scan)
+            self.query_one("#views", TabbedContent).active = "view-lookup"
+
         def on_scan_arrived(self, event: ScanArrived) -> None:
             self.scan_count += 1
             stamp = datetime.now().strftime("%H:%M:%S")
             self.query_one("#scans", Log).write_line(
                 f"{stamp}  {self.scan_count:>4}  {printable(event.scan)}")
             self.refresh_status()
+            if self._lookup_fn is not None:
+                try:
+                    self.apply_lookup(event.scan, self._lookup_fn(event.scan))
+                except Exception as exc:
+                    self.query_one("#views", TabbedContent).active = (
+                        "view-lookup")
+                    self.show_lookup_error(event.scan, str(exc))
+            elif self.live:
+                self.lookup_scan(event.scan)
+
+        def on_lookup_ready(self, event: LookupReady) -> None:
+            self.apply_lookup(event.scan, event.hit)
+
+        def on_lookup_failed(self, event: LookupFailed) -> None:
+            if event.scan:
+                self.query_one("#views", TabbedContent).active = "view-lookup"
+            self.show_lookup_error(event.scan, event.error)
+
+        @work(group="lookup", exclusive=True, thread=True, exit_on_error=False)
+        def lookup_scan(self, scan: str) -> None:
+            try:
+                api = self.inventree_api()
+                if api is None:
+                    self.post_message(LookupFailed(
+                        scan, self._inventree_error or LOOKUP_MISSING))
+                    return
+                self.post_message(LookupReady(scan, lookup_barcode(api, scan)))
+            except Exception as exc:
+                self.post_message(LookupFailed(scan, str(exc)))
 
         def on_link_state(self, event: LinkState) -> None:
             if event.phase == "connected" and self.connected_key:
@@ -1604,7 +1861,10 @@ def tui():
         BleSeen=BleSeen,
         GattReady=GattReady,
         LogNote=LogNote,
+        LookupReady=LookupReady,
+        LookupFailed=LookupFailed,
         GattScreen=GattScreen,
+        BarcodeHit=BarcodeHit,
     )
     return _TUI
 
