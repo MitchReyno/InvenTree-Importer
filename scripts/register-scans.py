@@ -665,17 +665,19 @@ def tui():
     from textual import work
     from textual.app import App, ComposeResult
     from textual.binding import Binding
-    from textual.containers import Horizontal, Vertical
+    from textual.containers import Horizontal, ScrollableContainer, Vertical
     from textual.message import Message
     from textual.reactive import reactive
     from textual.screen import ModalScreen
-    from textual.widgets import (Button, DataTable, Footer, Header, Input,
-                                 Label, Link, Log, Markdown, Static, Switch,
-                                 TabbedContent, TabPane)
+    from textual.widgets import (Button, Collapsible, DataTable, Footer, Header,
+                                 Input, Label, Link, Log, Markdown, Static,
+                                 Switch, TabbedContent, TabPane)
     from textual.worker import Worker, WorkerState, get_current_worker
 
     from invimport.inventree.stock import (
-        BarcodeHit, hit_markdown, lookup_barcode, web_url)
+        BarcodeHit, DetailSection, child_location_ref, enrich_hit,
+        format_count, location_hit, location_ref, lookup_barcode,
+        render_hit, render_section, stock_expand_fields, stock_line, web_url)
 
     LOOKUP_IDLE = (
         "Scan a **location**, **stock item** or **part** barcode.\n\n"
@@ -759,6 +761,37 @@ def tui():
         def on_mount(self) -> None:
             self.query_one("#gatt-body", Log).write(self._body)
 
+    class LocationName(Static, can_focus=True):
+        """A location path that opens that location in Lookup."""
+
+        DEFAULT_CSS = """
+        LocationName {
+            width: auto;
+            height: 1;
+            color: $text-accent;
+            text-style: underline;
+            padding: 0 1 0 0;
+            &:hover { color: $accent; }
+            &:focus { text-style: bold reverse; }
+            pointer: pointer;
+        }
+        """
+
+        def __init__(self, label: str, pk: int,
+                     payload: dict | None = None, **kwargs) -> None:
+            super().__init__(label, **kwargs)
+            self.location_pk = pk
+            self.location_payload = payload or {"pk": pk}
+
+        def on_click(self) -> None:
+            self.app.navigate_location(self.location_pk, self.location_payload)
+
+        def action_open_location(self) -> None:
+            self.app.navigate_location(self.location_pk, self.location_payload)
+
+        BINDINGS = [Binding("enter", "open_location", "Open location",
+                            show=False)]
+
     class ScannerApp(App):
         TITLE = "register-scans"
         AUTO_FOCUS = "#nearby"
@@ -818,11 +851,42 @@ def tui():
         #lookup-title {
             height: auto;
             text-style: bold;
-            padding: 1 0 0 0;
+            padding: 1 0 1 0;
         }
-        #lookup-md { height: 1fr; }
-        #lookup-link { height: 1; padding: 0 0 1 0; }
-        #lookup-open { width: auto; margin: 0 0 1 0; }
+        #lookup-scroll { height: 1fr; }
+        #lookup-md { height: auto; }
+        #lookup-pretty { height: auto; padding: 0 0 1 0; }
+        #lookup-lists { height: auto; padding: 0 0 1 0; }
+        #lookup-lists .panel-header { margin: 1 0 0 0; }
+        #lookup-lists Collapsible {
+            padding: 0 1;
+            margin: 0 0 0 0;
+        }
+        .jump-row, .stock-jump-row {
+            height: 1;
+            padding: 0 1;
+            align: left middle;
+        }
+        .jump-label {
+            width: 16;
+            height: 1;
+            color: $text-accent;
+            text-style: bold;
+        }
+        .stock-qty {
+            width: 8;
+            height: 1;
+            content-align: right middle;
+            padding: 0 1 0 0;
+        }
+        .stock-extra { height: 1; color: $text-muted; }
+        #lookup-actions {
+            height: auto;
+            padding: 0 0 1 0;
+            align: left middle;
+        }
+        #lookup-link { width: 1fr; height: 1; }
+        #lookup-open { width: auto; min-width: 20; }
         #lookup-history { height: 1fr; }
 
         #devices-panel, #scans-panel {
@@ -924,7 +988,6 @@ def tui():
 
         def compose(self) -> ComposeResult:
             yield Header(show_clock=True)
-            yield Static("starting", id="status")
             with TabbedContent(id="views"):
                 with TabPane("Connections", id="view-connections"):
                     with Vertical(id="connections"):
@@ -977,16 +1040,21 @@ def tui():
                             yield Label(
                                 "Scan a location, stock item or part",
                                 id="lookup-title")
-                            yield Markdown(LOOKUP_IDLE, id="lookup-md")
-                            yield Link("Open in InvenTree", url="",
-                                       id="lookup-link")
-                            yield Button("Open in InvenTree",
-                                         id="lookup-open", disabled=True)
+                            with ScrollableContainer(id="lookup-scroll"):
+                                yield Markdown(LOOKUP_IDLE, id="lookup-md")
+                                yield Static(id="lookup-pretty")
+                                yield Vertical(id="lookup-lists")
+                            with Horizontal(id="lookup-actions"):
+                                yield Link("Open in InvenTree", url="",
+                                           id="lookup-link")
+                                yield Button("Open in InvenTree",
+                                             id="lookup-open", disabled=True)
                         with Vertical(id="lookup-history-panel"):
                             yield Label("History", classes="panel-header")
                             yield DataTable(id="lookup-history",
                                             cursor_type="row",
                                             zebra_stripes=True)
+            yield Static("starting", id="status")
             yield Footer(show_command_palette=False)
 
         def on_mount(self) -> None:
@@ -1007,6 +1075,7 @@ def tui():
             history.add_column("Scan", key="scan")
             history.add_column("Item", key="item")
             self.query_one("#lookup-link", Link).display = False
+            self.query_one("#lookup-pretty", Static).display = False
             if self.live and self._lookup_fn is None:
                 self.connect_inventree()
             if self._opts["port"]:
@@ -1625,45 +1694,146 @@ def tui():
             import webbrowser
             webbrowser.open(url)
 
-        def show_lookup_idle(self) -> None:
-            self._current_hit = None
-            self.query_one("#lookup-title", Label).update(
-                "Scan a location, stock item or part")
-            self.query_one("#lookup-md", Markdown).update(LOOKUP_IDLE)
+        def navigate_location(self, pk: int, payload: dict | None = None
+                              ) -> None:
+            if (self._current_hit is not None
+                    and self._current_hit.kind == "stocklocation"
+                    and self._current_hit.pk == pk):
+                return
+            hit = location_hit(pk, payload)
+            if self.live and self._lookup_fn is None:
+                self.fetch_location(hit)
+                return
+            self.apply_lookup(f"location:{pk}", hit)
+
+        @work(group="lookup", exclusive=True, thread=True, exit_on_error=False)
+        def fetch_location(self, hit: BarcodeHit) -> None:
+            try:
+                api = self.inventree_api()
+                shown = enrich_hit(api, hit) if api is not None else hit
+                self.post_message(LookupReady(f"location:{hit.pk}", shown))
+            except Exception as exc:
+                self.post_message(LookupFailed(f"location:{hit.pk}", str(exc)))
+
+        def clear_lookup_lists(self) -> None:
+            self.query_one("#lookup-lists", Vertical).remove_children()
+
+        def fill_lookup_lists(self, hit: BarcodeHit) -> None:
+            lists = self.query_one("#lookup-lists", Vertical)
+            lists.remove_children()
+            if hit.kind == "stockitem":
+                ref = location_ref(hit.payload)
+                if ref is None:
+                    return
+                pk, label, payload = ref
+                lists.mount(Horizontal(
+                    Label("Location", classes="jump-label"),
+                    LocationName(label, pk, payload),
+                    classes="jump-row",
+                ))
+                return
+            if hit.kind == "part":
+                items = [item for item in (hit.payload.get("stock_items") or [])
+                         if isinstance(item, dict)]
+                if not items:
+                    return
+                lists.mount(Label(f"Stock ({len(items)})", classes="panel-header"))
+                for item in items:
+                    qty = format_count(
+                        item.get("quantity") if item.get("quantity") not in (None, "")
+                        else 0)
+                    extra = " · ".join(
+                        str(bit) for bit in (
+                            item.get("serial") and f"SN {item['serial']}",
+                            item.get("batch") and f"batch {item['batch']}",
+                            item.get("status_text"),
+                        ) if bit)
+                    cells: list = [Label(qty, classes="stock-qty")]
+                    ref = location_ref(item)
+                    if ref is not None:
+                        pk, label, payload = ref
+                        cells.append(LocationName(label, pk, payload))
+                    else:
+                        cells.append(Label("—"))
+                    if extra:
+                        cells.append(Label(extra, classes="stock-extra"))
+                    lists.mount(Horizontal(*cells, classes="stock-jump-row"))
+                return
+            if hit.kind != "stocklocation":
+                return
+            children = [child for child in (hit.payload.get("children") or [])
+                        if isinstance(child, dict)]
+            if children:
+                lists.mount(Label(f"Locations ({len(children)})",
+                                  classes="panel-header"))
+                for child in children:
+                    ref = child_location_ref(child)
+                    if ref is None:
+                        continue
+                    pk, label, payload = ref
+                    lists.mount(Horizontal(
+                        LocationName(label, pk, payload),
+                        classes="jump-row",
+                    ))
+            items = [item for item in (hit.payload.get("stock_items") or [])
+                     if isinstance(item, dict)]
+            if not items:
+                return
+            lists.mount(Label(f"Stock ({len(items)}) — enter to expand",
+                              classes="panel-header"))
+            for item in items:
+                details = Static(render_section(
+                    DetailSection("Details", stock_expand_fields(item))))
+                lists.mount(Collapsible(
+                    details,
+                    title=stock_line(item),
+                    collapsed=True,
+                ))
+
+        def show_lookup_message(self, markdown: str) -> None:
+            self.query_one("#lookup-md", Markdown).update(markdown)
+            self.query_one("#lookup-md", Markdown).display = True
+            pretty = self.query_one("#lookup-pretty", Static)
+            pretty.update("")
+            pretty.display = False
+            self.clear_lookup_lists()
             link = self.query_one("#lookup-link", Link)
             link.url = ""
             link.display = False
             self.query_one("#lookup-open", Button).disabled = True
+
+        def show_lookup_idle(self) -> None:
+            self._current_hit = None
+            self.query_one("#lookup-title", Label).update(
+                "Scan a location, stock item or part")
+            self.show_lookup_message(LOOKUP_IDLE)
 
         def show_lookup_error(self, scan: str, error: str) -> None:
             self._current_hit = None
             title = "InvenTree is not configured" if not scan else (
                 f"Could not look up {printable(scan)}")
             self.query_one("#lookup-title", Label).update(title)
-            self.query_one("#lookup-md", Markdown).update(
-                error or LOOKUP_MISSING)
-            link = self.query_one("#lookup-link", Link)
-            link.url = ""
-            link.display = False
-            self.query_one("#lookup-open", Button).disabled = True
+            self.show_lookup_message(error or LOOKUP_MISSING)
 
         def show_hit(self, hit: BarcodeHit | None, scan: str = "") -> None:
+            if hit is not None and hit is self._current_hit:
+                return
             self._current_hit = hit
             if hit is None:
                 shown = printable(scan) if scan else "(empty)"
                 self.query_one("#lookup-title", Label).update(
                     f"{shown} is not in InvenTree")
-                self.query_one("#lookup-md", Markdown).update(
+                self.show_lookup_message(
                     f"`{shown}` did not match a part, stock item or location.")
-                link = self.query_one("#lookup-link", Link)
-                link.url = ""
-                link.display = False
-                self.query_one("#lookup-open", Button).disabled = True
                 return
             url = web_url(self._inventree_url, hit.kind, hit.pk)
             self.query_one("#lookup-title", Label).update(
                 f"{hit.type_label} · {hit.title}")
-            self.query_one("#lookup-md", Markdown).update(hit_markdown(hit))
+            self.query_one("#lookup-md", Markdown).display = False
+            pretty = self.query_one("#lookup-pretty", Static)
+            pretty.display = True
+            pretty.update(render_hit(hit, lists=False, include_location=False))
+            self.fill_lookup_lists(hit)
             link = self.query_one("#lookup-link", Link)
             if url:
                 link.update(url)
@@ -1864,6 +2034,7 @@ def tui():
         LookupReady=LookupReady,
         LookupFailed=LookupFailed,
         GattScreen=GattScreen,
+        LocationName=LocationName,
         BarcodeHit=BarcodeHit,
     )
     return _TUI

@@ -182,6 +182,13 @@ def log_text(app) -> str:
     return "\n".join(app.query_one("#scans").lines)
 
 
+def pretty_text(app) -> str:
+    from invimport.inventree.stock import hit_markdown
+    if app._current_hit is None:
+        return ""
+    return hit_markdown(app._current_hit)
+
+
 def see_ble(app, ui, *, address=SCANNER_ADDR, name="C barcode scanner",
             rssi=-50, uuids=(SCANNER_UUID,)):
     device = SimpleNamespace(address=address, name=name)
@@ -676,7 +683,19 @@ async def test_a_part_scan_shows_details_and_opens_inventree(ui, opts):
     opened = []
     lookup = _hits((
         "PART-4", "part", 4,
-        {"pk": 4, "name": "NE555P", "IPN": "NE555P", "description": "timer"},
+        {"pk": 4, "name": "NE555P", "IPN": "NE555P", "description": "timer",
+         "category_detail": {"pathstring": "ICs/Timers"},
+         "total_in_stock": 12,
+         "parameters": [
+             {"name": "Package", "value": "DIP-8"},
+             {"name": "Supply Voltage", "value": "4.5 V ~ 16 V", "units": "V"},
+         ],
+         "stock_items": [
+             {"pk": 9, "quantity": 25.0, "location": 2,
+              "location_detail": {"pk": 2, "pathstring": "Workshop"}},
+             {"pk": 10, "quantity": 5, "serial": "A1", "location": 3,
+              "location_detail": {"pk": 3, "pathstring": "Bins"}},
+         ]},
     ))
     app = ui.ScannerApp(**opts(
         lookup=lookup, inventree_url="http://inv.example",
@@ -689,8 +708,17 @@ async def test_a_part_scan_shows_details_and_opens_inventree(ui, opts):
         assert app._current_hit.kind == "part"
         assert app._current_hit.pk == 4
         assert app.query_one("#views").active == "view-lookup"
-        assert "NE555P" in app.query_one("#lookup-md").source
-        assert "timer" in app.query_one("#lookup-md").source
+        body = pretty_text(app)
+        assert "NE555P" in body
+        assert "timer" in body
+        assert "ICs/Timers" in body
+        assert "DIP-8" in body
+        assert "4.5 V ~ 16 V" in body
+        assert "Stock (2)" in body
+        assert "Workshop" in body
+        assert "SN A1" in body
+        assert app.query_one("#lookup-pretty").display is True
+        assert app.query_one("#lookup-md").display is False
         url = "http://inv.example/web/part/4/"
         assert app.query_one("#lookup-link").url == url
         assert app.query_one("#lookup-open").disabled is False
@@ -704,8 +732,17 @@ async def test_a_stock_item_scan_shows_quantity_and_location(ui, opts):
     lookup = _hits((
         "STK-9", "stockitem", 9,
         {"pk": 9, "quantity": 25,
-         "part_detail": {"IPN": "NE555P", "name": "NE555P"},
-         "location_detail": {"pathstring": "Workshop/Bins"}},
+         "location": 2,
+         "part_detail": {
+             "pk": 4, "IPN": "NE555P", "name": "NE555P",
+             "description": "timer",
+             "parameters": [
+                 {"name": "Package", "value": "DIP-8"},
+                 {"name": "Supply Voltage", "value": "4.5 V ~ 16 V",
+                  "units": "V"},
+             ]},
+         "location_detail": {"pk": 2, "name": "Bins",
+                             "pathstring": "Workshop/Bins"}},
     ))
     app = ui.ScannerApp(**opts(
         lookup=lookup, inventree_url="http://inv.example"))
@@ -713,10 +750,17 @@ async def test_a_stock_item_scan_shows_quantity_and_location(ui, opts):
         await pilot.pause()
         app.post_message(ui.ScanArrived("STK-9"))
         await pilot.pause()
-        body = app.query_one("#lookup-md").source
+        body = pretty_text(app)
+        assert "Stock item" in body
         assert "NE555P" in body
         assert "25" in body
         assert "Workshop/Bins" in body
+        assert "timer" in body
+        assert "DIP-8" in body
+        assert "4.5 V ~ 16 V" in body
+        assert "Part" in body
+        assert "Parameters" in body
+        assert app.query_one("#lookup-pretty").display is True
         assert app.query_one("#lookup-link").url == (
             "http://inv.example/web/stock/item/9/")
 
@@ -725,7 +769,15 @@ async def test_a_stock_item_scan_shows_quantity_and_location(ui, opts):
 async def test_a_location_scan_shows_the_path(ui, opts):
     lookup = _hits((
         "LOC-1", "stocklocation", 1,
-        {"pk": 1, "name": "Bins", "pathstring": "Workshop/Bins"},
+        {"pk": 1, "name": "Workshop", "pathstring": "Workshop",
+         "children": [
+             {"pk": 2, "name": "Bins", "pathstring": "Workshop/Bins"},
+         ],
+         "stock_items": [
+             {"pk": 9, "quantity": 25.0, "status_text": "OK",
+              "part_detail": {"IPN": "NE555P", "name": "NE555P"},
+              "serial": "A1"},
+         ]},
     ))
     app = ui.ScannerApp(**opts(
         lookup=lookup, inventree_url="http://inv.example"))
@@ -734,9 +786,69 @@ async def test_a_location_scan_shows_the_path(ui, opts):
         app.post_message(ui.ScanArrived("LOC-1"))
         await pilot.pause()
         assert app._current_hit.kind == "stocklocation"
-        assert "Workshop/Bins" in app.query_one("#lookup-md").source
+        body = pretty_text(app)
+        assert "Workshop" in body
+        assert "Locations (1)" in body
+        assert "Bins" in body
+        rows = app.query("#lookup-lists Collapsible")
+        assert len(rows) == 1
+        row = rows.first()
+        assert row.collapsed is True
+        assert "25" in row.title
+        assert "NE555P" in row.title
+        assert "A1" in row.title
         assert app.query_one("#lookup-link").url == (
             "http://inv.example/web/stock/location/1/")
+
+
+@SKIP_TUI
+async def test_clicking_a_stock_item_location_opens_its_details(ui, opts):
+    lookup = _hits((
+        "STK-9", "stockitem", 9,
+        {"pk": 9, "quantity": 25, "location": 2,
+         "location_detail": {"pk": 2, "name": "Bins",
+                             "pathstring": "Workshop/Bins"},
+         "part_detail": {"name": "NE555P"}},
+    ))
+    app = ui.ScannerApp(**opts(
+        lookup=lookup, inventree_url="http://inv.example"))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.post_message(ui.ScanArrived("STK-9"))
+        await pilot.pause()
+        link = app.query_one("LocationName")
+        assert "Workshop/Bins" in str(link.render())
+        await pilot.click(link)
+        await pilot.pause()
+        assert app._current_hit is not None
+        assert app._current_hit.kind == "stocklocation"
+        assert app._current_hit.pk == 2
+        assert app.query_one("#lookup-link").url == (
+            "http://inv.example/web/stock/location/2/")
+
+
+@SKIP_TUI
+async def test_clicking_a_part_stock_location_opens_its_details(ui, opts):
+    lookup = _hits((
+        "PART-4", "part", 4,
+        {"pk": 4, "name": "NE555P",
+         "stock_items": [
+             {"pk": 9, "quantity": 25, "location": 2,
+              "location_detail": {"pk": 2, "pathstring": "Workshop"}},
+         ]},
+    ))
+    app = ui.ScannerApp(**opts(
+        lookup=lookup, inventree_url="http://inv.example"))
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.post_message(ui.ScanArrived("PART-4"))
+        await pilot.pause()
+        links = app.query("LocationName")
+        assert len(links) == 1
+        await pilot.click(links.first())
+        await pilot.pause()
+        assert app._current_hit.kind == "stocklocation"
+        assert app._current_hit.pk == 2
 
 
 @SKIP_TUI

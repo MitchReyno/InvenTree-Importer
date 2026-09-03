@@ -15,6 +15,7 @@ from invimport.inventree.stock import (
     add_stock,
     already_imported,
     barcode_hit,
+    hit_sections,
     hit_rows,
     link_barcode,
     lookup_barcode,
@@ -267,3 +268,160 @@ def test_hit_rows_list_part_fields():
     rows = dict(hit_rows(hit))
     assert rows["IPN"] == "NE555P"
     assert rows["In stock"] == "12"
+
+
+def test_stock_counts_display_as_integers():
+    hit = BarcodeHit(
+        kind="stockitem", pk=9,
+        payload={"pk": 9, "quantity": 25.0,
+                 "part_detail": {
+                     "name": "NE555P",
+                     "total_in_stock": 12.0,
+                     "unallocated_stock": 10.0,
+                     "minimum_stock": 0.0}})
+    rows = dict(hit_rows(hit))
+    assert rows["Quantity"] == "25"
+    assert rows["In stock"] == "12"
+    assert rows["Available"] == "10"
+    assert rows["Minimum"] == "0"
+
+
+def test_lookup_includes_part_parameters(inventree):
+    inventree.add_part("NE555P", ipn="NE555P", pk=4, description="timer")
+    inventree.templates.append({"pk": 21, "name": "Supply Voltage", "units": "V"})
+    inventree.templates.append({"pk": 22, "name": "Package", "units": ""})
+    inventree.add_parameter(4, 21, "4.5 V ~ 16 V")
+    inventree.add_parameter(4, 22, "DIP-8")
+    inventree.barcodes["P-4"] = {"part": {"pk": 4}}
+    hit = lookup_barcode(connect(), "P-4")
+    assert hit is not None
+    names = {row["name"]: row["value"] for row in hit.payload["parameters"]}
+    assert names["Supply Voltage"] == "4.5 V ~ 16 V"
+    assert names["Package"] == "DIP-8"
+
+
+def test_lookup_stock_embeds_the_part_and_its_parameters(inventree):
+    inventree.add_part("NE555P", ipn="NE555P", pk=4, description="timer")
+    inventree.templates.append({"pk": 21, "name": "Package", "units": ""})
+    inventree.add_parameter(4, 21, "DIP-8")
+    inventree.stock_items.append({"pk": 9, "quantity": 25, "part": 4,
+                                  "location": 1})
+    inventree.barcodes["S-9"] = {"stockitem": {"pk": 9}}
+    hit = lookup_barcode(connect(), "S-9")
+    assert hit is not None
+    part = hit.payload["part_detail"]
+    assert part["name"] == "NE555P"
+    assert part["parameters"][0]["value"] == "DIP-8"
+    assert hit.payload["location_detail"]["pathstring"] == "Stock"
+    sections = hit_sections(hit)
+    assert [s.title for s in sections] == ["Stock item", "Part"]
+    assert sections[1].children[0].title == "Parameters"
+    assert ("Package", "DIP-8") in sections[1].children[0].rows
+
+
+def test_stock_hit_nests_part_details_in_a_subpanel():
+    hit = BarcodeHit(
+        kind="stockitem", pk=9,
+        payload={"pk": 9, "quantity": 25,
+                 "part_detail": {
+                     "pk": 4, "name": "NE555P", "IPN": "NE555P",
+                     "description": "timer",
+                     "parameters": [{"name": "Package", "value": "DIP-8"}]},
+                 "location_detail": {"pathstring": "Workshop/Bins"}})
+    sections = hit_sections(hit)
+    assert sections[0].title == "Stock item"
+    assert ("Quantity", "25") in sections[0].rows
+    assert ("Location", "Workshop/Bins") in sections[0].rows
+    part = sections[1]
+    assert part.title == "Part"
+    assert ("IPN", "NE555P") in part.rows
+    assert part.children[0].title == "Parameters"
+    assert ("Package", "DIP-8") in part.children[0].rows
+
+
+def test_render_hit_draws_nested_part_and_parameter_panels():
+    from rich.console import Console
+
+    from invimport.inventree.stock import render_hit
+
+    hit = BarcodeHit(
+        kind="stockitem", pk=9,
+        payload={"pk": 9, "quantity": 25,
+                 "part_detail": {
+                     "pk": 4, "name": "NE555P", "IPN": "NE555P",
+                     "parameters": [{"name": "Package", "value": "DIP-8"}]},
+                 "location_detail": {"pathstring": "Workshop/Bins"}})
+    console = Console(width=80, force_terminal=False, color_system=None)
+    with console.capture() as cap:
+        console.print(render_hit(hit))
+    text = cap.get()
+    assert "Stock item" in text
+    assert "Part" in text
+    assert "Parameters" in text
+    assert "NE555P" in text
+    assert "DIP-8" in text
+    assert "Workshop/Bins" in text
+
+
+def test_lookup_part_lists_its_stock(inventree):
+    inventree.add_part("NE555P", ipn="NE555P", pk=4)
+    inventree.stock_items.append(
+        {"pk": 9, "quantity": 25.0, "part": 4, "location": 1})
+    inventree.stock_items.append(
+        {"pk": 10, "quantity": 5, "part": 4, "location": 1, "serial": "A1"})
+    inventree.stock_items.append(
+        {"pk": 11, "quantity": 3, "part": 7, "location": 1})
+    inventree.barcodes["P-4"] = {"part": {"pk": 4}}
+    hit = lookup_barcode(connect(), "P-4")
+    assert hit is not None
+    assert [item["pk"] for item in hit.payload["stock_items"]] == [9, 10]
+    assert hit.payload["stock_items"][0]["location_detail"]["pathstring"] == "Stock"
+    section = next(s for s in hit_sections(hit) if s.title == "Stock (2)")
+    assert section.rows[0][0] == "25"
+    assert "Stock" in section.rows[0][1]
+    assert "SN A1" in section.rows[1][1]
+
+
+def test_lookup_location_lists_children_and_stock(inventree):
+    inventree.add_location("Bins", pk=2, parent=1)
+    inventree.add_part("NE555P", ipn="NE555P", pk=4)
+    inventree.stock_items.append(
+        {"pk": 9, "quantity": 25.0, "part": 4, "location": 1})
+    inventree.stock_items.append(
+        {"pk": 10, "quantity": 3, "part": 4, "location": 2})
+    inventree.barcodes["LOC-1"] = {
+        "stocklocation": {"pk": 1, "name": "Stock", "pathstring": "Stock"}}
+    hit = lookup_barcode(connect(), "LOC-1")
+    assert hit is not None
+    assert [child["pk"] for child in hit.payload["children"]] == [2]
+    assert [item["pk"] for item in hit.payload["stock_items"]] == [9]
+    assert hit.payload["stock_items"][0]["part_detail"]["IPN"] == "NE555P"
+    titles = [section.title for section in hit_sections(hit)]
+    assert "Locations (1)" in titles
+    assert "Stock (1)" in titles
+    stock = next(s for s in hit_sections(hit) if s.title == "Stock (1)")
+    assert stock.rows[0][0] == "25 × NE555P"
+
+
+def test_location_ref_reads_pk_and_path():
+    from invimport.inventree.stock import location_ref
+
+    assert location_ref({
+        "location": 2,
+        "location_detail": {"pk": 2, "pathstring": "Workshop/Bins"},
+    }) == (2, "Workshop/Bins", {"pk": 2, "pathstring": "Workshop/Bins"})
+    assert location_ref({"quantity": 25}) is None
+
+
+def test_fetch_stock_unwraps_a_paginated_response():
+    from invimport.inventree.stock import fetch_stock_items
+
+    class Pages:
+        def get(self, url, params=None):
+            return {"count": 1, "next": None, "previous": None,
+                    "results": [{"pk": 9, "quantity": 25.0, "part": 4,
+                                 "location": 1}]}
+
+    items = fetch_stock_items(Pages(), location=1)
+    assert len(items) == 1
+    assert items[0]["pk"] == 9

@@ -467,6 +467,12 @@ class InvenTreeStub:
                         "available_systems": ["SI"],
                         "available_units": {n: {"name": n} for n in names},
                     })
+                match = re.match(r"^/api/part/category/(\d+)/$", parsed.path)
+                if match:
+                    pk = int(match.group(1))
+                    row = next((c for c in stub.categories if c["pk"] == pk),
+                               None)
+                    return self._send(200, row or {"pk": pk})
                 if parsed.path == "/api/part/category/":
                     return self._send(200, stub.categories)
                 if parsed.path == "/api/company/":
@@ -498,11 +504,26 @@ class InvenTreeStub:
                     return self._send(200, row or {"pk": pk})
                 if parsed.path == "/api/order/po-line/":
                     return self._send(200, _by(stub.line_items, query, "order"))
+                match = re.match(r"^/api/stock/(\d+)/$", parsed.path)
+                if match:
+                    pk = int(match.group(1))
+                    row = next((r for r in stub.stock_items if r["pk"] == pk),
+                               None)
+                    return self._send(200, row or {"pk": pk})
                 if parsed.path == "/api/stock/":
-                    return self._send(200, _by(stub.stock_items, query,
-                                              "purchase_order"))
+                    rows = stub.stock_items
+                    rows = _by(rows, query, "purchase_order")
+                    rows = _by(rows, query, "part")
+                    rows = _by(rows, query, "location")
+                    return self._send(200, rows)
+                match = re.match(r"^/api/stock/location/(\d+)/$", parsed.path)
+                if match:
+                    pk = int(match.group(1))
+                    row = next((r for r in stub.locations if r["pk"] == pk),
+                               None)
+                    return self._send(200, row or {"pk": pk})
                 if parsed.path == "/api/stock/location/":
-                    return self._send(200, stub.locations)
+                    return self._send(200, _by(stub.locations, query, "parent"))
                 return self._send(200, [])
 
             def do_OPTIONS(self):
