@@ -128,6 +128,13 @@ def test_the_conditions_the_skill_mentions_are_real(text):
         assert quoted in CONDITIONS, f"unknown condition {quoted!r} in the skill"
 
 
+def test_the_skill_tells_the_agent_to_write_into_local_imports(text):
+    """Generated files belong in .local_imports/, which is gitignored."""
+    assert ".local_imports/" in text
+    assert re.search(r"\.local_imports/\S+\.json --validate", text)
+    assert re.search(r"\.local_imports/\S+\.json --write", text)
+
+
 def test_the_skill_tells_the_agent_to_read_the_vocabulary_first(text):
     """Without it the agent guesses category and parameter names, and misses."""
     assert "--vocabulary" in text

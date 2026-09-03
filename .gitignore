@@ -30,3 +30,6 @@ docs/.local
 
 # Database dumps taken by scripts/wipe-inventory.py
 backups/
+
+# Local import files
+.local_imports/

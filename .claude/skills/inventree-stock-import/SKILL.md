@@ -43,12 +43,15 @@ choices *this* config defines. You cannot guess these — the category is
 identify, fetch (do not invent) a datasheet URL, one product image, and the
 category's remaining parameters — see [Looking a part up](#looking-a-part-up).
 
-**3. Write the file** (see the shape below).
+**3. Write the file** to `.local_imports/` (see the shape below). Create the
+directory if it is not there. Name the file after the source — the photo,
+invoice or list — not `stock.json`, so a later import does not overwrite this
+one. The directory is gitignored; generated files stay local.
 
 **4. Validate. Fix. Repeat.**
 
 ```bash
-uv run invimport import-stock stock.json --validate
+uv run invimport import-stock .local_imports/IMG_4821.json --validate
 ```
 
 Returns JSON with `errors` carrying `did_you_mean`. No API calls, nothing
@@ -57,7 +60,7 @@ written — loop here as long as you need. Exit code 0 means clean.
 **5. Show the dry run to the user.**
 
 ```bash
-uv run invimport import-stock stock.json
+uv run invimport import-stock .local_imports/IMG_4821.json
 ```
 
 Human-readable, with the parsed parameter values so they can check your reading.
@@ -66,7 +69,7 @@ Human-readable, with the parsed parameter values so they can check your reading.
 **6. Only then, write — and only if the user says to.**
 
 ```bash
-uv run invimport import-stock stock.json --write
+uv run invimport import-stock .local_imports/IMG_4821.json --write
 ```
 
 **Never run `--write` without the user having seen the dry run and agreed.**
