@@ -29,6 +29,7 @@ import dataclasses
 import io
 import json
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -47,7 +48,12 @@ LINE_KEYS = {
     "link", "datasheet", "image", "images",
     "confidence", "needs_review",
 }
-ORDER_KEYS = {"reference", "date"}
+ORDER_KEYS = {"reference", "date", "target_date", "description",
+              "link", "notes", "tags", "invoice"}
+
+# order fields that must look like a date. InvenTree rejects anything else,
+# and a server-side rejection is a worse error than one that names the line.
+ORDER_DATES = ("date", "target_date")
 SOURCE_KEYS = {"kind", "reference", "captured", "agent"}
 SUGGEST_KEYS = {"identity", "ipn_prefix", "description", "because"}
 
@@ -114,7 +120,7 @@ class StockLine:
     sku: str = ""
     unit_price: float | None = None
     currency: str = ""
-    order: dict[str, str] = field(default_factory=dict)
+    order: dict[str, Any] = field(default_factory=dict)
 
     location: str = ""
     notes: str = ""
@@ -291,7 +297,11 @@ def _as_tags(raw: dict[str, Any], line_id: str,
             line_id, "tags",
             "must be a list, or a comma-separated string"))
         return []
+    return _dedupe_tags(items)
 
+
+def _dedupe_tags(items: list[str]) -> list[str]:
+    """Blank ones dropped, and one spelling kept per tag."""
     tags: list[str] = []
     seen: set[str] = set()
     for tag in items:
@@ -300,6 +310,22 @@ def _as_tags(raw: dict[str, Any], line_id: str,
         seen.add(tag.casefold())
         tags.append(tag)
     return tags
+
+
+def _as_iso_date(value: Any, field_name: str, line_id: str,
+                 problems: list[Problem]) -> str:
+    """A YYYY-MM-DD date. A longer ISO timestamp is trimmed to its day."""
+    text = str(value or "").strip()[:10]
+    if not text:
+        return ""
+    try:
+        datetime.strptime(text, "%Y-%m-%d")
+    except ValueError:
+        problems.append(Problem(
+            line_id, field_name,
+            f"{text!r} is not a date - write it as YYYY-MM-DD"))
+        return ""
+    return text
 
 
 def _line_from(raw: dict[str, Any], index: int,
@@ -377,8 +403,27 @@ def _line_from(raw: dict[str, Any], index: int,
             problems.append(Problem(line_id, f"order.{key}",
                                     "not a recognised field",
                                     did_you_mean=_close(key, ORDER_KEYS)))
-    line.order = {str(k): str(v).strip() for k, v in order.items()
-                  if v not in (None, "")}
+    line.order = {}
+    for key, value in order.items():
+        if key not in ORDER_KEYS or value in (None, ""):
+            continue
+        if key == "tags":
+            items = _tag_items(value)
+            if items is None:
+                problems.append(Problem(
+                    line_id, "order.tags",
+                    "must be a list, or a comma-separated string"))
+                continue
+            tags = _dedupe_tags(items)
+            if tags:
+                line.order["tags"] = tags
+            continue
+        if key in ORDER_DATES:
+            date_text = _as_iso_date(value, f"order.{key}", line_id, problems)
+            if date_text:
+                line.order[key] = date_text
+            continue
+        line.order[key] = str(value).strip()
 
     suggest = raw.get("suggest_category") or {}
     if not isinstance(suggest, dict):

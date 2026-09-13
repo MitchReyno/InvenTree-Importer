@@ -251,6 +251,26 @@ Integrated Circuits:
   "Display Drivers, Controllers":
     identity: mpn
     ipn_prefix: IC
+  Digital Comparators:
+    identity: mpn
+    ipn_prefix: IC
+    description: Digital magnitude and equality comparators
+  Interface:
+    identity: mpn
+    ipn_prefix: IC
+    description: Interface and line transceiver ICs
+  Telecom:
+    identity: mpn
+    ipn_prefix: IC
+    description: Telephony and telecom ICs
+  Misc:
+    identity: mpn
+    ipn_prefix: IC
+    description: Miscellaneous and unidentified integrated circuits
+  "Timers, Multivibrators":
+    identity: mpn
+    ipn_prefix: IC
+    description: "Timers, one-shots and multivibrators"
 Optoelectronics:
   ipn_prefix: OPTO
   identity: mpn
@@ -523,6 +543,14 @@ Hardware:
   Bearings:
     aliases:
       - Hardware, Fasteners, Accessories / Bearings
+  Heatsinks:
+    identity: mpn
+    ipn_prefix: HW
+    description: Heatsinks and thermal hardware
+  O-Rings:
+    identity: mpn
+    ipn_prefix: HW
+    description: O-rings and seals
 "Sensors, Transducers":
   parameters:
     - Mounting

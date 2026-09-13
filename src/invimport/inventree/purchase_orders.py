@@ -36,6 +36,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import date
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable, Iterable
 
@@ -312,6 +313,66 @@ def orders_by_reference(api, supplier: int) -> dict[str, Any]:
     orders = PurchaseOrder.list(api, supplier=supplier, limit=LIST_LIMIT)
     return {str(o.supplier_reference).strip(): o
             for o in orders if getattr(o, "supplier_reference", None)}
+
+
+# Attachments moved to one endpoint keyed by model, and the client library
+# still ships the per-model route this server no longer has
+# (order/po/attachment). Same reason api.py overrides the parameter URLs.
+ATTACHMENT_URL = "attachment/"
+ATTACHMENT_MODEL = "purchaseorder"
+
+
+def order_attachments(api, order_pk: int) -> list[dict[str, Any]]:
+    """Whatever is already attached to this order."""
+    response = api.get(ATTACHMENT_URL,
+                       params={"model_type": ATTACHMENT_MODEL,
+                               "model_id": order_pk, "limit": LIST_LIMIT})
+    if isinstance(response, dict):
+        return response.get("results") or []
+    return list(response or [])
+
+
+def attach_order_file(api, order_pk: int, path: Path,
+                      comment: str = "") -> bool:
+    """
+    Upload a file against a purchase order. Says whether it uploaded.
+
+    An order already carrying a file of that name is left alone, so
+    re-running an import does not stack up copies of the same invoice. A
+    failure warns rather than raises: the stock is the point of the import,
+    and losing it over a scan that would not upload is the worse outcome.
+    """
+    if order_pk is None:
+        return False
+    try:
+        existing = {str(row.get("filename") or "").rsplit("/", 1)[-1]
+                    for row in order_attachments(api, order_pk)}
+    except Exception as exc:                     # pragma: no cover
+        log.warning("    [warn] could not list attachments on order %s: %s",
+                    order_pk, exc)
+        existing = set()
+    if path.name in existing:
+        return False
+
+    try:
+        with path.open("rb") as handle:
+            response = api.request(
+                ATTACHMENT_URL, method="POST",
+                data={"model_type": ATTACHMENT_MODEL,
+                      "model_id": order_pk,
+                      "comment": comment},
+                files={"attachment": (path.name, handle)})
+    except Exception as exc:
+        log.warning("    [warn] could not attach %s to order %s: %s",
+                    path.name, order_pk, exc)
+        return False
+
+    if response is None or response.status_code not in (200, 201):
+        code = getattr(response, "status_code", "no response")
+        log.warning("    [warn] could not attach %s to order %s (%s)",
+                    path.name, order_pk, code)
+        return False
+    return True
 
 
 def next_reference(api) -> str:

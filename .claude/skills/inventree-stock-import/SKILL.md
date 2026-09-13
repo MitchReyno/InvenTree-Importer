@@ -156,8 +156,10 @@ For each identified line:
    wrong — leave `datasheet` off.
 2. **Image.** One product photo of this part, in `image`. Manufacturer or
    distributor is fine. The photo the user sent you is the *source*, not the
-   part image, unless it is a clear picture of this one component. A path
-   relative to the stock file is accepted (`"packets/l01.jpg"`).
+   part image — unless it is a clear picture of this one component, in which
+   case crop that component out and use it; see
+   [Cropping a component photo](#cropping-a-component-photo). A path relative
+   to the stock file is accepted (`"packets/l01.jpg"`).
 3. **Parameters.** The vocabulary lists every parameter this category stores,
    not just the `key_parameters` that identify it. Read the datasheet and
    product page, and fill every one of those names they actually state —
@@ -169,6 +171,63 @@ For each identified line:
 
 A line that already has its key parameters from the packet still needs this
 pass: the packet rarely has a datasheet URL or a TCR.
+
+## Cropping a component photo
+
+When the user photographs the components, each component in that photo is a
+real product image for its line, and a better one than a distributor's stock
+shot: it is the part they actually hold, with its own markings and date code
+visible. Put the path in that line's `image`.
+
+**Crop only when the photo needs it.** One component per photo, already framed
+against a plain background, is finished — use it as it is. Cropping earns its
+place when one photo holds several components, or when the part is lost in a
+wider scene. Trimming a little whitespace off an image that was already fine is
+work the user did not ask for and did not want. Zooming in to *read* a marking
+is a different thing and always fine; it just does not have to become the
+stored image.
+
+Write crops to `.local_imports/photos/<invoice>/`, named for the line and the
+part (`l04-f4520bpc.jpg`), and reference them relative to the stock file
+(`"photos/168844/l04-f4520bpc.jpg"`). The per-invoice subdirectory is not
+tidiness: two imports both numbering from `l01` will otherwise overwrite each
+other's photos.
+
+**Find the bounds, do not guess them.** Fractions eyeballed off the full image
+are the most common way these come out wrong, and the error is invisible until
+you look at the result.
+
+- **A collage** — several photos tiled into one image — splits on its white
+  gutters, not at the midpoint. The panels are usually unequal, so the
+  midpoint cuts through one of them. Find the columns and rows that are
+  near-white across the whole image and cut there.
+- **Loose components on a plain background** — threshold the dark bodies and
+  take the bounding box of each connected region. Discard the blobs that are
+  background rather than parts; a dark corner of the room is bigger than any
+  chip.
+
+**Include the leads.** A bounding box on the body alone cuts the pins off, and
+a DIP with no legs is a worse picture than the stock photo you passed over.
+Expand well past the bottom of the body — the leads are roughly as tall again.
+
+**Then look at the crops.** Build a montage of all of them and read it. You are
+looking for a neighbouring component intruding at an edge, clipped leads, and
+dead space. Tighten the offenders and look again; a second pass is normal
+rather than a sign the first attempt was careless.
+
+**A photo taken through a tube stays soft.** Upscaling adds pixels, not detail.
+Say so in your summary instead of presenting it as a good image — a fresh
+close-up of one chip out of the tube is the only real fix, and the user can
+decide whether it is worth taking.
+
+**Replacing an image on a part that is already imported.** `attach_part_image`
+skips any part that already has one, so call `part.uploadImage(path)` directly.
+Resolve the part through the line's barcode
+(`invimport:<file_id>:<line id>` → stock item → part) and check the part's name
+before uploading, so a mismatch cannot put a photo on the wrong record.
+InvenTree may report the *same* filename afterwards, which is equally what you
+would see if it had kept the old file: fetch the image back from the server and
+compare hashes before telling the user it worked.
 
 ## Rules that matter
 
@@ -220,6 +279,24 @@ made it; an MPN belongs to one manufacturer.
 
 **eBay purchases:** `"supplier": "eBay"`, with the seller name in `notes`. Do
 not create a supplier per seller.
+
+**Record the order when the source shows one.** An invoice or receipt gives you
+a `reference`, usually a date, and often a scan worth keeping:
+
+```json
+"order": {"reference": "INV-88213", "date": "2026-03-14",
+          "invoice": "scans/inv-88213.pdf", "notes": "paid on collection"}
+```
+
+Use the seller's own invoice number as `reference`, and give every line from the
+same invoice the same one — they will share a single purchase order. Dates are
+`YYYY-MM-DD`. If the user gave you the invoice as a file, name it in `invoice`
+with a path relative to the stock file and it is attached to the order.
+
+**Never invent a reference.** A line with no order reference gets no purchase
+order, which is correct: plenty of stock arrives without one, and a made-up
+number is a record of a purchase that did not happen that way. Put it in
+`defaults` when a whole file came off one invoice.
 
 **New old stock is tags plus a batch code, never a part flag.** Unused but old
 stock — vintage ICs, a surplus dealer's sealed tubes, anything bought long after
@@ -284,7 +361,10 @@ them into `type` or `description`. Do not "correct" a marking into a part you
 recognise unless you are certain. Colour-code a resistor only if the bands are
 unambiguous in the image; say when you are inferring rather than reading. A
 legible MPN or type is enough to look up; a photo of the bag is not the part
-image.
+image, but a clear shot of the component itself is — crop each one out per
+[Cropping a component photo](#cropping-a-component-photo). Markings on the
+component beat the invoice: a surplus dealer's catalogue number often names a
+part they no longer stock, and the chip in the tube is what the user owns.
 
 **Verbal or typed description** — ask for what is missing before writing the
 file, particularly quantities and whether packets are sealed. Look up anything

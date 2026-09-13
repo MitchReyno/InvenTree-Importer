@@ -245,6 +245,39 @@ def spec_path_regexes() -> tuple[re.Pattern, ...]:
     return tuple(path_to_regex(p) for p in spec_paths())
 
 
+def _multipart(raw: bytes) -> dict[str, Any]:
+    """
+    Enough of multipart/form-data to see what was uploaded.
+
+    The boundary is the first line, which saves threading the headers in.
+    Text fields come back as strings; the file comes back as `filename` and
+    `contents`, which is what a test actually wants to assert on.
+    """
+    fields: dict[str, Any] = {}
+    if not raw:
+        return fields
+    boundary = raw.split(b"\r\n", 1)[0].strip()
+    if not boundary.startswith(b"--"):
+        return fields
+    for chunk in raw.split(boundary):
+        if b"\r\n\r\n" not in chunk:
+            continue                             # the closing '--' marker
+        head, _, body = chunk.partition(b"\r\n\r\n")
+        head_text = head.decode("utf-8", "replace")
+        name = re.search(r'name="([^"]*)"', head_text)
+        if not name:
+            continue
+        if body.endswith(b"\r\n"):
+            body = body[:-2]
+        filename = re.search(r'filename="([^"]*)"', head_text)
+        if filename:
+            fields["filename"] = filename.group(1)
+            fields["contents"] = body
+        else:
+            fields[name.group(1)] = body.decode("utf-8", "replace")
+    return fields
+
+
 def _by(rows: list[dict[str, Any]], query: dict[str, list[str]],
         field: str) -> list[dict[str, Any]]:
     """Apply one integer query filter, the way the real list endpoints do."""
@@ -298,6 +331,9 @@ class InvenTreeStub:
         self.purchase_orders: list[dict[str, Any]] = []
         self.line_items: list[dict[str, Any]] = []
         self.stock_items: list[dict[str, Any]] = []
+        # Files uploaded to /api/attachment/, which is multipart
+        # rather than JSON and so is handled apart from the rest.
+        self.attachments: list[dict[str, Any]] = []
         # A default bin so import-orders can receive without every test
         # having to seed one. Tests that care can clear or replace it.
         self.locations: list[dict[str, Any]] = [
@@ -524,6 +560,10 @@ class InvenTreeStub:
                     return self._send(200, row or {"pk": pk})
                 if parsed.path == "/api/stock/location/":
                     return self._send(200, _by(stub.locations, query, "parent"))
+                if parsed.path == "/api/attachment/":
+                    rows = _by(stub.attachments, query, "model_id")
+                    rows = _by(rows, query, "model_type")
+                    return self._send(200, rows)
                 return self._send(200, [])
 
             def do_OPTIONS(self):
@@ -542,7 +582,22 @@ class InvenTreeStub:
                 if not self._valid(parsed.path):
                     return
                 length = int(self.headers.get("Content-Length") or 0)
-                body = json.loads(self.rfile.read(length) or b"{}")
+                raw = self.rfile.read(length)
+                if parsed.path == "/api/attachment/":
+                    fields = _multipart(raw)
+                    row = {
+                        "pk": len(stub.attachments) + 1,
+                        "model_type": fields.get("model_type", ""),
+                        "model_id": int(fields.get("model_id") or 0),
+                        "comment": fields.get("comment", ""),
+                        "filename": fields.get("filename", ""),
+                        "contents": fields.get("contents", b""),
+                    }
+                    stub.attachments.append(row)
+                    stub.posts.append((parsed.path, dict(row)))
+                    return self._send(201, {k: v for k, v in row.items()
+                                            if k != "contents"})
+                body = json.loads(raw or b"{}")
                 stub.posts.append((parsed.path, body))
                 issue = re.match(r"^/api/order/po/(\d+)/issue/$", parsed.path)
                 if issue:

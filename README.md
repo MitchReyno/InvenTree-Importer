@@ -637,6 +637,50 @@ available-stock codes — so a sealed packet still counts toward what you have,
 carrying a flag that says "not verified" rather than "unusable". Pair it with
 `"approximate": true` when you are trusting a number printed on the bag.
 
+#### Order details, and the invoice scan
+
+A line's `order` object records the purchase it arrived on. Lines sharing a
+supplier and a `reference` share one purchase order, and a reference already on
+the server is reused, so re-importing never books a second one.
+
+```json
+"order": {
+  "reference": "INV-88213",
+  "date": "2026-03-14",
+  "target_date": "2026-03-28",
+  "description": "March restock",
+  "link": "https://rockby.example/invoice/88213",
+  "notes": "paid on collection",
+  "tags": ["surplus"],
+  "invoice": "scans/inv-88213.pdf"
+}
+```
+
+`reference` is the seller's own number and is the only required one — without
+it **no order is created at all**, which is deliberate: 29% of real rows never
+had one, and inventing a reference records a purchase that did not happen that
+way. The commercial detail stays on the line itself (`supplier`, `sku`,
+`unit_price`, `currency`), because it describes what *this line* cost, not the
+order as a whole.
+
+`date` is stored as the order's **`start_date`**, not its creation date.
+InvenTree's `creation_date` is read-only — it records when the row was written,
+which for an import is always today — so a purchase date sent there is silently
+discarded. `start_date` is writable and is the nearest thing the model has to
+"ordered on".
+
+`invoice` attaches a scan to the purchase order: a path relative to the stock
+file, or an absolute one. It uploads **once per order** however many lines
+share it, and an order already carrying a file of that name is left alone, so
+re-running an import does not stack up copies. A scan that is not there warns
+and the import continues — losing the stock over a missing PDF is the worse
+outcome.
+
+The order's `reference` in InvenTree is not yours to choose: the server
+validates it against the instance's `PURCHASEORDER_REFERENCE_PATTERN`, so the
+importer asks for the next one in the sequence and stores your number as
+`supplier_reference`.
+
 #### Tags and the batch code
 
 `tags` is a list of free-text labels, and `batch` is the lot the quantity came

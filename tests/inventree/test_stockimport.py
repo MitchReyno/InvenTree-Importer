@@ -440,3 +440,126 @@ def test_stock_without_tags_or_batch_sends_neither(config, server):
     item = server.stock_items[0]
     assert "tags" not in item
     assert "batch" not in item
+
+
+# --------------------------------------------------------------------------
+# Everything else an order can say
+# --------------------------------------------------------------------------
+ORDER = {"supplier": "Rockby Electronics", "sku": "R-1"}
+
+
+def test_every_order_field_reaches_the_purchase_order(config, server):
+    run(config, {**RESISTOR, **ORDER, "currency": "AUD", "order": {
+        "reference": "INV-88213",
+        "date": "2026-03-14",
+        "target_date": "2026-03-28",
+        "description": "March restock",
+        "link": "https://rockby.example/invoice/88213",
+        "notes": "paid on collection",
+        "tags": ["surplus", "counter sale"],
+    }})
+
+    order = server.purchase_orders[0]
+    assert order["supplier_reference"] == "INV-88213"
+    assert order["target_date"] == "2026-03-28"
+    assert order["description"] == "March restock"
+    assert order["link"] == "https://rockby.example/invoice/88213"
+    assert order["notes"] == "paid on collection"
+    assert order["tags"] == ["surplus", "counter sale"]
+    assert order["order_currency"] == "AUD"
+
+
+def test_the_purchase_date_is_sent_as_start_date(config, server):
+    """
+    InvenTree's creation_date is read-only - it records when the row was
+    written - so sending the purchase date there went nowhere at all. The
+    order's start_date is writable and is the closest thing the model has.
+    """
+    run(config, {**RESISTOR, **ORDER,
+                 "order": {"reference": "INV-1", "date": "2026-03-14"}})
+
+    order = server.purchase_orders[0]
+    assert order["start_date"] == "2026-03-14"
+    assert "creation_date" not in order
+
+
+def test_an_order_description_defaults_to_the_reference(config, server):
+    run(config, {**RESISTOR, **ORDER, "order": {"reference": "INV-2"}})
+    assert server.purchase_orders[0]["description"] == "Imported order INV-2"
+
+
+# --------------------------------------------------------------------------
+# The invoice scan
+# --------------------------------------------------------------------------
+def _with_invoice(tmp_path, *lines, name="inv-88213.pdf"):
+    """A document that has a path, so a relative invoice resolves."""
+    scan = tmp_path / name
+    scan.write_bytes(b"%PDF-1.4 pretend scan")
+    return parse_document(
+        {"source": {"reference": "invoice.pdf"},
+         "lines": [{"id": str(i + 1), "quantity": 1, **line}
+                   for i, line in enumerate(lines)]},
+        path=tmp_path / "stock.json")
+
+
+def test_the_invoice_is_attached_to_the_order(config, server, tmp_path):
+    document = _with_invoice(tmp_path, {
+        **RESISTOR, **ORDER,
+        "order": {"reference": "INV-88213", "invoice": "inv-88213.pdf"}})
+    import_stock(document, connect(), directory=config,
+                 options=ImportOptions(write=True))
+
+    assert len(server.attachments) == 1
+    attached = server.attachments[0]
+    assert attached["model_type"] == "purchaseorder"
+    assert attached["model_id"] == server.purchase_orders[0]["pk"]
+    assert attached["filename"] == "inv-88213.pdf"
+    assert attached["contents"] == b"%PDF-1.4 pretend scan"
+    assert "INV-88213" in attached["comment"]
+
+
+def test_lines_sharing_an_order_attach_the_invoice_once(config, server,
+                                                        tmp_path):
+    order = {"reference": "INV-88213", "invoice": "inv-88213.pdf"}
+    document = _with_invoice(
+        tmp_path,
+        {**RESISTOR, **ORDER, "order": dict(order)},
+        {**DIODE, "supplier": "Rockby Electronics", "sku": "R-2",
+         "order": dict(order)})
+    import_stock(document, connect(), directory=config,
+                 options=ImportOptions(write=True))
+
+    assert len(server.purchase_orders) == 1
+    assert len(server.attachments) == 1
+
+
+def test_re_importing_does_not_attach_the_invoice_twice(config, server,
+                                                        tmp_path):
+    """The order already carries that scan; a second copy is not a record of
+    anything that happened."""
+    def once():
+        document = _with_invoice(tmp_path, {
+            **RESISTOR, **ORDER,
+            "order": {"reference": "INV-88213", "invoice": "inv-88213.pdf"}})
+        import_stock(document, connect(), directory=config,
+                     options=ImportOptions(write=True))
+
+    once()
+    once()
+    assert len(server.attachments) == 1
+
+
+def test_an_invoice_that_is_not_there_does_not_stop_the_import(config, server,
+                                                               tmp_path):
+    """The stock is the point; a missing scan warns and the import goes on."""
+    document = parse_document(
+        {"lines": [{"id": "1", "quantity": 3, **RESISTOR, **ORDER,
+                    "order": {"reference": "INV-9",
+                              "invoice": "not-there.pdf"}}]},
+        path=tmp_path / "stock.json")
+    import_stock(document, connect(), directory=config,
+                 options=ImportOptions(write=True))
+
+    assert server.attachments == []
+    assert len(server.stock_items) == 1
+    assert len(server.purchase_orders) == 1

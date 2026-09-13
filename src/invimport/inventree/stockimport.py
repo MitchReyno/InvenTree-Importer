@@ -61,6 +61,7 @@ from .parts import (
     resolve_part,
 )
 from .purchase_orders import (
+    attach_order_file,
     next_reference,
     resolve_supplier,
     split_marketplace,
@@ -274,7 +275,9 @@ def _import_line(api, document: StockFile, line: StockLine,
     action.location = str(getattr(location, "pathstring", "") or "")
 
     # --- the order it came on ---
-    order = _purchase_order(api, line, supplier, options, order_cache)
+    order = _purchase_order(
+        api, line, supplier, options, order_cache,
+        base_dir=document.path.parent if document.path else None)
     action.purchase_order = getattr(order, "pk", None)
     if order is not None and supplier_part is not None and options.write:
         _order_line(api, order, supplier_part, line)
@@ -473,8 +476,23 @@ def _supplier_part(api, line: StockLine, supplier, resolved,
     return created
 
 
+def _invoice_path(source: Any, base_dir: Path | None) -> Path | None:
+    """The invoice scan named by a line, resolved against the file's folder."""
+    text = str(source or "").strip()
+    if not text:
+        return None
+    path = Path(text).expanduser()
+    if not path.is_absolute() and base_dir is not None:
+        path = base_dir / path
+    if path.is_file():
+        return path
+    log.warning("    [warn] invoice %s: not a file", text)
+    return None
+
+
 def _purchase_order(api, line: StockLine, supplier,
-                    options: ImportOptions, cache):
+                    options: ImportOptions, cache, *,
+                    base_dir: Path | None = None):
     """
     The order this line was bought on, keyed by its reference.
 
@@ -493,30 +511,53 @@ def _purchase_order(api, line: StockLine, supplier,
 
     key = (pk, reference)
     if key in cache:
+        # Already handled this run, invoice and all.
         return cache[key]
 
+    order = None
     found = PurchaseOrder.list(api, supplier=pk, limit=LIST_LIMIT)
-    for order in found:
-        if str(getattr(order, "supplier_reference", "")).strip() == reference:
-            cache[key] = order
-            return order
+    for existing in found:
+        if str(getattr(existing, "supplier_reference", "")).strip() == reference:
+            order = existing
+            break
 
-    if not options.write:
-        return None
+    if order is None:
+        if not options.write:
+            return None
+        payload = {
+            "supplier": pk,
+            "reference": next_reference(api),
+            "supplier_reference": reference,
+            "description": (str(line.order.get("description") or "").strip()
+                            or f"Imported order {reference}")[:250],
+        }
+        # creation_date is read-only - it records when the row was written,
+        # not when the goods were bought - so a purchase date silently went
+        # nowhere. start_date is writable and is the order's own beginning,
+        # which is the closest thing the model has to "ordered on".
+        if line.order.get("date"):
+            payload["start_date"] = line.order["date"]
+        if line.order.get("target_date"):
+            payload["target_date"] = line.order["target_date"]
+        for name in ("link", "notes"):
+            value = str(line.order.get(name) or "").strip()
+            if value:
+                payload[name] = value
+        if line.order.get("tags"):
+            payload["tags"] = list(line.order["tags"])
+        if line.currency:
+            payload["order_currency"] = line.currency
+        order = PurchaseOrder.create(api, payload)
 
-    payload = {
-        "supplier": pk,
-        "reference": next_reference(api),
-        "supplier_reference": reference,
-        "description": f"Imported order {reference}"[:250],
-    }
-    date = str(line.order.get("date") or "").strip()
-    if date:
-        payload["creation_date"] = date[:10]
-    if line.currency:
-        payload["order_currency"] = line.currency
-    order = PurchaseOrder.create(api, payload)
     cache[key] = order
+    # Once per order per run: lines sharing a reference share the order, and
+    # the upload itself skips a scan the order already carries, so a re-import
+    # does not stack up copies.
+    if options.write:
+        invoice = _invoice_path(line.order.get("invoice"), base_dir)
+        if invoice is not None:
+            attach_order_file(api, getattr(order, "pk", None), invoice,
+                              comment=f"Invoice for {reference}")
     return order
 
 

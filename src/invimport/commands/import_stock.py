@@ -144,8 +144,42 @@ def schema() -> dict[str, Any]:
             "currency": {"type": "string"},
             "order": {
                 "type": "object", "additionalProperties": False,
-                "properties": {"reference": {"type": "string"},
-                               "date": {"type": "string"}},
+                "description": "The purchase order this line was bought on. "
+                               "Lines sharing a supplier and a reference "
+                               "share one order.",
+                "properties": {
+                    "reference": {
+                        "type": "string",
+                        "description": "The seller's own invoice or order "
+                                       "number. Stored as supplier_reference "
+                                       "and used to recognise an order "
+                                       "already imported. Without it no "
+                                       "order is created."},
+                    "date": {
+                        "type": "string", "format": "date",
+                        "description": "When it was ordered, YYYY-MM-DD. "
+                                       "Stored as the order's start_date - "
+                                       "InvenTree's creation_date is "
+                                       "read-only and always the day the "
+                                       "record was written."},
+                    "target_date": {
+                        "type": "string", "format": "date",
+                        "description": "Expected delivery, YYYY-MM-DD."},
+                    "description": {
+                        "type": "string",
+                        "description": "Defaults to 'Imported order X'."},
+                    "link": {"type": "string", "format": "uri",
+                             "description": "Order or invoice page."},
+                    "notes": {"type": "string"},
+                    "tags": {"type": "array", "items": {"type": "string"}},
+                    "invoice": {
+                        "type": "string",
+                        "description": "Invoice or receipt scan to attach to "
+                                       "the order: a path relative to this "
+                                       "file, or an absolute one. Uploaded "
+                                       "once; re-importing will not attach a "
+                                       "second copy."},
+                },
             },
             "location": {"type": "string",
                          "description": "Stock location path; created if it "

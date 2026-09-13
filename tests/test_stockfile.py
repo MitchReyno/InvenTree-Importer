@@ -353,3 +353,50 @@ def test_tags_that_are_neither_a_list_nor_a_string_are_refused():
             "id": "a", "quantity": 1, "category": "X", "tags": {"NOS": True},
         }]))
     assert "tags" in str(caught.value)
+
+
+# --------------------------------------------------------------------------
+# Order details
+# --------------------------------------------------------------------------
+def test_every_order_field_is_read():
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X",
+        "order": {"reference": "INV-1", "date": "2026-03-14",
+                  "target_date": "2026-03-28", "description": "March restock",
+                  "link": "https://example.com/i/1", "notes": "paid cash",
+                  "tags": ["surplus"], "invoice": "scans/inv-1.pdf"},
+    }]))
+    order = document.lines[0].order
+    assert order["reference"] == "INV-1"
+    assert order["date"] == "2026-03-14"
+    assert order["target_date"] == "2026-03-28"
+    assert order["tags"] == ["surplus"]
+    assert order["invoice"] == "scans/inv-1.pdf"
+
+
+def test_an_unknown_order_field_is_reported():
+    with pytest.raises(StockFileError) as caught:
+        parse_document(doc(lines=[{
+            "id": "a", "quantity": 1, "category": "X",
+            "order": {"reference": "INV-1", "referance": "typo"},
+        }]))
+    assert "order.referance" in str(caught.value)
+
+
+def test_an_order_date_that_is_not_a_date_is_refused():
+    """The server would reject it, and an error naming the line is kinder."""
+    with pytest.raises(StockFileError) as caught:
+        parse_document(doc(lines=[{
+            "id": "a", "quantity": 1, "category": "X",
+            "order": {"reference": "INV-1", "date": "14/03/2026"},
+        }]))
+    assert "order.date" in str(caught.value)
+    assert "YYYY-MM-DD" in str(caught.value)
+
+
+def test_an_order_timestamp_is_trimmed_to_its_day():
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X",
+        "order": {"reference": "INV-1", "date": "2026-03-14T09:31:00Z"},
+    }]))
+    assert document.lines[0].order["date"] == "2026-03-14"
