@@ -610,3 +610,178 @@ DC Resistance (DCR) (Max):
 "Impedance @ Frequency":
   aliases:
     - "Impedance @ Frequency"
+
+Size / Dimension:
+  aliases:
+    - Size / Dimension
+
+Thickness (Max):
+  units: mm
+  parse: metric
+  aliases:
+    - Thickness (Max)
+
+Contact Finish Thickness - Mating:
+  units: m
+  parse: metric
+  aliases:
+    - Contact Finish Thickness - Mating
+
+Contact Finish Thickness - Post:
+  units: m
+  parse: metric
+  aliases:
+    - Contact Finish Thickness - Post
+
+Number of Circuits:
+  parse: quantity
+  aliases:
+    - Number of Circuits
+
+Switch Circuit:
+  choices:
+    - SPDT
+  aliases:
+    - Switch Circuit
+
+Count Rate:
+  units: MHz
+  parse: quantity
+  aliases:
+    - Count Rate
+
+Direction:
+  choices:
+    - Up
+  aliases:
+    - Direction
+
+Logic Type:
+  values:
+    NAND Gate:
+      - NAND Gate
+    Inverter:
+      - Inverter
+    NOR Gate:
+      - NOR Gate
+    XOR (Exclusive OR):
+      - XOR (Exclusive OR)
+  choices:
+    - Binary Counter
+    - NAND Gate
+    - Inverter
+    - NOR Gate
+    - XOR (Exclusive OR)
+  aliases:
+    - Logic Type
+
+Number of Bits per Element:
+  parse: quantity
+  aliases:
+    - Number of Bits per Element
+
+Number of Elements:
+  parse: quantity
+  aliases:
+    - Number of Elements
+
+Reset:
+  choices:
+    - Asynchronous
+  aliases:
+    - Reset
+
+Timing:
+  choices:
+    - Synchronous
+  aliases:
+    - Timing
+
+Trigger Type:
+  choices:
+    - Positive Edge
+  aliases:
+    - Trigger Type
+
+Clock Frequency:
+  units: MHz
+  parse: quantity
+  aliases:
+    - Clock Frequency
+
+Input Capacitance:
+  units: pF
+  parse: quantity
+  aliases:
+    - Input Capacitance
+
+Output Type:
+  values:
+    "Tri-State, Non-Inverted":
+      - "Tri-State, Non-Inverted"
+    "Tri-State & Non-Inverted":
+      - "Tri-State, Non-Inverted"
+  choices:
+    - Complementary
+    - Non-Inverted
+    - Tri-State
+    - "Tri-State & Non-Inverted"
+  aliases:
+    - Output Type
+
+Number of Inputs:
+  parse: quantity
+  aliases:
+    - Number of Inputs
+
+Memory Format:
+  choices:
+    - FLASH
+  aliases:
+    - Memory Format
+
+Memory Interface:
+  choices:
+    - Parallel
+  aliases:
+    - Memory Interface
+
+Memory Organization:
+  choices:
+    - 512K x 8
+  aliases:
+    - Memory Organization
+
+Memory Size:
+  units: Mbit
+  parse: quantity
+  aliases:
+    - Memory Size
+
+Memory Type:
+  choices:
+    - Non-Volatile
+  aliases:
+    - Memory Type
+
+Number of Macrocells:
+  parse: quantity
+  aliases:
+    - Number of Macrocells
+
+Programmable Type:
+  choices:
+    - EE PLD
+  aliases:
+    - Programmable Type
+
+Input Voltage:
+  units: V
+  parse: quantity
+  aliases:
+    - Voltage - Input
+
+Number of Terminations:
+  parse: quantity
+  aliases:
+    - Number of Terminations

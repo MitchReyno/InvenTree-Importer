@@ -49,6 +49,10 @@ Capacitors:
     - Package
     - Tolerance
   Ceramic Capacitors:
+    parameters:
+      - Size / Dimension
+      - Temperature Coefficient
+      - Thickness (Max)
     name: "Ceramic Capacitor {Capacitance} {Max Working Voltage}V {Tolerance}% {Mounting} {Package}"
     aliases:
       - Capacitors / Ceramic Capacitors
@@ -177,6 +181,21 @@ Integrated Circuits:
     - Supply Voltage Min
     - Supply Voltage Max
   Memory:
+    key_parameters:
+      - Memory Format
+      - Memory Interface
+      - Memory Organization
+      - Memory Size
+      - Memory Type
+    parameters:
+      - Memory Format
+      - Memory Interface
+      - Memory Organization
+      - Memory Size
+      - Memory Type
+      - Technology
+    aliases:
+      - Integrated Circuits (ICs) / Memory / Memory
     ipn_prefix: ROM
   Op-Amps:
     parameters:
@@ -221,12 +240,35 @@ Integrated Circuits:
     aliases:
       - Integrated Circuits (ICs) / Data Acquisition / Digital to Analog Converters (DAC)
   "Analog Switches, Multiplexers, Demultiplexers":
+    key_parameters:
+      - Number of Circuits
+      - Switch Circuit
+    parameters:
+      - Number of Circuits
+      - Switch Circuit
     aliases:
       - Integrated Circuits (ICs) / Interface / Analog Switches, Multiplexers, Demultiplexers
   Comparators:
     aliases:
       - Integrated Circuits (ICs) / Linear / Comparators
   "Counters, Dividers":
+    key_parameters:
+      - Direction
+      - Logic Type
+      - Number of Bits per Element
+      - Number of Elements
+      - Reset
+      - Timing
+      - Trigger Type
+    parameters:
+      - Count Rate
+      - Direction
+      - Logic Type
+      - Number of Bits per Element
+      - Number of Elements
+      - Reset
+      - Timing
+      - Trigger Type
     aliases:
       - Integrated Circuits (ICs) / Logic / Counters, Dividers
   Latches:
@@ -243,11 +285,36 @@ Integrated Circuits:
       - Integrated Circuits (ICs) / Linear / Amplifiers / Audio Amplifiers
   Logic:
     Flip Flops:
+      key_parameters:
+        - Clock Frequency
+        - Output Type
+      parameters:
+        - Clock Frequency
+        - Quiescent Current
+        - Input Capacitance
+        - Number of Bits per Element
+        - Number of Elements
+        - Output Type
+        - Trigger Type
+        - Connector Type
       aliases:
         - Integrated Circuits (ICs) / Logic / Flip Flops
     Gates and Inverters:
+      key_parameters:
+        - Number of Inputs
+      parameters:
+        - Logic Type
+        - Number of Circuits
+        - Number of Inputs
+        - Features
       aliases:
         - Integrated Circuits (ICs) / Logic / Gates and Inverters
+    "Buffers, Drivers, Receivers, Transceivers":
+      parameters:
+        - Number of Bits per Element
+        - Number of Elements
+      aliases:
+        - Integrated Circuits (ICs) / Logic / Buffers, Drivers, Receivers, Transceivers
   "Display Drivers, Controllers":
     identity: mpn
     ipn_prefix: IC
@@ -271,6 +338,17 @@ Integrated Circuits:
     identity: mpn
     ipn_prefix: IC
     description: "Timers, one-shots and multivibrators"
+  PLDs (Programmable Logic Device):
+    key_parameters:
+      - Number of Macrocells
+      - Programmable Type
+      - Input Voltage
+    parameters:
+      - Number of Macrocells
+      - Programmable Type
+      - Input Voltage
+    aliases:
+      - Integrated Circuits (ICs) / Embedded / PLDs (Programmable Logic Device)
 Optoelectronics:
   ipn_prefix: OPTO
   identity: mpn
@@ -337,6 +415,13 @@ Resistors:
     aliases:
       - Resistors / Through Hole Resistors
   Surface Mount Resistors:
+    key_parameters:
+      - Number of Terminations
+    parameters:
+      - Height - Seated (Max)
+      - Number of Terminations
+      - Size / Dimension
+      - Features
     name: "SMD Resistor {Resistance} {Tolerance}% {Power Rating}W {Composition} {Package}"
     aliases:
       - Resistors / Chip Resistor - Surface Mount
@@ -465,6 +550,9 @@ Connectors:
       - Housing Material
       - Number of Positions or Pins (Grid)
       - Pitch - Post
+      - Contact Finish Thickness - Mating
+      - Contact Finish Thickness - Post
+      - Pitch - Mating
     aliases:
       - Connectors, Interconnects / Sockets for ICs, Transistors / IC Sockets
 
@@ -605,3 +693,19 @@ Controls:
 Power Supplies + Power Management:
   aliases:
     - Power Supplies - External/Internal (Off-Board) / DC DC Converters
+
+Vacuum Tubes & Valves:
+  ipn_prefix: TUBE
+  identity: mpn
+  description: Vacuum tubes (valves) and other vacuum devices such as vacuum switches
+  parameters:
+    - Max Working Voltage
+
+Relays:
+  ipn_prefix: RLY
+  identity: mpn
+  parameters:
+    - Input Voltage
+    - Mounting
+    - Operating Temp Max
+    - Operating Temp Min

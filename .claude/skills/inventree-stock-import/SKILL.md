@@ -131,8 +131,10 @@ supplier, currency and order there once rather than repeating them.
 `link` is a product or listing page (stored on the SupplierPart, and on the
 Part if there is no datasheet). `datasheet` is a PDF URL (stored on the Part
 and the ManufacturerPart). `image` is a product photo: an `http(s)` URL, or a
-path relative to the stock file. Extra photos go in `images`. A missing or
-unreadable image is skipped — it does not fail the import.
+path relative to the stock file. Extra photos go in `images`: `image` becomes
+the Part's picture and each of the rest is uploaded as a Part attachment, once
+per part however many lines list it. A missing or unreadable image is skipped
+— it does not fail the import.
 
 ## Looking a part up
 
