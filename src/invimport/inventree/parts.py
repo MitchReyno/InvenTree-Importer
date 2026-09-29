@@ -66,7 +66,7 @@ from .matching import (
     path_text,
 )
 from ..util import absolute_url
-from .purchase_orders import find_supplier, supplier_parts_by_sku
+from .purchase_orders import attach_file, find_supplier, supplier_parts_by_sku
 from .values import compact_for_name, from_supplier, parse_quantity
 from .discovery import Discovery, UnknownChoice, discover, unknown_choices
 
@@ -267,6 +267,17 @@ def find_part_by_type(api, category_pk: int, designator: str) -> Any | None:
         if str(getattr(part, "name", "") or "").strip().casefold() == wanted:
             return part
     return None
+
+
+def parts_named(api, category_pk: int, name: str) -> list[Any]:
+    """Every Part in this category whose name is this, ignoring case."""
+    wanted = str(name or "").strip().casefold()
+    if not wanted:
+        return []
+    return [part for part in Part.list(api, category=category_pk,
+                                       limit=LIST_LIMIT)
+            if str(getattr(part, "name", "") or "").strip().casefold()
+            == wanted]
 
 
 def find_part_by_ipn(api, ipn: str) -> Any | None:
@@ -552,6 +563,33 @@ def attach_line_images(part, sources: list[str], *,
     return False
 
 
+PART_ATTACHMENT_MODEL = "part"
+
+
+def attach_part_files(api, part, sources: list[str], *,
+                      cache_dir: Path = cache.IMAGES_DIR,
+                      base_dir: Path | None = None,
+                      comment: str = "") -> int:
+    """
+    Upload further photos as attachments on the part. Returns how many.
+
+    The picture slot holds one image; the other photos of the same packet -
+    the label, the back, the open box - are still worth keeping. Files the
+    part already carries are skipped by name, so several lines for one part,
+    or a re-run, attach each photo once.
+    """
+    pk = getattr(part, "pk", None)
+    if not sources or pk in (None, UNRESOLVED_PK):
+        return 0
+    uploaded = 0
+    for source in sources:
+        path = resolve_image_source(source, cache_dir, base_dir=base_dir)
+        if path is not None and attach_file(
+                api, PART_ATTACHMENT_MODEL, pk, path, comment):
+            uploaded += 1
+    return uploaded
+
+
 # --------------------------------------------------------------------------
 # The supplier-agnostic core
 #
@@ -625,6 +663,17 @@ class PartPolicy:
     # default refuses to guess.
     on_partial: str = "ask"                  # ask | new | skip
     choose_part: Callable[[PartLine, list[Any]], Any | None] | None = None
+    # An MPN with no ManufacturerPart behind it - a line that had no
+    # manufacturer - cannot be found again by MPN. A part of the same name in
+    # the category is probably it, but probably is not enough to merge stock
+    # onto: the caller is asked. choose_name_match returns the part to use,
+    # NEW_PART to create one anyway, or None to skip the line. Without a
+    # chooser the line is held for review.
+    match_by_name: bool = False
+    choose_name_match: Callable[[PartLine, list[Any]], Any | None] | None = None
+
+
+NEW_PART = "new"
 
 
 @dataclass
@@ -799,6 +848,24 @@ def resolve_part(
     part = find_part_by_ipn(api, line.ipn)
     if part is None and line.mpn:
         part = find_part_by_mpn(api, line.mpn)
+    if part is None and line.mpn and policy.match_by_name:
+        offered = parts_named(api, server_cat.pk, line.mpn)
+        if offered:
+            if policy.choose_name_match is None:
+                return PartResolution(
+                    category=category, report_category=True,
+                    needs_choice=True, candidates=offered,
+                    reason=(f"a part named {line.mpn!r} is already in "
+                            f"{category.pathstring} but no manufacturer part "
+                            f"confirms it is this one"))
+            chosen = policy.choose_name_match(line, offered)
+            if chosen is None:
+                return PartResolution(
+                    reason=f"skipped: {line.mpn!r} matched an existing part "
+                           f"by name",
+                    category=category, report_category=True)
+            if chosen != NEW_PART:
+                part = chosen
     if part is None and line.type and category.identity == "type":
         # Only where the category says a designator identifies the part. Under
         # `mpn` identity the manufacturer part number is the identity, and
@@ -873,17 +940,21 @@ def resolve_part(
 
     mfr_part = None
     # No manufacturer means no ManufacturerPart - nothing is invented to stand
-    # in for one. A part may legitimately have none.
-    if part.pk != UNRESOLVED_PK and manufacturer is not None and line.mpn:
+    # in for one. A part may legitimately have none. A type designator is the
+    # number that maker printed on the part, so it stands as the MPN when the
+    # line has no other; dropping the manufacturer instead loses a fact.
+    mfr_number = line.mpn or line.type
+    if part.pk != UNRESOLVED_PK and manufacturer is not None and mfr_number:
         step("manufacturer_part")
-        existing = ManufacturerPart.list(api, part=part.pk, MPN=line.mpn,
+        existing = ManufacturerPart.list(api, part=part.pk, MPN=mfr_number,
+                                         manufacturer=manufacturer.pk,
                                          limit=LIST_LIMIT)
         mfr_part = existing[0] if existing else None
         if mfr_part is None and write:
             payload = {
                 "part": part.pk,
                 "manufacturer": manufacturer.pk,
-                "MPN": line.mpn,
+                "MPN": mfr_number,
             }
             datasheet = absolute_url(line.datasheet)
             if datasheet:

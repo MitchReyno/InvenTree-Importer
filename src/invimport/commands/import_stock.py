@@ -43,6 +43,7 @@ from ..stockfile import (
     read_file,
 )
 from ..inventree.api import connect
+from ..inventree.parts import NEW_PART
 from ..inventree.stockimport import (
     CREATED,
     EXISTS,
@@ -377,6 +378,29 @@ def ask_part(line, offered: list[Any]):
     return None if picked is None else picked[0]
 
 
+def ask_name_match(line, offered: list[Any]):
+    """
+    An MPN nothing confirms, and a part already carrying that name.
+
+    With no manufacturer on either side there is no ManufacturerPart to say
+    they are the same component, only the name - so a human decides whether
+    the stock goes onto the existing part.
+    """
+    title = (f"  line {line.id}: {line.mpn!r} has no manufacturer part to "
+             f"match, but a part with that name already exists")
+    if line.description:
+        title += f"\n    this line: {line.description}"
+    options = [(part, f"use {getattr(part, 'IPN', '?')}  "
+                      f"{getattr(part, 'name', '')}  "
+                      f"{getattr(part, 'description', '') or ''}".rstrip())
+               for part in offered]
+    options.append((NEW_PART, "create a new part"))
+    options.append((None, "skip this line"))
+    picked = _prompt.choose_one(options, lambda o: o[1], title=title,
+                                prompt="  part > ")
+    return None if picked is None else picked[0]
+
+
 def ask_company(kind: str):
     """A chooser for an unmatched manufacturer or supplier name."""
     def choose(name: str, offered: list[tuple[Any, float]]):
@@ -439,6 +463,7 @@ def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
         create_orders=not args.no_orders,
         choose_category=ask_category if interactive else None,
         choose_part=ask_part if interactive else None,
+        choose_name_match=ask_name_match if interactive else None,
         choose_manufacturer=ask_company("manufacturer") if interactive else None,
         choose_supplier=ask_company("supplier") if interactive else None,
     )

@@ -143,6 +143,7 @@ def validate(
     paths = list(categories)
 
     for line in document.lines:
+        _check_supplier(line, report)
         category = resolve_category(line, categories)
 
         if category is None:
@@ -268,6 +269,17 @@ def _parameter_suggestions(name: str, raw: Any, category: CategoryConfig,
 
     # Unit matches first: they are evidence, where a name match is a guess.
     return by_unit + [name for name in fuzzy if name not in by_unit][:3]
+
+
+def _check_supplier(line: StockLine, report: Report) -> None:
+    """A supplier is only recorded through a SupplierPart, which needs a SKU."""
+    if line.supplier and not line.sku:
+        report.warnings.append(Problem(
+            line.id, "sku",
+            f"supplier {line.supplier!r} has no sku, so no supplier part is "
+            f"created and the stock will not record where it came from - use "
+            f"the seller's catalogue number, or the part number if they have "
+            f"none"))
 
 
 def _check_identity(line: StockLine, category: CategoryConfig,

@@ -529,6 +529,7 @@ class InvenTreeStub:
                                 == mpn.casefold()]
                     rows = _by(rows, query, "part")
                     rows = _by(rows, query, "manufacturer")
+                    rows = _by(rows, query, "manufacturer")
                     return self._send(200, rows)
                 if parsed.path == "/api/order/po/":
                     return self._send(200, _by(stub.purchase_orders, query, "supplier"))
@@ -563,7 +564,9 @@ class InvenTreeStub:
                 if parsed.path == "/api/attachment/":
                     rows = _by(stub.attachments, query, "model_id")
                     rows = _by(rows, query, "model_type")
-                    return self._send(200, rows)
+                    return self._send(200, [
+                        {k: v for k, v in row.items() if k != "contents"}
+                        for row in rows])
                 return self._send(200, [])
 
             def do_OPTIONS(self):

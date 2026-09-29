@@ -546,7 +546,7 @@ eighth has no supplier at all.
   "defaults": {"supplier": "Rockby Electronics", "currency": "AUD",
                "location": "Workshop/Drawer A"},
   "lines": [
-    {"id": "l01", "quantity": 40,
+    {"id": "l01", "quantity": 40, "sku": "R-4K7",
      "category": "Resistors/Through Hole Resistors",
      "parameters": {"Resistance": "4k7", "Tolerance": "1%",
                     "Power Rating": "0.25 W", "Composition": "Metal Film",
@@ -554,7 +554,7 @@ eighth has no supplier at all.
 
     {"id": "l02", "quantity": 300, "category": "Diodes/Signal Diodes",
      "type": "1N4007", "condition": "unopened", "approximate": true,
-     "supplier": "salash (eBay)", "tags": ["NOS", "new old stock"],
+     "supplier": "salash (eBay)", "sku": "1N4007", "tags": ["NOS", "new old stock"],
      "notes": "original packaging"}
   ]
 }
@@ -566,8 +566,8 @@ key by key, so a file-wide date with a per-line reference works.
 CSV is the same shape flattened, with dotted columns for the nested parts:
 
 ```csv
-id,quantity,category,type,supplier,order.reference,param.Package
-l02,300,Diodes/Signal Diodes,1N4007,Rockby Electronics,R-99213,DO-41
+id,quantity,category,type,supplier,sku,order.reference,param.Package
+l02,300,Diodes/Signal Diodes,1N4007,Rockby Electronics,1N4007,R-99213,DO-41
 ```
 
 A `spec` category needs *all* of its key parameters on one row, which makes for

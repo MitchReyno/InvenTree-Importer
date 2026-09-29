@@ -322,57 +322,72 @@ ATTACHMENT_URL = "attachment/"
 ATTACHMENT_MODEL = "purchaseorder"
 
 
-def order_attachments(api, order_pk: int) -> list[dict[str, Any]]:
-    """Whatever is already attached to this order."""
+def attachments(api, model_type: str, model_id: int) -> list[dict[str, Any]]:
+    """Whatever is already attached to this record."""
     response = api.get(ATTACHMENT_URL,
-                       params={"model_type": ATTACHMENT_MODEL,
-                               "model_id": order_pk, "limit": LIST_LIMIT})
+                       params={"model_type": model_type,
+                               "model_id": model_id, "limit": LIST_LIMIT})
     if isinstance(response, dict):
         return response.get("results") or []
     return list(response or [])
 
 
-def attach_order_file(api, order_pk: int, path: Path,
-                      comment: str = "") -> bool:
-    """
-    Upload a file against a purchase order. Says whether it uploaded.
-
-    An order already carrying a file of that name is left alone, so
-    re-running an import does not stack up copies of the same invoice. A
-    failure warns rather than raises: the stock is the point of the import,
-    and losing it over a scan that would not upload is the worse outcome.
-    """
-    if order_pk is None:
-        return False
+def attached_names(api, model_type: str, model_id: int) -> set[str]:
+    """Filenames already attached to this record. Empty if it cannot list."""
     try:
-        existing = {str(row.get("filename") or "").rsplit("/", 1)[-1]
-                    for row in order_attachments(api, order_pk)}
+        return {str(row.get("filename") or "").rsplit("/", 1)[-1]
+                for row in attachments(api, model_type, model_id)}
     except Exception as exc:                     # pragma: no cover
-        log.warning("    [warn] could not list attachments on order %s: %s",
-                    order_pk, exc)
-        existing = set()
-    if path.name in existing:
+        log.warning("    [warn] could not list attachments on %s %s: %s",
+                    model_type, model_id, exc)
+        return set()
+
+
+def attach_file(api, model_type: str, model_id: int, path: Path,
+                comment: str = "") -> bool:
+    """
+    Upload a file against any record. Says whether it uploaded.
+
+    A record already carrying a file of that name is left alone, so
+    re-running an import does not stack up copies. A failure warns rather
+    than raises: the stock is the point of the import, and losing it over a
+    file that would not upload is the worse outcome.
+    """
+    if model_id is None:
+        return False
+    if path.name in attached_names(api, model_type, model_id):
         return False
 
     try:
         with path.open("rb") as handle:
             response = api.request(
                 ATTACHMENT_URL, method="POST",
-                data={"model_type": ATTACHMENT_MODEL,
-                      "model_id": order_pk,
+                data={"model_type": model_type,
+                      "model_id": model_id,
                       "comment": comment},
                 files={"attachment": (path.name, handle)})
     except Exception as exc:
-        log.warning("    [warn] could not attach %s to order %s: %s",
-                    path.name, order_pk, exc)
+        log.warning("    [warn] could not attach %s to %s %s: %s",
+                    path.name, model_type, model_id, exc)
         return False
 
     if response is None or response.status_code not in (200, 201):
         code = getattr(response, "status_code", "no response")
-        log.warning("    [warn] could not attach %s to order %s (%s)",
-                    path.name, order_pk, code)
+        log.warning("    [warn] could not attach %s to %s %s (%s)",
+                    path.name, model_type, model_id, code)
         return False
     return True
+
+
+def order_attachments(api, order_pk: int) -> list[dict[str, Any]]:
+    """Whatever is already attached to this order."""
+    return attachments(api, ATTACHMENT_MODEL, order_pk)
+
+
+def attach_order_file(api, order_pk: int, path: Path,
+                      comment: str = "") -> bool:
+    """Upload a file against a purchase order, e.g. the invoice scan."""
+    return attach_file(api, ATTACHMENT_MODEL, order_pk, path, comment)
 
 
 def next_reference(api) -> str:

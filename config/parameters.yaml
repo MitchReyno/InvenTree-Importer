@@ -737,6 +737,8 @@ Number of Inputs:
 Memory Format:
   choices:
     - FLASH
+    - PROM
+    - SRAM
   aliases:
     - Memory Format
 
@@ -749,11 +751,14 @@ Memory Interface:
 Memory Organization:
   choices:
     - 512K x 8
+    - 1K x 4
+    - 1K x 1
   aliases:
     - Memory Organization
 
 Memory Size:
-  units: Mbit
+  units: bit
+  description: Total storage capacity
   parse: quantity
   aliases:
     - Memory Size
@@ -761,8 +766,16 @@ Memory Size:
 Memory Type:
   choices:
     - Non-Volatile
+    - Volatile
   aliases:
     - Memory Type
+
+Access Time:
+  units: ns
+  description: Maximum address-to-output read access time
+  aliases:
+    - Access Time
+  parse: quantity
 
 Number of Macrocells:
   parse: quantity

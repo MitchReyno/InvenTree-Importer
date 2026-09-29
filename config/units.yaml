@@ -16,3 +16,8 @@
 #
 # ppm_per_delta_degC used to live here. It is not needed: pint's own ppm/K is
 # the same quantity and needs no definition.
+
+# DigiKey writes memory sizes as 4Kbit / 256Kbit. pint only knows lowercase
+# kbit, so without this "4Kbit" fails to parse.
+Kbit:
+  definition: 1000 * bit

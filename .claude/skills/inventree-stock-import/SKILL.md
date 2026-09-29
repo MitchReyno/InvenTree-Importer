@@ -42,6 +42,9 @@ choices *this* config defines. You cannot guess these — the category is
 **2. Identify, then look up.** Read the source. For every line you can
 identify, fetch (do not invent) a datasheet URL, one product image, and the
 category's remaining parameters — see [Looking a part up](#looking-a-part-up).
+If the part has important attributes the vocabulary cannot express, extend
+the config — see
+[When the vocabulary does not cover the part](#when-the-vocabulary-does-not-cover-the-part).
 
 **3. Write the file** to `.local_imports/` (see the shape below). Create the
 directory if it is not there. Name the file after the source — the photo,
@@ -102,6 +105,7 @@ lines back to them.
       "description": "RES 100K OHM 1% 1/4W AXIAL",
       "mpn": "MFR-25FTE52-100K",
       "manufacturer": "YAGEO",
+      "sku": "MFR-25FTE52-100K",
       "parameters": {"Resistance": "100 kohm", "Tolerance": "1%",
                      "Power Rating": "0.25 W", "Composition": "Metal Film",
                      "Package": "Axial", "Mounting": "Through Hole",
@@ -174,6 +178,51 @@ For each identified line:
 A line that already has its key parameters from the packet still needs this
 pass: the packet rarely has a datasheet URL or a TCR.
 
+### When the vocabulary does not cover the part
+
+The vocabulary was grown from the parts already imported, so a new kind of
+part often has attributes it cannot express yet. After step 3, read the
+datasheet again and ask what someone would search, filter or substitute this
+part by. If the answer is something the category does not store, propose
+extending the config rather than dropping it into `notes` and moving on.
+Notes are fine for provenance, but nobody can filter on them.
+
+Some typical gaps:
+
+- **A missing choice.** A `choices` parameter refuses anything outside its
+  list, so `Memory Format` holding only `FLASH` rejects a PROM outright. Add
+  the value this part needs, spelled the way DigiKey spells it so later
+  DigiKey imports land on the same choice.
+- **A missing parameter.** Access time on a memory, frequency on a crystal,
+  forward voltage on an LED, gain on a transistor. Before inventing a name,
+  search the whole `parameters` list in the vocabulary: another category may
+  already define it, and reusing that template is always better than a
+  near-duplicate. Otherwise add it to `config/parameters.yaml` with `units`,
+  a `description` and the DigiKey spelling in `aliases`, then add it to the
+  category's `parameters` in `config/categories.yaml`.
+- **A parameter that is wrong for the part.** A unit that cannot express
+  the value (`Memory Size` in `Mbit` for a 4 Kbit PROM), or a description
+  that only fits the parts seen so far. Fix the config instead of forcing
+  the value into a shape that misrepresents it.
+
+Keep it proportionate. Add what identifies or distinguishes the part, and
+leave trivia (lead finish, marking colour) in `notes`. Adding to a
+`key_parameters` list changes how existing parts in a `spec` category are
+matched, so propose that to the user and never do it silently.
+
+The YAML files are the source of truth, and editing them changes nothing on
+the server. `import-stock` never creates templates. Push the config with:
+
+```bash
+uv run invimport categories          # dry run: units, templates, categories
+uv run invimport categories --write  # apply
+```
+
+Include this in what the user reviews alongside the import dry run, since it
+also writes to their InvenTree. It has to run before the import's `--write`,
+or the new values have no template to be stored against. When you report back,
+list each config change and the line that prompted it.
+
 ## Cropping a component photo
 
 When the user photographs the components, each component in that photo is a
@@ -239,7 +288,10 @@ opened for this part is not invention; a datasheet for a similar-looking part
 is. A parameter copied from "typical 100k 1/4W metal film" without checking
 this part's datasheet is invention. Omit anything you did not find. A part
 with no manufacturer is normal and gets no ManufacturerPart — that is the
-designed behaviour, not a degraded one.
+designed behaviour, not a degraded one. The cost is that such a part cannot
+be found again by its MPN: when a later line names an MPN that only matches an
+existing part by name, the import asks the user whether to use it, create a
+new part or skip the line, and holds the line for review under `--yes`.
 
 **Every line needs a stable, unique `id`.** With `source.reference`, it forms
 the barcode that makes re-running an import a no-op instead of doubling the
@@ -277,7 +329,14 @@ numbers.
 
 **Use `type` for type designators.** `1N4007`, `2N3904`, `XR-2206`, `IN-1` go in
 `type`, not `mpn`. A JEDEC number identifies a generic part regardless of who
-made it; an MPN belongs to one manufacturer.
+made it; an MPN belongs to one manufacturer. A `type` with a `manufacturer`
+still records that manufacturer: the designator becomes its MPN.
+
+**Every line with a supplier needs a `sku`.** The supplier is only stored
+through a SupplierPart, and there is no SupplierPart without a SKU - leave it
+out and the stock silently forgets where it came from. Use the seller's
+catalogue number; if they have none (surplus dealers usually don't), use the
+part number or type as printed. The validator warns when one is missing.
 
 **eBay purchases:** `"supplier": "eBay"`, with the seller name in `notes`. Do
 not create a supplier per seller.
@@ -382,6 +441,8 @@ Report to the user:
   up and not found)
 - any line the validator warned about, especially partial `spec` identities that
   will make the import stop and ask
+- any parameter or choice you added to the config, and the command that
+  pushes it to the server
 - whether anything was written, and what
 
 Do not claim stock was imported unless you ran `--write` and it reported

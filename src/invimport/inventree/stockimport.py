@@ -58,6 +58,7 @@ from .parts import (
     PartPolicy,
     apply_parameters,
     attach_line_images,
+    attach_part_files,
     resolve_part,
 )
 from .purchase_orders import (
@@ -143,6 +144,7 @@ class ImportOptions:
     choose_manufacturer: Any = None
     choose_supplier: Any = None
     choose_part: Any = None
+    choose_name_match: Any = None
     choose_category: ChooseCategory | None = None
     confirm_line: Callable[[StockLine, LineAction], bool] | None = None
 
@@ -241,14 +243,17 @@ def _import_line(api, document: StockFile, line: StockLine,
             create_manufacturers=options.create_manufacturers,
             choose_manufacturer=options.choose_manufacturer,
             on_partial=options.on_partial,
-            choose_part=options.choose_part))
+            choose_part=options.choose_part,
+            match_by_name=True,
+            choose_name_match=options.choose_name_match))
 
     if resolved.needs_choice:
         action.action = REVIEW
         action.candidates = list(resolved.candidates)
         action.missing = list(resolved.missing)
-        action.reason = (f"only part of the specification is given - missing "
-                         f"{', '.join(resolved.missing)}")
+        action.reason = resolved.reason or (
+            f"only part of the specification is given - missing "
+            f"{', '.join(resolved.missing)}")
         return action
     if not resolved.ok:
         action.action = SKIPPED
@@ -286,9 +291,14 @@ def _import_line(api, document: StockFile, line: StockLine,
         return action
 
     if line.images:
-        attach_line_images(
-            resolved.part, line.images,
-            base_dir=document.path.parent if document.path else None)
+        base_dir = document.path.parent if document.path else None
+        attach_line_images(resolved.part, line.images, base_dir=base_dir)
+        # The first photo is the part's picture; the rest ride along as
+        # attachments so the label and packaging shots are not lost.
+        attach_part_files(
+            api, resolved.part, line.images[1:], base_dir=base_dir,
+            comment=f"imported from {document.path.name}"
+            if document.path else "")
 
     notes = stock_note(
         f"sold by {seller}" if seller else "",

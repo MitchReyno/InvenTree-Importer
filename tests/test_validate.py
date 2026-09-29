@@ -295,3 +295,21 @@ def test_a_clean_file_serialises_as_ok(config):
                                            "Tolerance": "1%"}})
     assert report.as_dict() == {"ok": True, "lines": 1, "problems": 0,
                                 "warnings": 0, "by_line": []}
+
+
+# --------------------------------------------------------------------------
+# Supplier
+# --------------------------------------------------------------------------
+def test_a_supplier_without_a_sku_warns(config):
+    """No SKU means no SupplierPart, and the supplier is silently lost."""
+    report = check(config, {"category": "Integrated Circuits/Op-Amps",
+                            "mpn": "LM358N", "supplier": "MacService Group"})
+    assert report.ok
+    assert [w.field for w in report.warnings] == ["sku"]
+
+
+def test_a_supplier_with_a_sku_does_not_warn(config):
+    report = check(config, {"category": "Integrated Circuits/Op-Amps",
+                            "mpn": "LM358N", "supplier": "MacService Group",
+                            "sku": "LM358N"})
+    assert report.warnings == []

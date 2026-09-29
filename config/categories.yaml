@@ -194,6 +194,8 @@ Integrated Circuits:
       - Memory Size
       - Memory Type
       - Technology
+      - Access Time
+      - Output Type
     aliases:
       - Integrated Circuits (ICs) / Memory / Memory
     ipn_prefix: ROM

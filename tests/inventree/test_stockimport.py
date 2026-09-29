@@ -8,6 +8,7 @@ import pytest
 
 from invimport.config import load_categories_config
 from invimport.inventree.api import connect
+from invimport.inventree.parts import NEW_PART
 from invimport.inventree.stockimport import (
     CREATED,
     EXISTS,
@@ -30,6 +31,11 @@ Diodes:
   identity: type
   parameters: [Package]
   Signal Diodes: {}
+Integrated Circuits:
+  ipn_prefix: IC
+  identity: mpn
+  parameters: [Package]
+  Logic: {}
 """
 
 PARAMETERS = (
@@ -56,6 +62,8 @@ def server(inventree):
     inventree.add_category("Through Hole Resistors", parent=resistors["pk"], pk=13)
     diodes = inventree.add_category("Diodes", pk=14, structural=True)
     inventree.add_category("Signal Diodes", parent=diodes["pk"], pk=15)
+    ics = inventree.add_category("Integrated Circuits", pk=16, structural=True)
+    inventree.add_category("Logic", parent=ics["pk"], pk=17)
     for pk, name, units in [(21, "Resistance", "ohm"), (22, "Tolerance", "%"),
                             (23, "Package", "")]:
         inventree.templates.append({"pk": pk, "name": name, "units": units})
@@ -408,6 +416,130 @@ def test_a_missing_image_does_not_fail_the_import(config, server):
     assert result.lines[0].stock_item
     part = next(p for p in server.part_rows if p.get("IPN") == "RES-00001")
     assert not part.get("image")
+
+
+def test_a_type_with_a_manufacturer_gets_a_manufacturer_part(config, server):
+    """The designator printed by that maker stands as its MPN."""
+    _, result = run(config, {**DIODE, "manufacturer": "Diotec"})
+    assert result.lines[0].action == CREATED
+    assert [(m["MPN"], m["manufacturer"]) for m in server.manufacturer_parts] \
+        == [("1N4007", next(c["pk"] for c in server.companies
+                             if c["name"] == "Diotec"))]
+
+
+def test_two_makers_of_one_type_share_the_part_not_the_manufacturer_part(
+        config, server):
+    run(config, {**DIODE, "manufacturer": "Diotec"},
+        {**DIODE, "manufacturer": "Vishay"})
+    diodes = [p for p in server.part_rows if p.get("name") == "1N4007"]
+    assert len(diodes) == 1
+    assert sorted(m["manufacturer"] for m in server.manufacturer_parts) == \
+        sorted(c["pk"] for c in server.companies
+               if c["name"] in ("Diotec", "Vishay"))
+
+
+# --------------------------------------------------------------------------
+# An MPN with no manufacturer, seen again
+# --------------------------------------------------------------------------
+GATE = {"category": "Integrated Circuits/Logic", "mpn": "C8162J"}
+
+
+def _gates(server):
+    return [p for p in server.part_rows if p.get("name") == "C8162J"]
+
+
+def test_a_repeat_mpn_without_a_manufacturer_is_held_not_merged(config, server):
+    """No ManufacturerPart says they are the same chip, only the name."""
+    run(config, GATE)
+    _, result = run(config, {**GATE, "id": "x"})
+    assert result.lines[0].action == REVIEW
+    assert "C8162J" in result.lines[0].reason
+    assert [c.name for c in result.lines[0].candidates] == ["C8162J"]
+    assert len(_gates(server)) == 1
+
+
+def test_a_name_match_can_be_accepted(config, server):
+    run(config, GATE)
+    asked = []
+
+    def choose(line, offered):
+        asked.append([p.name for p in offered])
+        return offered[0]
+
+    _, result = run(config, {**GATE, "id": "x"}, choose_name_match=choose)
+    assert asked == [["C8162J"]]
+    assert result.lines[0].action == CREATED
+    assert len(_gates(server)) == 1
+    part_pk = _gates(server)[0]["pk"]
+    assert [s["part"] for s in server.stock_items] == [part_pk, part_pk]
+
+
+def test_a_name_match_can_be_refused_for_a_new_part(config, server):
+    run(config, GATE)
+    _, result = run(config, {**GATE, "id": "x"},
+                    choose_name_match=lambda line, offered: NEW_PART)
+    assert result.lines[0].action == CREATED
+    assert len(_gates(server)) == 2
+
+
+def test_a_name_match_can_skip_the_line(config, server):
+    run(config, GATE)
+    _, result = run(config, {**GATE, "id": "x"},
+                    choose_name_match=lambda line, offered: None)
+    assert result.lines[0].action == SKIPPED
+    assert len(_gates(server)) == 1
+    assert len(server.stock_items) == 1
+
+
+def _photos(tmp_path, *names):
+    for name in names:
+        (tmp_path / name).write_bytes(b"\xff\xd8\xff\xd9")
+
+
+def test_further_images_are_attached_to_the_part(config, server, tmp_path):
+    """The picture slot takes one photo; the label and box shots attach."""
+    _photos(tmp_path, "chip.jpg", "label.jpg", "box.jpg")
+    path = tmp_path / "stock.json"
+    path.write_text(json.dumps({
+        "source": {"reference": "notes.jpg"},
+        "lines": [{"id": "1", "quantity": 1, **RESISTOR, "image": "chip.jpg",
+                   "images": ["label.jpg", "box.jpg"]}]}))
+    import_stock(read_file(path), connect(), directory=config,
+                 options=ImportOptions(write=True))
+    part = next(p for p in server.part_rows if p.get("IPN") == "RES-00001")
+    assert part.get("image")
+    attached = [a for a in server.attachments if a["model_type"] == "part"]
+    assert sorted(a["filename"] for a in attached) == ["box.jpg", "label.jpg"]
+    assert {a["model_id"] for a in attached} == {part["pk"]}
+    assert all(a["comment"] == "imported from stock.json" for a in attached)
+
+
+def test_lines_sharing_a_part_attach_each_image_once(config, server, tmp_path):
+    _photos(tmp_path, "chip.jpg", "label.jpg")
+    path = tmp_path / "stock.json"
+    line = {**RESISTOR, "image": "chip.jpg", "images": ["label.jpg"]}
+    path.write_text(json.dumps({
+        "source": {"reference": "notes.jpg"},
+        "lines": [{"id": "1", "quantity": 1, **line},
+                  {"id": "2", "quantity": 2, **line}]}))
+    import_stock(read_file(path), connect(), directory=config,
+                 options=ImportOptions(write=True))
+    attached = [a for a in server.attachments if a["model_type"] == "part"]
+    assert [a["filename"] for a in attached] == ["label.jpg"]
+
+
+def test_a_missing_further_image_is_skipped(config, server, tmp_path):
+    _photos(tmp_path, "chip.jpg", "label.jpg")
+    path = tmp_path / "stock.json"
+    path.write_text(json.dumps({
+        "source": {"reference": "notes.jpg"},
+        "lines": [{"id": "1", "quantity": 1, **RESISTOR, "image": "chip.jpg",
+                   "images": ["gone.jpg", "label.jpg"]}]}))
+    result = import_stock(read_file(path), connect(), directory=config,
+                          options=ImportOptions(write=True))
+    assert result.lines[0].action == CREATED
+    attached = [a for a in server.attachments if a["model_type"] == "part"]
+    assert [a["filename"] for a in attached] == ["label.jpg"]
 
 
 # --------------------------------------------------------------------------
