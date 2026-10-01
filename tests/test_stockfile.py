@@ -254,6 +254,41 @@ def test_a_link_without_a_scheme_is_refused():
         }]))
 
 
+def test_a_datasheet_may_be_a_local_file():
+    """A path is kept as written, to be attached rather than linked."""
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X",
+        "datasheet": "datasheets/82S137.pdf",
+    }]))
+    assert document.lines[0].datasheet == "datasheets/82S137.pdf"
+
+
+def test_datasheet_pages_are_kept_as_written():
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X",
+        "datasheet": "https://bitsavers.org/book.pdf",
+        "datasheet_pages": "140-142",
+    }]))
+    assert document.lines[0].datasheet_pages == "140-142"
+
+
+def test_a_single_datasheet_page_may_be_a_number():
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X",
+        "datasheet": "book.pdf", "datasheet_pages": 7,
+    }]))
+    assert document.lines[0].datasheet_pages == "7"
+
+
+@pytest.mark.parametrize("pages", ["p140", "142-140", "0", "1-2-3", True])
+def test_datasheet_pages_that_are_not_a_page_list_are_refused(pages):
+    with pytest.raises(StockFileError, match="not a page list"):
+        parse_document(doc(lines=[{
+            "id": "a", "quantity": 1, "category": "X",
+            "datasheet": "book.pdf", "datasheet_pages": pages,
+        }]))
+
+
 def test_image_is_a_url_or_a_path():
     """Photos are allowed to be local files; product pages are not."""
     document = parse_document(doc(lines=[{

@@ -78,6 +78,11 @@ uv run invimport import-stock .local_imports/IMG_4821.json --write
 **Never run `--write` without the user having seen the dry run and agreed.**
 This creates real inventory records.
 
+**7. Check what landed.** After a write, read back a stock item from each
+line and confirm its tags and batch. The API omits tags unless asked:
+`GET /api/stock/<pk>/?tags=true`. An empty list on a line that should be NOS
+is a failure to report, not a detail.
+
 Re-running the same file is safe: each stock item carries a barcode naming the
 line that made it, and InvenTree refuses to assign one twice, so a second run
 reports `already there` rather than doubling the quantity. That safety depends
@@ -134,7 +139,10 @@ supplier, currency and order there once rather than repeating them.
 
 `link` is a product or listing page (stored on the SupplierPart, and on the
 Part if there is no datasheet). `datasheet` is a PDF URL (stored on the Part
-and the ManufacturerPart). `image` is a product photo: an `http(s)` URL, or a
+and the ManufacturerPart), or a PDF path relative to the stock file, which is
+attached to both as a file. `datasheet_pages` (`"140-142"`, `"3, 5-6"`)
+attaches those 1-based pages of that PDF as the datasheet, with the whole
+document beside it. `image` is a product photo: an `http(s)` URL, or a
 path relative to the stock file. Extra photos go in `images`: `image` becomes
 the Part's picture and each of the rest is uploaded as a Part attachment, once
 per part however many lines list it. A missing or unreadable image is skipped
@@ -160,6 +168,15 @@ For each identified line:
    `datasheet`. A distributor product page is `link`, not a datasheet. A PDF
    for a similar-looking part (another 100k resistor, another 1N400x) is
    wrong — leave `datasheet` off.
+
+   When the only source is a data book, a catalogue or a multi-part series
+   document, set `datasheet_pages` to the pages for this device, and read
+   those pages to confirm them rather than trusting the index. Vintage and
+   surplus datasheets usually live on mirrors that come and go, so for those
+   suggest `--mirror-datasheets` on the dry run and the write. It downloads
+   each URL and attaches a copy to the part (with `datasheet_pages`, the
+   extract and the whole document), keeping the URL as the link. A URL that turns out not to be a PDF is reported and
+   left as a link only.
 2. **Image.** One product photo of this part, in `image`. Manufacturer or
    distributor is fine. The photo the user sent you is the *source*, not the
    part image — unless it is a clear picture of this one component, in which
@@ -359,9 +376,22 @@ order, which is correct: plenty of stock arrives without one, and a made-up
 number is a record of a purchase that did not happen that way. Put it in
 `defaults` when a whole file came off one invoice.
 
-**New old stock is tags plus a batch code, never a part flag.** Unused but old
-stock — vintage ICs, a surplus dealer's sealed tubes, anything bought long after
-it stopped being made — is tagged on the stock item:
+**New old stock must be tagged `NOS` and `new old stock` — every line, no
+exceptions.** This is not optional labelling: it is how the user finds and
+filters their NOS, and a missed tag makes the stock indistinguishable from
+current production. Treat a line as NOS when any of these hold:
+
+- it is unused and the part is obsolete or long out of production
+- it comes from a surplus or military-disposal source (MacService Group, a
+  surplus dealer, an estate lot)
+- it carries an NSN, a FSCM/CAGE label, a MIL/JAN part number, or DLA
+  contract markings
+- its date code or packaging date is years old
+
+When unsure, ask the user; do not quietly leave it off. Used or pulled parts
+are not NOS — tag those `used` / `pulled` instead.
+
+NOS is tags plus a batch code, never a part flag. It goes on the stock item:
 
 ```json
 "tags": ["NOS", "new old stock"], "batch": "8231",
@@ -377,6 +407,9 @@ and a part attribute would then be wrong for every quantity you hold.
 Set them in `defaults` when a whole delivery is NOS. File-wide `tags` merge with
 a line's own rather than replacing them, so per-line labels like `sealed tube`
 can be added freely.
+
+The dry run does not print tags, so say in your summary which lines carry
+`NOS` — the user cannot see it anywhere else before the write.
 
 **Prices are ex-tax, per piece.** If an invoice shows a line total, divide by the
 quantity. If it is tax-inclusive and you cannot separate the tax, omit

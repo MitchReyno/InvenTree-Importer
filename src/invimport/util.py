@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 
@@ -33,3 +34,29 @@ def dig(obj: Any, *path: str, default=None):
             return default
         cur = cur[key]
     return cur if cur not in ("", None) else default
+
+
+_RANGE = re.compile(r"^\s*(\d+)\s*(?:-\s*(\d+)\s*)?$")
+
+
+def parse_pages(text: Any) -> list[int] | None:
+    """
+    '140-142' or '3, 5-6' as 1-based page numbers, in the order given.
+
+    None if the text is not a page list. Empty text is an empty list: no
+    selection, keep the whole document.
+    """
+    raw = str(text if text is not None else "").strip()
+    if not raw:
+        return []
+    pages: list[int] = []
+    for chunk in raw.split(","):
+        match = _RANGE.match(chunk)
+        if not match:
+            return None
+        first = int(match.group(1))
+        last = int(match.group(2) or first)
+        if first < 1 or last < first:
+            return None
+        pages.extend(range(first, last + 1))
+    return pages

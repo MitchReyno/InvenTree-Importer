@@ -22,6 +22,7 @@ it gets wrong on the way can reach the database.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from .config import CategoryConfig, ParameterConfig
@@ -33,6 +34,7 @@ from .inventree.values import (
     same_dimension,
 )
 from .stockfile import CONDITIONS, Problem, StockFile, StockLine
+from .util import absolute_url
 
 
 @dataclass
@@ -142,8 +144,10 @@ def validate(
     registry = build_parse_registry()
     paths = list(categories)
 
+    base_dir = document.path.parent if document.path else None
     for line in document.lines:
         _check_supplier(line, report)
+        _check_datasheet(line, base_dir, report)
         category = resolve_category(line, categories)
 
         if category is None:
@@ -280,6 +284,26 @@ def _check_supplier(line: StockLine, report: Report) -> None:
             f"created and the stock will not record where it came from - use "
             f"the seller's catalogue number, or the part number if they have "
             f"none"))
+
+
+def _check_datasheet(line: StockLine, base_dir: Path | None,
+                     report: Report) -> None:
+    """A local datasheet has to exist; pages need something to cut from."""
+    if line.datasheet_pages and not line.datasheet:
+        report.warnings.append(Problem(
+            line.id, "datasheet_pages",
+            "datasheet_pages is set but there is no datasheet to take them "
+            "from"))
+    if not line.datasheet or absolute_url(line.datasheet):
+        return
+    path = Path(line.datasheet).expanduser()
+    if not path.is_absolute() and base_dir is not None:
+        path = base_dir / path
+    if not path.is_file():
+        report.warnings.append(Problem(
+            line.id, "datasheet",
+            f"{line.datasheet!r} is not a file (looked for {path}), so no "
+            f"datasheet will be attached"))
 
 
 def _check_identity(line: StockLine, category: CategoryConfig,

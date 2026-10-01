@@ -87,6 +87,10 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--no-orders", action="store_true",
                         help="import the stock without creating purchase "
                              "orders for it")
+    parser.add_argument("--mirror-datasheets", action="store_true",
+                        help="download each datasheet URL and attach a copy "
+                             "to the part, as well as linking it (local "
+                             "datasheet files are always attached)")
     parser.add_argument("--yes", action="store_true",
                         help="do not prompt; report anything ambiguous "
                              "instead")
@@ -201,9 +205,22 @@ def schema() -> dict[str, Any]:
                      "description": "Product or listing page. Stored on the "
                                     "Part (if there is no datasheet) and on "
                                     "the SupplierPart."},
-            "datasheet": {"type": "string", "format": "uri",
-                          "description": "Datasheet URL. Stored on the Part "
-                                         "and on the ManufacturerPart."},
+            "datasheet": {"type": "string",
+                          "description": "Datasheet: an http(s) URL, stored "
+                                         "as the link on the Part and the "
+                                         "ManufacturerPart, or a PDF path "
+                                         "relative to this file, attached to "
+                                         "both. A URL is also downloaded and "
+                                         "attached under --mirror-datasheets."},
+            "datasheet_pages": {"type": "string",
+                                "description": "1-based pages of the "
+                                               "datasheet PDF that are this "
+                                               "device, e.g. '140-142' or "
+                                               "'3, 5-6'. They are attached "
+                                               "as the datasheet, and the "
+                                               "whole document beside them. "
+                                               "Applies to a local file, or "
+                                               "a mirrored URL."},
             "image": {"type": "string",
                       "description": "Product photo: an http(s) URL, or a "
                                      "path relative to this file. Becomes "
@@ -292,8 +309,10 @@ def vocabulary(directory: Path | None) -> dict[str, Any]:
             "key_parameters; supply all of them or the import will stop and "
             "ask.",
             "Every line needs a stable, unique id.",
-            "link and datasheet must be URLs (https://...). image may be a "
-            "URL or a path relative to the stock file.",
+            "link must be a URL (https://...). datasheet and image may be a "
+            "URL or a path relative to the stock file; a local datasheet "
+            "PDF is attached to the part, and datasheet_pages adds an "
+            "extract of just the pages for this device.",
             "Once a part is identified, look up its datasheet URL, one "
             "product image, and every remaining parameter this category "
             "lists. Copy what you opened; do not invent a typical part.",
@@ -442,10 +461,16 @@ def report_actions(document, result, resolved=None) -> None:
             detail.append(f"supplier part {action.supplier_part}")
         if action.purchase_order:
             detail.append(f"order {action.purchase_order}")
+        if action.datasheet:
+            detail.append(f"datasheet {action.datasheet}")
         if detail:
             print(f"      {'  '.join(detail)}")
         if action.reason:
             print(f"      {action.reason}")
+        if action.datasheet_problem:
+            lead = ("only the whole datasheet" if action.datasheet
+                    else "no datasheet attached")
+            print(f"      {lead}: {action.datasheet_problem}")
         for candidate in action.candidates[:3]:
             shown = candidate if isinstance(candidate, str) else (
                 f"{getattr(candidate, 'IPN', '')} "
@@ -461,6 +486,7 @@ def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
         on_partial=args.on_partial,
         min_confidence=args.min_confidence,
         create_orders=not args.no_orders,
+        mirror_datasheets=args.mirror_datasheets,
         choose_category=ask_category if interactive else None,
         choose_part=ask_part if interactive else None,
         choose_name_match=ask_name_match if interactive else None,

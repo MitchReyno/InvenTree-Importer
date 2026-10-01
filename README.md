@@ -26,6 +26,7 @@ It provides eight commands:
 | `supplier-parts` | Create InvenTree parts, manufacturer parts and supplier parts from DigiKey SKUs                                         |
 | `discover`       | Triage supplier parameters a category is receiving but not importing                                                   |
 | `import-stock`   | Import stock from a JSON/YAML/CSV file, for parts DigiKey cannot describe                                              |
+| `datasheets`     | Attach a copy of each part's linked datasheet, so it is kept on the server rather than only linked                     |
 
 Two design points worth knowing up front:
 
@@ -530,6 +531,7 @@ uv run invimport import-stock stock.json --write
 | `--on-partial MODE`  | `ask` (default), `new` or `skip` for a partial spec        |
 | `--min-confidence N` | Hold any line the file rates below this, 0-1               |
 | `--no-orders`        | Import the stock without creating purchase orders          |
+| `--mirror-datasheets`| Download each datasheet URL and attach a copy to the part  |
 | `--yes`              | Do not prompt; report anything ambiguous instead           |
 
 #### The file
@@ -574,10 +576,47 @@ A `spec` category needs *all* of its key parameters on one row, which makes for
 a wide CSV; a `type` category like this one needs only the designator.
 
 A line may also carry `link` (a product or listing page), `datasheet` (a PDF
-URL) and `image` (a photo URL, or a path next to the file). They land on the
-part the same way DigiKey's do: the datasheet on the Part and ManufacturerPart,
-the product page on the SupplierPart, the first photo as the part image when
-it has none. A missing or unreadable image is skipped, not a reason to stop.
+URL, or a PDF next to the file) and `image` (a photo URL, or a path next to the
+file). They land on the part the same way DigiKey's do: the datasheet on the
+Part and ManufacturerPart, the product page on the SupplierPart, the first
+photo as the part image when it has none. A missing or unreadable image is
+skipped, not a reason to stop.
+
+#### Datasheets kept on the server
+
+A datasheet URL is stored as a link, and links die - vintage datasheets
+especially live on mirrors and scanned data books that come and go. So a
+datasheet can also be a file *attached* to the Part and its ManufacturerPart,
+with the comment `Datasheet`:
+
+```json
+{"datasheet": "datasheets/82S137.pdf"}
+{"datasheet": "https://bitsavers.org/.../1981_Fairchild_MOS_Memory_Data_Book.pdf",
+ "datasheet_pages": "140-142"}
+```
+
+- A **local path** (relative to the stock file) is always attached.
+- A **URL** is linked as before, and with `--mirror-datasheets` also downloaded
+  and attached. The download has to be a real PDF: a viewer page, a login wall
+  or a search result is reported and skipped rather than attached as "the
+  datasheet".
+- **`datasheet_pages`** (1-based, `140-142` or `3, 5-6`) cuts those pages out
+  as the datasheet - one device's three pages rather than a 190-page data
+  book - and attaches the whole document beside it, commented `Datasheet
+  (full document)`, since the pages around a device (the family's timing
+  diagrams, package outlines, ordering codes) are often needed too. If the
+  pages cannot be cut out, the whole document is attached as the datasheet
+  and the dry run says why.
+
+The dry run resolves every datasheet - downloading when mirroring - so a
+missing file or a non-PDF link is reported before anything is written.
+Downloads are cached under `.cache/datasheets/`. Re-running a file attaches a
+datasheet added since to lines already imported, and a file the part already
+holds by that name is not uploaded twice. InvenTree serves attachments only to
+logged-in users, so these are for people using the server, not for linking
+from elsewhere.
+
+For parts imported before any of this, see [`datasheets`](#datasheets).
 
 Run `uv run invimport import-stock --schema` for the full field reference.
 
@@ -724,6 +763,47 @@ at all.
 A Claude skill wrapping that loop lives in
 `.claude/skills/inventree-stock-import/`.
 
+### datasheets
+
+Attach a copy of each part's linked datasheet, for parts already on the server.
+
+```bash
+# dry run: downloads (to the cache) and reports, uploads nothing
+uv run invimport datasheets
+
+# one category and everything under it
+uv run invimport datasheets --category "Integrated Circuits/Memory"
+
+# apply
+uv run invimport datasheets --write
+```
+
+For each part without a `Datasheet` attachment, the links on its manufacturer
+parts are tried first (they are only ever set from a datasheet), then the
+part's own link (which may be a product page). The first that downloads as a
+PDF is attached to the part and to every manufacturer part carrying the same
+link. Anything that is not a PDF, or will not download, is listed with the
+reason. Parts that already have one, or have no link at all, are counted but
+only listed with `--all`.
+
+Downloads run eight at a time, and a link several parts share is fetched once.
+Uploads and the report stay in part order, so the output reads the same
+whatever `--jobs` is. `import-stock --mirror-datasheets` likewise fetches a
+file's datasheets together before it works through the lines.
+
+| Flag              | Effect                                                    |
+|-------------------|-----------------------------------------------------------|
+| `--write`         | Upload the attachments (default is a dry run)             |
+| `--category PATH` | Only parts in this category and below                     |
+| `--all`           | Also list parts that already have one or have no link     |
+| `--refresh`       | Download again even when the datasheet is cached          |
+| `--jobs N`        | Downloads to run at once (default 8; `1` for one at a time) |
+
+A link ending `#page=N` points a viewer at one page of a larger document; the
+whole document is mirrored. To add an extract of just the device's pages, give
+the datasheet with `datasheet_pages` in a stock file and re-run that import
+with `--mirror-datasheets` - lines already imported still get their datasheet.
+
 ### Global flags
 
 | Flag              | Effect                                              |
@@ -820,6 +900,7 @@ DigiKey responses are cached to disk so re-runs do not burn API quota:
 .cache/.digikey/products/     productdetails payloads
 .cache/.digikey/orders/       order history pages and sales orders
 .cache/.digikey/images/       product photos, keyed by PhotoUrl
+.cache/datasheets/            downloaded datasheet PDFs, and page extracts
 ```
 
 One JSON file per request, named so a cache directory can be skimmed by eye.
@@ -863,6 +944,7 @@ src/
             discovery.py      unmapped supplier parameters, and filing them
             stock.py          stock items, locations, barcode idempotence
             stockimport.py    a stock file becoming InvenTree records
+            datasheets.py     datasheet PDFs attached to parts, and back-fill
         commands/             thin CLI adapters over the above
             _keys.py          raw-mode key reading for the category browser
             _prompt.py        prompt façade (InquirerPy, or numbered fallback)

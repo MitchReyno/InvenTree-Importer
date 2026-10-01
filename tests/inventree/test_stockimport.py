@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 
 import pytest
@@ -53,6 +54,12 @@ def config(tmp_path):
     (tmp_path / "suppliers.yaml").write_text(
         "eBay:\n  aliases: [ebay]\n")
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def _own_cache(tmp_path, monkeypatch):
+    """Caches are relative to the working directory; keep them out of the repo."""
+    monkeypatch.chdir(tmp_path)
 
 
 @pytest.fixture
@@ -540,6 +547,190 @@ def test_a_missing_further_image_is_skipped(config, server, tmp_path):
     assert result.lines[0].action == CREATED
     attached = [a for a in server.attachments if a["model_type"] == "part"]
     assert [a["filename"] for a in attached] == ["label.jpg"]
+
+
+# --------------------------------------------------------------------------
+# Datasheets kept on the server
+# --------------------------------------------------------------------------
+def _pdf(path, pages=1):
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    for number in range(1, pages + 1):
+        writer.add_blank_page(width=100 + number, height=200)
+    with path.open("wb") as handle:
+        writer.write(handle)
+
+
+def _stock_file(tmp_path, *lines):
+    path = tmp_path / "stock.json"
+    path.write_text(json.dumps({
+        "source": {"reference": "notes.jpg"},
+        "lines": [{"id": str(i + 1), "quantity": 1, **line}
+                  for i, line in enumerate(lines)]}))
+    return read_file(path)
+
+
+def _datasheets(server):
+    return sorted((a["model_type"], a["filename"]) for a in server.attachments
+                  if a["comment"].startswith("Datasheet"))
+
+
+@pytest.fixture
+def web(monkeypatch):
+    """Datasheet downloads, without the network: url -> (body, type)."""
+    from types import SimpleNamespace
+
+    from invimport.inventree import datasheets
+
+    pages: dict[str, tuple[bytes, str]] = {}
+
+    def fetch(url):
+        body, kind = pages[url]
+        return SimpleNamespace(status_code=200, content=body,
+                               headers={"Content-Type": kind})
+
+    monkeypatch.setattr(datasheets, "_fetch", fetch)
+    return pages
+
+
+def test_a_local_datasheet_is_attached_to_the_part_and_manufacturer_part(
+        config, server, tmp_path):
+    (tmp_path / "ds").mkdir()
+    _pdf(tmp_path / "ds" / "1N4007.pdf")
+    document = _stock_file(tmp_path, {**DIODE, "manufacturer": "Diotec",
+                                      "datasheet": "ds/1N4007.pdf"})
+    result = import_stock(document, connect(), directory=config,
+                          options=ImportOptions(write=True))
+    assert result.lines[0].datasheet == "1N4007.pdf"
+    assert _datasheets(server) == [("manufacturerpart", "1N4007.pdf"),
+                                   ("part", "1N4007.pdf")]
+    part = next(a for a in server.attachments if a["model_type"] == "part")
+    assert part["model_id"] == result.lines[0].part
+    assert part["contents"].startswith(b"%PDF-")
+
+
+def test_a_data_book_attaches_the_device_pages_and_the_whole_book(
+        config, server, tmp_path):
+    from pypdf import PdfReader
+
+    _pdf(tmp_path / "book.pdf", pages=12)
+    document = _stock_file(tmp_path, {**DIODE, "manufacturer": "Diotec",
+                                      "datasheet": "book.pdf",
+                                      "datasheet_pages": "10-11"})
+    result = import_stock(document, connect(), directory=config,
+                          options=ImportOptions(write=True))
+    assert result.lines[0].datasheet == "book_p10-11.pdf, book.pdf"
+    attached = sorted((a["model_type"], a["filename"], a["comment"])
+                      for a in server.attachments)
+    assert attached == [
+        ("manufacturerpart", "book.pdf", "Datasheet (full document)"),
+        ("manufacturerpart", "book_p10-11.pdf", "Datasheet"),
+        ("part", "book.pdf", "Datasheet (full document)"),
+        ("part", "book_p10-11.pdf", "Datasheet"),
+    ]
+
+    def pages(name):
+        row = next(a for a in server.attachments if a["filename"] == name)
+        reader = PdfReader(io.BytesIO(row["contents"]))
+        return [int(p.mediabox.width) - 100 for p in reader.pages]
+
+    assert pages("book_p10-11.pdf") == [10, 11]
+    assert pages("book.pdf") == list(range(1, 13))
+
+
+def test_a_datasheet_url_is_only_linked_without_mirroring(config, server, web,
+                                                         tmp_path):
+    document = _stock_file(tmp_path, {**DIODE,
+                                      "datasheet": "https://host/1N4007.pdf"})
+    result = import_stock(document, connect(), directory=config,
+                          options=ImportOptions(write=True))
+    assert _datasheets(server) == []
+    assert result.lines[0].datasheet_problem == ""
+    part = next(p for p in server.part_rows
+                if p["pk"] == result.lines[0].part)
+    assert part["link"] == "https://host/1N4007.pdf"
+
+
+def test_a_mirrored_datasheet_is_attached_and_still_linked(config, server,
+                                                          web, tmp_path):
+    from pypdf import PdfWriter
+
+    buffer = io.BytesIO()
+    writer = PdfWriter()
+    writer.add_blank_page(width=100, height=100)
+    writer.write(buffer)
+    web["https://host/1N4007.pdf"] = (buffer.getvalue(), "application/pdf")
+    document = _stock_file(tmp_path, {**DIODE,
+                                      "datasheet": "https://host/1N4007.pdf"})
+    result = import_stock(document, connect(), directory=config,
+                          options=ImportOptions(write=True,
+                                                mirror_datasheets=True))
+    assert _datasheets(server) == [("part", "1N4007.pdf")]
+    part = next(p for p in server.part_rows
+                if p["pk"] == result.lines[0].part)
+    assert part["link"] == "https://host/1N4007.pdf"
+
+
+def test_a_mirrored_link_that_is_not_a_pdf_is_reported_not_attached(
+        config, server, web, tmp_path):
+    web["https://host/viewer"] = (b"<html/>", "text/html")
+    document = _stock_file(tmp_path, {**DIODE,
+                                      "datasheet": "https://host/viewer"})
+    result = import_stock(document, connect(), directory=config,
+                          options=ImportOptions(write=True,
+                                                mirror_datasheets=True))
+    assert result.lines[0].action == CREATED
+    assert result.lines[0].datasheet_problem == "not a PDF (text/html)"
+    assert _datasheets(server) == []
+
+
+def test_a_dry_run_names_the_datasheet_and_attaches_nothing(config, server,
+                                                           tmp_path):
+    _pdf(tmp_path / "1N4007.pdf")
+    document = _stock_file(tmp_path, {**DIODE, "datasheet": "1N4007.pdf"})
+    result = import_stock(document, connect(), directory=config,
+                          options=ImportOptions(write=False))
+    assert result.lines[0].datasheet == "1N4007.pdf"
+    assert server.attachments == []
+
+
+def test_a_missing_local_datasheet_does_not_stop_the_line(config, server,
+                                                         tmp_path):
+    document = _stock_file(tmp_path, {**DIODE, "datasheet": "gone.pdf"})
+    result = import_stock(document, connect(), directory=config,
+                          options=ImportOptions(write=True))
+    assert result.lines[0].action == CREATED
+    assert result.lines[0].datasheet_problem == "gone.pdf: not a file"
+
+
+def test_a_datasheet_added_later_reaches_a_line_already_imported(
+        config, server, tmp_path):
+    """The stock is not doubled, but the part still gets its datasheet."""
+    line = {**DIODE, "manufacturer": "Diotec"}
+    first = import_stock(_stock_file(tmp_path, line), connect(),
+                         directory=config, options=ImportOptions(write=True))
+    assert _datasheets(server) == []
+
+    _pdf(tmp_path / "1N4007.pdf")
+    again = import_stock(
+        _stock_file(tmp_path, {**line, "datasheet": "1N4007.pdf"}), connect(),
+        directory=config, options=ImportOptions(write=True))
+    assert again.lines[0].action == EXISTS
+    assert len(server.stock_items) == 1
+    assert _datasheets(server) == [("manufacturerpart", "1N4007.pdf"),
+                                   ("part", "1N4007.pdf")]
+    part = next(a for a in server.attachments if a["model_type"] == "part")
+    assert part["model_id"] == first.lines[0].part
+
+
+def test_lines_sharing_a_part_attach_its_datasheet_once(config, server,
+                                                       tmp_path):
+    _pdf(tmp_path / "1N4007.pdf")
+    line = {**DIODE, "datasheet": "1N4007.pdf"}
+    import_stock(_stock_file(tmp_path, line, line), connect(),
+                 directory=config, options=ImportOptions(write=True))
+    assert _datasheets(server) == [("part", "1N4007.pdf")]
 
 
 # --------------------------------------------------------------------------

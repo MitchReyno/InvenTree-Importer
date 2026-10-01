@@ -98,6 +98,16 @@ def test_a_bare_k_is_a_prefix_not_boltzmanns_constant():
     assert parse_quantity("100k", "ohm") == 100000
 
 
+@pytest.mark.parametrize("text", ["4 Xbit", "12 flurbs", "5 V typ"])
+def test_an_unknown_unit_is_unreadable_not_a_bare_number(text):
+    """
+    The bug this exists to prevent: before Kbit was defined, '4 Kbit' read
+    as 4 and was stored as 4 Mbit - wrong by a thousand, and silent. A unit
+    that cannot be read must fail, so validation reports it.
+    """
+    assert parse_quantity(text, "bit") is None
+
+
 # --------------------------------------------------------------------------
 # percent, quantity_first, ranges
 # --------------------------------------------------------------------------

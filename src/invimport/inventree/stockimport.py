@@ -47,10 +47,12 @@ from .api import (
     PartCategory,
     PurchaseOrder,
     PurchaseOrderLineItem,
+    ManufacturerPart,
     SupplierPart,
     connect,
 )
 from .categories import ensure_on_server
+from .datasheets import attach_datasheet, prefetch, resolve_datasheet
 from .parts import (
     UNRESOLVED_PK,
     ImportContext,
@@ -104,6 +106,10 @@ class LineAction:
     stock_item: int | None = None
     location: str = ""
     parameters: int = 0
+    # The datasheet files attached (or that would be), else why there are
+    # none - or why one of them is missing.
+    datasheet: str = ""
+    datasheet_problem: str = ""
     # Populated when a human has to settle something before this line can run.
     candidates: list[Any] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)
@@ -138,6 +144,8 @@ class ImportOptions:
     create_orders: bool = True
     create_locations: bool = True
     default_location: str = ""
+    # Download datasheet URLs and attach a copy, not only link them.
+    mirror_datasheets: bool = False
     on_partial: str = "ask"
     min_confidence: float = 0.0
     # Callbacks. Without one, the matching ambiguity is reported instead.
@@ -183,6 +191,11 @@ def import_stock(
     supplier_parts = {(sp.supplier, str(sp.SKU).strip().upper()): sp
                       for sp in SupplierPart.list(api, limit=LIST_LIMIT)}
 
+    # Mirrored datasheets are fetched together up front; each line then finds
+    # its file already in the cache instead of waiting on its own download.
+    if options.mirror_datasheets:
+        prefetch(line.datasheet for line in document.lines)
+
     for line in document.lines:
         result.lines.append(_import_line(
             api, document, line, ctx, suppliers, options,
@@ -207,6 +220,9 @@ def _import_line(api, document: StockFile, line: StockLine,
     if existing is not None:
         action.action = EXISTS
         action.stock_item = existing
+        # The stock is done, but a datasheet added to the file since - or a
+        # re-run with mirroring on - still has somewhere to go.
+        _existing_datasheet(api, document, line, options, action)
         return action
 
     if (line.confidence is not None
@@ -287,8 +303,16 @@ def _import_line(api, document: StockFile, line: StockLine,
     if order is not None and supplier_part is not None and options.write:
         _order_line(api, order, supplier_part, line)
 
+    datasheets = _line_datasheet(document, line, options, action)
+
     if not options.write or action.part in (None, UNRESOLVED_PK):
         return action
+
+    if datasheets:
+        attach_datasheet(
+            api, datasheets, part=action.part,
+            manufacturer_parts=[action.manufacturer_part]
+            if action.manufacturer_part is not None else [])
 
     if line.images:
         base_dir = document.path.parent if document.path else None
@@ -333,6 +357,49 @@ def _import_line(api, document: StockFile, line: StockLine,
 # --------------------------------------------------------------------------
 # Pieces
 # --------------------------------------------------------------------------
+def _line_datasheet(document: StockFile, line: StockLine,
+                    options: ImportOptions, action: LineAction):
+    """
+    The datasheet files this line would attach, noted on the action.
+
+    Resolved on a dry run too, so the report says whether a local file is
+    missing or a URL is not really a PDF before anything is written. A URL
+    that is simply not being mirrored is not worth a mention - it is stored
+    as the part's link, as it always was.
+    """
+    if not line.datasheet:
+        return []
+    files, reason = resolve_datasheet(
+        line.datasheet,
+        base_dir=document.path.parent if document.path else None,
+        pages=line.datasheet_pages, mirror=options.mirror_datasheets)
+    action.datasheet = ", ".join(file.path.name for file in files)
+    if reason != "linked only":
+        action.datasheet_problem = reason
+    return files
+
+
+def _existing_datasheet(api, document: StockFile, line: StockLine,
+                        options: ImportOptions, action: LineAction) -> None:
+    """Attach a datasheet to the part an already-imported line made."""
+    datasheets = _line_datasheet(document, line, options, action)
+    if not datasheets or not options.write:
+        return
+    try:
+        item = api.get(f"stock/{action.stock_item}/")
+        part = int(item["part"])
+    except Exception as exc:                     # pragma: no cover
+        log.warning("    could not find the part for stock %s: %s",
+                    action.stock_item, exc)
+        return
+    action.part = part
+    number = (line.mpn or line.type).strip().upper()
+    mfr_parts = [mp.pk for mp in ManufacturerPart.list(api, part=part,
+                                                       limit=LIST_LIMIT)
+                 if number and str(mp.MPN).strip().upper() == number]
+    attach_datasheet(api, datasheets, part=part, manufacturer_parts=mfr_parts)
+
+
 def _offer_category(line: StockLine, ctx: ImportContext,
                     options: ImportOptions,
                     action: LineAction, *,

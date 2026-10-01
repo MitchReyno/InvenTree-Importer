@@ -926,8 +926,6 @@ def add_stock(
         payload["notes"] = notes
     if batch:
         payload["batch"] = batch
-    if tags:
-        payload["tags"] = list(tags)
 
     item = StockItem.create(api, payload)
     if key:
@@ -940,6 +938,11 @@ def add_stock(
                 log.warning("    could not remove stock item %s after a "
                             "refused barcode", item.pk)
             raise
+    # Tags go on in a second request. The create endpoint lists tags as a
+    # writable field and answers 201, but the item it makes has none - only
+    # a PATCH to the existing item keeps them.
+    if tags:
+        item.save(data={"tags": list(tags)})
     return item
 
 

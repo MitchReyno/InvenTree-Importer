@@ -11,6 +11,8 @@ Commands
     parameters      create and update InvenTree parameter templates
     categories      create and update InvenTree part categories
     supplier-parts  create InvenTree parts from DigiKey SKUs
+    import-stock    import stock from a file (photo, invoice, list)
+    datasheets      attach a copy of each part's linked datasheet
 
 Run `invimport <command> --help` for a command's own options and notes.
 

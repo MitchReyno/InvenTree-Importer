@@ -35,7 +35,7 @@ from typing import Any
 
 import yaml
 
-from .util import absolute_url
+from .util import absolute_url, parse_pages
 
 # What a line may say. Anything else is a mistake worth reporting rather than
 # ignoring - a misspelled key is otherwise indistinguishable from an omission.
@@ -45,7 +45,7 @@ LINE_KEYS = {
     "manufacturer", "parameters",
     "supplier", "sku", "unit_price", "currency", "order",
     "location", "notes", "tags", "batch",
-    "link", "datasheet", "image", "images",
+    "link", "datasheet", "datasheet_pages", "image", "images",
     "confidence", "needs_review",
 }
 ORDER_KEYS = {"reference", "date", "target_date", "description",
@@ -135,7 +135,8 @@ class StockLine:
     # Product page, datasheet, photos. Same facts DigiKey's payload carries;
     # a file may have any, all, or none of them.
     link: str = ""
-    datasheet: str = ""
+    datasheet: str = ""                          # URL, or a local file
+    datasheet_pages: str = ""                    # e.g. '140-142'
     image: str = ""                              # primary; first of `images`
     images: list[str] = field(default_factory=list)
 
@@ -217,6 +218,37 @@ def _as_url(value: Any, field_name: str, line_id: str,
             f"{text!r} is not a URL - it needs a scheme (https://...)"))
         return ""
     return url
+
+
+def _as_datasheet(value: Any, line_id: str,
+                  problems: list[Problem]) -> str:
+    """
+    A datasheet URL, or a path to a local file.
+
+    A URL is normalised the way `link` is. Anything without a scheme is taken
+    as a path, relative to the stock file, and attached to the part as a file
+    - that is how a datasheet gets onto the server rather than only linked.
+    """
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if "://" in text or text.startswith("//"):
+        return _as_url(text, "datasheet", line_id, problems)
+    return text
+
+
+def _as_pages(value: Any, line_id: str, problems: list[Problem]) -> str:
+    """Which pages of the datasheet PDF to keep: '140-142', '3, 5-6'."""
+    if value is None or value == "":
+        return ""
+    text = str(value).strip()
+    if isinstance(value, bool) or parse_pages(text) is None:
+        problems.append(Problem(
+            line_id, "datasheet_pages",
+            f"{value!r} is not a page list - write e.g. '140-142' or "
+            f"'3, 5-6' (1-based PDF pages)"))
+        return ""
+    return text
 
 
 def _as_images(raw: dict[str, Any], line_id: str,
@@ -368,8 +400,9 @@ def _line_from(raw: dict[str, Any], index: int,
         setattr(line, name, str(raw.get(name) or "").strip())
 
     line.link = _as_url(raw.get("link"), "link", line_id, problems)
-    line.datasheet = _as_url(raw.get("datasheet"), "datasheet", line_id,
-                             problems)
+    line.datasheet = _as_datasheet(raw.get("datasheet"), line_id, problems)
+    line.datasheet_pages = _as_pages(raw.get("datasheet_pages"), line_id,
+                                     problems)
     line.images = _as_images(raw, line_id, problems)
     line.image = line.images[0] if line.images else ""
     line.tags = _as_tags(raw, line_id, problems)

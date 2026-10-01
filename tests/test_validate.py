@@ -313,3 +313,37 @@ def test_a_supplier_with_a_sku_does_not_warn(config):
                             "mpn": "LM358N", "supplier": "MacService Group",
                             "sku": "LM358N"})
     assert report.warnings == []
+
+
+# --------------------------------------------------------------------------
+# Datasheets
+# --------------------------------------------------------------------------
+RESISTOR = {"category": "Resistors/Through Hole Resistors",
+            "parameters": {"Resistance": "1 kohm", "Tolerance": "1%"}}
+
+
+def test_a_local_datasheet_that_exists_passes_quietly(config, tmp_path):
+    pdf = tmp_path / "ds.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    report = check(config, {**RESISTOR, "datasheet": str(pdf)})
+    assert report.ok and not report.warnings, report.text()
+
+
+def test_a_missing_local_datasheet_is_a_warning(config, tmp_path):
+    """Like a missing image: the import goes on, without the file."""
+    report = check(config, {**RESISTOR,
+                            "datasheet": str(tmp_path / "gone.pdf")})
+    assert report.ok
+    assert [w.field for w in report.warnings] == ["datasheet"]
+    assert "not a file" in report.warnings[0].problem
+
+
+def test_a_datasheet_url_is_not_looked_for_on_disk(config):
+    report = check(config, {**RESISTOR,
+                            "datasheet": "https://example.com/ds.pdf"})
+    assert not report.warnings, report.text()
+
+
+def test_datasheet_pages_without_a_datasheet_are_a_warning(config):
+    report = check(config, {**RESISTOR, "datasheet_pages": "3-4"})
+    assert [w.field for w in report.warnings] == ["datasheet_pages"]

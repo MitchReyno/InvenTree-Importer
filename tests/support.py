@@ -726,6 +726,10 @@ class InvenTreeStub:
                     stub.line_items.append(row)
                 elif parsed.path == "/api/stock/":
                     row.setdefault("status", 10)
+                    # The real server accepts tags on this POST and then
+                    # drops them: the item is created with none. Only a
+                    # PATCH afterwards sticks, so model that.
+                    row.pop("tags", None)
                     stub.stock_items.append(row)
                     # The spec declares this 201 as an array, and the server
                     # answers with one even for a single item. Anything that
@@ -764,6 +768,13 @@ class InvenTreeStub:
                     return self._send(200, {"pk": pk, "image": "uploaded"})
                 body = json.loads(raw or b"{}")
                 stub.saves.append((parsed.path, body))
+                stock_match = re.match(r"^/api/stock/(\d+)/?$", parsed.path)
+                if stock_match:
+                    pk = int(stock_match.group(1))
+                    for row in stub.stock_items:
+                        if row["pk"] == pk:
+                            row.update(body)
+                            return self._send(200, row)
                 return self._send(200, {"pk": 1, **body})
 
             do_PUT = do_PATCH

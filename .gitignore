@@ -33,3 +33,6 @@ backups/
 
 # Local import files
 .local_imports/
+
+# macOS system files
+.DS_Store

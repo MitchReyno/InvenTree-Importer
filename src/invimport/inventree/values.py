@@ -568,6 +568,14 @@ def parse_quantity(text: str, unit: str = "",
     registry = registry or build_parse_registry()
     try:
         quantity = registry.Quantity(number, rest)
+    except Exception:
+        # A unit we cannot read is not a unit we can ignore. Keeping the bare
+        # number would store '4Kbit' as 4 of the template's Mbit - wrong by a
+        # thousand, with nothing to say so. Unreadable is the honest answer.
+        # Pint signals this as UndefinedUnitError, or as a tokenizer error
+        # for text like '0.197" Dia'.
+        return None
+    try:
         if unit:
             return float(quantity.to(unit).magnitude)
         return float(quantity.magnitude)

@@ -1057,6 +1057,34 @@ def test_import_stock_schema_is_valid_json(capsys):
     assert "datasheet" in properties
     assert "image" in properties
     assert "images" in properties
+    assert "datasheet_pages" in properties
+
+
+def test_datasheets_dry_run_reports_and_uploads_nothing(inventree,
+                                                        monkeypatch, capsys,
+                                                        tmp_path):
+    from types import SimpleNamespace
+
+    from invimport.inventree import datasheets
+
+    inventree.add_category("Memory", pk=17)
+    inventree.add_part("82S137", "ROM-1", 17, pk=101,
+                       link="https://host/82S137.pdf")
+    inventree.add_part("2114", "ROM-2", 17, pk=102,
+                       link="https://host/viewer")
+    body = {"https://host/82S137.pdf": (b"%PDF-1.4 x", "application/pdf"),
+            "https://host/viewer": (b"<html/>", "text/html")}
+    monkeypatch.setattr(datasheets, "_fetch", lambda url: SimpleNamespace(
+        status_code=200, content=body[url][0],
+        headers={"Content-Type": body[url][1]}))
+
+    assert main(["datasheets", "--cache-dir", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "DRY RUN" in out
+    assert "would attach: 82S137.pdf  <- https://host/82S137.pdf" in out
+    assert "not a PDF (text/html)  <- https://host/viewer" in out
+    assert "1 to attach" in out and "1 whose link is not a PDF" in out
+    assert inventree.attachments == []
 
 
 def test_import_stock_vocabulary_lists_the_real_config(capsys, tmp_path):
