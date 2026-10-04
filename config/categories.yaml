@@ -121,6 +121,16 @@ Diodes:
     - Operating Temp Min
     - Package
     - Max Forward Voltage Drop
+  Bridge Rectifiers:
+    # A maker's part number (MDA920A3, KBP206G), not a JEDEC type.
+    identity: mpn
+    description: Single- and three-phase bridge rectifier assemblies
+    key_parameters:
+      - "Current - Average Rectified (Io)"
+    parameters:
+      - "Current - Average Rectified (Io)"
+      - Voltage - DC Reverse (Vr) (Max)
+      - "Current - Reverse Leakage @ Vr"
   Schottky Diodes: {}
   Signal Diodes:
     key_parameters:
@@ -165,6 +175,11 @@ Inductors:
     - Tolerance
 
   Fixed Inductors:
+    parameters:
+      - DC Resistance (DCR) (Max)
+      - Current Rating
+      - Q @ Freq
+      - Frequency - Self Resonant
     aliases:
       - Inductors, Coils, Chokes / Fixed Inductors
 Integrated Circuits:
@@ -239,6 +254,16 @@ Integrated Circuits:
     aliases:
       - Integrated Circuits (ICs) / Data Acquisition / Analog to Digital Converters (ADC)
   Digital to Analog Converters (DAC):
+    key_parameters:
+      - Number of Bits
+    parameters:
+      - Number of Bits
+      - Settling Time
+      - Output Type
+      - Data Interface
+      - Reference Type
+      - Output Voltage Min
+      - Output Voltage Max
     aliases:
       - Integrated Circuits (ICs) / Data Acquisition / Digital to Analog Converters (DAC)
   "Analog Switches, Multiplexers, Demultiplexers":
@@ -334,6 +359,9 @@ Integrated Circuits:
     identity: mpn
     ipn_prefix: IC
     description: Interface and line transceiver ICs
+    parameters:
+      - Protocol
+      - Number of Drivers/Receivers
   Telecom:
     identity: mpn
     ipn_prefix: IC
@@ -346,6 +374,11 @@ Integrated Circuits:
     identity: mpn
     ipn_prefix: IC
     description: "Timers, one-shots and multivibrators"
+    parameters:
+      - Logic Type
+      - Number of Circuits
+      - Output Type
+      - Propagation Delay (Max)
   PLDs (Programmable Logic Device):
     key_parameters:
       - Number of Macrocells
@@ -466,6 +499,10 @@ Transistors:
     - Package
     - Power Rating
   BJTs:
+    parameters:
+      - Transistor Type
+      - Current - Collector (Ic) (Max)
+      - DC Current Gain (hFE) (Min) @ Ic, Vce
     aliases:
       - Discrete Semiconductor Products / Transistors / Bipolar (BJT) / Single Bipolar Transistors
   JFETs: {}

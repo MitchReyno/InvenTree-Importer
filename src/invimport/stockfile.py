@@ -46,6 +46,7 @@ LINE_KEYS = {
     "supplier", "sku", "unit_price", "currency", "order",
     "location", "notes", "tags", "batch", "packaging",
     "link", "datasheet", "datasheet_pages", "image", "images",
+    "stock_images", "attachments", "part_of",
     "confidence", "needs_review",
 }
 ORDER_KEYS = {"reference", "date", "target_date", "description",
@@ -160,6 +161,16 @@ class StockLine:
     datasheet_pages: str = ""                    # e.g. '140-142'
     image: str = ""                              # primary; first of `images`
     images: list[str] = field(default_factory=list)
+    # Photos of this quantity rather than of the part - the packet this
+    # batch came in, its label - attached to the stock item itself.
+    stock_images: list[str] = field(default_factory=list)
+    # Files kept on the part - snapshots of the pages it was identified
+    # from, a scanned label. (path, comment) pairs; paths are relative to
+    # the stock file.
+    attachments: list[tuple[str, str]] = field(default_factory=list)
+    # Another line of this file whose part this stock belongs to - for a lot
+    # printed with an older or alternate part number (MDA920-3 for MDA920A3).
+    part_of: str = ""
 
     # Agent hints. Read by the CLI to decide what to confirm; never written to
     # InvenTree, because a number a model made up does not belong in an
@@ -306,6 +317,69 @@ def _as_images(raw: dict[str, Any], line_id: str,
         text = str(item).strip()
         if text and text not in collected:
             collected.append(text)
+    return collected
+
+
+def _as_stock_images(raw: dict[str, Any], line_id: str,
+                     problems: list[Problem]) -> list[str]:
+    """
+    Photos for the stock item: URLs or local paths, duplicates dropped.
+
+    The same shapes `images` accepts - a list, or a CSV cell of comma-separated
+    values.
+    """
+    value = raw.get("stock_images")
+    if value in (None, ""):
+        return []
+    if isinstance(value, str):
+        value = [item.strip() for item in value.split(",") if item.strip()]
+    elif not isinstance(value, list):
+        problems.append(Problem(line_id, "stock_images",
+                                "must be a list of URLs or paths"))
+        return []
+    collected: list[str] = []
+    for item in value:
+        text = str(item).strip()
+        if text and text not in collected:
+            collected.append(text)
+    return collected
+
+
+def _as_attachments(raw: dict[str, Any], line_id: str,
+                    problems: list[Problem]) -> list[tuple[str, str]]:
+    """
+    Files to attach to the part: paths, or {"file", "comment"} objects.
+
+    A bare path gets no comment of its own (the importer supplies one).
+    """
+    value = raw.get("attachments")
+    if value in (None, ""):
+        return []
+    if isinstance(value, (str, dict)):
+        value = [value]
+    if not isinstance(value, list):
+        problems.append(Problem(line_id, "attachments",
+                                "must be a list of paths or "
+                                "{file, comment} objects"))
+        return []
+    collected: list[tuple[str, str]] = []
+    for item in value:
+        if isinstance(item, dict):
+            unknown = set(item) - {"file", "comment"}
+            path = str(item.get("file") or "").strip()
+            if unknown or not path:
+                problems.append(Problem(
+                    line_id, "attachments",
+                    f"{item!r}: needs 'file', and may have 'comment'"))
+                continue
+            entry = (path, str(item.get("comment") or "").strip())
+        else:
+            path = str(item).strip()
+            if not path:
+                continue
+            entry = (path, "")
+        if entry[0] not in [p for p, _ in collected]:
+            collected.append(entry)
     return collected
 
 
@@ -478,6 +552,9 @@ def _line_from(raw: dict[str, Any], index: int,
                                      problems)
     line.images = _as_images(raw, line_id, problems)
     line.image = line.images[0] if line.images else ""
+    line.stock_images = _as_stock_images(raw, line_id, problems)
+    line.attachments = _as_attachments(raw, line_id, problems)
+    line.part_of = str(raw.get("part_of") or "").strip()
     line.tags = _as_tags(raw, line_id, problems)
     _check_nos_packaging(line, problems)
 
@@ -649,6 +726,22 @@ def parse_document(data: Any, path: Path | None = None) -> StockFile:
                 f"is used by line #{seen[line.id] + 1} as well; ids must be "
                 f"unique or one import would mask the other"))
         seen[line.id] = index
+
+    # part_of has to name a line that comes first: that line resolves (or
+    # creates) the part, and this one is filed against it.
+    for index, line in enumerate(lines):
+        if not line.part_of:
+            continue
+        target = seen.get(line.part_of)
+        if line.part_of == line.id:
+            problems.append(Problem(line.id, "part_of", "names this line itself"))
+        elif target is None:
+            problems.append(Problem(line.id, "part_of",
+                                    f"{line.part_of!r} is not a line in this file"))
+        elif target > index:
+            problems.append(Problem(line.id, "part_of",
+                                    f"{line.part_of!r} comes later in the file; "
+                                    f"it must come first"))
 
     if problems:
         raise StockFileError("\n".join(p.describe() for p in problems))

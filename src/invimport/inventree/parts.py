@@ -590,6 +590,59 @@ def attach_part_files(api, part, sources: list[str], *,
     return uploaded
 
 
+def attach_part_documents(api, part: int | None,
+                          documents: list[tuple[str, str]], *,
+                          base_dir: Path | None = None,
+                          default_comment: str = "") -> int:
+    """
+    Upload local files - source snapshots, scans - as part attachments.
+
+    Unlike photos these are never downloaded: a snapshot is the copy, so it
+    has to exist already. A missing file warns and is skipped; a name the part
+    already carries is not uploaded twice.
+    """
+    if not documents or part in (None, UNRESOLVED_PK):
+        return 0
+    uploaded = 0
+    for source, comment in documents:
+        path = Path(source).expanduser()
+        if not path.is_absolute() and base_dir is not None:
+            path = base_dir / path
+        if not path.is_file():
+            log.warning("    [warn] attachment %s: not a file", source)
+            continue
+        if attach_file(api, PART_ATTACHMENT_MODEL, part, path,
+                       comment or default_comment):
+            uploaded += 1
+    return uploaded
+
+
+STOCK_ATTACHMENT_MODEL = "stockitem"
+
+
+def attach_stock_files(api, stock_item: int | None, sources: list[str], *,
+                       cache_dir: Path = cache.IMAGES_DIR,
+                       base_dir: Path | None = None,
+                       comment: str = "") -> int:
+    """
+    Upload photos of one quantity as attachments on its stock item.
+
+    The part's picture shows what the part is; these show what this batch
+    looks like - its packet, its label, its date code - which can differ
+    between two stock items of the same part. Files the item already carries
+    are skipped by name, so a re-run attaches each photo once.
+    """
+    if not sources or stock_item in (None, UNRESOLVED_PK):
+        return 0
+    uploaded = 0
+    for source in sources:
+        path = resolve_image_source(source, cache_dir, base_dir=base_dir)
+        if path is not None and attach_file(
+                api, STOCK_ATTACHMENT_MODEL, stock_item, path, comment):
+            uploaded += 1
+    return uploaded
+
+
 # --------------------------------------------------------------------------
 # The supplier-agnostic core
 #

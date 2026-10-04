@@ -121,6 +121,16 @@ Mounting:
     # (or Radial) in Package / Case. The values map already treats those as
     # Through Hole; this alias is how that field is seen.
     - Package / Case
+  values:
+    Through Hole:
+      - Through Hole
+      - Thru Hole
+      - Axial
+      - Radial
+    Surface Mount:
+      - Surface Mount
+      - SMD/SMT
+      - Surface Mount, MELF
 Operating Temp Max:
   units: °C
   description: Maximum rated operating temperature
@@ -247,7 +257,7 @@ Zener Voltage:
 # --------------------------------------------------------------------------
 Current Rating:
   units: A
-  description: Maximum rated contact current
+  description: Maximum rated current (a contact's, or an inductor winding's DC current)
   aliases:
     - Current Rating (Amps)
     - Current Rating (Max)
@@ -644,6 +654,54 @@ Switch Circuit:
   aliases:
     - Switch Circuit
 
+Current - Average Rectified (Io):
+  units: A
+  description: Maximum average rectified output current
+  aliases:
+    - Current - Average Rectified (Io)
+  parse: quantity
+
+Transistor Type:
+  choices:
+    - NPN
+    - PNP
+  aliases:
+    - Transistor Type
+
+Current - Collector (Ic) (Max):
+  units: A
+  description: Maximum continuous collector current
+  aliases:
+    - Current - Collector (Ic) (Max)
+  parse: quantity
+
+DC Current Gain (hFE) (Min) @ Ic, Vce:
+  description: Minimum DC current gain and its test conditions, e.g. 40 @ 1A, 2V
+  aliases:
+    - DC Current Gain (hFE) (Min) @ Ic, Vce
+
+Q @ Freq:
+  description: Minimum quality factor and the frequency it is measured at, e.g. 50 @ 7.9MHz
+  aliases:
+    - Q @ Freq
+
+Frequency - Self Resonant:
+  units: Hz
+  description: Self-resonant frequency (minimum, where the source gives one)
+  aliases:
+    - Frequency - Self Resonant
+  parse: quantity
+
+Protocol:
+  description: Bus or interface standard the part implements, e.g. GPIB, RS-232
+  aliases:
+    - Protocol
+
+Number of Drivers/Receivers:
+  description: Driver and receiver counts as drivers/receivers, e.g. 8/8
+  aliases:
+    - Number of Drivers/Receivers
+
 Multiplexer/Demultiplexer Circuit:
   description: Channel arrangement of a multiplexer, e.g. 16:1 or 2 x 4:1
   aliases:
@@ -684,6 +742,7 @@ Logic Type:
     - Inverter
     - NOR Gate
     - XOR (Exclusive OR)
+    - Monostable
   aliases:
     - Logic Type
 
@@ -739,6 +798,7 @@ Output Type:
     - Tri-State
     - "Tri-State & Non-Inverted"
     - Open Collector
+    - Voltage - Buffered
   aliases:
     - Output Type
 
@@ -766,6 +826,7 @@ Memory Organization:
     - 512K x 8
     - 1K x 4
     - 1K x 1
+    - 256 x 1
   aliases:
     - Memory Organization
 
@@ -811,3 +872,41 @@ Number of Terminations:
   parse: quantity
   aliases:
     - Number of Terminations
+
+Propagation Delay (Max):
+  units: ns
+  description: Maximum input-to-output propagation delay
+  aliases:
+    - Propagation Delay (Max)
+    - Propagation Delay (Max) @ V, Max CL
+  parse: quantity
+
+Number of Bits:
+  parse: quantity
+  description: Resolution of a data converter, in bits
+  aliases:
+    - Number of Bits
+
+Settling Time:
+  units: s
+  description: Maximum output settling time of a converter (state the step and accuracy in notes)
+  aliases:
+    - Settling Time
+  parse: quantity
+  prefixes: [u, n]
+
+Data Interface:
+  choices:
+    - Parallel
+    - Serial
+    - SPI
+  aliases:
+    - Data Interface
+
+Reference Type:
+  choices:
+    - Internal
+    - External
+    - "External, Internal"
+  aliases:
+    - Reference Type

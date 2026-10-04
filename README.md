@@ -582,6 +582,23 @@ Part and ManufacturerPart, the product page on the SupplierPart, the first
 photo as the part image when it has none. A missing or unreadable image is
 skipped, not a reason to stop.
 
+`stock_images` (URLs or paths) are photos of that quantity rather than of the
+part - the packet a batch came in, its label - attached to the stock item the
+line creates, so two batches of one part can each carry their own. A re-run
+attaches any added since to the existing item, skipping names it already has.
+
+A `location` path that does not exist yet is created, parents included, on
+`--write`; the dry run marks the line `(new location)` first. Giving several
+lines the same new path files them together - one bag for several batches of
+one part - and creates it once.
+
+`attachments` lists files kept on the part - typically snapshots of the
+pages the part was identified from (see [Source snapshots](#source-snapshots)). Each is a
+path relative to the stock file, or `{"file": ..., "comment": ...}`; a bare
+path is commented `imported from <file>`. They are attached when the line is
+imported, and to an already-imported line's part on a re-run, skipping names
+the part already has.
+
 #### Datasheets kept on the server
 
 A datasheet URL is stored as a link, and links die - vintage datasheets
@@ -781,7 +798,26 @@ your schema instead of near it. Paired with `--validate`, whose errors carry
 at all.
 
 A Claude skill wrapping that loop lives in
-`.claude/skills/inventree-stock-import/`.
+`.claude/skills/inventree-stock-import/`. It delegates part research and
+image cropping to subagents, whose base prompts are in its `templates/`;
+research runs share what they learn through its `COMPONENT_RESEARCH.md`. The
+subagents use the `source-snapshots` and `component-photo-crops` skills.
+
+### Source snapshots
+
+Snapshots of the pages a part was identified from - an NSN listing, a
+distributor page - are made by a standalone script in the `source-snapshots`
+Claude skill, not by `invimport`:
+
+```bash
+uv run python .claude/skills/source-snapshots/scripts/snapshot.py URL -o .local_imports/snapshots/<import>/l03-nsn.html
+```
+
+It writes one self-contained HTML file (styles, images and fonts inlined,
+scripts removed) with a banner recording when and from where it was captured;
+`--render`, `--from-html` and `--pdf` cover JavaScript-built, bot-protected
+and print-to-PDF cases. See `.claude/skills/source-snapshots/SKILL.md`. List
+the file in a stock line's `attachments`.
 
 ### datasheets
 

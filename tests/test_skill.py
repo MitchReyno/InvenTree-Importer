@@ -166,22 +166,42 @@ def test_the_skill_does_not_overclaim_what_ran(text):
     assert re.search(r"[Dd]o not claim stock was imported", text)
 
 
-def test_the_skill_tells_the_agent_to_look_up_datasheets_and_images(text):
+# Looking parts up is delegated: the main skill sends identified items to a
+# research subagent, whose instructions are the research template.
+RESEARCH = SKILL.parent / "templates" / "research-subagent-prompt.md"
+
+
+@pytest.fixture(scope="module")
+def research() -> str:
+    return RESEARCH.read_text(encoding="utf-8")
+
+
+def test_the_skill_delegates_looking_parts_up_to_the_research_subagent(text):
+    assert "Research: hand it to a subagent" in text
+    assert "templates/research-subagent-prompt.md" in text
+    assert "COMPONENT_RESEARCH.md" in text
+    assert (SKILL.parent / "COMPONENT_RESEARCH.md").exists()
+
+
+def test_the_research_prompt_tells_the_agent_to_look_up_datasheets_and_images(
+        research):
     """
     Identified parts should arrive with a datasheet and a photo, fetched,
     not constructed from a typical URL pattern.
     """
-    assert "Looking a part up" in text
-    assert re.search(r"datasheet URL", text)
-    assert re.search(r"one product (photo|image)", text)
-    assert re.search(r"Do not construct a\s+datasheet URL", text)
+    assert re.search(r"datasheet", research)
+    assert re.search(r"one product (photo|image)", research)
+    assert re.search(r"Do not construct a\s+datasheet URL", research)
+    assert "COMPONENT_RESEARCH.md" in research
 
 
-def test_the_skill_tells_the_agent_to_fill_the_category_parameters(text):
+def test_the_research_prompt_tells_the_agent_to_fill_the_category_parameters(
+        research):
     """Key parameters identify the part; the rest still belong on it."""
     assert re.search(
-        r"every (remaining )?parameter this category (lists|stores)", text)
-    assert "do not" in text.casefold() and "typical part" in text
+        r"every (remaining )?parameter (this|the) category (lists|stores)",
+        research)
+    assert "do not" in research.casefold() and "typical part" in research
 
 
 def test_the_worked_example_includes_a_datasheet_and_an_image(example):

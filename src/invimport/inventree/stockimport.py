@@ -60,7 +60,9 @@ from .parts import (
     PartPolicy,
     apply_parameters,
     attach_line_images,
+    attach_part_documents,
     attach_part_files,
+    attach_stock_files,
     resolve_part,
 )
 from .purchase_orders import (
@@ -74,6 +76,7 @@ from .stock import (
     BarcodeInUse,
     add_stock,
     already_imported,
+    location_names,
     resolve_location,
     stock_note,
 )
@@ -105,6 +108,7 @@ class LineAction:
     purchase_order: int | None = None
     stock_item: int | None = None
     location: str = ""
+    part_of: str = ""
     parameters: int = 0
     # The datasheet files attached (or that would be), else why there are
     # none - or why one of them is missing.
@@ -196,12 +200,16 @@ def import_stock(
     if options.mirror_datasheets:
         prefetch(line.datasheet for line in document.lines)
 
+    by_id: dict[str, LineAction] = {}
     for line in document.lines:
-        result.lines.append(_import_line(
+        action = _import_line(
             api, document, line, ctx, suppliers, options,
             directory=directory,
             supplier_cache=supplier_cache, location_cache=location_cache,
-            order_cache=order_cache, supplier_parts=supplier_parts))
+            order_cache=order_cache, supplier_parts=supplier_parts,
+            by_id=by_id)
+        by_id[line.id] = action
+        result.lines.append(action)
 
     return result
 
@@ -210,8 +218,9 @@ def _import_line(api, document: StockFile, line: StockLine,
                  ctx: ImportContext, suppliers, options: ImportOptions, *,
                  directory: Path,
                  supplier_cache, location_cache, order_cache,
-                 supplier_parts) -> LineAction:
-    action = LineAction(id=line.id, quantity=line.quantity)
+                 supplier_parts, by_id=None) -> LineAction:
+    action = LineAction(id=line.id, quantity=line.quantity,
+                        part_of=line.part_of)
     key = document.key_for(line)
 
     # Already imported? The barcode is the record, so this survives anything
@@ -223,6 +232,13 @@ def _import_line(api, document: StockFile, line: StockLine,
         # The stock is done, but a datasheet added to the file since - or a
         # re-run with mirroring on - still has somewhere to go.
         _existing_datasheet(api, document, line, options, action)
+        if options.write:
+            _attach_stock_images(document, line, existing, api)
+            if line.attachments and action.part not in (None, UNRESOLVED_PK):
+                _attach_documents(document, line, action.part, api)
+            elif line.attachments:
+                _attach_documents(document, line,
+                                  _part_of_stock(api, existing), api)
         return action
 
     if (line.confidence is not None
@@ -247,10 +263,33 @@ def _import_line(api, document: StockFile, line: StockLine,
         return action
 
     # --- the part ---
+    ipn = line.ipn
+    if line.part_of:
+        # Filed against the part another line of this file resolved. On a
+        # write that part exists by now and is found by its IPN; on a dry run
+        # a part the other line would create has no IPN yet, so this line is
+        # reported as resolving normally, with the link shown.
+        ref = (by_id or {}).get(line.part_of)
+        ref_part = getattr(ref, "part", None)
+        if ref is None or ref_part is None:
+            action.action = REVIEW
+            action.reason = (f"part_of {line.part_of}: that line did not "
+                             f"resolve a part")
+            return action
+        if ref_part != UNRESOLVED_PK:
+            try:
+                ipn = str(api.get(f"part/{ref_part}/").get("IPN") or "")
+            except Exception:                    # pragma: no cover
+                ipn = ""
+            if not ipn:
+                action.action = REVIEW
+                action.reason = (f"part_of {line.part_of}: part {ref_part} "
+                                 f"has no IPN to file against")
+                return action
     resolved = resolve_part(
         api,
         PartLine(category=category, mpn=line.mpn, type=line.type,
-                 ipn=line.ipn, manufacturer=line.manufacturer,
+                 ipn=ipn, manufacturer=line.manufacturer,
                  description=line.description, parameters=line.parameters,
                  link=line.link, datasheet=line.datasheet),
         ctx, write=options.write,
@@ -290,10 +329,18 @@ def _import_line(api, document: StockFile, line: StockLine,
 
     # --- where it goes ---
     wanted = line.location or options.default_location
+    # Asked first without creating, so the report can say a location is new -
+    # on a dry run nothing is created, and a silent blank would hide that this
+    # line is about to add a bag or a drawer to the tree.
+    existed = resolve_location(api, wanted, write=False, create=False,
+                               cache=location_cache) is not None
     location = resolve_location(api, wanted, write=options.write,
                                 create=options.create_locations,
                                 cache=location_cache)
     action.location = str(getattr(location, "pathstring", "") or "")
+    if location_names(wanted) and not existed and options.create_locations:
+        action.location = (f"{action.location or '/'.join(location_names(wanted))}"
+                           f" (new location)")
 
     # --- the order it came on ---
     order = _purchase_order(
@@ -313,6 +360,9 @@ def _import_line(api, document: StockFile, line: StockLine,
             api, datasheets, part=action.part,
             manufacturer_parts=[action.manufacturer_part]
             if action.manufacturer_part is not None else [])
+
+    if line.attachments:
+        _attach_documents(document, line, action.part, api)
 
     if line.images:
         base_dir = document.path.parent if document.path else None
@@ -352,12 +402,44 @@ def _import_line(api, document: StockFile, line: StockLine,
             log.warning("    could not link stock %s to order %s",
                         item.pk, order.pk)
     action.stock_item = item.pk
+    _attach_stock_images(document, line, item.pk, api)
     return action
 
 
 # --------------------------------------------------------------------------
 # Pieces
 # --------------------------------------------------------------------------
+def _attach_documents(document: StockFile, line: StockLine,
+                      part: int | None, api) -> None:
+    """Attach the line's attachments (source snapshots, scans) to its part."""
+    attach_part_documents(
+        api, part, line.attachments,
+        base_dir=document.path.parent if document.path else None,
+        default_comment=f"imported from {document.path.name}"
+        if document.path else "")
+
+
+def _part_of_stock(api, stock_item: int | None) -> int | None:
+    try:
+        return int(api.get(f"stock/{stock_item}/")["part"])
+    except Exception as exc:                     # pragma: no cover
+        log.warning("    could not find the part for stock %s: %s",
+                    stock_item, exc)
+        return None
+
+
+def _attach_stock_images(document: StockFile, line: StockLine,
+                         stock_item: int | None, api) -> None:
+    """Attach the line's stock_images to the stock item it made."""
+    if not line.stock_images:
+        return
+    attach_stock_files(
+        api, stock_item, line.stock_images,
+        base_dir=document.path.parent if document.path else None,
+        comment=f"imported from {document.path.name}"
+        if document.path else "")
+
+
 def _line_datasheet(document: StockFile, line: StockLine,
                     options: ImportOptions, action: LineAction):
     """

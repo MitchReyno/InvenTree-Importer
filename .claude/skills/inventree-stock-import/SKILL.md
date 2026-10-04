@@ -18,11 +18,15 @@ order number, and the MPN or markings as printed are transcription — when you
 cannot read them, leave them out. The tool accepts partial rows, and half of
 real stock genuinely has no manufacturer part number.
 
-Once a line is identified — an MPN, a type designator, or a complete spec —
-**look the part up**. Every such line should carry a datasheet URL, a product
-image, and every remaining parameter this category lists in `--vocabulary`
-that the datasheet or product page actually states. A URL you did not open,
-or a parameter you filled from "typical 100k 1/4W metal film", is invention.
+Once a line is identified — an MPN, a type designator, an NSN, or a complete
+spec — **the part gets looked up**. Every such line should carry a datasheet,
+a product image, snapshots of its sources, and every remaining parameter this
+category lists in `--vocabulary` that a source actually states. The research
+is done by a dedicated subagent (see
+[Research: hand it to a subagent](#research-hand-it-to-a-subagent)) and the
+image work by another (see
+[Images: hand them to a subagent](#images-hand-them-to-a-subagent)); you
+transcribe, decide, ask the user, and write the file.
 
 ## The loop
 
@@ -39,12 +43,47 @@ choices *this* config defines. You cannot guess these — the category is
 `Resistors/Through Hole Resistors`, not `Resistors/THT`; the parameter is
 `Power Rating`, not `Wattage`. Read it before you write anything.
 
-**2. Identify, then look up.** Read the source. For every line you can
-identify, fetch (do not invent) a datasheet URL, one product image, and the
-category's remaining parameters — see [Looking a part up](#looking-a-part-up).
-If the part has important attributes the vocabulary cannot express, extend
-the config — see
+**2. Transcribe, then delegate the look-up.** Read the source and transcribe
+every item (markings, label text, NSN, quantities, packaging, seal state).
+Then dispatch the subagents, in the background and in parallel:
+
+- the **research subagent** for every item you can identify — see
+  [Research: hand it to a subagent](#research-hand-it-to-a-subagent);
+- the **image subagent** when the user's photos are to become part or stock
+  images — see [Images: hand them to a subagent](#images-hand-them-to-a-subagent).
+
+While they work, do the existing-records check (2b) and settle questions with
+the user. When the research report proposes config changes, make them — see
 [When the vocabulary does not cover the part](#when-the-vocabulary-does-not-cover-the-part).
+
+**2b. Check the server for what is already there.** Before writing a line for
+a newly identified item, find out whether InvenTree already holds that part
+(or stock of it). Search with every identifier you have for the item — MPN,
+type designator, NSN (both the printed form and the modern 13-digit form),
+drawing or house numbers, cross-referenced part numbers (e.g. `1989622-1` and
+`S8T90F`), maker — from the repo root with `uv run python` and
+`invimport.inventree.api.connect()`:
+
+- parts: `Part.list(api, search=...)` for each identifier, and by name/IPN
+- manufacturer parts: `ManufacturerPart.list(api, MPN=...)`
+- supplier parts: `SupplierPart.list(api, SKU=...)`
+- stock: each candidate part's `StockItem.list(api, part=pk)`, and stock tagged
+  `nsn:<NSN>` (`api.get("stock/", params={"tags": "true", ...})`)
+- the local files: `grep` the identifiers across `.local_imports/*.json`, so an
+  item already in an unwritten import file is caught too
+
+Note, per item, every candidate with its pk, IPN, name, category, MPNs and
+stock (quantity, batch, location, tags), and why it might be the same part. The
+check only reads; it never writes to the server.
+
+**If anything might be the same part, stop and ask the user before writing
+that line.** Show the candidates and offer: add the stock to the existing part
+(use its `ipn`, or the matching `mpn`/`type`), create a new part anyway, or skip
+the item. An exact match on an NSN tag plus a batch may be stock already
+imported — say so. Do not decide this yourself, and do not quietly carry on
+with the other lines as if the question were settled; lines with no candidates
+can be prepared meanwhile. When nothing matched, say in your summary that the
+check was done.
 
 **3. Write the file** to `.local_imports/` (see the shape below). Create the
 directory if it is not there. Name the file after the source — the photo,
@@ -156,61 +195,72 @@ the Part's picture and each of the rest is uploaded as a Part attachment, once
 per part however many lines list it. A missing or unreadable image is skipped
 — it does not fail the import.
 
-## Looking a part up
+`stock_images` are photos of *this quantity* rather than of the part — the
+packet a batch came in, its label and date code — attached to the stock item
+the line creates (and to an already-imported line's item on a re-run, skipping
+names it already has). When one part arrives as several batches, give the part
+one representative `image` and each line a `stock_images` crop of its own
+batch's packet, so the stock items can be told apart.
 
-Do this for every line you can identify. An MPN (`MFR-25FTE52-100K`), a type
-designator (`1N4007`), or a complete spec (value, tolerance, wattage,
-composition, package, mounting) is enough to search on. A bag that only says
-`4k7` is not — transcribe what is there and leave `datasheet`, `image` and
-extra parameters off.
+`location` is a stock location path (`"Storage/Bags/MDA920A3"`). Any part of it
+that does not exist is created, with its parents, on `--write`; the dry run
+marks such a line `(new location)` so the user sees the new location before
+anything is made.
 
-**Open the sources. Copy what they actually say.** Do not construct a
-datasheet URL from a manufacturer's typical path, and do not fill parameters
-from memory of the series. If you cannot fetch a page, omit the field and say
-so in your summary.
+## Research: hand it to a subagent
 
-For each identified line:
+Looking parts up — identifying them, finding datasheets and data-book pages,
+NSN and CAGE records, cross-references, parameters, and snapshotting every
+source page — is done by a **dedicated research subagent**, not by you. It is
+long, search-heavy work that fills a context with page dumps; keeping it out
+of yours leaves room for the user, the existing-records check and the file.
+Do not research parts yourself beyond a quick check of the report, and do not
+skip the subagent because an item looks easy.
 
-1. **Datasheet.** Search for this MPN or type plus "datasheet". Prefer the
-   manufacturer's PDF for this part or series. Put the URL you opened in
-   `datasheet`. A distributor product page is `link`, not a datasheet. A PDF
-   for a similar-looking part (another 100k resistor, another 1N400x) is
-   wrong — leave `datasheet` off.
+1. **Build the prompt** from
+   [templates/research-subagent-prompt.md](templates/research-subagent-prompt.md):
+   copy its base prompt and fill in the Job section — the import file, the
+   snapshot folder `.local_imports/snapshots/<import id>/`, a scratch
+   directory, and per item the line id(s) and **everything you transcribed**
+   (label text verbatim, markings, NSN, CAGE/FSCM, contract, date codes,
+   packaging), whether a device photo exists, and any question to settle. The
+   subagent knows nothing you do not write there. One subagent can take a
+   whole batch; for a large batch, split by item so several run in parallel.
+   Run them with the Agent tool (`general-purpose`) in the background.
+2. **The subagent reads
+   [COMPONENT_RESEARCH.md](COMPONENT_RESEARCH.md) first** — the memory that
+   carries site quirks, data-book page offsets, decoded CAGE codes and traps
+   between research runs. The base prompt tells it to; you keep it current
+   (step 5).
+3. **Apply the report.** For each line: `category`, `manufacturer`,
+   `mpn`/`type`, `description`, `datasheet` (+ `datasheet_pages`), `link`,
+   `image` (a URL only when there is no photo of the device), `parameters`,
+   `attachments` (the snapshot paths with their comments), `confidence`, and
+   the facts for `notes`. Write notes as plain facts. Suggest
+   `--mirror-datasheets` when the report says a datasheet lives on a mirror.
+4. **Check before you trust.** Spot-check that the snapshots exist and that a
+   few key values match the cited page; anything that looks constructed
+   rather than found goes back to the subagent or is left out. Same-part
+   evidence in the report is a question for the user (see 2b), never a
+   decision. Proposed config changes go through
+   [When the vocabulary does not cover the part](#when-the-vocabulary-does-not-cover-the-part).
+5. **Update [COMPONENT_RESEARCH.md](COMPONENT_RESEARCH.md)** with the report's
+   learnings: merge each into the right section, drop duplicates of what is
+   already there, correct entries the new run disproved, date anything that
+   may go stale, and keep it short — it is read in full at the start of every
+   research run. Do this every time, before reporting to the user.
 
-   When the only source is a data book, a catalogue or a multi-part series
-   document, set `datasheet_pages` to the pages for this device, and read
-   those pages to confirm them rather than trusting the index. Vintage and
-   surplus datasheets usually live on mirrors that come and go, so for those
-   suggest `--mirror-datasheets` on the dry run and the write. It downloads
-   each URL and attaches a copy to the part (with `datasheet_pages`, the
-   extract and the whole document), keeping the URL as the link. A URL that turns out not to be a PDF is reported and
-   left as a link only.
-2. **Image.** One product photo of this part, in `image`. Manufacturer or
-   distributor is fine. The photo the user sent you is the *source*, not the
-   part image — unless it is a clear picture of this one component, in which
-   case crop that component out and use it; see
-   [Cropping a component photo](#cropping-a-component-photo). A path relative
-   to the stock file is accepted (`"packets/l01.jpg"`).
-3. **Parameters.** The vocabulary lists every parameter this category stores,
-   not just the `key_parameters` that identify it. Read the datasheet and
-   product page, and fill every one of those names they actually state —
-   temperature coefficient, voltage rating, operating temperature, body size,
-   and so on. Use the vocabulary's names (`Power Rating`, not `Wattage`) and
-   write values as printed (`"±50 ppm/°C"`, `"-55°C ~ 155°C"`,
-   `"2.40mm x 6.30mm"`). Skip any parameter the source does not give; do not
-   round out the set from a typical part.
-
-A line that already has its key parameters from the packet still needs this
-pass: the packet rarely has a datasheet URL or a TCR.
+When the user later corrects or adds an item that needs looking up, that is a
+research job too.
 
 ### When the vocabulary does not cover the part
 
 The vocabulary was grown from the parts already imported, so a new kind of
-part often has attributes it cannot express yet. After step 3, read the
-datasheet again and ask what someone would search, filter or substitute this
-part by. If the answer is something the category does not store, propose
-extending the config rather than dropping it into `notes` and moving on.
-Notes are fine for provenance, but nobody can filter on them.
+part often has attributes it cannot express yet. The research subagent reports
+these as proposed config changes; you weigh them and edit the config. Ask what
+someone would search, filter or substitute this part by: if the category does
+not store it, extend the config rather than dropping it into `notes` and
+moving on. Notes are fine for provenance, but nobody can filter on them.
 
 Some typical gaps:
 
@@ -248,53 +298,47 @@ also writes to their InvenTree. It has to run before the import's `--write`,
 or the new values have no template to be stored against. When you report back,
 list each config change and the line that prompted it.
 
-## Cropping a component photo
+## Images: hand them to a subagent
 
-When the user photographs the components, each component in that photo is a
-real product image for its line, and a better one than a distributor's stock
-shot: it is the part they actually hold, with its own markings and date code
-visible. Put the path in that line's `image`.
+All image processing — cropping the user's photos into part and stock images,
+recropping, building montages, filing the originals — is done by a
+**dedicated subagent**, not by you. Image work is long, fiddly and
+token-heavy (previews, ROIs, montage reviews), and keeping it out of your
+context leaves room for the transcription, research and the user's questions.
+The rules for the work itself live in the `component-photo-crops` skill; the
+subagent loads it. Do not crop images yourself, and do not skip the subagent
+because a job looks small.
 
-**Crop only when the photo needs it.** One component per photo, already framed
-against a plain background, is finished — use it as it is. Cropping earns its
-place when one photo holds several components, or when the part is lost in a
-wider scene. Trimming a little whitespace off an image that was already fine is
-work the user did not ask for and did not want. Zooming in to *read* a marking
-is a different thing and always fine; it just does not have to become the
-stored image.
+When the user's photos show components, packets or labels, each is a real
+image for its line, better than a distributor's stock shot: it is the part
+they actually hold, with its own markings, label and date code. So:
 
-Write crops to `.local_imports/photos/<invoice>/`, named for the line and the
-part (`l04-f4520bpc.jpg`), and reference them relative to the stock file
-(`"photos/168844/l04-f4520bpc.jpg"`). The per-invoice subdirectory is not
-tidiness: two imports both numbering from `l01` will otherwise overwrite each
-other's photos.
+1. **Read the photos yourself first.** Transcription stays with you —
+   markings, labels, tags, seal state, quantities. Zooming in to read is fine
+   and is not image processing.
+2. **Decide what each line needs**: the part's `image` (the device, or the
+   packet when no device was photographed), each batch's `stock_images`, a
+   group shot for `images`, and what must stay out of frame (price or count
+   tags, hands, other lots).
+3. **Dispatch the subagent** with the Agent tool (`general-purpose`). Build
+   the prompt from [templates/image-subagent-prompt.md](templates/image-subagent-prompt.md): copy
+   its base prompt and fill in the Job section — the import file, the output
+   folder `.local_imports/photos/<import id>/`, a scratch directory, every
+   source photo by absolute path with a note on what it shows, every wanted
+   output (line, field, content, suggested name), and whether it is a redo.
+   The subagent knows nothing you do not write there. One subagent can take a
+   whole batch of photos; run it in the background and carry on with research
+   and the existing-records check while it works.
+4. **Apply its report.** Put the returned paths into the lines' `image`,
+   `images` and `stock_images`, update every reference to a path it says
+   changed, and open its montage to check the crops yourself before showing
+   the user the dry run. Pass on what it flagged — soft images, non-square
+   crops, partly legible labels.
 
-**Find the bounds, do not guess them.** Fractions eyeballed off the full image
-are the most common way these come out wrong, and the error is invisible until
-you look at the result.
-
-- **A collage** — several photos tiled into one image — splits on its white
-  gutters, not at the midpoint. The panels are usually unequal, so the
-  midpoint cuts through one of them. Find the columns and rows that are
-  near-white across the whole image and cut there.
-- **Loose components on a plain background** — threshold the dark bodies and
-  take the bounding box of each connected region. Discard the blobs that are
-  background rather than parts; a dark corner of the room is bigger than any
-  chip.
-
-**Include the leads.** A bounding box on the body alone cuts the pins off, and
-a DIP with no legs is a worse picture than the stock photo you passed over.
-Expand well past the bottom of the body — the leads are roughly as tall again.
-
-**Then look at the crops.** Build a montage of all of them and read it. You are
-looking for a neighbouring component intruding at an edge, clipped leads, and
-dead space. Tighten the offenders and look again; a second pass is normal
-rather than a sign the first attempt was careless.
-
-**A photo taken through a tube stays soft.** Upscaling adds pixels, not detail.
-Say so in your summary instead of presenting it as a good image — a fresh
-close-up of one chip out of the tube is the only real fix, and the user can
-decide whether it is worth taking.
+Reference images relative to the stock file
+(`"photos/168844/l04-f4520bpc.jpg"`); the per-import folder stops two imports
+that both number from `l01` overwriting each other's photos. When the user
+asks for crops to be redone, that is a job for the subagent too.
 
 **Replacing an image on a part that is already imported.** `attach_part_image`
 skips any part that already has one, so call `part.uploadImage(path)` directly.
@@ -365,6 +409,24 @@ part number or type as printed. The validator warns when one is missing.
 
 **eBay purchases:** `"supplier": "eBay"`, with the seller name in `notes`. Do
 not create a supplier per seller.
+
+**Ask before grouping several stock items of one part into a new location.**
+When a file creates more than one stock item for the same internal part —
+several batches, or sealed and opened quantities as separate lines — the user
+often keeps them together in one bag. Ask, in **one** question, whether to
+group them into a new location and what to call it, offering:
+
+- the part name and a common identifier the stock items share, joined by an
+  em dash (`MDA920A3 — 5961-00-782-7187`, using the NSN, a DEC or house
+  number) — the usual choice when there is such an identifier
+- the part name or MPN alone (`MDA920A3`)
+- keep them where they would otherwise go (no new location)
+
+with free text for any other name. The location is top-level — not nested
+under another location — unless the user says otherwise, so the `location`
+path is just the name. Give every one of those lines that same path; the
+importer creates it once. Do not group silently, and do not ask for a part
+that only has one stock item.
 
 **Record the order when the source shows one.** An invoice or receipt gives you
 a `reference`, usually a date, and often a scan worth keeping:
@@ -476,29 +538,29 @@ guessing at should be `0.4` with `"needs_review": true`, not `0.9`.
 numbers, MPNs, quantities and prices. Put the order number and date in
 `defaults.order`. Watch for pack quantities in the description (`"10-pack"`)
 where the line quantity is packs, not pieces: the import wants **pieces**. An
-MPN on an invoice is enough to look the part up; do that before writing the
-file.
+MPN on an invoice is enough to look the part up; send it to the research
+subagent before writing the file.
 
 **Hand-written list** — usually value, quantity and not much else. Resistors and
 capacitors are `spec` categories, so a value plus tolerance plus wattage may be
 a complete identity with no MPN at all. Ask about ambiguous shorthand rather
-than guessing: `4k7`, `4R7` and `47k` are three different resistors. Look the
-part up only when the line is identified well enough that a datasheet could
+than guessing: `4k7`, `4R7` and `47k` are three different resistors. Send a
+line for research only when it is identified well enough that a datasheet could
 only be this part.
 
 **Photo of the components themselves** — read markings literally and transcribe
 them into `type` or `description`. Do not "correct" a marking into a part you
 recognise unless you are certain. Colour-code a resistor only if the bands are
 unambiguous in the image; say when you are inferring rather than reading. A
-legible MPN or type is enough to look up; a photo of the bag is not the part
-image, but a clear shot of the component itself is — crop each one out per
-[Cropping a component photo](#cropping-a-component-photo). Markings on the
+legible MPN or type is enough to research; a photo of the bag is not the part
+image, but a clear shot of the component itself is — have each one cropped
+out per [Images: hand them to a subagent](#images-hand-them-to-a-subagent). Markings on the
 component beat the invoice: a surplus dealer's catalogue number often names a
 part they no longer stock, and the chip in the tube is what the user owns.
 
 **Verbal or typed description** — ask for what is missing before writing the
-file, particularly quantities and whether packets are sealed. Look up anything
-identified.
+file, particularly quantities and whether packets are sealed. Send anything
+identified for research.
 
 ## When you are done
 
@@ -508,8 +570,16 @@ Report to the user:
 - **anything you guessed, inferred or could not read** — list these explicitly
 - which lines have no `datasheet` or `image`, and why (unidentified, or looked
   up and not found)
+- what the image subagent produced and flagged (non-square crops, soft
+  images, partly legible labels)
 - any line the validator warned about, especially partial `spec` identities that
   will make the import stop and ask
+- which source pages were snapshotted and attached, and any you could not
+  capture (and why)
+- what the research subagent could not find or settle, and which of its
+  learnings you added to `COMPONENT_RESEARCH.md`
+- the result of the existing-records check for each new item, and what the
+  user decided about any match
 - any parameter or choice you added to the config, and the command that
   pushes it to the server
 - whether anything was written, and what

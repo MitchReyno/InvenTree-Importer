@@ -20,6 +20,7 @@ twice" from something this code checks into something the database refuses.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -836,6 +837,18 @@ def locations_by_path(api) -> dict[str, Any]:
             if getattr(loc, "pathstring", None)}
 
 
+def location_names(path: str) -> list[str]:
+    """
+    'Shelf A/Bin 3' -> ['Shelf A', 'Bin 3']; 'JM38510\\/10103BPC' -> one name.
+
+    A slash separates levels, so a location whose own name contains one -
+    a part number like JM38510/10103BPC - writes it as '\\/'.
+    """
+    names = [part.replace("\\/", "/").strip()
+             for part in re.split(r"(?<!\\)/", (path or "").strip())]
+    return [name for name in names if name]
+
+
 def resolve_location(api, path: str, *, write: bool,
                      create: bool = True,
                      cache: dict[str, Any] | None = None) -> Any | None:
@@ -847,9 +860,10 @@ def resolve_location(api, path: str, *, write: bool,
     decision, and refusing to file stock because a drawer does not exist yet
     would be obstructive.
     """
-    path = (path or "").strip().strip("/")
-    if not path:
+    names = location_names(path)
+    if not names:
         return None
+    path = "/".join(names)                       # as InvenTree's pathstring
     known = cache if cache is not None else locations_by_path(api)
     if not known and cache is not None:
         known.update(locations_by_path(api))
@@ -865,7 +879,7 @@ def resolve_location(api, path: str, *, write: bool,
 
     parent = None
     walked = ""
-    for part in path.split("/"):
+    for part in names:
         walked = f"{walked}/{part}" if walked else part
         found = known.get(walked)
         if found is None:

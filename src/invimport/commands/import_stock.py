@@ -245,6 +245,32 @@ def schema() -> dict[str, Any]:
                        "description": "Additional photos; the first "
                                       "resolvable one is used if image is "
                                       "absent."},
+            "part_of": {"type": "string",
+                        "description": "The id of an earlier line in this "
+                                       "file whose part this stock belongs "
+                                       "to - for a lot printed with an older "
+                                       "or alternate part number. Its own "
+                                       "mpn/manufacturer is added to that "
+                                       "part as a manufacturer part."},
+            "attachments": {"type": "array",
+                            "items": {"oneOf": [
+                                {"type": "string"},
+                                {"type": "object",
+                                 "properties": {
+                                     "file": {"type": "string"},
+                                     "comment": {"type": "string"}},
+                                 "required": ["file"]}]},
+                            "description": "Files attached to the part - "
+                                           "e.g. snapshots of the source "
+                                           "pages (source-snapshots skill). Path "
+                                           "relative to this file, or "
+                                           "{file, comment}."},
+            "stock_images": {"type": "array", "items": {"type": "string"},
+                             "description": "Photos of this quantity - its "
+                                            "packet or batch label - "
+                                            "attached to the stock item "
+                                            "rather than the part. URL or "
+                                            "path relative to this file."},
             "confidence": {"type": "number", "minimum": 0, "maximum": 1,
                            "description": "Agent hint. Never stored."},
             "needs_review": {"type": "boolean",
@@ -471,6 +497,8 @@ def report_actions(document, result, resolved=None) -> None:
         if values:
             print(f"      {', '.join(f'{k}={v}' for k, v in values.items())}")
         detail = []
+        if action.part_of:
+            detail.append(f"same part as {action.part_of}")
         if action.location:
             detail.append(action.location)
         if action.supplier_part:

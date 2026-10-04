@@ -208,7 +208,7 @@ def test_a_line_with_no_order_gets_no_purchase_order(config, server):
 
 def test_a_location_path_is_created_and_used(config, server):
     _, result = run(config, {**RESISTOR, "location": "Workshop/Drawer A"})
-    assert result.lines[0].location == "Workshop/Drawer A"
+    assert result.lines[0].location == "Workshop/Drawer A (new location)"
     assert server.stock_items[0]["location"] == next(
         loc["pk"] for loc in server.locations
         if loc.get("pathstring") == "Workshop/Drawer A")
@@ -216,7 +216,74 @@ def test_a_location_path_is_created_and_used(config, server):
 
 def test_a_default_location_applies_where_a_line_gives_none(config, server):
     _, result = run(config, RESISTOR, default_location="Workshop/Bulk")
-    assert result.lines[0].location == "Workshop/Bulk"
+    assert result.lines[0].location == "Workshop/Bulk (new location)"
+
+
+def test_an_escaped_slash_stays_in_one_location_name(config, server):
+    """A part number like JM38510/10103BPC can name a top-level location."""
+    _, result = run(config, {**RESISTOR,
+                             "location": r"JM38510\/10103BPC - 5962"})
+    made = [loc for loc in server.locations
+            if loc.get("name") == "JM38510/10103BPC - 5962"]
+    assert len(made) == 1 and made[0].get("parent") is None
+    assert result.lines[0].location == "JM38510/10103BPC - 5962 (new location)"
+    assert server.stock_items[0]["location"] == made[0]["pk"]
+
+
+def test_part_of_files_a_lot_against_another_lines_part(config, server):
+    """
+    A lot printed with an older part number (MDA920-3 for MDA920A3) joins
+    the part an earlier line made, and its own number becomes a second
+    manufacturer part on it.
+    """
+    _, result = run(config,
+                    {**GATE, "manufacturer": "Signetics"},
+                    {"category": "Integrated Circuits/Logic", "mpn": "C8162",
+                     "manufacturer": "Signetics", "part_of": "1"})
+    assert [a.action for a in result.lines] == [CREATED, CREATED]
+    assert result.lines[1].part_of == "1"
+    parts = {item["part"] for item in server.stock_items}
+    assert len(parts) == 1
+    assert sorted(m["MPN"] for m in server.manufacturer_parts) == [
+        "C8162", "C8162J"]
+    assert {m["part"] for m in server.manufacturer_parts} == parts
+
+
+def test_part_of_must_name_an_earlier_line():
+    from invimport.stockfile import StockFileError
+    with pytest.raises(StockFileError) as raised:
+        parse_document({"source": {"reference": "x"}, "lines": [
+            {"id": "1", "quantity": 1, **GATE, "part_of": "2"},
+            {"id": "2", "quantity": 1, **GATE, "part_of": "2"},
+            {"id": "3", "quantity": 1, **GATE, "part_of": "9"}]})
+    text = str(raised.value)
+    assert "comes later" in text and "itself" in text and "not a line" in text
+
+
+def test_batches_of_one_part_can_share_a_new_location(config, server):
+    """
+    Several stock items of one part kept together in one bag: the dry run
+    says the location is new, and the write creates it once for all of them.
+    """
+    lines = [{**RESISTOR, "batch": "8209", "location": "Bags/RES 4k7"},
+             {**RESISTOR, "batch": "7804", "location": "Bags/RES 4k7"}]
+    document = parse_document({
+        "source": {"reference": "notes.jpg"},
+        "lines": [{"id": str(i + 1), "quantity": 1, **line}
+                  for i, line in enumerate(lines)]})
+    dry = import_stock(document, connect(), directory=config,
+                       options=ImportOptions(write=False))
+    assert [a.location for a in dry.lines] == [
+        "Bags/RES 4k7 (new location)"] * 2
+    assert not [loc for loc in server.locations
+                if str(loc.get("pathstring", "")).startswith("Bags")]
+
+    import_stock(document, connect(), directory=config,
+                 options=ImportOptions(write=True))
+    bag = [loc for loc in server.locations
+           if loc.get("pathstring") == "Bags/RES 4k7"]
+    assert len(bag) == 1
+    assert {item["location"] for item in server.stock_items} == {bag[0]["pk"]}
 
 
 # --------------------------------------------------------------------------
@@ -533,6 +600,70 @@ def test_lines_sharing_a_part_attach_each_image_once(config, server, tmp_path):
                  options=ImportOptions(write=True))
     attached = [a for a in server.attachments if a["model_type"] == "part"]
     assert [a["filename"] for a in attached] == ["label.jpg"]
+
+
+def test_stock_images_attach_to_each_stock_item_not_the_part(
+        config, server, tmp_path):
+    """
+    Two batches of one part: one part picture, but each stock item carries
+    the photo of its own packet, and a re-run does not attach them twice.
+    """
+    _photos(tmp_path, "pouch.jpg", "batch-a.jpg", "batch-b.jpg")
+    path = tmp_path / "stock.json"
+    path.write_text(json.dumps({
+        "source": {"reference": "notes.jpg"},
+        "lines": [{"id": "1", "quantity": 2, **RESISTOR, "image": "pouch.jpg",
+                   "stock_images": ["batch-a.jpg"]},
+                  {"id": "2", "quantity": 1, **RESISTOR, "image": "pouch.jpg",
+                   "stock_images": ["batch-b.jpg"]}]}))
+    for _ in range(2):
+        import_stock(read_file(path), connect(), directory=config,
+                     options=ImportOptions(write=True))
+
+    first, second = server.stock_items[0]["pk"], server.stock_items[1]["pk"]
+    attached = [(a["model_id"], a["filename"]) for a in server.attachments
+                if a["model_type"] == "stockitem"]
+    assert attached == [(first, "batch-a.jpg"), (second, "batch-b.jpg")]
+    assert not [a for a in server.attachments if a["model_type"] == "part"]
+
+
+def test_attachments_are_kept_on_the_part(config, server, tmp_path):
+    """
+    Source snapshots go on the part, with their comment; a bare path gets
+    the file's name as its comment; a missing one is skipped, not fatal; and
+    a re-run attaches nothing twice.
+    """
+    (tmp_path / "snapshots").mkdir()
+    (tmp_path / "snapshots" / "nsn.html").write_text("<html>snapshot</html>")
+    (tmp_path / "label-scan.pdf").write_bytes(b"%PDF-1.4")
+    path = tmp_path / "stock.json"
+    path.write_text(json.dumps({
+        "source": {"reference": "notes.jpg"},
+        "lines": [{"id": "1", "quantity": 1, **RESISTOR, "attachments": [
+            {"file": "snapshots/nsn.html",
+             "comment": "Source: NSN listing (snapshot)"},
+            "label-scan.pdf",
+            "snapshots/gone.html"]}]}))
+    for _ in range(2):
+        result = import_stock(read_file(path), connect(), directory=config,
+                              options=ImportOptions(write=True))
+    assert result.lines[0].action == EXISTS
+    part = next(p for p in server.part_rows if p.get("IPN") == "RES-00001")
+    attached = sorted((a["filename"], a["comment"]) for a in server.attachments
+                      if a["model_type"] == "part")
+    assert attached == [("label-scan.pdf", "imported from stock.json"),
+                        ("nsn.html", "Source: NSN listing (snapshot)")]
+    assert {a["model_id"] for a in server.attachments} == {part["pk"]}
+
+
+def test_attachments_must_name_a_file():
+    from invimport.stockfile import StockFileError
+    with pytest.raises(StockFileError) as raised:
+        parse_document({"source": {"reference": "x"}, "lines": [
+            {"id": "1", "quantity": 1, **RESISTOR,
+             "attachments": [{"comment": "no file"},
+                             {"file": "a", "url": "b"}]}]})
+    assert str(raised.value).count("attachments:") == 2
 
 
 def test_a_missing_further_image_is_skipped(config, server, tmp_path):
