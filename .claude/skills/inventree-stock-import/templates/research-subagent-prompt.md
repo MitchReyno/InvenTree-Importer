@@ -122,6 +122,30 @@ pass: the packet rarely has a datasheet or a temperature range.
 
 - Use browser-harness for any page that needs a browser (JavaScript-built,
   bot-protected); a plain `curl` or fetch is fine for public pages.
+- **alldatasheet.com: inject the site scripts on every visit.** Before the
+  tab you use for alldatasheet loads any alldatasheet page, register the
+  scripts in `browser-scripts/alldatasheet/` on that tab with
+  `Page.addScriptToEvaluateOnNewDocument`, using the injector (it wraps each
+  script to run once the DOM exists, which a new-document script otherwise
+  does not):
+
+  ```bash
+  browser-harness <<'PY'
+  import runpy
+  new_tab("about:blank")   # or switch_tab() to the tab you will use
+  runpy.run_path(
+      "/Users/mitch/Repositories/InvenTree-Importer/.claude/skills/"
+      "inventree-stock-import/browser-scripts/inject.py",
+      init_globals={**globals(), "SITE": "alldatasheet"})
+  goto_url("https://www.alldatasheet.com/...")
+  PY
+  ```
+
+  `01-hide-adblock-wall.js` hides the ad-block overlay and restores
+  scrolling; `02-download-form.js` replaces the download page's form with a
+  plain DOWNLOAD button. Register once per tab — a new tab needs it again,
+  and registering twice on one tab runs the scripts twice. Do not edit the
+  scripts; if one stops working, report it.
 - Keep downloads you only needed to read (whole data books, page dumps,
   scratch HTML) in the scratch directory, never in the repo or `/tmp`. Only
   snapshots and datasheet PDFs that will be attached go under `.local_imports/`.

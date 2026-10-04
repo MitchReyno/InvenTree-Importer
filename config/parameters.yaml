@@ -907,6 +907,86 @@ Reference Type:
   choices:
     - Internal
     - External
-    - "External, Internal"
+    # InvenTree stores choices comma-joined, so DigiKey's "External, Internal"
+    # would split into two duplicate choices - keep the comma out.
+    - External & Internal
   aliases:
     - Reference Type
+  values:
+    External & Internal:
+      - "External, Internal"
+
+Circuit Type:
+  description: How the resistors in a network are connected (Bussed, Isolated, Dual Terminator, R2R Ladder)
+  aliases:
+    - Circuit Type
+
+Resistance (R2):
+  # A dual-terminator network has two values: R1 (Resistance) to one bus and
+  # R2 to the other - 220/330 is Resistance 220 and Resistance (R2) 330.
+  units: ohm
+  description: Second resistor value of a dual-terminator network (R2, to the second bus)
+  parse: quantity
+  prefixes: [M, k, R]
+
+Power Per Element:
+  units: W
+  description: Rated power of each resistor in a network
+  aliases:
+    - Power Per Element
+  parse: quantity_first
+
+Number of Turns:
+  description: Adjustment turns end to end (multiturn trimmers)
+  aliases:
+    - Number of Turns
+  parse: quantity
+
+Voltage - Off State:
+  units: V
+  description: Repetitive peak off-state voltage (VDRM)
+  aliases:
+    - Voltage - Off State
+  parse: quantity
+
+Current - On State (It (RMS)) (Max):
+  units: A
+  description: Maximum RMS on-state current
+  aliases:
+    - Current - On State (It (RMS)) (Max)
+  parse: quantity
+
+"Current - Non Rep. Surge 50, 60Hz (Itsm)":
+  units: A
+  description: Non-repetitive peak surge on-state current
+  aliases:
+    - "Current - Non Rep. Surge 50, 60Hz (Itsm)"
+  parse: quantity
+
+Current - Gate Trigger (Igt) (Max):
+  units: A
+  description: Maximum gate current needed to trigger
+  aliases:
+    - Current - Gate Trigger (Igt) (Max)
+  parse: quantity
+
+Voltage - Gate Trigger (Vgt) (Max):
+  units: V
+  description: Maximum gate voltage needed to trigger
+  aliases:
+    - Voltage - Gate Trigger (Vgt) (Max)
+  parse: quantity
+
+Current - Hold (Ih) (Max):
+  units: A
+  description: Maximum holding current
+  aliases:
+    - Current - Hold (Ih) (Max)
+  parse: quantity
+
+Voltage - On State (Vtm) (Max):
+  units: V
+  description: Maximum on-state voltage drop
+  aliases:
+    - Voltage - On State (Vtm) (Max)
+  parse: quantity

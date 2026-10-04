@@ -249,6 +249,26 @@ def test_part_of_files_a_lot_against_another_lines_part(config, server):
     assert {m["part"] for m in server.manufacturer_parts} == parts
 
 
+def test_part_of_finds_the_part_of_a_line_imported_on_an_earlier_run(
+        config, server):
+    """
+    A lot added to the file after its sibling was imported still joins that
+    part - even when neither names a manufacturer, so nothing but the
+    sibling's stock item can say which part it is.
+    """
+    run(config, GATE)
+    document = parse_document({
+        "source": {"reference": "notes.jpg"},
+        "lines": [{"id": "1", "quantity": 1, **GATE},
+                  {"id": "2", "quantity": 1, **GATE, "part_of": "1"}]})
+
+    second = import_stock(document, connect(), directory=config,
+                          options=ImportOptions(write=True))
+
+    assert [a.action for a in second.lines] == [EXISTS, CREATED]
+    assert len({item["part"] for item in server.stock_items}) == 1
+
+
 def test_part_of_must_name_an_earlier_line():
     from invimport.stockfile import StockFileError
     with pytest.raises(StockFileError) as raised:

@@ -271,6 +271,10 @@ def _import_line(api, document: StockFile, line: StockLine,
         # reported as resolving normally, with the link shown.
         ref = (by_id or {}).get(line.part_of)
         ref_part = getattr(ref, "part", None)
+        # A line imported on an earlier run stops at its barcode without
+        # resolving a part; its stock item still says which part it joined.
+        if ref is not None and ref_part is None and ref.action == EXISTS:
+            ref_part = ref.part = _part_of_stock(api, ref.stock_item)
         if ref is None or ref_part is None:
             action.action = REVIEW
             action.reason = (f"part_of {line.part_of}: that line did not "

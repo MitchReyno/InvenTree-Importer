@@ -163,9 +163,8 @@ Inductors:
   key_parameters:
     - Mounting
     - Inductance
-    - Tolerance
     - Package
-  name: "Inductor {Inductance} {Tolerance}% {Mounting} {Package}"
+  name: "Inductor {Inductance} {Mounting} {Package}"
   parameters:
     - Mounting
     - Inductance
@@ -422,6 +421,8 @@ Potentiometers:
   Trimpots:
     parameters:
       - Temperature Coefficient
+      - Composition
+      - Number of Turns
     ipn_prefix: TRIM
     aliases:
       - Potentiometers, Variable Resistors / Trimmer Potentiometers
@@ -466,6 +467,18 @@ Resistors:
     name: "SMD Resistor {Resistance} {Tolerance}% {Power Rating}W {Composition} {Package}"
     aliases:
       - Resistors / Chip Resistor - Surface Mount
+  "Resistor Networks, Arrays":
+    # A network is bought by its part number, not by a value: one package
+    # holds many resistors, often of two values (dual terminators).
+    identity: mpn
+    parameters:
+      - Circuit Type
+      - Resistance (R2)
+      - Number of Elements
+      - Number of Terminations
+      - Power Per Element
+    aliases:
+      - "Resistors / Resistor Networks, Arrays"
 
 Switches:
   ipn_prefix: SW
@@ -485,6 +498,28 @@ Switches:
   Throw Switches:
     aliases:
       - Switches / Toggle Switches
+
+Thyristors:
+  ipn_prefix: SEM
+  # A JEDEC number identifies these regardless of who made them: a
+  # 2N1596 is a 2N1596. The maker is a property of the stock.
+  identity: type
+  parameters:
+    - Mounting
+    - Operating Temp Max
+    - Operating Temp Min
+    - Package
+  SCRs:
+    parameters:
+      - Voltage - Off State
+      - Current - On State (It (RMS)) (Max)
+      - "Current - Non Rep. Surge 50, 60Hz (Itsm)"
+      - Current - Gate Trigger (Igt) (Max)
+      - Voltage - Gate Trigger (Vgt) (Max)
+      - Current - Hold (Ih) (Max)
+      - Voltage - On State (Vtm) (Max)
+    aliases:
+      - Discrete Semiconductor Products / Thyristors / SCRs
 
 Transistors:
   ipn_prefix: SEM
