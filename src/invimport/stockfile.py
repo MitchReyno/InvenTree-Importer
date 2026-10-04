@@ -44,7 +44,7 @@ LINE_KEYS = {
     "category", "suggest_category", "description", "type", "mpn", "ipn",
     "manufacturer", "parameters",
     "supplier", "sku", "unit_price", "currency", "order",
-    "location", "notes", "tags", "batch",
+    "location", "notes", "tags", "batch", "packaging",
     "link", "datasheet", "datasheet_pages", "image", "images",
     "confidence", "needs_review",
 }
@@ -60,11 +60,28 @@ SUGGEST_KEYS = {"identity", "ipn_prefix", "description", "because"}
 # Defaults may set anything a line may set, except what identifies the line or
 # the part it names. A file-wide "mpn" would be nonsense.
 DEFAULTABLE = {"supplier", "currency", "location", "order", "condition",
-               "category", "notes", "tags", "batch"}
+               "category", "notes", "tags", "batch", "packaging"}
 
 CONDITIONS = ("ok", "unopened", "attention", "damaged", "quarantined")
 
 SUPPORTED_VERSIONS = (1,)
+
+# InvenTree's StockItem.packaging is a 50 character column. Longer is refused
+# here, naming the line, rather than by the server mid-import.
+PACKAGING_MAX = 50
+
+# New old stock is only as good as its packaging: a sealed tube is a claim
+# about the parts inside that an opened bag cannot make. So an NOS line must
+# say what it is held in and whether that is still sealed - 'Tube, sealed'.
+NOS_TAGS = {"nos", "new old stock"}
+SEAL_STATES = ("sealed", "unsealed", "resealed", "opened", "open",
+               "partially opened", "damaged")
+
+# A NATO Stock Number rides along as a tag, 'nsn:5961-00-123-4567', so stock
+# can be found by the number printed on its surplus label. Thirteen digits,
+# written 4-2-3-4 however the label spaced them.
+NSN_PREFIX = "nsn:"
+NSN_DIGITS = 13
 
 
 class StockFileError(RuntimeError):
@@ -131,6 +148,10 @@ class StockLine:
     # the part, where it would be claimed by every quantity you ever hold.
     tags: list[str] = field(default_factory=list)
     batch: str = ""
+    # What this quantity is held in - cut tape, reel, tube, tray, bag. Also a
+    # property of the stock: the same part may come on a reel one time and as
+    # a loose handful the next.
+    packaging: str = ""
 
     # Product page, datasheet, photos. Same facts DigiKey's payload carries;
     # a file may have any, all, or none of them.
@@ -329,7 +350,24 @@ def _as_tags(raw: dict[str, Any], line_id: str,
             line_id, "tags",
             "must be a list, or a comma-separated string"))
         return []
-    return _dedupe_tags(items)
+    return _dedupe_tags([_as_nsn_tag(tag, line_id, problems) for tag in items])
+
+
+def _as_nsn_tag(tag: str, line_id: str, problems: list[Problem]) -> str:
+    """'NSN: 5961 00 123 4567' -> 'nsn:5961-00-123-4567'; other tags as-is."""
+    if not tag.casefold().startswith(NSN_PREFIX):
+        return tag
+    digits = "".join(ch for ch in tag[len(NSN_PREFIX):] if ch.isdigit())
+    rest = "".join(ch for ch in tag[len(NSN_PREFIX):]
+                   if not ch.isdigit() and ch not in " -")
+    if len(digits) != NSN_DIGITS or rest:
+        problems.append(Problem(
+            line_id, "tags",
+            f"{tag!r} is not an NSN - it should be {NSN_DIGITS} digits, "
+            f"e.g. 'nsn:5961-00-123-4567'"))
+        return tag
+    return (f"{NSN_PREFIX}{digits[:4]}-{digits[4:6]}-{digits[6:9]}-"
+            f"{digits[9:]}")
 
 
 def _dedupe_tags(items: list[str]) -> list[str]:
@@ -358,6 +396,37 @@ def _as_iso_date(value: Any, field_name: str, line_id: str,
             f"{text!r} is not a date - write it as YYYY-MM-DD"))
         return ""
     return text
+
+
+def _seal_state(packaging: str) -> str:
+    words = packaging.casefold().replace(",", " ").replace("(", " ") \
+        .replace(")", " ").replace("-", " ").split()
+    return next((state for state in SEAL_STATES
+                 if all(word in words for word in state.split())), "")
+
+
+def _check_nos_packaging(line: StockLine, problems: list[Problem]) -> None:
+    """New old stock must say what it is held in, and whether that is sealed."""
+    if not any(tag.casefold() in NOS_TAGS for tag in line.tags):
+        return
+    states = ", ".join(SEAL_STATES[:5])
+    if not line.packaging:
+        problems.append(Problem(
+            line.id, "packaging",
+            f"is required for new old stock: the kind of packaging and "
+            f"whether it is still sealed, e.g. 'Tube, sealed' ({states})"))
+        return
+    state = _seal_state(line.packaging)
+    if not state:
+        problems.append(Problem(
+            line.id, "packaging",
+            f"{line.packaging!r} does not say whether it is sealed - new old "
+            f"stock needs one of: {states}, e.g. 'Tube, sealed'"))
+    elif not line.packaging.casefold().replace(state, "").strip(" ,()-"):
+        problems.append(Problem(
+            line.id, "packaging",
+            f"{line.packaging!r} says it is {state} but not what it is - "
+            f"name the packaging too, e.g. 'Tube, {state}'"))
 
 
 def _line_from(raw: dict[str, Any], index: int,
@@ -396,8 +465,12 @@ def _line_from(raw: dict[str, Any], index: int,
 
     for name in ("category", "description", "type", "mpn", "ipn",
                  "manufacturer", "supplier", "sku", "currency", "location",
-                 "notes", "batch"):
+                 "notes", "batch", "packaging"):
         setattr(line, name, str(raw.get(name) or "").strip())
+    if len(line.packaging) > PACKAGING_MAX:
+        problems.append(Problem(line_id, "packaging",
+                                f"is {len(line.packaging)} characters; "
+                                f"InvenTree keeps at most {PACKAGING_MAX}"))
 
     line.link = _as_url(raw.get("link"), "link", line_id, problems)
     line.datasheet = _as_datasheet(raw.get("datasheet"), line_id, problems)
@@ -406,6 +479,7 @@ def _line_from(raw: dict[str, Any], index: int,
     line.images = _as_images(raw, line_id, problems)
     line.image = line.images[0] if line.images else ""
     line.tags = _as_tags(raw, line_id, problems)
+    _check_nos_packaging(line, problems)
 
     line.approximate = _as_bool(raw.get("approximate"))
     line.needs_review = _as_bool(raw.get("needs_review"))

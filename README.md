@@ -531,7 +531,7 @@ uv run invimport import-stock stock.json --write
 | `--on-partial MODE`  | `ask` (default), `new` or `skip` for a partial spec        |
 | `--min-confidence N` | Hold any line the file rates below this, 0-1               |
 | `--no-orders`        | Import the stock without creating purchase orders          |
-| `--mirror-datasheets`| Download each datasheet URL and attach a copy to the part  |
+| `--mirror-datasheets`| Download each datasheet URL and attach a copy to the part; also on when `INVIMPORT_MIRROR_DATASHEETS` is set (e.g. in `.env`) |
 | `--yes`              | Do not prompt; report anything ambiguous instead           |
 
 #### The file
@@ -557,7 +557,7 @@ eighth has no supplier at all.
     {"id": "l02", "quantity": 300, "category": "Diodes/Signal Diodes",
      "type": "1N4007", "condition": "unopened", "approximate": true,
      "supplier": "salash (eBay)", "sku": "1N4007", "tags": ["NOS", "new old stock"],
-     "notes": "original packaging"}
+     "packaging": "Ammo pack, sealed", "notes": "original packaging"}
   ]
 }
 ```
@@ -720,7 +720,7 @@ validates it against the instance's `PURCHASEORDER_REFERENCE_PATTERN`, so the
 importer asks for the next one in the sequence and stores your number as
 `supplier_reference`.
 
-#### Tags and the batch code
+#### Tags, the batch code and packaging
 
 `tags` is a list of free-text labels, and `batch` is the lot the quantity came
 out of. Both are written to the **stock item**, not the part, and that is the
@@ -735,16 +735,36 @@ So **new old stock is tags plus a batch code**, not a part flag:
 {"id": "ic-03", "quantity": 5, "category": "Integrated Circuits/Memory",
  "mpn": "X2864AP", "condition": "unopened",
  "tags": ["NOS", "new old stock"], "batch": "8231",
- "notes": "sealed tube, bought as surplus"}
+ "packaging": "Tube, sealed", "notes": "bought as surplus"}
 ```
 
 The date code in `batch` is the evidence — `8231` says week 31 of 1982 far
 more usefully than any boolean, and it is what you will want if a chip later
 turns out to be counterfeit or remarked.
 
-Both may be set in `defaults` for the whole file, which is the normal case for
+`packaging` is what the quantity is held in — `Cut Tape`, `Tape & Reel`,
+`Tube`, `Tray`, `Bag`, `Loose` — and is also written to the stock item, up to
+InvenTree's 50 characters. For new old stock it is **required** and must give
+both the kind of packaging and its seal state: `Tube, sealed`,
+`Anti-static bag, opened`, `Tray, resealed`. The recognised states are
+`sealed`, `unsealed`, `resealed`, `opened`/`open`, `partially opened` and
+`damaged`. A sealed factory tube is evidence about the parts inside that an
+opened bag cannot offer, so validation refuses an NOS line that leaves either
+half out.
+
+A NATO Stock Number is recorded as a tag, `nsn:5961-00-123-4567`, when the
+label or invoice shows one. Any spacing is accepted (`NSN: 5961 00 123 4567`,
+`nsn:5961001234567`) and normalised to the hyphenated form so one number is
+always one searchable tag; anything that is not 13 digits is refused.
+
+Packaging belongs in `packaging`, not in `tags`: a file should not carry a
+`sealed tube`, `tube` or `sealed` tag beside `"packaging": "Tube, sealed"`.
+The importer writes tags exactly as given, so keeping them apart is up to
+whoever writes the file.
+
+All three may be set in `defaults` for the whole file, which is the normal case for
 a single delivery. `tags` **merge** rather than replace, so a file-wide `NOS`
-and a per-line `sealed tube` both survive; duplicates are dropped
+and a per-line `surplus` both survive; duplicates are dropped
 case-insensitively, so repeating a file-wide tag on a line is harmless. In CSV,
 where there is no way to write a list, `tags` is a comma-separated cell.
 

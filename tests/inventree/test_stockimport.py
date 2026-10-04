@@ -746,7 +746,7 @@ def test_tags_and_batch_reach_the_stock_item(config, server):
     """
     _, result = run(config, {**RESISTOR,
                              "tags": ["NOS", "new old stock"],
-                             "batch": "8231",
+                             "batch": "8231", "packaging": "Tube, sealed",
                              "notes": "sealed tube from a surplus dealer"})
 
     assert result.lines[0].action == CREATED
@@ -763,6 +763,16 @@ def test_stock_without_tags_or_batch_sends_neither(config, server):
     item = server.stock_items[0]
     assert "tags" not in item
     assert "batch" not in item
+
+
+def test_packaging_reaches_the_stock_item(config, server):
+    run(config, {**RESISTOR, "packaging": "Cut Tape"})
+    assert server.stock_items[0]["packaging"] == "Cut Tape"
+
+
+def test_stock_without_packaging_does_not_send_it(config, server):
+    run(config, RESISTOR)
+    assert "packaging" not in server.stock_items[0]
 
 
 # --------------------------------------------------------------------------

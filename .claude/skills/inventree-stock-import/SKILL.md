@@ -79,7 +79,7 @@ uv run invimport import-stock .local_imports/IMG_4821.json --write
 This creates real inventory records.
 
 **7. Check what landed.** After a write, read back a stock item from each
-line and confirm its tags and batch. The API omits tags unless asked:
+line and confirm its tags, batch and packaging. The API omits tags unless asked:
 `GET /api/stock/<pk>/?tags=true`. An empty list on a line that should be NOS
 is a failure to report, not a detail.
 
@@ -124,6 +124,7 @@ lines back to them.
       "datasheet": "https://www.yageo.com/upload/media/product/products/datasheet/lr/YAGEO_RCHIP_MFR_datasheets.pdf",
       "image": "https://mm.digikey.com/Volume0/opasdata/d220001/medias/images/1094/MFG_MFR-25.jpg",
       "unit_price": 0.0996,
+      "packaging": "Cut Tape",
       "confidence": 0.95
     }
   ]
@@ -136,6 +137,13 @@ and CSV are accepted too; CSV uses dotted columns (`param.Resistance`,
 
 `defaults` are merged into every line and a line always wins, so put the
 supplier, currency and order there once rather than repeating them.
+
+**Always fill `packaging`** — what this quantity is held in, written to the
+stock item (50 characters max). Read it off the photo or invoice: `Cut Tape`,
+`Tape & Reel`, `Tube`, `Tray`, `Anti-static bag`, `Bag`, `Box`, `Loose`. An
+invoice's pack type (`CT`, `TR`, `Bulk`) counts. For new old stock it must also
+say whether it is sealed — see the NOS rule below. Omit it only when nothing
+shows it, and say so in your summary. The dry run does not print it.
 
 `link` is a product or listing page (stored on the SupplierPart, and on the
 Part if there is no datasheet). `datasheet` is a PDF URL (stored on the Part
@@ -395,7 +403,8 @@ NOS is tags plus a batch code, never a part flag. It goes on the stock item:
 
 ```json
 "tags": ["NOS", "new old stock"], "batch": "8231",
-"condition": "unopened", "notes": "sealed tube, surplus dealer"
+"packaging": "Tube, sealed", "condition": "unopened",
+"notes": "surplus dealer"
 ```
 
 Use **both** spellings, `NOS` and `new old stock`, so either search finds it.
@@ -404,8 +413,35 @@ week 31 of 1982 — and say in `notes` where it came from. Never record this as 
 part parameter: the same component may arrive as current production next time,
 and a part attribute would then be wrong for every quantity you hold.
 
+**NOS needs `packaging` stating both the kind and the seal state** — `Tube,
+sealed`, `Anti-static bag, opened`, `Tray, resealed`, `Reel, unsealed`.
+Validation refuses an NOS line without both. Read the state off the photo: an
+intact factory seal, label or heat-seal is `sealed`; a cut or torn one is
+`opened`; tape over a cut is `resealed`. If you cannot see it, ask the user
+rather than guessing `sealed` — it is the strongest claim the line makes.
+
+**An NSN goes in as a tag, `nsn:<NSN>`** — `nsn:5961-00-123-4567` — but only
+when it is already in front of you: printed on the label or packet, on the
+invoice, or given by the user. Do not search for one, look one up from the part
+number, or ask the user for it; a line with no visible NSN simply has no NSN
+tag. The importer normalises the spacing and refuses anything that is not 13
+digits, so copy the digits exactly as shown.
+
+**Do not repeat packaging in `tags`.** No `sealed tube`, `tube`, `reel`,
+`sealed` or `opened` tag when `packaging` already says it — the importer writes
+tags exactly as given, so a duplicate lands in InvenTree and drifts out of step
+with the packaging field. Tags are for what the packaging field cannot say:
+`NOS`, `surplus`, `used`, `pulled`, `nsn:…`.
+
+```json
+"packaging": "Tube, sealed",
+"tags": ["NOS", "new old stock", "nsn:5961-00-123-4567"]
+```
+
+not `"tags": ["NOS", "new old stock", "sealed tube"]`.
+
 Set them in `defaults` when a whole delivery is NOS. File-wide `tags` merge with
-a line's own rather than replacing them, so per-line labels like `sealed tube`
+a line's own rather than replacing them, so per-line labels like `surplus`
 can be added freely.
 
 The dry run does not print tags, so say in your summary which lines carry

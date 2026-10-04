@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -54,6 +55,10 @@ from ..inventree.stockimport import (
 )
 from ..validate import category_candidates, validate
 from . import _prompt
+
+# Set this (in the environment or .env) to mirror datasheets on every run
+# without passing --mirror-datasheets each time. 0 or false leaves it off.
+MIRROR_ENV_VAR = "INVIMPORT_MIRROR_DATASHEETS"
 
 NAME = "import-stock"
 HELP = "import stock from a JSON/YAML/CSV file"
@@ -90,7 +95,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--mirror-datasheets", action="store_true",
                         help="download each datasheet URL and attach a copy "
                              "to the part, as well as linking it (local "
-                             "datasheet files are always attached)")
+                             "datasheet files are always attached); also "
+                             f"on when {MIRROR_ENV_VAR} is set")
     parser.add_argument("--yes", action="store_true",
                         help="do not prompt; report anything ambiguous "
                              "instead")
@@ -195,12 +201,22 @@ def schema() -> dict[str, Any]:
                 "description": "Labels for the stock item, not the part. New "
                                "old stock is [\"NOS\", \"new old stock\"]; "
                                "use both spellings so either search finds it. "
+                               "An NSN shown on the label or invoice is "
+                               "'nsn:5961-00-123-4567'; do not look one up. "
                                "A comma-separated string in CSV.",
             },
             "batch": {"type": "string",
                       "description": "Lot or date code for this quantity, "
                                      "e.g. 8231 for week 31 of 1982. Stored "
                                      "on the stock item."},
+            "packaging": {"type": "string", "maxLength": 50,
+                          "description": "What this quantity is held in, "
+                                         "e.g. 'Cut Tape', 'Tape & Reel', "
+                                         "'Tube', 'Tray', 'Bag', 'Loose'. "
+                                         "Stored on the stock item. Required "
+                                         "for new old stock, with its seal "
+                                         "state: 'Tube, sealed', 'Bag, "
+                                         "opened', 'Tray, resealed'."},
             "link": {"type": "string", "format": "uri",
                      "description": "Product or listing page. Stored on the "
                                     "Part (if there is no datasheet) and on "
@@ -478,6 +494,14 @@ def report_actions(document, result, resolved=None) -> None:
             print(f"        -> {shown}")
 
 
+def mirror_datasheets(args: argparse.Namespace) -> bool:
+    """Is mirroring on, by the flag or by INVIMPORT_MIRROR_DATASHEETS?"""
+    if args.mirror_datasheets:
+        return True
+    return os.environ.get(MIRROR_ENV_VAR, "").strip().lower() not in (
+        "", "0", "false")
+
+
 def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
     interactive = _prompt.interactive() and not args.yes
     options = ImportOptions(
@@ -486,7 +510,7 @@ def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
         on_partial=args.on_partial,
         min_confidence=args.min_confidence,
         create_orders=not args.no_orders,
-        mirror_datasheets=args.mirror_datasheets,
+        mirror_datasheets=mirror_datasheets(args),
         choose_category=ask_category if interactive else None,
         choose_part=ask_part if interactive else None,
         choose_name_match=ask_name_match if interactive else None,

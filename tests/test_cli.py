@@ -1261,3 +1261,34 @@ def test_import_stock_rejects_an_unknown_category_before_connecting(
     assert "Resistors/Through Hole Resistors" in out
     assert inventree.stock_items == []
 
+
+
+@pytest.mark.parametrize("value,expected", [
+    (None, False),
+    ("", False),
+    ("0", False),
+    ("false", False),
+    ("FALSE", False),
+    ("1", True),
+    ("true", True),
+    ("yes", True),
+])
+def test_mirroring_can_be_switched_on_from_the_environment(
+        monkeypatch, value, expected):
+    """
+    INVIMPORT_MIRROR_DATASHEETS does what --mirror-datasheets does, so it can
+    live in .env instead of being typed on every run.
+    """
+    import argparse
+
+    from invimport.commands.import_stock import (MIRROR_ENV_VAR,
+                                                 mirror_datasheets)
+
+    if value is None:
+        monkeypatch.delenv(MIRROR_ENV_VAR, raising=False)
+    else:
+        monkeypatch.setenv(MIRROR_ENV_VAR, value)
+    assert mirror_datasheets(
+        argparse.Namespace(mirror_datasheets=False)) is expected
+    # The flag is on whatever the environment says.
+    assert mirror_datasheets(argparse.Namespace(mirror_datasheets=True))

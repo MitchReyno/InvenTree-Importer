@@ -322,15 +322,15 @@ def test_csv_images_are_a_comma_separated_cell():
 def test_tags_are_read_as_a_list():
     document = parse_document(doc(lines=[{
         "id": "a", "quantity": 1, "category": "X",
-        "tags": ["NOS", "new old stock"],
+        "tags": ["NOS", "new old stock"], "packaging": "Tube, sealed",
     }]))
     assert document.lines[0].tags == ["NOS", "new old stock"]
 
 
 def test_csv_tags_are_a_comma_separated_cell():
     """A spreadsheet has no way to write a list, so a cell has to be one."""
-    text = ("id,quantity,category,tags\n"
-            "a,1,X,\"NOS, new old stock\"\n")
+    text = ("id,quantity,category,tags,packaging\n"
+            "a,1,X,\"NOS, new old stock\",\"Tube, sealed\"\n")
     document = parse_document(parse_text(text, ".csv"))
     assert document.lines[0].tags == ["NOS", "new old stock"]
 
@@ -339,7 +339,7 @@ def test_tags_are_deduplicated_case_insensitively():
     """`NOS` and `nos` are one tag, and the spelling written first wins."""
     document = parse_document(doc(lines=[{
         "id": "a", "quantity": 1, "category": "X",
-        "tags": ["NOS", "nos", "  ", "NOS"],
+        "tags": ["NOS", "nos", "  ", "NOS"], "packaging": "Tube, sealed",
     }]))
     assert document.lines[0].tags == ["NOS"]
 
@@ -350,17 +350,18 @@ def test_file_wide_tags_merge_with_a_line_of_its_own():
     which is the one that describes every line in the delivery.
     """
     document = parse_document(doc(
-        defaults={"tags": ["NOS", "new old stock"]},
+        defaults={"tags": ["NOS", "new old stock"],
+                  "packaging": "Tube, sealed"},
         lines=[{"id": "a", "quantity": 1, "category": "X",
-                "tags": ["sealed tube"]},
+                "tags": ["surplus"]},
                {"id": "b", "quantity": 1, "category": "X"}]))
-    assert document.lines[0].tags == ["NOS", "new old stock", "sealed tube"]
+    assert document.lines[0].tags == ["NOS", "new old stock", "surplus"]
     assert document.lines[1].tags == ["NOS", "new old stock"]
 
 
 def test_a_line_repeating_a_file_wide_tag_does_not_get_it_twice():
     document = parse_document(doc(
-        defaults={"tags": ["NOS"]},
+        defaults={"tags": ["NOS"], "packaging": "Tube, sealed"},
         lines=[{"id": "a", "quantity": 1, "category": "X", "tags": ["nos"]}]))
     assert document.lines[0].tags == ["NOS"]
 
@@ -380,6 +381,59 @@ def test_a_file_wide_batch_applies_to_every_line():
                {"id": "b", "quantity": 1, "category": "X", "batch": "8244"}]))
     assert document.lines[0].batch == "8231"
     assert document.lines[1].batch == "8244"      # a line still wins
+
+
+def test_packaging_is_kept_and_may_be_file_wide():
+    document = parse_document(doc(
+        defaults={"packaging": "Cut Tape"},
+        lines=[{"id": "a", "quantity": 1, "category": "X"},
+               {"id": "b", "quantity": 1, "category": "X", "packaging": "Tube"}]))
+    assert document.lines[0].packaging == "Cut Tape"
+    assert document.lines[1].packaging == "Tube"
+
+
+@pytest.mark.parametrize("packaging", [
+    "Tube, sealed", "Anti-static bag (opened)", "Tray - unsealed",
+    "Reel, resealed", "Bag, partially opened"])
+def test_new_old_stock_packaging_with_a_kind_and_seal_state_is_accepted(
+        packaging):
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X", "tags": ["NOS"],
+        "packaging": packaging,
+    }]))
+    assert document.lines[0].packaging == packaging
+
+
+@pytest.mark.parametrize("packaging, complaint", [
+    ("", "required for new old stock"),
+    ("Tube", "does not say whether it is sealed"),
+    ("sealed", "not what it is"),
+])
+def test_new_old_stock_must_say_what_it_is_in_and_whether_it_is_sealed(
+        packaging, complaint):
+    """
+    'Sealed tube' is a claim about the parts inside that 'opened bag' cannot
+    make, so an NOS line has to say both.
+    """
+    with pytest.raises(StockFileError, match=complaint):
+        parse_document(doc(lines=[{
+            "id": "a", "quantity": 1, "category": "X",
+            "tags": ["NOS", "new old stock"], "packaging": packaging,
+        }]))
+
+
+def test_stock_that_is_not_nos_needs_no_seal_state():
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X", "packaging": "Cut Tape",
+    }]))
+    assert document.lines[0].packaging == "Cut Tape"
+
+
+def test_packaging_longer_than_inventree_keeps_is_refused():
+    with pytest.raises(StockFileError, match="packaging"):
+        parse_document(doc(lines=[{
+            "id": "a", "quantity": 1, "category": "X", "packaging": "x" * 51,
+        }]))
 
 
 def test_tags_that_are_neither_a_list_nor_a_string_are_refused():

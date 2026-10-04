@@ -248,6 +248,9 @@ Integrated Circuits:
     parameters:
       - Number of Circuits
       - Switch Circuit
+      - Multiplexer/Demultiplexer Circuit
+      - On-State Resistance (Max)
+      - Access Time
     aliases:
       - Integrated Circuits (ICs) / Interface / Analog Switches, Multiplexers, Demultiplexers
   Comparators:
@@ -324,6 +327,9 @@ Integrated Circuits:
     identity: mpn
     ipn_prefix: IC
     description: Digital magnitude and equality comparators
+    parameters:
+      - Number of Bits per Element
+      - Output Type
   Interface:
     identity: mpn
     ipn_prefix: IC

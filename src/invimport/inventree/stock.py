@@ -899,6 +899,7 @@ def add_stock(
     condition: str = "ok",
     notes: str = "",
     batch: str = "",
+    packaging: str = "",
     tags: list[str] | None = None,
     key: str = "",
 ) -> Any:
@@ -926,6 +927,8 @@ def add_stock(
         payload["notes"] = notes
     if batch:
         payload["batch"] = batch
+    if packaging:
+        payload["packaging"] = packaging
 
     item = StockItem.create(api, payload)
     if key:
