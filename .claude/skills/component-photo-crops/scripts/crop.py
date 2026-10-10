@@ -10,10 +10,12 @@ the whole image (0 0 W H) when there is nothing to keep out.
 Inside the ROI the object is found by texture (local gradient), by contrast
 with the background and by colour saturation, so a pale bag on a pale table is
 found by its creases and print rather than by brightness alone. A margin is
-added, then the box grows to a square about its centre - but only if that
-square stays inside the ROI. If it would not, the short side grows as far as
-the ROI allows, towards square. The crop never leaves the ROI and is never
-padded or stretched.
+added, then the short side grows towards a square about the object's centre.
+The box is never slid sideways to fit the ROI: margin and growth are equal on
+opposite sides, so the object stays centred, and where the ROI is tight on one
+side the crop stays short of square instead. To get a square there, widen the
+ROI on the tight side. The crop never leaves the ROI and is never padded or
+stretched.
 
 Options:
   --margin F   margin around the found object, as a fraction of its longer
@@ -82,39 +84,25 @@ def main() -> int:
         bx0, by0, bx1, by1 = (found[0] + x0, found[1] + y0,
                               found[2] + x0, found[3] + y0)
         m = int(max(bx1 - bx0, by1 - by0) * a.margin)
-        bx0, by0, bx1, by1 = bx0 - m, by0 - m, bx1 + m, by1 + m
-        # the margin never leaves the ROI
-        bx0, by0 = max(bx0, x0), max(by0, y0)
-        bx1, by1 = min(bx1, x1), min(by1, y1)
+        # the margin never leaves the ROI, and stays equal on opposite sides
+        # so the object stays centred
+        mx = min(m, bx0 - x0, x1 - bx1)
+        my = min(m, by0 - y0, y1 - by1)
+        bx0, by0, bx1, by1 = bx0 - mx, by0 - my, bx1 + mx, by1 + my
 
     if not a.nosquare:
+        # grow the short side about the centre, never sliding the box off it:
+        # each side takes only as much as the ROI allows on *both* sides
         w, h = bx1 - bx0, by1 - by0
-        s = max(w, h)
-        cx, cy = (bx0 + bx1) / 2, (by0 + by1) / 2
-        sx0 = int(min(max(cx - s / 2, x0), x1 - s))
-        sy0 = int(min(max(cy - s / 2, y0), y1 - s))
-        if s <= x1 - x0 and s <= y1 - y0:
-            bx0, by0, bx1, by1 = sx0, sy0, sx0 + s, sy0 + s
-        else:
-            # grow the short side as far as the ROI allows, towards square
-            if w < h:
-                need = h - w
-                bx0, bx1 = bx0 - need // 2, bx1 + need - need // 2
-                if bx0 < x0:
-                    bx1, bx0 = bx1 + (x0 - bx0), x0
-                if bx1 > x1:
-                    bx0, bx1 = bx0 - (bx1 - x1), x1
-                bx0 = max(bx0, x0)
-            else:
-                need = w - h
-                by0, by1 = by0 - need // 2, by1 + need - need // 2
-                if by0 < y0:
-                    by1, by0 = by1 + (y0 - by0), y0
-                if by1 > y1:
-                    by0, by1 = by0 - (by1 - y1), y1
-                by0 = max(by0, y0)
-            print("a square would leave the ROI; grew towards square",
-                  file=sys.stderr)
+        if w < h:
+            g = min((h - w) // 2, bx0 - x0, x1 - bx1)
+            bx0, bx1 = bx0 - g, bx1 + g
+        elif h < w:
+            g = min((w - h) // 2, by0 - y0, y1 - by1)
+            by0, by1 = by0 - g, by1 + g
+        if abs((bx1 - bx0) - (by1 - by0)) > 1:
+            print("a centred square would leave the ROI; grew towards square "
+                  "as far as it stays centred", file=sys.stderr)
 
     box = (int(bx0), int(by0), int(bx1), int(by1))
     crop = im.crop(box)

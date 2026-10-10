@@ -552,6 +552,47 @@ def test_a_repeat_mpn_without_a_manufacturer_is_held_not_merged(config, server):
     assert len(_gates(server)) == 1
 
 
+UNMARKED = {"category": "Integrated Circuits/Logic", "type": "9020"}
+
+
+def test_a_repeat_type_without_a_manufacturer_is_held_not_duplicated(
+        config, server):
+    """Under mpn identity a bare type has no manufacturer part to find."""
+    _, result = run(config, UNMARKED, UNMARKED)
+    assert [a.action for a in result.lines] == [CREATED, REVIEW]
+    assert "9020" in result.lines[1].reason
+    assert len([p for p in server.part_rows if p.get("name") == "9020"]) == 1
+
+
+def test_part_of_files_a_repeat_type_without_a_manufacturer(config, server):
+    _, result = run(config, {**UNMARKED, "sku": "5962-00-329-5937",
+                             "supplier": "eBay"},
+                    {**UNMARKED, "sku": "5962-00-329-5937", "supplier": "eBay",
+                     "part_of": "1"})
+    assert [a.action for a in result.lines] == [CREATED, CREATED]
+    assert result.lines[0].part == result.lines[1].part
+    assert len([p for p in server.part_rows if p.get("name") == "9020"]) == 1
+
+
+def test_a_type_with_a_manufacturer_is_found_again_under_mpn_identity(
+        config, server):
+    made = {**UNMARKED, "manufacturer": "Fairchild"}
+    _, result = run(config, made, made)
+    assert [a.action for a in result.lines] == [CREATED, CREATED]
+    assert result.lines[0].part == result.lines[1].part
+
+
+def test_a_sku_belonging_to_another_part_skips_the_line(config, server):
+    """InvenTree would refuse the stock with a 400; say why instead."""
+    run(config, {**GATE, "sku": "SHARED", "supplier": "eBay"})
+    _, result = run(config, {"category": "Integrated Circuits/Logic",
+                             "mpn": "OTHER1", "id": "y",
+                             "sku": "SHARED", "supplier": "eBay"})
+    assert result.lines[0].action == SKIPPED
+    assert "SHARED" in result.lines[0].reason
+    assert server.stock_items and len(server.stock_items) == 1
+
+
 def test_a_name_match_can_be_accepted(config, server):
     run(config, GATE)
     asked = []

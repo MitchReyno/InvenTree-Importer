@@ -108,6 +108,12 @@ uv run invimport import-stock .local_imports/IMG_4821.json
 Human-readable, with the parsed parameter values so they can check your reading.
 **Always let the user see this before anything is written.**
 
+When the import came from photos, send the **interpretation montage** with it
+(see [Show how the photos were read](#show-how-the-photos-were-read)). The dry
+run shows what you read; the montage shows which photo each reading came from,
+so the user can spot a misread lot, a wrong grouping or a double-counted bag at
+a glance.
+
 **6. Only then, write — and only if the user says to.**
 
 ```bash
@@ -349,6 +355,50 @@ InvenTree may report the *same* filename afterwards, which is equally what you
 would see if it had kept the old file: fetch the image back from the server and
 compare hashes before telling the user it worked.
 
+### Show how the photos were read
+
+Once the file validates and its image paths are in, build the interpretation
+montage and send it to the user (SendUserFile, or open it) together with the
+dry run. Do this every time an import came from photos, and again after any
+change to lines, grouping or crops.
+
+The montage is one sheet per stock location. Each proposed part gets a section
+with its part image, MPN/type, maker, category, stock-item count and total
+quantity. Under that, each line gets a row: what you read (id, quantity, batch,
+packaging, condition, confidence), then the source photo(s) it came from, then
+its stock images.
+
+1. **Write the sources map** beside the import file as
+   `.local_imports/<import id>.sources.json`. It maps each line id to the
+   photos you read that line from:
+
+   ```json
+   {"l01": ["photos/<import id>/source/41-914hmqb-bag.png"],
+    "l14": ["photos/<import id>/source/55-bag-and-chip.png",
+            "photos/<import id>/source/56-chip.png"]}
+   ```
+
+   Point it at the originals the image subagent saved under `source/`, not at
+   session paths, which disappear. The import file cannot hold this map
+   because its schema rejects unknown keys. Keep the map in step with the line
+   ids.
+2. **Run it** from the repo root, writing into your scratch directory:
+
+   ```bash
+   uv run -q --with pillow python .claude/skills/inventree-stock-import/scripts/interpretation_montage.py \
+       .local_imports/<import id>.json <scratch>/interp
+   ```
+
+   It prints the path of each sheet. `--sources` overrides the map path.
+3. **Look at every sheet yourself before sending it.** Read each row against
+   its source photo:
+   - the quantity matches the tag or label;
+   - each bag is counted once, and no photo is used for two lots;
+   - the part grouping is the one the user chose.
+
+   A red frame or "no source photo listed" means a missing file or map entry.
+   Fix it, don't send it.
+
 ## Rules that matter
 
 **Never invent.** Quantity, price, order number, and the MPN, manufacturer or
@@ -400,6 +450,19 @@ numbers.
 `type`, not `mpn`. A JEDEC number identifies a generic part regardless of who
 made it; an MPN belongs to one manufacturer. A `type` with a `manufacturer`
 still records that manufacturer: the designator becomes its MPN.
+
+**Several lines of one part: say so with `part_of`.** A later line joins an
+earlier line's part with `"part_of": "<earlier id>"`. It is required whenever
+nothing else would match the lines to one part:
+- lots with no maker printed (a generic `type` or MPN with no `manufacturer`),
+  since without a manufacturer there is no ManufacturerPart to find the part by;
+- a lot printed under an older or alternate number.
+
+Without it, the import holds every such line after the first for review, and
+the validator warns with the exact `part_of` to add. Lines that share an MPN
+*and* a manufacturer find each other on their own. `part_of` must name an
+earlier line in the same file. It survives re-runs: a line already imported
+still tells its followers which part it joined.
 
 **Every line with a supplier needs a `sku`.** The supplier is only stored
 through a SupplierPart, and there is no SupplierPart without a SKU - leave it
@@ -570,6 +633,7 @@ Report to the user:
 - **anything you guessed, inferred or could not read** — list these explicitly
 - which lines have no `datasheet` or `image`, and why (unidentified, or looked
   up and not found)
+- the interpretation montage sheets (sent, not just named), for photo imports
 - what the image subagent produced and flagged (non-square crops, soft
   images, partly legible labels)
 - any line the validator warned about, especially partial `spec` identities that

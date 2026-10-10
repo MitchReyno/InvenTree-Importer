@@ -898,23 +898,28 @@ def resolve_part(
     # guess; an MPN or a type designator names the part directly; a spec is
     # matched on the parameters that identify it.
     step("part")
+    # Under mpn identity a type designator with no MPN is the number the part
+    # is known by - it becomes the ManufacturerPart's MPN below - so it is
+    # matched the same way. Otherwise a second line of the same type, with no
+    # manufacturer part to find, would quietly create a second part.
+    number = line.mpn or (line.type if category.identity == "mpn" else None)
     part = find_part_by_ipn(api, line.ipn)
-    if part is None and line.mpn:
-        part = find_part_by_mpn(api, line.mpn)
-    if part is None and line.mpn and policy.match_by_name:
-        offered = parts_named(api, server_cat.pk, line.mpn)
+    if part is None and number:
+        part = find_part_by_mpn(api, number)
+    if part is None and number and policy.match_by_name:
+        offered = parts_named(api, server_cat.pk, number)
         if offered:
             if policy.choose_name_match is None:
                 return PartResolution(
                     category=category, report_category=True,
                     needs_choice=True, candidates=offered,
-                    reason=(f"a part named {line.mpn!r} is already in "
+                    reason=(f"a part named {number!r} is already in "
                             f"{category.pathstring} but no manufacturer part "
                             f"confirms it is this one"))
             chosen = policy.choose_name_match(line, offered)
             if chosen is None:
                 return PartResolution(
-                    reason=f"skipped: {line.mpn!r} matched an existing part "
+                    reason=f"skipped: {number!r} matched an existing part "
                            f"by name",
                     category=category, report_category=True)
             if chosen != NEW_PART:

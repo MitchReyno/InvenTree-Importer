@@ -219,6 +219,9 @@ Integrated Circuits:
       - Slew Rate
       - Input Offset Voltage
       - Supply Current
+      - Input Bias Current
+      - Output Current
+      - Number of Circuits
     aliases:
       - Integrated Circuits (ICs) / Linear / Amplifiers / Instrumentation, Op Amps, Buffer Amps
   Power Management:
@@ -325,6 +328,7 @@ Integrated Circuits:
         - Number of Elements
         - Output Type
         - Trigger Type
+        - Propagation Delay (Max)
         - Connector Type
       aliases:
         - Integrated Circuits (ICs) / Logic / Flip Flops
@@ -336,6 +340,7 @@ Integrated Circuits:
         - Number of Circuits
         - Number of Inputs
         - Features
+        - Propagation Delay (Max)
       aliases:
         - Integrated Circuits (ICs) / Logic / Gates and Inverters
     "Buffers, Drivers, Receivers, Transceivers":

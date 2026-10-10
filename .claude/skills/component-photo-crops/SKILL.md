@@ -61,29 +61,66 @@ read them and report what they say.
 Fractions eyeballed off a full image are the most common way crops come out
 wrong, and the error is invisible until you look at the result.
 
-1. Make a small labelled preview (or the montage of the sources) and read off
-   approximate pixel positions — remember the preview's scale factor.
-2. Draw each ROI generously around one item, and tightly against whatever must
-   be excluded. Let `crop.py` find the item's edges inside it.
-3. For special layouts:
+Measure on a grid with the **`image-grid-overlay` skill** (load it with the
+Skill tool; its script is
+`.claude/skills/image-grid-overlay/scripts/grid.py`). Its labels are in source
+pixels at any zoom, so there is no scale factor to convert.
+
+1. Grid the whole photo to see the layout: where each item is, and where the
+   tags, hands and neighbours that must stay out are.
+2. Zoom on each item (`--region`) and read its bounds off the finer grid.
+3. Draw each ROI generously around one item, and tightly against whatever must
+   be excluded. Let `crop.py` find the item's edges inside it. For an
+   `--exact` crop, or to check a box before cropping, draw it over the grid
+   with `--box`, giving the item's bounds as `--object`. The script prints the
+   margins and flags a box that is off-centre or clips the item.
+4. For special layouts:
    - **A collage** — several photos tiled into one image — splits on its white
      gutters, not at the midpoint. Panels are usually unequal; find the
      near-white columns and rows across the whole image and cut there.
    - **Loose components on a plain background** — one ROI per component; if
      they touch, the ROI boundary is the cut.
    - **Detection grabs too much** (a gradient, a shadow, the whole frame) —
-     tighten the ROI, or give the box yourself with `--exact`.
+     tighten the ROI, or give the box yourself with `--exact`. `crop.py`'s
+     detector over-reaches on foil glare and shadows, and under-reaches on
+     smooth paper. Always check its `box=(…)` against the edges you read off
+     the zoomed grid (`grid.py --object … --box …`), and switch to `--exact`
+     with your own measured bounds when they disagree.
 
 ## Prefer a square (1:1) crop
 
 InvenTree shows part and stock images as square thumbnails, so a square crop
 displays whole and consistently. Find the item's bounds first, then grow the
-shorter side about the centre — taking the extra from plain background. Do not
+shorter side about the centre — taking the extra from plain background, equally
+on both sides (see [Centre the subject](#centre-the-subject)). Do not
 force it: if squaring would pull a neighbouring component, a hand, a label,
 tag or other unwanted content back into frame (a long axial part, a strip of
 several pouches, a hand-held bag), keep the tighter non-square crop. Cutting
 out what does not belong matters more than the aspect ratio. Never stretch, or
 pad with a fake background, to reach 1:1.
+
+## Centre the subject
+
+The subject sits in the middle of the frame: equal space left and right, and
+top and bottom. A square bought by sliding the box to one side, leaving the
+item hard against one edge with empty table on the other, is worse than a
+centred crop slightly short of square. `crop.py` grows the box symmetrically
+about the found object and never slides it. So when a crop comes out short of
+square, the ROI is tight on one side. Widen it there if the extra area is
+clean background; otherwise accept the centred non-square crop.
+
+- The subject is the item, not the frame you happened to draw: a group of
+  packets is centred as a group, and a pouch is centred on its edges, not on
+  its label.
+- `--exact` crops exactly the ROI you give, so centre that box yourself:
+  measure the item's bounds and set equal margins on opposite sides. Check it
+  with `grid.py --object … --box …` (image-grid-overlay), which prints the four
+  margins and flags `OFF-CENTRE`.
+- To check a finished crop's centring, draw the box `crop.py` printed
+  (`box=(…)`) over the source with the item's bounds as `--object`.
+- When an excluded neighbour or tag is close to the item on one side only, the
+  margin on that side caps the margin on the other. Keep the crop tight and
+  centred rather than lopsided.
 
 ## Keep the whole item
 
@@ -104,7 +141,8 @@ uv run --with pillow python $S/montage.py /path/to/tmp/review.png OUT1.jpg OUT2.
 ```
 
 Look for an item clipped at an edge (leads, pouch edges, label text), a
-neighbour or tag intruding, dead space, and the wrong item (the montage labels
+neighbour or tag intruding, dead space, a subject off-centre (more space on
+one side than the other), and the wrong item (the montage labels
 each file with its name and size). Fix the offenders and look again; a second
 pass is normal. Never report a crop you have not looked at.
 

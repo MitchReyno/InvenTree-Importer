@@ -347,3 +347,20 @@ def test_a_datasheet_url_is_not_looked_for_on_disk(config):
 def test_datasheet_pages_without_a_datasheet_are_a_warning(config):
     report = check(config, {**RESISTOR, "datasheet_pages": "3-4"})
     assert [w.field for w in report.warnings] == ["datasheet_pages"]
+
+
+def test_a_repeated_type_with_no_manufacturer_suggests_part_of(config):
+    """Nothing but the name would match the second line to the first."""
+    unmarked = {"category": "Integrated Circuits/Op-Amps", "type": "9020"}
+    report = check(config, dict(unmarked), dict(unmarked))
+    assert report.ok
+    [warning] = report.warnings
+    assert warning.line == "2"
+    assert '"part_of": "1"' in warning.problem
+
+
+def test_part_of_or_a_manufacturer_settles_a_repeat(config):
+    unmarked = {"category": "Integrated Circuits/Op-Amps", "type": "9020"}
+    report = check(config, dict(unmarked), {**unmarked, "part_of": "1"},
+                   {**unmarked, "manufacturer": "Fairchild"})
+    assert report.warnings == []

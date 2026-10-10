@@ -1,0 +1,4832 @@
+[
+ {
+  "id": "s3_3",
+  "manufacturer": "S3",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "3",
+  "description": "italic \"S3\" with horizontal speed lines through it",
+  "page": "p01-mono-1.png",
+  "file": "logos/s3_3.gif"
+ },
+ {
+  "id": "number9",
+  "manufacturer": "Number 9",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "9",
+  "description": "italic \"9\" digit",
+  "page": "p01-mono-1.png",
+  "file": "logos/number9.gif"
+ },
+ {
+  "id": "acd",
+  "manufacturer": "Advanced Communication Devices [ACD]",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "a",
+  "description": "lowercase \"a\" built from concentric arcs, filled square top right",
+  "page": "p01-mono-1.png",
+  "file": "logos/acd.gif"
+ },
+ {
+  "id": "allegro1",
+  "manufacturer": "Allegro MicroSystems Inc.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "A",
+  "description": "italic script capital \"A\"",
+  "page": "p01-mono-1.png",
+  "file": "logos/allegro1.gif"
+ },
+ {
+  "id": "aureal",
+  "manufacturer": "Aureal",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "A",
+  "description": "serif \"A\" with small wing/arrow shape to the right",
+  "page": "p01-mono-1.png",
+  "file": "logos/aureal.gif"
+ },
+ {
+  "id": "alphaind",
+  "manufacturer": "Alpha Industries",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "ai",
+  "description": "bold blocky \"ai\" ligature",
+  "page": "p01-mono-1.png",
+  "file": "logos/alphaind.gif"
+ },
+ {
+  "id": "adv_lin_dev",
+  "manufacturer": "Advanced Linear Devices [ALD]",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "AL",
+  "description": "\"A\" and \"L\" lines inside a rounded \"D\" outline",
+  "page": "p01-mono-1.png",
+  "file": "logos/adv_lin_dev.gif"
+ },
+ {
+  "id": "avance",
+  "manufacturer": "Avance Logic, Inc.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "aL",
+  "description": "script \"aL\" with vertical bars",
+  "page": "p01-mono-1.png",
+  "file": "logos/avance.gif"
+ },
+ {
+  "id": "ati",
+  "manufacturer": "ATI Technologies, Inc.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "Ati",
+  "description": "\"Ati\" in a box with a banner beneath (ATI Technologies)",
+  "page": "p01-mono-1.png",
+  "file": "logos/ati.gif"
+ },
+ {
+  "id": "auravision",
+  "manufacturer": "AuraVision",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "AV",
+  "description": "bold slanted \"AV\" with slashes",
+  "page": "p01-mono-1.png",
+  "file": "logos/auravision.gif"
+ },
+ {
+  "id": "benchmarq",
+  "manufacturer": "Benchmarq Microelectronics, Inc.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "bq",
+  "description": "interlocked \"b\" and \"q\" monogram",
+  "page": "p01-mono-1.png",
+  "file": "logos/benchmarq.gif"
+ },
+ {
+  "id": "chrontel",
+  "manufacturer": "Chrontel",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "C",
+  "description": "bold \"C\" with a dot/notch inside",
+  "page": "p01-mono-1.png",
+  "file": "logos/chrontel.gif"
+ },
+ {
+  "id": "collmer",
+  "manufacturer": "Collmer Semiconductor",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "CS",
+  "description": "\"C\" with \"S\" inside, interlocked",
+  "page": "p01-mono-1.png",
+  "file": "logos/collmer.gif"
+ },
+ {
+  "id": "dallas2",
+  "manufacturer": "Dallas Semiconductor Corp.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "D",
+  "description": "\"D\" split by vertical bars, blocky D with arrow notch",
+  "page": "p01-mono-1.png",
+  "file": "logos/dallas2.gif"
+ },
+ {
+  "id": "dionics",
+  "manufacturer": "Dionics",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "D",
+  "description": "bold square-ish \"D\" with \"i\" cut-out",
+  "page": "p01-mono-1.png",
+  "file": "logos/dionics.gif"
+ },
+ {
+  "id": "jetkey",
+  "manufacturer": "Jetkey",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "D",
+  "description": "halftone shaded \"D\" shape",
+  "page": "p01-mono-1.png",
+  "file": "logos/jetkey.gif"
+ },
+ {
+  "id": "idt1",
+  "manufacturer": "Integrated Device Technology, Inc.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "∫dt",
+  "description": "integral sign \"∫\" with \"dt\" (IDT)",
+  "page": "p01-mono-1.png",
+  "file": "logos/idt1.gif"
+ },
+ {
+  "id": "edi",
+  "manufacturer": "Electronic Devices [EDI]",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "edi",
+  "description": "condensed \"edi\" stacked letters with arrow",
+  "page": "p01-mono-1.png",
+  "file": "logos/edi.gif"
+ },
+ {
+  "id": "etc",
+  "manufacturer": "Electronic Technology",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "etc",
+  "description": "blocky interlocked \"etc\" with vertical bars",
+  "page": "p01-mono-1.png",
+  "file": "logos/etc.gif"
+ },
+ {
+  "id": "fairchild1",
+  "manufacturer": "Fairchild Semiconductor Corp",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "f",
+  "description": "italic stylised \"f\" lowercase, bold",
+  "page": "p01-mono-1.png",
+  "file": "logos/fairchild1.gif"
+ },
+ {
+  "id": "fujitsu2",
+  "manufacturer": "Fujitsu Ltd.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "F",
+  "description": "serif \"F\" between two horizontal bars",
+  "page": "p01-mono-1.png",
+  "file": "logos/fujitsu2.gif"
+ },
+ {
+  "id": "fujielec1",
+  "manufacturer": "Fuji Electric Co.,Ltd.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "FE",
+  "description": "condensed \"FE\" ligature with curved E (FEC)",
+  "page": "p01-mono-1.png",
+  "file": "logos/fujielec1.gif"
+ },
+ {
+  "id": "glink",
+  "manufacturer": "G-Link Technology",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "G",
+  "description": "\"G\" with horizontal bar/underline, stylised \"GL\"",
+  "page": "p01-mono-1.png",
+  "file": "logos/glink.gif"
+ },
+ {
+  "id": "globespan",
+  "manufacturer": "Globespan Semiconductor",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "G",
+  "description": "script \"G\" with long swoosh line through it",
+  "page": "p01-mono-1.png",
+  "file": "logos/globespan.gif"
+ },
+ {
+  "id": "harris1",
+  "manufacturer": "Harris",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "H",
+  "description": "rounded square \"H\" with circular cut-outs",
+  "page": "p01-mono-1.png",
+  "file": "logos/harris1.gif"
+ },
+ {
+  "id": "harris2",
+  "manufacturer": "Harris",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "H",
+  "description": "rounded square \"H\" with zigzag waveform inside",
+  "page": "p01-mono-1.png",
+  "file": "logos/harris2.gif"
+ },
+ {
+  "id": "hutson",
+  "manufacturer": "Hutson Industries",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "H",
+  "description": "\"H\" inside rounded oval with vertical lines",
+  "page": "p01-mono-1.png",
+  "file": "logos/hutson.gif"
+ },
+ {
+  "id": "hp",
+  "manufacturer": "Hewlett Packard Corp.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "hp",
+  "description": "italic \"hp\" in rounded rectangle",
+  "page": "p01-mono-1.png",
+  "file": "logos/hp.gif"
+ },
+ {
+  "id": "imi",
+  "manufacturer": "International Microcircuits",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "iMi",
+  "description": "\"iMI\" with circular swoosh on the i",
+  "page": "p01-mono-1.png",
+  "file": "logos/imi.gif"
+ },
+ {
+  "id": "diotec",
+  "manufacturer": "Diotec GmbH",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "J",
+  "description": "ornate blackletter/serif \"J\"",
+  "page": "p01-mono-1.png",
+  "file": "logos/diotec.gif"
+ },
+ {
+  "id": "klsi",
+  "manufacturer": "Kawasaki LSI [KLSI]",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "K",
+  "description": "bold \"K\" with halftone/dither fade",
+  "page": "p02-mono-2.png",
+  "file": "logos/klsi.gif"
+ },
+ {
+  "id": "lattice1",
+  "manufacturer": "Lattice Semiconductor Corp",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "L",
+  "description": "serif \"L\" thin",
+  "page": "p02-mono-2.png",
+  "file": "logos/lattice1.gif"
+ },
+ {
+  "id": "lattice2",
+  "manufacturer": "Lattice Semiconductor Corp",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "L",
+  "description": "bold italic \"L\"",
+  "page": "p02-mono-2.png",
+  "file": "logos/lattice2.gif"
+ },
+ {
+  "id": "lattice3",
+  "manufacturer": "Lattice Semiconductor Corp",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "L",
+  "description": "\"L\" with grid of small squares to the left (dot-matrix L)",
+  "page": "p02-mono-2.png",
+  "file": "logos/lattice3.gif"
+ },
+ {
+  "id": "bothhand",
+  "manufacturer": "Bothhand",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "LR",
+  "description": "tall blocky \"L\" and \"R\"/\"B\" joined monogram",
+  "page": "p02-mono-2.png",
+  "file": "logos/bothhand.gif"
+ },
+ {
+  "id": "lansdale1",
+  "manufacturer": "Lansdale Semiconductor",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "LS",
+  "description": "\"L\" and \"S\" in circle-ish outline",
+  "page": "p02-mono-2.png",
+  "file": "logos/lansdale1.gif"
+ },
+ {
+  "id": "linear",
+  "manufacturer": "Linear Technology",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "LT",
+  "description": "italic bold \"LT\" ligature (Linear Technology)",
+  "page": "p02-mono-2.png",
+  "file": "logos/linear.gif"
+ },
+ {
+  "id": "marvell",
+  "manufacturer": "Marvell",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "M",
+  "description": "slanted \"M\" made of a triangle plus vertical bars",
+  "page": "p02-mono-2.png",
+  "file": "logos/marvell.gif"
+ },
+ {
+  "id": "matsushita2",
+  "manufacturer": "Matsushita Panasonic",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "M",
+  "description": "\"M\" inside rounded square outline with corner gaps",
+  "page": "p02-mono-2.png",
+  "file": "logos/matsushita2.gif"
+ },
+ {
+  "id": "matsushita3",
+  "manufacturer": "Matsushita Panasonic",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "M",
+  "description": "\"M\" in rounded square, bold double outline",
+  "page": "p02-mono-2.png",
+  "file": "logos/matsushita3.gif"
+ },
+ {
+  "id": "mediavision2",
+  "manufacturer": "Media Vision",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "M",
+  "description": "italic \"M\" with dotted left stroke",
+  "page": "p02-mono-2.png",
+  "file": "logos/mediavision2.gif"
+ },
+ {
+  "id": "micrel",
+  "manufacturer": "Micrel Semiconductor",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "m",
+  "description": "bold lowercase \"m\" in a square block",
+  "page": "p02-mono-2.png",
+  "file": "logos/micrel.gif"
+ },
+ {
+  "id": "micronix",
+  "manufacturer": "Micronix Integrated Systems",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "M",
+  "description": "italic script \"M\" with \"L\"/\"c\" flourish",
+  "page": "p02-mono-2.png",
+  "file": "logos/micronix.gif"
+ },
+ {
+  "id": "motorola1",
+  "manufacturer": "Motorola",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "M",
+  "description": "small Motorola batwing \"M\" (no circle)",
+  "page": "p02-mono-2.png",
+  "file": "logos/motorola1.gif"
+ },
+ {
+  "id": "msystems",
+  "manufacturer": "M Systems",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "M",
+  "description": "italic \"M\" on underline bar",
+  "page": "p02-mono-2.png",
+  "file": "logos/msystems.gif"
+ },
+ {
+  "id": "microelec",
+  "manufacturer": "Micro Electronics Ltd.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "ME",
+  "description": "script \"ME\" handwriting",
+  "page": "p02-mono-2.png",
+  "file": "logos/microelec.gif"
+ },
+ {
+  "id": "micron",
+  "manufacturer": "Micron Technology, Inc.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "MT",
+  "description": "thin \"MT\" ligature",
+  "page": "p02-mono-2.png",
+  "file": "logos/micron.gif"
+ },
+ {
+  "id": "mediavision1",
+  "manufacturer": "Media Vision",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "MV",
+  "description": "zig-zag \"MV\"/\"W\" in a box, outlined",
+  "page": "p02-mono-2.png",
+  "file": "logos/mediavision1.gif"
+ },
+ {
+  "id": "ns2",
+  "manufacturer": "National Semiconductor",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "N",
+  "description": "stylised \"N\" lightning zigzag",
+  "page": "p02-mono-2.png",
+  "file": "logos/ns2.gif"
+ },
+ {
+  "id": "ns3",
+  "manufacturer": "National Semiconductor",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "N",
+  "description": "italic \"N\" swoosh / leaf-like bold N",
+  "page": "p02-mono-2.png",
+  "file": "logos/ns3.gif"
+ },
+ {
+  "id": "visiontech",
+  "manufacturer": "Vision Tech",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "NT",
+  "description": "blocky \"NT\"/\"VT\" bars",
+  "page": "p02-mono-2.png",
+  "file": "logos/visiontech.gif"
+ },
+ {
+  "id": "quality",
+  "manufacturer": "Quality Semiconductor",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "Q",
+  "description": "serif italic \"Q\" in white box",
+  "page": "p02-mono-2.png",
+  "file": "logos/quality.gif"
+ },
+ {
+  "id": "reliance",
+  "manufacturer": "Reliance",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "R",
+  "description": "bold italic \"R\" with orbit ring and starburst",
+  "page": "p02-mono-2.png",
+  "file": "logos/reliance.gif"
+ },
+ {
+  "id": "rendition",
+  "manufacturer": "Rendition",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "R",
+  "description": "serif \"R\" with a dotted circle in the bowl",
+  "page": "p02-mono-2.png",
+  "file": "logos/rendition.gif"
+ },
+ {
+  "id": "powersmart",
+  "manufacturer": "Power Smart",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "S",
+  "description": "\"S\" in a white square",
+  "page": "p02-mono-2.png",
+  "file": "logos/powersmart.gif"
+ },
+ {
+  "id": "semtech",
+  "manufacturer": "Semtech",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "S",
+  "description": "white square with lightning/S-shaped cut-out",
+  "page": "p02-mono-2.png",
+  "file": "logos/semtech.gif"
+ },
+ {
+  "id": "siemens1",
+  "manufacturer": "Siemens",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "S",
+  "description": "stylised \"S\" with long double-curved stroke/arrow (Siemens old)",
+  "page": "p02-mono-2.png",
+  "file": "logos/siemens1.gif"
+ },
+ {
+  "id": "signetics",
+  "manufacturer": "Signetics",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "S",
+  "description": "bold blocky \"S\"",
+  "page": "p02-mono-2.png",
+  "file": "logos/signetics.gif"
+ },
+ {
+  "id": "siliconix",
+  "manufacturer": "Siliconix Inc.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "S",
+  "description": "bold italic \"S\" with horizontal cut (stencil)",
+  "page": "p02-mono-2.png",
+  "file": "logos/siliconix.gif"
+ },
+ {
+  "id": "spectek",
+  "manufacturer": "SpecTek",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "S",
+  "description": "\"S\" with arrows/chevrons above and below",
+  "page": "p02-mono-2.png",
+  "file": "logos/spectek.gif"
+ },
+ {
+  "id": "stanford",
+  "manufacturer": "Stanford Microdevices",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "S",
+  "description": "tall S-shape in a white block with curve",
+  "page": "p03-mono-3.png",
+  "file": "logos/stanford.gif"
+ },
+ {
+  "id": "synertek",
+  "manufacturer": "Synertek",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "S",
+  "description": "bold blocky \"S\" with outline",
+  "page": "p03-mono-3.png",
+  "file": "logos/synertek.gif"
+ },
+ {
+  "id": "silgeneral",
+  "manufacturer": "Silicon General",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "SG",
+  "description": "condensed \"SG\"",
+  "page": "p03-mono-3.png",
+  "file": "logos/silgeneral.gif"
+ },
+ {
+  "id": "sgs2",
+  "manufacturer": "SGS",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "SGS",
+  "description": "condensed outlined \"SGS\"",
+  "page": "p03-mono-3.png",
+  "file": "logos/sgs2.gif"
+ },
+ {
+  "id": "seagate",
+  "manufacturer": "Seagate Technology",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "SS",
+  "description": "interlocked \"SS\" outlined loops",
+  "page": "p03-mono-3.png",
+  "file": "logos/seagate.gif"
+ },
+ {
+  "id": "st",
+  "manufacturer": "STMicroelectronics",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "ST",
+  "description": "italic \"ST\" (STMicroelectronics)",
+  "page": "p03-mono-3.png",
+  "file": "logos/st.gif"
+ },
+ {
+  "id": "semitech",
+  "manufacturer": "Semiconductor Technology Inc",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "STi",
+  "description": "blocky \"STi\"/\"STI\" with stripes",
+  "page": "p03-mono-3.png",
+  "file": "logos/semitech.gif"
+ },
+ {
+  "id": "teccor1",
+  "manufacturer": "Teccor Electronics",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "T",
+  "description": "\"T\" with curved arms like a \"Y\"/tree",
+  "page": "p03-mono-3.png",
+  "file": "logos/teccor1.gif"
+ },
+ {
+  "id": "toshiba2",
+  "manufacturer": "Toshiba",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "T",
+  "description": "bold serif \"T\"",
+  "page": "p03-mono-3.png",
+  "file": "logos/toshiba2.gif"
+ },
+ {
+  "id": "toshiba3",
+  "manufacturer": "Toshiba",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "T",
+  "description": "italic \"T\" with cut-off bar",
+  "page": "p03-mono-3.png",
+  "file": "logos/toshiba3.gif"
+ },
+ {
+  "id": "thaler",
+  "manufacturer": "Thaler Corp",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "TC",
+  "description": "block \"TC\" letters combined",
+  "page": "p03-mono-3.png",
+  "file": "logos/thaler.gif"
+ },
+ {
+  "id": "toko",
+  "manufacturer": "Toko America",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "TG",
+  "description": "blocky \"R\"/\"TG\" shape in white square",
+  "page": "p03-mono-3.png",
+  "file": "logos/toko.gif"
+ },
+ {
+  "id": "tseng",
+  "manufacturer": "Tseng Labs, Inc.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "Tl",
+  "description": "blocky \"T\" with \"l\"/\"L\" stacked (Tseng)",
+  "page": "p03-mono-3.png",
+  "file": "logos/tseng.gif"
+ },
+ {
+  "id": "taiwansemi",
+  "manufacturer": "Taiwan Semiconductor",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "TS",
+  "description": "\"S\" with vertical \"T\" bars (TS monogram)",
+  "page": "p03-mono-3.png",
+  "file": "logos/taiwansemi.gif"
+ },
+ {
+  "id": "unitrode",
+  "manufacturer": "Unitrode Corporation",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "U",
+  "description": "\"U\" over a horizontal bar",
+  "page": "p03-mono-3.png",
+  "file": "logos/unitrode.gif"
+ },
+ {
+  "id": "v3",
+  "manufacturer": "V3 Semiconductor",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "V",
+  "description": "\"V\" with dots around (crown/stars) and arc beneath",
+  "page": "p03-mono-3.png",
+  "file": "logos/v3.gif"
+ },
+ {
+  "id": "vanguard",
+  "manufacturer": "Vanguard International Semiconductor Corporation",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "V",
+  "description": "\"V\" inside a square with a check-mark arrow",
+  "page": "p03-mono-3.png",
+  "file": "logos/vanguard.gif"
+ },
+ {
+  "id": "vantis",
+  "manufacturer": "Vantis",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "V",
+  "description": "thin \"V\" with swoosh over top",
+  "page": "p03-mono-3.png",
+  "file": "logos/vantis.gif"
+ },
+ {
+  "id": "vitesse",
+  "manufacturer": "Vitesse Semiconductor",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "V",
+  "description": "serif \"V\" outline",
+  "page": "p03-mono-3.png",
+  "file": "logos/vitesse.gif"
+ },
+ {
+  "id": "volterra",
+  "manufacturer": "Volterra",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "V",
+  "description": "\"V\" in white square with notch",
+  "page": "p03-mono-3.png",
+  "file": "logos/volterra.gif"
+ },
+ {
+  "id": "visiontech2",
+  "manufacturer": "Vision Tech",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "VT",
+  "description": "\"VT\" over \"VISION\" with \"TECH\" vertical",
+  "page": "p03-mono-3.png",
+  "file": "logos/visiontech2.gif"
+ },
+ {
+  "id": "wolfsom",
+  "manufacturer": "Wolfson Semiconductors",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "WM",
+  "description": "\"W/M\" slanted blocky letters in a bar",
+  "page": "p03-mono-3.png",
+  "file": "logos/wolfsom.gif"
+ },
+ {
+  "id": "emulex",
+  "manufacturer": "Emulex",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "X",
+  "description": "stylised \"X\" from horizontal bars (crossing chevrons)",
+  "page": "p03-mono-3.png",
+  "file": "logos/emulex.gif"
+ },
+ {
+  "id": "exar",
+  "manufacturer": "Exar Corp.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "X",
+  "description": "stylised \"X\" with curved arm (bold slanted strokes)",
+  "page": "p03-mono-3.png",
+  "file": "logos/exar.gif"
+ },
+ {
+  "id": "xemics",
+  "manufacturer": "Xemics",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "X",
+  "description": "\"X\" made of curved parallel lines",
+  "page": "p03-mono-3.png",
+  "file": "logos/xemics.gif"
+ },
+ {
+  "id": "xicor2",
+  "manufacturer": "Xicor, Inc.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "X",
+  "description": "bold \"X\" in white box",
+  "page": "p03-mono-3.png",
+  "file": "logos/xicor2.gif"
+ },
+ {
+  "id": "xilinx",
+  "manufacturer": "Xilinx, Inc.",
+  "kind": "symbol+text",
+  "family": "mono",
+  "text": "XILINX",
+  "description": "stylised \"Σ\"-like X + \"XILINX\"",
+  "page": "p03-mono-3.png",
+  "file": "logos/xilinx.gif"
+ },
+ {
+  "id": "sgs1",
+  "manufacturer": "SGS-Ates",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "Z",
+  "description": "italic \"Z\" with horizontal bars (SGS-Ates)",
+  "page": "p03-mono-3.png",
+  "file": "logos/sgs1.gif"
+ },
+ {
+  "id": "elantec2",
+  "manufacturer": "Elantec",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "é",
+  "description": "bold \"é\" with accent",
+  "page": "p03-mono-3.png",
+  "file": "logos/elantec2.gif"
+ },
+ {
+  "id": "alphamicro",
+  "manufacturer": "alpha microelectronics gmbh",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "α",
+  "description": "alpha \"α\" in a rounded rectangle outline",
+  "page": "p03-mono-3.png",
+  "file": "logos/alphamicro.gif"
+ },
+ {
+  "id": "sigmatel",
+  "manufacturer": "SigmaTel, Inc.",
+  "kind": "symbol",
+  "family": "mono",
+  "text": "Σ",
+  "description": "Sigma \"Σ\" with vertical line",
+  "page": "p04-mono-4.png",
+  "file": "logos/sigmatel.gif"
+ },
+ {
+  "id": "vtc",
+  "manufacturer": "VTC",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "#",
+  "description": "circle with crossing diagonal lines (lattice/plaid ball)",
+  "page": "p05-circ-1.png",
+  "file": "logos/vtc.gif"
+ },
+ {
+  "id": "fujitsu1",
+  "manufacturer": "Fujitsu Ltd.",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "$",
+  "description": "\"S\"/dollar-like swirl inside a circle (Fujitsu old)",
+  "page": "p05-circ-1.png",
+  "file": "logos/fujitsu1.gif"
+ },
+ {
+  "id": "dtc1",
+  "manufacturer": "DTC Data Technology",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "+",
+  "description": "dashed circle with radiating bars / gear-like crosshair",
+  "page": "p05-circ-1.png",
+  "file": "logos/dtc1.gif"
+ },
+ {
+  "id": "sierra",
+  "manufacturer": "Sierra Semiconductor",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "+",
+  "description": "dashed circle with four radiating bars (gear crosshair) — similar to DTC",
+  "page": "p05-circ-1.png",
+  "file": "logos/sierra.gif"
+ },
+ {
+  "id": "serverworks",
+  "manufacturer": "Serverworks",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "@",
+  "description": "swirl ellipse / galaxy spiral rings",
+  "page": "p05-circ-1.png",
+  "file": "logos/serverworks.gif"
+ },
+ {
+  "id": "allegro2",
+  "manufacturer": "Allegro MicroSystems Inc.",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "Allegro",
+  "description": "globe/dotted sphere + italic \"Allegro\", \"A Sanken Company\"",
+  "page": "p05-circ-1.png",
+  "file": "logos/allegro2.gif"
+ },
+ {
+  "id": "att",
+  "manufacturer": "AT&T",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "AT&T",
+  "description": "AT&T globe: sphere of horizontal stripes",
+  "page": "p05-circ-1.png",
+  "file": "logos/att.gif"
+ },
+ {
+  "id": "catalyst1",
+  "manufacturer": "Catalyst Semiconductor, Inc.",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "C",
+  "description": "open ring / C shape made of two swooshes",
+  "page": "p05-circ-1.png",
+  "file": "logos/catalyst1.gif"
+ },
+ {
+  "id": "centon",
+  "manufacturer": "Centon Electronics",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "C",
+  "description": "solid circle containing \"C\" with horizontal bars",
+  "page": "p05-circ-1.png",
+  "file": "logos/centon.gif"
+ },
+ {
+  "id": "comcore",
+  "manufacturer": "ComCore",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "C",
+  "description": "solid circle with a curved swoosh cut",
+  "page": "p05-circ-1.png",
+  "file": "logos/comcore.gif"
+ },
+ {
+  "id": "conexant",
+  "manufacturer": "Conexant",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "C",
+  "description": "nested concentric \"C\" arcs / ripples",
+  "page": "p05-circ-1.png",
+  "file": "logos/conexant.gif"
+ },
+ {
+  "id": "cygnal",
+  "manufacturer": "Cygnal Integrated Products",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "C",
+  "description": "square with large \"C\"/swan curve, small \"CYGNAL\" text on top",
+  "page": "p05-circ-1.png",
+  "file": "logos/cygnal.gif"
+ },
+ {
+  "id": "dynex",
+  "manufacturer": "Dynex",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "C",
+  "description": "circle with curved swoosh lines (wave in a ball)",
+  "page": "p05-circ-1.png",
+  "file": "logos/dynex.gif"
+ },
+ {
+  "id": "ghz",
+  "manufacturer": "GHZ Technology",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "C",
+  "description": "circle with \"C\"/arrow pointing right and speed lines",
+  "page": "p05-circ-1.png",
+  "file": "logos/ghz.gif"
+ },
+ {
+  "id": "sames",
+  "manufacturer": "Sames Pty Ltd.",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "C",
+  "description": "solid circle with small \"C\"/circle cut on right side (eye)",
+  "page": "p05-circ-1.png",
+  "file": "logos/sames.gif"
+ },
+ {
+  "id": "chipcon",
+  "manufacturer": "ChipCon AS",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "Chipcon",
+  "description": "circle with \"C\" + bold \"Chipcon\"",
+  "page": "p05-circ-1.png",
+  "file": "logos/chipcon.gif"
+ },
+ {
+  "id": "icsi",
+  "manufacturer": "Integrated Circuit Solution",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "CSI",
+  "description": "\"CSI\" inside nested ellipses/arcs",
+  "page": "p05-circ-1.png",
+  "file": "logos/icsi.gif"
+ },
+ {
+  "id": "davicom",
+  "manufacturer": "Davicom Semiconductor Inc.",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "DAVICOM",
+  "description": "\"D\" in a circle arc + \"AVICOM\" text",
+  "page": "p05-circ-1.png",
+  "file": "logos/davicom.gif"
+ },
+ {
+  "id": "densepac",
+  "manufacturer": "Dense-Pac",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "dp",
+  "description": "circle containing interlocked \"dp\"",
+  "page": "p05-circ-1.png",
+  "file": "logos/densepac.gif"
+ },
+ {
+  "id": "etrontech2",
+  "manufacturer": "Etron Tech",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "E",
+  "description": "serif \"E\" over a dotted/shaded globe",
+  "page": "p05-circ-1.png",
+  "file": "logos/etrontech2.gif"
+ },
+ {
+  "id": "hfo",
+  "manufacturer": "VEB Halbleiterwerk Frankfurt/Oder (HFO)",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "f",
+  "description": "circle split vertically with \"f\" shape (VEB HFO)",
+  "page": "p05-circ-1.png",
+  "file": "logos/hfo.gif"
+ },
+ {
+  "id": "fagor",
+  "manufacturer": "Fagor Electronica",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "FAGOR",
+  "description": "\"FAGOR\" + circle with horizontal bars and arrow",
+  "page": "p05-circ-1.png",
+  "file": "logos/fagor.gif"
+ },
+ {
+  "id": "ge",
+  "manufacturer": "General Electric Corp.",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "GE",
+  "description": "GE script monogram in circle with scalloped edge",
+  "page": "p05-circ-1.png",
+  "file": "logos/ge.gif"
+ },
+ {
+  "id": "umc",
+  "manufacturer": "UMC, United Microelectronics Corp.",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "globe",
+  "description": "globe with latitude/longitude lines",
+  "page": "p05-circ-1.png",
+  "file": "logos/umc.gif"
+ },
+ {
+  "id": "gecplessy",
+  "manufacturer": "GEC Plessy",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "GP",
+  "description": "open ellipse/ring swoosh with small dot grid at top right",
+  "page": "p05-circ-1.png",
+  "file": "logos/gecplessy.gif"
+ },
+ {
+  "id": "inmos",
+  "manufacturer": "Inmos Corp.",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "grid",
+  "description": "circle filled with a grid/mesh (wafer)",
+  "page": "p05-circ-1.png",
+  "file": "logos/inmos.gif"
+ },
+ {
+  "id": "impala",
+  "manufacturer": "Impala Linear",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "H",
+  "description": "solid circle with \"H\"-shaped cut-out (bowling ball / face)",
+  "page": "p05-circ-1.png",
+  "file": "logos/impala.gif"
+ },
+ {
+  "id": "mitel",
+  "manufacturer": "Mitel Semiconductor",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "H",
+  "description": "circle with \"H\"/bow-tie shape inside, double lines",
+  "page": "p05-circ-1.png",
+  "file": "logos/mitel.gif"
+ },
+ {
+  "id": "infineon2",
+  "manufacturer": "Infineon",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "i",
+  "description": "\"i\" inside a circle/oval swoosh",
+  "page": "p05-circ-1.png",
+  "file": "logos/infineon2.gif"
+ },
+ {
+  "id": "ichaus2",
+  "manufacturer": "iC-Haus",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "iC",
+  "description": "\"iC\" in a solid circle",
+  "page": "p05-circ-1.png",
+  "file": "logos/ichaus2.gif"
+ },
+ {
+  "id": "icworks",
+  "manufacturer": "IC Works, Inc.",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "IC",
+  "description": "circle with \"IC\" bars inside (ring with vertical strokes)",
+  "page": "p06-circ-2.png",
+  "file": "logos/icworks.gif"
+ },
+ {
+  "id": "ichaus3",
+  "manufacturer": "iC-Haus",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "iC Haus",
+  "description": "\"iC\" in circle + \"Haus\"",
+  "page": "p06-circ-2.png",
+  "file": "logos/ichaus3.gif"
+ },
+ {
+  "id": "idt2",
+  "manufacturer": "Integrated Device Technology, Inc.",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "IDT",
+  "description": "dotted circle + bold \"IDT\"",
+  "page": "p06-circ-2.png",
+  "file": "logos/idt2.gif"
+ },
+ {
+  "id": "infineon3",
+  "manufacturer": "Infineon",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "Infineon",
+  "description": "\"Infineon\" with elliptical swoosh underneath",
+  "page": "p06-circ-2.png",
+  "file": "logos/infineon3.gif"
+ },
+ {
+  "id": "itex",
+  "manufacturer": "Integrated Telecom Express [ITEX]",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "ITeX",
+  "description": "\"ITeX\" inside a circle",
+  "page": "p06-circ-2.png",
+  "file": "logos/itex.gif"
+ },
+ {
+  "id": "kota",
+  "manufacturer": "Kota Microcircuits",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "K",
+  "description": "\"K\" / slash inside a solid circle",
+  "page": "p06-circ-2.png",
+  "file": "logos/kota.gif"
+ },
+ {
+  "id": "linfinity2",
+  "manufacturer": "Linfinity Microelectronics, Inc.",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "LINFINITY",
+  "description": "circular ring/arrow + \"LINFINITY\"",
+  "page": "p06-circ-2.png",
+  "file": "logos/linfinity2.gif"
+ },
+ {
+  "id": "microchip",
+  "manufacturer": "Microchip Technology Inc.",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "M",
+  "description": "Microchip: solid circle with \"M\" wave cut-out",
+  "page": "p06-circ-2.png",
+  "file": "logos/microchip.gif"
+ },
+ {
+  "id": "motorola2",
+  "manufacturer": "Motorola",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "M",
+  "description": "Motorola batwing \"M\" inside a circle",
+  "page": "p06-circ-2.png",
+  "file": "logos/motorola2.gif"
+ },
+ {
+  "id": "murata2",
+  "manufacturer": "Murata",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "M",
+  "description": "\"M\" inside a \"C\"/ring",
+  "page": "p06-circ-2.png",
+  "file": "logos/murata2.gif"
+ },
+ {
+  "id": "mmc",
+  "manufacturer": "MMC Networks",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "MMC",
+  "description": "globe/circle with horizontal bars + \"MMC\"",
+  "page": "p06-circ-2.png",
+  "file": "logos/mmc.gif"
+ },
+ {
+  "id": "neomagic",
+  "manufacturer": "NeoMagic",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "nm",
+  "description": "circle divided into quadrants with letters/symbols in each",
+  "page": "p06-circ-2.png",
+  "file": "logos/neomagic.gif"
+ },
+ {
+  "id": "averlogic",
+  "manufacturer": "AverLogic",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "O",
+  "description": "circle with horizontal gap/band (eye shape)",
+  "page": "p06-circ-2.png",
+  "file": "logos/averlogic.gif"
+ },
+ {
+  "id": "hitachi",
+  "manufacturer": "Hitachi",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "O",
+  "description": "Hitachi circle-in-circle with notches (target with four tabs)",
+  "page": "p06-circ-2.png",
+  "file": "logos/hitachi.gif"
+ },
+ {
+  "id": "lucent",
+  "manufacturer": "Lucent",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "O",
+  "description": "brush-stroke ring (Lucent innovation ring)",
+  "page": "p06-circ-2.png",
+  "file": "logos/lucent.gif"
+ },
+ {
+  "id": "microsemi",
+  "manufacturer": "Micro Semi",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "O",
+  "description": "thick ring/oval with gap",
+  "page": "p06-circ-2.png",
+  "file": "logos/microsemi.gif"
+ },
+ {
+  "id": "moselvitelic",
+  "manufacturer": "Mosel Vitelic, Inc.",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "O",
+  "description": "open ring/circle with small dot grid at top left",
+  "page": "p06-circ-2.png",
+  "file": "logos/moselvitelic.gif"
+ },
+ {
+  "id": "utmc",
+  "manufacturer": "United Technologies Microelectronics Center",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "O",
+  "description": "starburst ring of radiating spokes with gap (sunburst C)",
+  "page": "p06-circ-2.png",
+  "file": "logos/utmc.gif"
+ },
+ {
+  "id": "onsemi",
+  "manufacturer": "ON Semiconductor",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "ON",
+  "description": "\"ON\" inside a circle",
+  "page": "p06-circ-2.png",
+  "file": "logos/onsemi.gif"
+ },
+ {
+  "id": "orbit",
+  "manufacturer": "Orbit Semiconductor",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "ORBIT",
+  "description": "dotted globe \"O\" + \"RBIT\"",
+  "page": "p06-circ-2.png",
+  "file": "logos/orbit.gif"
+ },
+ {
+  "id": "oren",
+  "manufacturer": "Oren Semiconductor",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "Oren",
+  "description": "circle with diagonal stripes + \"ren\"",
+  "page": "p06-circ-2.png",
+  "file": "logos/oren.gif"
+ },
+ {
+  "id": "pericom",
+  "manufacturer": "Pericom Semiconductor",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "P",
+  "description": "circle with lightning bolt \"P\"",
+  "page": "p06-circ-2.png",
+  "file": "logos/pericom.gif"
+ },
+ {
+  "id": "siliconsystems",
+  "manufacturer": "Silicon Systems",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "S",
+  "description": "thin \"S\"/note curve inside a circle",
+  "page": "p06-circ-2.png",
+  "file": "logos/siliconsystems.gif"
+ },
+ {
+  "id": "simtek",
+  "manufacturer": "Simtek Corporation",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "S",
+  "description": "\"S\" inside a rounded circle, outlined",
+  "page": "p06-circ-2.png",
+  "file": "logos/simtek.gif"
+ },
+ {
+  "id": "solidstate",
+  "manufacturer": "Solid State Optronics",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "S",
+  "description": "oval/circle split by an S-curve (yin-yang like)",
+  "page": "p06-circ-2.png",
+  "file": "logos/solidstate.gif"
+ },
+ {
+  "id": "space",
+  "manufacturer": "Space Electronics",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "SE",
+  "description": "circle with orbit ring containing \"SE\"",
+  "page": "p06-circ-2.png",
+  "file": "logos/space.gif"
+ },
+ {
+  "id": "semitron",
+  "manufacturer": "Semitron",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "Si",
+  "description": "solid circle with italic \"Si\" cut-out",
+  "page": "p06-circ-2.png",
+  "file": "logos/semitron.gif"
+ },
+ {
+  "id": "seiko",
+  "manufacturer": "Seiko Instruments",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "SII",
+  "description": "\"SII\" with solid circle + dot",
+  "page": "p06-circ-2.png",
+  "file": "logos/seiko.gif"
+ },
+ {
+  "id": "spt",
+  "manufacturer": "Signal Processing Technologies",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "SPT",
+  "description": "circle with wave + italic \"SPT\"",
+  "page": "p06-circ-2.png",
+  "file": "logos/spt.gif"
+ },
+ {
+  "id": "protek",
+  "manufacturer": "Protek Devices",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "T",
+  "description": "\"T\" inside a solid circle",
+  "page": "p06-circ-2.png",
+  "file": "logos/protek.gif"
+ },
+ {
+  "id": "tundra",
+  "manufacturer": "Tundra",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "T",
+  "description": "\"T\" cut out of a solid circle",
+  "page": "p07-circ-3.png",
+  "file": "logos/tundra.gif"
+ },
+ {
+  "id": "tdk",
+  "manufacturer": "TDK Semiconductor",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "TDK",
+  "description": "circle-of-triangles emblem + \"TDK\"",
+  "page": "p07-circ-3.png",
+  "file": "logos/tdk.gif"
+ },
+ {
+  "id": "tesla",
+  "manufacturer": "Tesla",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "TESLA",
+  "description": "circle with small \"TESLA\" text and lines",
+  "page": "p07-circ-3.png",
+  "file": "logos/tesla.gif"
+ },
+ {
+  "id": "tamarack1",
+  "manufacturer": "Tamarack",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "tmi",
+  "description": "\"tmi\" inside a dotted circle",
+  "page": "p07-circ-3.png",
+  "file": "logos/tamarack1.gif"
+ },
+ {
+  "id": "trimedia",
+  "manufacturer": "TriMedia",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "TriMedia",
+  "description": "\"TriMedia\" with circle and arc swoosh",
+  "page": "p07-circ-3.png",
+  "file": "logos/trimedia.gif"
+ },
+ {
+  "id": "yamaha2",
+  "manufacturer": "Yamaha",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "tuning forks",
+  "description": "three crossed tuning forks in a circle",
+  "page": "p07-circ-3.png",
+  "file": "logos/yamaha2.gif"
+ },
+ {
+  "id": "anchor",
+  "manufacturer": "Anchor Chips",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "U",
+  "description": "anchor/\"U\" with T bar: circle segment with vertical stem",
+  "page": "p07-circ-3.png",
+  "file": "logos/anchor.gif"
+ },
+ {
+  "id": "winbond",
+  "manufacturer": "Winbond Electronics Corp.",
+  "kind": "symbol+text",
+  "family": "circ",
+  "text": "Winbond",
+  "description": "dotted globe + \"Winbond\"",
+  "page": "p07-circ-3.png",
+  "file": "logos/winbond.gif"
+ },
+ {
+  "id": "shindengen",
+  "manufacturer": "Shindengen",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "X",
+  "description": "circle containing double-arrow / bow-tie diode symbol",
+  "page": "p07-circ-3.png",
+  "file": "logos/shindengen.gif"
+ },
+ {
+  "id": "rockwell",
+  "manufacturer": "Rockwell",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "Y",
+  "description": "solid circle with inverted \"Y\"/arrow cut (Rockwell)",
+  "page": "p07-circ-3.png",
+  "file": "logos/rockwell.gif"
+ },
+ {
+  "id": "tripath",
+  "manufacturer": "Tripath Technology Inc.",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "Y",
+  "description": "three rounded leaf shapes around a centre (tri-petal)",
+  "page": "p07-circ-3.png",
+  "file": "logos/tripath.gif"
+ },
+ {
+  "id": "vlsi",
+  "manufacturer": "VLSI Technology",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "\\\\",
+  "description": "solid circle with diagonal stripes",
+  "page": "p07-circ-3.png",
+  "file": "logos/vlsi.gif"
+ },
+ {
+  "id": "torex",
+  "manufacturer": "Torex Semi",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "θ",
+  "description": "circle with horizontal bar through (theta/planet)",
+  "page": "p07-circ-3.png",
+  "file": "logos/torex.gif"
+ },
+ {
+  "id": "utron",
+  "manufacturer": "Utron Technology Inc.",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "≡",
+  "description": "circle outline with horizontal bars inside top (stacked lines)",
+  "page": "p07-circ-3.png",
+  "file": "logos/utron.gif"
+ },
+ {
+  "id": "interfet",
+  "manufacturer": "interFET",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "⊕",
+  "description": "circle with crosshair (plus extended beyond)",
+  "page": "p07-circ-3.png",
+  "file": "logos/interfet.gif"
+ },
+ {
+  "id": "omnirel",
+  "manufacturer": "Omnirel",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "◎",
+  "description": "crosshair/target: circle with dot and four bars",
+  "page": "p07-circ-3.png",
+  "file": "logos/omnirel.gif"
+ },
+ {
+  "id": "prairie",
+  "manufacturer": "PrairieComm",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "◑",
+  "description": "half-circle/dome of dots grid",
+  "page": "p07-circ-3.png",
+  "file": "logos/prairie.gif"
+ },
+ {
+  "id": "zucotto",
+  "manufacturer": "Zucotto Wireless",
+  "kind": "symbol",
+  "family": "circ",
+  "text": "◔",
+  "description": "thick arc / quarter-ring over a dot (signal symbol)",
+  "page": "p07-circ-3.png",
+  "file": "logos/zucotto.gif"
+ },
+ {
+  "id": "icube",
+  "manufacturer": "I-Cube",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "#",
+  "description": "cross/hash shape in square, plus-like with notches",
+  "page": "p08-quad-1.png",
+  "file": "logos/icube.gif"
+ },
+ {
+  "id": "wdc2",
+  "manufacturer": "Western Digital Corp.",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "%",
+  "description": "square of diagonal stripes / checker with notches (Western Digital)",
+  "page": "p08-quad-1.png",
+  "file": "logos/wdc2.gif"
+ },
+ {
+  "id": "gould",
+  "manufacturer": "Gould",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "+",
+  "description": "arrow/cross shape pointing right with notches",
+  "page": "p08-quad-1.png",
+  "file": "logos/gould.gif"
+ },
+ {
+  "id": "enhmemsy",
+  "manufacturer": "Enhanced Memory Systems",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "/",
+  "description": "square with diagonal stripe cut-out, slash",
+  "page": "p08-quad-1.png",
+  "file": "logos/enhmemsy.gif"
+ },
+ {
+  "id": "summit",
+  "manufacturer": "Summit Microelectronics",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "/",
+  "description": "square with jagged diagonal line (chart/peak)",
+  "page": "p08-quad-1.png",
+  "file": "logos/summit.gif"
+ },
+ {
+  "id": "vadem",
+  "manufacturer": "Vadem",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "/",
+  "description": "rounded square with diagonal slash",
+  "page": "p08-quad-1.png",
+  "file": "logos/vadem.gif"
+ },
+ {
+  "id": "3com_2",
+  "manufacturer": "3Com",
+  "kind": "symbol+text",
+  "family": "quad",
+  "text": "3Com",
+  "description": "\"3Com\" bold text overlapping a large solid white square, top right",
+  "page": "p08-quad-1.png",
+  "file": "logos/3com_2.gif"
+ },
+ {
+  "id": "3do",
+  "manufacturer": "3DO",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "3DO",
+  "description": "diamond, rounded square, circle and vertical bar in a row",
+  "page": "p08-quad-1.png",
+  "file": "logos/3do.gif"
+ },
+ {
+  "id": "analog1",
+  "manufacturer": "Analog Devices",
+  "kind": "symbol",
+  "family": "quad",
+  "text": ">",
+  "description": "triangle \"play\" symbol inside a square outline (Analog Devices)",
+  "page": "p08-quad-1.png",
+  "file": "logos/analog1.gif"
+ },
+ {
+  "id": "analog2",
+  "manufacturer": "Analog Devices",
+  "kind": "symbol",
+  "family": "quad",
+  "text": ">",
+  "description": "filled square with triangle cut-out (Analog Devices)",
+  "page": "p08-quad-1.png",
+  "file": "logos/analog2.gif"
+ },
+ {
+  "id": "acer",
+  "manufacturer": "Acer Inc.",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "A",
+  "description": "two interlocking diamond/kite shapes forming a stylised \"A\" with a notch",
+  "page": "p08-quad-1.png",
+  "file": "logos/acer.gif"
+ },
+ {
+  "id": "amd",
+  "manufacturer": "Advanced Micro Devices",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "AMD",
+  "description": "AMD arrow: square with diagonal cut-out corner (open square + filled triangle)",
+  "page": "p08-quad-1.png",
+  "file": "logos/amd.gif"
+ },
+ {
+  "id": "adv_power",
+  "manufacturer": "Advanced Power Technology",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "AP",
+  "description": "solid square with diagonal lightning-bolt cut",
+  "page": "p08-quad-1.png",
+  "file": "logos/adv_power.gif"
+ },
+ {
+  "id": "atlantis",
+  "manufacturer": "Atlantis Memory",
+  "kind": "symbol+text",
+  "family": "quad",
+  "text": "ATLANTIS",
+  "description": "small square emblem with curve + thin \"ATLANTIS\"",
+  "page": "p08-quad-1.png",
+  "file": "logos/atlantis.gif"
+ },
+ {
+  "id": "burrbrown",
+  "manufacturer": "Burr Brown",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "BB",
+  "description": "\"BB\" in rounded rectangle with double outline",
+  "page": "p08-quad-1.png",
+  "file": "logos/burrbrown.gif"
+ },
+ {
+  "id": "cmedia",
+  "manufacturer": "C-Media",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "C",
+  "description": "square outline with a quarter-arc \"C\" inside",
+  "page": "p08-quad-1.png",
+  "file": "logos/cmedia.gif"
+ },
+ {
+  "id": "consumer",
+  "manufacturer": "Consumer Microelectronics",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "CM",
+  "description": "blocky maze-like \"CM\" made of rectangles",
+  "page": "p08-quad-1.png",
+  "file": "logos/consumer.gif"
+ },
+ {
+  "id": "datapath",
+  "manufacturer": "Datapath Systems",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "D",
+  "description": "solid rectangle with a curved \")\" cut on the right",
+  "page": "p08-quad-1.png",
+  "file": "logos/datapath.gif"
+ },
+ {
+  "id": "goodark",
+  "manufacturer": "Goodark",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "D",
+  "description": "rectangle containing two arrow-like \"D\" shapes facing (diode symbol-ish)",
+  "page": "p08-quad-1.png",
+  "file": "logos/goodark.gif"
+ },
+ {
+  "id": "galvantech",
+  "manufacturer": "Galvantech, Inc.",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "G",
+  "description": "white rectangle with a circle \"G\" cut-out on the right",
+  "page": "p08-quad-1.png",
+  "file": "logos/galvantech.gif"
+ },
+ {
+  "id": "gi1",
+  "manufacturer": "General Instrument",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "G",
+  "description": "square spiral/outline \"G\" (open box)",
+  "page": "p08-quad-1.png",
+  "file": "logos/gi1.gif"
+ },
+ {
+  "id": "gi3",
+  "manufacturer": "General Instrument",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "G",
+  "description": "square spiral \"G\" in solid square",
+  "page": "p08-quad-1.png",
+  "file": "logos/gi3.gif"
+ },
+ {
+  "id": "genesys",
+  "manufacturer": "Genesys Logic, Inc.",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "globe",
+  "description": "diamond of dots with striped sphere inside",
+  "page": "p08-quad-1.png",
+  "file": "logos/genesys.gif"
+ },
+ {
+  "id": "intersil1",
+  "manufacturer": "Intersil",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "i",
+  "description": "\"i\" in a solid white square",
+  "page": "p08-quad-1.png",
+  "file": "logos/intersil1.gif"
+ },
+ {
+  "id": "icd",
+  "manufacturer": "Integrated Circuit Designs, Inc",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "ICD",
+  "description": "parallelogram box with diagonal hatching",
+  "page": "p08-quad-1.png",
+  "file": "logos/icd.gif"
+ },
+ {
+  "id": "ics1",
+  "manufacturer": "Integrated Circuit Systems Inc.",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "ICS",
+  "description": "\"ICS\" in a rectangle outline, tall letters",
+  "page": "p08-quad-1.png",
+  "file": "logos/ics1.gif"
+ },
+ {
+  "id": "ics2",
+  "manufacturer": "Integrated Circuit Systems Inc.",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "ICS",
+  "description": "square containing dotted circle and \"ICS\"",
+  "page": "p08-quad-1.png",
+  "file": "logos/ics2.gif"
+ },
+ {
+  "id": "levelone",
+  "manufacturer": "Level One",
+  "kind": "symbol+text",
+  "family": "quad",
+  "text": "LEVEL ONE",
+  "description": "nested \"L\" squares + \"LEVEL ONE\"",
+  "page": "p08-quad-1.png",
+  "file": "logos/levelone.gif"
+ },
+ {
+  "id": "phaselink1",
+  "manufacturer": "PhaseLink Laboratories, Inc.",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "PLL",
+  "description": "\"P L L\" each in separate boxes, serif",
+  "page": "p08-quad-1.png",
+  "file": "logos/phaselink1.gif"
+ },
+ {
+  "id": "alesis",
+  "manufacturer": "Alesis Semiconductor",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "r",
+  "description": "square with quarter-circle cut-out (stylised \"r\")",
+  "page": "p08-quad-1.png",
+  "file": "logos/alesis.gif"
+ },
+ {
+  "id": "spbridge",
+  "manufacturer": "Space Bridge Semiconductor",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "S",
+  "description": "\"S\"/bridge shape in a square box outline",
+  "page": "p09-quad-2.png",
+  "file": "logos/spbridge.gif"
+ },
+ {
+  "id": "sage",
+  "manufacturer": "Sage",
+  "kind": "symbol+text",
+  "family": "quad",
+  "text": "sage",
+  "description": "square with S-cut + \"sage\"",
+  "page": "p09-quad-2.png",
+  "file": "logos/sage.gif"
+ },
+ {
+  "id": "sun",
+  "manufacturer": "SUN",
+  "kind": "symbol+text",
+  "family": "quad",
+  "text": "SUN",
+  "description": "Sun rotated-square of interlocked \"u\"s + \"Sun\"",
+  "page": "p09-quad-2.png",
+  "file": "logos/sun.gif"
+ },
+ {
+  "id": "usar2",
+  "manufacturer": "USAR Systems",
+  "kind": "symbol+text",
+  "family": "quad",
+  "text": "USAR",
+  "description": "diamond with curved cut + \"SAR\"",
+  "page": "p09-quad-2.png",
+  "file": "logos/usar2.gif"
+ },
+ {
+  "id": "quicklogic",
+  "manufacturer": "QuickLogic Corporation",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "X",
+  "description": "square containing curved \"X\"/swoosh",
+  "page": "p09-quad-2.png",
+  "file": "logos/quicklogic.gif"
+ },
+ {
+  "id": "zfmicro",
+  "manufacturer": "ZF Microsystems",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "ZF",
+  "description": "\"Z\" and \"F\" letters in a white square with circle",
+  "page": "p09-quad-2.png",
+  "file": "logos/zfmicro.gif"
+ },
+ {
+  "id": "mpd",
+  "manufacturer": "Micro Power Direct",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "µPd",
+  "description": "\"µPd\" in elongated hexagon outline",
+  "page": "p09-quad-2.png",
+  "file": "logos/mpd.gif"
+ },
+ {
+  "id": "hyundai2",
+  "manufacturer": "Hyundai",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "•H",
+  "description": "dot and a square with bow-tie cut-outs",
+  "page": "p09-quad-2.png",
+  "file": "logos/hyundai2.gif"
+ },
+ {
+  "id": "minicircuits",
+  "manufacturer": "Mini Circuits",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "▭",
+  "description": "rounded rectangle with row of teeth at bottom (chip shape)",
+  "page": "p09-quad-2.png",
+  "file": "logos/minicircuits.gif"
+ },
+ {
+  "id": "rectron",
+  "manufacturer": "Rectron",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "▷|",
+  "description": "diode symbol (triangle + bar) inside a rounded white square",
+  "page": "p09-quad-2.png",
+  "file": "logos/rectron.gif"
+ },
+ {
+  "id": "atecom",
+  "manufacturer": "ATecoM",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "◇",
+  "description": "diamond outline with filled lower half (rotated square)",
+  "page": "p09-quad-2.png",
+  "file": "logos/atecom.gif"
+ },
+ {
+  "id": "micronas",
+  "manufacturer": "Micronas",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "◇",
+  "description": "diamond made of a grid of small squares/diamonds",
+  "page": "p09-quad-2.png",
+  "file": "logos/micronas.gif"
+ },
+ {
+  "id": "mosys",
+  "manufacturer": "MoSys, Inc.",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "◇",
+  "description": "diamond made of four smaller diamonds (outline)",
+  "page": "p09-quad-2.png",
+  "file": "logos/mosys.gif"
+ },
+ {
+  "id": "pretec",
+  "manufacturer": "Pretec",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "◇",
+  "description": "blurred diamond shape with faint text",
+  "page": "p09-quad-2.png",
+  "file": "logos/pretec.gif"
+ },
+ {
+  "id": "ramtron",
+  "manufacturer": "Ramtron Corp.",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "◇",
+  "description": "tall diamond outline with inner diamond facets (crystal)",
+  "page": "p09-quad-2.png",
+  "file": "logos/ramtron.gif"
+ },
+ {
+  "id": "siliconians",
+  "manufacturer": "Siliconians",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "◇",
+  "description": "diamond with S-shaped split (two halves offset)",
+  "page": "p09-quad-2.png",
+  "file": "logos/siliconians.gif"
+ },
+ {
+  "id": "synergy",
+  "manufacturer": "Synergy Semi [Micrel]",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "◇",
+  "description": "diamond/square split into pinwheel of four arrows",
+  "page": "p09-quad-2.png",
+  "file": "logos/synergy.gif"
+ },
+ {
+  "id": "telefunken",
+  "manufacturer": "Telefunken",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "◇",
+  "description": "diamond containing a star / grid with letters",
+  "page": "p09-quad-2.png",
+  "file": "logos/telefunken.gif"
+ },
+ {
+  "id": "ubicom",
+  "manufacturer": "Ubicom",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "◇",
+  "description": "rounded diamond with diagonal oval cut",
+  "page": "p09-quad-2.png",
+  "file": "logos/ubicom.gif"
+ },
+ {
+  "id": "triquint",
+  "manufacturer": "TriQuint Semiconductor, Inc.",
+  "kind": "symbol",
+  "family": "quad",
+  "text": "⬠",
+  "description": "solid pentagon",
+  "page": "p09-quad-2.png",
+  "file": "logos/triquint.gif"
+ },
+ {
+  "id": "aeroflex",
+  "manufacturer": "Aeroflex",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "A",
+  "description": "rounded arch/bell outline with small filled triangle at bottom",
+  "page": "p10-tri-1.png",
+  "file": "logos/aeroflex.gif"
+ },
+ {
+  "id": "aimtron",
+  "manufacturer": "Aimtron Technology",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "A",
+  "description": "solid \"A\" triangle with chevron cut-out at base",
+  "page": "p10-tri-1.png",
+  "file": "logos/aimtron.gif"
+ },
+ {
+  "id": "californiamicro",
+  "manufacturer": "California Micro Devices",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "A",
+  "description": "triangle outline with inner triangle and diagonal line",
+  "page": "p10-tri-1.png",
+  "file": "logos/californiamicro.gif"
+ },
+ {
+  "id": "matsushita1",
+  "manufacturer": "Matsushita Panasonic",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "A",
+  "description": "triangle with circle at apex and crossbars (Matsushita/National)",
+  "page": "p10-tri-1.png",
+  "file": "logos/matsushita1.gif"
+ },
+ {
+  "id": "sanyo1",
+  "manufacturer": "Sanyo",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "A",
+  "description": "circle containing a tripod/A arrow shape",
+  "page": "p10-tri-1.png",
+  "file": "logos/sanyo1.gif"
+ },
+ {
+  "id": "thomson_csf",
+  "manufacturer": "Thomson-CSF",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "A",
+  "description": "Thomson triangle with curved sides (rounded triangle / tri-star)",
+  "page": "p10-tri-1.png",
+  "file": "logos/thomson_csf.gif"
+ },
+ {
+  "id": "zilog3",
+  "manufacturer": "Zilog",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "A",
+  "description": "\"A\"/arrow shape with circle loop at top (Zilog arrow)",
+  "page": "p10-tri-1.png",
+  "file": "logos/zilog3.gif"
+ },
+ {
+  "id": "altima",
+  "manufacturer": "Altima Communications",
+  "kind": "symbol+text",
+  "family": "tri",
+  "text": "ALTIMA",
+  "description": "mountain/triangle with chevron stripe + \"ALTIMA\" below",
+  "page": "p10-tri-1.png",
+  "file": "logos/altima.gif"
+ },
+ {
+  "id": "ame",
+  "manufacturer": "Analog Microelectronics",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "AM",
+  "description": "stylised \"AM\"/double mountain peaks, solid",
+  "page": "p10-tri-1.png",
+  "file": "logos/ame.gif"
+ },
+ {
+  "id": "ami3",
+  "manufacturer": "American Megatrends",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "AMI",
+  "description": "striped pyramid/triangle with inner inverted triangle (American Megatrends)",
+  "page": "p10-tri-1.png",
+  "file": "logos/ami3.gif"
+ },
+ {
+  "id": "anadigic",
+  "manufacturer": "Anadigic's",
+  "kind": "symbol+text",
+  "family": "tri",
+  "text": "ANADIGICS",
+  "description": "solid square with triangle cut + outlined \"ANADIGICS\"",
+  "page": "p10-tri-1.png",
+  "file": "logos/anadigic.gif"
+ },
+ {
+  "id": "catc",
+  "manufacturer": "Computer Access Tech Corp [CATC]",
+  "kind": "symbol+text",
+  "family": "tri",
+  "text": "CATC",
+  "description": "triangular \"A\" with arrow/bird shape and \"CATC\" beneath",
+  "page": "p10-tri-1.png",
+  "file": "logos/catc.gif"
+ },
+ {
+  "id": "datadelay",
+  "manufacturer": "Data Delay Devices",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "DDD",
+  "description": "inverted triangle with inner triangle and circle with stripes",
+  "page": "p10-tri-1.png",
+  "file": "logos/datadelay.gif"
+ },
+ {
+  "id": "intersil4",
+  "manufacturer": "Intersil",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "i",
+  "description": "\"i\" above a downward-pointing arrow/triangle",
+  "page": "p10-tri-1.png",
+  "file": "logos/intersil4.gif"
+ },
+ {
+  "id": "epson1",
+  "manufacturer": "Seiko Epson Corp.",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "M",
+  "description": "twin mountain peaks outline (stylised M)",
+  "page": "p10-tri-1.png",
+  "file": "logos/epson1.gif"
+ },
+ {
+  "id": "scenix",
+  "manufacturer": "Scenix Semi",
+  "kind": "symbol+text",
+  "family": "tri",
+  "text": "SCENIX",
+  "description": "mountain peaks outline over \"SCENIX\" text",
+  "page": "p10-tri-1.png",
+  "file": "logos/scenix.gif"
+ },
+ {
+  "id": "teledyne",
+  "manufacturer": "Teledyne",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "T",
+  "description": "Teledyne: three triangles/arrows radiating (crown)",
+  "page": "p10-tri-1.png",
+  "file": "logos/teledyne.gif"
+ },
+ {
+  "id": "triscend",
+  "manufacturer": "Triscend",
+  "kind": "symbol+text",
+  "family": "tri",
+  "text": "Triscend",
+  "description": "small slanted triangle/flag + serif \"Triscend\"",
+  "page": "p10-tri-1.png",
+  "file": "logos/triscend.gif"
+ },
+ {
+  "id": "vitelic",
+  "manufacturer": "Vitelic",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "V",
+  "description": "solid inverted triangle with notch (V)",
+  "page": "p10-tri-1.png",
+  "file": "logos/vitelic.gif"
+ },
+ {
+  "id": "silver",
+  "manufacturer": "Silver Telecom",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "⌖",
+  "description": "two overlapping triangles outline (star-like / hourglass)",
+  "page": "p10-tri-1.png",
+  "file": "logos/silver.gif"
+ },
+ {
+  "id": "hyundai1",
+  "manufacturer": "Hyundai",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "△",
+  "description": "triangle outline",
+  "page": "p10-tri-1.png",
+  "file": "logos/hyundai1.gif"
+ },
+ {
+  "id": "telcom",
+  "manufacturer": "TelCom Semiconductor, Inc.",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "▽",
+  "description": "three triangles (two pointing down, one below) = inverted triangle pattern",
+  "page": "p10-tri-1.png",
+  "file": "logos/telcom.gif"
+ },
+ {
+  "id": "vishay",
+  "manufacturer": "Vishay Intertechnology",
+  "kind": "symbol",
+  "family": "tri",
+  "text": "▽",
+  "description": "inverted triangle with \"VISHAY\" inside",
+  "page": "p10-tri-1.png",
+  "file": "logos/vishay.gif"
+ },
+ {
+  "id": "semelab",
+  "manufacturer": "Semelab Magnatec",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "+",
+  "description": "cross/plus shape of striped bars with letters in centre",
+  "page": "p11-stripe-1.png",
+  "file": "logos/semelab.gif"
+ },
+ {
+  "id": "ami2",
+  "manufacturer": "American Microsystems, Inc.",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "/",
+  "description": "square with diagonal hatch lines (striped triangle)",
+  "page": "p11-stripe-1.png",
+  "file": "logos/ami2.gif"
+ },
+ {
+  "id": "powerint",
+  "manufacturer": "Power Integrations",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "/",
+  "description": "slanted parallelogram with horizontal stripes on right",
+  "page": "p11-stripe-1.png",
+  "file": "logos/powerint.gif"
+ },
+ {
+  "id": "zilog1",
+  "manufacturer": "Zilog",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "/",
+  "description": "square with two diagonal stripes cut (Zilog)",
+  "page": "p11-stripe-1.png",
+  "file": "logos/zilog1.gif"
+ },
+ {
+  "id": "clearlogic",
+  "manufacturer": "ClearLogic",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "?",
+  "description": "grid of small hexagon/cells with a starburst, slanted parallelogram",
+  "page": "p11-stripe-1.png",
+  "file": "logos/clearlogic.gif"
+ },
+ {
+  "id": "adc",
+  "manufacturer": "Asian Design Corp",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "A",
+  "description": "solid \"A\" triangle followed by vertical bars forming a half-circle (A + D shape)",
+  "page": "p11-stripe-1.png",
+  "file": "logos/adc.gif"
+ },
+ {
+  "id": "aha1",
+  "manufacturer": "Advanced Hardware Architectures",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "AHA",
+  "description": "horizontally striped \"AHA\" letters",
+  "page": "p11-stripe-1.png",
+  "file": "logos/aha1.gif"
+ },
+ {
+  "id": "anasys",
+  "manufacturer": "Analog Systems",
+  "kind": "symbol+text",
+  "family": "stripe",
+  "text": "ANALOG SYSTEMS",
+  "description": "\"S\"-like curve left + striped \"ANALOG SYSTEMS\" text",
+  "page": "p11-stripe-1.png",
+  "file": "logos/anasys.gif"
+ },
+ {
+  "id": "elec_designs2",
+  "manufacturer": "[White] Electronic Designs",
+  "kind": "symbol+text",
+  "family": "stripe",
+  "text": "EDI",
+  "description": "diagonal-striped square + \"EDI\" condensed text",
+  "page": "p11-stripe-1.png",
+  "file": "logos/elec_designs2.gif"
+ },
+ {
+  "id": "ericsson",
+  "manufacturer": "Ericsson",
+  "kind": "symbol+text",
+  "family": "stripe",
+  "text": "ERICSSON",
+  "description": "\"ERICSSON\" + three slanted stacked bars",
+  "page": "p11-stripe-1.png",
+  "file": "logos/ericsson.gif"
+ },
+ {
+  "id": "ils",
+  "manufacturer": "Integrated Logic Systems",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "ILS",
+  "description": "stacked U-shapes / meander of vertical lines in a square",
+  "page": "p11-stripe-1.png",
+  "file": "logos/ils.gif"
+ },
+ {
+  "id": "mhs1",
+  "manufacturer": "MHS, Matra Harris Semiconductor",
+  "kind": "symbol+text",
+  "family": "stripe",
+  "text": "MHS",
+  "description": "striped square \"M\" emblem + outlined \"MHS\"",
+  "page": "p11-stripe-1.png",
+  "file": "logos/mhs1.gif"
+ },
+ {
+  "id": "ns1",
+  "manufacturer": "National Semiconductor",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "NS",
+  "description": "\"NS\" built from diagonal stripes in a box (National Semi)",
+  "page": "p11-stripe-1.png",
+  "file": "logos/ns1.gif"
+ },
+ {
+  "id": "gennum",
+  "manufacturer": "Gennum",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "O",
+  "description": "circle with vertical stripes",
+  "page": "p11-stripe-1.png",
+  "file": "logos/gennum.gif"
+ },
+ {
+  "id": "sarc",
+  "manufacturer": "SARC",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "S",
+  "description": "slanted \"S\" bar + striped circle",
+  "page": "p11-stripe-1.png",
+  "file": "logos/sarc.gif"
+ },
+ {
+  "id": "semicoa",
+  "manufacturer": "Semicoa Semiconductors",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "S",
+  "description": "stacked squared \"S\"/\"E\" meander",
+  "page": "p11-stripe-1.png",
+  "file": "logos/semicoa.gif"
+ },
+ {
+  "id": "smc1",
+  "manufacturer": "Standard Microsystems, Corp.",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "S",
+  "description": "stepped \"S\" made of parallel lines (Standard Microsystems)",
+  "page": "p11-stripe-1.png",
+  "file": "logos/smc1.gif"
+ },
+ {
+  "id": "teccor2",
+  "manufacturer": "Teccor Electronics",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "T",
+  "description": "\"T\"-shape made of vertical and horizontal lines (striped T)",
+  "page": "p11-stripe-1.png",
+  "file": "logos/teccor2.gif"
+ },
+ {
+  "id": "alpha_semi",
+  "manufacturer": "Alpha Semi",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "α",
+  "description": "alpha symbol over horizontal stripes",
+  "page": "p11-stripe-1.png",
+  "file": "logos/alpha_semi.gif"
+ },
+ {
+  "id": "pulse",
+  "manufacturer": "Pulse",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "П",
+  "description": "striped circle with \"Π\"/gate shape",
+  "page": "p11-stripe-1.png",
+  "file": "logos/pulse.gif"
+ },
+ {
+  "id": "cirrus",
+  "manufacturer": "Cirrus Logic",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "≡",
+  "description": "horizontal striped ellipse/lens",
+  "page": "p11-stripe-1.png",
+  "file": "logos/cirrus.gif"
+ },
+ {
+  "id": "stream",
+  "manufacturer": "Stream Machine",
+  "kind": "symbol",
+  "family": "stripe",
+  "text": "≡",
+  "description": "sphere made of horizontal curved stripes (striped ball)",
+  "page": "p11-stripe-1.png",
+  "file": "logos/stream.gif"
+ },
+ {
+  "id": "holtek",
+  "manufacturer": "Holtek Semiconductor Inc.",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "/",
+  "description": "diagonal arrows / slashes crossing (two parallelograms)",
+  "page": "p12-pict-1.png",
+  "file": "logos/holtek.gif"
+ },
+ {
+  "id": "peregrine",
+  "manufacturer": "Peregrine Semi",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "/",
+  "description": "diagonal slashes / feathered streaks",
+  "page": "p12-pict-1.png",
+  "file": "logos/peregrine.gif"
+ },
+ {
+  "id": "trident",
+  "manufacturer": "Trident",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "//",
+  "description": "two slanted curved strokes (trident tines)",
+  "page": "p12-pict-1.png",
+  "file": "logos/trident.gif"
+ },
+ {
+  "id": "3com_3",
+  "manufacturer": "3Com",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "3Co",
+  "description": "thick looping \"3\" chain/link shape, script \"Co\"",
+  "page": "p12-pict-1.png",
+  "file": "logos/3com_3.gif"
+ },
+ {
+  "id": "3dfx_1",
+  "manufacturer": "3dfx",
+  "kind": "symbol+text",
+  "family": "pict",
+  "text": "3Dfx",
+  "description": "messy dragon-like splash graphic with faint \"3Dfx\"",
+  "page": "p12-pict-1.png",
+  "file": "logos/3dfx_1.gif"
+ },
+ {
+  "id": "allayer",
+  "manufacturer": "Allayer Communications",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "A",
+  "description": "looping script \"A\" / ribbon shape",
+  "page": "p12-pict-1.png",
+  "file": "logos/allayer.gif"
+ },
+ {
+  "id": "audiocodes",
+  "manufacturer": "Audio Codes",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "AC",
+  "description": "stylised bird/arrow shapes, angular figure",
+  "page": "p12-pict-1.png",
+  "file": "logos/audiocodes.gif"
+ },
+ {
+  "id": "agilent",
+  "manufacturer": "Agilent",
+  "kind": "symbol+text",
+  "family": "pict",
+  "text": "Agilent",
+  "description": "starburst/spark of radiating dots + \"Agilent\"",
+  "page": "p12-pict-1.png",
+  "file": "logos/agilent.gif"
+ },
+ {
+  "id": "lansdale2",
+  "manufacturer": "Lansdale Semiconductor",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "bird",
+  "description": "eagle head profile in square",
+  "page": "p12-pict-1.png",
+  "file": "logos/lansdale2.gif"
+ },
+ {
+  "id": "ccube",
+  "manufacturer": "C-Cube",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "C",
+  "description": "3D cube with C-shaped cut-outs",
+  "page": "p12-pict-1.png",
+  "file": "logos/ccube.gif"
+ },
+ {
+  "id": "cherry",
+  "manufacturer": "Cherry Semiconductor",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "cherries",
+  "description": "pair of cherries on stems",
+  "page": "p12-pict-1.png",
+  "file": "logos/cherry.gif"
+ },
+ {
+  "id": "dallas1",
+  "manufacturer": "Dallas Semiconductor Corp.",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "clock",
+  "description": "alarm clock figure",
+  "page": "p12-pict-1.png",
+  "file": "logos/dallas1.gif"
+ },
+ {
+  "id": "realtek",
+  "manufacturer": "Realtek Semiconductor Corp",
+  "kind": "symbol+text",
+  "family": "pict",
+  "text": "crab",
+  "description": "crab with raised claws over small \"REALTEK\" text",
+  "page": "p12-pict-1.png",
+  "file": "logos/realtek.gif"
+ },
+ {
+  "id": "cambridge",
+  "manufacturer": "Cambridge Silicon Radio",
+  "kind": "symbol+text",
+  "family": "pict",
+  "text": "CSR",
+  "description": "curved sweeping fan lines with \"CSR\" text above",
+  "page": "p12-pict-1.png",
+  "file": "logos/cambridge.gif"
+ },
+ {
+  "id": "sss",
+  "manufacturer": "Solid State Scientific",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "cube",
+  "description": "3D hexagonal cube with \"SSS\" inside",
+  "page": "p12-pict-1.png",
+  "file": "logos/sss.gif"
+ },
+ {
+  "id": "dallas3",
+  "manufacturer": "Dallas Semiconductor Corp.",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "dog",
+  "description": "bulldog/dog face",
+  "page": "p12-pict-1.png",
+  "file": "logos/dallas3.gif"
+ },
+ {
+  "id": "nvidia",
+  "manufacturer": "NVidia Corporation",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "eye",
+  "description": "NVIDIA eye: spiral eye in a rectangle",
+  "page": "p12-pict-1.png",
+  "file": "logos/nvidia.gif"
+ },
+ {
+  "id": "dtc2",
+  "manufacturer": "DTC Data Technology",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "fan",
+  "description": "fan / shell of radiating triangular rays, half circle",
+  "page": "p12-pict-1.png",
+  "file": "logos/dtc2.gif"
+ },
+ {
+  "id": "microtune",
+  "manufacturer": "Microtune",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "fan",
+  "description": "diamond with radiating lines (fan/arrows) pointing upper right",
+  "page": "p12-pict-1.png",
+  "file": "logos/microtune.gif"
+ },
+ {
+  "id": "diamondtech",
+  "manufacturer": "Diamond Technologies",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "fox",
+  "description": "animal face (fox/wolf head) inside a rounded square",
+  "page": "p12-pict-1.png",
+  "file": "logos/diamondtech.gif"
+ },
+ {
+  "id": "oxford",
+  "manufacturer": "Oxford Micro",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "gem",
+  "description": "faceted crystal/geodesic sphere",
+  "page": "p12-pict-1.png",
+  "file": "logos/oxford.gif"
+ },
+ {
+  "id": "mosaic",
+  "manufacturer": "Mosaic Semiconductor Inc.",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "m",
+  "description": "handwritten script \"m\" squiggle with tail",
+  "page": "p12-pict-1.png",
+  "file": "logos/mosaic.gif"
+ },
+ {
+  "id": "myson",
+  "manufacturer": "Myson Technology Inc.",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "M",
+  "description": "\"M\" with globe/dish between pillars",
+  "page": "p12-pict-1.png",
+  "file": "logos/myson.gif"
+ },
+ {
+  "id": "mikro_erfurt",
+  "manufacturer": "Mikroelektronik Erfurt",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "ME",
+  "description": "ornate symmetrical \"ME\"/butterfly-like curly shape",
+  "page": "p12-pict-1.png",
+  "file": "logos/mikro_erfurt.gif"
+ },
+ {
+  "id": "microlinear",
+  "manufacturer": "Micro Linear",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "ML",
+  "description": "3D isometric blocks spelling \"ML\" (cube shapes)",
+  "page": "p12-pict-1.png",
+  "file": "logos/microlinear.gif"
+ },
+ {
+  "id": "ninja",
+  "manufacturer": "Ninja",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "ninja",
+  "description": "brushy calligraphy splash / ninja figure graphic",
+  "page": "p12-pict-1.png",
+  "file": "logos/ninja.gif"
+ },
+ {
+  "id": "rabbit",
+  "manufacturer": "Rabbit Semi",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "rabbit",
+  "description": "running rabbit silhouette",
+  "page": "p12-pict-1.png",
+  "file": "logos/rabbit.gif"
+ },
+ {
+  "id": "daewoo",
+  "manufacturer": "Daewoo Electronics",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "shell",
+  "description": "shell / fan shape of radiating segments (Daewoo)",
+  "page": "p12-pict-1.png",
+  "file": "logos/daewoo.gif"
+ },
+ {
+  "id": "elec_designs1",
+  "manufacturer": "[White] Electronic Designs",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "shell",
+  "description": "diamond shape with radiating vertical lines on top (fan/shell)",
+  "page": "p12-pict-1.png",
+  "file": "logos/elec_designs1.gif"
+ },
+ {
+  "id": "philips",
+  "manufacturer": "Philips",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "shield",
+  "description": "Philips shield with waves and stars",
+  "page": "p12-pict-1.png",
+  "file": "logos/philips.gif"
+ },
+ {
+  "id": "ti1",
+  "manufacturer": "Texas Instruments",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "Texas",
+  "description": "Texas state outline with \"ti\" (Texas Instruments)",
+  "page": "p13-pict-2.png",
+  "file": "logos/ti1.gif"
+ },
+ {
+  "id": "ti2",
+  "manufacturer": "Texas Instruments",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "Texas",
+  "description": "Texas state silhouette with \"ti\" cut-out",
+  "page": "p13-pict-2.png",
+  "file": "logos/ti2.gif"
+ },
+ {
+  "id": "cologne",
+  "manufacturer": "Cologne Chip Designs",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "towers",
+  "description": "Cologne cathedral twin spires silhouette",
+  "page": "p13-pict-2.png",
+  "file": "logos/cologne.gif"
+ },
+ {
+  "id": "cosmo",
+  "manufacturer": "Cosmo Semi",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "tree",
+  "description": "mushroom/umbrella cap over a small triangle base (tree-like)",
+  "page": "p13-pict-2.png",
+  "file": "logos/cosmo.gif"
+ },
+ {
+  "id": "cypress1",
+  "manufacturer": "Cypress Semiconductor Corp.",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "tree",
+  "description": "circle outline with a tree inside (Cypress tree)",
+  "page": "p13-pict-2.png",
+  "file": "logos/cypress1.gif"
+ },
+ {
+  "id": "cypress2",
+  "manufacturer": "Cypress Semiconductor Corp.",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "tree",
+  "description": "striped sphere with tree-shaped branch extending right",
+  "page": "p13-pict-2.png",
+  "file": "logos/cypress2.gif"
+ },
+ {
+  "id": "oak",
+  "manufacturer": "Oak Technology",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "tree",
+  "description": "tree canopy (dotted crown) with arrow trunk (oak tree)",
+  "page": "p13-pict-2.png",
+  "file": "logos/oak.gif"
+ },
+ {
+  "id": "tvia",
+  "manufacturer": "Tvia Technology",
+  "kind": "symbol+text",
+  "family": "pict",
+  "text": "Tvia",
+  "description": "box with a wavy screen shape + \"Tvia\"",
+  "page": "p13-pict-2.png",
+  "file": "logos/tvia.gif"
+ },
+ {
+  "id": "astec",
+  "manufacturer": "ASTEC Semi",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "XXXX",
+  "description": "row of interlocking diamond/zigzag chain links",
+  "page": "p13-pict-2.png",
+  "file": "logos/astec.gif"
+ },
+ {
+  "id": "alliance",
+  "manufacturer": "Alliance",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "Y",
+  "description": "three-armed tri-blade / Y-shaped symbol",
+  "page": "p13-pict-2.png",
+  "file": "logos/alliance.gif"
+ },
+ {
+  "id": "egg",
+  "manufacturer": "EG&G, Inc.",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "Y",
+  "description": "three-armed propeller / Y of three bars",
+  "page": "p13-pict-2.png",
+  "file": "logos/egg.gif"
+ },
+ {
+  "id": "sescosem1",
+  "manufacturer": "Sescosem",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "Y",
+  "description": "antenna-like \"Y\" above a horizontal box (Sescosem)",
+  "page": "p13-pict-2.png",
+  "file": "logos/sescosem1.gif"
+ },
+ {
+  "id": "sescosem2",
+  "manufacturer": "Sescosem",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "Y",
+  "description": "Y-shaped antenna over a cross-shaped box outline",
+  "page": "p13-pict-2.png",
+  "file": "logos/sescosem2.gif"
+ },
+ {
+  "id": "zetex",
+  "manufacturer": "Zetex",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "Y",
+  "description": "diode/zener symbol stacked with \"Z\" curl at top",
+  "page": "p13-pict-2.png",
+  "file": "logos/zetex.gif"
+ },
+ {
+  "id": "generalsemi",
+  "manufacturer": "General Semiconductor",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "∞",
+  "description": "knot / infinity loops with arrow points",
+  "page": "p13-pict-2.png",
+  "file": "logos/generalsemi.gif"
+ },
+ {
+  "id": "infinite",
+  "manufacturer": "Infinite Technology",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "∞",
+  "description": "infinity loops with dot, figure-of-eight / bicycle-like",
+  "page": "p13-pict-2.png",
+  "file": "logos/infinite.gif"
+ },
+ {
+  "id": "zarlink",
+  "manufacturer": "Zarlink Semi",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "∞",
+  "description": "two linked ovals/rings with horizontal lines (chain)",
+  "page": "p13-pict-2.png",
+  "file": "logos/zarlink.gif"
+ },
+ {
+  "id": "mitsubishi",
+  "manufacturer": "Mitsubishi",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "◆◆◆",
+  "description": "three diamonds (Mitsubishi)",
+  "page": "p13-pict-2.png",
+  "file": "logos/mitsubishi.gif"
+ },
+ {
+  "id": "performance",
+  "manufacturer": "Performance Semiconductor Corp.",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "★",
+  "description": "small star with long horizontal line (shooting star)",
+  "page": "p13-pict-2.png",
+  "file": "logos/performance.gif"
+ },
+ {
+  "id": "zmd",
+  "manufacturer": "Zentrum Mikroelektronik Dresden",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "★",
+  "description": "star with horizontal swooshes/speed lines through it",
+  "page": "p13-pict-2.png",
+  "file": "logos/zmd.gif"
+ },
+ {
+  "id": "samsung",
+  "manufacturer": "Samsung Semiconductor",
+  "kind": "symbol",
+  "family": "pict",
+  "text": "✣",
+  "description": "four overlapping circles/ellipses forming a flower/cross knot",
+  "page": "p13-pict-2.png",
+  "file": "logos/samsung.gif"
+ },
+ {
+  "id": "3com_4",
+  "manufacturer": "3Com",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "3COM",
+  "description": "tall condensed thin outlined \"3COM\" lettering",
+  "page": "p14-text-1.png",
+  "file": "logos/3com_4.gif"
+ },
+ {
+  "id": "3dfx_2",
+  "manufacturer": "3dfx",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "3dfx",
+  "description": "bold \"3dfx\" with tall \"f\"",
+  "page": "p14-text-1.png",
+  "file": "logos/3dfx_2.gif"
+ },
+ {
+  "id": "8x8",
+  "manufacturer": "8x8",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "88",
+  "description": "two stacked \"8\" digits in outline style, \"8x8\"",
+  "page": "p14-text-1.png",
+  "file": "logos/8x8.gif"
+ },
+ {
+  "id": "actel",
+  "manufacturer": "Actel Corporation",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Actel",
+  "description": "italic \"Actel\" with speed lines to the left",
+  "page": "p14-text-1.png",
+  "file": "logos/actel.gif"
+ },
+ {
+  "id": "adaptec",
+  "manufacturer": "Adaptec",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "adaptec",
+  "description": "lowercase rounded bold \"adaptec\" (inverted box)",
+  "page": "p14-text-1.png",
+  "file": "logos/adaptec.gif"
+ },
+ {
+  "id": "agere",
+  "manufacturer": "Agere",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "agere",
+  "description": "lowercase \"agere\" with outlined g",
+  "page": "p14-text-1.png",
+  "file": "logos/agere.gif"
+ },
+ {
+  "id": "aha2",
+  "manufacturer": "Advanced Hardware Architectures",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "AHA",
+  "description": "wide \"AHA\" with long horizontal underline/swoosh",
+  "page": "p14-text-1.png",
+  "file": "logos/aha2.gif"
+ },
+ {
+  "id": "aitech",
+  "manufacturer": "AITech",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "AITech",
+  "description": "serif \"AITech\"",
+  "page": "p14-text-1.png",
+  "file": "logos/aitech.gif"
+ },
+ {
+  "id": "akm",
+  "manufacturer": "AKM Semi",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "AKM",
+  "description": "bold \"AKM\"",
+  "page": "p14-text-1.png",
+  "file": "logos/akm.gif"
+ },
+ {
+  "id": "alcatel",
+  "manufacturer": "Alcatel",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ALCATEL",
+  "description": "spaced \"ALCATEL\" in a box, small T marker above",
+  "page": "p14-text-1.png",
+  "file": "logos/alcatel.gif"
+ },
+ {
+  "id": "acerlab",
+  "manufacturer": "Acer Laboratories Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ALi",
+  "description": "bold rounded \"ALi\"",
+  "page": "p14-text-1.png",
+  "file": "logos/acerlab.gif"
+ },
+ {
+  "id": "altera",
+  "manufacturer": "Altera Corporation",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ALTERA",
+  "description": "outlined hollow \"ALTERA\", block letters",
+  "page": "p14-text-1.png",
+  "file": "logos/altera.gif"
+ },
+ {
+  "id": "ami1",
+  "manufacturer": "American Microsystems, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "AMI",
+  "description": "heavy serif \"AMI\"",
+  "page": "p14-text-1.png",
+  "file": "logos/ami1.gif"
+ },
+ {
+  "id": "ami4",
+  "manufacturer": "American Microsystems, Inc.",
+  "kind": "symbol+text",
+  "family": "text",
+  "text": "AMI S",
+  "description": "italic \"AMI\" with S below a crossbar line",
+  "page": "p14-text-1.png",
+  "file": "logos/ami4.gif"
+ },
+ {
+  "id": "advmono",
+  "manufacturer": "Advanced Monolithic Systems",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "AMS",
+  "description": "heavy bold \"AMS\"",
+  "page": "p14-text-1.png",
+  "file": "logos/advmono.gif"
+ },
+ {
+  "id": "ams",
+  "manufacturer": "Advanced Micro Systems",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "AMS",
+  "description": "outlined/double-line \"AMS\" letters",
+  "page": "p14-text-1.png",
+  "file": "logos/ams.gif"
+ },
+ {
+  "id": "apacer",
+  "manufacturer": "Apacer",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Apacer",
+  "description": "\"Apacer®\" in condensed serif",
+  "page": "p14-text-1.png",
+  "file": "logos/apacer.gif"
+ },
+ {
+  "id": "apacer2",
+  "manufacturer": "Apacer",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "APACER",
+  "description": "spaced bold \"APACER\"",
+  "page": "p14-text-1.png",
+  "file": "logos/apacer2.gif"
+ },
+ {
+  "id": "apex1",
+  "manufacturer": "APEX Microtechnology",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "APEX",
+  "description": "bold heavy \"APEX\"",
+  "page": "p14-text-1.png",
+  "file": "logos/apex1.gif"
+ },
+ {
+  "id": "apex2",
+  "manufacturer": "APEX Microtechnology",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "APEX µtech",
+  "description": "large outlined \"A\" with \"PEX\" and \"µtech\" (APEX Microtechnology)",
+  "page": "p14-text-1.png",
+  "file": "logos/apex2.gif"
+ },
+ {
+  "id": "aralion",
+  "manufacturer": "Aralion",
+  "kind": "symbol+text",
+  "family": "text",
+  "text": "ARALION",
+  "description": "\"ARALION\" with a feather/quill swoosh through the first letters",
+  "page": "p14-text-1.png",
+  "file": "logos/aralion.gif"
+ },
+ {
+  "id": "ark1",
+  "manufacturer": "ARK Logic, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ARK",
+  "description": "blocky striped/stencil \"ARK\"",
+  "page": "p14-text-1.png",
+  "file": "logos/ark1.gif"
+ },
+ {
+  "id": "ark2",
+  "manufacturer": "ARK Logic, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ARK",
+  "description": "outlined rounded \"ARK\"",
+  "page": "p14-text-1.png",
+  "file": "logos/ark2.gif"
+ },
+ {
+  "id": "ascend",
+  "manufacturer": "ASCEND",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ASCEND",
+  "description": "serif outlined \"ASCEND\"",
+  "page": "p14-text-1.png",
+  "file": "logos/ascend.gif"
+ },
+ {
+  "id": "austin",
+  "manufacturer": "Austin Semiconductor, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ASI",
+  "description": "italic \"ASI\" with arc swoosh",
+  "page": "p14-text-1.png",
+  "file": "logos/austin.gif"
+ },
+ {
+  "id": "atan",
+  "manufacturer": "ATAN Technology",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "atan",
+  "description": "italic script \"atan\" with swooping \"a\"",
+  "page": "p14-text-1.png",
+  "file": "logos/atan.gif"
+ },
+ {
+  "id": "atmel",
+  "manufacturer": "Atmel",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ATMEL",
+  "description": "\"ATMEL\" with horizontal line through/over, trapezoid block",
+  "page": "p14-text-1.png",
+  "file": "logos/atmel.gif"
+ },
+ {
+  "id": "auctor",
+  "manufacturer": "Auctor",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Auctor",
+  "description": "script/serif \"Auctor\" with large swash A",
+  "page": "p14-text-1.png",
+  "file": "logos/auctor.gif"
+ },
+ {
+  "id": "azm",
+  "manufacturer": "Arizona Microtek",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "AZM",
+  "description": "angular \"AZM\" with chevron \"A\" and underline",
+  "page": "p14-text-1.png",
+  "file": "logos/azm.gif"
+ },
+ {
+  "id": "belfuse",
+  "manufacturer": "Bel Fuse Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "bel",
+  "description": "heavy lowercase \"bel\"",
+  "page": "p14-text-1.png",
+  "file": "logos/belfuse.gif"
+ },
+ {
+  "id": "bitech",
+  "manufacturer": "BI Technologies",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "BI",
+  "description": "italic bold \"BI\" with horizontal cut lines",
+  "page": "p15-text-2.png",
+  "file": "logos/bitech.gif"
+ },
+ {
+  "id": "brooktree",
+  "manufacturer": "Brooktree",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Bt",
+  "description": "serif \"Bt\"",
+  "page": "p15-text-2.png",
+  "file": "logos/brooktree.gif"
+ },
+ {
+  "id": "cands",
+  "manufacturer": "C&S Technology",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "C&S",
+  "description": "italic \"C&S\"",
+  "page": "p15-text-2.png",
+  "file": "logos/cands.gif"
+ },
+ {
+  "id": "calogic",
+  "manufacturer": "Calogic",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "calogic",
+  "description": "lowercase \"calogic\"",
+  "page": "p15-text-2.png",
+  "file": "logos/calogic.gif"
+ },
+ {
+  "id": "century",
+  "manufacturer": "Century Microelectronics",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "CENTURY",
+  "description": "\"CENTURY\" in a rounded rectangle outline",
+  "page": "p15-text-2.png",
+  "file": "logos/century.gif"
+ },
+ {
+  "id": "chips",
+  "manufacturer": "Chips and Technologies, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "CHIPS",
+  "description": "bold \"CHIPS\" with striped top",
+  "page": "p15-text-2.png",
+  "file": "logos/chips.gif"
+ },
+ {
+  "id": "crystal",
+  "manufacturer": "Crystal Semiconductor Corp.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "CRYSTAL",
+  "description": "italic striped/stencil \"CRYSTAL\"",
+  "page": "p15-text-2.png",
+  "file": "logos/crystal.gif"
+ },
+ {
+  "id": "catalyst2",
+  "manufacturer": "Catalyst Semiconductor, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "CSI",
+  "description": "wide blocky \"CSI\"",
+  "page": "p15-text-2.png",
+  "file": "logos/catalyst2.gif"
+ },
+ {
+  "id": "cyrix",
+  "manufacturer": "Cyrix Corporation",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Cyrix",
+  "description": "bold \"Cyrix\" with italic y",
+  "page": "p15-text-2.png",
+  "file": "logos/cyrix.gif"
+ },
+ {
+  "id": "dream",
+  "manufacturer": "Dream",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "dream",
+  "description": "\"dream\" on circuit-board style lines with dots",
+  "page": "p15-text-2.png",
+  "file": "logos/dream.gif"
+ },
+ {
+  "id": "dvdo",
+  "manufacturer": "DVDO",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "DVDO",
+  "description": "\"DVDO\" each letter in a box",
+  "page": "p15-text-2.png",
+  "file": "logos/dvdo.gif"
+ },
+ {
+  "id": "elite_mt",
+  "manufacturer": "Elite MT",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "EliteMT",
+  "description": "serif italic \"EliteMT\"",
+  "page": "p15-text-2.png",
+  "file": "logos/elite_mt.gif"
+ },
+ {
+  "id": "enova",
+  "manufacturer": "eNOVA",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "eNOVA",
+  "description": "large \"e\" in rounded box + condensed \"NOVA\"",
+  "page": "p15-text-2.png",
+  "file": "logos/enova.gif"
+ },
+ {
+  "id": "ensoniq",
+  "manufacturer": "Ensoniq Corp",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ENSONIQ",
+  "description": "outlined \"ENSONIQ\" in rounded rectangle",
+  "page": "p15-text-2.png",
+  "file": "logos/ensoniq.gif"
+ },
+ {
+  "id": "epson2",
+  "manufacturer": "Seiko Epson Corp.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "EPSON",
+  "description": "\"EPSON\"",
+  "page": "p15-text-2.png",
+  "file": "logos/epson2.gif"
+ },
+ {
+  "id": "esmt",
+  "manufacturer": "ESMT",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ESMT",
+  "description": "bold italic \"ESMT\"",
+  "page": "p15-text-2.png",
+  "file": "logos/esmt.gif"
+ },
+ {
+  "id": "ess",
+  "manufacturer": "ESS Technology, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ESS",
+  "description": "striped/outlined \"ESS\"",
+  "page": "p15-text-2.png",
+  "file": "logos/ess.gif"
+ },
+ {
+  "id": "etrontech1",
+  "manufacturer": "Etron Tech",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "EtronTech",
+  "description": "serif \"EtronTech\" with large E",
+  "page": "p15-text-2.png",
+  "file": "logos/etrontech1.gif"
+ },
+ {
+  "id": "exel",
+  "manufacturer": "Exel Microelectronics, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "EXEL",
+  "description": "italic bold \"EXEL\"",
+  "page": "p15-text-2.png",
+  "file": "logos/exel.gif"
+ },
+ {
+  "id": "fairchild2",
+  "manufacturer": "Fairchild Semiconductor Corp",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "FAIRCHILD",
+  "description": "\"FAIRCHILD\" between horizontal bars",
+  "page": "p15-text-2.png",
+  "file": "logos/fairchild2.gif"
+ },
+ {
+  "id": "ferranti",
+  "manufacturer": "Ferranti",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "FERRANTI",
+  "description": "serif \"FERRANTI\"",
+  "page": "p15-text-2.png",
+  "file": "logos/ferranti.gif"
+ },
+ {
+  "id": "figaro",
+  "manufacturer": "Figaro Sensors",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "FIGARO",
+  "description": "wide bold \"FIGARO\"",
+  "page": "p15-text-2.png",
+  "file": "logos/figaro.gif"
+ },
+ {
+  "id": "fore",
+  "manufacturer": "FORE Systems",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "FORE",
+  "description": "large thin outlined \"FORE\"",
+  "page": "p15-text-2.png",
+  "file": "logos/fore.gif"
+ },
+ {
+  "id": "fujielec2",
+  "manufacturer": "Fuji Electric Co.,Ltd.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "FUJI ELECTRIC",
+  "description": "blocky \"FUJI\" over outlined \"ELECTRIC\"",
+  "page": "p15-text-2.png",
+  "file": "logos/fujielec2.gif"
+ },
+ {
+  "id": "g2",
+  "manufacturer": "G2",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "G2",
+  "description": "bold \"G2\"",
+  "page": "p15-text-2.png",
+  "file": "logos/g2.gif"
+ },
+ {
+  "id": "galileo",
+  "manufacturer": "Galileo Technology",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Galileo",
+  "description": "\"Galileo\" with dotted/halftone \"G\"",
+  "page": "p15-text-2.png",
+  "file": "logos/galileo.gif"
+ },
+ {
+  "id": "gi2",
+  "manufacturer": "General Instrument",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "GI",
+  "description": "serif \"GI\"",
+  "page": "p15-text-2.png",
+  "file": "logos/gi2.gif"
+ },
+ {
+  "id": "goldstar",
+  "manufacturer": "Lucky Goldstar Semi [LGS]",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "GoldStar",
+  "description": "\"GoldStar\" rounded modern",
+  "page": "p15-text-2.png",
+  "file": "logos/goldstar.gif"
+ },
+ {
+  "id": "harris3",
+  "manufacturer": "Harris",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "HARRIS",
+  "description": "italic \"HARRIS\" with lightning stroke through",
+  "page": "p15-text-2.png",
+  "file": "logos/harris3.gif"
+ },
+ {
+  "id": "hifn",
+  "manufacturer": "hi/fn",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "hi/fn",
+  "description": "\"hi/fn\" in a box",
+  "page": "p15-text-2.png",
+  "file": "logos/hifn.gif"
+ },
+ {
+  "id": "highpoint",
+  "manufacturer": "HighPoint",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "HighPoint",
+  "description": "tall condensed \"HighPoint\"",
+  "page": "p16-text-3.png",
+  "file": "logos/highpoint.gif"
+ },
+ {
+  "id": "hint",
+  "manufacturer": "HiNT Corp",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "HiNT",
+  "description": "bold \"HiNT®\"",
+  "page": "p16-text-3.png",
+  "file": "logos/hint.gif"
+ },
+ {
+  "id": "hualon",
+  "manufacturer": "Hualon Microelectronics Corporation",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "HMC",
+  "description": "serif blocky \"HMC\"",
+  "page": "p16-text-3.png",
+  "file": "logos/hualon.gif"
+ },
+ {
+  "id": "hynix",
+  "manufacturer": "Hynix",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "hynix",
+  "description": "bold lowercase \"hynix\"",
+  "page": "p16-text-3.png",
+  "file": "logos/hynix.gif"
+ },
+ {
+  "id": "hyundai3",
+  "manufacturer": "Hyundai",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "HYUNDAI",
+  "description": "condensed spaced \"HYUNDAI\"",
+  "page": "p16-text-3.png",
+  "file": "logos/hyundai3.gif"
+ },
+ {
+  "id": "intel1",
+  "manufacturer": "Intel Corp.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "i",
+  "description": "single \"i\" (lowercase i, Intel chip mark)",
+  "page": "p16-text-3.png",
+  "file": "logos/intel1.gif"
+ },
+ {
+  "id": "ibm",
+  "manufacturer": "IBM",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "IBM",
+  "description": "striped \"IBM\" (horizontal lines)",
+  "page": "p16-text-3.png",
+  "file": "logos/ibm.gif"
+ },
+ {
+  "id": "ichaus1",
+  "manufacturer": "iC-Haus",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "iC",
+  "description": "thin \"iC\"",
+  "page": "p16-text-3.png",
+  "file": "logos/ichaus1.gif"
+ },
+ {
+  "id": "icdesigns",
+  "manufacturer": "IC Designs",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "IC DESIGNS",
+  "description": "italic serif \"IC\" + \"DESIGNS\"",
+  "page": "p16-text-3.png",
+  "file": "logos/icdesigns.gif"
+ },
+ {
+  "id": "igstech",
+  "manufacturer": "IGS Technologies",
+  "kind": "symbol+text",
+  "family": "text",
+  "text": "iGS",
+  "description": "italic \"iGS\" with swash i + \"Technologies\"",
+  "page": "p16-text-3.png",
+  "file": "logos/igstech.gif"
+ },
+ {
+  "id": "imp",
+  "manufacturer": "IMP, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "IMP",
+  "description": "bold italic slanted \"IMP\" with cut strokes",
+  "page": "p16-text-3.png",
+  "file": "logos/imp.gif"
+ },
+ {
+  "id": "in_system",
+  "manufacturer": "In-system Design",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "in-system",
+  "description": "bold \"in·system\"",
+  "page": "p16-text-3.png",
+  "file": "logos/in_system.gif"
+ },
+ {
+  "id": "infineon1",
+  "manufacturer": "Infineon",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Infineon",
+  "description": "condensed bold \"Infineon\"",
+  "page": "p16-text-3.png",
+  "file": "logos/infineon1.gif"
+ },
+ {
+  "id": "intel2",
+  "manufacturer": "Intel Corp.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "intel",
+  "description": "\"intel\" with dropped \"e\"",
+  "page": "p16-text-3.png",
+  "file": "logos/intel2.gif"
+ },
+ {
+  "id": "intersil2",
+  "manufacturer": "Intersil",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "INTERSIL",
+  "description": "outlined \"INTERSIL\"",
+  "page": "p16-text-3.png",
+  "file": "logos/intersil2.gif"
+ },
+ {
+  "id": "intersil3",
+  "manufacturer": "Intersil",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "intersil",
+  "description": "bold lowercase \"intersil\" with underline swoosh",
+  "page": "p16-text-3.png",
+  "file": "logos/intersil3.gif"
+ },
+ {
+  "id": "ir",
+  "manufacturer": "International Rectifier",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "IOR",
+  "description": "\"I◆R\" with diamond/star in O (International Rectifier)",
+  "page": "p16-text-3.png",
+  "file": "logos/ir.gif"
+ },
+ {
+  "id": "isd",
+  "manufacturer": "Information Storage Devices",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ISD",
+  "description": "bold italic \"ISD\" with dots/halftone",
+  "page": "p16-text-3.png",
+  "file": "logos/isd.gif"
+ },
+ {
+  "id": "issi",
+  "manufacturer": "Integrated Silicon Solution, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ISSI",
+  "description": "italic \"ISSI\"",
+  "page": "p16-text-3.png",
+  "file": "logos/issi.gif"
+ },
+ {
+  "id": "ite",
+  "manufacturer": "Integrated Technology Express",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ITE",
+  "description": "\"iTE\" with swoosh arc from the i",
+  "page": "p16-text-3.png",
+  "file": "logos/ite.gif"
+ },
+ {
+  "id": "itt",
+  "manufacturer": "ITT Industries [Micronas Semi]",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ITT",
+  "description": "serif \"ITT\"",
+  "page": "p16-text-3.png",
+  "file": "logos/itt.gif"
+ },
+ {
+  "id": "ixys",
+  "manufacturer": "IXYS",
+  "kind": "symbol+text",
+  "family": "text",
+  "text": "IXYS",
+  "description": "square emblem with stepped bars + serif \"IXYS\"",
+  "page": "p16-text-3.png",
+  "file": "logos/ixys.gif"
+ },
+ {
+  "id": "japanradio1",
+  "manufacturer": "New Japan Radio Co., Ltd.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "JRC",
+  "description": "bold \"JRC\"",
+  "page": "p16-text-3.png",
+  "file": "logos/japanradio1.gif"
+ },
+ {
+  "id": "japanradio2",
+  "manufacturer": "New Japan Radio Co., Ltd.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "JRC",
+  "description": "\"JRC\" inside a white rounded oval/box",
+  "page": "p16-text-3.png",
+  "file": "logos/japanradio2.gif"
+ },
+ {
+  "id": "kec",
+  "manufacturer": "Korea Electronics",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "KEC",
+  "description": "wide \"KEC\"",
+  "page": "p16-text-3.png",
+  "file": "logos/kec.gif"
+ },
+ {
+  "id": "kingmax",
+  "manufacturer": "KingMax",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "KINGMAX",
+  "description": "blocky \"KINGMAX\"",
+  "page": "p16-text-3.png",
+  "file": "logos/kingmax.gif"
+ },
+ {
+  "id": "legerity",
+  "manufacturer": "Legerity",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Legerity",
+  "description": "script \"Legerity\" with large swash L",
+  "page": "p16-text-3.png",
+  "file": "logos/legerity.gif"
+ },
+ {
+  "id": "lgsemi",
+  "manufacturer": "Lucky Goldstar Semicon Co., Ltd. [LGS]",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "LGS",
+  "description": "small spaced \"LGS\"",
+  "page": "p16-text-3.png",
+  "file": "logos/lgsemi.gif"
+ },
+ {
+  "id": "linfinity1",
+  "manufacturer": "Linfinity Microelectronics, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "LINFINITY",
+  "description": "serif \"LINFINITY\"",
+  "page": "p16-text-3.png",
+  "file": "logos/linfinity1.gif"
+ },
+ {
+  "id": "liteon",
+  "manufacturer": "LiteOn",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "LITEON",
+  "description": "\"LITEON\" with circled \"O\"",
+  "page": "p16-text-3.png",
+  "file": "logos/liteon.gif"
+ },
+ {
+  "id": "lsilogic",
+  "manufacturer": "LSI Logic",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "LSI LOGIC",
+  "description": "\"LSI\" + \"LOGIC\" in a white box",
+  "page": "p17-text-4.png",
+  "file": "logos/lsilogic.gif"
+ },
+ {
+  "id": "mtec",
+  "manufacturer": "M.tec",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "M.tec",
+  "description": "\"M.tec\"",
+  "page": "p17-text-4.png",
+  "file": "logos/mtec.gif"
+ },
+ {
+  "id": "maxim",
+  "manufacturer": "Maxim Corp.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "MAXIM",
+  "description": "wide slanted \"MAXIM\" with stroke cuts",
+  "page": "p17-text-4.png",
+  "file": "logos/maxim.gif"
+ },
+ {
+  "id": "mhs2",
+  "manufacturer": "MHS, Matra Harris Semiconductor",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "MHS",
+  "description": "bold \"MHS\"",
+  "page": "p17-text-4.png",
+  "file": "logos/mhs2.gif"
+ },
+ {
+  "id": "mhs3",
+  "manufacturer": "MHS, Matra Harris Semiconductor",
+  "kind": "symbol+text",
+  "family": "text",
+  "text": "MHS",
+  "description": "small dot/square grid + outlined \"MHS\"",
+  "page": "p17-text-4.png",
+  "file": "logos/mhs3.gif"
+ },
+ {
+  "id": "mira",
+  "manufacturer": "MIRA",
+  "kind": "symbol+text",
+  "family": "text",
+  "text": "MIRA",
+  "description": "two slanted parallelograms + stencil \"MIRA\"",
+  "page": "p17-text-4.png",
+  "file": "logos/mira.gif"
+ },
+ {
+  "id": "monolithic",
+  "manufacturer": "Monolithic Memories Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "MMI",
+  "description": "\"MMI\" in rounded rectangle outline, outlined letters",
+  "page": "p17-text-4.png",
+  "file": "logos/monolithic.gif"
+ },
+ {
+  "id": "mos",
+  "manufacturer": "MOS Technologies, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "MOS",
+  "description": "bold \"MOS\" with round O, striped S",
+  "page": "p17-text-4.png",
+  "file": "logos/mos.gif"
+ },
+ {
+  "id": "mosaid",
+  "manufacturer": "MOSAID Systems",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "MOSAID",
+  "description": "stacked italic \"MOS\" over \"AID\"",
+  "page": "p17-text-4.png",
+  "file": "logos/mosaid.gif"
+ },
+ {
+  "id": "mr_stone",
+  "manufacturer": "Mr. STONE",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Mr. STONE",
+  "description": "stencil serif \"Mr. STONE\"",
+  "page": "p17-text-4.png",
+  "file": "logos/mr_stone.gif"
+ },
+ {
+  "id": "murata",
+  "manufacturer": "Murata",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "muRata",
+  "description": "italic \"muRata\"",
+  "page": "p17-text-4.png",
+  "file": "logos/murata.gif"
+ },
+ {
+  "id": "mwave",
+  "manufacturer": "MWave (by IBM)",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "mwave",
+  "description": "italic script \"mwave\"",
+  "page": "p17-text-4.png",
+  "file": "logos/mwave.gif"
+ },
+ {
+  "id": "macronix1",
+  "manufacturer": "Macronix International Co. Ltd.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "MX",
+  "description": "striped stencil \"MX\"",
+  "page": "p17-text-4.png",
+  "file": "logos/macronix1.gif"
+ },
+ {
+  "id": "macronix2",
+  "manufacturer": "Macronix International Co. Ltd.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "MXIC",
+  "description": "\"MXIC\" with striped X",
+  "page": "p17-text-4.png",
+  "file": "logos/macronix2.gif"
+ },
+ {
+  "id": "nanya",
+  "manufacturer": "Nanya",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "NANYA",
+  "description": "wide geometric \"NANYA\"",
+  "page": "p17-text-4.png",
+  "file": "logos/nanya.gif"
+ },
+ {
+  "id": "nec1",
+  "manufacturer": "NEC",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "NEC",
+  "description": "italic \"NEC\"",
+  "page": "p17-text-4.png",
+  "file": "logos/nec1.gif"
+ },
+ {
+  "id": "nec2",
+  "manufacturer": "NEC",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "NEC",
+  "description": "bold \"NEC\"",
+  "page": "p17-text-4.png",
+  "file": "logos/nec2.gif"
+ },
+ {
+  "id": "nexgen",
+  "manufacturer": "NexGen",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "NexGen",
+  "description": "bold \"NexGen\" on white bar",
+  "page": "p17-text-4.png",
+  "file": "logos/nexgen.gif"
+ },
+ {
+  "id": "npc",
+  "manufacturer": "Nippon Precision Circuits",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "NPC",
+  "description": "rounded \"NPC\"",
+  "page": "p17-text-4.png",
+  "file": "logos/npc.gif"
+ },
+ {
+  "id": "naina",
+  "manufacturer": "Naina Semi",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "NSL",
+  "description": "\"NSL\" in a diamond/hexagon outline",
+  "page": "p17-text-4.png",
+  "file": "logos/naina.gif"
+ },
+ {
+  "id": "o2micro",
+  "manufacturer": "O2 Micro",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "O2",
+  "description": "\"O₂\" (O with subscript 2)",
+  "page": "p17-text-4.png",
+  "file": "logos/o2micro.gif"
+ },
+ {
+  "id": "oki1",
+  "manufacturer": "OKI Electric",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "OKI",
+  "description": "\"OKI\" in elongated diamond/hexagon outline",
+  "page": "p17-text-4.png",
+  "file": "logos/oki1.gif"
+ },
+ {
+  "id": "oki2",
+  "manufacturer": "OKI Electric",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "OKI",
+  "description": "bold \"OKI\"",
+  "page": "p17-text-4.png",
+  "file": "logos/oki2.gif"
+ },
+ {
+  "id": "opti",
+  "manufacturer": "Opti",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "OPTi",
+  "description": "spaced \"OPTi\"",
+  "page": "p17-text-4.png",
+  "file": "logos/opti.gif"
+ },
+ {
+  "id": "phaselink2",
+  "manufacturer": "PhaseLink Laboratories, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "PhaseLink",
+  "description": "serif \"PhaseLink\"",
+  "page": "p17-text-4.png",
+  "file": "logos/phaselink2.gif"
+ },
+ {
+  "id": "plxtech",
+  "manufacturer": "PLX Technology",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "PLX",
+  "description": "italic \"PLX\" with underline arrow",
+  "page": "p17-text-4.png",
+  "file": "logos/plxtech.gif"
+ },
+ {
+  "id": "pmc",
+  "manufacturer": "PMC-Sierra, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "PMC",
+  "description": "rounded \"PMC\"",
+  "page": "p17-text-4.png",
+  "file": "logos/pmc.gif"
+ },
+ {
+  "id": "precision",
+  "manufacturer": "Precision Monolithics, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "PMI",
+  "description": "\"PMI\" in arrow-shaped outline box pointing right",
+  "page": "p17-text-4.png",
+  "file": "logos/precision.gif"
+ },
+ {
+  "id": "pqi",
+  "manufacturer": "PQI",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "PQI",
+  "description": "\"PQI\" in rounded rectangle outline",
+  "page": "p17-text-4.png",
+  "file": "logos/pqi.gif"
+ },
+ {
+  "id": "promise",
+  "manufacturer": "Promise Technology Inc",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "PROMISE",
+  "description": "serif \"PROMISE®\" over \"TECHNOLOGY, INC.\"",
+  "page": "p17-text-4.png",
+  "file": "logos/promise.gif"
+ },
+ {
+  "id": "princeton",
+  "manufacturer": "Princeton Technology Corp.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "PTC",
+  "description": "serif \"PTC\" with circular swoosh",
+  "page": "p18-text-5.png",
+  "file": "logos/princeton.gif"
+ },
+ {
+  "id": "qlogic",
+  "manufacturer": "qlogic",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "qlogic",
+  "description": "script \"qlogic\"",
+  "page": "p18-text-5.png",
+  "file": "logos/qlogic.gif"
+ },
+ {
+  "id": "qt_opto",
+  "manufacturer": "QT Optoelectronics",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "QT",
+  "description": "bold \"QT\"",
+  "page": "p18-text-5.png",
+  "file": "logos/qt_opto.gif"
+ },
+ {
+  "id": "qualcomm",
+  "manufacturer": "Qualcomm Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "QUALCOMM",
+  "description": "\"QUALCOMM\" with wavy M",
+  "page": "p18-text-5.png",
+  "file": "logos/qualcomm.gif"
+ },
+ {
+  "id": "raytheon",
+  "manufacturer": "Raytheon Semi",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Raytheon",
+  "description": "bold \"Raytheon\" white box",
+  "page": "p18-text-5.png",
+  "file": "logos/raytheon.gif"
+ },
+ {
+  "id": "rca",
+  "manufacturer": "RCA Solid State",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "RCA",
+  "description": "bold \"RCA\" with stylised A",
+  "page": "p18-text-5.png",
+  "file": "logos/rca.gif"
+ },
+ {
+  "id": "ricoh",
+  "manufacturer": "RICOH",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "RICOH",
+  "description": "outlined \"RICOH\"",
+  "page": "p18-text-5.png",
+  "file": "logos/ricoh.gif"
+ },
+ {
+  "id": "rise",
+  "manufacturer": "Rise",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "RISE",
+  "description": "bold \"RISE\" with swirl in the I",
+  "page": "p18-text-5.png",
+  "file": "logos/rise.gif"
+ },
+ {
+  "id": "rohm",
+  "manufacturer": "Rohm Electronics",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ROHM",
+  "description": "bold \"ROHM\"",
+  "page": "p18-text-5.png",
+  "file": "logos/rohm.gif"
+ },
+ {
+  "id": "s3_1",
+  "manufacturer": "S3",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "S3",
+  "description": "bold serif \"S3\"",
+  "page": "p18-text-5.png",
+  "file": "logos/s3_1.gif"
+ },
+ {
+  "id": "s3_2",
+  "manufacturer": "S3",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "S3",
+  "description": "outlined serif \"S3\"",
+  "page": "p18-text-5.png",
+  "file": "logos/s3_2.gif"
+ },
+ {
+  "id": "sanken2",
+  "manufacturer": "Sanken Electric Co.,Ltd.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "SanKen",
+  "description": "\"SanKen\" with S underline box",
+  "page": "p18-text-5.png",
+  "file": "logos/sanken2.gif"
+ },
+ {
+  "id": "sanyo2",
+  "manufacturer": "Sanyo",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "SANYO",
+  "description": "bold italic \"SANYO\"",
+  "page": "p18-text-5.png",
+  "file": "logos/sanyo2.gif"
+ },
+ {
+  "id": "sec",
+  "manufacturer": "Samsung Electronics Co., Ltd.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "SEC",
+  "description": "condensed \"SEC\"",
+  "page": "p18-text-5.png",
+  "file": "logos/sec.gif"
+ },
+ {
+  "id": "seeq",
+  "manufacturer": "SEEQ Technology Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "seeq",
+  "description": "rounded lowercase \"seeq\"",
+  "page": "p18-text-5.png",
+  "file": "logos/seeq.gif"
+ },
+ {
+  "id": "semikron",
+  "manufacturer": "Semikron International",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "SEMIKRON",
+  "description": "\"SEMIKRON\" with underline",
+  "page": "p18-text-5.png",
+  "file": "logos/semikron.gif"
+ },
+ {
+  "id": "sharp",
+  "manufacturer": "Sharp",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "SHARP",
+  "description": "\"SHARP\"",
+  "page": "p18-text-5.png",
+  "file": "logos/sharp.gif"
+ },
+ {
+  "id": "siemens2",
+  "manufacturer": "Siemens",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "SIEMENS",
+  "description": "\"SIEMENS\"",
+  "page": "p18-text-5.png",
+  "file": "logos/siemens2.gif"
+ },
+ {
+  "id": "siliconmagic",
+  "manufacturer": "Silicon Magic Corp.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Silicon MAGIC",
+  "description": "italic \"Silicon\" + \"MAGIC\"",
+  "page": "p18-text-5.png",
+  "file": "logos/siliconmagic.gif"
+ },
+ {
+  "id": "sipex",
+  "manufacturer": "Sipex",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Sipex",
+  "description": "bold \"Sipex\"",
+  "page": "p18-text-5.png",
+  "file": "logos/sipex.gif"
+ },
+ {
+  "id": "sis",
+  "manufacturer": "Silicon Integrated Systems",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "SiS",
+  "description": "striped/outlined \"SiS\"",
+  "page": "p18-text-5.png",
+  "file": "logos/sis.gif"
+ },
+ {
+  "id": "sanken1",
+  "manufacturer": "Sanken Electric Co.,Ltd.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "SK",
+  "description": "\"S K\" with long underlines (SK ligature)",
+  "page": "p18-text-5.png",
+  "file": "logos/sanken1.gif"
+ },
+ {
+  "id": "smsc1",
+  "manufacturer": "Standard Microsystems, Corp.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "SMS",
+  "description": "striped/stencil \"SMS\"",
+  "page": "p18-text-5.png",
+  "file": "logos/smsc1.gif"
+ },
+ {
+  "id": "smsc2",
+  "manufacturer": "Standard Microsystems, Corp.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "SMSC",
+  "description": "lowercase serif \"smsc\"",
+  "page": "p18-text-5.png",
+  "file": "logos/smsc2.gif"
+ },
+ {
+  "id": "sony",
+  "manufacturer": "Sony",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "SONY",
+  "description": "serif \"SONY\"",
+  "page": "p18-text-5.png",
+  "file": "logos/sony.gif"
+ },
+ {
+  "id": "sst",
+  "manufacturer": "Silicon Storage Technology",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "SST",
+  "description": "bold italic \"SST\"",
+  "page": "p18-text-5.png",
+  "file": "logos/sst.gif"
+ },
+ {
+  "id": "tamarack2",
+  "manufacturer": "Tamarack",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "TAMARACK",
+  "description": "spaced \"TAMARACK\"",
+  "page": "p18-text-5.png",
+  "file": "logos/tamarack2.gif"
+ },
+ {
+  "id": "teltone",
+  "manufacturer": "Teltone",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "TELTONE",
+  "description": "outlined \"TELTONE\" with T extending",
+  "page": "p18-text-5.png",
+  "file": "logos/teltone.gif"
+ },
+ {
+  "id": "tmtech",
+  "manufacturer": "Taiwan Memory Tech",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "tmTECH",
+  "description": "\"tm\" + \"TE CH\" stacked",
+  "page": "p18-text-5.png",
+  "file": "logos/tmtech.gif"
+ },
+ {
+  "id": "tonicom",
+  "manufacturer": "Tonicom",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "TONICOM",
+  "description": "condensed thin \"TONICOM\"",
+  "page": "p18-text-5.png",
+  "file": "logos/tonicom.gif"
+ },
+ {
+  "id": "toshiba1",
+  "manufacturer": "Toshiba",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Toshiba",
+  "description": "script \"Toshiba\" (old)",
+  "page": "p19-text-6.png",
+  "file": "logos/toshiba1.gif"
+ },
+ {
+  "id": "toshiba4",
+  "manufacturer": "Toshiba",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "TOSHIBA",
+  "description": "bold \"TOSHIBA\"",
+  "page": "p19-text-6.png",
+  "file": "logos/toshiba4.gif"
+ },
+ {
+  "id": "twinmos",
+  "manufacturer": "TwinMOS",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "TwinMOS",
+  "description": "\"TwinMOS\"",
+  "page": "p19-text-6.png",
+  "file": "logos/twinmos.gif"
+ },
+ {
+  "id": "usar1",
+  "manufacturer": "USAR Systems",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "USAR",
+  "description": "bold italic \"USAR\" between lines",
+  "page": "p19-text-6.png",
+  "file": "logos/usar1.gif"
+ },
+ {
+  "id": "valor",
+  "manufacturer": "Valor",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "VALOR",
+  "description": "blocky stencil \"VALOR\" with flag shape",
+  "page": "p19-text-6.png",
+  "file": "logos/valor.gif"
+ },
+ {
+  "id": "via",
+  "manufacturer": "Via Technologies, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "VIA",
+  "description": "\"VIA\" with slash cuts",
+  "page": "p19-text-6.png",
+  "file": "logos/via.gif"
+ },
+ {
+  "id": "virata",
+  "manufacturer": "Virata",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Virata",
+  "description": "bold \"Virata\"",
+  "page": "p19-text-6.png",
+  "file": "logos/virata.gif"
+ },
+ {
+  "id": "wdc",
+  "manufacturer": "Western Design Center",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "WDC",
+  "description": "\"WDC\" inside rounded rectangle (Western Design Center)",
+  "page": "p19-text-6.png",
+  "file": "logos/wdc.gif"
+ },
+ {
+  "id": "wdc1",
+  "manufacturer": "Western Digital Corp.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "WDC",
+  "description": "condensed \"WDC\"",
+  "page": "p19-text-6.png",
+  "file": "logos/wdc1.gif"
+ },
+ {
+  "id": "weitek",
+  "manufacturer": "Weitek",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "WEITEK",
+  "description": "spaced serif \"WEITEK\"",
+  "page": "p19-text-6.png",
+  "file": "logos/weitek.gif"
+ },
+ {
+  "id": "waferscale",
+  "manufacturer": "Waferscale Integration",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "WSI",
+  "description": "striped italic \"WSI\"",
+  "page": "p19-text-6.png",
+  "file": "logos/waferscale.gif"
+ },
+ {
+  "id": "xicor1",
+  "manufacturer": "Xicor, Inc.",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Xicor",
+  "description": "condensed \"Xicor\"",
+  "page": "p19-text-6.png",
+  "file": "logos/xicor1.gif"
+ },
+ {
+  "id": "yamaha",
+  "manufacturer": "Yamaha",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "YAMAHA",
+  "description": "\"YAMAHA\"",
+  "page": "p19-text-6.png",
+  "file": "logos/yamaha.gif"
+ },
+ {
+  "id": "zilog2",
+  "manufacturer": "Zilog",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "Zilog",
+  "description": "\"Zilog\"",
+  "page": "p19-text-6.png",
+  "file": "logos/zilog2.gif"
+ },
+ {
+  "id": "zilog4",
+  "manufacturer": "Zilog",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ZILOG",
+  "description": "outlined/stencil \"ZILOG\"",
+  "page": "p19-text-6.png",
+  "file": "logos/zilog4.gif"
+ },
+ {
+  "id": "zilog5",
+  "manufacturer": "Zilog",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ZILOG",
+  "description": "outlined stencil \"ZiLOG\" thinner",
+  "page": "p19-text-6.png",
+  "file": "logos/zilog5.gif"
+ },
+ {
+  "id": "zoran",
+  "manufacturer": "Zoran Corporation",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "ZORAN",
+  "description": "\"ZORAN\" with globe as the O",
+  "page": "p19-text-6.png",
+  "file": "logos/zoran.gif"
+ },
+ {
+  "id": "elantec1",
+  "manufacturer": "Elantec",
+  "kind": "wordmark",
+  "family": "text",
+  "text": "élantec",
+  "description": "bold italic \"élantec\"",
+  "page": "p19-text-6.png",
+  "file": "logos/elantec1.gif"
+ }
+]

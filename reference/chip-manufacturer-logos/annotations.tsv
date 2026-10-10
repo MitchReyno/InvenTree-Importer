@@ -1,0 +1,484 @@
+id	kind	family	text	shape
+3com_2	C	quad	3Com	"3Com" bold text overlapping a large solid white square, top right
+3com_3	S	abstr	3Co	thick looping "3" chain/link shape, script "Co"
+3com_4	W	text	3COM	tall condensed thin outlined "3COM" lettering
+3dfx_1	C	pict	3Dfx	messy dragon-like splash graphic with faint "3Dfx"
+3dfx_2	W	text	3dfx	bold "3dfx" with tall "f"
+3do	S	quad	3DO	diamond, rounded square, circle and vertical bar in a row
+8x8	W	text	88	two stacked "8" digits in outline style, "8x8"
+acer	S	quad	A	two interlocking diamond/kite shapes forming a stylised "A" with a notch
+acerlab	W	text	ALi	bold rounded "ALi"
+actel	W	text	Actel	italic "Actel" with speed lines to the left
+adaptec	W	text	adaptec	lowercase rounded bold "adaptec" (inverted box)
+acd	S	mono	a	lowercase "a" built from concentric arcs, filled square top right
+aha1	S	stripe	AHA	horizontally striped "AHA" letters
+aha2	W	text	AHA	wide "AHA" with long horizontal underline/swoosh
+adv_lin_dev	S	mono	AL	"A" and "L" lines inside a rounded "D" outline
+amd	S	quad	AMD	AMD arrow: square with diagonal cut-out corner (open square + filled triangle)
+ams	W	text	AMS	outlined/double-line "AMS" letters
+advmono	W	text	AMS	heavy bold "AMS"
+adv_power	S	quad	AP	solid square with diagonal lightning-bolt cut
+aeroflex	S	tri	A	rounded arch/bell outline with small filled triangle at bottom
+agere	W	text	agere	lowercase "agere" with outlined g
+agilent	C	pict	Agilent	starburst/spark of radiating dots + "Agilent"
+aimtron	S	tri	A	solid "A" triangle with chevron cut-out at base
+aitech	W	text	AITech	serif "AITech"
+akm	W	text	AKM	bold "AKM"
+alcatel	W	text	ALCATEL	spaced "ALCATEL" in a box, small T marker above
+alesis	S	quad	r	square with quarter-circle cut-out (stylised "r")
+allayer	S	abstr	A	looping script "A" / ribbon shape
+allegro1	S	mono	A	italic script capital "A"
+allegro2	C	circ	Allegro	globe/dotted sphere + italic "Allegro", "A Sanken Company"
+alliance	S	pict	Y	three-armed tri-blade / Y-shaped symbol
+alphamicro	S	mono	α	alpha "α" in a rounded rectangle outline
+alphaind	S	mono	ai	bold blocky "ai" ligature
+alpha_semi	S	stripe	α	alpha symbol over horizontal stripes
+altera	W	text	ALTERA	outlined hollow "ALTERA", block letters
+altima	C	tri	ALTIMA	mountain/triangle with chevron stripe + "ALTIMA" below
+anadigic	C	tri	ANADIGICS	solid square with triangle cut + outlined "ANADIGICS"
+analog1	S	quad	>	triangle "play" symbol inside a square outline (Analog Devices)
+analog2	S	quad	>	filled square with triangle cut-out (Analog Devices)
+ame	S	tri	AM	stylised "AM"/double mountain peaks, solid
+anasys	C	stripe	ANALOG SYSTEMS	"S"-like curve left + striped "ANALOG SYSTEMS" text
+anchor	S	circ	U	anchor/"U" with T bar: circle segment with vertical stem
+ami1	W	text	AMI	heavy serif "AMI"
+ami2	S	stripe	/	square with diagonal hatch lines (striped triangle)
+ami4	C	text	AMI S	italic "AMI" with S below a crossbar line
+ami3	S	tri	AMI	striped pyramid/triangle with inner inverted triangle (American Megatrends)
+apacer	W	text	Apacer	"Apacer®" in condensed serif
+apacer2	W	text	APACER	spaced bold "APACER"
+apex1	W	text	APEX	bold heavy "APEX"
+apex2	W	text	APEX µtech	large outlined "A" with "PEX" and "µtech" (APEX Microtechnology)
+aralion	C	text	ARALION	"ARALION" with a feather/quill swoosh through the first letters
+azm	W	text	AZM	angular "AZM" with chevron "A" and underline
+ark1	W	text	ARK	blocky striped/stencil "ARK"
+ark2	W	text	ARK	outlined rounded "ARK"
+ascend	W	text	ASCEND	serif outlined "ASCEND"
+adc	S	stripe	A	solid "A" triangle followed by vertical bars forming a half-circle (A + D shape)
+astec	S	abstr	XXXX	row of interlocking diamond/zigzag chain links
+atan	W	text	atan	italic script "atan" with swooping "a"
+atecom	S	quad	◇	diamond outline with filled lower half (rotated square)
+ati	S	mono	Ati	"Ati" in a box with a banner beneath (ATI Technologies)
+att	S	circ	AT&T	AT&T globe: sphere of horizontal stripes
+atlantis	C	quad	ATLANTIS	small square emblem with curve + thin "ATLANTIS"
+atmel	W	text	ATMEL	"ATMEL" with horizontal line through/over, trapezoid block
+auctor	W	text	Auctor	script/serif "Auctor" with large swash A
+audiocodes	S	pict	AC	stylised bird/arrow shapes, angular figure
+auravision	S	mono	AV	bold slanted "AV" with slashes
+aureal	S	mono	A	serif "A" with small wing/arrow shape to the right
+austin	W	text	ASI	italic "ASI" with arc swoosh
+avance	S	mono	aL	script "aL" with vertical bars
+averlogic	S	circ	O	circle with horizontal gap/band (eye shape)
+belfuse	W	text	bel	heavy lowercase "bel"
+benchmarq	S	mono	bq	interlocked "b" and "q" monogram
+bitech	W	text	BI	italic bold "BI" with horizontal cut lines
+bothhand	S	mono	LR	tall blocky "L" and "R"/"B" joined monogram
+brooktree	W	text	Bt	serif "Bt"
+burrbrown	S	quad	BB	"BB" in rounded rectangle with double outline
+ccube	S	pict	C	3D cube with C-shaped cut-outs
+cmedia	S	quad	C	square outline with a quarter-arc "C" inside
+cands	W	text	C&S	italic "C&S"
+californiamicro	S	tri	A	triangle outline with inner triangle and diagonal line
+calogic	W	text	calogic	lowercase "calogic"
+cambridge	C	pict	CSR	curved sweeping fan lines with "CSR" text above
+catalyst1	S	circ	C	open ring / C shape made of two swooshes
+catalyst2	W	text	CSI	wide blocky "CSI"
+catc	C	tri	CATC	triangular "A" with arrow/bird shape and "CATC" beneath
+centon	S	circ	C	solid circle containing "C" with horizontal bars
+century	W	text	CENTURY	"CENTURY" in a rounded rectangle outline
+cherry	S	pict	cherries	pair of cherries on stems
+chipcon	C	circ	Chipcon	circle with "C" + bold "Chipcon"
+chips	W	text	CHIPS	bold "CHIPS" with striped top
+chrontel	S	mono	C	bold "C" with a dot/notch inside
+cirrus	S	stripe	≡	horizontal striped ellipse/lens
+clearlogic	S	stripe	?	grid of small hexagon/cells with a starburst, slanted parallelogram
+collmer	S	mono	CS	"C" with "S" inside, interlocked
+cologne	S	pict	towers	Cologne cathedral twin spires silhouette
+comcore	S	circ	C	solid circle with a curved swoosh cut
+conexant	S	circ	C	nested concentric "C" arcs / ripples
+consumer	S	quad	CM	blocky maze-like "CM" made of rectangles
+cosmo	S	pict	tree	mushroom/umbrella cap over a small triangle base (tree-like)
+crystal	W	text	CRYSTAL	italic striped/stencil "CRYSTAL"
+cygnal	C	circ	C	square with large "C"/swan curve, small "CYGNAL" text on top
+cypress1	S	pict	tree	circle outline with a tree inside (Cypress tree)
+cypress2	S	pict	tree	striped sphere with tree-shaped branch extending right
+cyrix	W	text	Cyrix	bold "Cyrix" with italic y
+daewoo	S	pict	shell	shell / fan shape of radiating segments (Daewoo)
+dallas1	S	pict	clock	alarm clock figure
+dallas2	S	mono	D	"D" split by vertical bars, blocky D with arrow notch
+dallas3	S	pict	dog	bulldog/dog face
+datadelay	S	tri	DDD	inverted triangle with inner triangle and circle with stripes
+datapath	S	quad	D	solid rectangle with a curved ")" cut on the right
+davicom	C	circ	DAVICOM	"D" in a circle arc + "AVICOM" text
+densepac	S	circ	dp	circle containing interlocked "dp"
+diamondtech	S	pict	fox	animal face (fox/wolf head) inside a rounded square
+dionics	S	mono	D	bold square-ish "D" with "i" cut-out
+diotec	S	mono	J	ornate blackletter/serif "J"
+dream	W	text	dream	"dream" on circuit-board style lines with dots
+dtc1	S	circ	+	dashed circle with radiating bars / gear-like crosshair
+dtc2	S	pict	fan	fan / shell of radiating triangular rays, half circle
+dvdo	W	text	DVDO	"DVDO" each letter in a box
+dynex	S	circ	C	circle with curved swoosh lines (wave in a ball)
+egg	S	pict	Y	three-armed propeller / Y of three bars
+elantec1	W	text	élantec	bold italic "élantec"
+elantec2	S	mono	é	bold "é" with accent
+elec_designs1	S	pict	shell	diamond shape with radiating vertical lines on top (fan/shell)
+elec_designs2	C	stripe	EDI	diagonal-striped square + "EDI" condensed text
+edi	S	mono	edi	condensed "edi" stacked letters with arrow
+etc	S	mono	etc	blocky interlocked "etc" with vertical bars
+elite_mt	W	text	EliteMT	serif italic "EliteMT"
+emulex	S	mono	X	stylised "X" from horizontal bars (crossing chevrons)
+enhmemsy	S	quad	/	square with diagonal stripe cut-out, slash
+enova	W	text	eNOVA	large "e" in rounded box + condensed "NOVA"
+ensoniq	W	text	ENSONIQ	outlined "ENSONIQ" in rounded rectangle
+epson1	S	tri	M	twin mountain peaks outline (stylised M)
+epson2	W	text	EPSON	"EPSON"
+ericsson	C	stripe	ERICSSON	"ERICSSON" + three slanted stacked bars
+esmt	W	text	ESMT	bold italic "ESMT"
+ess	W	text	ESS	striped/outlined "ESS"
+etrontech2	S	circ	E	serif "E" over a dotted/shaded globe
+etrontech1	W	text	EtronTech	serif "EtronTech" with large E
+exar	S	mono	X	stylised "X" with curved arm (bold slanted strokes)
+exel	W	text	EXEL	italic bold "EXEL"
+fagor	C	circ	FAGOR	"FAGOR" + circle with horizontal bars and arrow
+fairchild1	S	mono	f	italic stylised "f" lowercase, bold
+fairchild2	W	text	FAIRCHILD	"FAIRCHILD" between horizontal bars
+ferranti	W	text	FERRANTI	serif "FERRANTI"
+figaro	W	text	FIGARO	wide bold "FIGARO"
+fore	W	text	FORE	large thin outlined "FORE"
+fujielec1	S	mono	FE	condensed "FE" ligature with curved E (FEC)
+fujielec2	W	text	FUJI ELECTRIC	blocky "FUJI" over outlined "ELECTRIC"
+fujitsu1	S	circ	$	"S"/dollar-like swirl inside a circle (Fujitsu old)
+fujitsu2	S	mono	F	serif "F" between two horizontal bars
+g2	W	text	G2	bold "G2"
+galileo	W	text	Galileo	"Galileo" with dotted/halftone "G"
+galvantech	S	quad	G	white rectangle with a circle "G" cut-out on the right
+gecplessy	C	circ	GP	open ellipse/ring swoosh with small dot grid at top right
+ge	S	circ	GE	GE script monogram in circle with scalloped edge
+gi1	S	quad	G	square spiral/outline "G" (open box)
+gi2	W	text	GI	serif "GI"
+gi3	S	quad	G	square spiral "G" in solid square
+generalsemi	S	abstr	∞	knot / infinity loops with arrow points
+genesys	S	quad	globe	diamond of dots with striped sphere inside
+gennum	S	stripe	O	circle with vertical stripes
+ghz	S	circ	C	circle with "C"/arrow pointing right and speed lines
+glink	S	mono	G	"G" with horizontal bar/underline, stylised "GL"
+globespan	S	mono	G	script "G" with long swoosh line through it
+goldstar	W	text	GoldStar	"GoldStar" rounded modern
+goodark	S	quad	D	rectangle containing two arrow-like "D" shapes facing (diode symbol-ish)
+gould	S	quad	+	arrow/cross shape pointing right with notches
+harris1	S	mono	H	rounded square "H" with circular cut-outs
+harris2	S	mono	H	rounded square "H" with zigzag waveform inside
+harris3	W	text	HARRIS	italic "HARRIS" with lightning stroke through
+hfo	S	circ	f	circle split vertically with "f" shape (VEB HFO)
+hp	S	mono	hp	italic "hp" in rounded rectangle
+hifn	W	text	hi/fn	"hi/fn" in a box
+highpoint	W	text	HighPoint	tall condensed "HighPoint"
+hint	W	text	HiNT	bold "HiNT®"
+hitachi	S	circ	O	Hitachi circle-in-circle with notches (target with four tabs)
+holtek	S	abstr	/	diagonal arrows / slashes crossing (two parallelograms)
+hualon	W	text	HMC	serif blocky "HMC"
+hutson	S	mono	H	"H" inside rounded oval with vertical lines
+hyundai1	S	tri	△	triangle outline
+hyundai2	S	quad	•H	dot and a square with bow-tie cut-outs
+hyundai3	W	text	HYUNDAI	condensed spaced "HYUNDAI"
+hynix	W	text	hynix	bold lowercase "hynix"
+ibm	W	text	IBM	striped "IBM" (horizontal lines)
+icdesigns	W	text	IC DESIGNS	italic serif "IC" + "DESIGNS"
+ichaus1	W	text	iC	thin "iC"
+ichaus2	S	circ	iC	"iC" in a solid circle
+ichaus3	C	circ	iC Haus	"iC" in circle + "Haus"
+icube	S	quad	#	cross/hash shape in square, plus-like with notches
+icworks	S	circ	IC	circle with "IC" bars inside (ring with vertical strokes)
+igstech	C	text	iGS	italic "iGS" with swash i + "Technologies"
+imp	W	text	IMP	bold italic slanted "IMP" with cut strokes
+impala	S	circ	H	solid circle with "H"-shaped cut-out (bowling ball / face)
+infinite	S	abstr	∞	infinity loops with dot, figure-of-eight / bicycle-like
+in_system	W	text	in-system	bold "in·system"
+intel1	W	text	i	single "i" (lowercase i, Intel chip mark)
+intel2	W	text	intel	"intel" with dropped "e"
+infineon1	W	text	Infineon	condensed bold "Infineon"
+infineon2	S	circ	i	"i" inside a circle/oval swoosh
+infineon3	C	circ	Infineon	"Infineon" with elliptical swoosh underneath
+isd	W	text	ISD	bold italic "ISD" with dots/halftone
+icd	S	quad	ICD	parallelogram box with diagonal hatching
+icsi	S	circ	CSI	"CSI" inside nested ellipses/arcs
+ics1	S	quad	ICS	"ICS" in a rectangle outline, tall letters
+ics2	S	quad	ICS	square containing dotted circle and "ICS"
+idt1	S	mono	∫dt	integral sign "∫" with "dt" (IDT)
+idt2	C	circ	IDT	dotted circle + bold "IDT"
+inmos	S	circ	grid	circle filled with a grid/mesh (wafer)
+intersil1	S	quad	i	"i" in a solid white square
+intersil2	W	text	INTERSIL	outlined "INTERSIL"
+intersil3	W	text	intersil	bold lowercase "intersil" with underline swoosh
+intersil4	S	tri	i	"i" above a downward-pointing arrow/triangle
+ils	S	stripe	ILS	stacked U-shapes / meander of vertical lines in a square
+issi	W	text	ISSI	italic "ISSI"
+ite	W	text	ITE	"iTE" with swoosh arc from the i
+itex	S	circ	ITeX	"ITeX" inside a circle
+interfet	S	circ	⊕	circle with crosshair (plus extended beyond)
+imi	S	mono	iMi	"iMI" with circular swoosh on the i
+ir	W	text	IOR	"I◆R" with diamond/star in O (International Rectifier)
+itt	W	text	ITT	serif "ITT"
+ixys	C	text	IXYS	square emblem with stepped bars + serif "IXYS"
+jetkey	S	mono	D	halftone shaded "D" shape
+klsi	S	mono	K	bold "K" with halftone/dither fade
+kingmax	W	text	KINGMAX	blocky "KINGMAX"
+kec	W	text	KEC	wide "KEC"
+kota	S	circ	K	"K" / slash inside a solid circle
+lansdale1	S	mono	LS	"L" and "S" in circle-ish outline
+lansdale2	S	pict	bird	eagle head profile in square
+lattice1	S	mono	L	serif "L" thin
+lattice2	S	mono	L	bold italic "L"
+lattice3	S	mono	L	"L" with grid of small squares to the left (dot-matrix L)
+legerity	W	text	Legerity	script "Legerity" with large swash L
+levelone	C	quad	LEVEL ONE	nested "L" squares + "LEVEL ONE"
+linfinity1	W	text	LINFINITY	serif "LINFINITY"
+linfinity2	C	circ	LINFINITY	circular ring/arrow + "LINFINITY"
+linear	S	mono	LT	italic bold "LT" ligature (Linear Technology)
+liteon	W	text	LITEON	"LITEON" with circled "O"
+lsilogic	W	text	LSI LOGIC	"LSI" + "LOGIC" in a white box
+lucent	S	circ	O	brush-stroke ring (Lucent innovation ring)
+lgsemi	W	text	LGS	small spaced "LGS"
+mtec	W	text	M.tec	"M.tec"
+macronix1	W	text	MX	striped stencil "MX"
+macronix2	W	text	MXIC	"MXIC" with striped X
+marvell	S	mono	M	slanted "M" made of a triangle plus vertical bars
+mhs1	C	stripe	MHS	striped square "M" emblem + outlined "MHS"
+mhs2	W	text	MHS	bold "MHS"
+mhs3	C	text	MHS	small dot/square grid + outlined "MHS"
+matsushita1	S	tri	A	triangle with circle at apex and crossbars (Matsushita/National)
+matsushita2	S	mono	M	"M" inside rounded square outline with corner gaps
+matsushita3	S	mono	M	"M" in rounded square, bold double outline
+maxim	W	text	MAXIM	wide slanted "MAXIM" with stroke cuts
+mediavision1	S	mono	MV	zig-zag "MV"/"W" in a box, outlined
+mediavision2	S	mono	M	italic "M" with dotted left stroke
+micrel	S	mono	m	bold lowercase "m" in a square block
+microchip	S	circ	M	Microchip: solid circle with "M" wave cut-out
+microelec	S	mono	ME	script "ME" handwriting
+micron	S	mono	MT	thin "MT" ligature
+microlinear	S	pict	ML	3D isometric blocks spelling "ML" (cube shapes)
+micronas	S	quad	◇	diamond made of a grid of small squares/diamonds
+micronix	S	mono	M	italic script "M" with "L"/"c" flourish
+mpd	S	quad	µPd	"µPd" in elongated hexagon outline
+microsemi	S	circ	O	thick ring/oval with gap
+microtune	S	pict	fan	diamond with radiating lines (fan/arrows) pointing upper right
+mikro_erfurt	S	pict	ME	ornate symmetrical "ME"/butterfly-like curly shape
+minicircuits	S	quad	▭	rounded rectangle with row of teeth at bottom (chip shape)
+mira	C	text	MIRA	two slanted parallelograms + stencil "MIRA"
+mitel	S	circ	H	circle with "H"/bow-tie shape inside, double lines
+mitsubishi	S	pict	◆◆◆	three diamonds (Mitsubishi)
+mmc	C	circ	MMC	globe/circle with horizontal bars + "MMC"
+monolithic	W	text	MMI	"MMI" in rounded rectangle outline, outlined letters
+mosaic	S	abstr	m	handwritten script "m" squiggle with tail
+mosaid	W	text	MOSAID	stacked italic "MOS" over "AID"
+moselvitelic	S	circ	O	open ring/circle with small dot grid at top left
+mosys	S	quad	◇	diamond made of four smaller diamonds (outline)
+mos	W	text	MOS	bold "MOS" with round O, striped S
+motorola1	S	mono	M	small Motorola batwing "M" (no circle)
+motorola2	S	circ	M	Motorola batwing "M" inside a circle
+msystems	S	mono	M	italic "M" on underline bar
+mr_stone	W	text	Mr. STONE	stencil serif "Mr. STONE"
+murata	W	text	muRata	italic "muRata"
+murata2	S	circ	M	"M" inside a "C"/ring
+mwave	W	text	mwave	italic script "mwave"
+myson	S	pict	M	"M" with globe/dish between pillars
+naina	W	text	NSL	"NSL" in a diamond/hexagon outline
+nanya	W	text	NANYA	wide geometric "NANYA"
+ns1	S	stripe	NS	"NS" built from diagonal stripes in a box (National Semi)
+ns2	S	mono	N	stylised "N" lightning zigzag
+ns3	S	mono	N	italic "N" swoosh / leaf-like bold N
+nec1	W	text	NEC	italic "NEC"
+nec2	W	text	NEC	bold "NEC"
+neomagic	S	circ	nm	circle divided into quadrants with letters/symbols in each
+japanradio1	W	text	JRC	bold "JRC"
+japanradio2	W	text	JRC	"JRC" inside a white rounded oval/box
+nexgen	W	text	NexGen	bold "NexGen" on white bar
+ninja	S	pict	ninja	brushy calligraphy splash / ninja figure graphic
+npc	W	text	NPC	rounded "NPC"
+number9	S	mono	9	italic "9" digit
+nvidia	S	pict	eye	NVIDIA eye: spiral eye in a rectangle
+o2micro	W	text	O2	"O₂" (O with subscript 2)
+oak	S	pict	tree	tree canopy (dotted crown) with arrow trunk (oak tree)
+oki1	W	text	OKI	"OKI" in elongated diamond/hexagon outline
+oki2	W	text	OKI	bold "OKI"
+omnirel	S	circ	◎	crosshair/target: circle with dot and four bars
+onsemi	S	circ	ON	"ON" inside a circle
+opti	W	text	OPTi	spaced "OPTi"
+orbit	C	circ	ORBIT	dotted globe "O" + "RBIT"
+oren	C	circ	Oren	circle with diagonal stripes + "ren"
+oxford	S	pict	gem	faceted crystal/geodesic sphere
+peregrine	S	abstr	/	diagonal slashes / feathered streaks
+performance	S	pict	★	small star with long horizontal line (shooting star)
+pericom	S	circ	P	circle with lightning bolt "P"
+phaselink1	S	quad	PLL	"P L L" each in separate boxes, serif
+phaselink2	W	text	PhaseLink	serif "PhaseLink"
+philips	S	pict	shield	Philips shield with waves and stars
+plxtech	W	text	PLX	italic "PLX" with underline arrow
+pmc	W	text	PMC	rounded "PMC"
+powerint	S	stripe	/	slanted parallelogram with horizontal stripes on right
+powersmart	S	mono	S	"S" in a white square
+pqi	W	text	PQI	"PQI" in rounded rectangle outline
+prairie	S	circ	◑	half-circle/dome of dots grid
+precision	W	text	PMI	"PMI" in arrow-shaped outline box pointing right
+pretec	S	quad	◇	blurred diamond shape with faint text
+princeton	W	text	PTC	serif "PTC" with circular swoosh
+promise	W	text	PROMISE	serif "PROMISE®" over "TECHNOLOGY, INC."
+protek	S	circ	T	"T" inside a solid circle
+pulse	S	stripe	П	striped circle with "Π"/gate shape
+qlogic	W	text	qlogic	script "qlogic"
+qt_opto	W	text	QT	bold "QT"
+qualcomm	W	text	QUALCOMM	"QUALCOMM" with wavy M
+quality	S	mono	Q	serif italic "Q" in white box
+quicklogic	S	quad	X	square containing curved "X"/swoosh
+rabbit	S	pict	rabbit	running rabbit silhouette
+ramtron	S	quad	◇	tall diamond outline with inner diamond facets (crystal)
+raytheon	W	text	Raytheon	bold "Raytheon" white box
+rca	W	text	RCA	bold "RCA" with stylised A
+realtek	C	pict	crab	crab with raised claws over small "REALTEK" text
+rectron	S	quad	▷|	diode symbol (triangle + bar) inside a rounded white square
+rendition	S	mono	R	serif "R" with a dotted circle in the bowl
+reliance	S	mono	R	bold italic "R" with orbit ring and starburst
+ricoh	W	text	RICOH	outlined "RICOH"
+rise	W	text	RISE	bold "RISE" with swirl in the I
+rockwell	S	circ	Y	solid circle with inverted "Y"/arrow cut (Rockwell)
+rohm	W	text	ROHM	bold "ROHM"
+s3_3	S	mono	3	italic "S3" with horizontal speed lines through it
+s3_1	W	text	S3	bold serif "S3"
+s3_2	W	text	S3	outlined serif "S3"
+sage	C	quad	sage	square with S-cut + "sage"
+sames	S	circ	C	solid circle with small "C"/circle cut on right side (eye)
+samsung	S	pict	✣	four overlapping circles/ellipses forming a flower/cross knot
+sec	W	text	SEC	condensed "SEC"
+sanken1	W	text	SK	"S K" with long underlines (SK ligature)
+sanken2	W	text	SanKen	"SanKen" with S underline box
+sanyo1	S	tri	A	circle containing a tripod/A arrow shape
+sanyo2	W	text	SANYO	bold italic "SANYO"
+sarc	S	stripe	S	slanted "S" bar + striped circle
+scenix	C	tri	SCENIX	mountain peaks outline over "SCENIX" text
+seagate	S	mono	SS	interlocked "SS" outlined loops
+seeq	W	text	seeq	rounded lowercase "seeq"
+seiko	C	circ	SII	"SII" with solid circle + dot
+semelab	S	stripe	+	cross/plus shape of striped bars with letters in centre
+semicoa	S	stripe	S	stacked squared "S"/"E" meander
+semikron	W	text	SEMIKRON	"SEMIKRON" with underline
+semitron	S	circ	Si	solid circle with italic "Si" cut-out
+semitech	S	mono	STi	blocky "STi"/"STI" with stripes
+semtech	S	mono	S	white square with lightning/S-shaped cut-out
+serverworks	S	circ	@	swirl ellipse / galaxy spiral rings
+sescosem1	S	pict	Y	antenna-like "Y" above a horizontal box (Sescosem)
+sescosem2	S	pict	Y	Y-shaped antenna over a cross-shaped box outline
+sgs1	S	mono	Z	italic "Z" with horizontal bars (SGS-Ates)
+sgs2	S	mono	SGS	condensed outlined "SGS"
+sharp	W	text	SHARP	"SHARP"
+shindengen	S	circ	X	circle containing double-arrow / bow-tie diode symbol
+siemens1	S	mono	S	stylised "S" with long double-curved stroke/arrow (Siemens old)
+siemens2	W	text	SIEMENS	"SIEMENS"
+sierra	S	circ	+	dashed circle with four radiating bars (gear crosshair) — similar to DTC
+sigmatel	S	mono	Σ	Sigma "Σ" with vertical line
+spt	C	circ	SPT	circle with wave + italic "SPT"
+signetics	S	mono	S	bold blocky "S"
+silgeneral	S	mono	SG	condensed "SG"
+siliconix	S	mono	S	bold italic "S" with horizontal cut (stencil)
+siliconmagic	W	text	Silicon MAGIC	italic "Silicon" + "MAGIC"
+sst	W	text	SST	bold italic "SST"
+siliconsystems	S	circ	S	thin "S"/note curve inside a circle
+sis	W	text	SiS	striped/outlined "SiS"
+siliconians	S	quad	◇	diamond with S-shaped split (two halves offset)
+silver	S	tri	⌖	two overlapping triangles outline (star-like / hourglass)
+simtek	S	circ	S	"S" inside a rounded circle, outlined
+sipex	W	text	Sipex	bold "Sipex"
+sony	W	text	SONY	serif "SONY"
+solidstate	S	circ	S	oval/circle split by an S-curve (yin-yang like)
+sss	S	pict	cube	3D hexagonal cube with "SSS" inside
+spbridge	S	quad	S	"S"/bridge shape in a square box outline
+space	S	circ	SE	circle with orbit ring containing "SE"
+spectek	S	mono	S	"S" with arrows/chevrons above and below
+smc1	S	stripe	S	stepped "S" made of parallel lines (Standard Microsystems)
+smsc1	W	text	SMS	striped/stencil "SMS"
+smsc2	W	text	SMSC	lowercase serif "smsc"
+stanford	S	mono	S	tall S-shape in a white block with curve
+st	S	mono	ST	italic "ST" (STMicroelectronics)
+stream	S	stripe	≡	sphere made of horizontal curved stripes (striped ball)
+summit	S	quad	/	square with jagged diagonal line (chart/peak)
+sun	C	quad	SUN	Sun rotated-square of interlocked "u"s + "Sun"
+synergy	S	quad	◇	diamond/square split into pinwheel of four arrows
+synertek	S	mono	S	bold blocky "S" with outline
+tmtech	W	text	tmTECH	"tm" + "TE CH" stacked
+taiwansemi	S	mono	TS	"S" with vertical "T" bars (TS monogram)
+tamarack1	S	circ	tmi	"tmi" inside a dotted circle
+tamarack2	W	text	TAMARACK	spaced "TAMARACK"
+tdk	C	circ	TDK	circle-of-triangles emblem + "TDK"
+teccor1	S	mono	T	"T" with curved arms like a "Y"/tree
+teccor2	S	stripe	T	"T"-shape made of vertical and horizontal lines (striped T)
+telcom	S	tri	▽	three triangles (two pointing down, one below) = inverted triangle pattern
+teledyne	S	tri	T	Teledyne: three triangles/arrows radiating (crown)
+telefunken	S	quad	◇	diamond containing a star / grid with letters
+teltone	W	text	TELTONE	outlined "TELTONE" with T extending
+tesla	S	circ	TESLA	circle with small "TESLA" text and lines
+ti1	S	pict	Texas	Texas state outline with "ti" (Texas Instruments)
+ti2	S	pict	Texas	Texas state silhouette with "ti" cut-out
+thaler	S	mono	TC	block "TC" letters combined
+thomson_csf	S	tri	A	Thomson triangle with curved sides (rounded triangle / tri-star)
+toko	S	mono	TG	blocky "R"/"TG" shape in white square
+tonicom	W	text	TONICOM	condensed thin "TONICOM"
+torex	S	circ	θ	circle with horizontal bar through (theta/planet)
+toshiba1	W	text	Toshiba	script "Toshiba" (old)
+toshiba2	S	mono	T	bold serif "T"
+toshiba3	S	mono	T	italic "T" with cut-off bar
+toshiba4	W	text	TOSHIBA	bold "TOSHIBA"
+trident	S	abstr	//	two slanted curved strokes (trident tines)
+trimedia	C	circ	TriMedia	"TriMedia" with circle and arc swoosh
+tripath	S	circ	Y	three rounded leaf shapes around a centre (tri-petal)
+triquint	S	quad	⬠	solid pentagon
+triscend	C	tri	Triscend	small slanted triangle/flag + serif "Triscend"
+tseng	S	mono	Tl	blocky "T" with "l"/"L" stacked (Tseng)
+tundra	S	circ	T	"T" cut out of a solid circle
+tvia	C	pict	Tvia	box with a wavy screen shape + "Tvia"
+twinmos	W	text	TwinMOS	"TwinMOS"
+ubicom	S	quad	◇	rounded diamond with diagonal oval cut
+umc	S	circ	globe	globe with latitude/longitude lines
+unitrode	S	mono	U	"U" over a horizontal bar
+utmc	S	circ	O	starburst ring of radiating spokes with gap (sunburst C)
+usar1	W	text	USAR	bold italic "USAR" between lines
+usar2	C	quad	USAR	diamond with curved cut + "SAR"
+utron	S	circ	≡	circle outline with horizontal bars inside top (stacked lines)
+v3	S	mono	V	"V" with dots around (crown/stars) and arc beneath
+vadem	S	quad	/	rounded square with diagonal slash
+valor	W	text	VALOR	blocky stencil "VALOR" with flag shape
+vanguard	S	mono	V	"V" inside a square with a check-mark arrow
+vantis	S	mono	V	thin "V" with swoosh over top
+via	W	text	VIA	"VIA" with slash cuts
+virata	W	text	Virata	bold "Virata"
+vishay	S	tri	▽	inverted triangle with "VISHAY" inside
+visiontech	S	mono	NT	blocky "NT"/"VT" bars
+visiontech2	S	mono	VT	"VT" over "VISION" with "TECH" vertical
+vitelic	S	tri	V	solid inverted triangle with notch (V)
+vitesse	S	mono	V	serif "V" outline
+vlsi	S	circ	\\	solid circle with diagonal stripes
+volterra	S	mono	V	"V" in white square with notch
+vtc	S	circ	#	circle with crossing diagonal lines (lattice/plaid ball)
+waferscale	W	text	WSI	striped italic "WSI"
+wdc	W	text	WDC	"WDC" inside rounded rectangle (Western Design Center)
+wdc1	W	text	WDC	condensed "WDC"
+wdc2	S	quad	%	square of diagonal stripes / checker with notches (Western Digital)
+weitek	W	text	WEITEK	spaced serif "WEITEK"
+winbond	C	circ	Winbond	dotted globe + "Winbond"
+wolfsom	S	mono	WM	"W/M" slanted blocky letters in a bar
+xemics	S	mono	X	"X" made of curved parallel lines
+xicor1	W	text	Xicor	condensed "Xicor"
+xicor2	S	mono	X	bold "X" in white box
+xilinx	C	mono	XILINX	stylised "Σ"-like X + "XILINX"
+yamaha	W	text	YAMAHA	"YAMAHA"
+yamaha2	S	circ	tuning forks	three crossed tuning forks in a circle
+zarlink	S	pict	∞	two linked ovals/rings with horizontal lines (chain)
+zetex	S	pict	Y	diode/zener symbol stacked with "Z" curl at top
+zfmicro	S	quad	ZF	"Z" and "F" letters in a white square with circle
+zilog1	S	stripe	/	square with two diagonal stripes cut (Zilog)
+zilog2	W	text	Zilog	"Zilog"
+zilog3	S	tri	A	"A"/arrow shape with circle loop at top (Zilog arrow)
+zilog4	W	text	ZILOG	outlined/stencil "ZILOG"
+zilog5	W	text	ZILOG	outlined stencil "ZiLOG" thinner
+zmd	S	pict	★	star with horizontal swooshes/speed lines through it
+zoran	W	text	ZORAN	"ZORAN" with globe as the O
+zucotto	S	circ	◔	thick arc / quarter-ring over a dot (signal symbol)

@@ -327,8 +327,13 @@ def _import_line(api, document: StockFile, line: StockLine,
     # --- the supplier, and what it sold ---
     supplier, seller = _resolve_supplier(api, line, suppliers, options,
                                          supplier_cache)
-    supplier_part = _supplier_part(api, line, supplier, resolved, options,
-                                   supplier_parts)
+    try:
+        supplier_part = _supplier_part(api, line, supplier, resolved, options,
+                                       supplier_parts)
+    except SupplierPartConflict as exc:
+        action.action = SKIPPED
+        action.reason = str(exc)
+        return action
     action.supplier_part = getattr(supplier_part, "pk", None)
 
     # --- where it goes ---
@@ -611,6 +616,10 @@ def _resolve_supplier(api, line: StockLine, suppliers,
     return company, seller
 
 
+class SupplierPartConflict(Exception):
+    """A line's SKU already belongs to a supplier part of a different part."""
+
+
 def _supplier_part(api, line: StockLine, supplier, resolved,
                    options: ImportOptions, supplier_parts):
     """Find or create the SupplierPart, when there is a supplier and a SKU."""
@@ -621,7 +630,17 @@ def _supplier_part(api, line: StockLine, supplier, resolved,
         return None
     key = (pk, line.sku.strip().upper())
     if key in supplier_parts:
-        return supplier_parts[key]
+        found = supplier_parts[key]
+        part_pk = getattr(resolved.part, "pk", None)
+        if part_pk not in (None, UNRESOLVED_PK) and getattr(found, "part", part_pk) != part_pk:
+            # InvenTree refuses stock whose supplier part belongs to another
+            # part; say which, before anything is posted, instead of a 400.
+            raise SupplierPartConflict(
+                f"SKU {line.sku!r} from this supplier is already the supplier "
+                f"part of part {found.part}, not of part {part_pk} that this "
+                f"line resolved to - give the line the other part's ipn, or "
+                f"part_of the line that created it")
+        return found
     if not options.write or resolved.part is None:
         return None
     payload = {

@@ -182,7 +182,39 @@ def validate(
         _check_parameters(line, category, parameters, registry, report)
         _check_identity(line, category, report)
 
+    _check_unconfirmed_repeats(document, categories, report)
     return report
+
+
+def _check_unconfirmed_repeats(document: StockFile,
+                               categories: dict[str, CategoryConfig],
+                               report: Report) -> None:
+    """
+    Two lines naming one number that no manufacturer part will confirm.
+
+    Under mpn identity a line with no manufacturer gets no ManufacturerPart,
+    so a later line with the same mpn (or type) has nothing to find its part
+    by except the name - and the import holds it for review rather than guess.
+    part_of says outright that they are one part.
+    """
+    first: dict[tuple[str, str], str] = {}
+    for line in document.lines:
+        category = resolve_category(line, categories)
+        if category is None or category.identity != "mpn":
+            continue
+        number = line.mpn or line.type
+        if not number or line.manufacturer or line.ipn or line.part_of:
+            continue
+        key = (category.pathstring, number.strip().casefold())
+        if key not in first:
+            first[key] = line.id
+            continue
+        report.warnings.append(Problem(
+            line.id, "part_of",
+            f"{number!r} with no manufacturer is also on line {first[key]}; "
+            f"nothing but the name would match them, so the import will hold "
+            f"this line - add \"part_of\": \"{first[key]}\" if it is the same "
+            f"part"))
 
 
 def _check_parameters(line: StockLine, category: CategoryConfig,

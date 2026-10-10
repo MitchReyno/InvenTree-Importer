@@ -305,6 +305,13 @@ Slew Rate:
     - Slew Rate
   parse: quantity
 
+Input Bias Current:
+  units: A
+  description: Input bias current at 25 C
+  aliases:
+    - Current - Input Bias
+  parse: quantity
+
 Input Offset Voltage:
   units: V
   description: Differential input voltage needed to null the output
@@ -736,8 +743,11 @@ Logic Type:
       - NOR Gate
     XOR (Exclusive OR):
       - XOR (Exclusive OR)
+    AND Gate:
+      - AND Gate
   choices:
     - Binary Counter
+    - AND Gate
     - NAND Gate
     - Inverter
     - NOR Gate
