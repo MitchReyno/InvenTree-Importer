@@ -961,8 +961,3 @@ def add_stock(
     if tags:
         item.save(data={"tags": list(tags)})
     return item
-
-
-def stock_note(*parts: str) -> str:
-    """Join the things worth recording about where a quantity came from."""
-    return "\n".join(part for part in parts if part and part.strip())

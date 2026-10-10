@@ -157,7 +157,9 @@ pass: the packet rarely has a datasheet or a temperature range.
 A report the caller can apply directly, per item (by line id):
 
 1. **Identity**: what it is, manufacturer (as the vocabulary/server would name
-   it, e.g. `Fairchild Semiconductor`), MPN/type, category path, a one-line
+   it, e.g. `Fairchild Semiconductor`), MPN/type, category path, a part name
+   — the number it is known by, then what it is, under 100 characters
+   (`118A Op Amp Module`, `CD4013B Dual D Flip-Flop`) — a one-line
    description in the style `function, key specs, package, temp range - maker
    MPN, NSN …`, confidence (0–1), and what is inferred rather than read.
 2. **Sources**: `link` URL; `datasheet` URL or local path, with
@@ -166,9 +168,22 @@ A report the caller can apply directly, per item (by line id):
    <site>`); product image URL if asked for.
 3. **Parameters**: name → value → source (document and page), using the
    vocabulary's names.
-4. **Facts for the notes**: the NSN cross-reference and FLIS summary, decoded
-   CAGE codes, datasheet summary, replacement/cancellation history —
-   written as plain facts, never "per the user".
+4. **Facts for the notes**, sorted by the record each is true of, so a fact is
+   written once rather than copied onto every lot. Short plain facts, never
+   "per the user":
+   - **Part** — true whoever made it: what it is, figures the parameters
+     cannot hold, the NSN cross-reference (a table: CAGE, company, part
+     number) and FLIS summary, equivalents, replacement/cancellation history,
+     look-alikes not to confuse it with, the documents and pages. Sections:
+     `summary`, `specifications`, `cross_references`, `cautions`,
+     `references`.
+   - **Manufacturer part** (per maker's number) — true of that number at that
+     maker only: what its suffix or grade means, a house or special number and
+     whom it was made for, the evidence for the maker (decoded CAGE code,
+     logo, catalogue entry), that maker's catalogue pages. Sections:
+     `summary`, `identification`, `references`.
+   - **Stock** (per line, only when research found something about that lot,
+     such as what its date code decodes to). Sections: `stock`, `other`.
 5. **Same-part evidence**: anything suggesting two items are, or are not, the
    same part — for the caller to put to the user.
 6. **Proposed config changes**, each with the item that prompted it.

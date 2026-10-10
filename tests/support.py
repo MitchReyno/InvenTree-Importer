@@ -520,6 +520,14 @@ class InvenTreeStub:
                     return self._send(200, rows)
                 if parsed.path == "/api/company/part/":
                     return self._send(200, _by(stub.supplier_parts, query, "supplier"))
+                match = re.match(r"^/api/company/part/manufacturer/(\d+)/$",
+                                 parsed.path)
+                if match:
+                    pk = int(match.group(1))
+                    row = next((r for r in stub.manufacturer_parts
+                                if r["pk"] == pk), None)
+                    return self._send(200 if row else 404,
+                                      row or {"detail": "Not found."})
                 if parsed.path == "/api/company/part/manufacturer/":
                     rows = stub.manufacturer_parts
                     mpn = (query.get("MPN") or [None])[0]
@@ -775,6 +783,19 @@ class InvenTreeStub:
                         if row["pk"] == pk:
                             row.update(body)
                             return self._send(200, row)
+                # A part's or manufacturer part's notes are written by PATCH,
+                # and read back before the next write - so the update sticks.
+                for pattern, rows in (
+                        (r"^/api/part/(\d+)/?$", stub.part_rows),
+                        (r"^/api/company/part/manufacturer/(\d+)/?$",
+                         stub.manufacturer_parts)):
+                    match = re.match(pattern, parsed.path)
+                    if match:
+                        pk = int(match.group(1))
+                        for row in rows:
+                            if row["pk"] == pk:
+                                row.update(body)
+                                return self._send(200, row)
                 return self._send(200, {"pk": 1, **body})
 
             do_PUT = do_PATCH

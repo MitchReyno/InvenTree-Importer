@@ -78,8 +78,10 @@ check only reads; it never writes to the server.
 
 **If anything might be the same part, stop and ask the user before writing
 that line.** Show the candidates and offer: add the stock to the existing part
-(use its `ipn`, or the matching `mpn`/`type`), create a new part anyway, or skip
-the item. An exact match on an NSN tag plus a batch may be stock already
+(give the file's part entry its `ipn`, or the matching `mpn`/`type`), create a
+new part anyway, or skip the item. An existing part with notes keeps them, so
+when its notes lack something your research found, tell the user rather than
+expecting the import to add it. An exact match on an NSN tag plus a batch may be stock already
 imported — say so. Do not decide this yourself, and do not quietly carry on
 with the other lines as if the question were settled; lines with no candidates
 can be prepared meanwhile. When nothing matched, say in your summary that the
@@ -140,22 +142,32 @@ lines back to them.
 
 ## The file
 
+Write **version 2**. It describes each part once, however many lots of it you
+hold, and keeps the lines down to the stock itself:
+
+- `parts` — one entry per part: category, description, `type`/`ipn`,
+  parameters, link, datasheet, images, attachments, and the part's `notes`.
+- `manufacturer_parts` — one entry per maker's number for a part: `part`,
+  `manufacturer`, `mpn`, and that number's `notes`. A part may have several
+  (a second source, a special or house number, an older marking).
+- `lines` — one per quantity on hand. A line names the `manufacturer_part`
+  its lot is marked with, or just the `part` when no maker's number is
+  printed, plus the stock fields: quantity, supplier/`sku`/price/order,
+  location, batch, packaging, condition, tags, `stock_images`, `link` (the
+  seller's listing) and the stock `notes`.
+
 ```json
 {
-  "version": 1,
+  "version": 2,
   "source": {"kind": "invoice-photo", "reference": "IMG_4821.jpg",
              "captured": "2026-08-29", "agent": "claude-opus-5"},
   "defaults": {"supplier": "Rockby Electronics", "currency": "AUD",
                "order": {"reference": "R-99213", "date": "2026-08-14"}},
-  "lines": [
+  "parts": [
     {
-      "id": "l01",
-      "quantity": 25,
+      "id": "res-100k",
       "category": "Resistors/Through Hole Resistors",
       "description": "RES 100K OHM 1% 1/4W AXIAL",
-      "mpn": "MFR-25FTE52-100K",
-      "manufacturer": "YAGEO",
-      "sku": "MFR-25FTE52-100K",
       "parameters": {"Resistance": "100 kohm", "Tolerance": "1%",
                      "Power Rating": "0.25 W", "Composition": "Metal Film",
                      "Package": "Axial", "Mounting": "Through Hole",
@@ -168,8 +180,26 @@ lines back to them.
       "link": "https://www.yageo.com/en/ProductSearch/Search?k=MFR-25FTE52-100K",
       "datasheet": "https://www.yageo.com/upload/media/product/products/datasheet/lr/YAGEO_RCHIP_MFR_datasheets.pdf",
       "image": "https://mm.digikey.com/Volume0/opasdata/d220001/medias/images/1094/MFG_MFR-25.jpg",
+      "notes": {
+        "summary": ["Metal film resistor, 100 kohm ±1%, 0.25 W, axial leads"],
+        "references": ["YAGEO MFR series datasheet (linked)"]
+      }
+    }
+  ],
+  "manufacturer_parts": [
+    {"id": "res-100k/yageo", "part": "res-100k", "manufacturer": "YAGEO",
+     "mpn": "MFR-25FTE52-100K",
+     "notes": {"summary": ["F in the part number is the ±1% tolerance code"]}}
+  ],
+  "lines": [
+    {
+      "id": "l01",
+      "manufacturer_part": "res-100k/yageo",
+      "quantity": 25,
+      "sku": "MFR-25FTE52-100K",
       "unit_price": 0.0996,
       "packaging": "Cut Tape",
+      "notes": {"stock": ["One length of cut tape, counted individually"]},
       "confidence": 0.95
     }
   ]
@@ -177,11 +207,56 @@ lines back to them.
 ```
 
 Run `uv run invimport import-stock --schema` for the full field reference. YAML
-and CSV are accepted too; CSV uses dotted columns (`param.Resistance`,
-`order.reference`).
+is accepted too. Version 1 — every part field repeated on every line — is still
+read, and is what CSV uses (dotted columns: `param.Resistance`,
+`order.reference`, `notes.stock`); do not write it by hand.
+
+Each id is a reference: a line names a `part` or `manufacturer_part` by id,
+and a manufacturer part names its `part`. A line naming a manufacturer part
+needs no `part` of its own. Every part and manufacturer part must be used by a
+line. The first line of a part finds or creates it; later lines join it — no
+`part_of` is needed, or accepted, in version 2.
 
 `defaults` are merged into every line and a line always wins, so put the
-supplier, currency and order there once rather than repeating them.
+supplier, currency and order there once rather than repeating them. In version
+2 they hold stock fields only; the category is set on each part.
+
+**Give every part a `name`, unless its category builds one from parameters.**
+Resistors and capacitors are named by their category's template (`Resistor
+100k 1% 0.25W Metal Film`), so leave `name` out there. Anywhere else, without a
+`name` the part is called by its bare number — and a drawing or house number
+like `0N300704-1` or `725000-315` says nothing about what the part is. Write
+the number people know it by, then what it is, in under 100 characters:
+`118A Op Amp Module`, `CD4013B Dual D Flip-Flop`, `1N4007 Rectifier Diode`.
+The validator warns about a part with no name where one is needed. A `name`
+also overrides a template's name when that would be wrong for the part. It
+only names a part the import creates: an existing part keeps its name, and
+the dry run says so. When the name is not the bare type or MPN, that number is
+stored in the part's keywords, so the next lot of it still finds the part.
+
+### Notes: three records, three kinds of fact
+
+InvenTree keeps Markdown notes on the part, the manufacturer part and the
+stock item, and each holds something different. Write each fact once, on the
+record it is true of — this is what keeps the same 3 KB of research from being
+copied onto every bag of one part.
+
+| Record | Holds | Sections |
+|---|---|---|
+| part `notes` | what is true of the part **whoever made it**: what it is, figures the parameters cannot hold, NSNs and their cross-references, equivalents and replacements, look-alikes, documents | `summary`, `specifications`, `cross_references`, `cautions`, `references` |
+| manufacturer part `notes` | what is true of **this number at this maker**: what its suffix or grade means, a house or special number and whom it was made for, how the maker was established (CAGE code, logo, catalogue) | `summary`, `identification`, `references` |
+| line `notes` | **this quantity only**: how many bags or tubes, how it was counted, the seal and condition of each, green tags and stickers | `stock`, `markings`, `other` |
+
+Each section is a list of short facts (rendered as bullets) or a Markdown
+string — use a string for a table, such as an NSN cross-reference. `markings`
+is the label or chip text exactly as printed, one printed line per list item
+or per line of a string; it is copied verbatim into a code block, so do not
+tidy it. The importer adds a **Source** section to every stock item itself
+(seller, import file, approximate quantity), so do not write those.
+
+A part's or manufacturer part's notes are written only when that record has
+none: notes already there are kept and the dry run says so. Re-running a file
+fills in notes for parts imported before it had any.
 
 **Always fill `packaging`** — what this quantity is held in, written to the
 stock item (50 characters max). Read it off the photo or invoice: `Cut Tape`,
@@ -190,10 +265,11 @@ invoice's pack type (`CT`, `TR`, `Bulk`) counts. For new old stock it must also
 say whether it is sealed — see the NOS rule below. Omit it only when nothing
 shows it, and say so in your summary. The dry run does not print it.
 
-`link` is a product or listing page (stored on the SupplierPart, and on the
-Part if there is no datasheet). `datasheet` is a PDF URL (stored on the Part
-and the ManufacturerPart), or a PDF path relative to the stock file, which is
-attached to both as a file. `datasheet_pages` (`"140-142"`, `"3, 5-6"`)
+A part's `link` is its product page (stored on the Part if there is no
+datasheet); a line's `link` is the seller's listing (stored on the
+SupplierPart). `datasheet` is a PDF URL (stored on the Part and the
+ManufacturerPart), or a PDF path relative to the stock file, which is attached
+to both as a file. `datasheet_pages` (`"140-142"`, `"3, 5-6"`)
 attaches those 1-based pages of that PDF as the datasheet, with the whole
 document beside it. `image` is a product photo: an `http(s)` URL, or a
 path relative to the stock file. Extra photos go in `images`: `image` becomes
@@ -206,7 +282,8 @@ packet a batch came in, its label and date code — attached to the stock item
 the line creates (and to an already-imported line's item on a re-run, skipping
 names it already has). When one part arrives as several batches, give the part
 one representative `image` and each line a `stock_images` crop of its own
-batch's packet, so the stock items can be told apart.
+batch's packet, so the stock items can be told apart. Every file of a part
+(images, attachments, datasheet) is uploaded once, however many lines it has.
 
 `location` is a stock location path (`"Storage/Bags/MDA920A3"`). Any part of it
 that does not exist is created, with its parents, on `--write`; the dry run
@@ -238,12 +315,16 @@ skip the subagent because an item looks easy.
    carries site quirks, data-book page offsets, decoded CAGE codes and traps
    between research runs. The base prompt tells it to; you keep it current
    (step 5).
-3. **Apply the report.** For each line: `category`, `manufacturer`,
-   `mpn`/`type`, `description`, `datasheet` (+ `datasheet_pages`), `link`,
-   `image` (a URL only when there is no photo of the device), `parameters`,
-   `attachments` (the snapshot paths with their comments), `confidence`, and
-   the facts for `notes`. Write notes as plain facts. Suggest
-   `--mirror-datasheets` when the report says a datasheet lives on a mirror.
+3. **Apply the report.** For each part: `category`, `name`, `type`, `description`,
+   `datasheet` (+ `datasheet_pages`), `link`, `image` (a URL only when there
+   is no photo of the device), `parameters`, `attachments` (the snapshot paths
+   with their comments) and its `notes`. For each maker's number: a
+   manufacturer part with `manufacturer`, `mpn` and its `notes`. On each line:
+   `confidence`, and the stock `notes`. The report sorts its facts for the
+   notes by record; keep them where it put them, and move any that landed on
+   the wrong one (see [Notes](#notes-three-records-three-kinds-of-fact)).
+   Write notes as plain facts. Suggest `--mirror-datasheets` when the report
+   says a datasheet lives on a mirror.
 4. **Check before you trust.** Spot-check that the snapshots exist and that a
    few key values match the cited page; anything that looks constructed
    rather than found goes back to the subagent or is left out. Same-part
@@ -447,22 +528,17 @@ Only leave the line partial if neither source has them.
 numbers.
 
 **Use `type` for type designators.** `1N4007`, `2N3904`, `XR-2206`, `IN-1` go in
-`type`, not `mpn`. A JEDEC number identifies a generic part regardless of who
-made it; an MPN belongs to one manufacturer. A `type` with a `manufacturer`
-still records that manufacturer: the designator becomes its MPN.
+the part's `type`, not in a manufacturer part's `mpn`. A JEDEC number
+identifies a generic part regardless of who made it; an MPN belongs to one
+manufacturer. When a maker's logo is on a `type`-marked lot, give the part a
+manufacturer part with that maker and the designator as its `mpn`.
 
-**Several lines of one part: say so with `part_of`.** A later line joins an
-earlier line's part with `"part_of": "<earlier id>"`. It is required whenever
-nothing else would match the lines to one part:
-- lots with no maker printed (a generic `type` or MPN with no `manufacturer`),
-  since without a manufacturer there is no ManufacturerPart to find the part by;
-- a lot printed under an older or alternate number.
-
-Without it, the import holds every such line after the first for review, and
-the validator warns with the exact `part_of` to add. Lines that share an MPN
-*and* a manufacturer find each other on their own. `part_of` must name an
-earlier line in the same file. It survives re-runs: a line already imported
-still tells its followers which part it joined.
+**Several lots of one part are lines naming the same part.** Lots under
+different numbers — an older or alternate marking, a special number, a second
+source — are separate manufacturer parts of the one part, each line naming the
+one its lot is marked with. A lot with no maker printed names the `part`
+itself. Never describe a part twice to give a lot its own entry: two `parts`
+entries are two parts in InvenTree.
 
 **Every line with a supplier needs a `sku`.** The supplier is only stored
 through a SupplierPart, and there is no SupplierPart without a SKU - leave it
@@ -470,8 +546,9 @@ out and the stock silently forgets where it came from. Use the seller's
 catalogue number; if they have none (surplus dealers usually don't), use the
 part number or type as printed. The validator warns when one is missing.
 
-**eBay purchases:** `"supplier": "eBay"`, with the seller name in `notes`. Do
-not create a supplier per seller.
+**eBay purchases:** `"supplier": "salash (eBay)"` — the seller in brackets
+becomes `Sold by salash` in the stock item's Source notes, under the one eBay
+supplier. Do not create a supplier per seller.
 
 **Ask before grouping several stock items of one part into a new location.**
 When a file creates more than one stock item for the same internal part —
@@ -529,12 +606,13 @@ NOS is tags plus a batch code, never a part flag. It goes on the stock item:
 ```json
 "tags": ["NOS", "new old stock"], "batch": "8231",
 "packaging": "Tube, sealed", "condition": "unopened",
-"notes": "surplus dealer"
+"notes": {"stock": ["One sealed tube from a surplus dealer"],
+          "markings": ["8231"]}
 ```
 
 Use **both** spellings, `NOS` and `new old stock`, so either search finds it.
 Put the date code in `batch` if the packaging or the chips show one — `8231` is
-week 31 of 1982 — and say in `notes` where it came from. Never record this as a
+week 31 of 1982 — and say in the line's `notes` where it came from. Never record this as a
 part parameter: the same component may arrive as current production next time,
 and a part attribute would then be wrong for every quantity you hold.
 

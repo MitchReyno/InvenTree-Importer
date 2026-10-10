@@ -35,13 +35,15 @@ from typing import Any
 
 import yaml
 
+from . import notes
 from .util import absolute_url, parse_pages
 
 # What a line may say. Anything else is a mistake worth reporting rather than
 # ignoring - a misspelled key is otherwise indistinguishable from an omission.
 LINE_KEYS = {
     "id", "quantity", "approximate", "condition",
-    "category", "suggest_category", "description", "type", "mpn", "ipn",
+    "category", "suggest_category", "name", "description", "type", "mpn",
+    "ipn",
     "manufacturer", "parameters",
     "supplier", "sku", "unit_price", "currency", "order",
     "location", "notes", "tags", "batch", "packaging",
@@ -65,11 +67,38 @@ DEFAULTABLE = {"supplier", "currency", "location", "order", "condition",
 
 CONDITIONS = ("ok", "unopened", "attention", "damaged", "quarantined")
 
-SUPPORTED_VERSIONS = (1,)
+SUPPORTED_VERSIONS = (1, 2)
+
+# Version 2 lifts what is true of a part out of the lines, so a part bought in
+# six lots is described once rather than six times. A part names the
+# Part; a manufacturer part names one maker's number for it; a line is only
+# the quantity on hand, and points at one of the other two.
+PART_KEYS = {
+    "id", "category", "suggest_category", "name", "description", "type",
+    "ipn",
+    "parameters", "link", "datasheet", "datasheet_pages", "image", "images",
+    "attachments", "notes",
+}
+MANUFACTURER_PART_KEYS = {"id", "part", "manufacturer", "mpn", "notes"}
+V2_LINE_KEYS = {
+    "id", "part", "manufacturer_part", "quantity", "approximate",
+    "condition", "supplier", "sku", "unit_price", "currency", "order",
+    "location", "notes", "tags", "batch", "packaging", "link",
+    "stock_images", "confidence", "needs_review",
+}
+# In version 2 the category belongs to the part, so it is not a line default.
+V2_DEFAULTABLE = {"supplier", "currency", "location", "order", "condition",
+                  "notes", "tags", "batch", "packaging"}
+# A version 2 line is expanded into the version 1 shape the importer runs on.
+# These carry what that shape had no field for.
+EXPANDED_KEYS = {"part_notes", "manufacturer_part_notes", "supplier_link",
+                 "part_ref", "manufacturer_part_ref"}
 
 # InvenTree's StockItem.packaging is a 50 character column. Longer is refused
 # here, naming the line, rather than by the server mid-import.
 PACKAGING_MAX = 50
+# Part.name is 100.
+NAME_MAX = 100
 
 # New old stock is only as good as its packaging: a sealed tube is a claim
 # about the parts inside that an opened bag cannot make. So an NOS line must
@@ -92,15 +121,19 @@ class StockFileError(RuntimeError):
 @dataclass
 class Problem:
     """One thing wrong with the file, addressed to whoever wrote it."""
-    line: str = ""                               # line id, or "" for the file
+    line: str = ""                               # entry id, or "" for the file
     # Named to match the JSON an agent reads back. `field` shadows
     # dataclasses.field inside this body, hence the qualified call below.
     field: str = ""
     problem: str = ""
     did_you_mean: list[str] = dataclasses.field(default_factory=list)
+    # What `line` names: a line, or in a version 2 file a part or a
+    # manufacturer part - so a mistake in a part is reported once, against
+    # the part, rather than against every line that uses it.
+    kind: str = "line"
 
     def describe(self) -> str:
-        where = f"line {self.line}" if self.line else "file"
+        where = f"{self.kind} {self.line}" if self.line else "file"
         at = f" {self.field}:" if self.field else ""
         hint = (f" - did you mean {' or '.join(repr(s) for s in self.did_you_mean)}?"
                 if self.did_you_mean else "")
@@ -109,7 +142,7 @@ class Problem:
     def as_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {"problem": self.problem}
         if self.line:
-            out["line"] = self.line
+            out[self.kind.replace(" ", "_")] = self.line
         if self.field:
             out["field"] = self.field
         if self.did_you_mean:
@@ -127,6 +160,10 @@ class StockLine:
 
     category: str = ""
     suggest_category: dict[str, Any] = field(default_factory=dict)
+    # What a new part is called. Without it the name is generated: from the
+    # category's template where it builds one from parameters, else the
+    # designator, else the description.
+    name: str = ""
     description: str = ""
     type: str = ""
     mpn: str = ""
@@ -141,7 +178,20 @@ class StockLine:
     order: dict[str, Any] = field(default_factory=dict)
 
     location: str = ""
-    notes: str = ""
+    # Text, or sections (see notes.STOCK_SECTIONS) rendered as Markdown.
+    notes: str | dict[str, Any] = ""
+    # Version 2 only: the notes of the part and of the manufacturer part this
+    # line names, carried by the first line that names each so they are
+    # written once.
+    part_notes: str | dict[str, Any] = ""
+    manufacturer_part_notes: str | dict[str, Any] = ""
+    # Version 2 only: the seller's listing page, kept apart from the part's
+    # own link, which a version 1 line used for both.
+    supplier_link: str = ""
+    # Version 2 only: the part and manufacturer part entries this line was
+    # expanded from, for reporting.
+    part_ref: str = ""
+    manufacturer_part_ref: str = ""
 
     # Labels and the lot this quantity came out of. Both describe the stock
     # rather than the part: the same component can arrive as new old stock in
@@ -226,6 +276,9 @@ def _nest(row: dict[str, Any]) -> dict[str, Any]:
         elif name.startswith("suggest_category."):
             _, _, rest = name.partition(".")
             out.setdefault("suggest_category", {})[rest] = value
+        elif name.startswith("notes."):
+            _, _, rest = name.partition(".")
+            out.setdefault("notes", {})[rest] = value
         else:
             out[name] = value
     return out
@@ -503,12 +556,20 @@ def _check_nos_packaging(line: StockLine, problems: list[Problem]) -> None:
             f"name the packaging too, e.g. 'Tube, {state}'"))
 
 
+def _as_notes(value: Any, sections, field_name: str, line_id: str,
+              problems: list[Problem]) -> str | dict[str, Any]:
+    parsed, faults = notes.parse(value, sections)
+    problems.extend(Problem(line_id, field_name, fault) for fault in faults)
+    return parsed
+
+
 def _line_from(raw: dict[str, Any], index: int,
-               problems: list[Problem]) -> StockLine:
+               problems: list[Problem],
+               allowed: set[str] = LINE_KEYS) -> StockLine:
     line_id = str(raw.get("id") or "").strip()
 
     for key in raw:
-        if key not in LINE_KEYS:
+        if key not in allowed:
             problems.append(Problem(
                 line_id or f"#{index + 1}", key, "not a recognised field",
                 did_you_mean=_close(key, LINE_KEYS)))
@@ -537,16 +598,30 @@ def _line_from(raw: dict[str, Any], index: int,
         condition = "ok"
     line.condition = condition
 
-    for name in ("category", "description", "type", "mpn", "ipn",
+    for name in ("category", "name", "description", "type", "mpn", "ipn",
                  "manufacturer", "supplier", "sku", "currency", "location",
-                 "notes", "batch", "packaging"):
+                 "batch", "packaging", "part_ref", "manufacturer_part_ref"):
         setattr(line, name, str(raw.get(name) or "").strip())
+    if len(line.name) > NAME_MAX:
+        problems.append(Problem(line_id, "name",
+                                f"is {len(line.name)} characters; InvenTree "
+                                f"keeps at most {NAME_MAX}"))
+    line.notes = _as_notes(raw.get("notes"), notes.STOCK_SECTIONS, "notes",
+                           line_id, problems)
+    line.part_notes = _as_notes(raw.get("part_notes"), notes.PART_SECTIONS,
+                                "part_notes", line_id, problems)
+    line.manufacturer_part_notes = _as_notes(
+        raw.get("manufacturer_part_notes"),
+        notes.MANUFACTURER_PART_SECTIONS, "manufacturer_part_notes",
+        line_id, problems)
     if len(line.packaging) > PACKAGING_MAX:
         problems.append(Problem(line_id, "packaging",
                                 f"is {len(line.packaging)} characters; "
                                 f"InvenTree keeps at most {PACKAGING_MAX}"))
 
     line.link = _as_url(raw.get("link"), "link", line_id, problems)
+    line.supplier_link = _as_url(raw.get("supplier_link"), "supplier_link",
+                                 line_id, problems)
     line.datasheet = _as_datasheet(raw.get("datasheet"), line_id, problems)
     line.datasheet_pages = _as_pages(raw.get("datasheet_pages"), line_id,
                                      problems)
@@ -688,18 +763,20 @@ def parse_document(data: Any, path: Path | None = None) -> StockFile:
                                     "not a recognised field",
                                     did_you_mean=_close(key, SOURCE_KEYS)))
 
+    defaultable = V2_DEFAULTABLE if version == 2 else DEFAULTABLE
     defaults = data.get("defaults") or {}
     if not isinstance(defaults, dict):
         problems.append(Problem("", "defaults", "must be a mapping"))
         defaults = {}
     for key in defaults:
-        if key not in DEFAULTABLE:
-            problems.append(Problem(
-                "", f"defaults.{key}",
-                "cannot be defaulted for the whole file - it identifies a "
-                "single line or the part it names",
-                did_you_mean=_close(key, DEFAULTABLE)))
-    defaults = {k: v for k, v in defaults.items() if k in DEFAULTABLE}
+        if key not in defaultable:
+            reason = ("belongs to each part in a version 2 file"
+                      if key in PART_KEYS else
+                      "cannot be defaulted for the whole file - it "
+                      "identifies a single line or the part it names")
+            problems.append(Problem("", f"defaults.{key}", reason,
+                                    did_you_mean=_close(key, defaultable)))
+    defaults = {k: v for k, v in defaults.items() if k in defaultable}
 
     rows = data.get("lines")
     if rows is None:
@@ -708,13 +785,20 @@ def parse_document(data: Any, path: Path | None = None) -> StockFile:
         raise StockFileError(f"'lines' must be a list, got {type(rows).__name__}")
 
     lines: list[StockLine] = []
-    for index, raw in enumerate(rows):
-        if not isinstance(raw, dict):
-            problems.append(Problem(f"#{index + 1}", "",
-                                    f"a line must be a mapping, got "
-                                    f"{type(raw).__name__}"))
-            continue
-        lines.append(_line_from(_apply_defaults(raw, defaults), index, problems))
+    if version == 2:
+        lines = _expand(data, rows, defaults, problems)
+    else:
+        for key in ("parts", "manufacturer_parts"):
+            if key in data:
+                problems.append(Problem("", key, "needs \"version\": 2"))
+        for index, raw in enumerate(rows):
+            if not isinstance(raw, dict):
+                problems.append(Problem(f"#{index + 1}", "",
+                                        f"a line must be a mapping, got "
+                                        f"{type(raw).__name__}"))
+                continue
+            lines.append(_line_from(_apply_defaults(raw, defaults), index,
+                                    problems))
 
     seen: dict[str, int] = {}
     for index, line in enumerate(lines):
@@ -744,11 +828,228 @@ def parse_document(data: Any, path: Path | None = None) -> StockFile:
                                     f"it must come first"))
 
     if problems:
-        raise StockFileError("\n".join(p.describe() for p in problems))
+        raise StockFileError("\n".join(
+            p.describe() for p in unique(problems)))
 
     document = StockFile(version=version, source=source, lines=lines, path=path)
     document.file_id = file_id_for(document, data)
     return document
+
+
+# --------------------------------------------------------------------------
+# Version 2: parts and manufacturer parts apart from the lines
+# --------------------------------------------------------------------------
+def _entries(value: Any, section: str, kind: str, keys: set[str],
+             problems: list[Problem]) -> dict[str, dict[str, Any]]:
+    """A list of part or manufacturer part entries, by id."""
+    if value in (None, ""):
+        return {}
+    if not isinstance(value, list):
+        problems.append(Problem("", section, "must be a list"))
+        return {}
+    entries: dict[str, dict[str, Any]] = {}
+    for index, raw in enumerate(value):
+        label = f"#{index + 1}"
+        if not isinstance(raw, dict):
+            problems.append(Problem(label, "", f"must be a mapping, got "
+                                               f"{type(raw).__name__}",
+                                    kind=kind))
+            continue
+        entry_id = str(raw.get("id") or "").strip()
+        for key in raw:
+            if key not in keys:
+                problems.append(Problem(entry_id or label, key,
+                                        "not a recognised field",
+                                        did_you_mean=_close(key, keys),
+                                        kind=kind))
+        if not entry_id:
+            problems.append(Problem(label, "id", "is required - lines refer "
+                                                 "to it", kind=kind))
+        elif entry_id in entries:
+            problems.append(Problem(entry_id, "id", "is used twice",
+                                    kind=kind))
+        else:
+            entries[entry_id] = raw
+    return entries
+
+
+# Where a problem with an expanded line's field really lies.
+_PART_FIELDS = PART_KEYS - {"id", "notes"}
+_MANUFACTURER_PART_FIELDS = {"mpn", "manufacturer"}
+
+
+def attribute(problems: list[Problem], part_id: str, mp_id: str) -> None:
+    """Point problems raised by a part's or manufacturer part's own fields
+    at that entry, not at the line that happened to carry them."""
+    for problem in problems:
+        root = problem.field.split(".", 1)[0]
+        if root in _PART_FIELDS or root == "part_notes":
+            problem.kind, problem.line = "part", part_id
+            if root == "part_notes":
+                problem.field = "notes"
+        elif mp_id and (root in _MANUFACTURER_PART_FIELDS
+                        or root == "manufacturer_part_notes"):
+            problem.kind, problem.line = "manufacturer part", mp_id
+            if root == "manufacturer_part_notes":
+                problem.field = "notes"
+        elif root == "supplier_link":
+            problem.field = "link"
+
+
+def unique(problems: list[Problem]) -> list[Problem]:
+    """A part used by six lines is wrong once, not six times."""
+    seen: set[tuple[str, str, str, str]] = set()
+    out: list[Problem] = []
+    for problem in problems:
+        key = (problem.kind, problem.line, problem.field, problem.problem)
+        if key not in seen:
+            seen.add(key)
+            out.append(problem)
+    return out
+
+
+def _expand(data: dict[str, Any], rows: list[Any],
+            defaults: dict[str, Any],
+            problems: list[Problem]) -> list[StockLine]:
+    """
+    Version 2 lines, expanded into the version 1 lines the importer runs on.
+
+    Each line takes its part's fields, and the number and maker of its
+    manufacturer part. The first line of a part resolves or creates it; the
+    rest are filed against it with part_of, exactly as if the file had said
+    so. The part's notes travel on that first line only, and a manufacturer
+    part's on the first line that names it, so each is written once.
+    """
+    parts = _entries(data.get("parts"), "parts", "part", PART_KEYS, problems)
+    makers = _entries(data.get("manufacturer_parts"), "manufacturer_parts",
+                      "manufacturer part", MANUFACTURER_PART_KEYS, problems)
+    for mp_id, entry in makers.items():
+        owner = str(entry.get("part") or "").strip()
+        if not owner:
+            problems.append(Problem(mp_id, "part", "is required - name the "
+                                                   "part this number is for",
+                                    kind="manufacturer part"))
+        elif owner not in parts:
+            problems.append(Problem(mp_id, "part",
+                                    f"{owner!r} is not a part in this file",
+                                    did_you_mean=_close(owner, parts),
+                                    kind="manufacturer part"))
+        if not str(entry.get("mpn") or "").strip():
+            problems.append(Problem(mp_id, "mpn", "is required",
+                                    kind="manufacturer part"))
+        if entry.get("notes") and not str(entry.get("manufacturer")
+                                          or "").strip():
+            # No maker, no ManufacturerPart - nothing is invented to stand in
+            # for one - so these notes would have nowhere to go.
+            problems.append(Problem(
+                mp_id, "notes", "need a manufacturer: without one no "
+                                "manufacturer part is created to hold them - "
+                                "put general facts on the part instead",
+                kind="manufacturer part"))
+
+    first_line: dict[str, str] = {}
+    noted_makers: set[str] = set()
+    used_parts: set[str] = set()
+    used_makers: set[str] = set()
+    lines: list[StockLine] = []
+    for index, raw in enumerate(rows):
+        label = f"#{index + 1}"
+        if not isinstance(raw, dict):
+            problems.append(Problem(label, "", f"a line must be a mapping, "
+                                               f"got {type(raw).__name__}"))
+            continue
+        line_id = str(raw.get("id") or "").strip()
+        label = line_id or label
+        for key in raw:
+            if key in V2_LINE_KEYS:
+                continue
+            if key in PART_KEYS or key in _MANUFACTURER_PART_FIELDS:
+                where = ("its manufacturer part" if key in
+                         _MANUFACTURER_PART_FIELDS else "its part")
+                problems.append(Problem(
+                    label, key, f"belongs on {where} in a version 2 file, "
+                                f"not on the line"))
+            elif key == "part_of":
+                problems.append(Problem(
+                    label, key, "is not needed in a version 2 file - lines "
+                                "naming the same part are already one part"))
+            else:
+                problems.append(Problem(label, key, "not a recognised field",
+                                        did_you_mean=_close(key,
+                                                            V2_LINE_KEYS)))
+
+        part_id = str(raw.get("part") or "").strip()
+        mp_id = str(raw.get("manufacturer_part") or "").strip()
+        maker = makers.get(mp_id) if mp_id else None
+        if mp_id and maker is None:
+            problems.append(Problem(label, "manufacturer_part",
+                                    f"{mp_id!r} is not a manufacturer part "
+                                    f"in this file",
+                                    did_you_mean=_close(mp_id, makers)))
+        if maker is not None:
+            owner = str(maker.get("part") or "").strip()
+            if part_id and owner and part_id != owner:
+                problems.append(Problem(
+                    label, "part", f"is {part_id!r}, but manufacturer part "
+                                   f"{mp_id!r} is a number for {owner!r}"))
+            part_id = part_id or owner
+        if not part_id and not mp_id:
+            problems.append(Problem(label, "part",
+                                    "is required - name the part, or the "
+                                    "manufacturer part, this stock is"))
+        part = parts.get(part_id)
+        if part is None:
+            if part_id and maker is None and not mp_id:
+                problems.append(Problem(label, "part",
+                                        f"{part_id!r} is not a part in this "
+                                        f"file",
+                                        did_you_mean=_close(part_id, parts)))
+            continue
+
+        used_parts.add(part_id)
+        merged: dict[str, Any] = {k: v for k, v in part.items()
+                                  if k not in ("id", "notes")}
+        merged["part_ref"] = part_id
+        if part_id in first_line:
+            merged["part_of"] = first_line[part_id]
+        else:
+            first_line[part_id] = line_id
+            merged["part_notes"] = part.get("notes")
+        if maker is not None:
+            used_makers.add(mp_id)
+            merged["mpn"] = maker.get("mpn")
+            merged["manufacturer"] = maker.get("manufacturer")
+            merged["manufacturer_part_ref"] = mp_id
+            if mp_id not in noted_makers:
+                noted_makers.add(mp_id)
+                merged["manufacturer_part_notes"] = maker.get("notes")
+
+        stock = _apply_defaults(
+            {k: v for k, v in raw.items()
+             if k in V2_LINE_KEYS and k not in ("part", "manufacturer_part")},
+            defaults)
+        if "link" in stock:
+            merged["supplier_link"] = stock.pop("link")
+        merged.update(stock)
+
+        before = len(problems)
+        line = _line_from(merged, index, problems,
+                          allowed=LINE_KEYS | EXPANDED_KEYS)
+        attribute(problems[before:], part_id, mp_id if maker else "")
+        lines.append(line)
+
+    for part_id in parts:
+        if part_id not in used_parts:
+            problems.append(Problem(part_id, "id", "no line uses this part, "
+                                                   "so nothing would import "
+                                                   "it", kind="part"))
+    for mp_id in makers:
+        if mp_id not in used_makers:
+            problems.append(Problem(mp_id, "id",
+                                    "no line uses this manufacturer part, so "
+                                    "nothing would import it",
+                                    kind="manufacturer part"))
+    return lines
 
 
 def file_id_for(document: StockFile, data: Any) -> str:

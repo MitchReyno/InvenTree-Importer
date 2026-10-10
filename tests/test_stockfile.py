@@ -489,3 +489,207 @@ def test_an_order_timestamp_is_trimmed_to_its_day():
         "order": {"reference": "INV-1", "date": "2026-03-14T09:31:00Z"},
     }]))
     assert document.lines[0].order["date"] == "2026-03-14"
+
+
+# --------------------------------------------------------------------------
+# Version 2: parts and manufacturer parts described once
+# --------------------------------------------------------------------------
+def v2(**overrides):
+    """A part bought in three lots, two marked with a special number."""
+    data = {
+        "version": 2,
+        "parts": [{"id": "118a", "category": "Amplifiers/Op Amps",
+                   "description": "Op amp module",
+                   "parameters": {"Supply Voltage": "±15 V"},
+                   "datasheet": "https://example.com/118.pdf",
+                   "link": "https://example.com/118",
+                   "notes": {"summary": ["General-purpose op amp"]}}],
+        "manufacturer_parts": [
+            {"id": "118a/118A", "part": "118a",
+             "manufacturer": "Analog Devices", "mpn": "118A"},
+            {"id": "118a/5716", "part": "118a",
+             "manufacturer": "Analog Devices", "mpn": "5716",
+             "notes": {"summary": ["A special number for the 118A"]}}],
+        "lines": [
+            {"id": "l1", "manufacturer_part": "118a/5716", "quantity": 65,
+             "link": "https://seller.example/123",
+             "notes": {"stock": ["65 bags"], "markings": "A 7/81"}},
+            {"id": "l2", "manufacturer_part": "118a/5716", "quantity": 14},
+            {"id": "l3", "manufacturer_part": "118a/118A", "quantity": 1},
+            {"id": "l4", "part": "118a", "quantity": 2}],
+    }
+    data.update(overrides)
+    return data
+
+
+def problems_of(data) -> str:
+    with pytest.raises(StockFileError) as raised:
+        parse_document(data)
+    return str(raised.value)
+
+
+def test_every_line_takes_its_parts_fields():
+    lines = parse_document(v2()).lines
+    assert [line.category for line in lines] == ["Amplifiers/Op Amps"] * 4
+    assert all(line.parameters == {"Supply Voltage": "±15 V"}
+               for line in lines)
+    assert all(line.datasheet == "https://example.com/118.pdf"
+               for line in lines)
+
+
+def test_a_line_takes_the_number_its_lot_is_marked_with():
+    lines = parse_document(v2()).lines
+    assert [(line.manufacturer, line.mpn) for line in lines] == [
+        ("Analog Devices", "5716"), ("Analog Devices", "5716"),
+        ("Analog Devices", "118A"), ("", "")]
+
+
+def test_later_lines_of_a_part_are_filed_against_the_first():
+    lines = parse_document(v2()).lines
+    assert [line.part_of for line in lines] == ["", "l1", "l1", "l1"]
+
+
+def test_notes_travel_once_with_the_first_line_of_each_record():
+    lines = parse_document(v2()).lines
+    assert lines[0].part_notes == {"summary": ["General-purpose op amp"]}
+    assert lines[0].manufacturer_part_notes == {
+        "summary": ["A special number for the 118A"]}
+    assert all(not line.part_notes for line in lines[1:])
+    assert all(not line.manufacturer_part_notes for line in lines[1:])
+
+
+def test_stock_notes_stay_with_their_own_line():
+    lines = parse_document(v2()).lines
+    assert lines[0].notes == {"stock": ["65 bags"], "markings": "A 7/81"}
+    assert lines[1].notes == ""
+
+
+def test_a_lines_link_is_the_sellers_listing_not_the_parts_page():
+    first = parse_document(v2()).lines[0]
+    assert first.link == "https://example.com/118"
+    assert first.supplier_link == "https://seller.example/123"
+
+
+def test_lines_remember_which_entries_they_came_from():
+    first = parse_document(v2()).lines[0]
+    assert (first.part_ref, first.manufacturer_part_ref) == (
+        "118a", "118a/5716")
+
+
+def test_line_defaults_apply_but_a_category_is_the_parts_to_set():
+    document = parse_document(v2(defaults={"supplier": "macservice"}))
+    assert {line.supplier for line in document.lines} == {"macservice"}
+    assert ("file: defaults.category: belongs to each part in a version 2 "
+            "file") in problems_of(v2(defaults={"category": "X"}))
+
+
+def test_a_part_field_on_a_line_says_where_it_belongs():
+    data = v2()
+    data["lines"][1].update(category="X", mpn="5716")
+    text = problems_of(data)
+    assert ("line l2: category: belongs on its part in a version 2 file"
+            in text)
+    assert ("line l2: mpn: belongs on its manufacturer part in a version 2 "
+            "file" in text)
+
+
+def test_part_of_is_not_needed_in_version_2():
+    data = v2()
+    data["lines"][1]["part_of"] = "l1"
+    assert "line l2: part_of: is not needed" in problems_of(data)
+
+
+def test_a_mistake_in_a_part_is_reported_once_against_the_part():
+    data = v2()
+    data["parts"][0]["link"] = "not a url"
+    text = problems_of(data)
+    assert text.count("not a URL") == 1
+    assert "part 118a: link: 'not a url' is not a URL" in text
+
+
+def test_a_section_the_part_does_not_have_is_reported_on_the_part():
+    data = v2()
+    data["parts"][0]["notes"] = {"markings": "A 7/81"}
+    assert ("part 118a: notes: 'markings' is not a section here"
+            in problems_of(data))
+
+
+def test_references_must_name_entries_in_the_file():
+    data = v2()
+    data["lines"][3]["part"] = "118"
+    data["lines"][2]["manufacturer_part"] = "118a/118"
+    data["manufacturer_parts"][0]["part"] = "nope"
+    text = problems_of(data)
+    assert "line l4: part: '118' is not a part in this file" in text
+    assert ("line l3: manufacturer_part: '118a/118' is not a manufacturer "
+            "part in this file" in text)
+    assert ("manufacturer part 118a/118A: part: 'nope' is not a part in "
+            "this file" in text)
+
+
+def test_a_line_must_name_a_part():
+    data = v2()
+    del data["lines"][3]["part"]
+    assert "line l4: part: is required" in problems_of(data)
+
+
+def test_a_line_naming_both_must_name_the_same_part():
+    data = v2(parts=[*v2()["parts"], {"id": "other", "category": "X"}])
+    data["lines"][0]["part"] = "other"
+    assert ("line l1: part: is 'other', but manufacturer part '118a/5716' "
+            "is a number for '118a'") in problems_of(data)
+
+
+def test_entries_no_line_uses_are_reported():
+    data = v2()
+    data["lines"] = data["lines"][:1]
+    assert ("manufacturer part 118a/118A: id: no line uses this "
+            "manufacturer part" in problems_of(data))
+
+
+def test_manufacturer_part_notes_need_a_manufacturer():
+    """Without a maker no ManufacturerPart is made, so nothing holds them."""
+    data = v2()
+    del data["manufacturer_parts"][1]["manufacturer"]
+    assert ("manufacturer part 118a/5716: notes: need a manufacturer"
+            in problems_of(data))
+
+
+def test_parts_need_version_2():
+    data = doc(parts=[{"id": "p", "category": "X"}])
+    assert 'file: parts: needs "version": 2' in problems_of(data)
+
+
+def test_a_version_1_line_may_give_its_notes_as_sections():
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X",
+        "notes": {"stock": ["two bags"]}}]))
+    assert document.lines[0].notes == {"stock": ["two bags"]}
+
+
+def test_a_csv_spreads_note_sections_across_dotted_columns():
+    document = parse_document(parse_text(
+        "id,quantity,category,notes.stock,notes.markings\n"
+        "a,1,X,two bags,A 4/86\n", ".csv"))
+    assert document.lines[0].notes == {"stock": "two bags",
+                                       "markings": "A 4/86"}
+
+
+def test_a_part_may_be_given_a_name():
+    data = v2()
+    data["parts"][0]["name"] = "118A Op Amp Module"
+    assert {line.name for line in parse_document(data).lines} == {
+        "118A Op Amp Module"}
+
+
+def test_a_version_1_line_may_name_its_part_too():
+    document = parse_document(doc(lines=[{
+        "id": "a", "quantity": 1, "category": "X", "name": "Thing"}]))
+    assert document.lines[0].name == "Thing"
+
+
+def test_a_name_longer_than_inventree_keeps_is_refused_on_the_part():
+    data = v2()
+    data["parts"][0]["name"] = "x" * 101
+    assert ("part 118a: name: is 101 characters; InvenTree keeps at most 100"
+            in problems_of(data))

@@ -364,3 +364,63 @@ def test_part_of_or_a_manufacturer_settles_a_repeat(config):
     report = check(config, dict(unmarked), {**unmarked, "part_of": "1"},
                    {**unmarked, "manufacturer": "Fairchild"})
     assert report.warnings == []
+
+
+# --------------------------------------------------------------------------
+# Version 2: a part's mistakes are the part's
+# --------------------------------------------------------------------------
+def check_v2(config, part):
+    categories, parameters = config
+    return validate(parse_document({
+        "version": 2,
+        "parts": [{"id": "r", **part}],
+        "lines": [{"id": "a", "part": "r", "quantity": 1},
+                  {"id": "b", "part": "r", "quantity": 2}]}),
+        categories, parameters)
+
+
+def test_a_parts_bad_parameter_is_one_problem_on_the_part(config):
+    report = check_v2(config, {
+        "category": "Resistors/Through Hole Resistors",
+        "parameters": {"Resistance": "1 kohm", "Tolerance": "1%",
+                       "Composition": "Wire Wound"}})
+    assert [(p.kind, p.line, p.field) for p in report.problems] == [
+        ("part", "r", "parameters.Composition")]
+
+
+def test_a_parts_unknown_category_is_one_problem_on_the_part(config):
+    report = check_v2(config, {"category": "Resistors/SMD"})
+    assert len(report.problems) == 1
+    assert report.problems[0].describe().startswith(
+        "part r: category: unknown category")
+
+
+def test_the_report_groups_a_parts_problems_under_the_part(config):
+    payload = check_v2(config, {"category": "Resistors/SMD"}).as_dict()
+    assert payload["by_line"][0]["part"] == "r"
+    assert payload["by_line"][0]["errors"][0]["part"] == "r"
+
+
+def test_a_part_with_no_name_of_its_own_is_warned_about(config):
+    categories, parameters = config
+    report = validate(parse_document({
+        "version": 2,
+        "parts": [{"id": "op", "category": "Integrated Circuits/Op-Amps",
+                   "type": "118A"}],
+        "lines": [{"id": "a", "part": "op", "quantity": 1},
+                  {"id": "b", "part": "op", "quantity": 1}]}),
+        categories, parameters)
+    assert [w.describe() for w in report.warnings] == [
+        "part op: name: no name - a new part would be called '118A' (its "
+        "type); give it a name that says what it is"]
+
+
+def test_a_named_part_is_not_warned_about(config):
+    categories, parameters = config
+    report = validate(parse_document({
+        "version": 2,
+        "parts": [{"id": "op", "category": "Integrated Circuits/Op-Amps",
+                   "type": "118A", "name": "118A Op Amp Module"}],
+        "lines": [{"id": "a", "part": "op", "quantity": 1}]}),
+        categories, parameters)
+    assert report.warnings == []

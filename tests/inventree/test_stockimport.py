@@ -183,7 +183,7 @@ def test_a_supplier_and_sku_become_a_supplier_part(config, server):
 def test_an_ebay_seller_becomes_one_ebay_supplier_and_a_note(config, server):
     _, result = run(config, {**RESISTOR, "supplier": "salash (eBay)"})
     assert [c["name"] for c in server.companies] == ["eBay"]
-    assert "sold by salash" in server.stock_items[0]["notes"]
+    assert "### Source\n\n- Sold by salash" in server.stock_items[0]["notes"]
 
 
 def test_an_order_reference_creates_one_purchase_order(config, server):
@@ -1088,3 +1088,181 @@ def test_an_invoice_that_is_not_there_does_not_stop_the_import(config, server,
     assert server.attachments == []
     assert len(server.stock_items) == 1
     assert len(server.purchase_orders) == 1
+
+
+# --------------------------------------------------------------------------
+# Version 2: notes on the part, the manufacturer part and the stock
+# --------------------------------------------------------------------------
+def run_v2(config, data, **options):
+    document = parse_document({"version": 2,
+                               "source": {"reference": "lots.json"},
+                               **data})
+    return document, import_stock(
+        document, connect(), directory=config,
+        options=ImportOptions(**{"write": True, **options}))
+
+
+GATE_V2 = {
+    "parts": [{"id": "gate", "category": "Integrated Circuits/Logic",
+               "notes": {"summary": ["Quad 2-input NAND gate"],
+                         "cautions": ["Not the C8162K"]}}],
+    "manufacturer_parts": [
+        {"id": "gate/J", "part": "gate", "manufacturer": "Acme",
+         "mpn": "C8162J", "notes": {"summary": ["J = ceramic DIP"]}},
+        {"id": "gate/S", "part": "gate", "manufacturer": "Acme",
+         "mpn": "S8162", "notes": {"summary": ["House number"]}}],
+    "lines": [
+        {"id": "a", "manufacturer_part": "gate/J", "quantity": 10,
+         "supplier": "Rockby Electronics", "sku": "RB-1",
+         "link": "https://seller.example/rb-1",
+         "notes": {"stock": ["Ten in a tube"], "markings": "C8162J\n8427"}},
+        {"id": "b", "manufacturer_part": "gate/J", "quantity": 3},
+        {"id": "c", "manufacturer_part": "gate/S", "quantity": 1}],
+}
+
+
+def part_row(server, pk):
+    return next(row for row in server.part_rows if row["pk"] == pk)
+
+
+def test_version_2_lines_become_stock_of_one_part(config, server):
+    _, result = run_v2(config, GATE_V2)
+    assert [a.action for a in result.lines] == [CREATED] * 3
+    assert len({a.part for a in result.lines}) == 1
+    assert sorted(mp["MPN"] for mp in server.manufacturer_parts) == [
+        "C8162J", "S8162"]
+
+
+def test_the_part_gets_its_own_notes_once(config, server):
+    _, result = run_v2(config, GATE_V2)
+    notes = part_row(server, result.lines[0].part)["notes"]
+    assert notes == ("### Summary\n\n- Quad 2-input NAND gate\n\n"
+                     "### Cautions\n\n- Not the C8162K")
+    part_writes = [body for path, body in server.saves
+                   if path == f"/api/part/{result.lines[0].part}/"
+                   and "notes" in body]
+    assert len(part_writes) == 1
+    assert [a.part_notes for a in result.lines] == ["written", "", ""]
+
+
+def test_each_manufacturer_part_gets_its_own_notes(config, server):
+    run_v2(config, GATE_V2)
+    by_mpn = {mp["MPN"]: mp.get("notes") for mp in server.manufacturer_parts}
+    assert by_mpn == {"C8162J": "### Summary\n\n- J = ceramic DIP",
+                      "S8162": "### Summary\n\n- House number"}
+
+
+def test_stock_notes_hold_only_the_stock_and_its_source(config, server):
+    run_v2(config, GATE_V2)
+    first = server.stock_items[0]["notes"]
+    # No Source section: this document was never read from a file.
+    assert first == ("### This stock\n\n- Ten in a tube\n\n"
+                     "### Markings\n\n```\nC8162J\n8427\n```")
+    assert "NAND" not in first and "ceramic" not in first
+
+
+def test_notes_already_on_a_part_are_kept(config, server):
+    """They may be what someone wrote by hand."""
+    server.add_company("Acme", pk=5, is_supplier=False, is_manufacturer=True)
+    server.add_part("C8162J", "IC-00007", 17, pk=70, notes="hand-written")
+    server.add_manufacturer_part(70, 5, "C8162J", pk=80, notes="")
+    _, result = run_v2(config, GATE_V2)
+    assert result.lines[0].part == 70
+    assert part_row(server, 70)["notes"] == "hand-written"
+    assert result.lines[0].part_notes.startswith("kept")
+    assert result.lines[0].manufacturer_part_notes == "written"
+
+
+def test_a_dry_run_says_what_notes_it_would_write(config, server):
+    _, result = run_v2(config, GATE_V2, write=False)
+    assert result.lines[0].part_notes == "would be written"
+    assert result.lines[0].manufacturer_part_notes == "would be written"
+    assert not [body for _, body in server.saves if "notes" in body]
+
+
+def test_a_re_run_fills_notes_a_part_did_not_have(config, server):
+    """How notes reach stock imported before the file carried them."""
+    bare = {**GATE_V2,
+            "parts": [{**GATE_V2["parts"][0], "notes": ""}],
+            "manufacturer_parts": [{**mp, "notes": ""}
+                                   for mp in GATE_V2["manufacturer_parts"]]}
+    _, first = run_v2(config, bare)
+    assert not part_row(server, first.lines[0].part).get("notes")
+
+    _, second = run_v2(config, GATE_V2)
+    assert [a.action for a in second.lines] == [EXISTS] * 3
+    assert part_row(server, first.lines[0].part)["notes"].startswith(
+        "### Summary")
+    assert {mp["MPN"]: bool(mp.get("notes"))
+            for mp in server.manufacturer_parts} == {"C8162J": True,
+                                                     "S8162": True}
+
+
+def test_writing_the_same_notes_again_changes_nothing(config, server):
+    _, first = run_v2(config, GATE_V2)
+    _, second = run_v2(config, GATE_V2)
+    assert second.lines[0].part_notes == "already there"
+
+
+def test_the_sellers_listing_is_the_supplier_parts_link(config, server):
+    run_v2(config, GATE_V2)
+    assert server.supplier_parts[0]["link"] == "https://seller.example/rb-1"
+
+
+# --------------------------------------------------------------------------
+# Naming a part
+# --------------------------------------------------------------------------
+NAMED_DIODE = {"parts": [{"id": "d", "category": "Diodes/Signal Diodes",
+                          "type": "1N4007",
+                          "name": "1N4007 Rectifier Diode"}],
+               "lines": [{"id": "a", "part": "d", "quantity": 5}]}
+
+
+def test_a_given_name_names_the_new_part(config, server):
+    _, result = run_v2(config, NAMED_DIODE)
+    row = part_row(server, result.lines[0].part)
+    assert row["name"] == "1N4007 Rectifier Diode"
+    assert result.lines[0].name == "1N4007 Rectifier Diode"
+
+
+def test_a_named_part_keeps_its_number_as_a_keyword(config, server):
+    _, result = run_v2(config, NAMED_DIODE)
+    assert part_row(server, result.lines[0].part)["keywords"] == "1N4007"
+
+
+def test_the_next_lot_of_that_type_still_finds_the_named_part(config,
+                                                              server):
+    """Matching by type looks at keywords as well as the name."""
+    _, first = run_v2(config, NAMED_DIODE)
+    _, second = run(config, {**DIODE, "id": "later"})
+    assert second.lines[0].part == first.lines[0].part
+    assert len([p for p in server.part_rows if p.get("category") == 15]) == 1
+
+
+def test_a_name_matching_the_number_adds_no_keyword(config, server):
+    _, result = run(config, {**DIODE, "name": "1N4007"})
+    assert "keywords" not in part_row(server, result.lines[0].part)
+
+
+def test_a_given_name_overrides_the_categorys_template(config, server):
+    _, result = run(config, {**RESISTOR, "name": "Pull-up 4k7"})
+    assert result.lines[0].name == "Pull-up 4k7"
+
+
+def test_an_existing_part_keeps_its_name(config, server):
+    """Renaming would change it on every stock item and order it is on."""
+    server.add_part("1N4007", "DIOD-00009", 15, pk=90)
+    _, result = run_v2(config, NAMED_DIODE)
+    assert result.lines[0].part == 90
+    assert part_row(server, 90)["name"] == "1N4007"
+    assert result.lines[0].name_kept == (
+        "the part is already called '1N4007'; '1N4007 Rectifier Diode' only "
+        "names a new part")
+
+
+def test_a_re_run_says_when_the_part_has_another_name(config, server):
+    run(config, DIODE)
+    _, result = run(config, {**DIODE, "name": "1N4007 Rectifier Diode"})
+    assert result.lines[0].action == EXISTS
+    assert result.lines[0].name_kept.startswith(
+        "the part is already called '1N4007'")

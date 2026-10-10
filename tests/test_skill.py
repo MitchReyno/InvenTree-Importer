@@ -15,7 +15,13 @@ import re
 import pytest
 
 from invimport.config import CONFIG_DIR, load_categories_config, load_parameters_config
-from invimport.stockfile import CONDITIONS, LINE_KEYS, read_file
+from invimport.stockfile import (
+    CONDITIONS,
+    MANUFACTURER_PART_KEYS,
+    PART_KEYS,
+    V2_LINE_KEYS,
+    read_file,
+)
 from invimport.validate import validate
 
 SKILL = (CONFIG_DIR.parent / ".claude" / "skills" / "inventree-stock-import"
@@ -68,10 +74,27 @@ def test_the_worked_example_passes_validation_against_the_real_config(
     assert report.warnings == [], report.text()
 
 
+def test_the_example_is_version_2(example):
+    """Each part described once; the lines hold only the stock."""
+    assert example["version"] == 2
+    assert example["parts"] and example["manufacturer_parts"]
+
+
 def test_the_example_only_uses_fields_the_reader_accepts(example):
-    for line in example["lines"]:
-        unknown = set(line) - LINE_KEYS
-        assert not unknown, f"example line uses unknown field(s): {unknown}"
+    for section, keys in (("parts", PART_KEYS),
+                          ("manufacturer_parts", MANUFACTURER_PART_KEYS),
+                          ("lines", V2_LINE_KEYS
+                           | {"part", "manufacturer_part"})):
+        for entry in example[section]:
+            unknown = set(entry) - keys
+            assert not unknown, (f"example {section} entry uses unknown "
+                                 f"field(s): {unknown}")
+
+
+def test_the_example_shows_notes_on_all_three_records(example):
+    assert example["parts"][0]["notes"]
+    assert example["manufacturer_parts"][0]["notes"]
+    assert example["lines"][0]["notes"]
 
 
 # Category paths the skill names *because they do not exist* - the counter-
@@ -205,11 +228,11 @@ def test_the_research_prompt_tells_the_agent_to_fill_the_category_parameters(
 
 
 def test_the_worked_example_includes_a_datasheet_and_an_image(example):
-    line = example["lines"][0]
-    assert line.get("datasheet", "").startswith("https://")
-    assert line.get("image", "").startswith("https://")
+    part = example["parts"][0]
+    assert part.get("datasheet", "").startswith("https://")
+    assert part.get("image", "").startswith("https://")
     # The packet's key parameters are not the whole set this category stores.
-    assert "Temperature Coefficient" in line["parameters"]
+    assert "Temperature Coefficient" in part["parameters"]
 
 
 # --------------------------------------------------------------------------

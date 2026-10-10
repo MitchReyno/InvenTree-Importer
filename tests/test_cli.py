@@ -1050,14 +1050,30 @@ def _stock_file(tmp_path, lines, name="stock.json"):
 def test_import_stock_schema_is_valid_json(capsys):
     assert main(["import-stock", "--schema"]) == 0
     schema = json.loads(capsys.readouterr().out)
-    assert schema["properties"]["lines"]["items"]["required"] == [
-        "id", "quantity", "category"]
-    properties = schema["properties"]["lines"]["items"]["properties"]
+    # A version 1 line carries the part; a version 2 line only the stock.
+    line = schema["else"]["properties"]["lines"]["items"]
+    assert line["required"] == ["id", "quantity", "category"]
+    properties = line["properties"]
     assert "link" in properties
     assert "datasheet" in properties
     assert "image" in properties
     assert "images" in properties
     assert "datasheet_pages" in properties
+
+
+def test_import_stock_schema_keeps_the_part_off_a_version_2_line(capsys):
+    assert main(["import-stock", "--schema"]) == 0
+    schema = json.loads(capsys.readouterr().out)
+    line = schema["then"]["properties"]["lines"]["items"]["properties"]
+    part = schema["properties"]["parts"]["items"]["properties"]
+    maker = schema["properties"]["manufacturer_parts"]["items"]["properties"]
+    assert {"part", "manufacturer_part", "quantity", "notes"} <= set(line)
+    assert not {"category", "parameters", "datasheet", "mpn"} & set(line)
+    assert {"category", "parameters", "datasheet", "notes"} <= set(part)
+    assert {"part", "manufacturer", "mpn", "notes"} <= set(maker)
+    sections = part["notes"]["oneOf"][1]["properties"]
+    assert list(sections) == ["summary", "specifications",
+                              "cross_references", "cautions", "references"]
 
 
 def test_datasheets_dry_run_reports_and_uploads_nothing(inventree,

@@ -575,6 +575,55 @@ l02,300,Diodes/Signal Diodes,1N4007,Rockby Electronics,1N4007,R-99213,DO-41
 A `spec` category needs *all* of its key parameters on one row, which makes for
 a wide CSV; a `type` category like this one needs only the designator.
 
+##### Version 2: each part described once
+
+Version 1 repeats a part's category, parameters, datasheet and notes on every
+line, so six lots of one part carry six copies. Version 2 (JSON or YAML) lifts
+them out: `parts` describe each part once, `manufacturer_parts` give each
+maker's number for it, and a line holds only the stock and names the
+`manufacturer_part` its lot is marked with (or the `part`, when no maker's
+number is printed). Lines naming the same part are one part; no `part_of` is
+needed. A part may carry a `name`; without one it is named by its category's
+template where that builds a name from parameters, else by its bare type or
+MPN, which the validator warns about. A name only names a part the import
+creates, and keeps the number in the part's keywords so later lots still find
+it.
+
+```json
+{
+  "version": 2,
+  "source": {"kind": "photo", "reference": "bench-lots.jpg"},
+  "defaults": {"supplier": "MacService Group", "currency": "AUD",
+               "tags": ["NOS", "new old stock"]},
+  "parts": [
+    {"id": "1n4007", "category": "Diodes/Signal Diodes", "type": "1N4007",
+     "name": "1N4007 Rectifier Diode",
+     "notes": {"summary": ["1 A, 1000 V general-purpose rectifier"]}}],
+  "manufacturer_parts": [
+    {"id": "1n4007/mot", "part": "1n4007", "manufacturer": "Motorola",
+     "mpn": "1N4007", "notes": {"identification": ["Motorola logo on the body"]}}],
+  "lines": [
+    {"id": "l01", "manufacturer_part": "1n4007/mot", "quantity": 100,
+     "sku": "1N4007", "packaging": "Ammo pack, sealed",
+     "notes": {"stock": ["One ammo pack, count from the label"],
+               "markings": ["1N4007", "8427"]}},
+    {"id": "l02", "part": "1n4007", "quantity": 12, "sku": "1N4007",
+     "packaging": "Bag, opened"}]
+}
+```
+
+Notes go on the record they are true of, as named sections the importer
+renders as Markdown: a part's (`summary`, `specifications`,
+`cross_references`, `cautions`, `references`) are about the part whoever made
+it; a manufacturer part's (`summary`, `identification`, `references`) about
+that maker's number; a line's (`stock`, `markings`, `other`) about that
+quantity only, with `markings` copied verbatim into a code block. Each section
+is a list of short facts or a Markdown string. Part and manufacturer part
+notes are written only to a record with none, so a re-run fills in notes for
+parts imported before the file had any, and never overwrites notes already
+there. Every stock item gets a Source section (seller, import file) from the
+importer itself.
+
 A line may also carry `link` (a product or listing page), `datasheet` (a PDF
 URL, or a PDF next to the file) and `image` (a photo URL, or a path next to the
 file). They land on the part the same way DigiKey's do: the datasheet on the

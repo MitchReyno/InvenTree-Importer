@@ -20,7 +20,6 @@ from invimport.inventree.stock import (
     link_barcode,
     lookup_barcode,
     resolve_location,
-    stock_note,
     transfer_stock,
     web_url,
 )
@@ -188,15 +187,6 @@ def test_no_location_named_means_none(inventree):
 def test_create_may_be_refused(inventree):
     api = connect()
     assert resolve_location(api, "Nowhere", write=True, create=False) is None
-
-
-# --------------------------------------------------------------------------
-# Notes
-# --------------------------------------------------------------------------
-def test_a_note_joins_only_what_was_said():
-    assert stock_note("sold by salash", "", None, "approximate") == (
-        "sold by salash\napproximate")
-    assert stock_note("", "   ") == ""
 
 
 # --------------------------------------------------------------------------

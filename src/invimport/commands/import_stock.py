@@ -35,11 +35,15 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .. import notes as notes_md
 from ..config import load_categories_config, load_parameters_config
 from ..stockfile import (
     CONDITIONS,
     LINE_KEYS,
+    MANUFACTURER_PART_KEYS,
+    PART_KEYS,
     SUPPORTED_VERSIONS,
+    V2_LINE_KEYS,
     StockFileError,
     read_file,
 )
@@ -136,6 +140,12 @@ def schema() -> dict[str, Any]:
                                                "Never stored."},
                 },
             },
+            "name": {"type": "string", "maxLength": 100,
+                     "description": "What a new part is called - say what "
+                                    "it is. Overrides the generated name "
+                                    "(the category's parameter template, "
+                                    "else the type or MPN). Never renames "
+                                    "an existing part."},
             "description": {"type": "string"},
             "type": {"type": "string",
                      "description": "Type designator such as 1N4007 or "
@@ -195,7 +205,11 @@ def schema() -> dict[str, Any]:
             "location": {"type": "string",
                          "description": "Stock location path; created if it "
                                         "does not exist."},
-            "notes": {"type": "string"},
+            "notes": notes_schema(
+                notes_md.STOCK_SECTIONS,
+                "About this quantity only: the count and how it was taken, "
+                "packaging and seal, markings as printed. Never research "
+                "about the part."),
             "tags": {
                 "type": "array", "items": {"type": "string"},
                 "description": "Labels for the stock item, not the part. New "
@@ -277,14 +291,91 @@ def schema() -> dict[str, Any]:
                              "description": "Agent hint. Never stored."},
         },
     }
+    fields = line["properties"]
+    part = {
+        "type": "object",
+        "required": ["id", "category"],
+        "additionalProperties": False,
+        "description": "One part, described once however many lines hold "
+                       "stock of it.",
+        "properties": {
+            **{key: fields[key] for key in sorted(PART_KEYS)
+               if key in fields and key not in ("notes",)},
+            "id": {"type": "string", "minLength": 1,
+                   "description": "Lines and manufacturer parts refer to "
+                                  "the part by this."},
+            "link": {"type": "string", "format": "uri",
+                     "description": "The part's product page. Stored on the "
+                                    "Part when there is no datasheet."},
+            "notes": notes_schema(
+                notes_md.PART_SECTIONS,
+                "What is true of the part whoever made it: what it is, "
+                "figures the parameters cannot hold, NSNs and equivalents, "
+                "look-alikes, documents. Written to the Part only when it "
+                "has no notes yet."),
+        },
+    }
+    manufacturer_part = {
+        "type": "object",
+        "required": ["id", "part", "mpn"],
+        "additionalProperties": False,
+        "description": "One maker's number for a part. A part may have "
+                       "several - an alternate or special number, a second "
+                       "source.",
+        "properties": {
+            "id": {"type": "string", "minLength": 1},
+            "part": {"type": "string",
+                     "description": "The id of the part this is a number "
+                                    "for."},
+            "manufacturer": fields["manufacturer"],
+            "mpn": fields["mpn"],
+            "notes": notes_schema(
+                notes_md.MANUFACTURER_PART_SECTIONS,
+                "What is true of this number at this maker only: what its "
+                "suffix or grade means, a house or special number, how the "
+                "maker was established. Needs a manufacturer. Written only "
+                "when the manufacturer part has no notes yet."),
+        },
+    }
+    line_v2 = {
+        "type": "object",
+        "required": ["id", "quantity"],
+        "additionalProperties": False,
+        "description": "One quantity on hand. Names its part, or the "
+                       "manufacturer part its lot is marked with.",
+        "properties": {
+            **{key: fields[key] for key in sorted(V2_LINE_KEYS)
+               if key in fields},
+            "part": {"type": "string",
+                     "description": "The id of a part in `parts`."},
+            "manufacturer_part": {
+                "type": "string",
+                "description": "The id of a manufacturer part in "
+                               "`manufacturer_parts` - the number this "
+                               "lot is marked with. Implies its part."},
+            "link": {"type": "string", "format": "uri",
+                     "description": "The seller's listing page. Stored on "
+                                    "the SupplierPart."},
+        },
+    }
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "title": "invimport stock file",
         "type": "object",
         "required": ["lines"],
         "additionalProperties": False,
+        "if": {"properties": {"version": {"const": 2}},
+               "required": ["version"]},
+        "then": {"properties": {"lines": {"items": line_v2}}},
+        "else": {"properties": {"lines": {"items": line}},
+                 "not": {"anyOf": [{"required": ["parts"]},
+                                   {"required": ["manufacturer_parts"]}]}},
         "properties": {
-            "version": {"enum": list(SUPPORTED_VERSIONS), "default": 1},
+            "version": {"enum": list(SUPPORTED_VERSIONS), "default": 1,
+                        "description": "2 describes each part once in "
+                                       "`parts` and `manufacturer_parts`, "
+                                       "and keeps only stock on the lines. "
+                                       "1 is the flat form CSV uses."},
             "source": {
                 "type": "object", "additionalProperties": False,
                 "properties": {
@@ -301,8 +392,32 @@ def schema() -> dict[str, Any]:
                 "type": "object",
                 "description": "Merged into every line; a line always wins, except tags and order, which merge.",
             },
-            "lines": {"type": "array", "items": line},
+            "parts": {"type": "array", "items": part,
+                      "description": "Version 2 only."},
+            "manufacturer_parts": {"type": "array",
+                                   "items": manufacturer_part,
+                                   "description": "Version 2 only."},
+            "lines": {"type": "array"},
         },
+    }
+
+
+def notes_schema(sections, description: str) -> dict[str, Any]:
+    """Notes are text, or named sections each of text or a list of text."""
+    text = {"type": "string"}
+    body = {"oneOf": [text, {"type": "array", "items": text}]}
+    return {
+        "description": description,
+        "oneOf": [
+            text,
+            {"type": "object", "additionalProperties": False,
+             "properties": {
+                 key: {**body, "description": f"Written under '{heading}'"
+                                              + (" verbatim, in a code block"
+                                                 if key in notes_md.VERBATIM
+                                                 else "")}
+                 for key, heading in sections}},
+        ],
     }
 
 
@@ -342,6 +457,18 @@ def vocabulary(directory: Path | None) -> dict[str, Any]:
         ],
         "conditions": list(CONDITIONS),
         "line_fields": sorted(LINE_KEYS),
+        "version_2": {
+            "part_fields": sorted(PART_KEYS),
+            "manufacturer_part_fields": sorted(MANUFACTURER_PART_KEYS),
+            "line_fields": sorted(V2_LINE_KEYS
+                                  | {"part", "manufacturer_part"}),
+        },
+        "note_sections": {
+            "part": [key for key, _ in notes_md.PART_SECTIONS],
+            "manufacturer_part": [key for key, _ in
+                                  notes_md.MANUFACTURER_PART_SECTIONS],
+            "stock": [key for key, _ in notes_md.STOCK_SECTIONS],
+        },
         "notes": [
             "Use a category path exactly as listed; the importer will offer "
             "close matches for anything else.",
@@ -515,6 +642,13 @@ def report_actions(document, result, resolved=None) -> None:
             lead = ("only the whole datasheet" if action.datasheet
                     else "no datasheet attached")
             print(f"      {lead}: {action.datasheet_problem}")
+        if action.name_kept:
+            print(f"      name kept: {action.name_kept}")
+        if action.part_notes:
+            print(f"      part notes {action.part_notes}")
+        if action.manufacturer_part_notes:
+            print(f"      manufacturer part notes "
+                  f"{action.manufacturer_part_notes}")
         for candidate in action.candidates[:3]:
             shown = candidate if isinstance(candidate, str) else (
                 f"{getattr(candidate, 'IPN', '')} "

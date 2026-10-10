@@ -40,6 +40,7 @@ from ..config import (
     load_parameters_config,
     load_suppliers_config,
 )
+from .. import notes as notes_md
 from ..stockfile import StockFile, StockLine
 from ..validate import resolve_category
 from .api import (
@@ -78,7 +79,6 @@ from .stock import (
     already_imported,
     location_names,
     resolve_location,
-    stock_note,
 )
 
 log = logging.getLogger(__name__)
@@ -90,6 +90,14 @@ CREATED = "created"
 EXISTS = "exists"
 SKIPPED = "skipped"
 REVIEW = "needs-review"
+
+# What became of a part's or manufacturer part's notes. Notes already on the
+# record are never replaced: they may hold what someone wrote by hand, and a
+# re-import is no reason to lose it.
+NOTES_WRITTEN = "written"
+NOTES_WOULD_WRITE = "would be written"
+NOTES_KEPT = "kept - the record already has notes"
+NOTES_UNCHANGED = "already there"
 
 
 @dataclass
@@ -114,6 +122,12 @@ class LineAction:
     # none - or why one of them is missing.
     datasheet: str = ""
     datasheet_problem: str = ""
+    # What became of the part's and the manufacturer part's notes: one of
+    # the NOTES_* outcomes, or "" when the line carried none.
+    part_notes: str = ""
+    manufacturer_part_notes: str = ""
+    # Set when the file names an existing part differently from the server.
+    name_kept: str = ""
     # Populated when a human has to settle something before this line can run.
     candidates: list[Any] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)
@@ -232,6 +246,8 @@ def _import_line(api, document: StockFile, line: StockLine,
         # The stock is done, but a datasheet added to the file since - or a
         # re-run with mirroring on - still has somewhere to go.
         _existing_datasheet(api, document, line, options, action)
+        _existing_notes(api, line, options, action)
+        _existing_name(api, line, action)
         if options.write:
             _attach_stock_images(document, line, existing, api)
             if line.attachments and action.part not in (None, UNRESOLVED_PK):
@@ -293,7 +309,7 @@ def _import_line(api, document: StockFile, line: StockLine,
     resolved = resolve_part(
         api,
         PartLine(category=category, mpn=line.mpn, type=line.type,
-                 ipn=ipn, manufacturer=line.manufacturer,
+                 ipn=ipn, manufacturer=line.manufacturer, name=line.name,
                  description=line.description, parameters=line.parameters,
                  link=line.link, datasheet=line.datasheet),
         ctx, write=options.write,
@@ -322,6 +338,11 @@ def _import_line(api, document: StockFile, line: StockLine,
     action.part = getattr(resolved.part, "pk", None)
     action.manufacturer_part = getattr(resolved.manufacturer_part, "pk", None)
     action.ipn, action.name = resolved.ipn, resolved.name
+    if line.name and resolved.name and resolved.name != line.name:
+        # The file's name only names a part it creates. Renaming one that
+        # exists would change it for every stock item and order it is on.
+        action.name_kept = (f"the part is already called {resolved.name!r}; "
+                            f"{line.name!r} only names a new part")
     action.parameters = resolved.part_parameters + resolved.manufacturer_parameters
 
     # --- the supplier, and what it sold ---
@@ -360,6 +381,7 @@ def _import_line(api, document: StockFile, line: StockLine,
         _order_line(api, order, supplier_part, line)
 
     datasheets = _line_datasheet(document, line, options, action)
+    _record_notes(api, line, options, action)
 
     if not options.write or action.part in (None, UNRESOLVED_PK):
         return action
@@ -383,12 +405,9 @@ def _import_line(api, document: StockFile, line: StockLine,
             comment=f"imported from {document.path.name}"
             if document.path else "")
 
-    notes = stock_note(
-        f"sold by {seller}" if seller else "",
-        "quantity is approximate" if line.approximate else "",
-        line.notes,
-        f"imported from {document.path.name}" if document.path else "",
-    )
+    notes = notes_md.stock_notes(
+        line.notes, seller=seller, approximate=line.approximate,
+        source_file=document.path.name if document.path else "")
     try:
         item = add_stock(
             api, part=action.part, quantity=line.quantity,
@@ -490,6 +509,94 @@ def _existing_datasheet(api, document: StockFile, line: StockLine,
                                                        limit=LIST_LIMIT)
                  if number and str(mp.MPN).strip().upper() == number]
     attach_datasheet(api, datasheets, part=part, manufacturer_parts=mfr_parts)
+
+
+def _notes_on(api, route: str, pk: int | None, text: str,
+              write: bool) -> str:
+    """
+    Put notes on a part or manufacturer part that has none.
+
+    A record that already has notes keeps them: they may be what someone
+    wrote by hand, and they are reported rather than overwritten. A record
+    that does not exist yet - a dry run's new part - would get them.
+    """
+    if not text:
+        return ""
+    if pk in (None, UNRESOLVED_PK):
+        return NOTES_WOULD_WRITE
+    try:
+        current = str(api.get(f"{route}/{pk}/").get("notes") or "").strip()
+    except Exception as exc:                     # pragma: no cover
+        log.warning("    could not read the notes of %s %s: %s", route, pk,
+                    exc)
+        return ""
+    if current == text.strip():
+        return NOTES_UNCHANGED
+    if current:
+        return NOTES_KEPT
+    if not write:
+        return NOTES_WOULD_WRITE
+    api.patch(f"{route}/{pk}/", {"notes": text})
+    return NOTES_WRITTEN
+
+
+def _record_notes(api, line: StockLine, options: ImportOptions,
+                  action: LineAction) -> None:
+    """The part's and the manufacturer part's notes, from a version 2 file."""
+    action.part_notes = _notes_on(
+        api, "part", action.part,
+        notes_md.render(line.part_notes, notes_md.PART_SECTIONS),
+        options.write)
+    mp_text = notes_md.render(line.manufacturer_part_notes,
+                              notes_md.MANUFACTURER_PART_SECTIONS)
+    if mp_text and line.manufacturer:
+        # A manufacturer part a dry run would create has no pk yet.
+        action.manufacturer_part_notes = _notes_on(
+            api, "company/part/manufacturer", action.manufacturer_part,
+            mp_text, options.write)
+
+
+def _existing_notes(api, line: StockLine, options: ImportOptions,
+                    action: LineAction) -> None:
+    """
+    Notes for the part an already-imported line made.
+
+    Re-running a file is how notes reach parts imported before the file had
+    any; a record that has notes by then keeps them.
+    """
+    if not line.part_notes and not line.manufacturer_part_notes:
+        return
+    part = _part_of_stock(api, action.stock_item)
+    if part is None:
+        return
+    action.part = part
+    number = (line.mpn or line.type).strip().upper()
+    if number and line.manufacturer and line.manufacturer_part_notes:
+        found = [mp.pk for mp in ManufacturerPart.list(api, part=part,
+                                                       limit=LIST_LIMIT)
+                 if str(mp.MPN).strip().upper() == number]
+        action.manufacturer_part = found[0] if found else None
+    _record_notes(api, line, options, action)
+    if line.manufacturer_part_notes and action.manufacturer_part is None:
+        action.manufacturer_part_notes = ""
+
+
+def _existing_name(api, line: StockLine, action: LineAction) -> None:
+    """Say when the part an imported line made is called something else."""
+    if not line.name or line.part_of:
+        return
+    part = action.part
+    if part in (None, UNRESOLVED_PK):
+        part = _part_of_stock(api, action.stock_item)
+    if part is None:
+        return
+    try:
+        current = str(api.get(f"part/{part}/").get("name") or "")
+    except Exception:                            # pragma: no cover
+        return
+    if current and current != line.name:
+        action.name_kept = (f"the part is already called {current!r}; "
+                            f"{line.name!r} only names a new part")
 
 
 def _offer_category(line: StockLine, ctx: ImportContext,
@@ -652,8 +759,9 @@ def _supplier_part(api, line: StockLine, supplier, resolved,
         payload["manufacturer_part"] = resolved.manufacturer_part.pk
     if line.description:
         payload["description"] = line.description[:250]
-    if line.link:
-        payload["link"] = line.link
+    link = line.supplier_link or line.link
+    if link:
+        payload["link"] = link
     created = SupplierPart.create(api, payload)
     supplier_parts[key] = created
     return created

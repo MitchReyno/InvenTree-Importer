@@ -251,33 +251,49 @@ def find_part_by_mpn(api, mpn: str) -> Any | None:
     return next((part for part in matches if part.pk == pk), None)
 
 
+def answers_to(part, designator: str) -> bool:
+    """
+    Is this part known by this designator - by its name, or a keyword?
+
+    A part named for what it is ('1N4007 rectifier diode') keeps the bare
+    designator in its keywords, so it is still found by the number printed on
+    the next lot of it.
+    """
+    wanted = str(designator or "").strip().casefold()
+    if not wanted:
+        return False
+    if str(getattr(part, "name", "") or "").strip().casefold() == wanted:
+        return True
+    keywords = str(getattr(part, "keywords", "") or "")
+    return wanted in {word.strip().casefold()
+                      for word in re.split(r"[,\s]+", keywords) if word}
+
+
 def find_part_by_type(api, category_pk: int, designator: str) -> Any | None:
     """
-    The Part in this category already named by this type designator.
+    The Part in this category already known by this type designator.
 
     1N4007 from Diotec and 1N4007 from an unmarked bag are the same part for
     stock purposes - that is what a JEDEC number is for. So the designator is
-    matched against the part name within the category, and who made it is
-    recorded on the stock rather than used to tell two parts apart.
+    matched against the part name (or its keywords) within the category, and
+    who made it is recorded on the stock rather than used to tell two parts
+    apart.
     """
     if not designator:
         return None
-    wanted = designator.strip().casefold()
     for part in Part.list(api, category=category_pk, limit=LIST_LIMIT):
-        if str(getattr(part, "name", "") or "").strip().casefold() == wanted:
+        if answers_to(part, designator):
             return part
     return None
 
 
 def parts_named(api, category_pk: int, name: str) -> list[Any]:
-    """Every Part in this category whose name is this, ignoring case."""
-    wanted = str(name or "").strip().casefold()
-    if not wanted:
+    """Every Part in this category known by this name or keyword."""
+    if not str(name or "").strip():
         return []
     return [part for part in Part.list(api, category=category_pk,
                                        limit=LIST_LIMIT)
-            if str(getattr(part, "name", "") or "").strip().casefold()
-            == wanted]
+            if answers_to(part, name)]
 
 
 def find_part_by_ipn(api, ipn: str) -> Any | None:
@@ -665,6 +681,7 @@ class PartLine:
     type: str = ""                           # type designator: 1N4007, XR-2206
     ipn: str = ""                            # explicit part, skips matching
     manufacturer: str = ""
+    name: str = ""                           # a new part's name, if given
     description: str = ""
     parameters: dict[str, str] = field(default_factory=dict)
     link: str = ""                           # product page
@@ -970,8 +987,9 @@ def resolve_part(
     name = str(getattr(part, "name", "") or "") if part is not None else ""
 
     if part is None:
-        name = part_name(category, line.type or line.mpn, values,
-                         ctx.parameters, line.description)
+        designator = line.type or line.mpn
+        name = line.name or part_name(category, designator, values,
+                                      ctx.parameters, line.description)
         ipn = next_ipn(api, ipn_prefix(category))
         if write:
             payload = {
@@ -980,6 +998,11 @@ def resolve_part(
                 "category": server_cat.pk,
                 "IPN": ipn,
             }
+            # A name of its own is not the number the next lot is marked
+            # with; the keywords keep the part findable by that number.
+            if designator and name.strip().casefold() != \
+                    designator.strip().casefold():
+                payload["keywords"] = designator[:250]
             link = absolute_url(line.datasheet) or absolute_url(line.link)
             if link:
                 payload["link"] = link

@@ -33,7 +33,14 @@ from .inventree.values import (
     read_value,
     same_dimension,
 )
-from .stockfile import CONDITIONS, Problem, StockFile, StockLine
+from .stockfile import (
+    CONDITIONS,
+    Problem,
+    StockFile,
+    StockLine,
+    attribute,
+    unique,
+)
 from .util import absolute_url
 
 
@@ -59,23 +66,30 @@ class Report:
         return "\n".join(out)
 
     def as_dict(self) -> dict[str, Any]:
-        """The machine-readable form an agent loops against."""
-        by_line: dict[str, dict[str, Any]] = {}
-        for problem in self.problems:
-            entry = by_line.setdefault(problem.line or "", {"errors": [],
-                                                            "warnings": []})
-            entry["errors"].append(problem.as_dict())
-        for warning in self.warnings:
-            entry = by_line.setdefault(warning.line or "", {"errors": [],
-                                                            "warnings": []})
-            entry["warnings"].append(warning.as_dict())
+        """
+        The machine-readable form an agent loops against.
+
+        Grouped by what is wrong: a line, or in a version 2 file a part or a
+        manufacturer part - `{"part": "118a", "errors": [...]}`.
+        """
+        by_entry: dict[tuple[str, str], dict[str, Any]] = {}
+        for bucket, found in (("errors", self.problems),
+                              ("warnings", self.warnings)):
+            for problem in found:
+                entry = by_entry.setdefault(
+                    (problem.kind, problem.line or ""),
+                    {"errors": [], "warnings": []})
+                entry[bucket].append(problem.as_dict())
         return {
             "ok": self.ok,
             "lines": self.lines,
             "problems": len(self.problems),
             "warnings": len(self.warnings),
-            "by_line": [{"line": line, **detail}
-                        for line, detail in sorted(by_line.items())],
+            "by_line": [{kind.replace(" ", "_"): name, **detail}
+                        for (kind, name), detail in sorted(
+                            by_entry.items(),
+                            key=lambda item: (item[0][0] != "line",
+                                              item[0]))],
         }
 
 
@@ -181,9 +195,59 @@ def validate(
 
         _check_parameters(line, category, parameters, registry, report)
         _check_identity(line, category, report)
+        _check_name(line, category, report)
 
     _check_unconfirmed_repeats(document, categories, report)
+    _attribute_to_entries(document, report)
     return report
+
+
+def _check_name(line: StockLine, category: CategoryConfig,
+                report: Report) -> None:
+    """
+    A version 2 part should say what it is called.
+
+    Only a category whose template builds the name from parameters names a
+    part well by itself ('Resistor 100k 1% 0.25W Metal Film'). Anywhere else
+    the fallback is the bare number - a drawing or house number such as
+    '0N300704-1' says nothing about what the part is. The first line of a
+    part is the one that names it, so only that line is checked.
+    """
+    if not line.part_ref or line.part_of or line.name:
+        return
+    if category.identity == "spec" and category.name_template:
+        return
+    designator = line.type or line.mpn
+    fallback = designator or line.description[:100]
+    source = ("its type" if line.type else "its MPN" if line.mpn
+              else "its description")
+    shown = (f"would be called {fallback!r} ({source})" if fallback
+             else "has nothing to be called by")
+    report.warnings.append(Problem(
+        line.id, "name",
+        f"no name - a new part {shown}; give it a name that says what it "
+        f"is"))
+
+
+def _attribute_to_entries(document: StockFile, report: Report) -> None:
+    """
+    In a version 2 file, a part's category or parameters are wrong once.
+
+    Every line of the part carries a copy of them, so each copy would
+    otherwise be reported against its line. Pointed at the part, the
+    duplicates collapse into one problem with the place to fix it.
+    """
+    by_id = {line.id: line for line in document.lines if line.part_ref}
+    if not by_id:
+        return
+    for found in (report.problems, report.warnings):
+        for problem in found:
+            line = by_id.get(problem.line) if problem.kind == "line" else None
+            if line is not None:
+                attribute([problem], line.part_ref,
+                          line.manufacturer_part_ref)
+    report.problems[:] = unique(report.problems)
+    report.warnings[:] = unique(report.warnings)
 
 
 def _check_unconfirmed_repeats(document: StockFile,
