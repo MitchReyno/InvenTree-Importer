@@ -1212,29 +1212,31 @@ def test_the_sellers_listing_is_the_supplier_parts_link(config, server):
 # --------------------------------------------------------------------------
 # Naming a part
 # --------------------------------------------------------------------------
+# A lot marked only with a drawing number, named by the commercial part the
+# research established it to be.
 NAMED_DIODE = {"parts": [{"id": "d", "category": "Diodes/Signal Diodes",
-                          "type": "1N4007",
-                          "name": "1N4007 Rectifier Diode"}],
+                          "type": "10911", "name": "1N270"}],
                "lines": [{"id": "a", "part": "d", "quantity": 5}]}
+DRAWING = {"category": "Diodes/Signal Diodes", "type": "10911"}
 
 
 def test_a_given_name_names_the_new_part(config, server):
     _, result = run_v2(config, NAMED_DIODE)
     row = part_row(server, result.lines[0].part)
-    assert row["name"] == "1N4007 Rectifier Diode"
-    assert result.lines[0].name == "1N4007 Rectifier Diode"
+    assert row["name"] == "1N270"
+    assert result.lines[0].name == "1N270"
 
 
-def test_a_named_part_keeps_its_number_as_a_keyword(config, server):
+def test_a_named_part_keeps_its_printed_number_as_a_keyword(config, server):
     _, result = run_v2(config, NAMED_DIODE)
-    assert part_row(server, result.lines[0].part)["keywords"] == "1N4007"
+    assert part_row(server, result.lines[0].part)["keywords"] == "10911"
 
 
 def test_the_next_lot_of_that_type_still_finds_the_named_part(config,
                                                               server):
     """Matching by type looks at keywords as well as the name."""
     _, first = run_v2(config, NAMED_DIODE)
-    _, second = run(config, {**DIODE, "id": "later"})
+    _, second = run(config, {**DRAWING, "id": "later"})
     assert second.lines[0].part == first.lines[0].part
     assert len([p for p in server.part_rows if p.get("category") == 15]) == 1
 
@@ -1245,24 +1247,23 @@ def test_a_name_matching_the_number_adds_no_keyword(config, server):
 
 
 def test_a_given_name_overrides_the_categorys_template(config, server):
-    _, result = run(config, {**RESISTOR, "name": "Pull-up 4k7"})
-    assert result.lines[0].name == "Pull-up 4k7"
+    _, result = run(config, {**RESISTOR, "name": "MFR-25FTE52-4K7"})
+    assert result.lines[0].name == "MFR-25FTE52-4K7"
 
 
 def test_an_existing_part_keeps_its_name(config, server):
     """Renaming would change it on every stock item and order it is on."""
-    server.add_part("1N4007", "DIOD-00009", 15, pk=90)
+    server.add_part("10911", "DIOD-00009", 15, pk=90)
     _, result = run_v2(config, NAMED_DIODE)
     assert result.lines[0].part == 90
-    assert part_row(server, 90)["name"] == "1N4007"
+    assert part_row(server, 90)["name"] == "10911"
     assert result.lines[0].name_kept == (
-        "the part is already called '1N4007'; '1N4007 Rectifier Diode' only "
-        "names a new part")
+        "the part is already called '10911'; '1N270' only names a new part")
 
 
 def test_a_re_run_says_when_the_part_has_another_name(config, server):
-    run(config, DIODE)
-    _, result = run(config, {**DIODE, "name": "1N4007 Rectifier Diode"})
+    run(config, DRAWING)
+    _, result = run(config, {**DRAWING, "name": "1N270"})
     assert result.lines[0].action == EXISTS
     assert result.lines[0].name_kept.startswith(
-        "the part is already called '1N4007'")
+        "the part is already called '10911'")

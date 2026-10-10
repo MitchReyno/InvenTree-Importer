@@ -223,16 +223,19 @@ supplier, currency and order there once rather than repeating them. In version
 
 **Give every part a `name`, unless its category builds one from parameters.**
 Resistors and capacitors are named by their category's template (`Resistor
-100k 1% 0.25W Metal Film`), so leave `name` out there. Anywhere else, without a
-`name` the part is called by its bare number — and a drawing or house number
-like `0N300704-1` or `725000-315` says nothing about what the part is. Write
-the number people know it by, then what it is, in under 100 characters:
-`118A Op Amp Module`, `CD4013B Dual D Flip-Flop`, `1N4007 Rectifier Diode`.
-The validator warns about a part with no name where one is needed. A `name`
+100k 1% 0.25W Metal Film`), so leave `name` out there. Anywhere else the name
+is **the part number alone** — the type or MPN exactly as the maker writes it:
+`CD4073BF`, `118A`, `1N4007`. Never add what the part is: `CD4073BF Triple
+3-Input AND Gate` is wrong; that belongs in `description`. When a lot is
+marked only with a drawing or house number (`0N300704-1`, `725000-315`) and
+the research establishes the commercial part it is, name the part by the
+commercial number and keep the printed number as its `type` or MPN. The
+validator warns about a part with no name where one is needed, and about a
+name with spaces in it, which is usually a description creeping in. A `name`
 also overrides a template's name when that would be wrong for the part. It
 only names a part the import creates: an existing part keeps its name, and
-the dry run says so. When the name is not the bare type or MPN, that number is
-stored in the part's keywords, so the next lot of it still finds the part.
+the dry run says so. When the name is not the printed type or MPN, that number
+is stored in the part's keywords, so the next lot of it still finds the part.
 
 ### Notes: three records, three kinds of fact
 

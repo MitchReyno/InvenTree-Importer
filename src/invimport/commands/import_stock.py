@@ -141,11 +141,13 @@ def schema() -> dict[str, Any]:
                 },
             },
             "name": {"type": "string", "maxLength": 100,
-                     "description": "What a new part is called - say what "
-                                    "it is. Overrides the generated name "
-                                    "(the category's parameter template, "
-                                    "else the type or MPN). Never renames "
-                                    "an existing part."},
+                     "description": "What a new part is called: the part "
+                                    "number it is known by, e.g. "
+                                    "'CD4073BF' - never a description. "
+                                    "Overrides the generated name (the "
+                                    "category's parameter template, else "
+                                    "the type or MPN). Never renames an "
+                                    "existing part."},
             "description": {"type": "string"},
             "type": {"type": "string",
                      "description": "Type designator such as 1N4007 or "

@@ -21,6 +21,7 @@ it gets wrong on the way can reach the database.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -205,15 +206,25 @@ def validate(
 def _check_name(line: StockLine, category: CategoryConfig,
                 report: Report) -> None:
     """
-    A version 2 part should say what it is called.
+    A version 2 part's name: given where it is not built from parameters,
+    and a part number rather than a description.
 
     Only a category whose template builds the name from parameters names a
-    part well by itself ('Resistor 100k 1% 0.25W Metal Film'). Anywhere else
-    the fallback is the bare number - a drawing or house number such as
-    '0N300704-1' says nothing about what the part is. The first line of a
-    part is the one that names it, so only that line is checked.
+    part by itself ('Resistor 100k 1% 0.25W Metal Film'). Anywhere else the
+    name is the number the part is known by - 'CD4073BF', not 'CD4073BF
+    Triple 3-Input AND Gate'; what it is belongs in the description. The
+    first line of a part is the one that names it, so only that line is
+    checked.
     """
-    if not line.part_ref or line.part_of or line.name:
+    if not line.part_ref or line.part_of:
+        return
+    if line.name:
+        if re.search(r"\s", line.name):
+            report.warnings.append(Problem(
+                line.id, "name",
+                f"{line.name!r} looks like it includes a description - a "
+                f"name is the part number alone, e.g. 'CD4073BF'; put what "
+                f"it is in the description"))
         return
     if category.identity == "spec" and category.name_template:
         return
@@ -225,8 +236,8 @@ def _check_name(line: StockLine, category: CategoryConfig,
              else "has nothing to be called by")
     report.warnings.append(Problem(
         line.id, "name",
-        f"no name - a new part {shown}; give it a name that says what it "
-        f"is"))
+        f"no name - a new part {shown}; give it a name: the part number it "
+        f"is known by, without a description"))
 
 
 def _attribute_to_entries(document: StockFile, report: Report) -> None:

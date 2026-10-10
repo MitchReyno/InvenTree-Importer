@@ -158,8 +158,9 @@ A report the caller can apply directly, per item (by line id):
 
 1. **Identity**: what it is, manufacturer (as the vocabulary/server would name
    it, e.g. `Fairchild Semiconductor`), MPN/type, category path, a part name
-   — the number it is known by, then what it is, under 100 characters
-   (`118A Op Amp Module`, `CD4013B Dual D Flip-Flop`) — a one-line
+   — the part number alone, as the maker writes it (`CD4073BF`, `118A`),
+   never with a description; for a drawing or house number, the commercial
+   number if the sources establish it — a one-line
    description in the style `function, key specs, package, temp range - maker
    MPN, NSN …`, confidence (0–1), and what is inferred rather than read.
 2. **Sources**: `link` URL; `datasheet` URL or local path, with

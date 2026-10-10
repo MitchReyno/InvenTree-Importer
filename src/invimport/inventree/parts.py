@@ -255,9 +255,10 @@ def answers_to(part, designator: str) -> bool:
     """
     Is this part known by this designator - by its name, or a keyword?
 
-    A part named for what it is ('1N4007 rectifier diode') keeps the bare
-    designator in its keywords, so it is still found by the number printed on
-    the next lot of it.
+    A part named by another number than the one printed on its lot - its
+    commercial number, where the lot carries a drawing number - keeps the
+    printed designator in its keywords, so the next lot of it still finds
+    it.
     """
     wanted = str(designator or "").strip().casefold()
     if not wanted:

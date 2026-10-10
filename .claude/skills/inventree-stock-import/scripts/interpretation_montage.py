@@ -83,8 +83,27 @@ def arrow(d, x, y):
 
 
 def part_key(l):
-    return (l.get("ipn") or l.get("mpn") or l.get("type")
+    return (l.get("_part") or l.get("ipn") or l.get("mpn") or l.get("type")
             or l.get("sku") or l.get("description", "?"))
+
+
+def flat_lines(doc):
+    """Lines with their part's fields, as version 1 wrote them on every line.
+
+    Version 2 describes each part once and has a line name its manufacturer
+    part (or its part), so fold those back onto the line for the sheet.
+    """
+    if doc.get("version") != 2:
+        return doc["lines"]
+    parts = {p["id"]: p for p in doc.get("parts", [])}
+    mps = {m["id"]: m for m in doc.get("manufacturer_parts", [])}
+    out = []
+    for l in doc["lines"]:
+        mp = mps.get(l.get("manufacturer_part"), {})
+        part = parts.get(mp.get("part") or l.get("part"), {})
+        maker = {k: mp[k] for k in ("manufacturer", "mpn") if k in mp}
+        out.append({**part, **maker, **l, "_part": part.get("id")})
+    return out
 
 
 def sheet(lines, title, base, sources, width, out):
@@ -113,7 +132,10 @@ def sheet(lines, title, base, sources, width, out):
             hx = 40 + im.width
         kind = "IPN" if l0.get("ipn") else "MPN" if l0.get("mpn") else "type" if l0.get("type") else "part"
         maker = l0.get("manufacturer") or "(no manufacturer)"
-        d.text((hx, y + 16), ascii_safe(f"PART {kind} {key}  -  {maker}"), fill=INK, font=F_H2)
+        number = l0.get("mpn") or l0.get("type") or key
+        label = (f"{l0['name']}  ({kind} {number})"
+                 if l0.get("name") and l0["name"] != number else f"{kind} {number}")
+        d.text((hx, y + 16), ascii_safe(f"PART {label}  -  {maker}"), fill=INK, font=F_H2)
         d.text((hx, y + 48), ascii_safe(
             f"{l0.get('category', '?')}   |   {len(ls)} stock item(s), "
             f"{sum(l.get('quantity', 0) for l in ls)} pcs"), fill=MUTED, font=F_B)
@@ -182,7 +204,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     groups = {}
-    for l in doc["lines"]:
+    for l in flat_lines(doc):
         groups.setdefault(l.get("location") or "", []).append(l)
     stem = imp.stem
     for loc, ls in groups.items():

@@ -677,9 +677,8 @@ def test_a_csv_spreads_note_sections_across_dotted_columns():
 
 def test_a_part_may_be_given_a_name():
     data = v2()
-    data["parts"][0]["name"] = "118A Op Amp Module"
-    assert {line.name for line in parse_document(data).lines} == {
-        "118A Op Amp Module"}
+    data["parts"][0]["name"] = "118A"
+    assert {line.name for line in parse_document(data).lines} == {"118A"}
 
 
 def test_a_version_1_line_may_name_its_part_too():

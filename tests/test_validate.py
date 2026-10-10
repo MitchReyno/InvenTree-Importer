@@ -412,7 +412,8 @@ def test_a_part_with_no_name_of_its_own_is_warned_about(config):
         categories, parameters)
     assert [w.describe() for w in report.warnings] == [
         "part op: name: no name - a new part would be called '118A' (its "
-        "type); give it a name that says what it is"]
+        "type); give it a name: the part number it is known by, without a "
+        "description"]
 
 
 def test_a_named_part_is_not_warned_about(config):
@@ -420,7 +421,23 @@ def test_a_named_part_is_not_warned_about(config):
     report = validate(parse_document({
         "version": 2,
         "parts": [{"id": "op", "category": "Integrated Circuits/Op-Amps",
-                   "type": "118A", "name": "118A Op Amp Module"}],
+                   "type": "118A", "name": "118A"}],
         "lines": [{"id": "a", "part": "op", "quantity": 1}]}),
         categories, parameters)
     assert report.warnings == []
+
+
+def test_a_name_with_a_description_in_it_is_warned_about(config):
+    """'CD4073BF', not 'CD4073BF Triple 3-Input AND Gate'."""
+    categories, parameters = config
+    report = validate(parse_document({
+        "version": 2,
+        "parts": [{"id": "g", "category": "Integrated Circuits/Op-Amps",
+                   "type": "CD4073BF",
+                   "name": "CD4073BF Triple 3-Input AND Gate"}],
+        "lines": [{"id": "a", "part": "g", "quantity": 1}]}),
+        categories, parameters)
+    assert [w.describe() for w in report.warnings] == [
+        "part g: name: 'CD4073BF Triple 3-Input AND Gate' looks like it "
+        "includes a description - a name is the part number alone, e.g. "
+        "'CD4073BF'; put what it is in the description"]

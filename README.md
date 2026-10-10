@@ -583,11 +583,13 @@ them out: `parts` describe each part once, `manufacturer_parts` give each
 maker's number for it, and a line holds only the stock and names the
 `manufacturer_part` its lot is marked with (or the `part`, when no maker's
 number is printed). Lines naming the same part are one part; no `part_of` is
-needed. A part may carry a `name`; without one it is named by its category's
+needed. A part may carry a `name` - the part number alone, such as
+`CD4073BF`, never a description; without one it is named by its category's
 template where that builds a name from parameters, else by its bare type or
 MPN, which the validator warns about. A name only names a part the import
-creates, and keeps the number in the part's keywords so later lots still find
-it.
+creates. When it differs from the printed type or MPN (a commercial number for
+a lot marked with a drawing number), the printed number is kept in the part's
+keywords so later lots still find it.
 
 ```json
 {
@@ -597,7 +599,7 @@ it.
                "tags": ["NOS", "new old stock"]},
   "parts": [
     {"id": "1n4007", "category": "Diodes/Signal Diodes", "type": "1N4007",
-     "name": "1N4007 Rectifier Diode",
+     "name": "1N4007",
      "notes": {"summary": ["1 A, 1000 V general-purpose rectifier"]}}],
   "manufacturer_parts": [
     {"id": "1n4007/mot", "part": "1n4007", "manufacturer": "Motorola",
