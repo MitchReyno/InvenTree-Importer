@@ -455,6 +455,11 @@ Features:
   aliases:
     - Features
 
+Current - Output High, Low:
+  description: Output source and sink current ratings, high then low, e.g. 15mA, 48mA
+  aliases:
+    - Current - Output High, Low
+
 Manufacturer Size Code:
   aliases:
     - Manufacturer Size Code
@@ -658,8 +663,16 @@ Number of Circuits:
 Switch Circuit:
   choices:
     - SPDT
+    - SPST - NO
   aliases:
     - Switch Circuit
+
+Coil Resistance:
+  units: ohm
+  parse: quantity
+  description: Relay coil resistance
+  aliases:
+    - Coil Resistance
 
 Current - Average Rectified (Io):
   units: A
@@ -745,9 +758,12 @@ Logic Type:
       - XOR (Exclusive OR)
     AND Gate:
       - AND Gate
+    OR Gate:
+      - OR Gate
   choices:
     - Binary Counter
     - AND Gate
+    - OR Gate
     - NAND Gate
     - Inverter
     - NOR Gate

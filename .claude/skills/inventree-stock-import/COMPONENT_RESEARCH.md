@@ -46,6 +46,9 @@ contradictions, and date anything that may go stale (`(2026-10)`).
   show whether an SMD has any NSN: a gap in the range means none (2026-10).
 - DLA SMD PDFs and the QML-38535 report redirect to the gated
   weaponssupportapps.dla.mil — use maker cross-reference guides instead.
+- For resistor networks NSN Depot lists every FLIS resistance value with its
+  identical-value quantity; nsnparts.us garbled the same record (DIP shown as
+  "TERMINALS ONE END"). (2026-10)
 
 ## Data books and datasheets
 
@@ -145,6 +148,52 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - **ST LS1240/LS1240A** datasheet is gone from st.com (404); static.chipdip.ru
   has the July 1998 sheet. st.com hangs on curl but works via browser-harness
   `fetch`. (2026-10)
+- **Commercial logic data books on bitsavers (PDF page = this device):**
+  Motorola 1988 *CMOS Logic Data*: B-series gates pp.36-41, MC14049UB/50B
+  pp.156-159, MC14043B/44B p.147-; outlines Case 632 p.551, 620 p.553.
+  Motorola 1989 DL121r4 *FAST and LS TTL*: LS04 p.343, LS05 p.344; Case 646
+  p.701. Signetics 1987 *TTL Data Manual*: LS74A pp.158-162; DIP marking key
+  p.900; DIP-14 outline p.905. National 1987 *LS/S TTL*: LS08 pp.98-99, LS32
+  pp.121-122, LS74A pp.135-137, LS244 pp.269-271; N14A p.842, N16A/N18A
+  p.843, N20A/N24A p.844 (no date-code key). National 1988 *Interface*:
+  DS3691 p.102-, DS1692/3692 pp.108-112; N16A p.994. TI 1986 *ALS/AS* (60 MB):
+  ALS244A pp.316-318; N outlines pp.1213-1215. Philips 1986 *IC04 HE4000B*:
+  marking key p.27, family ratings pp.96-99, HEF4016B pp.182-188. SGS-Thomson
+  1991 *COS/MOS B-Series* (35 MB): 4043B/4044B pp.272-279 — first mirror
+  download was truncated, check `pdfinfo`. Fairchild 1977 *CMOS Data Book*:
+  ratings p.52, 4044B pp.137-140, ordering key p.396, 16-pin CDIP p.404.
+  (2026-10)
+- `assets.nexperia.com/documents/data-sheet/<type>.pdf` and TI
+  `/lit/ds/symlink/` work with curl; onsemi `/download/data-sheet/pdf/` 403s.
+- **TE / AMP** (2026-10): te.com 403s curl; use browser-harness. An obsolete
+  or superseded PN can show "page unavailable" while its successor
+  (`5-533009-8`) has a page. Customer drawings: `fetch()` inside a te.com tab
+  on `/commerce/DocumentDelivery/DDEController?Action=srchrtrv&DocNm=<base>&DocType=Customer%20Drawing&DocLang=English&DocFormat=pdf`,
+  base64 it out. Drawings have no text layer — `pdftoppm` and read the
+  dash-number table ("SUPERSEDED BY", "OBSOLETE"). Catalogue-section fetches
+  fail (cross-origin). First `js(outerHTML)` can time out; retry.
+- **Elec-Trol** reed relays: no catalogue online. A Digi-Key Hamlin DIP page
+  with an Elec-Trol cross-reference column is mirrored at
+  uglyduck.vajn.icu/PDF/relay/RA30441051.pdf: series sets form/diode, then
+  `105x/112x/124x` = 5/12/24 V coil. Sibling NSNs on nsnparts.us carry the
+  FLIS contact data (RA3038-1051 5945-01-011-3291, RA3038-2051
+  5945-01-123-9872). Elec-Trol (Saugus CA) -> Hamlin -> Littelfuse (2013).
+  The chart maps RA3045/RA3046 x 1051/1121/1241 to Hamlin HE721A0500/1200/
+  2400 and HE721A0510/1210/2410 (RA3046 = with diode). Littelfuse's HE700 PDF
+  403/404s; mirror: static.chipdip.ru/lib/234/DOC011234270.pdf (rev 10/2015).
+- **Sprague catalogues** on bitsavers (`components/sprague/`; bitsavers 403s
+  curl, use `ftp.mirrorservice.org/sites/www.bitsavers.org/...`): *Electronic
+  Components* 1980 (30 MB) DIP Monolythic 923C pp. 5, Z5U table p. 9;
+  *C-567B Passive Components* 1985 (68 MB) Series 920C p. 4, 1C-5C Monolythic
+  ~pp. 83-85, 292C/592C pp. 92-93. Extract pages with pypdf; too big to
+  attach whole. 92xC key: 3rd digit = pins (3=2, 5=4, 9=8, 4=14, 6=16),
+  dielectric, pF code, tolerance (J/K/M/Z), voltage (050/100/200), size code
+  B/D/F = body height 0.135/0.165/0.250 in. (2026-10)
+- **Bourns** datasheets `bourns.com/docs/Product-Datasheets/<series>.pdf` work
+  with curl; product pages 403 curl and snapshot at ~16 MB (link only).
+  4300R marking: part number / resistance code / logo + CYYWW (C = country).
+- **Digi-Key** product pages work in browser-harness (retry the first load);
+  snapshot ~2.4 MB via `--from-html`.
 
 ## CAGE / FSCM codes seen
 
@@ -153,6 +202,15 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - 01295 Texas Instruments
 - 12115 DRS ICAS (design-control numbers like SC5962-…)
 - 13499 Rockwell Collins Government Systems (351-xxxx-010 house numbers)
+  — also 350-xxxx-010 and 263-xxxx-0x0 (connectors); A-B chips made for
+  Collins print the Collins number under the A-B type.
+- 15636 Elec-Trol Inc; 12617 Hamlin Inc; 56289 Sprague Electric Co;
+  95105 Rockwell Collins Inc (350-4001-450 = Bourns 4310R-101-102); 32997
+  Bourns Inc; 4J937 Bourns Networks; K5743 Bourns Ltd; 28454 Electrol
+  Specialties Co (not Elec-Trol); 73138 BI Technologies (Beckman);
+  00779 AMP (on drawings); 21424 Relay Specialties; 07126 Digitran;
+  14922 Nicolet Scientific; 50621 Wavetek Rockland; 95348 Gordos Arkansas;
+  78277 Sigma Instruments; 06163 EAC Industries
 - 14433 ITT Semiconductors
 - 35351 GE Aviation Systems
 - 49956 Raytheon (JM38510 lots)
@@ -193,6 +251,9 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 
 ## Labels, markings and packaging
 
+- MacService "MATERIAL IDENTIFICATION TAG" (C.P.N. / G.R.S. / RESERVED FOR /
+  QTY): C.P.N. is most likely the Collins part number (inferred, 2026-10).
+  G.R.S. and the 974-M000-0x0 numbers are undecoded; tag QTYs are often stale.
 - DLA packet labels read: NSN, FSCM/CAGE + MFR P/N, item name, unit of issue,
   contract (`DLA900-85-M-SK76`), then a line like `A 4/86` / `A- 11/87` /
   `A/C 4/78`. Record that last line as the batch exactly as printed; it is
@@ -249,6 +310,16 @@ contradictions, and date anything that may go stale (`(2026-10)`).
   MIL-PRF-38535 app. A compliance indicator (Q/QML on QML-flow parts; seen
   only in search excerpts of SMD §3.5.1). Harris lot lines like `H0C9217` /
   `HOC9050` remain undecoded.
+- **Order-code temperature letters differ by family:** Fairchild CMOS
+  `C` = -40/+85 C (not 0-70 as in Fairchild TTL), `M` = -55/+125, D/P/F =
+  ceramic/plastic/flatpak. Motorola CMOS BAL = -55/+125 ceramic, BCP/BCL =
+  -40/+85 plastic/ceramic, UB = unbuffered. SGS HCF = -40/+85, 3-15 V; HCC =
+  -55/+125; order code `…BEY` prints `…BE`. Philips HEx: F = -40/+85, P =
+  plastic; line 2 = factory id (e.g. HSS) + date + layout no. Signetics
+  `N74LS74AN` prints `74LS74AN`; date YYWW, plant V = SigThais (Thailand).
+- TI `-1` suffix on SN74ALS244A-type bus drivers = IOL raised to 48 mA, only
+  at VCC 4.75-5.25 V; no 54-series -1.
+- DS3692 is the MIL-STD-188-114 version of the DS3691 (the RS-422/423 one).
 
 ## Traps
 
@@ -279,6 +350,30 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - SW751-1P sits on the 941 NSN (5962-00-234-1221, Herley advisory ref)
   while SW751/SW751-2P sit on the 951 NSN (5962-00-461-5182) — the suffix
   may change the family; ask, don't pick.
+- The server's MC14044B (IC-00059) stores -55/+125 C but its MPN
+  MC14044BCL is C series (-40/+85) — check a server record's temperature
+  against the MPN before treating it as a match.
+- Count socket/header positions on the full-resolution photo (grid overlay or
+  pins per row): briefs got 3 of 4 connector counts wrong (2026-10).
+- AMP prefixes change the part within one drawing: 533009-8 = 50 pos,
+  1-533009-8 = 120 pos, 5-533009-8 = RoHS successor of -8.
+- TE obsolete pages keep the internal description, so sibling dash numbers
+  decode a drawing (AMP-LATCH 746182-1/-2/-3/-4 = 10/14/16/20 pos). The
+  DDEController fetch returns HTTP 500 when no customer drawing exists.
+- A "radial" ceramic in a brief can be a 2-pin DIP-format Sprague 923C; Z5U is
+  a dielectric class, so it goes in `Dielectric Material`, not the ppm/K
+  `Temperature Coefficient`.
+- An NSN's replacement can be a different variant (RA30461051 with diode ->
+  RA30461051-02 with shield) or a MIL substitute with other ratings.
+- eBay item pages are logged in (name, user id, postcode in the HTML; 216 MB
+  snapshot): link only, never snapshot. Images curl from
+  `i.ebayimg.com/images/g/<id>/s-l1600.jpg`; a seller photo of the maker's
+  tube label can prove the part number. Octopart: captcha, dead end.
+- Elec-Trol's pole digit (RA3038-1xxx vs -2xxx) is not universal: RA3098-1121
+  and RA3123-1241 are 2 Form A. Don't decode form from it outside a series.
+- Dead ends: eBay item pages and lintechcomponents.com 403 curl; Datasheet
+  Archive lists only stock for Elec-Trol; archive.org free-text maker search
+  is noise — use `title:(...)`.
 
 ## Tooling
 
@@ -296,3 +391,9 @@ contradictions, and date anything that may go stale (`(2026-10)`).
   target URL is base64 in the `u=a1…` link parameter) and finds NSN pages
   WebSearch misses; DuckDuckGo HTML returns nothing to curl. static6.arrow.com
   and datasheet.ciiva.com time out from curl. (2026-10)
+- Server: DIP IC sockets live in `Connectors/Pin Sockets` (`Connector Type`
+  like `DIP, 0.6" (15.24mm) Row Spacing`, grid `24 (2 x 12)`, pitch in mm
+  with the unit written); female strips in `Connectors/Rectangular
+  Connectors`. Read part parameters with
+  `GET /api/parameter/?model_type=part.part&model_id=<pk>` (`/api/part/parameter/` 404s).
+- zsh: never name a shell variable `path` (it clobbers PATH).
