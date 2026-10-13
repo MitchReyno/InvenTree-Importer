@@ -324,9 +324,10 @@ of yours leaves room for the user, the existing-records check and the file.
 Do not research parts yourself beyond a quick check of the report, and do not
 skip the subagent because an item looks easy.
 
-1. **Build the prompt** from
-   [templates/research-subagent-prompt.md](templates/research-subagent-prompt.md):
-   copy its base prompt and fill in the Job section — the import file, the
+1. **Dispatch the `component-researcher` agent** (Agent tool,
+   `subagent_type: "component-researcher"`, defined in
+   `.claude/agents/component-researcher.md`). Its instructions are built in;
+   your prompt is the brief — the import file, the
    snapshot folder `.local_imports/<import id>/snapshots/`, the datasheet
    folder `.local_imports/<import id>/datasheets/`, the scratch directory
    `.temp/<import id>/research/`, and per item the line id(s) and **everything you transcribed**
@@ -334,11 +335,11 @@ skip the subagent because an item looks easy.
    packaging), whether a device photo exists, and any question to settle. The
    subagent knows nothing you do not write there. One subagent can take a
    whole batch; for a large batch, split by item so several run in parallel.
-   Run them with the Agent tool (`general-purpose`) in the background.
+   Run them in the background.
 2. **The subagent reads
    [COMPONENT_RESEARCH.md](COMPONENT_RESEARCH.md) first** — the memory that
    carries site quirks, data-book page offsets, decoded CAGE codes and traps
-   between research runs. The base prompt tells it to; you keep it current
+   between research runs. Its instructions tell it to; you keep it current
    (step 5).
 3. **Apply the report.** For each part: `category`, `name`, `type`, `description`,
    `datasheet` (+ `datasheet_pages`), `link`, `image` (a URL only when there
@@ -432,9 +433,10 @@ they actually hold, with its own markings, label and date code. So:
    packet when no device was photographed), each batch's `stock_images`, a
    group shot for `images`, and what must stay out of frame (price or count
    tags, hands, other lots).
-3. **Dispatch the subagent** with the Agent tool (`general-purpose`). Build
-   the prompt from [templates/image-subagent-prompt.md](templates/image-subagent-prompt.md): copy
-   its base prompt and fill in the Job section — the import file, the output
+3. **Dispatch the `component-image-cropper` agent** (Agent tool,
+   `subagent_type: "component-image-cropper"`, defined in
+   `.claude/agents/component-image-cropper.md`). Its instructions are built
+   in; your prompt is the brief — the import file, the output
    folder `.local_imports/<import id>/photos/`, the scratch directory
    `.temp/<import id>/images/`, every
    source photo by absolute path with a note on what it shows, every wanted

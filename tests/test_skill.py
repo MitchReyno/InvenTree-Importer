@@ -199,8 +199,9 @@ def test_the_skill_does_not_overclaim_what_ran(text):
 
 
 # Looking parts up is delegated: the main skill sends identified items to a
-# research subagent, whose instructions are the research template.
-RESEARCH = SKILL.parent / "templates" / "research-subagent-prompt.md"
+# research subagent, whose instructions are the component-researcher agent.
+AGENTS = CONFIG_DIR.parent / ".claude" / "agents"
+RESEARCH = AGENTS / "component-researcher.md"
 
 
 @pytest.fixture(scope="module")
@@ -210,9 +211,25 @@ def research() -> str:
 
 def test_the_skill_delegates_looking_parts_up_to_the_research_subagent(text):
     assert "Research: hand it to a subagent" in text
-    assert "templates/research-subagent-prompt.md" in text
+    assert 'subagent_type: "component-researcher"' in text
     assert "COMPONENT_RESEARCH.md" in text
     assert (SKILL.parent / "COMPONENT_RESEARCH.md").exists()
+
+
+@pytest.mark.parametrize("agent", ["component-researcher",
+                                   "component-image-cropper"])
+def test_the_skill_dispatches_each_subagent_by_its_agent_name(text, agent):
+    """
+    The subagents are project agents, not templates pasted into a prompt, so
+    the name the skill dispatches must be one an agent file declares.
+    """
+    path = AGENTS / f"{agent}.md"
+    front = re.match(r"^---\n(.*?)\n---\n", path.read_text(encoding="utf-8"),
+                     re.S)
+    assert front, f"{path.name} has no frontmatter"
+    assert re.search(rf"^name:\s*{agent}$", front.group(1), re.M)
+    assert re.search(r"^description:\s*\S", front.group(1), re.M)
+    assert f'subagent_type: "{agent}"' in text
 
 
 def test_the_research_prompt_tells_the_agent_to_look_up_datasheets_and_images(
