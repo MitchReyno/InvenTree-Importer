@@ -153,7 +153,7 @@ def require(module: str):
     except ImportError:
         raise SystemExit(
             f"{module} is not installed - it is an optional dependency.\n"
-            f"    uv sync --extra scanner")
+            f"    uv sync --extra scanner") from None
 
 
 def reason(exc: BaseException) -> str:
@@ -2398,14 +2398,14 @@ def tui():
                                    value: str) -> None:
             if not widget_id:
                 return
-            for prefix, field in (
+            for prefix, attr in (
                     ("create-qty-", "quantity"),
                     ("create-mfr-", "manufacturer"),
                     ("create-notes-", "notes")):
                 if widget_id.startswith(prefix):
                     item = self.pending_by_id(widget_id.removeprefix(prefix))
                     if item is not None:
-                        setattr(item, field, value)
+                        setattr(item, attr, value)
                     return
 
         def remove_pending(self, item_id: str) -> None:

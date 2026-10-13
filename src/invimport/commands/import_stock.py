@@ -57,7 +57,7 @@ from ..inventree.stockimport import (
     ImportOptions,
     import_stock,
 )
-from ..validate import category_candidates, validate
+from ..validate import validate
 from . import _prompt
 
 # Set this (in the environment or .env) to mirror datasheets on every run

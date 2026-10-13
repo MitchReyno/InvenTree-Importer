@@ -41,6 +41,7 @@ invimport = "invimport.__main__:cli"
 dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=0.25",
+    "ruff>=0.17.0",
 ]
 
 [build-system]
@@ -54,7 +55,23 @@ packages = ["src/invimport"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+# The TUI tests are the slow part of the suite and only exercise the scanner
+# script, so they are opt-in: `pytest -m tui` for those, `pytest -m ""` for all.
+addopts = "-q -m 'not tui'"
 filterwarnings = ["ignore::DeprecationWarning"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "tui: drives the register-scans Textual UI; slow, and needs the scanner extra",
+]
+
+[tool.ruff]
+target-version = "py312"
+src = ["src"]
+extend-exclude = [".claude/worktrees"]
+
+[tool.ruff.lint]
+# Pyflakes and bugbear only: the checks that find real mistakes - unused or
+# shadowed names, a raise that hides its cause, a zip that silently truncates.
+# Style is left to the surrounding code.
+select = ["F", "B"]

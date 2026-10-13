@@ -1125,7 +1125,9 @@ create nothing.
 ## Development
 
 ```bash
-uv run pytest                          # everything
+uv run pytest                          # everything but the scanner TUI tests
+uv run pytest -m tui                   # just the scanner TUI tests
+uv run pytest -m ""                    # everything, TUI included
 uv run pytest tests/digikey            # one package's suite
 uv run pytest -k cache                 # by name
 ```

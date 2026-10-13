@@ -39,7 +39,7 @@ from ..config import (
 )
 from ..digikey.products import category_path
 from .api import PartCategory, connect
-from .matching import candidates, match_path, unmapped_paths
+from .matching import candidates, unmapped_paths
 from .parameters import SyncResult, matches, sync_templates
 from .units import UnitSyncResult, sync_units
 

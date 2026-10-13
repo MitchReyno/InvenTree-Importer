@@ -297,7 +297,6 @@ def _check_parameters(line: StockLine, category: CategoryConfig,
                       registry, report: Report) -> None:
     """Every named parameter must exist, apply here, and be readable."""
     stored: dict[str, str] = {}
-    known = list(parameters)
 
     for name, raw in line.parameters.items():
         parameter = parameters.get(name)

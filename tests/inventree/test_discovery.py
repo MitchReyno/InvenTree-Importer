@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 
 from invimport.config import (
-    ConfigError,
     load_categories_config,
     load_parameters_config,
 )

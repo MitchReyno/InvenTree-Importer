@@ -224,7 +224,7 @@ def main() -> int:
             print("\nRefusing to delete unattended without --yes.",
                   file=sys.stderr)
             return 2
-        print(f"\nThis cannot be undone through the API.")
+        print("\nThis cannot be undone through the API.")
         if input('Type "delete" to continue: ').strip() != "delete":
             print("Stopped.")
             return 1

@@ -17,7 +17,6 @@ from invimport.inventree.stock import (
     barcode_hit,
     hit_sections,
     hit_rows,
-    link_barcode,
     lookup_barcode,
     resolve_location,
     transfer_stock,

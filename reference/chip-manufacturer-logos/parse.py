@@ -1,4 +1,4 @@
-import re, json, sys, html, glob, os
+import re, json, sys, html, os
 d = sys.argv[1]
 order = ["page.html"] + [f"page_{c}.html" for c in "abcdefghijklmnopqrstuvwxyz"]
 rows = []

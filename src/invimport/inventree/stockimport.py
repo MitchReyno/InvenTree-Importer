@@ -59,7 +59,6 @@ from .parts import (
     ImportContext,
     PartLine,
     PartPolicy,
-    apply_parameters,
     attach_line_images,
     attach_part_documents,
     attach_part_files,

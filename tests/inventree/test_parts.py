@@ -20,7 +20,7 @@ from invimport.inventree.parts import (
     next_ipn,
     resolve_part,
 )
-from invimport.inventree.parts import find_part_by_type, part_name
+from invimport.inventree.parts import find_part_by_type
 from invimport.inventree.values import compact_for_name
 
 

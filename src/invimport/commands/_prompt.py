@@ -137,7 +137,8 @@ class Checklist:
         return sum(self.state)
 
     def chosen(self) -> list[Any]:
-        return [item for item, on in zip(self.items, self.state) if on]
+        return [item for item, on in zip(self.items, self.state, strict=True)
+                if on]
 
     def toggle(self, index: int) -> None:
         self.state[index] = not self.state[index]

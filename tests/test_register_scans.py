@@ -18,10 +18,19 @@ from types import SimpleNamespace
 import pytest
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "register-scans.py"
-SKIP_TUI = pytest.mark.skipif(
+_NO_TEXTUAL = pytest.mark.skipif(
     importlib.util.find_spec("textual") is None,
     reason="scanner extra not installed (uv sync --extra scanner)",
 )
+
+
+def SKIP_TUI(test):
+    """
+    Skip without the scanner extra, and mark `tui`. The Pilot tests are the
+    slowest in the suite by far, so addopts leaves them out by default; run
+    them with `pytest -m tui`, or everything with `pytest -m ""`.
+    """
+    return pytest.mark.tui(_NO_TEXTUAL(test))
 
 SCANNER_ADDR = "FFD28074-E5B0-4A73-A02D-535D7E1FA780"
 SCANNER_UUID = "0000fff0-0000-1000-8000-00805f9b34fb"

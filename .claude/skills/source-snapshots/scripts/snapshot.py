@@ -668,7 +668,7 @@ def take_snapshot(url: str, *, html: str | None = None, render: bool = False,
         response = session.get(url, timeout=timeout)
     except Exception as exc:
         if html is None and not render:
-            raise SnapshotError(f"could not fetch {url}: {_short(exc)}")
+            raise SnapshotError(f"could not fetch {url}: {_short(exc)}") from exc
     if response is not None:
         snap.final_url = response.url or url
         snap.status = response.status_code
