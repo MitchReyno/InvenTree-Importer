@@ -16,7 +16,13 @@ contradictions, and date anything that may go stale (`(2026-10)`).
   `https://www.nsndepot.com/NSN/5962-01-014-9628` (dashed form). Gives the
   MCRL with RNCC/RNVC codes (which number is the design-control one, which is
   "replaced/discontinued") and the **replacement NSN and date** when an NSN has
-  been superseded. Large snapshot (~3.5 MB). (2026-10)
+  been superseded. Large snapshot (~3.5 MB). (2026-10) Since 2026-10-12
+  `curl` returns the MCRL and ISC tables but **not** the Seg M/V
+  characteristics (JavaScript-built): render in browser-harness, save
+  `outerHTML`, snapshot with `--from-html`.
+- **resistors.tpub.com/<page>/<NIIN>.htm** — static, `curl` OK: old FLIS
+  records (00-series NSNs) with values and every reference number; finds the
+  original NSN of a number later moved as RNCC E. (2026-10)
 - **ISO Group** — `https://www.iso-group.com/NSN/<dashed NSN>`. Has
   characteristics for cancelled/replaced NSNs that other sites drop; plain
   `curl` worked in 2026-10 for some NSNs, others needed a browser.
@@ -48,7 +54,16 @@ contradictions, and date anything that may go stale (`(2026-10)`).
   weaponssupportapps.dla.mil — use maker cross-reference guides instead.
 - For resistor networks NSN Depot lists every FLIS resistance value with its
   identical-value quantity; nsnparts.us garbled the same record (DIP shown as
-  "TERMINALS ONE END"). (2026-10)
+  "TERMINALS ONE END"). (2026-10) The values and the LOWEST / Nth
+  INTERMEDIATE / HIGHEST quantities are separate lists: pair them by sorting
+  the values ascending and matching rank, and say the pairing is inferred.
+  FLIS gives only derating points (full power at 25 °C, 0 at 125 °C), not an
+  operating range — leave Operating Temp unset.
+- When a part-number search finds nothing, scan neighbouring NIINs: parallel
+  `curl` of `nsnparts.us/parts/nsn/<NSN>.html` for ±30 around a sibling's
+  NSN, then `grep -l` the part number. Sibling custom parts often got
+  consecutive NIINs on one date. The `/search?q=` pages of nsnparts.us and
+  NSN Depot return nothing useful to `curl`. (2026-10)
 
 ## Data books and datasheets
 
@@ -193,7 +208,36 @@ contradictions, and date anything that may go stale (`(2026-10)`).
   with curl; product pages 403 curl and snapshot at ~16 MB (link only).
   4300R marking: part number / resistance code / logo + CYYWW (C = country).
 - **Digi-Key** product pages work in browser-harness (retry the first load);
-  snapshot ~2.4 MB via `--from-html`.
+  snapshot ~2.4 MB via `--from-html`. A keyword search hitting one exact MPN
+  redirects straight to the detail page — do not then click the first
+  `a[href*=MPN]`, which can be the login redirect. The snapshot banner reads
+  "HTTP status 403" (the tool's own re-fetch is refused); that is normal, grep
+  the file for the attributes used. Mouser pages render blank; Future and
+  Farnell 403 `curl`. (2026-10)
+- **Vishay Dale MDP** networks: `vishay.com/docs/31511/31511.pdf` (curl OK).
+  Code MDP + pins + schematic (01 bussed, 03 isolated, 05 dual terminator) +
+  3-digit value + tolerance (G ±2%, J ±5%). Power is rated at +70 °C.
+- **Bourns RC-1A Resistive Components, Sep 1989** (bitsavers
+  `components/bourns/`, 27 MB, 208 pp; download via
+  ftp.mirrorservice.org/sites/www.bitsavers.org/…): 4100R molded DIPs at PDF
+  pp. 55-56 (printed 54-55, ordering-key example 4114R-001-152); M83401
+  cross-reference p. 182; model index p. 8. Old circuit codes -001/-002/-003
+  = isolated/bussed/dual terminator (current sheets write -1/-2/-3); 1980s
+  bodies carry a 4-digit YYWW under the logo. Extract saved as
+  `datasheets/bourns-rc1a-1989-4100r-pp55-56.pdf`.
+- **KYOCERA AVX leaded MLCC catalogue** `catalogs.kyocera-avx.com/MultilayerLeaded.pdf`
+  (87 pp, curl OK; PDF page = printed + 3): dielectric specs (Z5U p. 16),
+  aging p. 9, DIPGuard MD 2-pin DIP pp. 40-41. Per-series sheets
+  (`datasheets.kyocera-avx.com/dipguard.pdf`) omit the temperature range.
+  kyocera-avx.com product pages snapshot at ~16 MB — link only.
+- **AVX DIPGuard MD** top marking: A + voltage (Y 16 V, 5 50 V, 1 100 V) +
+  dielectric (A C0G, C X7R, E Z5U) + pF code + tolerance, e.g. A5E104M =
+  MD015E104M_ (style MD01/02/03 and the last assembly letter A/B are not
+  marked; current codes end -MAB). 200 per slide pack. Body colour varies
+  (brown, mustard) within one maker.
+- No catalogue online for Quality Components Inc (Ridgway PA) or Stackpole
+  GA ceramics (WebSearch, Bing, archive.org; 2026-10); search engines confuse
+  it with Quality Components of Syracuse NY, a rep firm.
 
 ## CAGE / FSCM codes seen
 
@@ -204,6 +248,10 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - 13499 Rockwell Collins Government Systems (351-xxxx-010 house numbers)
   — also 350-xxxx-010 and 263-xxxx-0x0 (connectors); A-B chips made for
   Collins print the Collins number under the A-B type.
+  350-4004-0x0 dash numbers are distinct A-B film networks, not grades:
+  -010 = CDD816 / BI 1898-279-0 / NSN 5905-01-134-1211; -020 = CDD817 /
+  BI 1898-280-1 / NSN 5905-01-134-1212. The A-B numbers carry RNVC 9 "no
+  longer used"; the Collins number is the design-control one.
 - 15636 Elec-Trol Inc; 12617 Hamlin Inc; 56289 Sprague Electric Co;
   95105 Rockwell Collins Inc (350-4001-450 = Bourns 4310R-101-102); 32997
   Bourns Inc; 4J937 Bourns Networks; K5743 Bourns Ltd; 28454 Electrol
@@ -212,6 +260,17 @@ contradictions, and date anything that may go stale (`(2026-10)`).
   14922 Nicolet Scientific; 50621 Wavetek Rockland; 95348 Gordos Arkansas;
   78277 Sigma Instruments; 06163 EAC Industries
 - 14433 ITT Semiconductors
+- 95121 Quality Components Inc, Ridgway PA (QC-prefixed axial ceramics;
+  other "Quality Components Inc" CAGEs 5S208, 1K2F9, 1CS33, 5R242 are
+  unrelated distributors); 78488 Stackpole Corp (GA/GVA ceramics); 78429
+  Carbon/Graphite Group; 59474 Jeffers Electronics; 80063 US Army CECOM
+  (SM-C-nnnnnn drawings); 37695 Raytheon; 72314 BAE Systems IESI
+- 91637 Vishay Dale Electronics; 24546 Dale Electronics (old); F5491
+  Rockwell Collins France; 94756 Boeing; 64537 Aeroflex Control Components
+- Collins 350-4027-0x0 = 14-pin isolated networks (-030 = 680 ohm x7 ±2%,
+  Bourns 4114R-001-681, NSN 5905-01-274-1221); 350-4030-0x0 = 16-pin bussed
+  (-010 = 220k ±5% MDP16-01 224J, NSN 5905-01-138-1902; -020 = 4.7k; -110 =
+  22k). 351-5600-010 = 54F00 (NSN 5962-01-173-7737)
 - 35351 GE Aviation Systems
 - 49956 Raytheon (JM38510 lots)
 - 50507 Micro Networks (Worcester MA; later Spectrum Microwave)
@@ -265,6 +324,9 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - Green stickers on the seller's photos are count/price/note tags added by the
   seller or the user, sometimes reused with old values scribbled out — confirm
   odd ones rather than trusting them.
+- MCRL capacitor spellings: UUF = µµF = pF; PORM nPCT / P0RM = ±n%
+  (QC-2.2PFPORM5PCT = QC2.2PF ±5%). FLIS preservation method 41 = sealed
+  water-vapour-proof bag (the foil-lined DLA packets).
 - Brown "kraft" packets may be foil-lined under the paper; do not assume
   either way.
 - A source-control or drawing number on a label (Kearfott C528000253,
@@ -322,6 +384,24 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - DS3692 is the MIL-STD-188-114 version of the DS3691 (the RS-422/423 one).
 
 ## Traps
+
+- A ±5% and a ±2% version of one network sit on different NSNs
+  (5905-01-138-1902 vs -200-3923). Check the tolerance letter before tying a
+  Collins number to a lot.
+- FLIS power on networks uses different reference temperatures (3.000 W at
+  25 °C vs 1.500 W at 70 °C); maker sheets rate at 70 °C. Always say which.
+- Reused tubes carry labels for unrelated items (a 54F00 label on a resistor
+  network tube). Decode every number on a tube before trusting it.
+- A `spec` capacitor can key-match an existing part from another maker (AVX
+  MD015E103MAB and Sprague 923CZ5U103M050B, both 0.01 uF ±20% 50 V 2-DIP)
+  while their temperature ranges differ; raise it as a same-part question.
+- 5910 capacitor NSNs from 1960s item reduction can be ISC 1 survivors that
+  absorbed NSNs of other tolerances; their part numbers are not this part.
+- FLIS capacitor records give % change over temperature, not a dielectric
+  class or ppm/K — leave Dielectric Material and Temperature Coefficient unset.
+
+- Allen-Bradley's body font prints D so it reads as 0: CDD817 looks like
+  C00817. Read A-B lot codes (8C13H, 8D14M) with the same caution.
 
 - Two NSNs with identical FLIS data can still differ by screening (an
   MIL-STD-883 grade vs plain); report it as a same-part question, not a match.
@@ -387,6 +467,8 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - **alldatasheet PDF download:** POST the download-page form (inputs `innum`,
   `tmpinfo1aa`) with `fetch` inside browser-harness and base64 the response
   to get the real PDF. (2026-10)
+- **Google in browser-harness** works for exact part-number searches
+  (`a h3` → closest `a`); Bing ignores quotes on part numbers. (2026-10)
 - **Bing in browser-harness** works as a search engine (read `li.b_algo h2`;
   target URL is base64 in the `u=a1…` link parameter) and finds NSN pages
   WebSearch misses; DuckDuckGo HTML returns nothing to curl. static6.arrow.com
