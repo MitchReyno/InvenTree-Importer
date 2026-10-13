@@ -137,7 +137,7 @@ clean background; otherwise accept the centred non-square crop.
 Build a montage of all the crops and read it:
 
 ```bash
-uv run --with pillow python $S/montage.py /path/to/tmp/review.png OUT1.jpg OUT2.jpg ...
+uv run --with pillow python $S/montage.py .temp/<import id>/review.png OUT1.jpg OUT2.jpg ...
 ```
 
 Look for an item clipped at an edge (leads, pouch edges, label text), a
@@ -154,7 +154,7 @@ the only fix, and the user can decide whether it is worth taking.
 
 - Write crops as JPEG (quality 90, longest side ≤ 1600 px — the script does
   this) into the per-import folder the caller names, e.g.
-  `.local_imports/photos/<import id>/`, named for the item and what it shows:
+  `.local_imports/<import id>/photos/`, named for the item and what it shows:
   `mn3001h-device.jpg`, `l35-mn3001h-bag-a-4-86.jpg`. The per-import folder
   stops two imports that both number from `l01` overwriting each other.
 - **Keep the originals.** Copy each full-frame source photo into a `source/`

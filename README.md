@@ -512,14 +512,33 @@ from a photographed receipt or a hand-written list.
 
 ```bash
 # check the file against the config - no API calls, nothing written
-uv run invimport import-stock stock.json --validate
+uv run invimport import-stock .local_imports/drawer-a/drawer-a.json --validate
 
 # dry run: ask the server what would happen
-uv run invimport import-stock stock.json
+uv run invimport import-stock .local_imports/drawer-a/drawer-a.json
 
 # create the records
-uv run invimport import-stock stock.json --write
+uv run invimport import-stock .local_imports/drawer-a/drawer-a.json --write
 ```
+
+Each import lives in **its own folder** under `.local_imports/` (gitignored),
+named for the import and holding the file and everything it was made from:
+
+```
+.local_imports/
+    macservice-2026-10-12/
+        macservice-2026-10-12.json          the import file
+        macservice-2026-10-12.sources.json  which photo each line was read from
+        photos/                             crops; originals under photos/source/
+        snapshots/                          source pages (source-snapshots skill)
+        datasheets/                         PDFs the lines attach
+.temp/                                      scratch: previews, montages, scripts
+```
+
+Paths in the file are relative to its folder. Anything that is not part of an
+import's record - working crops, review montages, throwaway scripts,
+intermediate output - goes in `.temp/` at the repo root, also gitignored, so
+it never ends up in an import's archive (below).
 
 | Flag                 | Effect                                                     |
 |----------------------|------------------------------------------------------------|
@@ -532,6 +551,7 @@ uv run invimport import-stock stock.json --write
 | `--min-confidence N` | Hold any line the file rates below this, 0-1               |
 | `--no-orders`        | Import the stock without creating purchase orders          |
 | `--mirror-datasheets`| Download each datasheet URL and attach a copy to the part; also on when `INVIMPORT_MIRROR_DATASHEETS` is set (e.g. in `.env`) |
+| `--no-archive`       | Do not zip the import's folder onto its orders or suppliers |
 | `--yes`              | Do not prompt; report anything ambiguous instead           |
 
 #### The file
@@ -701,6 +721,33 @@ regenerated file still matches; otherwise it is a hash of the contents. **Line
 ids must be stable.** Renumbering them makes previously imported lines look
 new, and they import a second time.
 
+#### The import archive
+
+`.local_imports/` is the only record of what was imported and why, and it is
+on one disk. So `--write` zips the import's folder - the file, its
+`.sources.json`, photos, snapshots, datasheets, everything in it except hidden
+files - and attaches the zip in InvenTree:
+
+- to **every purchase order** the import created or used (each gets the whole
+  zip; the file is one record and its sources are not split by order);
+- for lines on **no order**, to their **supplier** company instead;
+- a line with **neither** gets nothing, and the report lists it - no order or
+  supplier is invented to hold a file.
+
+The zip is named `import-<folder>-<digest>.zip`, the digest taken from the
+folder's contents (paths and bytes), and unpacks to `<folder>/...` - the
+layout it came from. A record already carrying that zip is left alone, so a
+re-run attaches nothing twice. If the folder has changed since, the digest
+changes and the new zip is attached **beside** the old one; earlier versions
+are never replaced or deleted, since each is what was on file when that run
+wrote. A re-run of stock imported before archiving existed attaches the zip to
+the order its stock is on.
+
+The dry run reports the zip's name, size and where it would go, and writes
+nothing. A file not in its own folder (named for the file or its
+`source.reference`) is not archived - zipping its neighbours would attach other
+imports' evidence - and the report says to move it.
+
 #### What it will not guess
 
 Two situations stop and ask, with the usual interactive prompt:
@@ -861,7 +908,7 @@ distributor page - are made by a standalone script in the `source-snapshots`
 Claude skill, not by `invimport`:
 
 ```bash
-uv run python .claude/skills/source-snapshots/scripts/snapshot.py URL -o .local_imports/snapshots/<import>/l03-nsn.html
+uv run python .claude/skills/source-snapshots/scripts/snapshot.py URL -o .local_imports/<import>/snapshots/l03-nsn.html
 ```
 
 It writes one self-contained HTML file (styles, images and fonts inlined,
@@ -1051,6 +1098,7 @@ src/
             discovery.py      unmapped supplier parameters, and filing them
             stock.py          stock items, locations, barcode idempotence
             stockimport.py    a stock file becoming InvenTree records
+            archive.py        an import's folder, zipped onto its orders
             datasheets.py     datasheet PDFs attached to parts, and back-fill
         commands/             thin CLI adapters over the above
             _keys.py          raw-mode key reading for the category browser
@@ -1073,6 +1121,8 @@ tests/                        mirrors the package
         inventree-stock-import/   a Claude skill that generates a stock file
 docs/
     InvenTree API.yaml        OpenAPI spec, used by the test suite
+.local_imports/               (gitignored) one folder per stock import
+.temp/                        (gitignored) scratch work that is not an import
 ```
 
 This is the standard [src layout](https://packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/):

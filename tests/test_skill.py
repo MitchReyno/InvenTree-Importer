@@ -152,10 +152,19 @@ def test_the_conditions_the_skill_mentions_are_real(text):
 
 
 def test_the_skill_tells_the_agent_to_write_into_local_imports(text):
-    """Generated files belong in .local_imports/, which is gitignored."""
+    """
+    Generated files belong in .local_imports/, which is gitignored - each
+    import in a folder of its own, which is what gets archived on --write.
+    """
     assert ".local_imports/" in text
-    assert re.search(r"\.local_imports/\S+\.json --validate", text)
-    assert re.search(r"\.local_imports/\S+\.json --write", text)
+    folder = r"\.local_imports/([^/\s]+)/\1\.json"
+    assert re.search(folder + " --validate", text)
+    assert re.search(folder + " --write", text)
+
+
+def test_the_skill_keeps_scratch_work_in_temp(text):
+    """Scratch files would otherwise land in an import's archive."""
+    assert "`.temp/<import id>/`" in text
 
 
 def test_the_skill_tells_the_agent_to_read_the_vocabulary_first(text):

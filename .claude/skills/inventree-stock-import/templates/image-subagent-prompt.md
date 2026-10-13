@@ -29,7 +29,8 @@ Ground rules:
   photo, or cannot be isolated cleanly, say so instead of producing a poor
   crop.
 - Keep temporary files (previews, montages, tests) in the scratch directory
-  given below, never in the repo or `/tmp`.
+  given below, under `.temp/` - never in the import folder, the repo proper
+  or `/tmp`.
 - Do not delete source photos. Overwrite an existing crop only when the job
   asks you to redo it.
 
@@ -49,11 +50,11 @@ When you finish, return a report the caller can apply directly:
 
 <!-- Fill in every item. Be concrete: the subagent knows nothing else. -->
 
-- **Import file:** `.local_imports/<file>.json` (the crops are referenced
+- **Import file:** `.local_imports/<import id>/<import id>.json` (the crops are referenced
   relative to its directory)
-- **Output folder:** `.local_imports/photos/<import id>/` (originals go in its
+- **Output folder:** `.local_imports/<import id>/photos/` (originals go in its
   `source/` subfolder)
-- **Scratch directory:** `<$CLAUDE_JOB_DIR/tmp or the session scratchpad>`
+- **Scratch directory:** `.temp/<import id>/images/`
 - **Source photos:** absolute paths, one per line, each with a one-line note on
   what it shows (e.g. "34.png — one sealed foil bag, TS-3484-2, green count tag
   at the top")

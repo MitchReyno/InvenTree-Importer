@@ -2433,9 +2433,11 @@ def tui():
                 self._export_fn(document)
                 self.notify(f"Saved {len(self._pending)} pending items")
                 return
-            folder = Path(self._export_dir) if self._export_dir else Path(
+            # One folder per import, as import-stock expects: it zips that
+            # folder onto the import's orders, so the file gets its own.
+            root = Path(self._export_dir) if self._export_dir else Path(
                 ".local_imports")
-            path = folder / f"{reference}.json"
+            path = root / reference / f"{reference}.json"
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(document, indent=2) + "\n",
                             encoding="utf-8")

@@ -759,7 +759,10 @@ def _pdf_complete(path: Path) -> bool:
 import argparse  # noqa: E402
 import sys  # noqa: E402
 
-DEFAULT_DIR = Path(".local_imports/snapshots")
+# Scratch: a snapshot an import relies on is written with -o into that
+# import's own folder (.local_imports/<import id>/snapshots/), so it is part
+# of the import's archive. Anything else is not a source of any import.
+DEFAULT_DIR = Path(".temp/snapshots")
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:

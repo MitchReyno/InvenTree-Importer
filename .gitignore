@@ -31,8 +31,13 @@ docs/.local
 # Database dumps taken by scripts/wipe-inventory.py
 backups/
 
-# Local import files
+# Local import files: one folder per import, holding the file and its
+# sources. import-stock --write zips each onto the import's purchase orders.
 .local_imports/
+
+# Scratch work that belongs to no import: previews, montages, scripts,
+# intermediate output.
+.temp/
 
 # macOS system files
 .DS_Store
