@@ -16,12 +16,17 @@ Re-running is safe. Each created stock item carries a barcode naming the line
 that made it, and InvenTree refuses to assign a barcode twice, so a second run
 of the same file reports `exists` rather than doubling the quantity.
 
+The import file's folder - the file and every source it was made from - is
+zipped and attached to the purchase orders it used, or to the supplier of
+lines bought on none (see archive.py). That too is safe to repeat.
+
 The library never prompts. Ambiguity is either settled by a callback the caller
 supplied, or reported as `needs-review` for the caller to handle.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -52,6 +57,7 @@ from .api import (
     SupplierPart,
     connect,
 )
+from .archive import ImportArchive, archive_import
 from .categories import ensure_on_server
 from .datasheets import attach_datasheet, prefetch, resolve_datasheet
 from .parts import (
@@ -113,6 +119,12 @@ class LineAction:
     manufacturer_part: int | None = None
     supplier_part: int | None = None
     purchase_order: int | None = None
+    # The supplier company (pk, or UNRESOLVED_PK for one a dry run would
+    # create) and the order reference the line was bought on - set only when
+    # an order is or would be used. What the import archive is attached to.
+    supplier: int | None = None
+    supplier_name: str = ""
+    order_reference: str = ""
     stock_item: int | None = None
     location: str = ""
     part_of: str = ""
@@ -136,6 +148,9 @@ class LineAction:
 class StockImportResult:
     lines: list[LineAction] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
+    # The zip of the import's folder and the records it went on; None when
+    # archiving was not asked for.
+    archive: ImportArchive | None = None
 
     def counts(self) -> dict[str, int]:
         return {
@@ -163,6 +178,8 @@ class ImportOptions:
     default_location: str = ""
     # Download datasheet URLs and attach a copy, not only link them.
     mirror_datasheets: bool = False
+    # Zip the import's folder and attach it to its orders or suppliers.
+    archive: bool = True
     on_partial: str = "ask"
     min_confidence: float = 0.0
     # Callbacks. Without one, the matching ambiguity is reported instead.
@@ -224,6 +241,9 @@ def import_stock(
         by_id[line.id] = action
         result.lines.append(action)
 
+    if options.archive:
+        result.archive = archive_import(api, document, result.lines,
+                                        write=options.write)
     return result
 
 
@@ -247,6 +267,9 @@ def _import_line(api, document: StockFile, line: StockLine,
         _existing_datasheet(api, document, line, options, action)
         _existing_notes(api, line, options, action)
         _existing_name(api, line, action)
+        if options.archive:
+            _existing_order(api, line, suppliers, options, supplier_cache,
+                            action)
         if options.write:
             _attach_stock_images(document, line, existing, api)
             if line.attachments and action.part not in (None, UNRESOLVED_PK):
@@ -347,6 +370,10 @@ def _import_line(api, document: StockFile, line: StockLine,
     # --- the supplier, and what it sold ---
     supplier, seller = _resolve_supplier(api, line, suppliers, options,
                                          supplier_cache)
+    if supplier is not None:
+        action.supplier = supplier_pk(supplier)
+        action.supplier_name = str(getattr(supplier, "name", "")
+                                   or line.supplier)
     try:
         supplier_part = _supplier_part(api, line, supplier, resolved, options,
                                        supplier_parts)
@@ -376,6 +403,9 @@ def _import_line(api, document: StockFile, line: StockLine,
         api, line, supplier, options, order_cache,
         base_dir=document.path.parent if document.path else None)
     action.purchase_order = getattr(order, "pk", None)
+    if (line.order_reference and supplier is not None
+            and options.create_orders):
+        action.order_reference = line.order_reference
     if order is not None and supplier_part is not None and options.write:
         _order_line(api, order, supplier_part, line)
 
@@ -578,6 +608,43 @@ def _existing_notes(api, line: StockLine, options: ImportOptions,
     _record_notes(api, line, options, action)
     if line.manufacturer_part_notes and action.manufacturer_part is None:
         action.manufacturer_part_notes = ""
+
+
+def _existing_order(api, line: StockLine, suppliers, options: ImportOptions,
+                    cache, action: LineAction) -> None:
+    """
+    The order and supplier of stock an earlier run imported.
+
+    The order comes from the stock item - it is what the earlier run actually
+    linked, whatever the file says now. The supplier is only looked up, never
+    created or asked about: a re-run that only needs somewhere to put the
+    import archive is no reason to add a company.
+    """
+    try:
+        item = api.get(f"stock/{action.stock_item}/")
+    except Exception as exc:                     # pragma: no cover
+        log.warning("    could not read stock %s: %s", action.stock_item, exc)
+        item = {}
+    order = item.get("purchase_order") if isinstance(item, dict) else None
+    if order not in (None, ""):
+        action.purchase_order = int(order)
+        action.order_reference = line.order_reference
+    look_only = dataclasses.replace(options, write=False,
+                                    create_suppliers=False,
+                                    choose_supplier=None)
+    # The shared cache remembers a miss as None, and a miss here - looked up
+    # without creating - must not stop a later new line creating it. So only
+    # companies found are shared, in both directions.
+    found = {name: company for name, company in cache.items()
+             if company is not None}
+    supplier, _seller = _resolve_supplier(api, line, suppliers, look_only,
+                                          found)
+    cache.update({name: company for name, company in found.items()
+                  if company is not None})
+    if supplier is not None:
+        action.supplier = supplier_pk(supplier)
+        action.supplier_name = str(getattr(supplier, "name", "")
+                                   or line.supplier)
 
 
 def _existing_name(api, line: StockLine, action: LineAction) -> None:

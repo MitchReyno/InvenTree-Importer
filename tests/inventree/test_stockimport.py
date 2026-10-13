@@ -4,11 +4,21 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import re
+import zipfile
 
 import pytest
 
 from invimport.config import load_categories_config
 from invimport.inventree.api import connect
+from invimport.inventree.archive import (
+    ALREADY_ATTACHED,
+    ATTACHED,
+    WOULD_ATTACH,
+    archive_files,
+    build_zip,
+)
 from invimport.inventree.parts import NEW_PART
 from invimport.inventree.stockimport import (
     CREATED,
@@ -1267,3 +1277,234 @@ def test_a_re_run_says_when_the_part_has_another_name(config, server):
     assert result.lines[0].action == EXISTS
     assert result.lines[0].name_kept.startswith(
         "the part is already called '10911'")
+
+
+# --------------------------------------------------------------------------
+# The import archive: the import's folder, zipped onto its orders
+# --------------------------------------------------------------------------
+def _import_dir(tmp_path, *lines, name="rockby-88213", reference=None):
+    """
+    An import in its own folder, as .local_imports/<name>/ holds one: the
+    file, its sources map, a photo and a snapshot.
+    """
+    folder = tmp_path / name
+    (folder / "photos").mkdir(parents=True)
+    (folder / "snapshots").mkdir()
+    (folder / "photos" / "l01-label.jpg").write_bytes(b"\xff\xd8\xff\xd9")
+    (folder / "snapshots" / "l01-listing.html").write_text("<html></html>")
+    (folder / f"{name}.sources.json").write_text('{"1": ["photos/x.jpg"]}')
+    (folder / ".DS_Store").write_bytes(b"finder")
+    path = folder / f"{name}.json"
+    path.write_text(json.dumps({
+        "source": {"reference": reference or name},
+        "lines": [{"id": str(i + 1), "quantity": 1, **line}
+                  for i, line in enumerate(lines)]}))
+    return path
+
+
+def _import(path, config, write=True, **options):
+    return import_stock(read_file(path), connect(), directory=config,
+                        options=ImportOptions(write=write, **options))
+
+
+def _zips(server):
+    return [a for a in server.attachments if a["filename"].endswith(".zip")]
+
+
+ON_ORDER = {**RESISTOR, **ORDER, "order": {"reference": "INV-88213"}}
+
+
+def test_the_archive_is_attached_to_the_purchase_order(config, server,
+                                                       tmp_path):
+    path = _import_dir(tmp_path, ON_ORDER)
+    result = _import(path, config)
+
+    zips = _zips(server)
+    assert len(zips) == 1
+    assert zips[0]["model_type"] == "purchaseorder"
+    assert zips[0]["model_id"] == server.purchase_orders[0]["pk"]
+    assert zips[0]["filename"] == result.archive.name
+    assert re.fullmatch(r"import-rockby-88213-[0-9a-f]{12}\.zip",
+                        result.archive.name)
+    assert result.archive.digest[:12] in zips[0]["comment"]
+    assert [t.outcome for t in result.archive.targets] == [ATTACHED]
+
+
+def test_the_zip_holds_the_import_file_and_all_its_sources(config, server,
+                                                           tmp_path):
+    path = _import_dir(tmp_path, ON_ORDER)
+    _import(path, config)
+
+    with zipfile.ZipFile(io.BytesIO(_zips(server)[0]["contents"])) as zf:
+        names = sorted(zf.namelist())
+        assert zf.read("rockby-88213/photos/l01-label.jpg") == \
+            b"\xff\xd8\xff\xd9"
+    # Under the import's own name, so it unpacks to the layout it came from;
+    # the machine's hidden files are not the import's.
+    assert names == ["rockby-88213/photos/l01-label.jpg",
+                     "rockby-88213/rockby-88213.json",
+                     "rockby-88213/rockby-88213.sources.json",
+                     "rockby-88213/snapshots/l01-listing.html"]
+
+
+def test_the_zip_is_the_same_bytes_whenever_it_is_made(tmp_path):
+    """The name comes from the contents; so should the file."""
+    folder = _import_dir(tmp_path, RESISTOR).parent
+    files = archive_files(folder)
+    first = build_zip(folder, files, tmp_path / "a.zip").read_bytes()
+    os.utime(files[0], (1_000_000_000, 1_000_000_000))
+    second = build_zip(folder, files, tmp_path / "b.zip").read_bytes()
+    assert first == second
+
+
+def test_every_order_the_import_used_gets_the_archive(config, server,
+                                                      tmp_path):
+    path = _import_dir(
+        tmp_path, ON_ORDER,
+        {**DIODE, **ORDER, "sku": "R-2", "order": {"reference": "INV-88214"}},
+        {**DIODE, **ORDER, "sku": "R-2", "order": {"reference": "INV-88214"}})
+    result = _import(path, config)
+
+    assert len(server.purchase_orders) == 2
+    assert sorted(z["model_id"] for z in _zips(server)) == sorted(
+        o["pk"] for o in server.purchase_orders)
+    assert sorted(t.lines for t in result.archive.targets) == [
+        ["1"], ["2", "3"]]
+
+
+def test_lines_on_no_order_put_the_archive_on_their_supplier(config, server,
+                                                             tmp_path):
+    path = _import_dir(tmp_path, {**RESISTOR, **ORDER})
+    result = _import(path, config)
+
+    zips = _zips(server)
+    assert len(zips) == 1
+    assert zips[0]["model_type"] == "company"
+    assert zips[0]["model_id"] == server.companies[0]["pk"]
+    assert result.archive.targets[0].kind == "supplier"
+
+
+def test_a_line_with_no_order_or_supplier_is_reported_not_attached(
+        config, server, tmp_path):
+    path = _import_dir(tmp_path, ON_ORDER, DIODE)
+    result = _import(path, config)
+
+    assert [z["model_type"] for z in _zips(server)] == ["purchaseorder"]
+    assert result.archive.unattached == ["2"]
+
+
+def test_with_neither_anywhere_nothing_is_attached(config, server, tmp_path):
+    """No order or supplier is invented to hold the file."""
+    path = _import_dir(tmp_path, RESISTOR)
+    result = _import(path, config)
+
+    assert _zips(server) == []
+    assert server.purchase_orders == [] and server.companies == []
+    assert result.archive.targets == []
+    assert result.archive.unattached == ["1"]
+
+
+def test_re_running_does_not_attach_the_archive_twice(config, server,
+                                                      tmp_path):
+    path = _import_dir(tmp_path, ON_ORDER, {**DIODE, **ORDER, "sku": "R-2"})
+    _import(path, config)
+    again = _import(path, config)
+
+    assert len(_zips(server)) == 2               # the order and the supplier
+    assert {t.outcome for t in again.archive.targets} == {ALREADY_ATTACHED}
+
+
+def test_a_re_run_finds_the_order_from_the_stock_it_made(config, server,
+                                                         tmp_path):
+    """
+    Stock imported before archiving existed: the re-run puts the zip on the
+    order that stock is on.
+    """
+    path = _import_dir(tmp_path, ON_ORDER)
+    _import(path, config, archive=False)
+    assert _zips(server) == []
+
+    result = _import(path, config)
+
+    assert result.lines[0].action == EXISTS
+    assert [(z["model_type"], z["model_id"]) for z in _zips(server)] == [
+        ("purchaseorder", server.purchase_orders[0]["pk"])]
+
+
+def test_a_changed_folder_adds_a_new_version_beside_the_old(config, server,
+                                                            tmp_path):
+    """Earlier zips are what was on file then, so they are kept."""
+    path = _import_dir(tmp_path, ON_ORDER)
+    first = _import(path, config)
+    (path.parent / "snapshots" / "l01-datasheet.html").write_text("<p>new</p>")
+    second = _import(path, config)
+
+    assert second.archive.name != first.archive.name
+    assert [z["filename"] for z in _zips(server)] == [
+        first.archive.name, second.archive.name]
+    assert second.archive.targets[0].outcome == ATTACHED
+    assert second.archive.targets[0].earlier == [first.archive.name]
+
+
+def test_a_dry_run_says_where_the_archive_would_go_and_writes_nothing(
+        config, server, tmp_path):
+    path = _import_dir(tmp_path, ON_ORDER, DIODE)
+    result = _import(path, config, write=False)
+
+    assert server.attachments == [] and server.purchase_orders == []
+    archive = result.archive
+    assert archive.name.startswith("import-rockby-88213-")
+    assert len(archive.files) == 4
+    assert [(t.outcome, t.pk, t.label) for t in archive.targets] == [
+        (WOULD_ATTACH, None, "new order INV-88213 from Rockby Electronics")]
+    assert archive.unattached == ["2"]
+
+
+def test_a_dry_run_of_an_imported_file_says_it_is_already_attached(
+        config, server, tmp_path):
+    path = _import_dir(tmp_path, ON_ORDER)
+    _import(path, config)
+    before = len(server.attachments)
+    result = _import(path, config, write=False)
+
+    assert len(server.attachments) == before
+    assert result.archive.targets[0].outcome == ALREADY_ATTACHED
+
+
+def test_a_second_file_of_the_same_import_shares_its_folder(config, server,
+                                                            tmp_path):
+    """A redo of a few lines keeps the import's reference and its folder."""
+    first = _import_dir(tmp_path, ON_ORDER)
+    redo = first.parent / "rockby-88213-redo.json"
+    redo.write_text(json.dumps({
+        "source": {"reference": "rockby-88213"},
+        "lines": [{"id": "9", "quantity": 1, **ON_ORDER, "sku": "R-9"}]}))
+    result = _import(redo, config)
+
+    assert result.archive.reason == ""
+    assert "rockby-88213-redo.json" in result.archive.files
+    assert len(_zips(server)) == 1
+
+
+def test_a_file_outside_its_own_folder_is_not_archived(config, server,
+                                                       tmp_path):
+    """Zipping its neighbours would attach other imports' evidence."""
+    folder = tmp_path / "flat"
+    folder.mkdir()
+    (folder / "another-import.json").write_text("{}")
+    path = folder / "rockby-88213.json"
+    path.write_text(json.dumps({"source": {"reference": "rockby-88213"},
+                                "lines": [{"id": "1", "quantity": 1,
+                                           **ON_ORDER}]}))
+    result = _import(path, config)
+
+    assert _zips(server) == []
+    assert result.archive.name == ""
+    assert "not in its own import folder" in result.archive.reason
+
+
+def test_no_archive_leaves_it_out(config, server, tmp_path):
+    path = _import_dir(tmp_path, ON_ORDER)
+    result = _import(path, config, archive=False)
+    assert result.archive is None
+    assert _zips(server) == []

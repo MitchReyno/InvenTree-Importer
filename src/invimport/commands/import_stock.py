@@ -19,6 +19,12 @@ orders and stock. Re-running the same file is a no-op - each stock item carries
 a barcode naming the line that made it, and InvenTree refuses to assign one
 twice.
 
+Each import lives in its own folder, `.local_imports/<import name>/`, with
+everything it was made from. `--write` zips that folder and attaches the zip to
+the purchase orders the import used, or to the supplier of lines bought on no
+order, so the evidence survives the disk it was written on. A dry run says
+where it would go; `--no-archive` leaves it out.
+
 Anything ambiguous stops and asks, with the same interactive prompts the other
 commands use: an unknown category offers close matches before creating one, and
 a partly-specified part offers the parts that match what was given. Neither is
@@ -48,6 +54,13 @@ from ..stockfile import (
     read_file,
 )
 from ..inventree.api import connect
+from ..inventree.archive import (
+    ALREADY_ATTACHED,
+    ATTACHED,
+    FAILED,
+    PURCHASE_ORDER,
+    WOULD_ATTACH,
+)
 from ..inventree.parts import NEW_PART
 from ..inventree.stockimport import (
     CREATED,
@@ -101,6 +114,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                              "to the part, as well as linking it (local "
                              "datasheet files are always attached); also "
                              f"on when {MIRROR_ENV_VAR} is set")
+    parser.add_argument("--no-archive", action="store_true",
+                        help="do not zip the import's folder and attach it "
+                             "to its purchase orders or suppliers")
     parser.add_argument("--yes", action="store_true",
                         help="do not prompt; report anything ambiguous "
                              "instead")
@@ -658,6 +674,39 @@ def report_actions(document, result, resolved=None) -> None:
             print(f"        -> {shown}")
 
 
+def _megabytes(size: int) -> str:
+    return f"{size / 1_000_000:.1f} MB" if size >= 100_000 \
+        else f"{size / 1000:.0f} kB"
+
+
+def report_archive(archive) -> None:
+    """Where the zip of the import's folder went, or would go, or why not."""
+    if archive is None:
+        return
+    if not archive.name:
+        print(f"\n  archive: none - {archive.reason}")
+        return
+    print(f"\n  archive {archive.name}: {len(archive.files)} file(s), "
+          f"{_megabytes(archive.size)}")
+    if archive.reason:
+        print(f"    {archive.reason}")
+    mark = {ATTACHED: "+", WOULD_ATTACH: "+", ALREADY_ATTACHED: "=",
+            FAILED: "!"}
+    for target in archive.targets:
+        kind = "order" if target.kind == PURCHASE_ORDER else "supplier"
+        label = target.label if target.pk is None else f"{kind} {target.label}"
+        print(f"    {mark.get(target.outcome, ' ')} {label:<40} "
+              f"{target.outcome}  (lines {', '.join(target.lines)})")
+        if target.earlier:
+            print(f"        earlier version(s) kept: "
+                  f"{', '.join(target.earlier)}")
+    if archive.unattached:
+        print(f"    no order or supplier, so no archive for line(s): "
+              f"{', '.join(archive.unattached)}")
+    if not archive.targets and not archive.unattached:
+        print("    no imported lines to attach it to")
+
+
 def mirror_datasheets(args: argparse.Namespace) -> bool:
     """Is mirroring on, by the flag or by INVIMPORT_MIRROR_DATASHEETS?"""
     if args.mirror_datasheets:
@@ -675,6 +724,7 @@ def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
         min_confidence=args.min_confidence,
         create_orders=not args.no_orders,
         mirror_datasheets=mirror_datasheets(args),
+        archive=not args.no_archive,
         choose_category=ask_category if interactive else None,
         choose_part=ask_part if interactive else None,
         choose_name_match=ask_name_match if interactive else None,
@@ -688,6 +738,7 @@ def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
         result = import_stock(document, api, directory=args.config,
                               options=options)
         report_actions(document, result, report.resolved)
+        report_archive(result.archive)
         for key in totals:
             totals[key] += result.counts()[key]
 

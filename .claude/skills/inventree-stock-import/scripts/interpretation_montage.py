@@ -14,10 +14,13 @@ stock images. A missing file is drawn as a red placeholder, not skipped.
 SOURCES.json maps line ids to the photos each line was read from, as paths
 absolute or relative to the import file:
 
-    {"l01": ["photos/<import id>/source/41-914hmqb-bag.png"], "l14": [...]}
+    {"l01": ["photos/source/41-914hmqb-bag.png"], "l14": [...]}
 
-It defaults to IMPORT.sources.json beside the import file (the import file
-itself cannot carry it - its schema is strict). Lines without an entry show
+It defaults to IMPORT.sources.json beside the import file, in the import's own
+folder .local_imports/<import id>/ (the import file itself cannot carry it -
+its schema is strict). The sheets are a review aid, not a source: write
+OUT_DIR under .temp/, not into the import folder, or they end up in the
+import's archive. Lines without an entry show
 "no source photo listed". Prints the path of every sheet written.
 """
 

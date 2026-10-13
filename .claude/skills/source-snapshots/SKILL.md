@@ -17,14 +17,15 @@ Run from the repo root (`requests` comes from the project environment):
 
 ```bash
 S=.claude/skills/source-snapshots/scripts/snapshot.py
-uv run python $S "<url>" -o .local_imports/snapshots/<import id>/l03-nsn-5961007827187.html
+uv run python $S "<url>" -o .local_imports/<import id>/snapshots/l03-nsn-5961007827187.html
 uv run python $S "<url>" --render                 # run the page's JavaScript first (headless Chrome)
 uv run python $S "<url>" --from-html saved.html   # markup saved from a real browser
 uv run python $S "<url>" --pdf                    # also print the snapshot to PDF
 ```
 
-Without `-o` the file goes to `.local_imports/snapshots/` (or `--dir`) under a
-name built from the host and capture time.
+Without `-o` the file goes to `.temp/snapshots/` (or `--dir`) under a name
+built from the host and capture time - scratch, not a source of any import.
+A snapshot an import relies on is written into that import's folder.
 
 What it produces: stylesheets (with their `@import`s), images, fonts and
 favicons are inlined as data URIs; lazy-loaded and `srcset` images are
@@ -66,9 +67,10 @@ with `INVIMPORT_CHROME`. The script can also be imported (`take_snapshot`,
 
 ## Files
 
-Name snapshots `<line id>-<what>-<identifier>.html` inside a per-import
-folder, e.g. `.local_imports/snapshots/macservice-2026-10-04/l35-nsndepot-5962010149628.html`,
-so two imports cannot overwrite each other's snapshots. Do not overwrite an
+Name snapshots `<line id>-<what>-<identifier>.html` inside the import's own
+folder, e.g. `.local_imports/macservice-2026-10-14/snapshots/l35-nsndepot-5962010149628.html`,
+so two imports cannot overwrite each other's snapshots, and the snapshot is in
+the zip of that folder the import attaches to its purchase orders. Do not overwrite an
 existing snapshot of the same page; a later capture gets its own name (the
 default name carries the capture time).
 
@@ -78,7 +80,7 @@ List the file in the line's `attachments`, relative to the stock file, with a
 comment saying what it is and when it was captured:
 
 ```json
-"attachments": [{"file": "snapshots/macservice-2026-10-04/l03-nsn-5961007827187.html",
+"attachments": [{"file": "snapshots/l03-nsn-5961007827187.html",
                  "comment": "Source snapshot (2026-10-04): NSN 5961-00-782-7187 listing, nsnparts.us"}]
 ```
 

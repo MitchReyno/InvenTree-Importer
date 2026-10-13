@@ -1177,6 +1177,38 @@ def test_import_stock_re_run_creates_nothing(capsys, inventree, tmp_path):
     assert "1 already there" in capsys.readouterr().out
 
 
+def test_import_stock_reports_the_archive_it_would_attach_then_does(
+        capsys, inventree, tmp_path):
+    """The dry run names the zip and the order; --write attaches it."""
+    _seed_stock_tree(inventree)
+    directory = _stock_config(tmp_path)
+    folder = tmp_path / "rockby-1"
+    folder.mkdir()
+    path = _stock_file(folder, [
+        {"id": "a", "quantity": 25,
+         "category": "Resistors/Through Hole Resistors",
+         "parameters": {"Resistance": "1 kohm"},
+         "supplier": "Rockby", "sku": "R-1",
+         "order": {"reference": "INV-1"}},
+        {"id": "b", "quantity": 5,
+         "category": "Resistors/Through Hole Resistors",
+         "parameters": {"Resistance": "2 kohm"}}], name="rockby-1.json")
+    argv = ["import-stock", "--config", str(directory), "--yes", str(path)]
+
+    assert main(argv) == 0
+    out = capsys.readouterr().out
+    assert "archive import-rockby-1-" in out
+    assert "new order INV-1 from Rockby" in out
+    assert "would attach" in out
+    assert "no archive for line(s): b" in out
+    assert inventree.attachments == []
+
+    assert main(argv + ["--write"]) == 0
+    assert "attached" in capsys.readouterr().out
+    assert [a["model_type"] for a in inventree.attachments] == [
+        "purchaseorder"]
+
+
 def test_import_stock_validate_emits_machine_readable_errors(capsys, tmp_path):
     directory = _stock_config(tmp_path)
     path = _stock_file(tmp_path, [

@@ -149,7 +149,8 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - littlediode.com "product photos" are generic blank-top DIP stock shots — not
   photos of the exact part.
 - Datasheet Archive downloads use signed, expiring URLs — download the PDF to
-  `.local_imports/datasheets/` and attach the local file instead of linking.
+  the import's `datasheets/` folder (`.local_imports/<import id>/datasheets/`)
+  and attach the local file instead of linking.
 - MIL-M-38510 slash sheets (e.g. on TI's e2e file store) document JM38510
   parts when no maker datasheet survives.
 - **Harris SMD → part:** Harris *1997 Cross-Reference Guide* (bitsavers,

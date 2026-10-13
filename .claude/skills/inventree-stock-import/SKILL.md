@@ -69,8 +69,9 @@ drawing or house numbers, cross-referenced part numbers (e.g. `1989622-1` and
 - supplier parts: `SupplierPart.list(api, SKU=...)`
 - stock: each candidate part's `StockItem.list(api, part=pk)`, and stock tagged
   `nsn:<NSN>` (`api.get("stock/", params={"tags": "true", ...})`)
-- the local files: `grep` the identifiers across `.local_imports/*.json`, so an
-  item already in an unwritten import file is caught too
+- the local files: `grep -r` the identifiers across `.local_imports/` (each
+  import is a folder; `--include='*.json'`), so an item already in an
+  unwritten import file is caught too
 
 Note, per item, every candidate with its pk, IPN, name, category, MPNs and
 stock (quantity, batch, location, tags), and why it might be the same part. The
@@ -87,15 +88,32 @@ with the other lines as if the question were settled; lines with no candidates
 can be prepared meanwhile. When nothing matched, say in your summary that the
 check was done.
 
-**3. Write the file** to `.local_imports/` (see the shape below). Create the
-directory if it is not there. Name the file after the source — the photo,
-invoice or list — not `stock.json`, so a later import does not overwrite this
-one. The directory is gitignored; generated files stay local.
+**3. Write the file** into the import's own folder,
+`.local_imports/<import id>/<import id>.json` (see the shape below). Create
+the folder if it is not there. Name the import after the source — the photo,
+invoice or list, e.g. `macservice-2026-10-12` — not `stock`, so a later import
+does not overwrite this one, and use the same name as `source.reference`.
+
+**One folder per import.** Everything the import is made from goes in that
+folder and nowhere else: the `<import id>.sources.json`, the photos and crops
+(`photos/`, originals under `photos/source/`), the page snapshots
+(`snapshots/`), downloaded datasheet PDFs (`datasheets/`) and any invoice
+scan. Paths in the file are relative to it (`"photos/l04-f4520bpc.jpg"`). On
+`--write` the whole folder is zipped and attached to the import's purchase
+orders (or to the supplier, for lines on no order), so it is the record of
+what was imported and why — keep anything that is not part of that record
+out of it. `.local_imports/` is gitignored; generated files stay local.
+
+**Scratch work goes in `.temp/`**, at the repo root (also gitignored):
+previews, ROI overlays, review montages, test crops, the interpretation
+montage sheets, throwaway scripts and intermediate output — use
+`.temp/<import id>/` as the scratch directory for this import. Never put
+scratch files in `.local_imports/`, in the repo proper, or in `/tmp`.
 
 **4. Validate. Fix. Repeat.**
 
 ```bash
-uv run invimport import-stock .local_imports/IMG_4821.json --validate
+uv run invimport import-stock .local_imports/IMG_4821/IMG_4821.json --validate
 ```
 
 Returns JSON with `errors` carrying `did_you_mean`. No API calls, nothing
@@ -104,10 +122,13 @@ written — loop here as long as you need. Exit code 0 means clean.
 **5. Show the dry run to the user.**
 
 ```bash
-uv run invimport import-stock .local_imports/IMG_4821.json
+uv run invimport import-stock .local_imports/IMG_4821/IMG_4821.json
 ```
 
 Human-readable, with the parsed parameter values so they can check your reading.
+It ends with the import archive: the zip of the folder, its size, and the
+purchase orders or suppliers it would be attached to. A line with neither is
+listed there as getting no archive — mention it to the user.
 **Always let the user see this before anything is written.**
 
 When the import came from photos, send the **interpretation montage** with it
@@ -119,7 +140,7 @@ a glance.
 **6. Only then, write — and only if the user says to.**
 
 ```bash
-uv run invimport import-stock .local_imports/IMG_4821.json --write
+uv run invimport import-stock .local_imports/IMG_4821/IMG_4821.json --write
 ```
 
 **Never run `--write` without the user having seen the dry run and agreed.**
@@ -306,8 +327,9 @@ skip the subagent because an item looks easy.
 1. **Build the prompt** from
    [templates/research-subagent-prompt.md](templates/research-subagent-prompt.md):
    copy its base prompt and fill in the Job section — the import file, the
-   snapshot folder `.local_imports/snapshots/<import id>/`, a scratch
-   directory, and per item the line id(s) and **everything you transcribed**
+   snapshot folder `.local_imports/<import id>/snapshots/`, the datasheet
+   folder `.local_imports/<import id>/datasheets/`, the scratch directory
+   `.temp/<import id>/research/`, and per item the line id(s) and **everything you transcribed**
    (label text verbatim, markings, NSN, CAGE/FSCM, contract, date codes,
    packaging), whether a device photo exists, and any question to settle. The
    subagent knows nothing you do not write there. One subagent can take a
@@ -413,7 +435,8 @@ they actually hold, with its own markings, label and date code. So:
 3. **Dispatch the subagent** with the Agent tool (`general-purpose`). Build
    the prompt from [templates/image-subagent-prompt.md](templates/image-subagent-prompt.md): copy
    its base prompt and fill in the Job section — the import file, the output
-   folder `.local_imports/photos/<import id>/`, a scratch directory, every
+   folder `.local_imports/<import id>/photos/`, the scratch directory
+   `.temp/<import id>/images/`, every
    source photo by absolute path with a note on what it shows, every wanted
    output (line, field, content, suggested name), and whether it is a redo.
    The subagent knows nothing you do not write there. One subagent can take a
@@ -426,8 +449,10 @@ they actually hold, with its own markings, label and date code. So:
    crops, partly legible labels.
 
 Reference images relative to the stock file
-(`"photos/168844/l04-f4520bpc.jpg"`); the per-import folder stops two imports
-that both number from `l01` overwriting each other's photos. When the user
+(`"photos/l04-f4520bpc.jpg"`); the per-import folder stops two imports that
+both number from `l01` overwriting each other's photos. (Imports written before
+the one-folder layout keep their old relative paths inside their folder, e.g.
+`photos/macservice-2026-10-04/...`; leave those as they are.) When the user
 asks for crops to be redone, that is a job for the subagent too.
 
 **Replacing an image on a part that is already imported.** `attach_part_image`
@@ -453,24 +478,25 @@ packaging, condition, confidence), then the source photo(s) it came from, then
 its stock images.
 
 1. **Write the sources map** beside the import file as
-   `.local_imports/<import id>.sources.json`. It maps each line id to the
-   photos you read that line from:
+   `.local_imports/<import id>/<import id>.sources.json`. It maps each line
+   id to the photos you read that line from, relative to the import folder:
 
    ```json
-   {"l01": ["photos/<import id>/source/41-914hmqb-bag.png"],
-    "l14": ["photos/<import id>/source/55-bag-and-chip.png",
-            "photos/<import id>/source/56-chip.png"]}
+   {"l01": ["photos/source/41-914hmqb-bag.png"],
+    "l14": ["photos/source/55-bag-and-chip.png",
+            "photos/source/56-chip.png"]}
    ```
 
    Point it at the originals the image subagent saved under `source/`, not at
    session paths, which disappear. The import file cannot hold this map
    because its schema rejects unknown keys. Keep the map in step with the line
    ids.
-2. **Run it** from the repo root, writing into your scratch directory:
+2. **Run it** from the repo root, writing into `.temp/` — the sheets are a
+   review aid, not a source, so they stay out of the import folder:
 
    ```bash
    uv run -q --with pillow python .claude/skills/inventree-stock-import/scripts/interpretation_montage.py \
-       .local_imports/<import id>.json <scratch>/interp
+       .local_imports/<import id>/<import id>.json .temp/<import id>/interp
    ```
 
    It prints the path of each sheet. `--sources` overrides the map path.
@@ -727,7 +753,8 @@ Report to the user:
   user decided about any match
 - any parameter or choice you added to the config, and the command that
   pushes it to the server
-- whether anything was written, and what
+- whether anything was written, and what — including which purchase orders
+  or suppliers the import archive was attached to, and any line that got none
 
 Do not claim stock was imported unless you ran `--write` and it reported
 `created`. A dry run has written nothing.

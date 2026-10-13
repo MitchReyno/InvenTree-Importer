@@ -80,7 +80,9 @@ house number, or a complete spec is enough to search on. A bag that only says
    - Note when a URL is a mirror that may disappear (vintage data books, signed
      or expiring download links), so the caller can mirror it on import. A
      signed or expiring URL is not usable as a link: download the PDF to
-     `.local_imports/datasheets/<maker>-<part>-<year>.pdf` and report that path.
+     `.local_imports/<import id>/datasheets/<maker>-<part>-<year>.pdf` and
+     report that path, relative to the import folder
+     (`datasheets/<maker>-<part>-<year>.pdf`).
    - Summarise what the datasheet says that matters: function, ratings, grade
      suffixes, supplies, timing, package.
 
@@ -147,8 +149,9 @@ pass: the packet rarely has a datasheet or a temperature range.
   and registering twice on one tab runs the scripts twice. Do not edit the
   scripts; if one stops working, report it.
 - Keep downloads you only needed to read (whole data books, page dumps,
-  scratch HTML) in the scratch directory, never in the repo or `/tmp`. Only
-  snapshots and datasheet PDFs that will be attached go under `.local_imports/`.
+  scratch HTML) in the scratch directory under `.temp/`, never in the repo,
+  `.local_imports/` or `/tmp`. Only snapshots and datasheet PDFs that will be
+  attached go in the import's folder under `.local_imports/<import id>/`.
 - Read only; never write to the InvenTree server.
 - Stop and report rather than guess when an item cannot be identified.
 
@@ -201,10 +204,11 @@ A report the caller can apply directly, per item (by line id):
 
 <!-- Fill in every item. Be concrete: the subagent knows nothing else. -->
 
-- **Import file:** `.local_imports/<file>.json` (read it for context if
+- **Import file:** `.local_imports/<import id>/<import id>.json` (read it for context if
   useful; do not edit it)
-- **Snapshot folder:** `.local_imports/snapshots/<import id>/`
-- **Scratch directory:** `<$CLAUDE_JOB_DIR/tmp or the session scratchpad>`
+- **Snapshot folder:** `.local_imports/<import id>/snapshots/`
+- **Datasheet folder:** `.local_imports/<import id>/datasheets/`
+- **Scratch directory:** `.temp/<import id>/research/`
 - **Items:** per item — the line id(s) it will become, everything transcribed
   from the source (markings, label text verbatim, NSN, CAGE/FSCM, contract,
   date codes, packaging), what the caller already suspects it is, and whether
