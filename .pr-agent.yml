@@ -1,0 +1,37 @@
+# Copy to .pr-agent.yml on the default branch of a dedicated test repository.
+mode: remind
+issue:
+  enabled: false
+pullRequest:
+  enabled: false
+review:
+  enabled: true
+  mode: comment
+  onOpened: false
+  onEdited: false
+  onSynchronize: false
+  describeEnabled: false
+  describeAllowApply: false
+  checksCommandEnabled: false
+  includeCiChecks: false
+  secretScanEnabled: true
+  autoLabelEnabled: false
+  askCommandEnabled: true
+  generateTestsCommandEnabled: false
+  changelogCommandEnabled: false
+  changelogAllowApply: false
+  feedbackCommandEnabled: true
+  improveCommandEnabled: true
+  addDocCommandEnabled: false
+  implementCommandEnabled: false
+  customPromptCommandEnabled: false
+  helpDocsCommandEnabled: false
+  analyzeCommandEnabled: false
+  complianceCommandEnabled: false
+  similarCodeCommandEnabled: false
+  autoApproveCommandEnabled: false
+  scanRepoDiscussionsCommandEnabled: true
+  customRules:
+    - Report concrete correctness, security, and performance defects with evidence.
+    - Avoid style-only findings and issues already enforced by CI.
+    - Explain the failing scenario and suggest a concrete fix.
