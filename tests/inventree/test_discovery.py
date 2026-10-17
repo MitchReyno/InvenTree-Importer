@@ -46,7 +46,6 @@ def conf(tmp_path):
         (tmp_path / "units.yaml").write_text("")
         (tmp_path / "categories.yaml").write_text(categories)
         (tmp_path / "parameters.yaml").write_text(parameters)
-        (tmp_path / "manufacturers.yaml").write_text("")
         return tmp_path
     return write
 

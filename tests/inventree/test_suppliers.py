@@ -4,20 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from invimport.config import SupplierConfig, load_suppliers_config
 from invimport.inventree.api import connect
 from invimport.inventree.purchase_orders import (
     create_supplier,
     resolve_supplier,
     split_marketplace,
 )
-
-SUPPLIERS = {
-    "eBay": SupplierConfig("eBay", aliases=["ebay"]),
-    "Rockby Electronics": SupplierConfig("Rockby Electronics",
-                                         aliases=["Rockby"]),
-}
-
 
 # --------------------------------------------------------------------------
 # Marketplace sellers
@@ -35,7 +27,7 @@ def test_a_marketplace_seller_resolves_to_one_company(name, supplier, seller):
     The seller is a fact about the purchase, not a distributor you have a
     relationship with, so it is returned separately for the stock note.
     """
-    assert split_marketplace(name, SUPPLIERS) == (supplier, seller)
+    assert split_marketplace(name) == (supplier, seller)
 
 
 @pytest.mark.parametrize("name", [
@@ -45,14 +37,7 @@ def test_a_marketplace_seller_resolves_to_one_company(name, supplier, seller):
     "",
 ])
 def test_a_name_that_is_not_a_marketplace_is_left_alone(name):
-    assert split_marketplace(name, SUPPLIERS) == (name, "")
-
-
-def test_marketplaces_come_from_config_not_from_code():
-    """Adding Tindie should be a config change, not a code change."""
-    with_tindie = {**SUPPLIERS, "Tindie": SupplierConfig("Tindie")}
-    assert split_marketplace("Some Seller (Tindie)", with_tindie) == (
-        "Tindie", "Some Seller")
+    assert split_marketplace(name) == (name, "")
 
 
 # --------------------------------------------------------------------------
@@ -60,7 +45,7 @@ def test_marketplaces_come_from_config_not_from_code():
 # --------------------------------------------------------------------------
 def test_an_exact_name_matches(inventree):
     inventree.add_company("Rockby Electronics", pk=7, is_supplier=True)
-    company = resolve_supplier(connect(), "Rockby Electronics", SUPPLIERS)
+    company = resolve_supplier(connect(), "Rockby Electronics")
     assert company.pk == 7
 
 
@@ -78,34 +63,29 @@ def test_normalisation_matches_before_any_alias_is_needed(inventree, spelling):
     normalise to 'rockby' and match without anyone being asked.
     """
     inventree.add_company("Rockby Electronics", pk=7, is_supplier=True)
-    assert resolve_supplier(connect(), spelling, SUPPLIERS).pk == 7
-
-
-def test_a_configured_alias_matches(inventree):
-    inventree.add_company("Rockby Electronics", pk=7, is_supplier=True)
-    assert resolve_supplier(connect(), "Rockby", SUPPLIERS).pk == 7
+    assert resolve_supplier(connect(), spelling).pk == 7
 
 
 def test_an_ebay_seller_resolves_to_the_ebay_company(inventree):
     inventree.add_company("eBay", pk=8, is_supplier=True)
-    assert resolve_supplier(connect(), "salash (eBay)", SUPPLIERS).pk == 8
+    assert resolve_supplier(connect(), "salash (eBay)").pk == 8
 
 
 def test_an_unknown_supplier_is_not_created_silently(inventree):
     """Nothing is invented; the caller must ask for it."""
-    assert resolve_supplier(connect(), "Tayda Electronics", SUPPLIERS) is None
+    assert resolve_supplier(connect(), "Tayda Electronics") is None
     assert inventree.companies == []
 
 
 def test_create_makes_the_company_when_asked(inventree):
-    company = resolve_supplier(connect(), "Tayda Electronics", SUPPLIERS,
+    company = resolve_supplier(connect(), "Tayda Electronics",
                                create=True, write=True)
     assert company.name == "Tayda Electronics"
     assert inventree.companies[0]["is_supplier"] is True
 
 
 def test_a_dry_run_creates_nothing(inventree):
-    company = resolve_supplier(connect(), "Tayda Electronics", SUPPLIERS,
+    company = resolve_supplier(connect(), "Tayda Electronics",
                                create=True, write=False)
     assert company.pk == -1
     assert inventree.companies == []
@@ -120,14 +100,14 @@ def test_a_chooser_may_pick_an_existing_company(inventree):
         seen["offered"] = [c.name for c, _ in offered]
         return offered[0][0]
 
-    company = resolve_supplier(connect(), "Rokby Electronics", SUPPLIERS,
+    company = resolve_supplier(connect(), "Rokby Electronics",
                                choose=choose)
     assert company.pk == 7
     assert seen["offered"] == ["Rockby Electronics"]
 
 
 def test_a_chooser_may_name_a_new_company(inventree):
-    company = resolve_supplier(connect(), "Tyda", SUPPLIERS,
+    company = resolve_supplier(connect(), "Tyda",
                                choose=lambda name, offered: "Tayda Electronics",
                                write=True)
     assert company.name == "Tayda Electronics"
@@ -144,7 +124,7 @@ def test_a_decision_is_remembered_for_the_run(inventree):
         return offered[0][0] if offered else None
 
     for _ in range(3):
-        resolve_supplier(connect(), "Rokby Electronics", SUPPLIERS,
+        resolve_supplier(connect(), "Rokby Electronics",
                          choose=choose, cache=cache)
     assert len(asked) == 1
 
@@ -161,10 +141,3 @@ def test_a_new_supplier_gets_no_invented_website(inventree):
 def test_digikey_still_gets_its_website(inventree):
     create_supplier(connect(), "DigiKey")
     assert inventree.companies[0]["website"] == "https://www.digikey.com"
-
-
-def test_the_repo_config_maps_ebay(tmp_path):
-    """The shipped suppliers.yaml should already handle the common case."""
-    suppliers = load_suppliers_config()
-    assert "eBay" in suppliers
-    assert split_marketplace("salash (eBay)", suppliers)[0] == "eBay"

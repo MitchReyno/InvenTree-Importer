@@ -29,7 +29,6 @@ def config_dir(tmp_path, categories: str,
     (tmp_path / "units.yaml").write_text("")
     (tmp_path / "parameters.yaml").write_text(parameters)
     (tmp_path / "categories.yaml").write_text(categories)
-    (tmp_path / "manufacturers.yaml").write_text("")
     return tmp_path
 
 
@@ -110,7 +109,6 @@ def context(api, directory):
     """The lookups resolve_part() needs, assembled as the importer does."""
     from invimport.config import (
         load_categories_config,
-        load_manufacturers_config,
         load_parameters_config,
     )
     from invimport.inventree.api import PartCategory, ParameterTemplate
@@ -118,7 +116,6 @@ def context(api, directory):
     return ImportContext(
         categories=load_categories_config(directory),
         parameters=load_parameters_config(directory),
-        manufacturers=load_manufacturers_config(directory),
         server_categories={c.pathstring: c
                            for c in PartCategory.list(api, limit=1000)
                            if getattr(c, "pathstring", None)},

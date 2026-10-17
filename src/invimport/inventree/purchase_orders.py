@@ -42,7 +42,7 @@ from typing import Any, Callable, Iterable
 
 from ..util import dig
 from . import ledger
-from .matching import candidates, company_aliases, match_name
+from .matching import candidates, match_name
 from .api import (
     Company,
     InvenTreeError,
@@ -213,21 +213,17 @@ def create_supplier(api, name: str = SUPPLIER_NAME, **fields) -> Any:
 MARKETPLACE = re.compile(r"^\s*(?P<seller>.+?)\s*\(\s*(?P<market>[^()]+?)\s*\)\s*$")
 
 
-def split_marketplace(name: str, suppliers: dict[str, Any]
-                      ) -> tuple[str, str]:
+def split_marketplace(name: str) -> tuple[str, str]:
     """
-    'salash (eBay)' -> ('eBay', 'salash'), when eBay is a configured supplier.
+    Split an eBay seller from the marketplace company name.
 
-    Driven by suppliers.yaml rather than a hard-coded list, so adding
-    Tindie or AliExpress is a config change. A name whose bracketed part is
-    not a known supplier is left alone - '(Max)' and '(2024)' are not
-    marketplaces.
+    Other parenthesised names are left alone.
     """
     match = MARKETPLACE.match(name or "")
     if not match:
         return name, ""
     market = match.group("market")
-    matched = match_name(market, list(suppliers), company_aliases(suppliers))
+    matched = match_name(market, ["eBay"])
     if not matched:
         return name, ""
     return matched, match.group("seller").strip()
@@ -236,7 +232,6 @@ def split_marketplace(name: str, suppliers: dict[str, Any]
 def resolve_supplier(
     api,
     name: str,
-    suppliers: dict[str, Any],
     *,
     choose=None,
     create: bool = False,
@@ -246,8 +241,8 @@ def resolve_supplier(
     """
     The supplier Company this spelling means, or None.
 
-    The same shape as resolve_manufacturer: exact after normalisation, then a
-    learned alias, then - only if the caller offers a chooser - a fuzzy prompt.
+    The same shape as resolve_manufacturer: exact after normalisation, then
+    - only if the caller offers a chooser - a fuzzy prompt.
     Nothing is created silently.
     """
     if not name or not name.strip():
@@ -256,17 +251,14 @@ def resolve_supplier(
     if cache is not None and name in cache:
         return cache[name]
 
-    wanted, _seller = split_marketplace(name, suppliers)
+    wanted, _seller = split_marketplace(name)
 
     existing = list_suppliers(api)
     names = [c.name for c in existing]
-    matched = match_name(wanted, names, company_aliases(suppliers))
+    matched = match_name(wanted, names)
     company = None
     if matched:
         company = next((c for c in existing if c.name == matched), None)
-        if company is None and (create or write):
-            company = (create_supplier(api, matched) if write
-                       else SimpleNamespace(pk=-1, name=matched))
 
     if company is None and create:
         company = (create_supplier(api, wanted) if write

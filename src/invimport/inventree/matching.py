@@ -189,12 +189,3 @@ def unmapped_paths(paths: Iterable[list[str] | str],
     """DigiKey paths that no category claims, sorted."""
     return sorted({path_text(path) for path in paths
                    if match_path(path, categories) is None and path_text(path)})
-
-
-def company_aliases(companies) -> dict[str, list[str]]:
-    """{canonical name: aliases} from a loaded manufacturers or suppliers config."""
-    return {c.name: list(c.aliases) for c in companies.values()}
-
-
-# Manufacturers and suppliers carry the same shape, so one helper serves both.
-manufacturer_aliases = company_aliases

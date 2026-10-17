@@ -44,9 +44,7 @@ from ..config import (
     CategoryConfig,
     add_category,
     load_categories_config,
-    load_manufacturers_config,
     load_parameters_config,
-    load_suppliers_config,
 )
 from .. import notes as notes_md
 from .. import provenance
@@ -64,7 +62,7 @@ from .api import (
 )
 from .archive import ImportArchive, archive_import, import_folder
 from .categories import ensure_on_server
-from .companies import LogoAction, config_aliases, set_logos
+from .companies import LogoAction, set_logos
 from .datasheets import attach_datasheet, prefetch, resolve_datasheet
 from .parts import (
     UNRESOLVED_PK,
@@ -228,13 +226,10 @@ def import_stock(
 
     categories = load_categories_config(directory)
     parameters = load_parameters_config(directory)
-    manufacturers = load_manufacturers_config(directory)
-    suppliers = load_suppliers_config(directory)
 
     ctx = ImportContext(
         categories=categories,
         parameters=parameters,
-        manufacturers=manufacturers,
         server_categories={c.pathstring: c
                            for c in PartCategory.list(api, limit=LIST_LIMIT)
                            if getattr(c, "pathstring", None)},
@@ -257,7 +252,7 @@ def import_stock(
     with ledger.recording() as book:
         for line in document.lines:
             action = _import_line(
-                api, document, line, ctx, suppliers, options,
+                api, document, line, ctx, options,
                 directory=directory,
                 supplier_cache=supplier_cache, location_cache=location_cache,
                 order_cache=order_cache, supplier_parts=supplier_parts,
@@ -273,7 +268,6 @@ def import_stock(
             result.logos = set_logos(
                 api, document.companies, write=options.write,
                 base_dir=document.path.parent if document.path else None,
-                aliases=config_aliases(directory),
                 only_created={e.pk for e in book.events
                               if e.model == "company"
                               and e.what == ledger.CREATED})
@@ -342,7 +336,7 @@ def invimport_version() -> str:
 
 
 def _import_line(api, document: StockFile, line: StockLine,
-                 ctx: ImportContext, suppliers, options: ImportOptions, *,
+                 ctx: ImportContext, options: ImportOptions, *,
                  directory: Path,
                  supplier_cache, location_cache, order_cache,
                  supplier_parts, by_id=None) -> LineAction:
@@ -362,7 +356,7 @@ def _import_line(api, document: StockFile, line: StockLine,
         _existing_notes(api, line, options, action)
         _existing_name(api, line, action)
         if options.archive:
-            _existing_order(api, line, suppliers, options, supplier_cache,
+            _existing_order(api, line, options, supplier_cache,
                             action)
         if options.write:
             _attach_stock_images(document, line, existing, api)
@@ -462,7 +456,7 @@ def _import_line(api, document: StockFile, line: StockLine,
     action.parameters = resolved.part_parameters + resolved.manufacturer_parameters
 
     # --- the supplier, and what it sold ---
-    supplier, seller = _resolve_supplier(api, line, suppliers, options,
+    supplier, seller = _resolve_supplier(api, line, options,
                                          supplier_cache)
     if supplier is not None:
         action.supplier = supplier_pk(supplier)
@@ -708,7 +702,7 @@ def _existing_notes(api, line: StockLine, options: ImportOptions,
         action.manufacturer_part_notes = ""
 
 
-def _existing_order(api, line: StockLine, suppliers, options: ImportOptions,
+def _existing_order(api, line: StockLine, options: ImportOptions,
                     cache, action: LineAction) -> None:
     """
     The order and supplier of stock an earlier run imported.
@@ -735,7 +729,7 @@ def _existing_order(api, line: StockLine, suppliers, options: ImportOptions,
     # companies found are shared, in both directions.
     found = {name: company for name, company in cache.items()
              if company is not None}
-    supplier, _seller = _resolve_supplier(api, line, suppliers, look_only,
+    supplier, _seller = _resolve_supplier(api, line, look_only,
                                           found)
     cache.update({name: company for name, company in found.items()
                   if company is not None})
@@ -874,14 +868,14 @@ def _create_category(pathstring: str, line: StockLine, ctx: ImportContext,
     return chosen
 
 
-def _resolve_supplier(api, line: StockLine, suppliers,
+def _resolve_supplier(api, line: StockLine,
                       options: ImportOptions, cache) -> tuple[Any, str]:
     """The supplier company, and the marketplace seller if there was one."""
     if not line.supplier:
         return None, ""
-    _canonical, seller = split_marketplace(line.supplier, suppliers)
+    _canonical, seller = split_marketplace(line.supplier)
     company = resolve_supplier(
-        api, line.supplier, suppliers,
+        api, line.supplier,
         choose=options.choose_supplier, create=options.create_suppliers,
         write=options.write, cache=cache)
     return company, seller

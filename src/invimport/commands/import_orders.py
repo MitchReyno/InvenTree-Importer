@@ -86,7 +86,7 @@ from ..inventree.purchase_orders import (
 )
 from .supplier_parts import (
     learn_categories,
-    learn_manufacturer,
+    prompt_manufacturer,
     report as report_parts,
     report_sku,
     report_step,
@@ -573,7 +573,7 @@ def run(args: argparse.Namespace) -> int:
           f"order(s)...", flush=True)
     chooser = None
     if create_parts and not args.create_manufacturers and interactive():
-        chooser = learn_manufacturer(args.config or CONFIG_DIR)
+        chooser = prompt_manufacturer
 
     directory = args.config or CONFIG_DIR
 

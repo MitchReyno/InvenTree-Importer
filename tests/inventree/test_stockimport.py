@@ -60,9 +60,7 @@ def config(tmp_path):
     (tmp_path / "units.yaml").write_text("")
     (tmp_path / "categories.yaml").write_text(CATEGORIES)
     (tmp_path / "parameters.yaml").write_text(PARAMETERS)
-    (tmp_path / "manufacturers.yaml").write_text("")
-    (tmp_path / "suppliers.yaml").write_text(
-        "eBay:\n  aliases: [ebay]\n")
+
     return tmp_path
 
 

@@ -12,7 +12,6 @@ from invimport.config import (
     add_value_alias,
     load_categories_config,
     load_config,
-    load_manufacturers_config,
     load_parameters_config,
 )
 
@@ -269,41 +268,30 @@ def test_a_key_parameter_outside_the_category_is_caught(conf):
 
 
 # --------------------------------------------------------------------------
-# Manufacturers and write-back
+# Config write-back
 # --------------------------------------------------------------------------
-def test_manufacturers_load(tmp_path):
-    (tmp_path / "manufacturers.yaml").write_text(
-        "YAGEO:\n  aliases: [Yageo, Yageo Corporation]\n")
-    makers = load_manufacturers_config(tmp_path)
-    assert makers["YAGEO"].aliases == ["Yageo", "Yageo Corporation"]
-
-
-def test_a_missing_manufacturers_file_is_empty(tmp_path):
-    assert load_manufacturers_config(tmp_path) == {}
-
-
-def test_add_alias_appends_a_new_manufacturer(tmp_path):
-    path = tmp_path / "manufacturers.yaml"
+def test_add_alias_appends_a_new_category(tmp_path):
+    path = tmp_path / "categories.yaml"
     path.write_text("# learned mappings\n")
-    assert add_alias(path, ["YAGEO"], "Yageo") is True
-    makers = load_manufacturers_config(tmp_path)
-    assert makers["YAGEO"].aliases == ["Yageo"]
+    assert add_alias(path, ["Resistors"], "Resistors / SMD") is True
+    categories = load_categories_config(tmp_path)
+    assert categories["Resistors"].aliases == ["Resistors / SMD"]
     assert path.read_text().startswith("# learned mappings")
 
 
 def test_add_alias_extends_an_existing_list(tmp_path):
-    path = tmp_path / "manufacturers.yaml"
-    path.write_text("YAGEO:\n  aliases:\n    - Yageo\n")
-    assert add_alias(path, ["YAGEO"], "Yageo Corporation") is True
-    assert load_manufacturers_config(tmp_path)["YAGEO"].aliases == [
-        "Yageo", "Yageo Corporation"]
+    path = tmp_path / "categories.yaml"
+    path.write_text("Resistors:\n  aliases:\n    - Resistors / SMD\n")
+    assert add_alias(path, ["Resistors"], "Resistors / Through Hole") is True
+    assert load_categories_config(tmp_path)["Resistors"].aliases == [
+        "Resistors / SMD", "Resistors / Through Hole"]
 
 
 def test_add_alias_is_idempotent(tmp_path):
-    path = tmp_path / "manufacturers.yaml"
-    path.write_text("YAGEO:\n  aliases:\n    - Yageo\n")
-    assert add_alias(path, ["YAGEO"], "Yageo") is False
-    assert path.read_text() == "YAGEO:\n  aliases:\n    - Yageo\n"
+    path = tmp_path / "categories.yaml"
+    path.write_text("Resistors:\n  aliases:\n    - Resistors / SMD\n")
+    assert add_alias(path, ["Resistors"], "Resistors / SMD") is False
+    assert path.read_text() == "Resistors:\n  aliases:\n    - Resistors / SMD\n"
 
 
 def test_add_alias_under_a_nested_category(tmp_path):

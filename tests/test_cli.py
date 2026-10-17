@@ -158,7 +158,6 @@ def unstocked(inventree):
 
 def _part_config_at(path):
     (path / "units.yaml").write_text("")
-    (path / "manufacturers.yaml").write_text("")
     (path / "parameters.yaml").write_text("Package: {}\n")
     (path / "categories.yaml").write_text(
         "Integrated Circuits:\n"
@@ -264,7 +263,6 @@ def test_import_orders_create_parts_flag_skips_the_question(
 def _unmapped_config(path):
     """A config with the categories, but no alias claiming the DigiKey path."""
     (path / "units.yaml").write_text("")
-    (path / "manufacturers.yaml").write_text("")
     (path / "parameters.yaml").write_text("Package: {}\n")
     (path / "categories.yaml").write_text(
         "Integrated Circuits:\n"
@@ -704,7 +702,6 @@ def _part_config(tmp_path):
         "  Timers:\n"
         "    aliases:\n"
         "      - Integrated Circuits (ICs) / Clock/Timing\n")
-    (tmp_path / "manufacturers.yaml").write_text("")
     return tmp_path
 
 
@@ -739,7 +736,6 @@ def test_supplier_parts_writes_when_asked(digikey, digikey_env, workspace,
 
 def _choice_config(tmp_path, choices="Surface Mount"):
     (tmp_path / "units.yaml").write_text("")
-    (tmp_path / "manufacturers.yaml").write_text("")
     (tmp_path / "parameters.yaml").write_text(
         "Package:\n  aliases: [Package / Case]\n"
         "Mounting:\n  aliases: [Mounting Type]\n"
@@ -778,7 +774,6 @@ def test_supplier_parts_suggests_a_similar_parameter(
     _seed_ic_tree(inventree)
     inventree.templates.append({"pk": 21, "name": "Mounting", "units": ""})
     (tmp_path / "units.yaml").write_text("")
-    (tmp_path / "manufacturers.yaml").write_text("")
     (tmp_path / "parameters.yaml").write_text(
         "Package:\n  aliases: [Package / Case]\n"
         "Mounting: {}\n")
@@ -957,7 +952,6 @@ def discover_config(tmp_path):
     (directory / "units.yaml").write_text("")
     (directory / "categories.yaml").write_text(DISCOVER_CATEGORIES)
     (directory / "parameters.yaml").write_text(DISCOVER_PARAMETERS)
-    (directory / "manufacturers.yaml").write_text("")
 
     products = tmp_path / "products"
     products.mkdir()
@@ -1040,7 +1034,6 @@ def test_discover_can_be_limited_to_one_category(discover_config, workspace,
 # --------------------------------------------------------------------------
 def _stock_config(tmp_path):
     (tmp_path / "units.yaml").write_text("")
-    (tmp_path / "manufacturers.yaml").write_text("")
     (tmp_path / "parameters.yaml").write_text(
         "Resistance:\n  units: ohm\n  parse: quantity\n")
     (tmp_path / "categories.yaml").write_text(
