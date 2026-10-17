@@ -45,12 +45,18 @@ choices *this* config defines. You cannot guess these — the category is
 
 **2. Transcribe, then delegate the look-up.** Read the source and transcribe
 every item (markings, label text, NSN, quantities, packaging, seal state).
-Then dispatch the subagents, in the background and in parallel:
+A maker's logo you cannot name is transcribed as what it looks like ("dashed
+circle with radiating bars"), not guessed; the researcher identifies it with
+the `chip-logo-identification` skill. Then dispatch the subagents, in the
+background and in parallel:
 
 - the **research subagent** for every item you can identify — see
   [Research: hand it to a subagent](#research-hand-it-to-a-subagent);
 - the **image subagent** when the user's photos are to become part or stock
   images — see [Images: hand them to a subagent](#images-hand-them-to-a-subagent).
+- the **logo subagent** when a manufacturer or supplier the lines name will
+  be new on the server, or is there with no logo — see
+  [Logos: hand them to a subagent](#logos-hand-them-to-a-subagent).
 
 While they work, do the existing-records check (2b) and settle questions with
 the user. When the research report proposes config changes, make them — see
@@ -241,6 +247,12 @@ line. The first line of a part finds or creates it; later lines join it — no
 `defaults` are merged into every line and a line always wins, so put the
 supplier, currency and order there once rather than repeating them. In version
 2 they hold stock fields only; the category is set on each part.
+
+`companies` gives a logo for a manufacturer or supplier the lines name, keyed
+by that name: `"companies": {"Signetics": {"image": "logos/signetics.png"}}`.
+It is uploaded after the lines, so a company the import creates gets it, and a
+company that already has a logo keeps it. The logos come from the logo
+subagent (see [Logos](#logos-hand-them-to-a-subagent)).
 
 **Give every part a `name`, unless its category builds one from parameters.**
 Resistors and capacitors are named by their category's template (`Resistor
@@ -511,6 +523,36 @@ its stock images.
    A red frame or "no source photo listed" means a missing file or map entry.
    Fix it, don't send it.
 
+## Logos: hand them to a subagent
+
+Every manufacturer and supplier should carry its logo. Finding one — the
+company's own mark, not an acquirer's or a namesake's, on the background it is
+normally shown on — is a job for the **`company-logo-finder` agent**, not for
+you, and the rules for it live in the `company-logos` skill it loads.
+
+1. **Work out which companies need one**: those the lines name that are not
+   on the server yet, and those on the server with no image
+   (`uv run invimport company-logos` lists them; match by name and the
+   learned aliases).
+2. **Dispatch the `company-logo-finder` agent** (Agent tool,
+   `subagent_type: "company-logo-finder"`, defined in
+   `.claude/agents/company-logo-finder.md`), in the background, alongside the
+   research and image subagents. The brief: job A, the import file, the
+   output folder `.local_imports/<import id>/logos/`, the scratch directory
+   `.temp/<import id>/logos/`, and each company by the exact name the lines
+   use, whether it is a manufacturer or supplier, and what you know of it —
+   its website, the era and kind of parts it is on, a CAGE code, what it must
+   not be confused with.
+3. **Apply its report**: add the `companies` entries it returns to the file,
+   open its montage and check the logos yourself, and pass on its flags and
+   anything it could not find. The dry run lists each logo as `would set`,
+   `has one` or why not.
+
+When the user asks for logos on companies already on the server, outside any
+import, dispatch the same agent with job B; it writes a logos file and stops
+at the dry run of `invimport company-logos` unless your brief says the user
+approved uploading.
+
 ## Rules that matter
 
 **Never invent.** Quantity, price, order number, and the MPN, manufacturer or
@@ -562,7 +604,10 @@ numbers.
 the part's `type`, not in a manufacturer part's `mpn`. A JEDEC number
 identifies a generic part regardless of who made it; an MPN belongs to one
 manufacturer. When a maker's logo is on a `type`-marked lot, give the part a
-manufacturer part with that maker and the designator as its `mpn`.
+manufacturer part with that maker and the designator as its `mpn`. A logo
+names the maker only once it is identified — by its text, a
+`chip-logo-identification` match, or the evidence the researcher reports —
+never by resemblance alone.
 
 **Several lots of one part are lines naming the same part.** Lots under
 different numbers — an older or alternate marking, a special number, a second

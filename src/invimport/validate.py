@@ -200,6 +200,7 @@ def validate(
 
     _check_unconfirmed_repeats(document, categories, report)
     _attribute_to_entries(document, report)
+    _check_company_logos(document, base_dir, report)
     return report
 
 
@@ -410,6 +411,23 @@ def _check_datasheet(line: StockLine, base_dir: Path | None,
             line.id, "datasheet",
             f"{line.datasheet!r} is not a file (looked for {path}), so no "
             f"datasheet will be attached"))
+
+
+def _check_company_logos(document: StockFile, base_dir: Path | None,
+                         report: Report) -> None:
+    """A local logo has to exist, or the company is left without one."""
+    for name, company in document.companies.items():
+        image = company.get("image", "")
+        if not image or absolute_url(image):
+            continue
+        path = Path(image).expanduser()
+        if not path.is_absolute() and base_dir is not None:
+            path = base_dir / path
+        if not path.is_file():
+            report.warnings.append(Problem(
+                name, "image",
+                f"{image!r} is not a file (looked for {path}), so no logo "
+                f"will be set", kind="company"))
 
 
 def _check_identity(line: StockLine, category: CategoryConfig,

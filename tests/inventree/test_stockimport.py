@@ -1508,3 +1508,49 @@ def test_no_archive_leaves_it_out(config, server, tmp_path):
     result = _import(path, config, archive=False)
     assert result.archive is None
     assert _zips(server) == []
+
+
+# --------------------------------------------------------------------------
+# Company logos
+# --------------------------------------------------------------------------
+def logo_file(tmp_path, companies, **line):
+    (tmp_path / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    path = tmp_path / "stock.json"
+    path.write_text(json.dumps({
+        "source": {"reference": "notes.jpg"},
+        "companies": companies,
+        "lines": [{"id": "1", "quantity": 1, **DIODE, **line}]}))
+    return read_file(path)
+
+
+def test_a_manufacturer_the_import_creates_gets_its_logo(config, server,
+                                                         tmp_path):
+    document = logo_file(tmp_path, {"Vishay": {"image": "logo.png"}},
+                         manufacturer="Vishay")
+    result = import_stock(document, connect(), directory=config,
+                          options=ImportOptions(write=True))
+    vishay = next(c for c in server.companies if c["name"] == "Vishay")
+    assert vishay.get("image")
+    assert [(l.name, l.action) for l in result.logos] == [("Vishay", "set")]
+
+
+def test_a_dry_run_says_a_new_company_would_get_its_logo(config, server,
+                                                         tmp_path):
+    document = logo_file(tmp_path, {"Vishay": {"image": "logo.png"}},
+                         manufacturer="Vishay")
+    result = import_stock(document, connect(), directory=config,
+                          options=ImportOptions(write=False))
+    assert result.logos[0].action == "would set"
+    assert server.company_images == []
+
+
+def test_a_company_that_has_a_logo_keeps_it(config, server, tmp_path):
+    server.add_company("Rockby Electronics", pk=5,
+                       image="/media/company_images/hand-picked.png")
+    document = logo_file(tmp_path, {"Rockby": {"image": "logo.png"}},
+                         supplier="Rockby", sku="D-1N4007")
+    result = import_stock(document, connect(), directory=config,
+                          options=ImportOptions(write=True))
+    assert result.logos[0].action == "has one"
+    assert result.logos[0].company == "Rockby Electronics"
+    assert server.company_images == []

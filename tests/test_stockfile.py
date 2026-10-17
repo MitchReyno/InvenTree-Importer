@@ -692,3 +692,42 @@ def test_a_name_longer_than_inventree_keeps_is_refused_on_the_part():
     data["parts"][0]["name"] = "x" * 101
     assert ("part 118a: name: is 101 characters; InvenTree keeps at most 100"
             in problems_of(data))
+
+
+# --------------------------------------------------------------------------
+# Company logos
+# --------------------------------------------------------------------------
+def test_a_company_logo_is_read_for_a_manufacturer_a_line_names():
+    document = parse_document(doc(
+        lines=[{"id": "a", "quantity": 1, "manufacturer": "YAGEO",
+                "category": "Resistors/Through Hole Resistors"}],
+        companies={"Yageo Corporation": {"image": "logos/yageo.png"}}))
+    assert document.companies == {
+        "Yageo Corporation": {"image": "logos/yageo.png"}}
+
+
+def test_a_marketplace_supplier_names_the_marketplace():
+    document = parse_document(doc(
+        lines=[{"id": "a", "quantity": 1, "supplier": "salash (eBay)",
+                "sku": "x", "category": "Resistors/Through Hole Resistors"}],
+        companies={"eBay": {"image": "logos/ebay.png"}}))
+    assert "eBay" in document.companies
+
+
+def test_a_company_no_line_names_is_refused():
+    with pytest.raises(StockFileError, match="company Rockby: no line names"):
+        parse_document(doc(companies={"Rockby": {"image": "rockby.png"}}))
+
+
+@pytest.mark.parametrize("companies, expected", [
+    (["YAGEO"], "must be a mapping of company name"),
+    ({"YAGEO": "yageo.png"}, "must be a mapping"),
+    ({"YAGEO": {}}, "image: must be a single URL or path"),
+    ({"YAGEO": {"image": "y.png", "logo": "y.png"}}, "logo: not a recognised"),
+])
+def test_a_malformed_company_is_refused(companies, expected):
+    with pytest.raises(StockFileError, match=expected):
+        parse_document(doc(
+            lines=[{"id": "a", "quantity": 1, "manufacturer": "YAGEO",
+                    "category": "Resistors/Through Hole Resistors"}],
+            companies=companies))

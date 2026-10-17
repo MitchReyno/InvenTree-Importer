@@ -1,6 +1,9 @@
 """Rank reference logos by visual similarity to a cropped photo of an IC marking.
 
-usage: python3 match.py CROP.png [--top N] [--sheet OUT.png]
+usage (from the repo root; numpy and Pillow come in with --with):
+  uv run -q --with numpy --with pillow python -I \
+      .claude/skills/chip-logo-identification/scripts/match.py CROP.png \
+      [--top N] [--sheet .temp/<task>/candidates.png]
 
 CROP should be tightly cropped to the logo only (no part number text).
 Polarity (light-on-dark vs dark-on-light) and size are normalised, so laser-etched,
@@ -12,6 +15,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+DATA = os.path.join(os.path.dirname(HERE), "data")  # index.json; its "file" paths are relative to it
 S = 48
 
 def otsu(a):
@@ -40,13 +44,13 @@ def feature(mask):
 def ref_features(index):
     out = []
     for e in index:
-        m = masks(Image.open(os.path.join(HERE, e["file"])).convert("RGB"))[0]  # refs are light-on-dark
+        m = masks(Image.open(os.path.join(DATA, e["file"])).convert("RGB"))[0]  # refs are light-on-dark
         f, ar = feature(m)
         out.append((e, f, ar))
     return out
 
 def rank(query_path, top):
-    index = json.load(open(os.path.join(HERE, "index.json")))
+    index = json.load(open(os.path.join(DATA, "index.json")))
     refs = [r for r in ref_features(index) if r[1] is not None]
     qs = [feature(m) for m in masks(Image.open(query_path).convert("RGB"))]
     scored = []
@@ -66,7 +70,7 @@ def sheet(query_path, results, out):
     rows = -(-(len(results) + 1) // cols)
     img = Image.new("RGB", (cols * CW, rows * CH), (24, 24, 28)); d = ImageDraw.Draw(img)
     tiles = [(Image.open(query_path).convert("RGB"), "QUERY", "")] + \
-            [(Image.open(os.path.join(HERE, e["file"])).convert("RGB"), f"#{i+1} {e['id']} ({s:.2f})", e["manufacturer"]) for i, (s, e) in enumerate(results)]
+            [(Image.open(os.path.join(DATA, e["file"])).convert("RGB"), f"#{i+1} {e['id']} ({s:.2f})", e["manufacturer"]) for i, (s, e) in enumerate(results)]
     for n, (im, a, b) in enumerate(tiles):
         x, y = (n % cols) * CW, (n // cols) * CH
         sc = min(4, (CW - 12) / im.width, 95 / im.height)
@@ -74,6 +78,7 @@ def sheet(query_path, results, out):
         d.rectangle((x + 2, y + 2, x + CW - 2, y + CH - 2), fill=(0, 0, 0), outline=(255, 170, 60) if n == 0 else (70, 70, 70))
         img.paste(im, (x + (CW - im.width) // 2, y + 5 + (95 - im.height) // 2))
         d.text((x + 6, y + 102), a, font=f, fill=(255, 210, 0)); d.text((x + 6, y + 119), b[:30], font=f, fill=(235, 235, 235))
+    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     img.save(out)
 
 if __name__ == "__main__":

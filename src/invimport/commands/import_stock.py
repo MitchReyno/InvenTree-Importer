@@ -61,6 +61,7 @@ from ..inventree.archive import (
     PURCHASE_ORDER,
     WOULD_ATTACH,
 )
+from ..inventree import companies
 from ..inventree.parts import NEW_PART
 from ..inventree.stockimport import (
     CREATED,
@@ -415,6 +416,22 @@ def schema() -> dict[str, Any]:
             "manufacturer_parts": {"type": "array",
                                    "items": manufacturer_part,
                                    "description": "Version 2 only."},
+            "companies": {
+                "type": "object",
+                "description": "Logos for the manufacturers and suppliers "
+                               "the lines name, keyed by that name. Set only "
+                               "on a company that has no image yet.",
+                "additionalProperties": {
+                    "type": "object", "additionalProperties": False,
+                    "required": ["image"],
+                    "properties": {
+                        "image": {"type": "string",
+                                  "description": "Logo URL, or a path "
+                                                 "relative to the stock "
+                                                 "file."},
+                    },
+                },
+            },
             "lines": {"type": "array"},
         },
     }
@@ -707,6 +724,20 @@ def report_archive(archive) -> None:
         print("    no imported lines to attach it to")
 
 
+def report_logos(logos) -> None:
+    """What became of each company logo the file gives."""
+    if not logos:
+        return
+    print("\n  company logos:")
+    mark = {companies.SET: "+", companies.WOULD_SET: "+",
+            companies.HAS_ONE: "=", companies.NOT_FOUND: "-",
+            companies.FAILED: "!"}
+    for logo in logos:
+        detail = f" - {logo.reason}" if logo.reason else ""
+        print(f"    {mark.get(logo.action, ' ')} {logo.name:<40} "
+              f"{logo.action}{detail}")
+
+
 def mirror_datasheets(args: argparse.Namespace) -> bool:
     """Is mirroring on, by the flag or by INVIMPORT_MIRROR_DATASHEETS?"""
     if args.mirror_datasheets:
@@ -739,6 +770,7 @@ def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
                               options=options)
         report_actions(document, result, report.resolved)
         report_archive(result.archive)
+        report_logos(result.logos)
         for key in totals:
             totals[key] += result.counts()[key]
 

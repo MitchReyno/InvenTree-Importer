@@ -1,3 +1,11 @@
+"""Extract manufacturer names and logo image paths from the saved plasma-online pages.
+
+usage: parse.py html_dir rows.json
+
+html_dir holds page.html and page_a.html ... page_z.html saved from
+http://www.plasma-online.de/english/identify/picture/index_logochip.html
+(not kept in the repo). rows.json is build.py's second argument.
+"""
 import re, json, sys, html, os
 d = sys.argv[1]
 order = ["page.html"] + [f"page_{c}.html" for c in "abcdefghijklmnopqrstuvwxyz"]

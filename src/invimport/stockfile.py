@@ -28,6 +28,7 @@ import hashlib
 import dataclasses
 import io
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -36,6 +37,7 @@ from typing import Any
 import yaml
 
 from . import notes
+from .inventree.matching import normalise
 from .util import absolute_url, parse_pages
 
 # What a line may say. Anything else is a mistake worth reporting rather than
@@ -89,6 +91,10 @@ V2_LINE_KEYS = {
 # In version 2 the category belongs to the part, so it is not a line default.
 V2_DEFAULTABLE = {"supplier", "currency", "location", "order", "condition",
                   "notes", "tags", "batch", "packaging"}
+# A company's logo travels with the import as `companies`, keyed by the name a
+# line gives as its manufacturer or supplier. Only an empty logo is filled: a
+# company that already has one keeps it.
+COMPANY_KEYS = {"image"}
 # A version 2 line is expanded into the version 1 shape the importer runs on.
 # These carry what that shape had no field for.
 EXPANDED_KEYS = {"part_notes", "manufacturer_part_notes", "supplier_link",
@@ -111,6 +117,8 @@ SEAL_STATES = ("sealed", "unsealed", "resealed", "opened", "open",
 # can be found by the number printed on its surplus label. Thirteen digits,
 # written 4-2-3-4 however the label spaced them.
 NSN_PREFIX = "nsn:"
+# 'salash (eBay)': the company in brackets, the seller before them.
+MARKETPLACE_NAME = re.compile(r"^\s*.+?\s*\(\s*(?P<market>[^()]+?)\s*\)\s*$")
 NSN_DIGITS = 13
 
 
@@ -243,6 +251,8 @@ class StockFile:
     # Set from source.reference, else a hash of the file. Half of the barcode
     # that makes re-running an import a no-op.
     file_id: str = ""
+    # Company name -> {"image": path or URL}, from the file's `companies`.
+    companies: dict[str, dict[str, str]] = field(default_factory=dict)
 
     def key_for(self, line: StockLine) -> str:
         """The idempotence key: stable per line, per file."""
@@ -827,13 +837,84 @@ def parse_document(data: Any, path: Path | None = None) -> StockFile:
                                     f"{line.part_of!r} comes later in the file; "
                                     f"it must come first"))
 
+    companies = parse_companies(data.get("companies"), problems)
+    named = _companies_named(lines)
+    for name in companies:
+        if normalise(name) not in named:
+            problems.append(Problem(
+                name, "", "no line names this company as its manufacturer "
+                          "or supplier, so nothing would use it",
+                kind="company"))
+
     if problems:
         raise StockFileError("\n".join(
             p.describe() for p in unique(problems)))
 
-    document = StockFile(version=version, source=source, lines=lines, path=path)
+    document = StockFile(version=version, source=source, lines=lines, path=path,
+                         companies=companies)
     document.file_id = file_id_for(document, data)
     return document
+
+
+# --------------------------------------------------------------------------
+# Companies
+# --------------------------------------------------------------------------
+def parse_companies(value: Any, problems: list[Problem]
+                    ) -> dict[str, dict[str, str]]:
+    """
+    `companies`: {name: {"image": path or URL}}, checked for shape only.
+
+    Shared with `invimport company-logos`, whose logos file is this section
+    on its own, so a logo is written the same way wherever it is given.
+    """
+    if value in (None, ""):
+        return {}
+    if not isinstance(value, dict):
+        problems.append(Problem("", "companies",
+                                "must be a mapping of company name to "
+                                "{image: ...}"))
+        return {}
+    companies: dict[str, dict[str, str]] = {}
+    for raw_name, body in value.items():
+        name = str(raw_name or "").strip()
+        if not name:
+            problems.append(Problem("", "companies", "a company needs a name"))
+            continue
+        if not isinstance(body, dict):
+            problems.append(Problem(name, "", "must be a mapping, e.g. "
+                                              "{\"image\": \"logos/x.png\"}",
+                                    kind="company"))
+            continue
+        for key in body:
+            if key not in COMPANY_KEYS:
+                problems.append(Problem(name, key, "not a recognised field",
+                                        did_you_mean=_close(key, COMPANY_KEYS),
+                                        kind="company"))
+        image = body.get("image")
+        if not isinstance(image, str) or not image.strip():
+            problems.append(Problem(name, "image",
+                                    "must be a single URL or path",
+                                    kind="company"))
+            continue
+        companies[name] = {"image": image.strip()}
+    return companies
+
+
+def _companies_named(lines: list[StockLine]) -> set[str]:
+    """Every manufacturer and supplier the lines name, normalised.
+
+    A marketplace supplier, 'salash (eBay)', names eBay as well as itself.
+    """
+    named: set[str] = set()
+    for line in lines:
+        for name in (line.manufacturer, line.supplier):
+            if not name:
+                continue
+            named.add(normalise(name))
+            market = MARKETPLACE_NAME.match(name)
+            if market:
+                named.add(normalise(market.group("market")))
+    return named
 
 
 # --------------------------------------------------------------------------

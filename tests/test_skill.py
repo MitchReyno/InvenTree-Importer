@@ -217,7 +217,8 @@ def test_the_skill_delegates_looking_parts_up_to_the_research_subagent(text):
 
 
 @pytest.mark.parametrize("agent", ["component-researcher",
-                                   "component-image-cropper"])
+                                   "component-image-cropper",
+                                   "company-logo-finder"])
 def test_the_skill_dispatches_each_subagent_by_its_agent_name(text, agent):
     """
     The subagents are project agents, not templates pasted into a prompt, so

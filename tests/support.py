@@ -340,6 +340,8 @@ class InvenTreeStub:
             {"pk": 1, "name": "Stock", "parent": None, "pathstring": "Stock"},
         ]
         self.images: list[int] = []
+        # Companies given a logo, by pk.
+        self.company_images: list[int] = []
         # barcode string -> {"stockitem": pk}. InvenTree enforces uniqueness
         # here, which is what makes a double import impossible rather than
         # merely guarded against - so the stub enforces it too.
@@ -769,6 +771,12 @@ class InvenTreeStub:
                     pk_match = re.search(r"/(\d+)/?$", parsed.path)
                     pk = int(pk_match.group(1)) if pk_match else 1
                     stub.saves.append((parsed.path, {"image": True}))
+                    if parsed.path.startswith("/api/company/"):
+                        stub.company_images.append(pk)
+                        for row in stub.companies:
+                            if row["pk"] == pk:
+                                row["image"] = f"/media/company_images/{pk}.png"
+                        return self._send(200, {"pk": pk, "image": "uploaded"})
                     stub.images.append(pk)
                     for row in stub.part_rows:
                         if row["pk"] == pk:

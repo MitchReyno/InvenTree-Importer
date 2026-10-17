@@ -85,7 +85,7 @@ are relative to the folder you run from, so run imports from the repo root.
 * Remove it with `uv tool uninstall inventree-importer`.
 
 The tool only provides `invimport`. Tests and lint still go through
-`uv run pytest` and `uv run ruff check .`.
+`make test` and `uv run ruff check .`.
 
 ### Credentials
 
@@ -731,6 +731,22 @@ from elsewhere.
 
 For parts imported before any of this, see [`datasheets`](#datasheets).
 
+#### Company logos
+
+A file may give a logo for the manufacturers and suppliers its lines name, in
+a top-level `companies` section keyed by the name the lines use:
+
+```json
+"companies": {"Signetics": {"image": "logos/signetics.png"}}
+```
+
+`image` is a URL or a path relative to the stock file. Logos are uploaded
+after the lines, so a company the import creates gets one too; a company that
+already has a logo keeps it. A company no line names is refused, and a local
+file that is not there is a validation warning. The dry run lists each logo as
+`would set`, `has one`, `not on the server` or `failed`. For companies already
+on the server, see [`company-logos`](#company-logos).
+
 Run `uv run invimport import-stock --schema` for the full field reference.
 
 #### Re-running is safe
@@ -984,6 +1000,40 @@ whole document is mirrored. To add an extract of just the device's pages, give
 the datasheet with `datasheet_pages` in a stock file and re-run that import
 with `--mirror-datasheets` - lines already imported still get their datasheet.
 
+### company-logos
+
+List the companies on the server that have no logo, or give them one from a
+logos file.
+
+```bash
+# who has none (and, for an agent, the same as JSON)
+uv run invimport company-logos
+uv run invimport company-logos --json missing.json
+
+# dry run: what the file would set
+uv run invimport company-logos .local_imports/company-logos-2026-10-17/company-logos.json
+
+# apply
+uv run invimport company-logos .local_imports/company-logos-2026-10-17/company-logos.json --write
+```
+
+The logos file is a stock file's `companies` section on its own, JSON or
+YAML, with paths relative to it. Names match as manufacturers and suppliers do
+everywhere else - normalised, then the learned aliases - and are never
+fuzzy-matched. A company that already has a logo is left alone; nothing is
+replaced or deleted.
+
+| Flag           | Effect                                                  |
+|----------------|---------------------------------------------------------|
+| `--write`      | Upload the logos (default is a dry run)                 |
+| `--json PATH`  | Also write the list of companies with no logo as JSON   |
+| `--config DIR` | Config directory for the learned aliases                |
+
+The `company-logo-finder` agent (`.claude/agents/`) does the finding: the
+company's own logo from its site, Wikimedia Commons or its printed material,
+a transparent logo put on the colour it is normally shown on, as an opaque
+square PNG. The rules are in `.claude/skills/company-logos/SKILL.md`.
+
 ### Global flags
 
 | Flag              | Effect                                              |
@@ -1126,6 +1176,7 @@ src/
             stockimport.py    a stock file becoming InvenTree records
             archive.py        an import's folder, zipped onto its orders
             datasheets.py     datasheet PDFs attached to parts, and back-fill
+            companies.py      company logos: who has none, and setting them
         commands/             thin CLI adapters over the above
             _keys.py          raw-mode key reading for the category browser
             _prompt.py        prompt façade (InquirerPy, or numbered fallback)
@@ -1143,8 +1194,14 @@ tests/                        mirrors the package
     inventree/
         test_parameters.py
 .claude/
+    agents/                   subagents the stock-import skill dispatches
+        component-researcher.md   identifies parts, finds datasheets and sources
+        component-image-cropper.md  photos into part and stock images
+        company-logo-finder.md    manufacturer and supplier logos
     skills/
         inventree-stock-import/   a Claude skill that generates a stock file
+        company-logos/            finding a logo and giving it a background
+        chip-logo-identification/ naming a chip's maker from its logo (483 logos)
 docs/
     InvenTree API.yaml        OpenAPI spec, used by the test suite
 .local_imports/               (gitignored) one folder per stock import
@@ -1201,11 +1258,11 @@ create nothing.
 ## Development
 
 ```bash
-uv run pytest                          # everything but the scanner TUI tests
-uv run pytest -m tui                   # just the scanner TUI tests
-uv run pytest -m ""                    # everything, TUI included
-uv run pytest tests/digikey            # one package's suite
-uv run pytest -k cache                 # by name
+make test                     # everything but the scanner TUI tests
+make test-scanner             # just the scanner TUI tests
+make test-all                 # everything, TUI included
+uv run pytest tests/digikey   # one package's suite
+uv run pytest -k cache        # by name
 ```
 
 `tests/` mirrors the package, so the tests for `invimport.digikey.orders` are in

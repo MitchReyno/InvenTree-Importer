@@ -60,7 +60,10 @@ house number, or a complete spec is enough to search on. A bag that only says
    elsewhere: for NSN-marked stock, the NSN record's cross-reference (every
    part number with its CAGE code and company), its FLIS characteristics, its
    assignment date and any replacement or cancellation. Decode the CAGE/FSCM
-   codes printed on the labels. Note anything that bears on whether two items
+   codes printed on the labels. When a chip's maker rests on a logo that is
+   symbol-only, worn or not one you recognise, **load the
+   `chip-logo-identification` skill** and identify it from the photo; report
+   the logo id it matched, or that nothing matched. Note anything that bears on whether two items
    are the **same part** (cancelled-and-replaced NSNs, an 883-screened grade vs
    a plain one, a house number for a commercial part) — the caller will put
    that question to the user; you only lay out the evidence.

@@ -346,12 +346,11 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - Drawing-controlled chips can carry the prime's drawing number on the
   ceramic beside the lid (`72500` / `0-315`) while the lid carries the real
   maker's logo (an AMD chip under Raytheon 725000-315).
-- Unknown logo on a chip: use `reference/chip-manufacturer-logos/` (483 logos
-  marked on chips, 1990s-2000s; see its README). Grep `index.csv` for any text
+- Unknown logo on a chip: load the `chip-logo-identification` skill (483
+  logos marked on chips, 1990s-2000s). Grep its `data/index.csv` for any text
   or shape in the mark; for symbol-only marks, crop the photo to the logo and
-  run `python3 -I reference/chip-manufacturer-logos/match.py crop.png --sheet
-  out.png`, then confirm on the candidate sheet. `pages/` holds agent-sized
-  grids grouped by shape. No newer makers — no close match means not covered,
+  run its `scripts/match.py`, then confirm on the candidate sheet and the
+  shape-grouped pages. No newer makers — no close match means not covered,
   not the nearest candidate.
 - ADI module-era grades A/K/L are not the later J/K/S: for the 118, A =
   -25/+85 C with higher drift, K = 0/+70 C with lower drift. ADI 4-digit

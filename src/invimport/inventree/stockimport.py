@@ -59,6 +59,7 @@ from .api import (
 )
 from .archive import ImportArchive, archive_import
 from .categories import ensure_on_server
+from .companies import LogoAction, config_aliases, set_logos
 from .datasheets import attach_datasheet, prefetch, resolve_datasheet
 from .parts import (
     UNRESOLVED_PK,
@@ -151,6 +152,8 @@ class StockImportResult:
     # The zip of the import's folder and the records it went on; None when
     # archiving was not asked for.
     archive: ImportArchive | None = None
+    # What became of each logo in the file's `companies`.
+    logos: list[LogoAction] = field(default_factory=list)
 
     def counts(self) -> dict[str, int]:
         return {
@@ -240,6 +243,14 @@ def import_stock(
             by_id=by_id)
         by_id[line.id] = action
         result.lines.append(action)
+
+    # After the lines, so a company this run created is there to take one.
+    if document.companies:
+        result.logos = set_logos(
+            api, document.companies, write=options.write,
+            base_dir=document.path.parent if document.path else None,
+            aliases=config_aliases(directory),
+            created_by_run=True)
 
     if options.archive:
         result.archive = archive_import(api, document, result.lines,
