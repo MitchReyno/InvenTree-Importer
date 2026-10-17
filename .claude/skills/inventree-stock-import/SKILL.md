@@ -631,11 +631,13 @@ you, and the rules for it live in the `company-logos` skill it loads.
    `.temp/<import id>/logos/`, and each company by the exact name the lines
    use, whether it is a manufacturer or supplier, and what you know of it —
    its website, the era and kind of parts it is on, a CAGE code, what it must
-   not be confused with.
+   not be confused with; for a supplier, the seller or store name, invoice
+   letterhead and town the source shows.
 3. **Apply its report**: add the `companies` entries it returns to the file,
    open its montage and check the logos yourself, and pass on its flags and
    anything it could not find. The dry run lists each logo as `would set`,
-   `has one` or why not.
+   `has one` or why not. Tool problems it reports are fixed in the script or
+   the `company-logos` skill (or put to the user), not collected as notes.
 
 When the user asks for logos on companies already on the server, outside any
 import, dispatch the same agent with job B; it writes a logos file and stops

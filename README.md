@@ -1089,6 +1089,7 @@ JSON, with the image's digest and when it was set.
 |----------------|---------------------------------------------------------|
 | `--write`      | Upload the logos (default is a dry run)                 |
 | `--json PATH`  | Also write the list of companies with no logo as JSON   |
+| `--show NAME`  | What the server knows about one company, to identify it |
 | `--config DIR` | Config directory for the learned aliases                |
 
 The `company-logo-finder` agent (`.claude/agents/`) does the finding: the

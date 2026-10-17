@@ -27,9 +27,10 @@ from typing import Any
 from .. import cache
 from ..config import CONFIG_DIR, load_manufacturers_config, load_suppliers_config
 from . import ledger
-from .api import Company
-from .matching import company_aliases, match_name
+from .api import Company, ManufacturerPart, PurchaseOrder, SupplierPart
+from .matching import candidates, company_aliases, match_name
 from .parts import resolve_image_source
+from .purchase_orders import attachments
 
 log = logging.getLogger(__name__)
 
@@ -128,3 +129,61 @@ def set_logos(api, companies: dict[str, dict[str, str]], *,
                     **ledger.file_facts(path))
         action.action = SET
     return actions
+
+
+SHOW_ROWS = 8
+
+
+def find_company(api, name: str, aliases: dict[str, list[str]] | None = None
+                 ) -> tuple[Any | None, list[str]]:
+    """The company a name means, or None and the closest names on the server."""
+    server = list_companies(api)
+    by_name = {str(getattr(c, "name", "")): c for c in server}
+    matched = match_name(name, list(by_name), aliases)
+    if matched in by_name:
+        return by_name[matched], []
+    return None, [n for n, _ in candidates(name, list(by_name))]
+
+
+def company_details(api, company, aliases: dict[str, list[str]] | None = None
+                    ) -> dict[str, Any]:
+    """
+    What the server knows that helps say who a company is: its own fields,
+    the spellings learned for it, and samples of what it is attached to - a
+    supplier's SKUs and listing links, a maker's part numbers, the orders.
+    """
+    pk = company.pk
+    details: dict[str, Any] = {
+        "pk": pk, "name": str(company.name),
+        "manufacturer": bool(getattr(company, "is_manufacturer", False)),
+        "supplier": bool(getattr(company, "is_supplier", False)),
+    }
+    for key in ("website", "email", "phone", "description", "notes",
+                "currency", "image"):
+        value = getattr(company, key, None)
+        if value:
+            details[key] = str(value)
+    spellings = (aliases or {}).get(str(company.name)) or []
+    if spellings:
+        details["aliases"] = list(spellings)
+    if details["supplier"]:
+        parts = SupplierPart.list(api, supplier=pk, limit=LIST_LIMIT)
+        details["supplier_parts"] = len(parts)
+        details["skus"] = [
+            {"sku": str(p.SKU), **({"link": str(p.link)}
+                                   if getattr(p, "link", "") else {})}
+            for p in parts[:SHOW_ROWS]]
+        orders = PurchaseOrder.list(api, supplier=pk, limit=LIST_LIMIT)
+        details["orders"] = [
+            " ".join(str(v) for v in (o.reference,
+                                      getattr(o, "supplier_reference", ""),
+                                      getattr(o, "issue_date", "")) if v)
+            for o in orders[:SHOW_ROWS]]
+    if details["manufacturer"]:
+        made = ManufacturerPart.list(api, manufacturer=pk, limit=LIST_LIMIT)
+        details["manufacturer_parts"] = len(made)
+        details["mpns"] = [str(m.MPN) for m in made[:SHOW_ROWS]]
+    details["attachments"] = [
+        str(a.get("filename") or a.get("attachment") or "")
+        for a in attachments(api, "company", pk)][:SHOW_ROWS]
+    return {k: v for k, v in details.items() if v not in ([], None)}

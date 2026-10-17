@@ -75,11 +75,15 @@ does that in InvenTree.
 
 ## Ground rules
 
-- Look at every logo you produce, on the montage the skill describes and at
-  64 px. Never report one you have not looked at.
+- Use the skill's tools rather than one-off code: `--show` to identify a
+  company, `commons.py`, `wayback_logo.py`, `find_in_pdf.py` and
+  `scan_logo.py` to find and cut logos, `logo_bg.py` in browser-harness for a
+  site's logo and its background, `review.py` to check the results.
+- Look at every logo you produce, on `review.py`'s montage and 64 px strip.
+  Never report one you have not looked at.
 - Use browser-harness for pages that need a browser (JavaScript-built,
-  bot-protected), and for screenshots to sample a background; plain `curl`
-  or WebFetch for public pages and files.
+  bot-protected); plain `curl` or WebFetch for public pages and files. Close
+  any tab you open.
 - Downloads and scratch work (originals, renders, screenshots, montages) go
   in the scratch directory the brief names under `.temp/`, each download in
   its own new folder — never in the repo, `/tmp`, or the logos folder. Only
@@ -106,7 +110,10 @@ does that in InvenTree.
    chosen for a defunct company), logos only found as favicons or low-res
    scans, contrast warnings you accepted and why, `--aspect keep` used.
 4. Not found: each company with no logo, why, and where you looked.
-5. The montage path, so the caller can look at it too.
+5. The montage and strip paths, so the caller can look too.
+6. Tool problems: anything a script or the skill got wrong, or could not do
+   and you had to work around - one line each, so the tool can be fixed. Not
+   a list of facts learned.
 
 ## What your brief gives you
 
@@ -124,5 +131,7 @@ you need is missing, stop and say which rather than guessing.
 - **Companies:** per company — the name exactly as the lines or the server
   give it, manufacturer or supplier, and whatever is known: website, the
   parts or era it is attached to (e.g. "1970s TTL, Sunnyvale CA", "CAGE
-  18324"), what it is not to be confused with.
+  18324"), what it is not to be confused with. For a supplier, how the user
+  dealt with it: store or seller name, invoice letterhead, town, roughly
+  when — a bare name often matches unrelated businesses.
 - **Approved to write** (job B only): yes or no. Default no.

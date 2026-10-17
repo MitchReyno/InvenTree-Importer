@@ -30,7 +30,7 @@ import tempfile
 from collections import Counter
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageFilter
 
 # Fully transparent below this alpha, fully opaque at or above OPAQUE.
 CLEAR = 8
@@ -38,6 +38,13 @@ OPAQUE = 248
 # Rasterise SVGs this wide before trimming, so the result is not soft.
 SVG_WIDTH = 2048
 MIN_CONTRAST = 3.0
+# A pixel this close (RGB distance) to the ground - the background, or a
+# scan's paper - is ground, not logo: it is left out of the logo's colours.
+GROUND_DISTANCE = 48
+# Wider than this, a wordmark on a square canvas is hard to read small.
+WIDE = 4.0
+# A colour must cover this share of the logo before its contrast matters.
+MAJOR = 0.10
 
 
 def load(path: Path) -> Image.Image:
@@ -104,10 +111,39 @@ def pixels(image: Image.Image) -> list[tuple]:
     return list(getattr(image, "get_flattened_data", image.getdata)())
 
 
-def opaque_pixels(image: Image.Image):
+def opaque_pixels(image: Image.Image, ground=None):
+    """The logo's own pixels: opaque, and not the ground colour."""
     small = image.copy()
     small.thumbnail((256, 256))
-    return [p for p in pixels(small) if p[3] >= OPAQUE]
+    return [p for p in pixels(small) if p[3] >= OPAQUE
+            and (ground is None or distance(p, ground) > GROUND_DISTANCE)]
+
+
+def distance(a, b) -> float:
+    return sum((x - y) ** 2 for x, y in zip(a[:3], b[:3], strict=True)) ** 0.5
+
+
+def is_opaque(image: Image.Image) -> bool:
+    return image.getchannel("A").getextrema()[0] >= OPAQUE
+
+
+def border_colour(image: Image.Image):
+    """The median colour of the outermost pixels: a scan's paper."""
+    rgb = image.convert("RGB")
+    w, h = rgb.size
+    edge = [rgb.getpixel((x, y)) for x in range(0, w, max(1, w // 64))
+            for y in (0, h - 1)]
+    edge += [rgb.getpixel((x, y)) for y in range(0, h, max(1, h // 64))
+             for x in (0, w - 1)]
+    return tuple(sorted(c[i] for c in edge)[len(edge) // 2] for i in range(3))
+
+
+def ink_box(image: Image.Image, ground):
+    """Bounds of what differs from the ground colour, ignoring specks."""
+    rgb = image.convert("RGB")
+    diff = ImageChops.difference(rgb, Image.new("RGB", rgb.size, ground))
+    mask = diff.convert("L").filter(ImageFilter.MedianFilter(3))
+    return mask.point(lambda v: 255 if v > GROUND_DISTANCE else 0).getbbox()
 
 
 def inspect(paths: list[Path]) -> None:
@@ -130,7 +166,12 @@ def inspect(paths: list[Path]) -> None:
         if box:
             print(f"  content box: {box[0]},{box[1]} - {box[2]},{box[3]} "
                   f"({box[2] - box[0]}x{box[3] - box[1]})")
-        colours = dominant(opaque_pixels(image))
+        ground = None
+        if clear == 0 and partial == 0:
+            ground = border_colour(image)
+            print(f"  ground (border colour): {hex_colour(ground)} - left "
+                  f"out of the logo's colours")
+        colours = dominant(opaque_pixels(image, ground))
         for rgb, share in colours:
             print(f"  {hex_colour(rgb)}  {share:5.0%}  contrast on white "
                   f"{contrast(rgb, (255, 255, 255)):4.1f}, on black "
@@ -156,12 +197,16 @@ def sample(path: Path, box: str) -> None:
 def flatten(source: Path, out: Path, background: str, pad: float, size: int,
             aspect: str, trim: bool) -> None:
     image = load(source)
+    colour = parse_hex(background)
+    # An opaque source (a scan, a logo on its own ground) has a ground of
+    # its own; its pixels are not the logo's colours.
+    ground = border_colour(image) if is_opaque(image) else None
     if trim:
-        box = image.getchannel("A").point(
-            lambda a: 255 if a >= CLEAR else 0).getbbox()
+        box = (ink_box(image, ground) if ground is not None else
+               image.getchannel("A").point(
+                   lambda a: 255 if a >= CLEAR else 0).getbbox())
         if box:
             image = image.crop(box)
-    colour = parse_hex(background)
 
     margin = round(max(image.size) * pad)
     width, height = image.width + 2 * margin, image.height + 2 * margin
@@ -176,11 +221,22 @@ def flatten(source: Path, out: Path, background: str, pad: float, size: int,
     out.parent.mkdir(parents=True, exist_ok=True)
     result.save(out, "PNG", optimize=True)
 
-    colours = dominant(opaque_pixels(image))
+    # Only the source's own ground (a scan's paper) is left out; a logo
+    # colour close to the new background is exactly what must show up.
+    colours = dominant(opaque_pixels(image, ground))
     print(f"{out}: {result.width}x{result.height} on {hex_colour(colour)}")
+    if max(result.size) < size:
+        print(f"  NOTE: the source only gives {max(result.size)} px, not "
+              f"{size} - it is never enlarged; find a larger source if it "
+              f"looks soft")
+    if aspect == "square" and image.width > WIDE * image.height:
+        print(f"  NOTE: the logo is {image.width / image.height:.1f}:1 wide -"
+              f" check it at 64 px; --pad 0.04 lets it fill the width")
     for rgb, share in colours[:2]:
         ratio = contrast(rgb, colour)
-        flag = "  LOW - check it is legible" if ratio < MIN_CONTRAST else ""
+        # A sliver of colour is anti-aliasing at the letters' edges.
+        flag = ("  LOW - check it is legible"
+                if ratio < MIN_CONTRAST and share >= MAJOR else "")
         print(f"  logo {hex_colour(rgb)} ({share:.0%}) contrast "
               f"{ratio:.1f}:1{flag}")
 
@@ -204,7 +260,8 @@ def main() -> None:
     p.add_argument("--pad", type=float, default=0.1,
                    help="margin as a fraction of the logo's longer side")
     p.add_argument("--size", type=int, default=512,
-                   help="longest side of the output, at most")
+                   help="longest side of the output, at most (a smaller "
+                        "source is never enlarged)")
     p.add_argument("--aspect", choices=("square", "keep"), default="square")
     p.add_argument("--no-trim", dest="trim", action="store_false",
                    help="keep the source's own transparent margin")

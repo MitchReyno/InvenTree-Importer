@@ -5,6 +5,7 @@ Give companies on the server that have no logo one.
     invimport company-logos --json missing.json     # the same, for an agent
     invimport company-logos logos.json              # dry run: what it would set
     invimport company-logos logos.json --write
+    invimport company-logos --show "MacService Group" # who is this company?
 
 The logos file is the `companies` section of a stock file on its own, JSON or
 YAML, with paths relative to the file:
@@ -40,7 +41,9 @@ from ..inventree.companies import (
     NOT_FOUND,
     SET,
     WOULD_SET,
+    company_details,
     config_aliases,
+    find_company,
     missing_logos,
     set_logos,
 )
@@ -63,6 +66,10 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--json", type=Path, default=None, metavar="PATH",
                         help="write the list of companies with no logo to a "
                              "JSON file")
+    parser.add_argument("--show", metavar="NAME",
+                        help="print what the server knows about one company "
+                             "- fields, aliases, SKUs and links, part "
+                             "numbers, orders - to help identify it")
     parser.add_argument("--config", type=Path, default=None, metavar="DIR",
                         help="config directory, for the learned aliases "
                              "(default: config/ at the repo root)")
@@ -110,7 +117,33 @@ def list_missing(args: argparse.Namespace) -> int:
     return 0
 
 
+def show(args: argparse.Namespace) -> int:
+    api = connect()
+    aliases = config_aliases(args.config)
+    company, near = find_company(api, args.show, aliases)
+    if company is None:
+        print(f"No company {args.show!r} on the server"
+              + (f"; closest: {', '.join(near)}" if near else "") + ".")
+        return 1
+    details = company_details(api, company, aliases)
+    if args.json:
+        args.json.write_text(json.dumps(details, indent=2) + "\n",
+                             encoding="utf-8")
+    for key, value in details.items():
+        if isinstance(value, list):
+            print(f"  {key}:")
+            for item in value:
+                text = (f"{item['sku']}  {item.get('link', '')}"
+                        if isinstance(item, dict) else item)
+                print(f"    {text}".rstrip())
+        else:
+            print(f"  {key}: {value}")
+    return 0
+
+
 def run(args: argparse.Namespace) -> int:
+    if args.show:
+        return show(args)
     if args.file is None:
         return list_missing(args)
 

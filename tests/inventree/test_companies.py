@@ -114,3 +114,22 @@ def test_a_logo_set_from_a_file_keeps_where_it_came_from(server, logo,
     assert main(["company-logos", str(path)]) == 0     # dry run: nothing new
     assert len([a for a in server.attachments
                 if a["filename"].startswith("provenance-")]) == 1
+
+
+def test_show_prints_what_identifies_a_company(server, tmp_path, capsys):
+    server.add_company("Rockby Electronics", pk=7, website="https://rockby.com.au",
+                       notes="counter sales")
+    server.supplier_parts.append({"pk": 1, "supplier": 7, "SKU": "R-4K7",
+                                  "part": 1, "link": "https://rockby.com.au/p/1"})
+    out = tmp_path / "rockby.json"
+    assert main(["company-logos", "--show", "Rockby", "--json", str(out)]) == 0
+    details = json.loads(out.read_text())
+    assert details["website"] == "https://rockby.com.au"
+    assert details["skus"] == [{"sku": "R-4K7",
+                                "link": "https://rockby.com.au/p/1"}]
+    assert "counter sales" in capsys.readouterr().out
+
+
+def test_show_offers_the_closest_names_rather_than_guessing(server, capsys):
+    assert main(["company-logos", "--show", "Signetix"]) == 1
+    assert "closest: Signetics" in capsys.readouterr().out
