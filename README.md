@@ -65,6 +65,28 @@ uv sync
 the project itself so the `invimport` command is available. There is no venv to
 activate — prefix commands with `uv run`.
 
+#### Optional: drop the `uv run`
+
+To type `invimport` on its own, in any shell, install it as a uv tool:
+
+```bash
+uv tool install --editable .
+```
+
+`--editable` points the tool at this checkout, so edits to the code take effect
+straight away, and `.env` and `config/` are still read from the repo wherever
+you run it. Relative paths you pass — an import file under `.local_imports/` —
+are relative to the folder you run from, so run imports from the repo root.
+
+* If the shell cannot find `invimport` afterwards, `uv tool update-shell` adds
+  uv's tool directory to your `PATH`; open a new terminal.
+* After a change to the dependencies in `pyproject.toml`, reinstall with
+  `uv tool install --editable . --reinstall`.
+* Remove it with `uv tool uninstall inventree-importer`.
+
+The tool only provides `invimport`. Tests and lint still go through
+`uv run pytest` and `uv run ruff check .`.
+
 ### Credentials
 
 Copy the example file, then fill in the missing values in `.env`:
@@ -121,7 +143,10 @@ uv run pytest
 
 ## Usage
 
-Run any command with `--help` for its full options.
+Run any command with `--help` for its full options. The examples use
+`uv run invimport`; if you installed the tool (see
+[Optional: drop the `uv run`](#optional-drop-the-uv-run)), leave out the
+`uv run`.
 
 ### product
 

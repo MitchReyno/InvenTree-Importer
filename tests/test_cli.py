@@ -24,6 +24,18 @@ def test_no_command_prints_help(capsys):
     assert "COMMAND" in capsys.readouterr().out
 
 
+def test_help_lists_each_command_once(capsys):
+    from invimport.commands import COMMANDS
+
+    with pytest.raises(SystemExit):
+        main(["-h"])
+    out = capsys.readouterr().out
+    for module in COMMANDS:
+        listed = [line for line in out.splitlines()
+                  if line.split()[:1] == [module.NAME]]
+        assert len(listed) == 1, f"{module.NAME} listed {len(listed)} times"
+
+
 def test_unknown_command_is_rejected():
     with pytest.raises(SystemExit):
         main(["nonsense"])

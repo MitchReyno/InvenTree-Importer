@@ -3,18 +3,8 @@ invimport - one entrypoint for the InvenTree import tooling.
 
     invimport <command> [options]           (or: python -m invimport ...)
 
-Commands
---------
-    product         fetch DigiKey product data by SKU
-    orders          fetch DigiKey order history and sales orders
-    import-orders   import DigiKey orders into InvenTree as purchase orders
-    parameters      create and update InvenTree parameter templates
-    categories      create and update InvenTree part categories
-    supplier-parts  create InvenTree parts from DigiKey SKUs
-    import-stock    import stock from a file (photo, invoice, list)
-    datasheets      attach a copy of each part's linked datasheet
-
-Run `invimport <command> --help` for a command's own options and notes.
+The commands are listed below, from the registered command modules. Run
+`invimport <command> --help` for a command's own options and notes.
 
 Credentials
 -----------
@@ -58,6 +48,9 @@ def program_name() -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    # The command list comes from the subparsers alone. The docstring used to
+    # carry a copy too, which printed every command twice and drifted (it
+    # never gained `discover`).
     parser = argparse.ArgumentParser(
         prog=program_name(),
         description=__doc__,
@@ -71,7 +64,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="include debug-level log output")
 
-    subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
+    subparsers = parser.add_subparsers(dest="command", metavar="COMMAND",
+                                       title="commands")
     for module in COMMANDS:
         sub = subparsers.add_parser(
             module.NAME,
