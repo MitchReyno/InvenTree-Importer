@@ -114,7 +114,7 @@ out of it. `.local_imports/` is gitignored; generated files stay local.
 previews, ROI overlays, review montages, test crops, the interpretation
 montage sheets, throwaway scripts and intermediate output — use
 `.temp/<import id>/` as the scratch directory for this import. Never put
-scratch files in `.local_imports/`, in the repo proper, or in `/tmp`.
+scratch files in `.local_imports/`, in the repo proper, or in the system temporary directory.
 
 **4. Validate. Fix. Repeat.**
 

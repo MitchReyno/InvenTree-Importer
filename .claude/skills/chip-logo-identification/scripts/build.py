@@ -25,8 +25,16 @@ FAM = [  # order = page order; symbol families first, wordmarks last
 ]
 fam_of = lambda a: "pict" if a["family"] == "abstr" else a["family"]
 C, R, CW, CH, LOGO_H, HDR = 6, 5, 256, 152, 100, 44
-FONT = "/System/Library/Fonts/Supplemental/Arial.ttf"; BOLD = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
-f_id, f_nm, f_h = ImageFont.truetype(BOLD, 17), ImageFont.truetype(FONT, 16), ImageFont.truetype(BOLD, 22)
+def font(name, size):
+    try:
+        return ImageFont.truetype(name, size)
+    except OSError:
+        return ImageFont.load_default(size=size)
+
+
+f_id = font("Arial Bold.ttf", 17)
+f_nm = font("Arial.ttf", 16)
+f_h = font("Arial Bold.ttf", 22)
 os.makedirs(os.path.join(out, "pages"), exist_ok=True)
 for f in os.listdir(os.path.join(out, "pages")): os.remove(os.path.join(out, "pages", f))
 

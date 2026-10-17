@@ -22,7 +22,7 @@ uv run -q --with pillow python $G SRC OUT.png [--region X0 Y0 X1 Y1] [--width N]
 
 `grid.py --help` documents every option. Write the previews to the scratch
 directory you were given (`.temp/` at the repo root, if none was), never into
-`.local_imports/`, the repo proper or `/tmp`. `--quiet` prints only
+`.local_imports/`, the repo proper or the system temporary directory. `--quiet` prints only
 the box lines, for checking many crops in a loop. In zsh, a variable holding
 four coordinates must be split explicitly: `--object ${=OBJ}`, not `$OBJ`.
 

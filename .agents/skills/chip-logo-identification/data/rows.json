@@ -1,0 +1,2903 @@
+[
+ {
+  "page": "page.html",
+  "name": "3Com",
+  "imgs": [
+   "bilder/identify/logo/chip/3com_2.gif",
+   "bilder/identify/logo/chip/3com_3.gif",
+   "bilder/identify/logo/chip/3com_4.gif"
+  ]
+ },
+ {
+  "page": "page.html",
+  "name": "3dfx",
+  "imgs": [
+   "bilder/identify/logo/chip/3dfx_1.gif",
+   "bilder/identify/logo/chip/3dfx_2.gif"
+  ]
+ },
+ {
+  "page": "page.html",
+  "name": "3DO",
+  "imgs": [
+   "bilder/identify/logo/chip/3do.gif"
+  ]
+ },
+ {
+  "page": "page.html",
+  "name": "8x8",
+  "imgs": [
+   "bilder/identify/logo/chip/8x8.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Acer Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/acer.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Acer Laboratories Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/acerlab.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Actel Corporation",
+  "imgs": [
+   "bilder/identify/logo/chip/actel.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Adaptec",
+  "imgs": [
+   "bilder/identify/logo/chip/adaptec.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Advanced Communication Devices [ACD]",
+  "imgs": [
+   "bilder/identify/logo/chip/acd.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Advanced Hardware Architectures",
+  "imgs": [
+   "bilder/identify/logo/chip/aha1.gif",
+   "bilder/identify/logo/chip/aha2.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Advanced Linear Devices [ALD]",
+  "imgs": [
+   "bilder/identify/logo/chip/adv_lin_dev.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Advanced Micro Devices",
+  "imgs": [
+   "bilder/identify/logo/chip/amd.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Advanced Micro Systems",
+  "imgs": [
+   "bilder/identify/logo/chip/ams.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Advanced Monolithic Systems",
+  "imgs": [
+   "bilder/identify/logo/chip/advmono.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Advanced Power Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/adv_power.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Aeroflex",
+  "imgs": [
+   "bilder/identify/logo/chip/aeroflex.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Agere",
+  "imgs": [
+   "bilder/identify/logo/chip/agere.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Agilent",
+  "imgs": [
+   "bilder/identify/logo/chip/agilent.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Aimtron Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/aimtron.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "AITech",
+  "imgs": [
+   "bilder/identify/logo/chip/aitech.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "AKM Semi",
+  "imgs": [
+   "bilder/identify/logo/chip/akm.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Alcatel",
+  "imgs": [
+   "bilder/identify/logo/chip/alcatel.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Alesis Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/alesis.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Allayer Communications",
+  "imgs": [
+   "bilder/identify/logo/chip/allayer.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Allegro MicroSystems Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/allegro1.gif",
+   "bilder/identify/logo/chip/allegro2.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Alliance",
+  "imgs": [
+   "bilder/identify/logo/chip/alliance.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "alpha microelectronics gmbh",
+  "imgs": [
+   "bilder/identify/logo/chip/alphamicro.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Alpha Industries",
+  "imgs": [
+   "bilder/identify/logo/chip/alphaind.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Alpha Semi",
+  "imgs": [
+   "bilder/identify/logo/chip/alpha_semi.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Altera Corporation",
+  "imgs": [
+   "bilder/identify/logo/chip/altera.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Altima Communications",
+  "imgs": [
+   "bilder/identify/logo/chip/altima.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Anadigic's",
+  "imgs": [
+   "bilder/identify/logo/chip/anadigic.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Analog Devices",
+  "imgs": [
+   "bilder/identify/logo/chip/analog1.gif",
+   "bilder/identify/logo/chip/analog2.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Analog Microelectronics",
+  "imgs": [
+   "bilder/identify/logo/chip/ame.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Analog Systems",
+  "imgs": [
+   "bilder/identify/logo/chip/anasys.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Anchor Chips",
+  "imgs": [
+   "bilder/identify/logo/chip/anchor.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "American Microsystems, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/ami1.gif",
+   "bilder/identify/logo/chip/ami2.gif",
+   "bilder/identify/logo/chip/ami4.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "American Megatrends",
+  "imgs": [
+   "bilder/identify/logo/chip/ami3.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Apacer",
+  "imgs": [
+   "bilder/identify/logo/chip/apacer.gif",
+   "bilder/identify/logo/chip/apacer2.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "APEX Microtechnology",
+  "imgs": [
+   "bilder/identify/logo/chip/apex1.gif",
+   "bilder/identify/logo/chip/apex2.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Aralion",
+  "imgs": [
+   "bilder/identify/logo/chip/aralion.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Arizona Microtek",
+  "imgs": [
+   "bilder/identify/logo/chip/azm.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "ARK Logic, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/ark1.gif",
+   "bilder/identify/logo/chip/ark2.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "ASCEND",
+  "imgs": [
+   "bilder/identify/logo/chip/ascend.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Asian Design Corp",
+  "imgs": [
+   "bilder/identify/logo/chip/adc.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "ASTEC Semi",
+  "imgs": [
+   "bilder/identify/logo/chip/astec.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "ATAN Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/atan.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "ATecoM",
+  "imgs": [
+   "bilder/identify/logo/chip/atecom.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "ATI Technologies, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/ati.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "AT&T",
+  "imgs": [
+   "bilder/identify/logo/chip/att.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Atlantis Memory",
+  "imgs": [
+   "bilder/identify/logo/chip/atlantis.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Atmel",
+  "imgs": [
+   "bilder/identify/logo/chip/atmel.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Auctor",
+  "imgs": [
+   "bilder/identify/logo/chip/auctor.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Audio Codes",
+  "imgs": [
+   "bilder/identify/logo/chip/audiocodes.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "AuraVision",
+  "imgs": [
+   "bilder/identify/logo/chip/auravision.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Aureal",
+  "imgs": [
+   "bilder/identify/logo/chip/aureal.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Austin Semiconductor, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/austin.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "Avance Logic, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/avance.gif"
+  ]
+ },
+ {
+  "page": "page_a.html",
+  "name": "AverLogic",
+  "imgs": [
+   "bilder/identify/logo/chip/averlogic.gif"
+  ]
+ },
+ {
+  "page": "page_b.html",
+  "name": "Bel Fuse Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/belfuse.gif"
+  ]
+ },
+ {
+  "page": "page_b.html",
+  "name": "Benchmarq Microelectronics, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/benchmarq.gif"
+  ]
+ },
+ {
+  "page": "page_b.html",
+  "name": "BI Technologies",
+  "imgs": [
+   "bilder/identify/logo/chip/bitech.gif"
+  ]
+ },
+ {
+  "page": "page_b.html",
+  "name": "Bothhand",
+  "imgs": [
+   "bilder/identify/logo/chip/bothhand.gif"
+  ]
+ },
+ {
+  "page": "page_b.html",
+  "name": "Brooktree",
+  "imgs": [
+   "bilder/identify/logo/chip/brooktree.gif"
+  ]
+ },
+ {
+  "page": "page_b.html",
+  "name": "Burr Brown",
+  "imgs": [
+   "bilder/identify/logo/chip/burrbrown.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "C-Cube",
+  "imgs": [
+   "bilder/identify/logo/chip/ccube.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "C-Media",
+  "imgs": [
+   "bilder/identify/logo/chip/cmedia.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "C&S Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/cands.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "California Micro Devices",
+  "imgs": [
+   "bilder/identify/logo/chip/californiamicro.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Calogic",
+  "imgs": [
+   "bilder/identify/logo/chip/calogic.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Cambridge Silicon Radio",
+  "imgs": [
+   "bilder/identify/logo/chip/cambridge.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Catalyst Semiconductor, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/catalyst1.gif",
+   "bilder/identify/logo/chip/catalyst2.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Computer Access Tech Corp [CATC]",
+  "imgs": [
+   "bilder/identify/logo/chip/catc.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Centon Electronics",
+  "imgs": [
+   "bilder/identify/logo/chip/centon.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Century Microelectronics",
+  "imgs": [
+   "bilder/identify/logo/chip/century.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Cherry Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/cherry.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "ChipCon AS",
+  "imgs": [
+   "bilder/identify/logo/chip/chipcon.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Chips and Technologies, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/chips.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Chrontel",
+  "imgs": [
+   "bilder/identify/logo/chip/chrontel.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Cirrus Logic",
+  "imgs": [
+   "bilder/identify/logo/chip/cirrus.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "ClearLogic",
+  "imgs": [
+   "bilder/identify/logo/chip/clearlogic.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Collmer Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/collmer.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Cologne Chip Designs",
+  "imgs": [
+   "bilder/identify/logo/chip/cologne.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "ComCore",
+  "imgs": [
+   "bilder/identify/logo/chip/comcore.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Conexant",
+  "imgs": [
+   "bilder/identify/logo/chip/conexant.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Consumer Microelectronics",
+  "imgs": [
+   "bilder/identify/logo/chip/consumer.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Cosmo Semi",
+  "imgs": [
+   "bilder/identify/logo/chip/cosmo.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Crystal Semiconductor Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/crystal.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Cygnal Integrated Products",
+  "imgs": [
+   "bilder/identify/logo/chip/cygnal.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Cypress Semiconductor Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/cypress1.gif",
+   "bilder/identify/logo/chip/cypress2.gif"
+  ]
+ },
+ {
+  "page": "page_c.html",
+  "name": "Cyrix Corporation",
+  "imgs": [
+   "bilder/identify/logo/chip/cyrix.gif"
+  ]
+ },
+ {
+  "page": "page_d.html",
+  "name": "Daewoo Electronics",
+  "imgs": [
+   "bilder/identify/logo/chip/daewoo.gif"
+  ]
+ },
+ {
+  "page": "page_d.html",
+  "name": "Dallas Semiconductor Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/dallas1.gif",
+   "bilder/identify/logo/chip/dallas2.gif",
+   "bilder/identify/logo/chip/dallas3.gif"
+  ]
+ },
+ {
+  "page": "page_d.html",
+  "name": "Data Delay Devices",
+  "imgs": [
+   "bilder/identify/logo/chip/datadelay.gif"
+  ]
+ },
+ {
+  "page": "page_d.html",
+  "name": "Datapath Systems",
+  "imgs": [
+   "bilder/identify/logo/chip/datapath.gif"
+  ]
+ },
+ {
+  "page": "page_d.html",
+  "name": "Davicom Semiconductor Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/davicom.gif"
+  ]
+ },
+ {
+  "page": "page_d.html",
+  "name": "Dense-Pac",
+  "imgs": [
+   "bilder/identify/logo/chip/densepac.gif"
+  ]
+ },
+ {
+  "page": "page_d.html",
+  "name": "Diamond Technologies",
+  "imgs": [
+   "bilder/identify/logo/chip/diamondtech.gif"
+  ]
+ },
+ {
+  "page": "page_d.html",
+  "name": "Dionics",
+  "imgs": [
+   "bilder/identify/logo/chip/dionics.gif"
+  ]
+ },
+ {
+  "page": "page_d.html",
+  "name": "Diotec GmbH",
+  "imgs": [
+   "bilder/identify/logo/chip/diotec.gif"
+  ]
+ },
+ {
+  "page": "page_d.html",
+  "name": "Dream",
+  "imgs": [
+   "bilder/identify/logo/chip/dream.gif"
+  ]
+ },
+ {
+  "page": "page_d.html",
+  "name": "DTC Data Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/dtc1.gif",
+   "bilder/identify/logo/chip/dtc2.gif"
+  ]
+ },
+ {
+  "page": "page_d.html",
+  "name": "DVDO",
+  "imgs": [
+   "bilder/identify/logo/chip/dvdo.gif"
+  ]
+ },
+ {
+  "page": "page_d.html",
+  "name": "Dynex",
+  "imgs": [
+   "bilder/identify/logo/chip/dynex.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "EG&G, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/egg.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "Elantec",
+  "imgs": [
+   "bilder/identify/logo/chip/elantec1.gif",
+   "bilder/identify/logo/chip/elantec2.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "[White] Electronic Designs",
+  "imgs": [
+   "bilder/identify/logo/chip/elec_designs1.gif",
+   "bilder/identify/logo/chip/elec_designs2.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "Electronic Devices [EDI]",
+  "imgs": [
+   "bilder/identify/logo/chip/edi.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "Electronic Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/etc.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "Elite MT",
+  "imgs": [
+   "bilder/identify/logo/chip/elite_mt.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "Emulex",
+  "imgs": [
+   "bilder/identify/logo/chip/emulex.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "Enhanced Memory Systems",
+  "imgs": [
+   "bilder/identify/logo/chip/enhmemsy.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "eNOVA",
+  "imgs": [
+   "bilder/identify/logo/chip/enova.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "Ensoniq Corp",
+  "imgs": [
+   "bilder/identify/logo/chip/ensoniq.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "Seiko Epson Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/epson1.gif",
+   "bilder/identify/logo/chip/epson2.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "Ericsson",
+  "imgs": [
+   "bilder/identify/logo/chip/ericsson.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "ESMT",
+  "imgs": [
+   "bilder/identify/logo/chip/esmt.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "ESS Technology, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/ess.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "Etron Tech",
+  "imgs": [
+   "bilder/identify/logo/chip/etrontech2.gif",
+   "bilder/identify/logo/chip/etrontech1.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "Exar Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/exar.gif"
+  ]
+ },
+ {
+  "page": "page_e.html",
+  "name": "Exel Microelectronics, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/exel.gif"
+  ]
+ },
+ {
+  "page": "page_f.html",
+  "name": "Fagor Electronica",
+  "imgs": [
+   "bilder/identify/logo/chip/fagor.gif"
+  ]
+ },
+ {
+  "page": "page_f.html",
+  "name": "Fairchild Semiconductor Corp",
+  "imgs": [
+   "bilder/identify/logo/chip/fairchild1.gif",
+   "bilder/identify/logo/chip/fairchild2.gif"
+  ]
+ },
+ {
+  "page": "page_f.html",
+  "name": "Ferranti",
+  "imgs": [
+   "bilder/identify/logo/chip/ferranti.gif"
+  ]
+ },
+ {
+  "page": "page_f.html",
+  "name": "Figaro Sensors",
+  "imgs": [
+   "bilder/identify/logo/chip/figaro.gif"
+  ]
+ },
+ {
+  "page": "page_f.html",
+  "name": "FORE Systems",
+  "imgs": [
+   "bilder/identify/logo/chip/fore.gif"
+  ]
+ },
+ {
+  "page": "page_f.html",
+  "name": "Fuji Electric Co.,Ltd.",
+  "imgs": [
+   "bilder/identify/logo/chip/fujielec1.gif",
+   "bilder/identify/logo/chip/fujielec2.gif"
+  ]
+ },
+ {
+  "page": "page_f.html",
+  "name": "Fujitsu Ltd.",
+  "imgs": [
+   "bilder/identify/logo/chip/fujitsu1.gif",
+   "bilder/identify/logo/chip/fujitsu2.gif"
+  ]
+ },
+ {
+  "page": "page_g.html",
+  "name": "G2",
+  "imgs": [
+   "bilder/identify/logo/chip/g2.gif"
+  ]
+ },
+ {
+  "page": "page_g.html",
+  "name": "Galileo Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/galileo.gif"
+  ]
+ },
+ {
+  "page": "page_g.html",
+  "name": "Galvantech, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/galvantech.gif"
+  ]
+ },
+ {
+  "page": "page_g.html",
+  "name": "GEC Plessy",
+  "imgs": [
+   "bilder/identify/logo/chip/gecplessy.gif"
+  ]
+ },
+ {
+  "page": "page_g.html",
+  "name": "General Electric Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/ge.gif"
+  ]
+ },
+ {
+  "page": "page_g.html",
+  "name": "General Instrument",
+  "imgs": [
+   "bilder/identify/logo/chip/gi1.gif",
+   "bilder/identify/logo/chip/gi2.gif",
+   "bilder/identify/logo/chip/gi3.gif"
+  ]
+ },
+ {
+  "page": "page_g.html",
+  "name": "General Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/generalsemi.gif"
+  ]
+ },
+ {
+  "page": "page_g.html",
+  "name": "Genesys Logic, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/genesys.gif"
+  ]
+ },
+ {
+  "page": "page_g.html",
+  "name": "Gennum",
+  "imgs": [
+   "bilder/identify/logo/chip/gennum.gif"
+  ]
+ },
+ {
+  "page": "page_g.html",
+  "name": "GHZ Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/ghz.gif"
+  ]
+ },
+ {
+  "page": "page_g.html",
+  "name": "G-Link Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/glink.gif"
+  ]
+ },
+ {
+  "page": "page_g.html",
+  "name": "Globespan Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/globespan.gif"
+  ]
+ },
+ {
+  "page": "page_g.html",
+  "name": "Lucky Goldstar Semi [LGS]",
+  "imgs": [
+   "bilder/identify/logo/chip/goldstar.gif"
+  ]
+ },
+ {
+  "page": "page_g.html",
+  "name": "Goodark",
+  "imgs": [
+   "bilder/identify/logo/chip/goodark.gif"
+  ]
+ },
+ {
+  "page": "page_g.html",
+  "name": "Gould",
+  "imgs": [
+   "bilder/identify/logo/chip/gould.gif"
+  ]
+ },
+ {
+  "page": "page_h.html",
+  "name": "Harris",
+  "imgs": [
+   "bilder/identify/logo/chip/harris1.gif",
+   "bilder/identify/logo/chip/harris2.gif",
+   "bilder/identify/logo/chip/harris3.gif"
+  ]
+ },
+ {
+  "page": "page_h.html",
+  "name": "VEB Halbleiterwerk Frankfurt/Oder (HFO)",
+  "imgs": [
+   "bilder/identify/logo/chip/hfo.gif"
+  ]
+ },
+ {
+  "page": "page_h.html",
+  "name": "Hewlett Packard Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/hp.gif"
+  ]
+ },
+ {
+  "page": "page_h.html",
+  "name": "hi/fn",
+  "imgs": [
+   "bilder/identify/logo/chip/hifn.gif"
+  ]
+ },
+ {
+  "page": "page_h.html",
+  "name": "HighPoint",
+  "imgs": [
+   "bilder/identify/logo/chip/highpoint.gif"
+  ]
+ },
+ {
+  "page": "page_h.html",
+  "name": "HiNT Corp",
+  "imgs": [
+   "bilder/identify/logo/chip/hint.gif"
+  ]
+ },
+ {
+  "page": "page_h.html",
+  "name": "Hitachi",
+  "imgs": [
+   "bilder/identify/logo/chip/hitachi.gif"
+  ]
+ },
+ {
+  "page": "page_h.html",
+  "name": "Holtek Semiconductor Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/holtek.gif"
+  ]
+ },
+ {
+  "page": "page_h.html",
+  "name": "Hualon Microelectronics Corporation",
+  "imgs": [
+   "bilder/identify/logo/chip/hualon.gif"
+  ]
+ },
+ {
+  "page": "page_h.html",
+  "name": "Hutson Industries",
+  "imgs": [
+   "bilder/identify/logo/chip/hutson.gif"
+  ]
+ },
+ {
+  "page": "page_h.html",
+  "name": "Hyundai",
+  "imgs": [
+   "bilder/identify/logo/chip/hyundai1.gif",
+   "bilder/identify/logo/chip/hyundai2.gif",
+   "bilder/identify/logo/chip/hyundai3.gif"
+  ]
+ },
+ {
+  "page": "page_h.html",
+  "name": "Hynix",
+  "imgs": [
+   "bilder/identify/logo/chip/hynix.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "IBM",
+  "imgs": [
+   "bilder/identify/logo/chip/ibm.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "IC Designs",
+  "imgs": [
+   "bilder/identify/logo/chip/icdesigns.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "iC-Haus",
+  "imgs": [
+   "bilder/identify/logo/chip/ichaus1.gif",
+   "bilder/identify/logo/chip/ichaus2.gif",
+   "bilder/identify/logo/chip/ichaus3.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "I-Cube",
+  "imgs": [
+   "bilder/identify/logo/chip/icube.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "IC Works, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/icworks.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "IGS Technologies",
+  "imgs": [
+   "bilder/identify/logo/chip/igstech.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "IMP, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/imp.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "Impala Linear",
+  "imgs": [
+   "bilder/identify/logo/chip/impala.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "Infinite Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/infinite.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "In-system Design",
+  "imgs": [
+   "bilder/identify/logo/chip/in_system.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "Intel Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/intel1.gif",
+   "bilder/identify/logo/chip/intel2.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "Infineon",
+  "imgs": [
+   "bilder/identify/logo/chip/infineon1.gif",
+   "bilder/identify/logo/chip/infineon2.gif",
+   "bilder/identify/logo/chip/infineon3.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "Information Storage Devices",
+  "imgs": [
+   "bilder/identify/logo/chip/isd.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "Integrated Circuit Designs, Inc",
+  "imgs": [
+   "bilder/identify/logo/chip/icd.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "Integrated Circuit Solution",
+  "imgs": [
+   "bilder/identify/logo/chip/icsi.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "Integrated Circuit Systems Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/ics1.gif",
+   "bilder/identify/logo/chip/ics2.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "Integrated Device Technology, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/idt1.gif",
+   "bilder/identify/logo/chip/idt2.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "Inmos Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/inmos.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "Intersil",
+  "imgs": [
+   "bilder/identify/logo/chip/intersil1.gif",
+   "bilder/identify/logo/chip/intersil2.gif",
+   "bilder/identify/logo/chip/intersil3.gif",
+   "bilder/identify/logo/chip/intersil4.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "Integrated Logic Systems",
+  "imgs": [
+   "bilder/identify/logo/chip/ils.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "Integrated Silicon Solution, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/issi.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "Integrated Technology Express",
+  "imgs": [
+   "bilder/identify/logo/chip/ite.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "Integrated Telecom Express [ITEX]",
+  "imgs": [
+   "bilder/identify/logo/chip/itex.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "interFET",
+  "imgs": [
+   "bilder/identify/logo/chip/interfet.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "International Microcircuits",
+  "imgs": [
+   "bilder/identify/logo/chip/imi.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "International Rectifier",
+  "imgs": [
+   "bilder/identify/logo/chip/ir.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "ITT Industries [Micronas Semi]",
+  "imgs": [
+   "bilder/identify/logo/chip/itt.gif"
+  ]
+ },
+ {
+  "page": "page_i.html",
+  "name": "IXYS",
+  "imgs": [
+   "bilder/identify/logo/chip/ixys.gif"
+  ]
+ },
+ {
+  "page": "page_j.html",
+  "name": "Jetkey",
+  "imgs": [
+   "bilder/identify/logo/chip/jetkey.gif"
+  ]
+ },
+ {
+  "page": "page_k.html",
+  "name": "Kawasaki LSI [KLSI]",
+  "imgs": [
+   "bilder/identify/logo/chip/klsi.gif"
+  ]
+ },
+ {
+  "page": "page_k.html",
+  "name": "KingMax",
+  "imgs": [
+   "bilder/identify/logo/chip/kingmax.gif"
+  ]
+ },
+ {
+  "page": "page_k.html",
+  "name": "Korea Electronics",
+  "imgs": [
+   "bilder/identify/logo/chip/kec.gif"
+  ]
+ },
+ {
+  "page": "page_k.html",
+  "name": "Kota Microcircuits",
+  "imgs": [
+   "bilder/identify/logo/chip/kota.gif"
+  ]
+ },
+ {
+  "page": "page_l.html",
+  "name": "Lansdale Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/lansdale1.gif",
+   "bilder/identify/logo/chip/lansdale2.gif"
+  ]
+ },
+ {
+  "page": "page_l.html",
+  "name": "Lattice Semiconductor Corp",
+  "imgs": [
+   "bilder/identify/logo/chip/lattice1.gif",
+   "bilder/identify/logo/chip/lattice2.gif",
+   "bilder/identify/logo/chip/lattice3.gif"
+  ]
+ },
+ {
+  "page": "page_l.html",
+  "name": "Legerity",
+  "imgs": [
+   "bilder/identify/logo/chip/legerity.gif"
+  ]
+ },
+ {
+  "page": "page_l.html",
+  "name": "Level One",
+  "imgs": [
+   "bilder/identify/logo/chip/levelone.gif"
+  ]
+ },
+ {
+  "page": "page_l.html",
+  "name": "Linfinity Microelectronics, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/linfinity1.gif",
+   "bilder/identify/logo/chip/linfinity2.gif"
+  ]
+ },
+ {
+  "page": "page_l.html",
+  "name": "Linear Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/linear.gif"
+  ]
+ },
+ {
+  "page": "page_l.html",
+  "name": "LiteOn",
+  "imgs": [
+   "bilder/identify/logo/chip/liteon.gif"
+  ]
+ },
+ {
+  "page": "page_l.html",
+  "name": "LSI Logic",
+  "imgs": [
+   "bilder/identify/logo/chip/lsilogic.gif"
+  ]
+ },
+ {
+  "page": "page_l.html",
+  "name": "Lucent",
+  "imgs": [
+   "bilder/identify/logo/chip/lucent.gif"
+  ]
+ },
+ {
+  "page": "page_l.html",
+  "name": "Lucky Goldstar Semicon Co., Ltd. [LGS]",
+  "imgs": [
+   "bilder/identify/logo/chip/lgsemi.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "M.tec",
+  "imgs": [
+   "bilder/identify/logo/chip/mtec.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Macronix International Co. Ltd.",
+  "imgs": [
+   "bilder/identify/logo/chip/macronix1.gif",
+   "bilder/identify/logo/chip/macronix2.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Marvell",
+  "imgs": [
+   "bilder/identify/logo/chip/marvell.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "MHS, Matra Harris Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/mhs1.gif",
+   "bilder/identify/logo/chip/mhs2.gif",
+   "bilder/identify/logo/chip/mhs3.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Matsushita Panasonic",
+  "imgs": [
+   "bilder/identify/logo/chip/matsushita1.gif",
+   "bilder/identify/logo/chip/matsushita2.gif",
+   "bilder/identify/logo/chip/matsushita3.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Maxim Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/maxim.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Media Vision",
+  "imgs": [
+   "bilder/identify/logo/chip/mediavision1.gif",
+   "bilder/identify/logo/chip/mediavision2.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Micrel Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/micrel.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Microchip Technology Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/microchip.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Micro Electronics Ltd.",
+  "imgs": [
+   "bilder/identify/logo/chip/microelec.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Micron Technology, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/micron.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Micro Linear",
+  "imgs": [
+   "bilder/identify/logo/chip/microlinear.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Micronas",
+  "imgs": [
+   "bilder/identify/logo/chip/micronas.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Micronix Integrated Systems",
+  "imgs": [
+   "bilder/identify/logo/chip/micronix.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Micro Power Direct",
+  "imgs": [
+   "bilder/identify/logo/chip/mpd.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Micro Semi",
+  "imgs": [
+   "bilder/identify/logo/chip/microsemi.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Microtune",
+  "imgs": [
+   "bilder/identify/logo/chip/microtune.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Mikroelektronik Erfurt",
+  "imgs": [
+   "bilder/identify/logo/chip/mikro_erfurt.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Mini Circuits",
+  "imgs": [
+   "bilder/identify/logo/chip/minicircuits.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "MIRA",
+  "imgs": [
+   "bilder/identify/logo/chip/mira.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Mitel Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/mitel.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Mitsubishi",
+  "imgs": [
+   "bilder/identify/logo/chip/mitsubishi.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "MMC Networks",
+  "imgs": [
+   "bilder/identify/logo/chip/mmc.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Monolithic Memories Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/monolithic.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Mosaic Semiconductor Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/mosaic.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "MOSAID Systems",
+  "imgs": [
+   "bilder/identify/logo/chip/mosaid.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Mosel Vitelic, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/moselvitelic.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "MoSys, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/mosys.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "MOS Technologies, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/mos.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Motorola",
+  "imgs": [
+   "bilder/identify/logo/chip/motorola1.gif",
+   "bilder/identify/logo/chip/motorola2.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "M Systems",
+  "imgs": [
+   "bilder/identify/logo/chip/msystems.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Mr. STONE",
+  "imgs": [
+   "bilder/identify/logo/chip/mr_stone.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Murata",
+  "imgs": [
+   "bilder/identify/logo/chip/murata.gif",
+   "bilder/identify/logo/chip/murata2.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "MWave (by IBM)",
+  "imgs": [
+   "bilder/identify/logo/chip/mwave.gif"
+  ]
+ },
+ {
+  "page": "page_m.html",
+  "name": "Myson Technology Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/myson.gif"
+  ]
+ },
+ {
+  "page": "page_n.html",
+  "name": "Naina Semi",
+  "imgs": [
+   "bilder/identify/logo/chip/naina.gif"
+  ]
+ },
+ {
+  "page": "page_n.html",
+  "name": "Nanya",
+  "imgs": [
+   "bilder/identify/logo/chip/nanya.gif"
+  ]
+ },
+ {
+  "page": "page_n.html",
+  "name": "National Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/ns1.gif",
+   "bilder/identify/logo/chip/ns2.gif",
+   "bilder/identify/logo/chip/ns3.gif"
+  ]
+ },
+ {
+  "page": "page_n.html",
+  "name": "NEC",
+  "imgs": [
+   "bilder/identify/logo/chip/nec1.gif",
+   "bilder/identify/logo/chip/nec2.gif"
+  ]
+ },
+ {
+  "page": "page_n.html",
+  "name": "NeoMagic",
+  "imgs": [
+   "bilder/identify/logo/chip/neomagic.gif"
+  ]
+ },
+ {
+  "page": "page_n.html",
+  "name": "New Japan Radio Co., Ltd.",
+  "imgs": [
+   "bilder/identify/logo/chip/japanradio1.gif",
+   "bilder/identify/logo/chip/japanradio2.gif"
+  ]
+ },
+ {
+  "page": "page_n.html",
+  "name": "NexGen",
+  "imgs": [
+   "bilder/identify/logo/chip/nexgen.gif"
+  ]
+ },
+ {
+  "page": "page_n.html",
+  "name": "Ninja",
+  "imgs": [
+   "bilder/identify/logo/chip/ninja.gif"
+  ]
+ },
+ {
+  "page": "page_n.html",
+  "name": "Nippon Precision Circuits",
+  "imgs": [
+   "bilder/identify/logo/chip/npc.gif"
+  ]
+ },
+ {
+  "page": "page_n.html",
+  "name": "Number 9",
+  "imgs": [
+   "bilder/identify/logo/chip/number9.gif"
+  ]
+ },
+ {
+  "page": "page_n.html",
+  "name": "NVidia Corporation",
+  "imgs": [
+   "bilder/identify/logo/chip/nvidia.gif"
+  ]
+ },
+ {
+  "page": "page_o.html",
+  "name": "O2 Micro",
+  "imgs": [
+   "bilder/identify/logo/chip/o2micro.gif"
+  ]
+ },
+ {
+  "page": "page_o.html",
+  "name": "Oak Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/oak.gif"
+  ]
+ },
+ {
+  "page": "page_o.html",
+  "name": "OKI Electric",
+  "imgs": [
+   "bilder/identify/logo/chip/oki1.gif",
+   "bilder/identify/logo/chip/oki2.gif"
+  ]
+ },
+ {
+  "page": "page_o.html",
+  "name": "Omnirel",
+  "imgs": [
+   "bilder/identify/logo/chip/omnirel.gif"
+  ]
+ },
+ {
+  "page": "page_o.html",
+  "name": "ON Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/onsemi.gif"
+  ]
+ },
+ {
+  "page": "page_o.html",
+  "name": "Opti",
+  "imgs": [
+   "bilder/identify/logo/chip/opti.gif"
+  ]
+ },
+ {
+  "page": "page_o.html",
+  "name": "Orbit Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/orbit.gif"
+  ]
+ },
+ {
+  "page": "page_o.html",
+  "name": "Oren Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/oren.gif"
+  ]
+ },
+ {
+  "page": "page_o.html",
+  "name": "Oxford Micro",
+  "imgs": [
+   "bilder/identify/logo/chip/oxford.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "Peregrine Semi",
+  "imgs": [
+   "bilder/identify/logo/chip/peregrine.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "Performance Semiconductor Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/performance.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "Pericom Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/pericom.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "PhaseLink Laboratories, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/phaselink1.gif",
+   "bilder/identify/logo/chip/phaselink2.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "Philips",
+  "imgs": [
+   "bilder/identify/logo/chip/philips.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "PLX Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/plxtech.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "PMC-Sierra, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/pmc.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "Power Integrations",
+  "imgs": [
+   "bilder/identify/logo/chip/powerint.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "Power Smart",
+  "imgs": [
+   "bilder/identify/logo/chip/powersmart.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "PQI",
+  "imgs": [
+   "bilder/identify/logo/chip/pqi.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "PrairieComm",
+  "imgs": [
+   "bilder/identify/logo/chip/prairie.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "Precision Monolithics, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/precision.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "Pretec",
+  "imgs": [
+   "bilder/identify/logo/chip/pretec.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "Princeton Technology Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/princeton.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "Promise Technology Inc",
+  "imgs": [
+   "bilder/identify/logo/chip/promise.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "Protek Devices",
+  "imgs": [
+   "bilder/identify/logo/chip/protek.gif"
+  ]
+ },
+ {
+  "page": "page_p.html",
+  "name": "Pulse",
+  "imgs": [
+   "bilder/identify/logo/chip/pulse.gif"
+  ]
+ },
+ {
+  "page": "page_q.html",
+  "name": "qlogic",
+  "imgs": [
+   "bilder/identify/logo/chip/qlogic.gif"
+  ]
+ },
+ {
+  "page": "page_q.html",
+  "name": "QT Optoelectronics",
+  "imgs": [
+   "bilder/identify/logo/chip/qt_opto.gif"
+  ]
+ },
+ {
+  "page": "page_q.html",
+  "name": "Qualcomm Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/qualcomm.gif"
+  ]
+ },
+ {
+  "page": "page_q.html",
+  "name": "Quality Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/quality.gif"
+  ]
+ },
+ {
+  "page": "page_q.html",
+  "name": "QuickLogic Corporation",
+  "imgs": [
+   "bilder/identify/logo/chip/quicklogic.gif"
+  ]
+ },
+ {
+  "page": "page_r.html",
+  "name": "Rabbit Semi",
+  "imgs": [
+   "bilder/identify/logo/chip/rabbit.gif"
+  ]
+ },
+ {
+  "page": "page_r.html",
+  "name": "Ramtron Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/ramtron.gif"
+  ]
+ },
+ {
+  "page": "page_r.html",
+  "name": "Raytheon Semi",
+  "imgs": [
+   "bilder/identify/logo/chip/raytheon.gif"
+  ]
+ },
+ {
+  "page": "page_r.html",
+  "name": "RCA Solid State",
+  "imgs": [
+   "bilder/identify/logo/chip/rca.gif"
+  ]
+ },
+ {
+  "page": "page_r.html",
+  "name": "Realtek Semiconductor Corp",
+  "imgs": [
+   "bilder/identify/logo/chip/realtek.gif"
+  ]
+ },
+ {
+  "page": "page_r.html",
+  "name": "Rectron",
+  "imgs": [
+   "bilder/identify/logo/chip/rectron.gif"
+  ]
+ },
+ {
+  "page": "page_r.html",
+  "name": "Rendition",
+  "imgs": [
+   "bilder/identify/logo/chip/rendition.gif"
+  ]
+ },
+ {
+  "page": "page_r.html",
+  "name": "Reliance",
+  "imgs": [
+   "bilder/identify/logo/chip/reliance.gif"
+  ]
+ },
+ {
+  "page": "page_r.html",
+  "name": "RICOH",
+  "imgs": [
+   "bilder/identify/logo/chip/ricoh.gif"
+  ]
+ },
+ {
+  "page": "page_r.html",
+  "name": "Rise",
+  "imgs": [
+   "bilder/identify/logo/chip/rise.gif"
+  ]
+ },
+ {
+  "page": "page_r.html",
+  "name": "Rockwell",
+  "imgs": [
+   "bilder/identify/logo/chip/rockwell.gif"
+  ]
+ },
+ {
+  "page": "page_r.html",
+  "name": "Rohm Electronics",
+  "imgs": [
+   "bilder/identify/logo/chip/rohm.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "S3",
+  "imgs": [
+   "bilder/identify/logo/chip/s3_3.gif",
+   "bilder/identify/logo/chip/s3_1.gif",
+   "bilder/identify/logo/chip/s3_2.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Sage",
+  "imgs": [
+   "bilder/identify/logo/chip/sage.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Sames Pty Ltd.",
+  "imgs": [
+   "bilder/identify/logo/chip/sames.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Samsung Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/samsung.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Samsung Electronics Co., Ltd.",
+  "imgs": [
+   "bilder/identify/logo/chip/sec.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Sanken Electric Co.,Ltd.",
+  "imgs": [
+   "bilder/identify/logo/chip/sanken1.gif",
+   "bilder/identify/logo/chip/sanken2.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Sanyo",
+  "imgs": [
+   "bilder/identify/logo/chip/sanyo1.gif",
+   "bilder/identify/logo/chip/sanyo2.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "SARC",
+  "imgs": [
+   "bilder/identify/logo/chip/sarc.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Scenix Semi",
+  "imgs": [
+   "bilder/identify/logo/chip/scenix.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Seagate Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/seagate.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "SEEQ Technology Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/seeq.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Seiko Instruments",
+  "imgs": [
+   "bilder/identify/logo/chip/seiko.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Semelab Magnatec",
+  "imgs": [
+   "bilder/identify/logo/chip/semelab.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Semicoa Semiconductors",
+  "imgs": [
+   "bilder/identify/logo/chip/semicoa.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Semikron International",
+  "imgs": [
+   "bilder/identify/logo/chip/semikron.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Semitron",
+  "imgs": [
+   "bilder/identify/logo/chip/semitron.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Semiconductor Technology Inc",
+  "imgs": [
+   "bilder/identify/logo/chip/semitech.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Semtech",
+  "imgs": [
+   "bilder/identify/logo/chip/semtech.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Serverworks",
+  "imgs": [
+   "bilder/identify/logo/chip/serverworks.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Sescosem",
+  "imgs": [
+   "bilder/identify/logo/chip/sescosem1.gif",
+   "bilder/identify/logo/chip/sescosem2.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "SGS-Ates",
+  "imgs": [
+   "bilder/identify/logo/chip/sgs1.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "SGS",
+  "imgs": [
+   "bilder/identify/logo/chip/sgs2.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Sharp",
+  "imgs": [
+   "bilder/identify/logo/chip/sharp.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Shindengen",
+  "imgs": [
+   "bilder/identify/logo/chip/shindengen.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Siemens",
+  "imgs": [
+   "bilder/identify/logo/chip/siemens1.gif",
+   "bilder/identify/logo/chip/siemens2.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Sierra Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/sierra.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "SigmaTel, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/sigmatel.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Signal Processing Technologies",
+  "imgs": [
+   "bilder/identify/logo/chip/spt.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Signetics",
+  "imgs": [
+   "bilder/identify/logo/chip/signetics.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Silicon General",
+  "imgs": [
+   "bilder/identify/logo/chip/silgeneral.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Siliconix Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/siliconix.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Silicon Magic Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/siliconmagic.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Silicon Storage Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/sst.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Silicon Systems",
+  "imgs": [
+   "bilder/identify/logo/chip/siliconsystems.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Silicon Integrated Systems",
+  "imgs": [
+   "bilder/identify/logo/chip/sis.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Siliconians",
+  "imgs": [
+   "bilder/identify/logo/chip/siliconians.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Silver Telecom",
+  "imgs": [
+   "bilder/identify/logo/chip/silver.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Simtek Corporation",
+  "imgs": [
+   "bilder/identify/logo/chip/simtek.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Sipex",
+  "imgs": [
+   "bilder/identify/logo/chip/sipex.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Sony",
+  "imgs": [
+   "bilder/identify/logo/chip/sony.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Solid State Optronics",
+  "imgs": [
+   "bilder/identify/logo/chip/solidstate.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Solid State Scientific",
+  "imgs": [
+   "bilder/identify/logo/chip/sss.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Space Bridge Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/spbridge.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Space Electronics",
+  "imgs": [
+   "bilder/identify/logo/chip/space.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "SpecTek",
+  "imgs": [
+   "bilder/identify/logo/chip/spectek.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Standard Microsystems, Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/smc1.gif",
+   "bilder/identify/logo/chip/smsc1.gif",
+   "bilder/identify/logo/chip/smsc2.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Stanford Microdevices",
+  "imgs": [
+   "bilder/identify/logo/chip/stanford.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "STMicroelectronics",
+  "imgs": [
+   "bilder/identify/logo/chip/st.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Stream Machine",
+  "imgs": [
+   "bilder/identify/logo/chip/stream.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Summit Microelectronics",
+  "imgs": [
+   "bilder/identify/logo/chip/summit.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "SUN",
+  "imgs": [
+   "bilder/identify/logo/chip/sun.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Synergy Semi [Micrel]",
+  "imgs": [
+   "bilder/identify/logo/chip/synergy.gif"
+  ]
+ },
+ {
+  "page": "page_s.html",
+  "name": "Synertek",
+  "imgs": [
+   "bilder/identify/logo/chip/synertek.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Taiwan Memory Tech",
+  "imgs": [
+   "bilder/identify/logo/chip/tmtech.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Taiwan Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/taiwansemi.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Tamarack",
+  "imgs": [
+   "bilder/identify/logo/chip/tamarack1.gif",
+   "bilder/identify/logo/chip/tamarack2.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "TDK Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/tdk.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Teccor Electronics",
+  "imgs": [
+   "bilder/identify/logo/chip/teccor1.gif",
+   "bilder/identify/logo/chip/teccor2.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "TelCom Semiconductor, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/telcom.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Teledyne",
+  "imgs": [
+   "bilder/identify/logo/chip/teledyne.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Telefunken",
+  "imgs": [
+   "bilder/identify/logo/chip/telefunken.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Teltone",
+  "imgs": [
+   "bilder/identify/logo/chip/teltone.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Tesla",
+  "imgs": [
+   "bilder/identify/logo/chip/tesla.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Texas Instruments",
+  "imgs": [
+   "bilder/identify/logo/chip/ti1.gif",
+   "bilder/identify/logo/chip/ti2.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Thaler Corp",
+  "imgs": [
+   "bilder/identify/logo/chip/thaler.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Thomson-CSF",
+  "imgs": [
+   "bilder/identify/logo/chip/thomson_csf.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Toko America",
+  "imgs": [
+   "bilder/identify/logo/chip/toko.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Tonicom",
+  "imgs": [
+   "bilder/identify/logo/chip/tonicom.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Torex Semi",
+  "imgs": [
+   "bilder/identify/logo/chip/torex.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Toshiba",
+  "imgs": [
+   "bilder/identify/logo/chip/toshiba1.gif",
+   "bilder/identify/logo/chip/toshiba2.gif",
+   "bilder/identify/logo/chip/toshiba3.gif",
+   "bilder/identify/logo/chip/toshiba4.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Trident",
+  "imgs": [
+   "bilder/identify/logo/chip/trident.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "TriMedia",
+  "imgs": [
+   "bilder/identify/logo/chip/trimedia.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Tripath Technology Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/tripath.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "TriQuint Semiconductor, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/triquint.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Triscend",
+  "imgs": [
+   "bilder/identify/logo/chip/triscend.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Tseng Labs, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/tseng.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Tundra",
+  "imgs": [
+   "bilder/identify/logo/chip/tundra.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "Tvia Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/tvia.gif"
+  ]
+ },
+ {
+  "page": "page_t.html",
+  "name": "TwinMOS",
+  "imgs": [
+   "bilder/identify/logo/chip/twinmos.gif"
+  ]
+ },
+ {
+  "page": "page_u.html",
+  "name": "Ubicom",
+  "imgs": [
+   "bilder/identify/logo/chip/ubicom.gif"
+  ]
+ },
+ {
+  "page": "page_u.html",
+  "name": "UMC, United Microelectronics Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/umc.gif"
+  ]
+ },
+ {
+  "page": "page_u.html",
+  "name": "Unitrode Corporation",
+  "imgs": [
+   "bilder/identify/logo/chip/unitrode.gif"
+  ]
+ },
+ {
+  "page": "page_u.html",
+  "name": "United Technologies Microelectronics Center",
+  "imgs": [
+   "bilder/identify/logo/chip/utmc.gif"
+  ]
+ },
+ {
+  "page": "page_u.html",
+  "name": "USAR Systems",
+  "imgs": [
+   "bilder/identify/logo/chip/usar1.gif",
+   "bilder/identify/logo/chip/usar2.gif"
+  ]
+ },
+ {
+  "page": "page_u.html",
+  "name": "Utron Technology Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/utron.gif"
+  ]
+ },
+ {
+  "page": "page_v.html",
+  "name": "V3 Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/v3.gif"
+  ]
+ },
+ {
+  "page": "page_v.html",
+  "name": "Vadem",
+  "imgs": [
+   "bilder/identify/logo/chip/vadem.gif"
+  ]
+ },
+ {
+  "page": "page_v.html",
+  "name": "Valor",
+  "imgs": [
+   "bilder/identify/logo/chip/valor.gif"
+  ]
+ },
+ {
+  "page": "page_v.html",
+  "name": "Vanguard International Semiconductor Corporation",
+  "imgs": [
+   "bilder/identify/logo/chip/vanguard.gif"
+  ]
+ },
+ {
+  "page": "page_v.html",
+  "name": "Vantis",
+  "imgs": [
+   "bilder/identify/logo/chip/vantis.gif"
+  ]
+ },
+ {
+  "page": "page_v.html",
+  "name": "Via Technologies, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/via.gif"
+  ]
+ },
+ {
+  "page": "page_v.html",
+  "name": "Virata",
+  "imgs": [
+   "bilder/identify/logo/chip/virata.gif"
+  ]
+ },
+ {
+  "page": "page_v.html",
+  "name": "Vishay Intertechnology",
+  "imgs": [
+   "bilder/identify/logo/chip/vishay.gif"
+  ]
+ },
+ {
+  "page": "page_v.html",
+  "name": "Vision Tech",
+  "imgs": [
+   "bilder/identify/logo/chip/visiontech.gif",
+   "bilder/identify/logo/chip/visiontech2.gif"
+  ]
+ },
+ {
+  "page": "page_v.html",
+  "name": "Vitelic",
+  "imgs": [
+   "bilder/identify/logo/chip/vitelic.gif"
+  ]
+ },
+ {
+  "page": "page_v.html",
+  "name": "Vitesse Semiconductor",
+  "imgs": [
+   "bilder/identify/logo/chip/vitesse.gif"
+  ]
+ },
+ {
+  "page": "page_v.html",
+  "name": "VLSI Technology",
+  "imgs": [
+   "bilder/identify/logo/chip/vlsi.gif"
+  ]
+ },
+ {
+  "page": "page_v.html",
+  "name": "Volterra",
+  "imgs": [
+   "bilder/identify/logo/chip/volterra.gif"
+  ]
+ },
+ {
+  "page": "page_v.html",
+  "name": "VTC",
+  "imgs": [
+   "bilder/identify/logo/chip/vtc.gif"
+  ]
+ },
+ {
+  "page": "page_w.html",
+  "name": "Waferscale Integration",
+  "imgs": [
+   "bilder/identify/logo/chip/waferscale.gif"
+  ]
+ },
+ {
+  "page": "page_w.html",
+  "name": "Western Design Center",
+  "imgs": [
+   "bilder/identify/logo/chip/wdc.gif"
+  ]
+ },
+ {
+  "page": "page_w.html",
+  "name": "Western Digital Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/wdc1.gif",
+   "bilder/identify/logo/chip/wdc2.gif"
+  ]
+ },
+ {
+  "page": "page_w.html",
+  "name": "Weitek",
+  "imgs": [
+   "bilder/identify/logo/chip/weitek.gif"
+  ]
+ },
+ {
+  "page": "page_w.html",
+  "name": "Winbond Electronics Corp.",
+  "imgs": [
+   "bilder/identify/logo/chip/winbond.gif"
+  ]
+ },
+ {
+  "page": "page_w.html",
+  "name": "Wolfson Semiconductors",
+  "imgs": [
+   "bilder/identify/logo/chip/wolfsom.gif"
+  ]
+ },
+ {
+  "page": "page_x.html",
+  "name": "Xemics",
+  "imgs": [
+   "bilder/identify/logo/chip/xemics.gif"
+  ]
+ },
+ {
+  "page": "page_x.html",
+  "name": "Xicor, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/xicor1.gif",
+   "bilder/identify/logo/chip/xicor2.gif"
+  ]
+ },
+ {
+  "page": "page_x.html",
+  "name": "Xilinx, Inc.",
+  "imgs": [
+   "bilder/identify/logo/chip/xilinx.gif"
+  ]
+ },
+ {
+  "page": "page_y.html",
+  "name": "Yamaha",
+  "imgs": [
+   "bilder/identify/logo/chip/yamaha.gif",
+   "bilder/identify/logo/chip/yamaha2.gif"
+  ]
+ },
+ {
+  "page": "page_z.html",
+  "name": "Zarlink Semi",
+  "imgs": [
+   "bilder/identify/logo/chip/zarlink.gif"
+  ]
+ },
+ {
+  "page": "page_z.html",
+  "name": "Zetex",
+  "imgs": [
+   "bilder/identify/logo/chip/zetex.gif"
+  ]
+ },
+ {
+  "page": "page_z.html",
+  "name": "ZF Microsystems",
+  "imgs": [
+   "bilder/identify/logo/chip/zfmicro.gif"
+  ]
+ },
+ {
+  "page": "page_z.html",
+  "name": "Zilog",
+  "imgs": [
+   "bilder/identify/logo/chip/zilog1.gif",
+   "bilder/identify/logo/chip/zilog2.gif",
+   "bilder/identify/logo/chip/zilog3.gif",
+   "bilder/identify/logo/chip/zilog4.gif",
+   "bilder/identify/logo/chip/zilog5.gif"
+  ]
+ },
+ {
+  "page": "page_z.html",
+  "name": "Zentrum Mikroelektronik Dresden",
+  "imgs": [
+   "bilder/identify/logo/chip/zmd.gif"
+  ]
+ },
+ {
+  "page": "page_z.html",
+  "name": "Zoran Corporation",
+  "imgs": [
+   "bilder/identify/logo/chip/zoran.gif"
+  ]
+ },
+ {
+  "page": "page_z.html",
+  "name": "Zucotto Wireless",
+  "imgs": [
+   "bilder/identify/logo/chip/zucotto.gif"
+  ]
+ }
+]

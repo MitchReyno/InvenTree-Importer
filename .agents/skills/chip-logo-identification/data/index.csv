@@ -1,0 +1,484 @@
+id,manufacturer,kind,family,text,description,page,file
+s3_3,S3,symbol,mono,3,"italic ""S3"" with horizontal speed lines through it",p01-mono-1.png,logos/s3_3.gif
+number9,Number 9,symbol,mono,9,"italic ""9"" digit",p01-mono-1.png,logos/number9.gif
+acd,Advanced Communication Devices [ACD],symbol,mono,a,"lowercase ""a"" built from concentric arcs, filled square top right",p01-mono-1.png,logos/acd.gif
+allegro1,Allegro MicroSystems Inc.,symbol,mono,A,"italic script capital ""A""",p01-mono-1.png,logos/allegro1.gif
+aureal,Aureal,symbol,mono,A,"serif ""A"" with small wing/arrow shape to the right",p01-mono-1.png,logos/aureal.gif
+alphaind,Alpha Industries,symbol,mono,ai,"bold blocky ""ai"" ligature",p01-mono-1.png,logos/alphaind.gif
+adv_lin_dev,Advanced Linear Devices [ALD],symbol,mono,AL,"""A"" and ""L"" lines inside a rounded ""D"" outline",p01-mono-1.png,logos/adv_lin_dev.gif
+avance,"Avance Logic, Inc.",symbol,mono,aL,"script ""aL"" with vertical bars",p01-mono-1.png,logos/avance.gif
+ati,"ATI Technologies, Inc.",symbol,mono,Ati,"""Ati"" in a box with a banner beneath (ATI Technologies)",p01-mono-1.png,logos/ati.gif
+auravision,AuraVision,symbol,mono,AV,"bold slanted ""AV"" with slashes",p01-mono-1.png,logos/auravision.gif
+benchmarq,"Benchmarq Microelectronics, Inc.",symbol,mono,bq,"interlocked ""b"" and ""q"" monogram",p01-mono-1.png,logos/benchmarq.gif
+chrontel,Chrontel,symbol,mono,C,"bold ""C"" with a dot/notch inside",p01-mono-1.png,logos/chrontel.gif
+collmer,Collmer Semiconductor,symbol,mono,CS,"""C"" with ""S"" inside, interlocked",p01-mono-1.png,logos/collmer.gif
+dallas2,Dallas Semiconductor Corp.,symbol,mono,D,"""D"" split by vertical bars, blocky D with arrow notch",p01-mono-1.png,logos/dallas2.gif
+dionics,Dionics,symbol,mono,D,"bold square-ish ""D"" with ""i"" cut-out",p01-mono-1.png,logos/dionics.gif
+jetkey,Jetkey,symbol,mono,D,"halftone shaded ""D"" shape",p01-mono-1.png,logos/jetkey.gif
+idt1,"Integrated Device Technology, Inc.",symbol,mono,∫dt,"integral sign ""∫"" with ""dt"" (IDT)",p01-mono-1.png,logos/idt1.gif
+edi,Electronic Devices [EDI],symbol,mono,edi,"condensed ""edi"" stacked letters with arrow",p01-mono-1.png,logos/edi.gif
+etc,Electronic Technology,symbol,mono,etc,"blocky interlocked ""etc"" with vertical bars",p01-mono-1.png,logos/etc.gif
+fairchild1,Fairchild Semiconductor Corp,symbol,mono,f,"italic stylised ""f"" lowercase, bold",p01-mono-1.png,logos/fairchild1.gif
+fujitsu2,Fujitsu Ltd.,symbol,mono,F,"serif ""F"" between two horizontal bars",p01-mono-1.png,logos/fujitsu2.gif
+fujielec1,"Fuji Electric Co.,Ltd.",symbol,mono,FE,"condensed ""FE"" ligature with curved E (FEC)",p01-mono-1.png,logos/fujielec1.gif
+glink,G-Link Technology,symbol,mono,G,"""G"" with horizontal bar/underline, stylised ""GL""",p01-mono-1.png,logos/glink.gif
+globespan,Globespan Semiconductor,symbol,mono,G,"script ""G"" with long swoosh line through it",p01-mono-1.png,logos/globespan.gif
+harris1,Harris,symbol,mono,H,"rounded square ""H"" with circular cut-outs",p01-mono-1.png,logos/harris1.gif
+harris2,Harris,symbol,mono,H,"rounded square ""H"" with zigzag waveform inside",p01-mono-1.png,logos/harris2.gif
+hutson,Hutson Industries,symbol,mono,H,"""H"" inside rounded oval with vertical lines",p01-mono-1.png,logos/hutson.gif
+hp,Hewlett Packard Corp.,symbol,mono,hp,"italic ""hp"" in rounded rectangle",p01-mono-1.png,logos/hp.gif
+imi,International Microcircuits,symbol,mono,iMi,"""iMI"" with circular swoosh on the i",p01-mono-1.png,logos/imi.gif
+diotec,Diotec GmbH,symbol,mono,J,"ornate blackletter/serif ""J""",p01-mono-1.png,logos/diotec.gif
+klsi,Kawasaki LSI [KLSI],symbol,mono,K,"bold ""K"" with halftone/dither fade",p02-mono-2.png,logos/klsi.gif
+lattice1,Lattice Semiconductor Corp,symbol,mono,L,"serif ""L"" thin",p02-mono-2.png,logos/lattice1.gif
+lattice2,Lattice Semiconductor Corp,symbol,mono,L,"bold italic ""L""",p02-mono-2.png,logos/lattice2.gif
+lattice3,Lattice Semiconductor Corp,symbol,mono,L,"""L"" with grid of small squares to the left (dot-matrix L)",p02-mono-2.png,logos/lattice3.gif
+bothhand,Bothhand,symbol,mono,LR,"tall blocky ""L"" and ""R""/""B"" joined monogram",p02-mono-2.png,logos/bothhand.gif
+lansdale1,Lansdale Semiconductor,symbol,mono,LS,"""L"" and ""S"" in circle-ish outline",p02-mono-2.png,logos/lansdale1.gif
+linear,Linear Technology,symbol,mono,LT,"italic bold ""LT"" ligature (Linear Technology)",p02-mono-2.png,logos/linear.gif
+marvell,Marvell,symbol,mono,M,"slanted ""M"" made of a triangle plus vertical bars",p02-mono-2.png,logos/marvell.gif
+matsushita2,Matsushita Panasonic,symbol,mono,M,"""M"" inside rounded square outline with corner gaps",p02-mono-2.png,logos/matsushita2.gif
+matsushita3,Matsushita Panasonic,symbol,mono,M,"""M"" in rounded square, bold double outline",p02-mono-2.png,logos/matsushita3.gif
+mediavision2,Media Vision,symbol,mono,M,"italic ""M"" with dotted left stroke",p02-mono-2.png,logos/mediavision2.gif
+micrel,Micrel Semiconductor,symbol,mono,m,"bold lowercase ""m"" in a square block",p02-mono-2.png,logos/micrel.gif
+micronix,Micronix Integrated Systems,symbol,mono,M,"italic script ""M"" with ""L""/""c"" flourish",p02-mono-2.png,logos/micronix.gif
+motorola1,Motorola,symbol,mono,M,"small Motorola batwing ""M"" (no circle)",p02-mono-2.png,logos/motorola1.gif
+msystems,M Systems,symbol,mono,M,"italic ""M"" on underline bar",p02-mono-2.png,logos/msystems.gif
+microelec,Micro Electronics Ltd.,symbol,mono,ME,"script ""ME"" handwriting",p02-mono-2.png,logos/microelec.gif
+micron,"Micron Technology, Inc.",symbol,mono,MT,"thin ""MT"" ligature",p02-mono-2.png,logos/micron.gif
+mediavision1,Media Vision,symbol,mono,MV,"zig-zag ""MV""/""W"" in a box, outlined",p02-mono-2.png,logos/mediavision1.gif
+ns2,National Semiconductor,symbol,mono,N,"stylised ""N"" lightning zigzag",p02-mono-2.png,logos/ns2.gif
+ns3,National Semiconductor,symbol,mono,N,"italic ""N"" swoosh / leaf-like bold N",p02-mono-2.png,logos/ns3.gif
+visiontech,Vision Tech,symbol,mono,NT,"blocky ""NT""/""VT"" bars",p02-mono-2.png,logos/visiontech.gif
+quality,Quality Semiconductor,symbol,mono,Q,"serif italic ""Q"" in white box",p02-mono-2.png,logos/quality.gif
+reliance,Reliance,symbol,mono,R,"bold italic ""R"" with orbit ring and starburst",p02-mono-2.png,logos/reliance.gif
+rendition,Rendition,symbol,mono,R,"serif ""R"" with a dotted circle in the bowl",p02-mono-2.png,logos/rendition.gif
+powersmart,Power Smart,symbol,mono,S,"""S"" in a white square",p02-mono-2.png,logos/powersmart.gif
+semtech,Semtech,symbol,mono,S,white square with lightning/S-shaped cut-out,p02-mono-2.png,logos/semtech.gif
+siemens1,Siemens,symbol,mono,S,"stylised ""S"" with long double-curved stroke/arrow (Siemens old)",p02-mono-2.png,logos/siemens1.gif
+signetics,Signetics,symbol,mono,S,"bold blocky ""S""",p02-mono-2.png,logos/signetics.gif
+siliconix,Siliconix Inc.,symbol,mono,S,"bold italic ""S"" with horizontal cut (stencil)",p02-mono-2.png,logos/siliconix.gif
+spectek,SpecTek,symbol,mono,S,"""S"" with arrows/chevrons above and below",p02-mono-2.png,logos/spectek.gif
+stanford,Stanford Microdevices,symbol,mono,S,tall S-shape in a white block with curve,p03-mono-3.png,logos/stanford.gif
+synertek,Synertek,symbol,mono,S,"bold blocky ""S"" with outline",p03-mono-3.png,logos/synertek.gif
+silgeneral,Silicon General,symbol,mono,SG,"condensed ""SG""",p03-mono-3.png,logos/silgeneral.gif
+sgs2,SGS,symbol,mono,SGS,"condensed outlined ""SGS""",p03-mono-3.png,logos/sgs2.gif
+seagate,Seagate Technology,symbol,mono,SS,"interlocked ""SS"" outlined loops",p03-mono-3.png,logos/seagate.gif
+st,STMicroelectronics,symbol,mono,ST,"italic ""ST"" (STMicroelectronics)",p03-mono-3.png,logos/st.gif
+semitech,Semiconductor Technology Inc,symbol,mono,STi,"blocky ""STi""/""STI"" with stripes",p03-mono-3.png,logos/semitech.gif
+teccor1,Teccor Electronics,symbol,mono,T,"""T"" with curved arms like a ""Y""/tree",p03-mono-3.png,logos/teccor1.gif
+toshiba2,Toshiba,symbol,mono,T,"bold serif ""T""",p03-mono-3.png,logos/toshiba2.gif
+toshiba3,Toshiba,symbol,mono,T,"italic ""T"" with cut-off bar",p03-mono-3.png,logos/toshiba3.gif
+thaler,Thaler Corp,symbol,mono,TC,"block ""TC"" letters combined",p03-mono-3.png,logos/thaler.gif
+toko,Toko America,symbol,mono,TG,"blocky ""R""/""TG"" shape in white square",p03-mono-3.png,logos/toko.gif
+tseng,"Tseng Labs, Inc.",symbol,mono,Tl,"blocky ""T"" with ""l""/""L"" stacked (Tseng)",p03-mono-3.png,logos/tseng.gif
+taiwansemi,Taiwan Semiconductor,symbol,mono,TS,"""S"" with vertical ""T"" bars (TS monogram)",p03-mono-3.png,logos/taiwansemi.gif
+unitrode,Unitrode Corporation,symbol,mono,U,"""U"" over a horizontal bar",p03-mono-3.png,logos/unitrode.gif
+v3,V3 Semiconductor,symbol,mono,V,"""V"" with dots around (crown/stars) and arc beneath",p03-mono-3.png,logos/v3.gif
+vanguard,Vanguard International Semiconductor Corporation,symbol,mono,V,"""V"" inside a square with a check-mark arrow",p03-mono-3.png,logos/vanguard.gif
+vantis,Vantis,symbol,mono,V,"thin ""V"" with swoosh over top",p03-mono-3.png,logos/vantis.gif
+vitesse,Vitesse Semiconductor,symbol,mono,V,"serif ""V"" outline",p03-mono-3.png,logos/vitesse.gif
+volterra,Volterra,symbol,mono,V,"""V"" in white square with notch",p03-mono-3.png,logos/volterra.gif
+visiontech2,Vision Tech,symbol,mono,VT,"""VT"" over ""VISION"" with ""TECH"" vertical",p03-mono-3.png,logos/visiontech2.gif
+wolfsom,Wolfson Semiconductors,symbol,mono,WM,"""W/M"" slanted blocky letters in a bar",p03-mono-3.png,logos/wolfsom.gif
+emulex,Emulex,symbol,mono,X,"stylised ""X"" from horizontal bars (crossing chevrons)",p03-mono-3.png,logos/emulex.gif
+exar,Exar Corp.,symbol,mono,X,"stylised ""X"" with curved arm (bold slanted strokes)",p03-mono-3.png,logos/exar.gif
+xemics,Xemics,symbol,mono,X,"""X"" made of curved parallel lines",p03-mono-3.png,logos/xemics.gif
+xicor2,"Xicor, Inc.",symbol,mono,X,"bold ""X"" in white box",p03-mono-3.png,logos/xicor2.gif
+xilinx,"Xilinx, Inc.",symbol+text,mono,XILINX,"stylised ""Σ""-like X + ""XILINX""",p03-mono-3.png,logos/xilinx.gif
+sgs1,SGS-Ates,symbol,mono,Z,"italic ""Z"" with horizontal bars (SGS-Ates)",p03-mono-3.png,logos/sgs1.gif
+elantec2,Elantec,symbol,mono,é,"bold ""é"" with accent",p03-mono-3.png,logos/elantec2.gif
+alphamicro,alpha microelectronics gmbh,symbol,mono,α,"alpha ""α"" in a rounded rectangle outline",p03-mono-3.png,logos/alphamicro.gif
+sigmatel,"SigmaTel, Inc.",symbol,mono,Σ,"Sigma ""Σ"" with vertical line",p04-mono-4.png,logos/sigmatel.gif
+vtc,VTC,symbol,circ,#,circle with crossing diagonal lines (lattice/plaid ball),p05-circ-1.png,logos/vtc.gif
+fujitsu1,Fujitsu Ltd.,symbol,circ,$,"""S""/dollar-like swirl inside a circle (Fujitsu old)",p05-circ-1.png,logos/fujitsu1.gif
+dtc1,DTC Data Technology,symbol,circ,+,dashed circle with radiating bars / gear-like crosshair,p05-circ-1.png,logos/dtc1.gif
+sierra,Sierra Semiconductor,symbol,circ,+,dashed circle with four radiating bars (gear crosshair) — similar to DTC,p05-circ-1.png,logos/sierra.gif
+serverworks,Serverworks,symbol,circ,@,swirl ellipse / galaxy spiral rings,p05-circ-1.png,logos/serverworks.gif
+allegro2,Allegro MicroSystems Inc.,symbol+text,circ,Allegro,"globe/dotted sphere + italic ""Allegro"", ""A Sanken Company""",p05-circ-1.png,logos/allegro2.gif
+att,AT&T,symbol,circ,AT&T,AT&T globe: sphere of horizontal stripes,p05-circ-1.png,logos/att.gif
+catalyst1,"Catalyst Semiconductor, Inc.",symbol,circ,C,open ring / C shape made of two swooshes,p05-circ-1.png,logos/catalyst1.gif
+centon,Centon Electronics,symbol,circ,C,"solid circle containing ""C"" with horizontal bars",p05-circ-1.png,logos/centon.gif
+comcore,ComCore,symbol,circ,C,solid circle with a curved swoosh cut,p05-circ-1.png,logos/comcore.gif
+conexant,Conexant,symbol,circ,C,"nested concentric ""C"" arcs / ripples",p05-circ-1.png,logos/conexant.gif
+cygnal,Cygnal Integrated Products,symbol+text,circ,C,"square with large ""C""/swan curve, small ""CYGNAL"" text on top",p05-circ-1.png,logos/cygnal.gif
+dynex,Dynex,symbol,circ,C,circle with curved swoosh lines (wave in a ball),p05-circ-1.png,logos/dynex.gif
+ghz,GHZ Technology,symbol,circ,C,"circle with ""C""/arrow pointing right and speed lines",p05-circ-1.png,logos/ghz.gif
+sames,Sames Pty Ltd.,symbol,circ,C,"solid circle with small ""C""/circle cut on right side (eye)",p05-circ-1.png,logos/sames.gif
+chipcon,ChipCon AS,symbol+text,circ,Chipcon,"circle with ""C"" + bold ""Chipcon""",p05-circ-1.png,logos/chipcon.gif
+icsi,Integrated Circuit Solution,symbol,circ,CSI,"""CSI"" inside nested ellipses/arcs",p05-circ-1.png,logos/icsi.gif
+davicom,Davicom Semiconductor Inc.,symbol+text,circ,DAVICOM,"""D"" in a circle arc + ""AVICOM"" text",p05-circ-1.png,logos/davicom.gif
+densepac,Dense-Pac,symbol,circ,dp,"circle containing interlocked ""dp""",p05-circ-1.png,logos/densepac.gif
+etrontech2,Etron Tech,symbol,circ,E,"serif ""E"" over a dotted/shaded globe",p05-circ-1.png,logos/etrontech2.gif
+hfo,VEB Halbleiterwerk Frankfurt/Oder (HFO),symbol,circ,f,"circle split vertically with ""f"" shape (VEB HFO)",p05-circ-1.png,logos/hfo.gif
+fagor,Fagor Electronica,symbol+text,circ,FAGOR,"""FAGOR"" + circle with horizontal bars and arrow",p05-circ-1.png,logos/fagor.gif
+ge,General Electric Corp.,symbol,circ,GE,GE script monogram in circle with scalloped edge,p05-circ-1.png,logos/ge.gif
+umc,"UMC, United Microelectronics Corp.",symbol,circ,globe,globe with latitude/longitude lines,p05-circ-1.png,logos/umc.gif
+gecplessy,GEC Plessy,symbol+text,circ,GP,open ellipse/ring swoosh with small dot grid at top right,p05-circ-1.png,logos/gecplessy.gif
+inmos,Inmos Corp.,symbol,circ,grid,circle filled with a grid/mesh (wafer),p05-circ-1.png,logos/inmos.gif
+impala,Impala Linear,symbol,circ,H,"solid circle with ""H""-shaped cut-out (bowling ball / face)",p05-circ-1.png,logos/impala.gif
+mitel,Mitel Semiconductor,symbol,circ,H,"circle with ""H""/bow-tie shape inside, double lines",p05-circ-1.png,logos/mitel.gif
+infineon2,Infineon,symbol,circ,i,"""i"" inside a circle/oval swoosh",p05-circ-1.png,logos/infineon2.gif
+ichaus2,iC-Haus,symbol,circ,iC,"""iC"" in a solid circle",p05-circ-1.png,logos/ichaus2.gif
+icworks,"IC Works, Inc.",symbol,circ,IC,"circle with ""IC"" bars inside (ring with vertical strokes)",p06-circ-2.png,logos/icworks.gif
+ichaus3,iC-Haus,symbol+text,circ,iC Haus,"""iC"" in circle + ""Haus""",p06-circ-2.png,logos/ichaus3.gif
+idt2,"Integrated Device Technology, Inc.",symbol+text,circ,IDT,"dotted circle + bold ""IDT""",p06-circ-2.png,logos/idt2.gif
+infineon3,Infineon,symbol+text,circ,Infineon,"""Infineon"" with elliptical swoosh underneath",p06-circ-2.png,logos/infineon3.gif
+itex,Integrated Telecom Express [ITEX],symbol,circ,ITeX,"""ITeX"" inside a circle",p06-circ-2.png,logos/itex.gif
+kota,Kota Microcircuits,symbol,circ,K,"""K"" / slash inside a solid circle",p06-circ-2.png,logos/kota.gif
+linfinity2,"Linfinity Microelectronics, Inc.",symbol+text,circ,LINFINITY,"circular ring/arrow + ""LINFINITY""",p06-circ-2.png,logos/linfinity2.gif
+microchip,Microchip Technology Inc.,symbol,circ,M,"Microchip: solid circle with ""M"" wave cut-out",p06-circ-2.png,logos/microchip.gif
+motorola2,Motorola,symbol,circ,M,"Motorola batwing ""M"" inside a circle",p06-circ-2.png,logos/motorola2.gif
+murata2,Murata,symbol,circ,M,"""M"" inside a ""C""/ring",p06-circ-2.png,logos/murata2.gif
+mmc,MMC Networks,symbol+text,circ,MMC,"globe/circle with horizontal bars + ""MMC""",p06-circ-2.png,logos/mmc.gif
+neomagic,NeoMagic,symbol,circ,nm,circle divided into quadrants with letters/symbols in each,p06-circ-2.png,logos/neomagic.gif
+averlogic,AverLogic,symbol,circ,O,circle with horizontal gap/band (eye shape),p06-circ-2.png,logos/averlogic.gif
+hitachi,Hitachi,symbol,circ,O,Hitachi circle-in-circle with notches (target with four tabs),p06-circ-2.png,logos/hitachi.gif
+lucent,Lucent,symbol,circ,O,brush-stroke ring (Lucent innovation ring),p06-circ-2.png,logos/lucent.gif
+microsemi,Micro Semi,symbol,circ,O,thick ring/oval with gap,p06-circ-2.png,logos/microsemi.gif
+moselvitelic,"Mosel Vitelic, Inc.",symbol,circ,O,open ring/circle with small dot grid at top left,p06-circ-2.png,logos/moselvitelic.gif
+utmc,United Technologies Microelectronics Center,symbol,circ,O,starburst ring of radiating spokes with gap (sunburst C),p06-circ-2.png,logos/utmc.gif
+onsemi,ON Semiconductor,symbol,circ,ON,"""ON"" inside a circle",p06-circ-2.png,logos/onsemi.gif
+orbit,Orbit Semiconductor,symbol+text,circ,ORBIT,"dotted globe ""O"" + ""RBIT""",p06-circ-2.png,logos/orbit.gif
+oren,Oren Semiconductor,symbol+text,circ,Oren,"circle with diagonal stripes + ""ren""",p06-circ-2.png,logos/oren.gif
+pericom,Pericom Semiconductor,symbol,circ,P,"circle with lightning bolt ""P""",p06-circ-2.png,logos/pericom.gif
+siliconsystems,Silicon Systems,symbol,circ,S,"thin ""S""/note curve inside a circle",p06-circ-2.png,logos/siliconsystems.gif
+simtek,Simtek Corporation,symbol,circ,S,"""S"" inside a rounded circle, outlined",p06-circ-2.png,logos/simtek.gif
+solidstate,Solid State Optronics,symbol,circ,S,oval/circle split by an S-curve (yin-yang like),p06-circ-2.png,logos/solidstate.gif
+space,Space Electronics,symbol,circ,SE,"circle with orbit ring containing ""SE""",p06-circ-2.png,logos/space.gif
+semitron,Semitron,symbol,circ,Si,"solid circle with italic ""Si"" cut-out",p06-circ-2.png,logos/semitron.gif
+seiko,Seiko Instruments,symbol+text,circ,SII,"""SII"" with solid circle + dot",p06-circ-2.png,logos/seiko.gif
+spt,Signal Processing Technologies,symbol+text,circ,SPT,"circle with wave + italic ""SPT""",p06-circ-2.png,logos/spt.gif
+protek,Protek Devices,symbol,circ,T,"""T"" inside a solid circle",p06-circ-2.png,logos/protek.gif
+tundra,Tundra,symbol,circ,T,"""T"" cut out of a solid circle",p07-circ-3.png,logos/tundra.gif
+tdk,TDK Semiconductor,symbol+text,circ,TDK,"circle-of-triangles emblem + ""TDK""",p07-circ-3.png,logos/tdk.gif
+tesla,Tesla,symbol,circ,TESLA,"circle with small ""TESLA"" text and lines",p07-circ-3.png,logos/tesla.gif
+tamarack1,Tamarack,symbol,circ,tmi,"""tmi"" inside a dotted circle",p07-circ-3.png,logos/tamarack1.gif
+trimedia,TriMedia,symbol+text,circ,TriMedia,"""TriMedia"" with circle and arc swoosh",p07-circ-3.png,logos/trimedia.gif
+yamaha2,Yamaha,symbol,circ,tuning forks,three crossed tuning forks in a circle,p07-circ-3.png,logos/yamaha2.gif
+anchor,Anchor Chips,symbol,circ,U,"anchor/""U"" with T bar: circle segment with vertical stem",p07-circ-3.png,logos/anchor.gif
+winbond,Winbond Electronics Corp.,symbol+text,circ,Winbond,"dotted globe + ""Winbond""",p07-circ-3.png,logos/winbond.gif
+shindengen,Shindengen,symbol,circ,X,circle containing double-arrow / bow-tie diode symbol,p07-circ-3.png,logos/shindengen.gif
+rockwell,Rockwell,symbol,circ,Y,"solid circle with inverted ""Y""/arrow cut (Rockwell)",p07-circ-3.png,logos/rockwell.gif
+tripath,Tripath Technology Inc.,symbol,circ,Y,three rounded leaf shapes around a centre (tri-petal),p07-circ-3.png,logos/tripath.gif
+vlsi,VLSI Technology,symbol,circ,\\,solid circle with diagonal stripes,p07-circ-3.png,logos/vlsi.gif
+torex,Torex Semi,symbol,circ,θ,circle with horizontal bar through (theta/planet),p07-circ-3.png,logos/torex.gif
+utron,Utron Technology Inc.,symbol,circ,≡,circle outline with horizontal bars inside top (stacked lines),p07-circ-3.png,logos/utron.gif
+interfet,interFET,symbol,circ,⊕,circle with crosshair (plus extended beyond),p07-circ-3.png,logos/interfet.gif
+omnirel,Omnirel,symbol,circ,◎,crosshair/target: circle with dot and four bars,p07-circ-3.png,logos/omnirel.gif
+prairie,PrairieComm,symbol,circ,◑,half-circle/dome of dots grid,p07-circ-3.png,logos/prairie.gif
+zucotto,Zucotto Wireless,symbol,circ,◔,thick arc / quarter-ring over a dot (signal symbol),p07-circ-3.png,logos/zucotto.gif
+icube,I-Cube,symbol,quad,#,"cross/hash shape in square, plus-like with notches",p08-quad-1.png,logos/icube.gif
+wdc2,Western Digital Corp.,symbol,quad,%,square of diagonal stripes / checker with notches (Western Digital),p08-quad-1.png,logos/wdc2.gif
+gould,Gould,symbol,quad,+,arrow/cross shape pointing right with notches,p08-quad-1.png,logos/gould.gif
+enhmemsy,Enhanced Memory Systems,symbol,quad,/,"square with diagonal stripe cut-out, slash",p08-quad-1.png,logos/enhmemsy.gif
+summit,Summit Microelectronics,symbol,quad,/,square with jagged diagonal line (chart/peak),p08-quad-1.png,logos/summit.gif
+vadem,Vadem,symbol,quad,/,rounded square with diagonal slash,p08-quad-1.png,logos/vadem.gif
+3com_2,3Com,symbol+text,quad,3Com,"""3Com"" bold text overlapping a large solid white square, top right",p08-quad-1.png,logos/3com_2.gif
+3do,3DO,symbol,quad,3DO,"diamond, rounded square, circle and vertical bar in a row",p08-quad-1.png,logos/3do.gif
+analog1,Analog Devices,symbol,quad,>,"triangle ""play"" symbol inside a square outline (Analog Devices)",p08-quad-1.png,logos/analog1.gif
+analog2,Analog Devices,symbol,quad,>,filled square with triangle cut-out (Analog Devices),p08-quad-1.png,logos/analog2.gif
+acer,Acer Inc.,symbol,quad,A,"two interlocking diamond/kite shapes forming a stylised ""A"" with a notch",p08-quad-1.png,logos/acer.gif
+amd,Advanced Micro Devices,symbol,quad,AMD,AMD arrow: square with diagonal cut-out corner (open square + filled triangle),p08-quad-1.png,logos/amd.gif
+adv_power,Advanced Power Technology,symbol,quad,AP,solid square with diagonal lightning-bolt cut,p08-quad-1.png,logos/adv_power.gif
+atlantis,Atlantis Memory,symbol+text,quad,ATLANTIS,"small square emblem with curve + thin ""ATLANTIS""",p08-quad-1.png,logos/atlantis.gif
+burrbrown,Burr Brown,symbol,quad,BB,"""BB"" in rounded rectangle with double outline",p08-quad-1.png,logos/burrbrown.gif
+cmedia,C-Media,symbol,quad,C,"square outline with a quarter-arc ""C"" inside",p08-quad-1.png,logos/cmedia.gif
+consumer,Consumer Microelectronics,symbol,quad,CM,"blocky maze-like ""CM"" made of rectangles",p08-quad-1.png,logos/consumer.gif
+datapath,Datapath Systems,symbol,quad,D,"solid rectangle with a curved "")"" cut on the right",p08-quad-1.png,logos/datapath.gif
+goodark,Goodark,symbol,quad,D,"rectangle containing two arrow-like ""D"" shapes facing (diode symbol-ish)",p08-quad-1.png,logos/goodark.gif
+galvantech,"Galvantech, Inc.",symbol,quad,G,"white rectangle with a circle ""G"" cut-out on the right",p08-quad-1.png,logos/galvantech.gif
+gi1,General Instrument,symbol,quad,G,"square spiral/outline ""G"" (open box)",p08-quad-1.png,logos/gi1.gif
+gi3,General Instrument,symbol,quad,G,"square spiral ""G"" in solid square",p08-quad-1.png,logos/gi3.gif
+genesys,"Genesys Logic, Inc.",symbol,quad,globe,diamond of dots with striped sphere inside,p08-quad-1.png,logos/genesys.gif
+intersil1,Intersil,symbol,quad,i,"""i"" in a solid white square",p08-quad-1.png,logos/intersil1.gif
+icd,"Integrated Circuit Designs, Inc",symbol,quad,ICD,parallelogram box with diagonal hatching,p08-quad-1.png,logos/icd.gif
+ics1,Integrated Circuit Systems Inc.,symbol,quad,ICS,"""ICS"" in a rectangle outline, tall letters",p08-quad-1.png,logos/ics1.gif
+ics2,Integrated Circuit Systems Inc.,symbol,quad,ICS,"square containing dotted circle and ""ICS""",p08-quad-1.png,logos/ics2.gif
+levelone,Level One,symbol+text,quad,LEVEL ONE,"nested ""L"" squares + ""LEVEL ONE""",p08-quad-1.png,logos/levelone.gif
+phaselink1,"PhaseLink Laboratories, Inc.",symbol,quad,PLL,"""P L L"" each in separate boxes, serif",p08-quad-1.png,logos/phaselink1.gif
+alesis,Alesis Semiconductor,symbol,quad,r,"square with quarter-circle cut-out (stylised ""r"")",p08-quad-1.png,logos/alesis.gif
+spbridge,Space Bridge Semiconductor,symbol,quad,S,"""S""/bridge shape in a square box outline",p09-quad-2.png,logos/spbridge.gif
+sage,Sage,symbol+text,quad,sage,"square with S-cut + ""sage""",p09-quad-2.png,logos/sage.gif
+sun,SUN,symbol+text,quad,SUN,"Sun rotated-square of interlocked ""u""s + ""Sun""",p09-quad-2.png,logos/sun.gif
+usar2,USAR Systems,symbol+text,quad,USAR,"diamond with curved cut + ""SAR""",p09-quad-2.png,logos/usar2.gif
+quicklogic,QuickLogic Corporation,symbol,quad,X,"square containing curved ""X""/swoosh",p09-quad-2.png,logos/quicklogic.gif
+zfmicro,ZF Microsystems,symbol,quad,ZF,"""Z"" and ""F"" letters in a white square with circle",p09-quad-2.png,logos/zfmicro.gif
+mpd,Micro Power Direct,symbol,quad,µPd,"""µPd"" in elongated hexagon outline",p09-quad-2.png,logos/mpd.gif
+hyundai2,Hyundai,symbol,quad,•H,dot and a square with bow-tie cut-outs,p09-quad-2.png,logos/hyundai2.gif
+minicircuits,Mini Circuits,symbol,quad,▭,rounded rectangle with row of teeth at bottom (chip shape),p09-quad-2.png,logos/minicircuits.gif
+rectron,Rectron,symbol,quad,▷|,diode symbol (triangle + bar) inside a rounded white square,p09-quad-2.png,logos/rectron.gif
+atecom,ATecoM,symbol,quad,◇,diamond outline with filled lower half (rotated square),p09-quad-2.png,logos/atecom.gif
+micronas,Micronas,symbol,quad,◇,diamond made of a grid of small squares/diamonds,p09-quad-2.png,logos/micronas.gif
+mosys,"MoSys, Inc.",symbol,quad,◇,diamond made of four smaller diamonds (outline),p09-quad-2.png,logos/mosys.gif
+pretec,Pretec,symbol,quad,◇,blurred diamond shape with faint text,p09-quad-2.png,logos/pretec.gif
+ramtron,Ramtron Corp.,symbol,quad,◇,tall diamond outline with inner diamond facets (crystal),p09-quad-2.png,logos/ramtron.gif
+siliconians,Siliconians,symbol,quad,◇,diamond with S-shaped split (two halves offset),p09-quad-2.png,logos/siliconians.gif
+synergy,Synergy Semi [Micrel],symbol,quad,◇,diamond/square split into pinwheel of four arrows,p09-quad-2.png,logos/synergy.gif
+telefunken,Telefunken,symbol,quad,◇,diamond containing a star / grid with letters,p09-quad-2.png,logos/telefunken.gif
+ubicom,Ubicom,symbol,quad,◇,rounded diamond with diagonal oval cut,p09-quad-2.png,logos/ubicom.gif
+triquint,"TriQuint Semiconductor, Inc.",symbol,quad,⬠,solid pentagon,p09-quad-2.png,logos/triquint.gif
+aeroflex,Aeroflex,symbol,tri,A,rounded arch/bell outline with small filled triangle at bottom,p10-tri-1.png,logos/aeroflex.gif
+aimtron,Aimtron Technology,symbol,tri,A,"solid ""A"" triangle with chevron cut-out at base",p10-tri-1.png,logos/aimtron.gif
+californiamicro,California Micro Devices,symbol,tri,A,triangle outline with inner triangle and diagonal line,p10-tri-1.png,logos/californiamicro.gif
+matsushita1,Matsushita Panasonic,symbol,tri,A,triangle with circle at apex and crossbars (Matsushita/National),p10-tri-1.png,logos/matsushita1.gif
+sanyo1,Sanyo,symbol,tri,A,circle containing a tripod/A arrow shape,p10-tri-1.png,logos/sanyo1.gif
+thomson_csf,Thomson-CSF,symbol,tri,A,Thomson triangle with curved sides (rounded triangle / tri-star),p10-tri-1.png,logos/thomson_csf.gif
+zilog3,Zilog,symbol,tri,A,"""A""/arrow shape with circle loop at top (Zilog arrow)",p10-tri-1.png,logos/zilog3.gif
+altima,Altima Communications,symbol+text,tri,ALTIMA,"mountain/triangle with chevron stripe + ""ALTIMA"" below",p10-tri-1.png,logos/altima.gif
+ame,Analog Microelectronics,symbol,tri,AM,"stylised ""AM""/double mountain peaks, solid",p10-tri-1.png,logos/ame.gif
+ami3,American Megatrends,symbol,tri,AMI,striped pyramid/triangle with inner inverted triangle (American Megatrends),p10-tri-1.png,logos/ami3.gif
+anadigic,Anadigic's,symbol+text,tri,ANADIGICS,"solid square with triangle cut + outlined ""ANADIGICS""",p10-tri-1.png,logos/anadigic.gif
+catc,Computer Access Tech Corp [CATC],symbol+text,tri,CATC,"triangular ""A"" with arrow/bird shape and ""CATC"" beneath",p10-tri-1.png,logos/catc.gif
+datadelay,Data Delay Devices,symbol,tri,DDD,inverted triangle with inner triangle and circle with stripes,p10-tri-1.png,logos/datadelay.gif
+intersil4,Intersil,symbol,tri,i,"""i"" above a downward-pointing arrow/triangle",p10-tri-1.png,logos/intersil4.gif
+epson1,Seiko Epson Corp.,symbol,tri,M,twin mountain peaks outline (stylised M),p10-tri-1.png,logos/epson1.gif
+scenix,Scenix Semi,symbol+text,tri,SCENIX,"mountain peaks outline over ""SCENIX"" text",p10-tri-1.png,logos/scenix.gif
+teledyne,Teledyne,symbol,tri,T,Teledyne: three triangles/arrows radiating (crown),p10-tri-1.png,logos/teledyne.gif
+triscend,Triscend,symbol+text,tri,Triscend,"small slanted triangle/flag + serif ""Triscend""",p10-tri-1.png,logos/triscend.gif
+vitelic,Vitelic,symbol,tri,V,solid inverted triangle with notch (V),p10-tri-1.png,logos/vitelic.gif
+silver,Silver Telecom,symbol,tri,⌖,two overlapping triangles outline (star-like / hourglass),p10-tri-1.png,logos/silver.gif
+hyundai1,Hyundai,symbol,tri,△,triangle outline,p10-tri-1.png,logos/hyundai1.gif
+telcom,"TelCom Semiconductor, Inc.",symbol,tri,▽,"three triangles (two pointing down, one below) = inverted triangle pattern",p10-tri-1.png,logos/telcom.gif
+vishay,Vishay Intertechnology,symbol,tri,▽,"inverted triangle with ""VISHAY"" inside",p10-tri-1.png,logos/vishay.gif
+semelab,Semelab Magnatec,symbol,stripe,+,cross/plus shape of striped bars with letters in centre,p11-stripe-1.png,logos/semelab.gif
+ami2,"American Microsystems, Inc.",symbol,stripe,/,square with diagonal hatch lines (striped triangle),p11-stripe-1.png,logos/ami2.gif
+powerint,Power Integrations,symbol,stripe,/,slanted parallelogram with horizontal stripes on right,p11-stripe-1.png,logos/powerint.gif
+zilog1,Zilog,symbol,stripe,/,square with two diagonal stripes cut (Zilog),p11-stripe-1.png,logos/zilog1.gif
+clearlogic,ClearLogic,symbol,stripe,?,"grid of small hexagon/cells with a starburst, slanted parallelogram",p11-stripe-1.png,logos/clearlogic.gif
+adc,Asian Design Corp,symbol,stripe,A,"solid ""A"" triangle followed by vertical bars forming a half-circle (A + D shape)",p11-stripe-1.png,logos/adc.gif
+aha1,Advanced Hardware Architectures,symbol,stripe,AHA,"horizontally striped ""AHA"" letters",p11-stripe-1.png,logos/aha1.gif
+anasys,Analog Systems,symbol+text,stripe,ANALOG SYSTEMS,"""S""-like curve left + striped ""ANALOG SYSTEMS"" text",p11-stripe-1.png,logos/anasys.gif
+elec_designs2,[White] Electronic Designs,symbol+text,stripe,EDI,"diagonal-striped square + ""EDI"" condensed text",p11-stripe-1.png,logos/elec_designs2.gif
+ericsson,Ericsson,symbol+text,stripe,ERICSSON,"""ERICSSON"" + three slanted stacked bars",p11-stripe-1.png,logos/ericsson.gif
+ils,Integrated Logic Systems,symbol,stripe,ILS,stacked U-shapes / meander of vertical lines in a square,p11-stripe-1.png,logos/ils.gif
+mhs1,"MHS, Matra Harris Semiconductor",symbol+text,stripe,MHS,"striped square ""M"" emblem + outlined ""MHS""",p11-stripe-1.png,logos/mhs1.gif
+ns1,National Semiconductor,symbol,stripe,NS,"""NS"" built from diagonal stripes in a box (National Semi)",p11-stripe-1.png,logos/ns1.gif
+gennum,Gennum,symbol,stripe,O,circle with vertical stripes,p11-stripe-1.png,logos/gennum.gif
+sarc,SARC,symbol,stripe,S,"slanted ""S"" bar + striped circle",p11-stripe-1.png,logos/sarc.gif
+semicoa,Semicoa Semiconductors,symbol,stripe,S,"stacked squared ""S""/""E"" meander",p11-stripe-1.png,logos/semicoa.gif
+smc1,"Standard Microsystems, Corp.",symbol,stripe,S,"stepped ""S"" made of parallel lines (Standard Microsystems)",p11-stripe-1.png,logos/smc1.gif
+teccor2,Teccor Electronics,symbol,stripe,T,"""T""-shape made of vertical and horizontal lines (striped T)",p11-stripe-1.png,logos/teccor2.gif
+alpha_semi,Alpha Semi,symbol,stripe,α,alpha symbol over horizontal stripes,p11-stripe-1.png,logos/alpha_semi.gif
+pulse,Pulse,symbol,stripe,П,"striped circle with ""Π""/gate shape",p11-stripe-1.png,logos/pulse.gif
+cirrus,Cirrus Logic,symbol,stripe,≡,horizontal striped ellipse/lens,p11-stripe-1.png,logos/cirrus.gif
+stream,Stream Machine,symbol,stripe,≡,sphere made of horizontal curved stripes (striped ball),p11-stripe-1.png,logos/stream.gif
+holtek,Holtek Semiconductor Inc.,symbol,pict,/,diagonal arrows / slashes crossing (two parallelograms),p12-pict-1.png,logos/holtek.gif
+peregrine,Peregrine Semi,symbol,pict,/,diagonal slashes / feathered streaks,p12-pict-1.png,logos/peregrine.gif
+trident,Trident,symbol,pict,//,two slanted curved strokes (trident tines),p12-pict-1.png,logos/trident.gif
+3com_3,3Com,symbol,pict,3Co,"thick looping ""3"" chain/link shape, script ""Co""",p12-pict-1.png,logos/3com_3.gif
+3dfx_1,3dfx,symbol+text,pict,3Dfx,"messy dragon-like splash graphic with faint ""3Dfx""",p12-pict-1.png,logos/3dfx_1.gif
+allayer,Allayer Communications,symbol,pict,A,"looping script ""A"" / ribbon shape",p12-pict-1.png,logos/allayer.gif
+audiocodes,Audio Codes,symbol,pict,AC,"stylised bird/arrow shapes, angular figure",p12-pict-1.png,logos/audiocodes.gif
+agilent,Agilent,symbol+text,pict,Agilent,"starburst/spark of radiating dots + ""Agilent""",p12-pict-1.png,logos/agilent.gif
+lansdale2,Lansdale Semiconductor,symbol,pict,bird,eagle head profile in square,p12-pict-1.png,logos/lansdale2.gif
+ccube,C-Cube,symbol,pict,C,3D cube with C-shaped cut-outs,p12-pict-1.png,logos/ccube.gif
+cherry,Cherry Semiconductor,symbol,pict,cherries,pair of cherries on stems,p12-pict-1.png,logos/cherry.gif
+dallas1,Dallas Semiconductor Corp.,symbol,pict,clock,alarm clock figure,p12-pict-1.png,logos/dallas1.gif
+realtek,Realtek Semiconductor Corp,symbol+text,pict,crab,"crab with raised claws over small ""REALTEK"" text",p12-pict-1.png,logos/realtek.gif
+cambridge,Cambridge Silicon Radio,symbol+text,pict,CSR,"curved sweeping fan lines with ""CSR"" text above",p12-pict-1.png,logos/cambridge.gif
+sss,Solid State Scientific,symbol,pict,cube,"3D hexagonal cube with ""SSS"" inside",p12-pict-1.png,logos/sss.gif
+dallas3,Dallas Semiconductor Corp.,symbol,pict,dog,bulldog/dog face,p12-pict-1.png,logos/dallas3.gif
+nvidia,NVidia Corporation,symbol,pict,eye,NVIDIA eye: spiral eye in a rectangle,p12-pict-1.png,logos/nvidia.gif
+dtc2,DTC Data Technology,symbol,pict,fan,"fan / shell of radiating triangular rays, half circle",p12-pict-1.png,logos/dtc2.gif
+microtune,Microtune,symbol,pict,fan,diamond with radiating lines (fan/arrows) pointing upper right,p12-pict-1.png,logos/microtune.gif
+diamondtech,Diamond Technologies,symbol,pict,fox,animal face (fox/wolf head) inside a rounded square,p12-pict-1.png,logos/diamondtech.gif
+oxford,Oxford Micro,symbol,pict,gem,faceted crystal/geodesic sphere,p12-pict-1.png,logos/oxford.gif
+mosaic,Mosaic Semiconductor Inc.,symbol,pict,m,"handwritten script ""m"" squiggle with tail",p12-pict-1.png,logos/mosaic.gif
+myson,Myson Technology Inc.,symbol,pict,M,"""M"" with globe/dish between pillars",p12-pict-1.png,logos/myson.gif
+mikro_erfurt,Mikroelektronik Erfurt,symbol,pict,ME,"ornate symmetrical ""ME""/butterfly-like curly shape",p12-pict-1.png,logos/mikro_erfurt.gif
+microlinear,Micro Linear,symbol,pict,ML,"3D isometric blocks spelling ""ML"" (cube shapes)",p12-pict-1.png,logos/microlinear.gif
+ninja,Ninja,symbol,pict,ninja,brushy calligraphy splash / ninja figure graphic,p12-pict-1.png,logos/ninja.gif
+rabbit,Rabbit Semi,symbol,pict,rabbit,running rabbit silhouette,p12-pict-1.png,logos/rabbit.gif
+daewoo,Daewoo Electronics,symbol,pict,shell,shell / fan shape of radiating segments (Daewoo),p12-pict-1.png,logos/daewoo.gif
+elec_designs1,[White] Electronic Designs,symbol,pict,shell,diamond shape with radiating vertical lines on top (fan/shell),p12-pict-1.png,logos/elec_designs1.gif
+philips,Philips,symbol,pict,shield,Philips shield with waves and stars,p12-pict-1.png,logos/philips.gif
+ti1,Texas Instruments,symbol,pict,Texas,"Texas state outline with ""ti"" (Texas Instruments)",p13-pict-2.png,logos/ti1.gif
+ti2,Texas Instruments,symbol,pict,Texas,"Texas state silhouette with ""ti"" cut-out",p13-pict-2.png,logos/ti2.gif
+cologne,Cologne Chip Designs,symbol,pict,towers,Cologne cathedral twin spires silhouette,p13-pict-2.png,logos/cologne.gif
+cosmo,Cosmo Semi,symbol,pict,tree,mushroom/umbrella cap over a small triangle base (tree-like),p13-pict-2.png,logos/cosmo.gif
+cypress1,Cypress Semiconductor Corp.,symbol,pict,tree,circle outline with a tree inside (Cypress tree),p13-pict-2.png,logos/cypress1.gif
+cypress2,Cypress Semiconductor Corp.,symbol,pict,tree,striped sphere with tree-shaped branch extending right,p13-pict-2.png,logos/cypress2.gif
+oak,Oak Technology,symbol,pict,tree,tree canopy (dotted crown) with arrow trunk (oak tree),p13-pict-2.png,logos/oak.gif
+tvia,Tvia Technology,symbol+text,pict,Tvia,"box with a wavy screen shape + ""Tvia""",p13-pict-2.png,logos/tvia.gif
+astec,ASTEC Semi,symbol,pict,XXXX,row of interlocking diamond/zigzag chain links,p13-pict-2.png,logos/astec.gif
+alliance,Alliance,symbol,pict,Y,three-armed tri-blade / Y-shaped symbol,p13-pict-2.png,logos/alliance.gif
+egg,"EG&G, Inc.",symbol,pict,Y,three-armed propeller / Y of three bars,p13-pict-2.png,logos/egg.gif
+sescosem1,Sescosem,symbol,pict,Y,"antenna-like ""Y"" above a horizontal box (Sescosem)",p13-pict-2.png,logos/sescosem1.gif
+sescosem2,Sescosem,symbol,pict,Y,Y-shaped antenna over a cross-shaped box outline,p13-pict-2.png,logos/sescosem2.gif
+zetex,Zetex,symbol,pict,Y,"diode/zener symbol stacked with ""Z"" curl at top",p13-pict-2.png,logos/zetex.gif
+generalsemi,General Semiconductor,symbol,pict,∞,knot / infinity loops with arrow points,p13-pict-2.png,logos/generalsemi.gif
+infinite,Infinite Technology,symbol,pict,∞,"infinity loops with dot, figure-of-eight / bicycle-like",p13-pict-2.png,logos/infinite.gif
+zarlink,Zarlink Semi,symbol,pict,∞,two linked ovals/rings with horizontal lines (chain),p13-pict-2.png,logos/zarlink.gif
+mitsubishi,Mitsubishi,symbol,pict,◆◆◆,three diamonds (Mitsubishi),p13-pict-2.png,logos/mitsubishi.gif
+performance,Performance Semiconductor Corp.,symbol,pict,★,small star with long horizontal line (shooting star),p13-pict-2.png,logos/performance.gif
+zmd,Zentrum Mikroelektronik Dresden,symbol,pict,★,star with horizontal swooshes/speed lines through it,p13-pict-2.png,logos/zmd.gif
+samsung,Samsung Semiconductor,symbol,pict,✣,four overlapping circles/ellipses forming a flower/cross knot,p13-pict-2.png,logos/samsung.gif
+3com_4,3Com,wordmark,text,3COM,"tall condensed thin outlined ""3COM"" lettering",p14-text-1.png,logos/3com_4.gif
+3dfx_2,3dfx,wordmark,text,3dfx,"bold ""3dfx"" with tall ""f""",p14-text-1.png,logos/3dfx_2.gif
+8x8,8x8,wordmark,text,88,"two stacked ""8"" digits in outline style, ""8x8""",p14-text-1.png,logos/8x8.gif
+actel,Actel Corporation,wordmark,text,Actel,"italic ""Actel"" with speed lines to the left",p14-text-1.png,logos/actel.gif
+adaptec,Adaptec,wordmark,text,adaptec,"lowercase rounded bold ""adaptec"" (inverted box)",p14-text-1.png,logos/adaptec.gif
+agere,Agere,wordmark,text,agere,"lowercase ""agere"" with outlined g",p14-text-1.png,logos/agere.gif
+aha2,Advanced Hardware Architectures,wordmark,text,AHA,"wide ""AHA"" with long horizontal underline/swoosh",p14-text-1.png,logos/aha2.gif
+aitech,AITech,wordmark,text,AITech,"serif ""AITech""",p14-text-1.png,logos/aitech.gif
+akm,AKM Semi,wordmark,text,AKM,"bold ""AKM""",p14-text-1.png,logos/akm.gif
+alcatel,Alcatel,wordmark,text,ALCATEL,"spaced ""ALCATEL"" in a box, small T marker above",p14-text-1.png,logos/alcatel.gif
+acerlab,Acer Laboratories Inc.,wordmark,text,ALi,"bold rounded ""ALi""",p14-text-1.png,logos/acerlab.gif
+altera,Altera Corporation,wordmark,text,ALTERA,"outlined hollow ""ALTERA"", block letters",p14-text-1.png,logos/altera.gif
+ami1,"American Microsystems, Inc.",wordmark,text,AMI,"heavy serif ""AMI""",p14-text-1.png,logos/ami1.gif
+ami4,"American Microsystems, Inc.",symbol+text,text,AMI S,"italic ""AMI"" with S below a crossbar line",p14-text-1.png,logos/ami4.gif
+advmono,Advanced Monolithic Systems,wordmark,text,AMS,"heavy bold ""AMS""",p14-text-1.png,logos/advmono.gif
+ams,Advanced Micro Systems,wordmark,text,AMS,"outlined/double-line ""AMS"" letters",p14-text-1.png,logos/ams.gif
+apacer,Apacer,wordmark,text,Apacer,"""Apacer®"" in condensed serif",p14-text-1.png,logos/apacer.gif
+apacer2,Apacer,wordmark,text,APACER,"spaced bold ""APACER""",p14-text-1.png,logos/apacer2.gif
+apex1,APEX Microtechnology,wordmark,text,APEX,"bold heavy ""APEX""",p14-text-1.png,logos/apex1.gif
+apex2,APEX Microtechnology,wordmark,text,APEX µtech,"large outlined ""A"" with ""PEX"" and ""µtech"" (APEX Microtechnology)",p14-text-1.png,logos/apex2.gif
+aralion,Aralion,symbol+text,text,ARALION,"""ARALION"" with a feather/quill swoosh through the first letters",p14-text-1.png,logos/aralion.gif
+ark1,"ARK Logic, Inc.",wordmark,text,ARK,"blocky striped/stencil ""ARK""",p14-text-1.png,logos/ark1.gif
+ark2,"ARK Logic, Inc.",wordmark,text,ARK,"outlined rounded ""ARK""",p14-text-1.png,logos/ark2.gif
+ascend,ASCEND,wordmark,text,ASCEND,"serif outlined ""ASCEND""",p14-text-1.png,logos/ascend.gif
+austin,"Austin Semiconductor, Inc.",wordmark,text,ASI,"italic ""ASI"" with arc swoosh",p14-text-1.png,logos/austin.gif
+atan,ATAN Technology,wordmark,text,atan,"italic script ""atan"" with swooping ""a""",p14-text-1.png,logos/atan.gif
+atmel,Atmel,wordmark,text,ATMEL,"""ATMEL"" with horizontal line through/over, trapezoid block",p14-text-1.png,logos/atmel.gif
+auctor,Auctor,wordmark,text,Auctor,"script/serif ""Auctor"" with large swash A",p14-text-1.png,logos/auctor.gif
+azm,Arizona Microtek,wordmark,text,AZM,"angular ""AZM"" with chevron ""A"" and underline",p14-text-1.png,logos/azm.gif
+belfuse,Bel Fuse Inc.,wordmark,text,bel,"heavy lowercase ""bel""",p14-text-1.png,logos/belfuse.gif
+bitech,BI Technologies,wordmark,text,BI,"italic bold ""BI"" with horizontal cut lines",p15-text-2.png,logos/bitech.gif
+brooktree,Brooktree,wordmark,text,Bt,"serif ""Bt""",p15-text-2.png,logos/brooktree.gif
+cands,C&S Technology,wordmark,text,C&S,"italic ""C&S""",p15-text-2.png,logos/cands.gif
+calogic,Calogic,wordmark,text,calogic,"lowercase ""calogic""",p15-text-2.png,logos/calogic.gif
+century,Century Microelectronics,wordmark,text,CENTURY,"""CENTURY"" in a rounded rectangle outline",p15-text-2.png,logos/century.gif
+chips,"Chips and Technologies, Inc.",wordmark,text,CHIPS,"bold ""CHIPS"" with striped top",p15-text-2.png,logos/chips.gif
+crystal,Crystal Semiconductor Corp.,wordmark,text,CRYSTAL,"italic striped/stencil ""CRYSTAL""",p15-text-2.png,logos/crystal.gif
+catalyst2,"Catalyst Semiconductor, Inc.",wordmark,text,CSI,"wide blocky ""CSI""",p15-text-2.png,logos/catalyst2.gif
+cyrix,Cyrix Corporation,wordmark,text,Cyrix,"bold ""Cyrix"" with italic y",p15-text-2.png,logos/cyrix.gif
+dream,Dream,wordmark,text,dream,"""dream"" on circuit-board style lines with dots",p15-text-2.png,logos/dream.gif
+dvdo,DVDO,wordmark,text,DVDO,"""DVDO"" each letter in a box",p15-text-2.png,logos/dvdo.gif
+elite_mt,Elite MT,wordmark,text,EliteMT,"serif italic ""EliteMT""",p15-text-2.png,logos/elite_mt.gif
+enova,eNOVA,wordmark,text,eNOVA,"large ""e"" in rounded box + condensed ""NOVA""",p15-text-2.png,logos/enova.gif
+ensoniq,Ensoniq Corp,wordmark,text,ENSONIQ,"outlined ""ENSONIQ"" in rounded rectangle",p15-text-2.png,logos/ensoniq.gif
+epson2,Seiko Epson Corp.,wordmark,text,EPSON,"""EPSON""",p15-text-2.png,logos/epson2.gif
+esmt,ESMT,wordmark,text,ESMT,"bold italic ""ESMT""",p15-text-2.png,logos/esmt.gif
+ess,"ESS Technology, Inc.",wordmark,text,ESS,"striped/outlined ""ESS""",p15-text-2.png,logos/ess.gif
+etrontech1,Etron Tech,wordmark,text,EtronTech,"serif ""EtronTech"" with large E",p15-text-2.png,logos/etrontech1.gif
+exel,"Exel Microelectronics, Inc.",wordmark,text,EXEL,"italic bold ""EXEL""",p15-text-2.png,logos/exel.gif
+fairchild2,Fairchild Semiconductor Corp,wordmark,text,FAIRCHILD,"""FAIRCHILD"" between horizontal bars",p15-text-2.png,logos/fairchild2.gif
+ferranti,Ferranti,wordmark,text,FERRANTI,"serif ""FERRANTI""",p15-text-2.png,logos/ferranti.gif
+figaro,Figaro Sensors,wordmark,text,FIGARO,"wide bold ""FIGARO""",p15-text-2.png,logos/figaro.gif
+fore,FORE Systems,wordmark,text,FORE,"large thin outlined ""FORE""",p15-text-2.png,logos/fore.gif
+fujielec2,"Fuji Electric Co.,Ltd.",wordmark,text,FUJI ELECTRIC,"blocky ""FUJI"" over outlined ""ELECTRIC""",p15-text-2.png,logos/fujielec2.gif
+g2,G2,wordmark,text,G2,"bold ""G2""",p15-text-2.png,logos/g2.gif
+galileo,Galileo Technology,wordmark,text,Galileo,"""Galileo"" with dotted/halftone ""G""",p15-text-2.png,logos/galileo.gif
+gi2,General Instrument,wordmark,text,GI,"serif ""GI""",p15-text-2.png,logos/gi2.gif
+goldstar,Lucky Goldstar Semi [LGS],wordmark,text,GoldStar,"""GoldStar"" rounded modern",p15-text-2.png,logos/goldstar.gif
+harris3,Harris,wordmark,text,HARRIS,"italic ""HARRIS"" with lightning stroke through",p15-text-2.png,logos/harris3.gif
+hifn,hi/fn,wordmark,text,hi/fn,"""hi/fn"" in a box",p15-text-2.png,logos/hifn.gif
+highpoint,HighPoint,wordmark,text,HighPoint,"tall condensed ""HighPoint""",p16-text-3.png,logos/highpoint.gif
+hint,HiNT Corp,wordmark,text,HiNT,"bold ""HiNT®""",p16-text-3.png,logos/hint.gif
+hualon,Hualon Microelectronics Corporation,wordmark,text,HMC,"serif blocky ""HMC""",p16-text-3.png,logos/hualon.gif
+hynix,Hynix,wordmark,text,hynix,"bold lowercase ""hynix""",p16-text-3.png,logos/hynix.gif
+hyundai3,Hyundai,wordmark,text,HYUNDAI,"condensed spaced ""HYUNDAI""",p16-text-3.png,logos/hyundai3.gif
+intel1,Intel Corp.,wordmark,text,i,"single ""i"" (lowercase i, Intel chip mark)",p16-text-3.png,logos/intel1.gif
+ibm,IBM,wordmark,text,IBM,"striped ""IBM"" (horizontal lines)",p16-text-3.png,logos/ibm.gif
+ichaus1,iC-Haus,wordmark,text,iC,"thin ""iC""",p16-text-3.png,logos/ichaus1.gif
+icdesigns,IC Designs,wordmark,text,IC DESIGNS,"italic serif ""IC"" + ""DESIGNS""",p16-text-3.png,logos/icdesigns.gif
+igstech,IGS Technologies,symbol+text,text,iGS,"italic ""iGS"" with swash i + ""Technologies""",p16-text-3.png,logos/igstech.gif
+imp,"IMP, Inc.",wordmark,text,IMP,"bold italic slanted ""IMP"" with cut strokes",p16-text-3.png,logos/imp.gif
+in_system,In-system Design,wordmark,text,in-system,"bold ""in·system""",p16-text-3.png,logos/in_system.gif
+infineon1,Infineon,wordmark,text,Infineon,"condensed bold ""Infineon""",p16-text-3.png,logos/infineon1.gif
+intel2,Intel Corp.,wordmark,text,intel,"""intel"" with dropped ""e""",p16-text-3.png,logos/intel2.gif
+intersil2,Intersil,wordmark,text,INTERSIL,"outlined ""INTERSIL""",p16-text-3.png,logos/intersil2.gif
+intersil3,Intersil,wordmark,text,intersil,"bold lowercase ""intersil"" with underline swoosh",p16-text-3.png,logos/intersil3.gif
+ir,International Rectifier,wordmark,text,IOR,"""I◆R"" with diamond/star in O (International Rectifier)",p16-text-3.png,logos/ir.gif
+isd,Information Storage Devices,wordmark,text,ISD,"bold italic ""ISD"" with dots/halftone",p16-text-3.png,logos/isd.gif
+issi,"Integrated Silicon Solution, Inc.",wordmark,text,ISSI,"italic ""ISSI""",p16-text-3.png,logos/issi.gif
+ite,Integrated Technology Express,wordmark,text,ITE,"""iTE"" with swoosh arc from the i",p16-text-3.png,logos/ite.gif
+itt,ITT Industries [Micronas Semi],wordmark,text,ITT,"serif ""ITT""",p16-text-3.png,logos/itt.gif
+ixys,IXYS,symbol+text,text,IXYS,"square emblem with stepped bars + serif ""IXYS""",p16-text-3.png,logos/ixys.gif
+japanradio1,"New Japan Radio Co., Ltd.",wordmark,text,JRC,"bold ""JRC""",p16-text-3.png,logos/japanradio1.gif
+japanradio2,"New Japan Radio Co., Ltd.",wordmark,text,JRC,"""JRC"" inside a white rounded oval/box",p16-text-3.png,logos/japanradio2.gif
+kec,Korea Electronics,wordmark,text,KEC,"wide ""KEC""",p16-text-3.png,logos/kec.gif
+kingmax,KingMax,wordmark,text,KINGMAX,"blocky ""KINGMAX""",p16-text-3.png,logos/kingmax.gif
+legerity,Legerity,wordmark,text,Legerity,"script ""Legerity"" with large swash L",p16-text-3.png,logos/legerity.gif
+lgsemi,"Lucky Goldstar Semicon Co., Ltd. [LGS]",wordmark,text,LGS,"small spaced ""LGS""",p16-text-3.png,logos/lgsemi.gif
+linfinity1,"Linfinity Microelectronics, Inc.",wordmark,text,LINFINITY,"serif ""LINFINITY""",p16-text-3.png,logos/linfinity1.gif
+liteon,LiteOn,wordmark,text,LITEON,"""LITEON"" with circled ""O""",p16-text-3.png,logos/liteon.gif
+lsilogic,LSI Logic,wordmark,text,LSI LOGIC,"""LSI"" + ""LOGIC"" in a white box",p17-text-4.png,logos/lsilogic.gif
+mtec,M.tec,wordmark,text,M.tec,"""M.tec""",p17-text-4.png,logos/mtec.gif
+maxim,Maxim Corp.,wordmark,text,MAXIM,"wide slanted ""MAXIM"" with stroke cuts",p17-text-4.png,logos/maxim.gif
+mhs2,"MHS, Matra Harris Semiconductor",wordmark,text,MHS,"bold ""MHS""",p17-text-4.png,logos/mhs2.gif
+mhs3,"MHS, Matra Harris Semiconductor",symbol+text,text,MHS,"small dot/square grid + outlined ""MHS""",p17-text-4.png,logos/mhs3.gif
+mira,MIRA,symbol+text,text,MIRA,"two slanted parallelograms + stencil ""MIRA""",p17-text-4.png,logos/mira.gif
+monolithic,Monolithic Memories Inc.,wordmark,text,MMI,"""MMI"" in rounded rectangle outline, outlined letters",p17-text-4.png,logos/monolithic.gif
+mos,"MOS Technologies, Inc.",wordmark,text,MOS,"bold ""MOS"" with round O, striped S",p17-text-4.png,logos/mos.gif
+mosaid,MOSAID Systems,wordmark,text,MOSAID,"stacked italic ""MOS"" over ""AID""",p17-text-4.png,logos/mosaid.gif
+mr_stone,Mr. STONE,wordmark,text,Mr. STONE,"stencil serif ""Mr. STONE""",p17-text-4.png,logos/mr_stone.gif
+murata,Murata,wordmark,text,muRata,"italic ""muRata""",p17-text-4.png,logos/murata.gif
+mwave,MWave (by IBM),wordmark,text,mwave,"italic script ""mwave""",p17-text-4.png,logos/mwave.gif
+macronix1,Macronix International Co. Ltd.,wordmark,text,MX,"striped stencil ""MX""",p17-text-4.png,logos/macronix1.gif
+macronix2,Macronix International Co. Ltd.,wordmark,text,MXIC,"""MXIC"" with striped X",p17-text-4.png,logos/macronix2.gif
+nanya,Nanya,wordmark,text,NANYA,"wide geometric ""NANYA""",p17-text-4.png,logos/nanya.gif
+nec1,NEC,wordmark,text,NEC,"italic ""NEC""",p17-text-4.png,logos/nec1.gif
+nec2,NEC,wordmark,text,NEC,"bold ""NEC""",p17-text-4.png,logos/nec2.gif
+nexgen,NexGen,wordmark,text,NexGen,"bold ""NexGen"" on white bar",p17-text-4.png,logos/nexgen.gif
+npc,Nippon Precision Circuits,wordmark,text,NPC,"rounded ""NPC""",p17-text-4.png,logos/npc.gif
+naina,Naina Semi,wordmark,text,NSL,"""NSL"" in a diamond/hexagon outline",p17-text-4.png,logos/naina.gif
+o2micro,O2 Micro,wordmark,text,O2,"""O₂"" (O with subscript 2)",p17-text-4.png,logos/o2micro.gif
+oki1,OKI Electric,wordmark,text,OKI,"""OKI"" in elongated diamond/hexagon outline",p17-text-4.png,logos/oki1.gif
+oki2,OKI Electric,wordmark,text,OKI,"bold ""OKI""",p17-text-4.png,logos/oki2.gif
+opti,Opti,wordmark,text,OPTi,"spaced ""OPTi""",p17-text-4.png,logos/opti.gif
+phaselink2,"PhaseLink Laboratories, Inc.",wordmark,text,PhaseLink,"serif ""PhaseLink""",p17-text-4.png,logos/phaselink2.gif
+plxtech,PLX Technology,wordmark,text,PLX,"italic ""PLX"" with underline arrow",p17-text-4.png,logos/plxtech.gif
+pmc,"PMC-Sierra, Inc.",wordmark,text,PMC,"rounded ""PMC""",p17-text-4.png,logos/pmc.gif
+precision,"Precision Monolithics, Inc.",wordmark,text,PMI,"""PMI"" in arrow-shaped outline box pointing right",p17-text-4.png,logos/precision.gif
+pqi,PQI,wordmark,text,PQI,"""PQI"" in rounded rectangle outline",p17-text-4.png,logos/pqi.gif
+promise,Promise Technology Inc,wordmark,text,PROMISE,"serif ""PROMISE®"" over ""TECHNOLOGY, INC.""",p17-text-4.png,logos/promise.gif
+princeton,Princeton Technology Corp.,wordmark,text,PTC,"serif ""PTC"" with circular swoosh",p18-text-5.png,logos/princeton.gif
+qlogic,qlogic,wordmark,text,qlogic,"script ""qlogic""",p18-text-5.png,logos/qlogic.gif
+qt_opto,QT Optoelectronics,wordmark,text,QT,"bold ""QT""",p18-text-5.png,logos/qt_opto.gif
+qualcomm,Qualcomm Inc.,wordmark,text,QUALCOMM,"""QUALCOMM"" with wavy M",p18-text-5.png,logos/qualcomm.gif
+raytheon,Raytheon Semi,wordmark,text,Raytheon,"bold ""Raytheon"" white box",p18-text-5.png,logos/raytheon.gif
+rca,RCA Solid State,wordmark,text,RCA,"bold ""RCA"" with stylised A",p18-text-5.png,logos/rca.gif
+ricoh,RICOH,wordmark,text,RICOH,"outlined ""RICOH""",p18-text-5.png,logos/ricoh.gif
+rise,Rise,wordmark,text,RISE,"bold ""RISE"" with swirl in the I",p18-text-5.png,logos/rise.gif
+rohm,Rohm Electronics,wordmark,text,ROHM,"bold ""ROHM""",p18-text-5.png,logos/rohm.gif
+s3_1,S3,wordmark,text,S3,"bold serif ""S3""",p18-text-5.png,logos/s3_1.gif
+s3_2,S3,wordmark,text,S3,"outlined serif ""S3""",p18-text-5.png,logos/s3_2.gif
+sanken2,"Sanken Electric Co.,Ltd.",wordmark,text,SanKen,"""SanKen"" with S underline box",p18-text-5.png,logos/sanken2.gif
+sanyo2,Sanyo,wordmark,text,SANYO,"bold italic ""SANYO""",p18-text-5.png,logos/sanyo2.gif
+sec,"Samsung Electronics Co., Ltd.",wordmark,text,SEC,"condensed ""SEC""",p18-text-5.png,logos/sec.gif
+seeq,SEEQ Technology Inc.,wordmark,text,seeq,"rounded lowercase ""seeq""",p18-text-5.png,logos/seeq.gif
+semikron,Semikron International,wordmark,text,SEMIKRON,"""SEMIKRON"" with underline",p18-text-5.png,logos/semikron.gif
+sharp,Sharp,wordmark,text,SHARP,"""SHARP""",p18-text-5.png,logos/sharp.gif
+siemens2,Siemens,wordmark,text,SIEMENS,"""SIEMENS""",p18-text-5.png,logos/siemens2.gif
+siliconmagic,Silicon Magic Corp.,wordmark,text,Silicon MAGIC,"italic ""Silicon"" + ""MAGIC""",p18-text-5.png,logos/siliconmagic.gif
+sipex,Sipex,wordmark,text,Sipex,"bold ""Sipex""",p18-text-5.png,logos/sipex.gif
+sis,Silicon Integrated Systems,wordmark,text,SiS,"striped/outlined ""SiS""",p18-text-5.png,logos/sis.gif
+sanken1,"Sanken Electric Co.,Ltd.",wordmark,text,SK,"""S K"" with long underlines (SK ligature)",p18-text-5.png,logos/sanken1.gif
+smsc1,"Standard Microsystems, Corp.",wordmark,text,SMS,"striped/stencil ""SMS""",p18-text-5.png,logos/smsc1.gif
+smsc2,"Standard Microsystems, Corp.",wordmark,text,SMSC,"lowercase serif ""smsc""",p18-text-5.png,logos/smsc2.gif
+sony,Sony,wordmark,text,SONY,"serif ""SONY""",p18-text-5.png,logos/sony.gif
+sst,Silicon Storage Technology,wordmark,text,SST,"bold italic ""SST""",p18-text-5.png,logos/sst.gif
+tamarack2,Tamarack,wordmark,text,TAMARACK,"spaced ""TAMARACK""",p18-text-5.png,logos/tamarack2.gif
+teltone,Teltone,wordmark,text,TELTONE,"outlined ""TELTONE"" with T extending",p18-text-5.png,logos/teltone.gif
+tmtech,Taiwan Memory Tech,wordmark,text,tmTECH,"""tm"" + ""TE CH"" stacked",p18-text-5.png,logos/tmtech.gif
+tonicom,Tonicom,wordmark,text,TONICOM,"condensed thin ""TONICOM""",p18-text-5.png,logos/tonicom.gif
+toshiba1,Toshiba,wordmark,text,Toshiba,"script ""Toshiba"" (old)",p19-text-6.png,logos/toshiba1.gif
+toshiba4,Toshiba,wordmark,text,TOSHIBA,"bold ""TOSHIBA""",p19-text-6.png,logos/toshiba4.gif
+twinmos,TwinMOS,wordmark,text,TwinMOS,"""TwinMOS""",p19-text-6.png,logos/twinmos.gif
+usar1,USAR Systems,wordmark,text,USAR,"bold italic ""USAR"" between lines",p19-text-6.png,logos/usar1.gif
+valor,Valor,wordmark,text,VALOR,"blocky stencil ""VALOR"" with flag shape",p19-text-6.png,logos/valor.gif
+via,"Via Technologies, Inc.",wordmark,text,VIA,"""VIA"" with slash cuts",p19-text-6.png,logos/via.gif
+virata,Virata,wordmark,text,Virata,"bold ""Virata""",p19-text-6.png,logos/virata.gif
+wdc,Western Design Center,wordmark,text,WDC,"""WDC"" inside rounded rectangle (Western Design Center)",p19-text-6.png,logos/wdc.gif
+wdc1,Western Digital Corp.,wordmark,text,WDC,"condensed ""WDC""",p19-text-6.png,logos/wdc1.gif
+weitek,Weitek,wordmark,text,WEITEK,"spaced serif ""WEITEK""",p19-text-6.png,logos/weitek.gif
+waferscale,Waferscale Integration,wordmark,text,WSI,"striped italic ""WSI""",p19-text-6.png,logos/waferscale.gif
+xicor1,"Xicor, Inc.",wordmark,text,Xicor,"condensed ""Xicor""",p19-text-6.png,logos/xicor1.gif
+yamaha,Yamaha,wordmark,text,YAMAHA,"""YAMAHA""",p19-text-6.png,logos/yamaha.gif
+zilog2,Zilog,wordmark,text,Zilog,"""Zilog""",p19-text-6.png,logos/zilog2.gif
+zilog4,Zilog,wordmark,text,ZILOG,"outlined/stencil ""ZILOG""",p19-text-6.png,logos/zilog4.gif
+zilog5,Zilog,wordmark,text,ZILOG,"outlined stencil ""ZiLOG"" thinner",p19-text-6.png,logos/zilog5.gif
+zoran,Zoran Corporation,wordmark,text,ZORAN,"""ZORAN"" with globe as the O",p19-text-6.png,logos/zoran.gif
+elantec1,Elantec,wordmark,text,élantec,"bold italic ""élantec""",p19-text-6.png,logos/elantec1.gif

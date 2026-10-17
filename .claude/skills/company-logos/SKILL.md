@@ -12,7 +12,7 @@ puts behind them, so a transparent white logo disappears in light mode and a
 black one in dark mode. A transparent logo therefore gets a solid background —
 the colour it is normally shown on, not one picked for looks.
 
-Run everything from the repo root, `/Users/mitch/Repositories/InvenTree-Importer`.
+Run everything from the repo root.
 Scripts are in `.claude/skills/company-logos/scripts/`, run with
 `uv run --with pillow python <script> …`; each has `--help`.
 

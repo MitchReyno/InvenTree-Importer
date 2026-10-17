@@ -916,8 +916,8 @@ def test_unexpected_errors_still_surface(digikey, digikey_env, workspace,
 
 
 @pytest.mark.parametrize("argv0,expected", [
-    ("/usr/lib/python3.12/invimport/__main__.py", "python -m invimport"),
-    ("/path/to/.venv/bin/invimport", "invimport"),
+    ("lib/python3.12/invimport/__main__.py", "python -m invimport"),
+    (".venv/bin/invimport", "invimport"),
     ("", "python -m invimport"),
 ])
 def test_program_name_matches_how_it_was_invoked(monkeypatch, argv0, expected):

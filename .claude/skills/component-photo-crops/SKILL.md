@@ -159,7 +159,7 @@ the only fix, and the user can decide whether it is worth taking.
   stops two imports that both number from `l01` overwriting each other.
 - **Keep the originals.** Copy each full-frame source photo into a `source/`
   subfolder of that folder, named for what it shows, before or alongside
-  cropping. Session image paths (`/private/tmp/...`) disappear; the originals
+  cropping. Temporary session image paths disappear; the originals
   are what a later recrop starts from.
 - When redoing crops, write the new file under the same name (change the
   extension only if the format changes) and tell the caller every path that

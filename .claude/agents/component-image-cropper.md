@@ -15,7 +15,7 @@ preferring square crops without pulling unwanted content back in, keeping
 leads, packet edges and labels whole, reviewing every crop on a montage,
 keeping the originals — and the `crop.py` and `montage.py` scripts that do the
 work. Run everything from the repo root:
-`/Users/mitch/Repositories/InvenTree-Importer`.
+`.`.
 
 Ground rules:
 
@@ -26,7 +26,7 @@ Ground rules:
   crop.
 - Keep temporary files (previews, montages, tests) in the scratch directory
   your brief names, under `.temp/` - never in the import folder, the repo proper
-  or `/tmp`.
+  or the system temporary directory.
 - Do not delete source photos. Overwrite an existing crop only when the brief
   asks you to redo it.
 

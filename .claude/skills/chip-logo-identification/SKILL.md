@@ -33,7 +33,7 @@ uv run -q --with numpy --with pillow python -I $D/scripts/straighten.py SRC OUT 
 
 Write crops and candidate sheets to the scratch directory you were given, or
 to `.temp/<task>/` at the repo root (e.g. `.temp/<import id>/logo-id/`), never
-to `/tmp`, the repo proper, this skill's folder or `.local_imports/`. A crop
+to the system temporary directory, the repo proper, this skill's folder or `.local_imports/`. A crop
 made only to identify a logo is scratch, not an image for the import.
 
 ## The procedure

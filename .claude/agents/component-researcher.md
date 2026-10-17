@@ -17,13 +17,13 @@ photos. You return findings; the caller decides and writes.
 ## Before you start
 
 1. **Read the research memory**:
-   `/Users/mitch/Repositories/InvenTree-Importer/.claude/skills/inventree-stock-import/COMPONENT_RESEARCH.md`.
+   `.claude/skills/inventree-stock-import/COMPONENT_RESEARCH.md`.
    It holds what earlier research runs learned — which sites work and how,
    traps, decoded codes. Use it; do not re-learn what it already says.
 2. **Load the `source-snapshots` skill** (Skill tool). Every web page you rely
    on gets snapshotted with it.
 3. **Get the vocabulary** from the repo root
-   (`/Users/mitch/Repositories/InvenTree-Importer`; `invimport` is not on
+   (`.`; `invimport` is not on
    PATH):
 
    ```bash
@@ -136,7 +136,7 @@ pass: the packet rarely has a datasheet or a temperature range.
   import runpy
   new_tab("about:blank")   # or switch_tab() to the tab you will use
   runpy.run_path(
-      "/Users/mitch/Repositories/InvenTree-Importer/.claude/skills/"
+      ".claude/skills/"
       "inventree-stock-import/browser-scripts/inject.py",
       init_globals={**globals(), "SITE": "alldatasheet"})
   goto_url("https://www.alldatasheet.com/...")
@@ -150,7 +150,7 @@ pass: the packet rarely has a datasheet or a temperature range.
   scripts; if one stops working, report it.
 - Keep downloads you only needed to read (whole data books, page dumps,
   scratch HTML) in the scratch directory under `.temp/`, never in the repo,
-  `.local_imports/` or `/tmp`. Only snapshots and datasheet PDFs that will be
+  `.local_imports/` or the system temporary directory. Only snapshots and datasheet PDFs that will be
   attached go in the import's folder under `.local_imports/<import id>/`.
 - Read only; never write to the InvenTree server.
 - Stop and report rather than guess when an item cannot be identified.

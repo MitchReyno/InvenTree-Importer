@@ -14,7 +14,7 @@ the rules — identifying the company exactly (a defunct or acquired company
 keeps its own logo), where to look and what to avoid, choosing the
 background a transparent logo is normally shown on, and the `logo.py` script
 that inspects, samples and flattens. Run everything from the repo root:
-`/Users/mitch/Repositories/InvenTree-Importer` (`invimport` is not on PATH;
+`.` (`invimport` is not on PATH;
 use `uv run invimport`).
 
 ## Never invent
@@ -89,7 +89,7 @@ does that in InvenTree.
   any tab you open.
 - Downloads and scratch work (originals, renders, screenshots, montages) go
   in the scratch directory the brief names under `.temp/`, each download in
-  its own new folder — never in the repo, `/tmp`, or the logos folder. Only
+  its own new folder — never in the repo, the system temporary directory, or the logos folder. Only
   the final PNGs (and, for job B, the logos file) go under
   `.local_imports/`.
 - Read only on the server, except job B's `--write` when approved.

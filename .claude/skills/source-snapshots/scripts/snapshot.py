@@ -572,9 +572,10 @@ def _assemble(rewriter: _Rewriter, snap: Snapshot) -> str:
 # --------------------------------------------------------------------------
 def find_chrome() -> str | None:
     """A Chrome/Chromium binary, from INVIMPORT_CHROME or the usual places."""
+    applications = Path(Path.home().anchor) / "Applications"
     candidates = [os.environ.get("INVIMPORT_CHROME", ""),
-                  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-                  "/Applications/Chromium.app/Contents/MacOS/Chromium",
+                  str(applications / "Google Chrome.app/Contents/MacOS/Google Chrome"),
+                  str(applications / "Chromium.app/Contents/MacOS/Chromium"),
                   shutil.which("google-chrome") or "",
                   shutil.which("google-chrome-stable") or "",
                   shutil.which("chromium") or "",
