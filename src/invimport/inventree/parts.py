@@ -13,8 +13,8 @@ SupplierPart. A Part is matched by the category's identity rule - MPN via an
 existing ManufacturerPart, or the parameter signature - never by the
 generated name, so changing a name template does not duplicate parts.
 
-The library never prompts. Manufacturer matching is normalise, then a
-learned alias, then `choose_manufacturer` if the caller supplied one.
+The library never prompts. Manufacturer matching is normalise, then
+`choose_manufacturer` if the caller supplied one.
 Without a chooser, and without create_manufacturers, an unknown
 manufacturer skips the SKU. Nothing is guessed: a part under the wrong
 manufacturer is tedious to unpick.
@@ -39,10 +39,8 @@ from . import ledger
 from ..config import (
     CONFIG_DIR,
     CategoryConfig,
-    ManufacturerConfig,
     ParameterConfig,
     load_categories_config,
-    load_manufacturers_config,
     load_parameters_config,
 )
 from ..digikey.products import fetch_image, fetch_products
@@ -61,7 +59,6 @@ from .api import (
 )
 from .matching import (
     candidates,
-    manufacturer_aliases,
     match_name,
     match_path,
     path_text,
@@ -380,7 +377,6 @@ def create_manufacturer(api, name: str) -> Any:
 def resolve_manufacturer(
     api,
     name: str,
-    manufacturers: dict[str, ManufacturerConfig],
     *,
     choose: ChooseManufacturer | None = None,
     create: bool = False,
@@ -401,16 +397,10 @@ def resolve_manufacturer(
 
     existing = list_manufacturers(api)
     names = [c.name for c in existing]
-    matched = match_name(name, names, manufacturer_aliases(manufacturers))
+    matched = match_name(name, names)
     company = None
     if matched:
         company = next((c for c in existing if c.name == matched), None)
-        if company is None and (create or write):
-            # A learned alias names a company the server does not have yet.
-            if write:
-                company = create_manufacturer(api, matched)
-            else:
-                company = SimpleNamespace(pk=UNRESOLVED_PK, name=matched)
 
     if company is None and create:
         if write:
@@ -714,7 +704,6 @@ class ImportContext:
     """Config and server lookups every line resolution needs."""
     categories: dict[str, CategoryConfig]
     parameters: dict[str, ParameterConfig]
-    manufacturers: dict[str, ManufacturerConfig]
     server_categories: dict[str, Any]
     templates: dict[str, Any]
     manufacturer_cache: dict[str, Any] = field(default_factory=dict)
@@ -896,7 +885,7 @@ def resolve_part(
     if line.manufacturer:
         step("manufacturer")
         manufacturer = resolve_manufacturer(
-            api, line.manufacturer, ctx.manufacturers,
+            api, line.manufacturer,
             choose=policy.choose_manufacturer,
             create=policy.create_manufacturers, write=write,
             cache=ctx.manufacturer_cache)
@@ -1080,7 +1069,6 @@ def import_sku(
     *,
     categories: dict[str, CategoryConfig],
     parameters: dict[str, ParameterConfig],
-    manufacturers: dict[str, ManufacturerConfig],
     server_categories: dict[str, Any],
     templates: dict[str, Any],
     supplier_parts: dict[str, Any],
@@ -1116,7 +1104,7 @@ def import_sku(
 
     ctx = ImportContext(
         categories=categories, parameters=parameters,
-        manufacturers=manufacturers, server_categories=server_categories,
+        server_categories=server_categories,
         templates=templates, manufacturer_cache=manufacturer_cache)
 
     # DigiKey always states both, so a payload missing either is one we failed
@@ -1211,7 +1199,6 @@ def import_supplier_parts(
     products: dict[str, dict[str, Any]] | None = None,
     categories: dict[str, CategoryConfig] | Path | str | None = None,
     parameters: dict[str, ParameterConfig] | None = None,
-    manufacturers: dict[str, ManufacturerConfig] | None = None,
     directory: Path | str | None = None,
     supplier: Any = None,
     update_parameters: bool = False,
@@ -1234,8 +1221,7 @@ def import_supplier_parts(
     it to use the DigiKey supplier already on the server.
 
     choose_manufacturer(name, [(company, score), ...]) returns an existing
-    Company, a name to create, or None to skip. The CLI writes the answer
-    back to manufacturers.yaml; this function does not.
+    Company, a name to create, or None to skip. Decisions are cached for the run.
 
     on_learn_parameters / on_learn_choices are called after products are
     fetched with supplier fields this category does not yet map, and with
@@ -1254,8 +1240,6 @@ def import_supplier_parts(
             else directory)
     if parameters is None:
         parameters = load_parameters_config(directory)
-    if manufacturers is None:
-        manufacturers = load_manufacturers_config(directory)
 
     wanted = [sku.strip() for sku in skus if sku and sku.strip()]
     result = PartImportResult()
@@ -1318,7 +1302,6 @@ def import_supplier_parts(
                 sku, product, api,
                 categories=categories,
                 parameters=parameters,
-                manufacturers=manufacturers,
                 server_categories=server_categories,
                 templates=templates,
                 supplier_parts=existing_parts,

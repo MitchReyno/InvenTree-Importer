@@ -49,9 +49,9 @@ def test_only_companies_without_an_image_are_missing_one(server):
                                                           "YAGEO"]
 
 
-def test_a_logo_is_set_through_a_learned_alias(server, logo):
+def test_a_logo_is_set_through_a_normalised_name(server, logo):
     actions = set_logos(connect(), {"Yageo Corp": {"image": str(logo)}},
-                        write=True, aliases={"YAGEO": ["Yageo Corp"]})
+                        write=True)
     assert (actions[0].action, actions[0].company) == (SET, "YAGEO")
     assert server.company_images == [1]
 

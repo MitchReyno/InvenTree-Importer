@@ -140,7 +140,6 @@ def test_a_stock_file_can_be_read_and_checked_without_the_api(tmp_path):
     from invimport import read_stock_file, validate_stock
 
     (tmp_path / "units.yaml").write_text("")
-    (tmp_path / "manufacturers.yaml").write_text("")
     (tmp_path / "parameters.yaml").write_text(
         "Resistance:\n  units: ohm\n  parse: quantity\n")
     (tmp_path / "categories.yaml").write_text(

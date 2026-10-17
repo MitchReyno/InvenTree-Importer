@@ -12,8 +12,7 @@ the picture on the server may be one somebody chose by hand, and there is no
 way to tell that from one an earlier run uploaded.
 
 Names are matched the way manufacturer and supplier names are everywhere else:
-normalised, then through the learned aliases in manufacturers.yaml and
-suppliers.yaml. Nothing is fuzzy-matched - a logo on the wrong company is
+normalised. Nothing is fuzzy-matched - a logo on the wrong company is
 worse than none.
 """
 
@@ -25,10 +24,9 @@ from pathlib import Path
 from typing import Any
 
 from .. import cache
-from ..config import CONFIG_DIR, load_manufacturers_config, load_suppliers_config
 from . import ledger
 from .api import Company, ManufacturerPart, PurchaseOrder, SupplierPart
-from .matching import candidates, company_aliases, match_name
+from .matching import candidates, match_name
 from .parts import resolve_image_source
 from .purchase_orders import attachments
 
@@ -66,20 +64,9 @@ def missing_logos(api) -> list[Any]:
     return [c for c in list_companies(api) if not getattr(c, "image", None)]
 
 
-def config_aliases(directory: Path | str | None = None) -> dict[str, list[str]]:
-    """The learned manufacturer and supplier aliases, together."""
-    directory = Path(directory) if directory is not None else CONFIG_DIR
-    aliases = company_aliases(load_manufacturers_config(directory))
-    for name, spellings in company_aliases(
-            load_suppliers_config(directory)).items():
-        aliases.setdefault(name, []).extend(spellings)
-    return aliases
-
-
 def set_logos(api, companies: dict[str, dict[str, str]], *,
               write: bool = False,
               base_dir: Path | None = None,
-              aliases: dict[str, list[str]] | None = None,
               only_created: set[int] | None = None,
               cache_dir: Path = cache.IMAGES_DIR) -> list[LogoAction]:
     """
@@ -99,7 +86,7 @@ def set_logos(api, companies: dict[str, dict[str, str]], *,
         action = LogoAction(name=name, action=FAILED, image=image)
         actions.append(action)
 
-        matched = match_name(name, list(by_name), aliases)
+        matched = match_name(name, list(by_name))
         company = by_name.get(matched) if matched else None
         if company is None:
             if only_created is not None and not write:
@@ -140,22 +127,20 @@ def set_logos(api, companies: dict[str, dict[str, str]], *,
 SHOW_ROWS = 8
 
 
-def find_company(api, name: str, aliases: dict[str, list[str]] | None = None
-                 ) -> tuple[Any | None, list[str]]:
+def find_company(api, name: str) -> tuple[Any | None, list[str]]:
     """The company a name means, or None and the closest names on the server."""
     server = list_companies(api)
     by_name = {str(getattr(c, "name", "")): c for c in server}
-    matched = match_name(name, list(by_name), aliases)
+    matched = match_name(name, list(by_name))
     if matched in by_name:
         return by_name[matched], []
     return None, [n for n, _ in candidates(name, list(by_name))]
 
 
-def company_details(api, company, aliases: dict[str, list[str]] | None = None
-                    ) -> dict[str, Any]:
+def company_details(api, company) -> dict[str, Any]:
     """
     What the server knows that helps say who a company is: its own fields,
-    the spellings learned for it, and samples of what it is attached to - a
+    and samples of what it is attached to - a
     supplier's SKUs and listing links, a maker's part numbers, the orders.
     """
     pk = company.pk
@@ -169,9 +154,6 @@ def company_details(api, company, aliases: dict[str, list[str]] | None = None
         value = getattr(company, key, None)
         if value:
             details[key] = str(value)
-    spellings = (aliases or {}).get(str(company.name)) or []
-    if spellings:
-        details["aliases"] = list(spellings)
     if details["supplier"]:
         parts = SupplierPart.list(api, supplier=pk, limit=LIST_LIMIT)
         details["supplier_parts"] = len(parts)

@@ -449,7 +449,7 @@ already exist.
 
 An unmapped DigiKey category skips the SKU. An unknown manufacturer
 does the same, unless you are at a terminal (fuzzy matches are offered
-and written back to `config/manufacturers.yaml`) or you pass
+and remembered for the run) or you pass
 `--create-manufacturers`. Unmapped supplier parameter names, and choice
 values that are not in a parameter's allowed set, are asked about the
 same way: map as an alias, or create a new parameter / choice.
@@ -1080,7 +1080,7 @@ uv run invimport company-logos .local_imports/company-logos-2026-10-17/company-l
 
 The logos file is a stock file's `companies` section on its own, JSON or
 YAML, with paths relative to it. Names match as manufacturers and suppliers do
-everywhere else - normalised, then the learned aliases - and are never
+everywhere else - normalised - and are never
 fuzzy-matched. A company that already has a logo is left alone; nothing is
 replaced or deleted. Each entry may carry `provenance` rows (see
 [Provenance](#provenance)); on `--write` they are attached to the company as
@@ -1091,7 +1091,6 @@ JSON, with the image's digest and when it was set.
 | `--write`      | Upload the logos (default is a dry run)                 |
 | `--json PATH`  | Also write the list of companies with no logo as JSON   |
 | `--show NAME`  | What the server knows about one company, to identify it |
-| `--config DIR` | Config directory for the learned aliases                |
 
 The `company-logo-finder` agent (`.claude/agents/`) does the finding: the
 company's own logo from its site, Wikimedia Commons or its printed material,
@@ -1212,8 +1211,6 @@ config/
     units.yaml                custom units, created before any template needs them
     categories.yaml           part categories, their parameters and DigiKey aliases
     parameters.yaml           parameter templates and how to read supplier values
-    manufacturers.yaml        learned manufacturer name mappings
-    suppliers.yaml            learned supplier name mappings, incl. marketplaces
 src/
     invimport/
         __main__.py           CLI entrypoint and subcommand registry

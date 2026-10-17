@@ -56,7 +56,6 @@ def config(tmp_path):
     (tmp_path / "units.yaml").write_text("")
     (tmp_path / "categories.yaml").write_text(CATEGORIES)
     (tmp_path / "parameters.yaml").write_text(PARAMETERS)
-    (tmp_path / "manufacturers.yaml").write_text("")
     return (load_categories_config(tmp_path), load_parameters_config(tmp_path))
 
 

@@ -13,8 +13,8 @@ YAML, with paths relative to the file:
     {"companies": {"YAGEO": {"image": "logos/yageo.png"}}}
 
 Names are matched as manufacturers and suppliers are everywhere else -
-normalised, then through the learned aliases - and never fuzzy-matched. A
-company that already has a logo keeps it; nothing is replaced or deleted.
+normalised and never fuzzy-matched. A company that already has a logo keeps
+it; nothing is replaced or deleted.
 
 For a company an import is about to create, give its logo in that stock
 file's own `companies` section instead; this command only finds companies
@@ -42,7 +42,6 @@ from ..inventree.companies import (
     SET,
     WOULD_SET,
     company_details,
-    config_aliases,
     find_company,
     missing_logos,
     set_logos,
@@ -68,11 +67,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                              "JSON file")
     parser.add_argument("--show", metavar="NAME",
                         help="print what the server knows about one company "
-                             "- fields, aliases, SKUs and links, part "
+                             "- fields, SKUs and links, part "
                              "numbers, orders - to help identify it")
-    parser.add_argument("--config", type=Path, default=None, metavar="DIR",
-                        help="config directory, for the learned aliases "
-                             "(default: config/ at the repo root)")
 
 
 def read_logos(path: Path) -> dict[str, dict[str, str]]:
@@ -119,13 +115,12 @@ def list_missing(args: argparse.Namespace) -> int:
 
 def show(args: argparse.Namespace) -> int:
     api = connect()
-    aliases = config_aliases(args.config)
-    company, near = find_company(api, args.show, aliases)
+    company, near = find_company(api, args.show)
     if company is None:
         print(f"No company {args.show!r} on the server"
               + (f"; closest: {', '.join(near)}" if near else "") + ".")
         return 1
-    details = company_details(api, company, aliases)
+    details = company_details(api, company)
     if args.json:
         args.json.write_text(json.dumps(details, indent=2) + "\n",
                              encoding="utf-8")
@@ -158,8 +153,7 @@ def run(args: argparse.Namespace) -> int:
     api = connect()
     with ledger.recording() as book:
         actions = set_logos(api, wanted, write=args.write,
-                            base_dir=args.file.resolve().parent,
-                            aliases=config_aliases(args.config))
+                            base_dir=args.file.resolve().parent)
     for action in actions:
         target = (f" -> {action.company} (pk {action.pk})"
                   if action.company and action.company != action.name else "")

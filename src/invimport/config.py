@@ -1,5 +1,5 @@
 """
-YAML configuration: parameter templates, categories, manufacturer aliases.
+YAML configuration: parameter templates and categories.
 
 Config lives in config/ at the repo root, not inside the package and with no
 defaults-plus-override layering. The project already assumes a checkout (.env
@@ -37,8 +37,6 @@ CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
 UNITS_FILE = "units.yaml"
 PARAMETERS_FILE = "parameters.yaml"
 CATEGORIES_FILE = "categories.yaml"
-MANUFACTURERS_FILE = "manufacturers.yaml"
-SUPPLIERS_FILE = "suppliers.yaml"
 
 # Keys a category may carry that describe the category itself rather than a
 # child category. Everything else at that level is a subcategory.
@@ -125,21 +123,6 @@ class ParameterConfig:
             if alias not in seen:
                 seen.append(alias)
         return seen
-
-
-@dataclass
-class CompanyConfig:
-    """A company name, and the spellings that mean it."""
-    name: str
-    aliases: list[str] = field(default_factory=list)
-
-
-# Manufacturers and suppliers are the same shape - a canonical name plus the
-# spellings that mean it - and are matched the same way. They stay separate
-# files, and separate names here, because an error should say which one it
-# read, and because a company can be both.
-ManufacturerConfig = CompanyConfig
-SupplierConfig = CompanyConfig
 
 
 @dataclass
@@ -289,31 +272,6 @@ def parse_parameters(data: dict[str, Any], path: Path
         )
 
     return parameters
-
-
-def parse_companies(data: dict[str, Any], path: Path, kind: str
-                    ) -> dict[str, CompanyConfig]:
-    companies: dict[str, CompanyConfig] = {}
-    for name, body in data.items():
-        body = body or {}
-        if not isinstance(body, dict):
-            raise ConfigError(f"{path.name}: {kind} {name!r} must be a "
-                              f"mapping, got {type(body).__name__}")
-        companies[str(name)] = CompanyConfig(
-            name=str(name),
-            aliases=as_list(body.get("aliases"), path, f"{name} aliases"),
-        )
-    return companies
-
-
-def parse_manufacturers(data: dict[str, Any], path: Path
-                        ) -> dict[str, ManufacturerConfig]:
-    return parse_companies(data, path, "manufacturer")
-
-
-def parse_suppliers(data: dict[str, Any], path: Path
-                    ) -> dict[str, SupplierConfig]:
-    return parse_companies(data, path, "supplier")
 
 
 def parse_categories(data: dict[str, Any], path: Path
@@ -466,22 +424,6 @@ def load_categories_config(directory: Path | None = None
                            ) -> dict[str, CategoryConfig]:
     path = (directory or CONFIG_DIR) / CATEGORIES_FILE
     return parse_categories(read_yaml(path), path)
-
-
-def load_manufacturers_config(directory: Path | None = None
-                              ) -> dict[str, ManufacturerConfig]:
-    path = (directory or CONFIG_DIR) / MANUFACTURERS_FILE
-    if not path.exists():
-        return {}
-    return parse_manufacturers(read_yaml(path), path)
-
-
-def load_suppliers_config(directory: Path | None = None
-                          ) -> dict[str, SupplierConfig]:
-    path = (directory or CONFIG_DIR) / SUPPLIERS_FILE
-    if not path.exists():
-        return {}
-    return parse_suppliers(read_yaml(path), path)
 
 
 def load_config(directory: Path | None = None

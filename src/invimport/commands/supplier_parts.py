@@ -12,8 +12,8 @@ ManufacturerPart and SupplierPart. Dry run by default; nothing is deleted.
 An unmapped category or an unknown manufacturer skips that SKU rather than
 guessing. Interactive runs offer to map unmapped supplier parameters (as an
 alias of an existing one, or as a new parameter) and unknown choice spellings
-the same way, and write the answers back to the YAML. Fuzzy manufacturer
-matches are written to config/manufacturers.yaml. Non-interactive runs skip
+the same way, and write the answers back to the YAML. Manufacturer choices
+are remembered for the run. Non-interactive runs skip
 unknown manufacturers unless `--create-manufacturers` is passed.
 
 The logic lives in invimport.inventree.parts; this module is the CLI.
@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import cache
-from ..config import CONFIG_DIR, add_alias, load_categories_config
+from ..config import CONFIG_DIR, load_categories_config
 from ..digikey.api import connect as digikey_connect
 from ..digikey.orders import DEFAULT_DAYS, default_range, fetch_orders, line_items
 from ..inventree.api import InvenTreeError
@@ -130,22 +130,6 @@ def prompt_manufacturer(name: str, offered: list[tuple[Any, float]]):
     if picked is create:
         return name
     return picked[0]
-
-
-def learn_manufacturer(directory: Path):
-    """A chooser that writes the answer back to manufacturers.yaml."""
-    file = directory / "manufacturers.yaml"
-
-    def choose(name: str, offered: list[tuple[Any, float]]):
-        picked = prompt_manufacturer(name, offered)
-        if picked is None:
-            return None
-        canonical = picked if isinstance(picked, str) else picked.name
-        if canonical != name:
-            add_alias(file, [canonical], name)
-        return picked
-
-    return choose
 
 
 def learn_categories(products: dict[str, Any], skus, directory,
@@ -295,7 +279,7 @@ def run(args: argparse.Namespace) -> int:
 
     chooser = None
     if not args.create_manufacturers and interactive():
-        chooser = learn_manufacturer(directory)
+        chooser = prompt_manufacturer
 
     def on_learn_parameters(items):
         learn_parameters(items, directory, api, write=args.write)
