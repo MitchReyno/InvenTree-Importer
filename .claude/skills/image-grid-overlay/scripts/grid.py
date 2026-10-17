@@ -26,7 +26,7 @@ Prints the scale and, for each box, its size, aspect and margins
 import argparse
 import sys
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 BOX_COLOURS = [(0, 200, 0), (255, 140, 0), (200, 0, 200), (0, 170, 220)]
 
@@ -65,7 +65,8 @@ def main():
     ap.add_argument("--quiet", action="store_true")
     a = ap.parse_args()
 
-    im = Image.open(a.src).convert("RGB")
+    # EXIF orientation first, as crop.py does, so both read the same pixels
+    im = ImageOps.exif_transpose(Image.open(a.src)).convert("RGB")
     W, H = im.size
     rx0, ry0, rx1, ry1 = a.region or (0, 0, W, H)
     rx0, ry0, rx1, ry1 = max(0, rx0), max(0, ry0), min(W, rx1), min(H, ry1)

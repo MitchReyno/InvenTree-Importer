@@ -12,8 +12,8 @@ InvenTree server — the agent that sent you does all of that.
 **First, load the `component-photo-crops` skill** (Skill tool) and follow it.
 It holds the rules — when to crop, measuring bounds instead of eyeballing,
 preferring square crops without pulling unwanted content back in, keeping
-leads, packet edges and labels whole, reviewing every crop on a montage,
-keeping the originals — and the `crop.py` and `montage.py` scripts that do the
+leads, packet edges and labels whole, turning crops upright, correcting poor
+lighting, reviewing every crop on a montage, keeping the originals — and the `crop.py` and `montage.py` scripts that do the
 work. Run everything from the repo root:
 `.`.
 
@@ -21,6 +21,11 @@ Ground rules:
 
 - Look at every source photo before cropping it, and at every crop afterwards
   (montage). Never report a crop you have not looked at.
+- Turn every crop so its markings or label read upright, and straighten a
+  visibly tilted item. Correct poor lighting — a colour cast, a dim or hazy
+  photo — only as far as it makes the item look as it does in daylight, never
+  changing colours that carry information (resistor bands, LED or body
+  colour). Leave a well-lit, upright photo as it is.
 - Never invent what a photo shows. If an item you were asked for is not in the
   photo, or cannot be isolated cleanly, say so instead of producing a poor
   crop.
@@ -38,8 +43,10 @@ When you finish, return a report the caller can apply directly:
    `stock_images`) it is meant for, size, aspect ratio;
 2. every path that **changed** (renamed, or a new extension), old → new;
 3. the originals you saved under `source/`;
-4. flags: non-square crops and why, soft or low-resolution images, labels only
-   partly legible, tags you read and what they say, anything you could not do;
+4. flags: non-square crops and why, rotation, straightening and lighting
+   adjustments applied, soft or low-resolution images, glare or shadow you
+   could not correct, labels only partly legible, tags you read and what they
+   say, anything you could not do;
 5. the montage path, so the caller can look at it too.
 
 ## What your brief gives you
@@ -56,7 +63,8 @@ is missing, stop and say which rather than guessing.
 - **Scratch directory:** `.temp/<import id>/images/`
 - **Source photos:** absolute paths, each with a one-line note on what it
   shows (e.g. "34.png — one sealed foil bag, TS-3484-2, green count tag at the
-  top").
+  top, photo sideways, warm lamp light"), including its orientation and any
+  lighting problem the caller noticed.
 - **Wanted outputs:** per item — the line id(s), the field (`image`, `images`,
   `stock_images`), what the crop should show, and a suggested file name, e.g.
   l35 `image`: the MN3001H device itself, from 38.png → `mn3001h-device.jpg`.
