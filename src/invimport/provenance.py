@@ -301,9 +301,12 @@ def compile_records(document: StockFile, actions, book, *,
         first = related[0][1] if related else None
         linked: dict[str, list[int]] = {}
         for action, _ in related:
-            for other, attr in _ACTION_FIELDS.items():
-                value = getattr(action, attr)
-                if other != model and isinstance(value, int) and value > 0:
+            pairs = [(other, getattr(action, attr))
+                     for other, attr in _ACTION_FIELDS.items()]
+            pairs.append(("company", makers.get(action.manufacturer_part)))
+            for other, value in pairs:
+                if (isinstance(value, int) and value > 0
+                        and (other, value) != (model, pk)):
                     linked.setdefault(other, [])
                     if value not in linked[other]:
                         linked[other].append(value)

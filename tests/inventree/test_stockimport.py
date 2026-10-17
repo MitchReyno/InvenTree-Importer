@@ -1759,3 +1759,5 @@ def test_facts_reach_the_records_that_hold_them(config, server, tmp_path):
     assert cited("company", maker) == ["manufacturer"]
     assert cited("manufacturerpart", action.manufacturer_part) == [
         "manufacturer"]
+    assert sorted(docs[("part", action.part)]["related"]["company"]) == \
+        sorted([action.supplier, maker])
