@@ -838,7 +838,9 @@ joins it with the rows:
   value it supports), the photos each line was read from, and the records it is
   related to. A fact goes to the record that owns its field: parameters to the
   part, `mpn` to the manufacturer part, `sku` to the supplier part,
-  `order.reference` to the purchase order, `batch` to the stock item.
+  `order.reference` to the purchase order, `batch` to the stock item, the
+  price to the stock item and the order; `manufacturer` and `supplier` go to
+  that company as well.
 - **The import** keeps `<import>.provenance.json` in its folder: every source
   row in the file, the photo map, and one entry per run that wrote something -
   its lines, records and every event. It is written before the folder is

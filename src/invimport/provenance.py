@@ -84,8 +84,13 @@ _ACTION_FIELDS = {"part": "part", "manufacturerpart": "manufacturer_part",
                   "purchaseorder": "purchase_order", "company": "supplier"}
 
 # Who owns a line field, for routing a version 1 line's facts (and a
-# version 2 line's stock facts) to the record they describe.
-_SUPPLIER_PART_FIELDS = {"supplier", "sku", "unit_price", "currency"}
+# version 2 line's stock facts) to the record they describe. A company is
+# owned in a role, since one line names two: its maker and its supplier.
+MAKER = "company:maker"
+SUPPLIER = "company:supplier"
+# The price is stored on the stock item and the order line, not the
+# supplier part.
+_PRICE_FIELDS = {"unit_price", "currency"}
 _PART_FIELDS = {"category", "name", "description", "type", "ipn",
                 "parameters", "datasheet", "datasheet_pages", "image",
                 "images", "attachments"}
@@ -96,12 +101,18 @@ def fact_owners(field: str, group: str, version_2_line: bool) -> list[str]:
     root = field.partition(".")[0]
     if group == PART:
         return ["part"]
+    if root == "manufacturer":
+        return ["manufacturerpart", MAKER]
     if group == MANUFACTURER_PART:
         return ["manufacturerpart"]
     if root == "order":
         return ["purchaseorder"]
-    if root in _SUPPLIER_PART_FIELDS:
+    if root == "supplier":
+        return ["supplierpart", SUPPLIER]
+    if root == "sku":
         return ["supplierpart"]
+    if root in _PRICE_FIELDS:
+        return ["stockitem", "purchaseorder"]
     if root == "link":
         # A version 1 line's link was the part's page and the seller's both.
         return ["supplierpart"] if version_2_line else ["part",
@@ -109,7 +120,7 @@ def fact_owners(field: str, group: str, version_2_line: bool) -> list[str]:
     if not version_2_line:
         if root in _PART_FIELDS:
             return ["part"]
-        if root in ("manufacturer", "mpn"):
+        if root == "mpn":
             return ["manufacturerpart"]
     return ["stockitem"]
 
@@ -245,29 +256,36 @@ def compile_records(document: StockFile, actions, book, *,
         if model not in ATTACHABLE:
             continue
         related = []
+        roles: dict[str, set[str]] = {}
         for action in actions:
             if action.id not in lines:
                 continue
             ids = {m: getattr(action, f) for m, f in _ACTION_FIELDS.items()}
-            if action.manufacturer_part in makers:
-                ids.setdefault("maker", makers[action.manufacturer_part])
-            if ids.get(model) == pk or (model == "company"
-                                        and ids.get("maker") == pk):
+            if model == "company":
+                held = {role for role, company in (
+                    (SUPPLIER, action.supplier),
+                    (MAKER, makers.get(action.manufacturer_part)))
+                    if company == pk}
+            else:
+                held = {model} if ids.get(model) == pk else set()
+            if held:
                 related.append((action, lines[action.id]))
+                roles[action.id] = held
 
         rows: list[dict[str, Any]] = []
         seen: set[int] = set()
-        for _action, line in related:
+        for action, line in related:
+            held = roles[action.id]
             for group, group_rows in row_groups(line):
                 for row in group_rows:
                     if id(row) in seen:
                         continue
                     facts = [
                         _with_value(f, line, group) for f in row["facts"]
-                        if (model in fact_owners(f["field"], group,
-                                                 bool(line.part_ref))
+                        if (held & set(fact_owners(f["field"], group,
+                                                   bool(line.part_ref)))
                             if "field" in f else
-                            model == _claim_owner(group))]
+                            _claim_owner(group) in held)]
                     if facts:
                         seen.add(id(row))
                         rows.append(_row_for(row, facts,

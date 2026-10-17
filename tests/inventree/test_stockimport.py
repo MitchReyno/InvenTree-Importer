@@ -1732,3 +1732,30 @@ def test_a_version_2_parts_rows_go_on_the_part(config, server, tmp_path):
                                                 "value": "7"}]
     second = docs[("stockitem", result.lines[1].stock_item)]
     assert second["provenance"] == []
+
+
+def test_facts_reach_the_records_that_hold_them(config, server, tmp_path):
+    """The price is on the stock and the order; each company gets the
+    evidence for its own role, not the other company's."""
+    line = {**CITED, "unit_price": 0.1, "currency": "AUD", "provenance": [
+        {"kind": "message", "quote": "10c each from Rockby",
+         "facts": ["unit_price", "currency", "supplier"]},
+        {"kind": "inference", "because": "YAGEO's MFR prefix",
+         "facts": ["manufacturer"]}]}
+    result = _import(_import_dir(tmp_path, line), config)
+    docs = provenance_files(server)
+    action = result.lines[0]
+
+    def cited(model, pk):
+        return [f["field"] for row in docs[(model, pk)]["provenance"]
+                for f in row["facts"]]
+
+    assert cited("stockitem", action.stock_item) == ["unit_price", "currency"]
+    assert cited("purchaseorder", action.purchase_order) == ["unit_price",
+                                                             "currency"]
+    assert cited("supplierpart", action.supplier_part) == ["supplier"]
+    assert cited("company", action.supplier) == ["supplier"]
+    maker = next(c["pk"] for c in server.companies if c["name"] == "YAGEO")
+    assert cited("company", maker) == ["manufacturer"]
+    assert cited("manufacturerpart", action.manufacturer_part) == [
+        "manufacturer"]
