@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from invimport.config import load_categories_config, load_parameters_config
-from invimport.stockfile import parse_document
+from invimport.stockfile import parse_document, read_file
 from invimport.validate import category_candidates, resolve_category, validate
 
 CATEGORIES = """
@@ -441,3 +443,32 @@ def test_a_name_with_a_description_in_it_is_warned_about(config):
         "part g: name: 'CD4073BF Triple 3-Input AND Gate' looks like it "
         "includes a description - a name is the part number alone, e.g. "
         "'CD4073BF'; put what it is in the description"]
+
+
+# --------------------------------------------------------------------------
+# Provenance
+# --------------------------------------------------------------------------
+def test_a_cited_field_the_line_does_not_set_is_a_warning(config):
+    report = check(config, {
+        "category": "Resistors/Through Hole Resistors",
+        "parameters": {"Resistance": "1 kohm", "Tolerance": "1%"},
+        "provenance": [{"kind": "web", "url": "https://example.com/p",
+                        "facts": ["parameters.Resistance", "batch"]}]})
+    assert [w.problem for w in report.warnings
+            if w.field == "provenance"] == [
+        "cites 'batch', which this line does not set"]
+
+
+def test_a_missing_source_file_is_a_warning(config, tmp_path):
+    categories, parameters = config
+    path = tmp_path / "stock.json"
+    (tmp_path / "there.pdf").write_bytes(b"%PDF")
+    path.write_text(json.dumps({"lines": [{
+        "id": "1", "quantity": 1,
+        "category": "Resistors/Through Hole Resistors",
+        "parameters": {"Resistance": "1 kohm", "Tolerance": "1%"},
+        "provenance": [{"kind": "datasheet", "file": "there.pdf",
+                        "snapshot": "snapshots/gone.html",
+                        "facts": ["parameters.Tolerance"]}]}]}))
+    report = validate(read_file(path), categories, parameters)
+    assert [w.field for w in report.warnings] == ["provenance snapshot"]

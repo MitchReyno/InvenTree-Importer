@@ -172,6 +172,20 @@ not looked at.
   aliases); nothing is fuzzy-matched, and a company that already has a logo
   is left alone - to replace one, the user does it in InvenTree.
 
-In both cases keep a `logos/sources.json` beside the PNGs: per company, the
-page and file the logo came from, the variant, the background and where that
-colour came from, so the choice can be checked later.
+In both cases each company's entry carries a `provenance` list (the format is
+in the stock-import skill's "Provenance" section): a row for where the logo
+came from - `kind` `web`, `databook` or `document`, with `url`, `file`,
+`pages`, `retrieved` and `facts: ["image"]` - and its `note` saying the
+variant, the background colour and where that colour came from. Add a row
+for the company's identity (`facts: ["name"]`) when it took evidence, as an
+`inference` with `because` when it was inferred (a division using its
+parent's mark). On `--write` these rows are kept as JSON on the company:
+
+```json
+"Signetics": {"image": "logos/signetics.png", "provenance": [
+  {"kind": "databook", "title": "1981 Signetics Logic/Interface Data Manual",
+   "url": "https://.../1981_Signetics_Logic_Interface.pdf", "pages": "1",
+   "retrieved": "2026-10-17", "by": "company-logo-finder",
+   "note": "1980s wordmark from the cover; white paper cleaned to #ffffff",
+   "facts": ["image"]}]}
+```

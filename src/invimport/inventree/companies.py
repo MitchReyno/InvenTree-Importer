@@ -26,6 +26,7 @@ from typing import Any
 
 from .. import cache
 from ..config import CONFIG_DIR, load_manufacturers_config, load_suppliers_config
+from . import ledger
 from .api import Company
 from .matching import company_aliases, match_name
 from .parts import resolve_image_source
@@ -123,5 +124,7 @@ def set_logos(api, companies: dict[str, dict[str, str]], *,
                         company.name, exc)
             action.reason = str(exc)
             continue
+        ledger.note("company", company.pk, ledger.IMAGE_SET,
+                    **ledger.file_facts(path))
         action.action = SET
     return actions

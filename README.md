@@ -577,6 +577,7 @@ it never ends up in an import's archive (below).
 | `--no-orders`        | Import the stock without creating purchase orders          |
 | `--mirror-datasheets`| Download each datasheet URL and attach a copy to the part; also on when `INVIMPORT_MIRROR_DATASHEETS` is set (e.g. in `.env`) |
 | `--no-archive`       | Do not zip the import's folder onto its orders or suppliers |
+| `--no-provenance`    | Do not record provenance JSON on the records or in the folder |
 | `--yes`              | Do not prompt; report anything ambiguous instead           |
 
 #### The file
@@ -788,6 +789,63 @@ The dry run reports the zip's name, size and where it would go, and writes
 nothing. A file not in its own folder (named for the file or its
 `source.reference`) is not archived - zipping its neighbours would attach other
 imports' evidence - and the report says to move it.
+
+#### Provenance
+
+Every fact an import writes came from somewhere - a datasheet page, a photo of
+a tube label, a distributor's listing, an NSN record, something said in chat.
+A file can say where, per entry, with a `provenance` list. Each row is **one
+source**, and lists every fact it supports, so a datasheet behind ten
+parameters is one row:
+
+```json
+"provenance": [
+  {"id": "ds", "kind": "datasheet", "file": "datasheets/82s137.pdf",
+   "pages": "3-4", "facts": ["parameters.Organization", "parameters.Access Time",
+                             {"field": "description", "note": "page 1 summary"}]},
+  {"kind": "photo", "file": "photos/source/12-tube.png", "where": "tube label",
+   "quote": "N82S137F 8231", "facts": ["mpn", "batch"]},
+  {"kind": "inference", "because": "8231 is the date code: 1982, week 31",
+   "derived_from": ["ds"], "facts": [{"claim": "made in 1982"}]}
+]
+```
+
+- `kind` is one of `photo`, `datasheet`, `databook`, `web`, `record` (NSN,
+  CAGE, an existing InvenTree record), `document` (invoice, packing slip),
+  `standard` (MIL/JEDEC specs, decoding rules), `message` (chat, email, a
+  hand-written list), `measurement`, `inference` (needs `because`; may name the
+  rows it rests on in `derived_from`) or `other`.
+- A source is named by any of `file`, `url`, `snapshot`, `quote`, `title`;
+  `pages`, `where`, `by`, `date`, `retrieved` and `note` say more.
+- A fact is a field of the entry the row is on - `mpn`,
+  `parameters.Resistance`, `order.reference`, `notes.summary` - or
+  `{"claim": "..."}` for one that is not a field. The reader refuses a field
+  the entry does not have (a misspelt parameter is caught), and `--validate`
+  warns about a cited field that is not set, or a local file that is missing.
+- Rows go on a version 2 part, manufacturer part or line, on a version 1 line,
+  on a `companies` entry, or at the top level for sources that speak for
+  every line (the invoice).
+
+On `--write`, invimport records what the run did - every record created,
+parameter added or changed, file attached, image set, notes written - and
+joins it with the rows:
+
+- **Each record the run created or changed** gets a JSON attachment,
+  `provenance-<import>-<model>-<pk>-<digest>.json`, commented `Import
+  provenance`: the import and archive it came from, the lines that touched it,
+  every change with its time (and each file's sha256), the values the file gave
+  it, the source rows with only the facts about *this* record (each with the
+  value it supports), the photos each line was read from, and the records it is
+  related to. A fact goes to the record that owns its field: parameters to the
+  part, `mpn` to the manufacturer part, `sku` to the supplier part,
+  `order.reference` to the purchase order, `batch` to the stock item.
+- **The import** keeps `<import>.provenance.json` in its folder: every source
+  row in the file, the photo map, and one entry per run that wrote something -
+  its lines, records and every event. It is written before the folder is
+  zipped, so the archive carries it.
+
+A re-run that changes nothing records nothing, and leaves the archive as it
+was. A dry run records nothing; `--no-provenance` turns it off.
 
 #### What it will not guess
 
@@ -1021,7 +1079,9 @@ The logos file is a stock file's `companies` section on its own, JSON or
 YAML, with paths relative to it. Names match as manufacturers and suppliers do
 everywhere else - normalised, then the learned aliases - and are never
 fuzzy-matched. A company that already has a logo is left alone; nothing is
-replaced or deleted.
+replaced or deleted. Each entry may carry `provenance` rows (see
+[Provenance](#provenance)); on `--write` they are attached to the company as
+JSON, with the image's digest and when it was set.
 
 | Flag           | Effect                                                  |
 |----------------|---------------------------------------------------------|

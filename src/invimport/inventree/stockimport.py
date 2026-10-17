@@ -28,7 +28,10 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import tempfile
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from importlib import metadata
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable
@@ -46,6 +49,8 @@ from ..config import (
     load_suppliers_config,
 )
 from .. import notes as notes_md
+from .. import provenance
+from . import ledger
 from ..stockfile import StockFile, StockLine
 from ..validate import resolve_category
 from .api import (
@@ -57,7 +62,7 @@ from .api import (
     SupplierPart,
     connect,
 )
-from .archive import ImportArchive, archive_import
+from .archive import ImportArchive, archive_import, import_folder
 from .categories import ensure_on_server
 from .companies import LogoAction, config_aliases, set_logos
 from .datasheets import attach_datasheet, prefetch, resolve_datasheet
@@ -73,6 +78,7 @@ from .parts import (
     resolve_part,
 )
 from .purchase_orders import (
+    attach_file,
     attach_order_file,
     next_reference,
     resolve_supplier,
@@ -146,6 +152,15 @@ class LineAction:
 
 
 @dataclass
+class ProvenanceOutcome:
+    """Where a run's provenance went."""
+    file: Path | None = None                     # the combined file
+    reason: str = ""                             # why there is none
+    attached: list[tuple[str, int, str]] = field(default_factory=list)
+    failed: list[tuple[str, int, str]] = field(default_factory=list)
+
+
+@dataclass
 class StockImportResult:
     lines: list[LineAction] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
@@ -154,6 +169,8 @@ class StockImportResult:
     archive: ImportArchive | None = None
     # What became of each logo in the file's `companies`.
     logos: list[LogoAction] = field(default_factory=list)
+    # The provenance written for this run; None on a dry run.
+    provenance: ProvenanceOutcome | None = None
 
     def counts(self) -> dict[str, int]:
         return {
@@ -183,6 +200,9 @@ class ImportOptions:
     mirror_datasheets: bool = False
     # Zip the import's folder and attach it to its orders or suppliers.
     archive: bool = True
+    # Record where each record's facts came from and what the run did, on
+    # the record and in the import's folder.
+    provenance: bool = True
     on_partial: str = "ask"
     min_confidence: float = 0.0
     # Callbacks. Without one, the matching ambiguity is reported instead.
@@ -234,28 +254,87 @@ def import_stock(
         prefetch(line.datasheet for line in document.lines)
 
     by_id: dict[str, LineAction] = {}
-    for line in document.lines:
-        action = _import_line(
-            api, document, line, ctx, suppliers, options,
-            directory=directory,
-            supplier_cache=supplier_cache, location_cache=location_cache,
-            order_cache=order_cache, supplier_parts=supplier_parts,
-            by_id=by_id)
-        by_id[line.id] = action
-        result.lines.append(action)
+    with ledger.recording() as book:
+        for line in document.lines:
+            action = _import_line(
+                api, document, line, ctx, suppliers, options,
+                directory=directory,
+                supplier_cache=supplier_cache, location_cache=location_cache,
+                order_cache=order_cache, supplier_parts=supplier_parts,
+                by_id=by_id)
+            by_id[line.id] = action
+            result.lines.append(action)
 
-    # After the lines, so a company this run created is there to take one.
-    if document.companies:
-        result.logos = set_logos(
-            api, document.companies, write=options.write,
-            base_dir=document.path.parent if document.path else None,
-            aliases=config_aliases(directory),
-            created_by_run=True)
+        # After the lines, so a company this run created is there to take
+        # one.
+        if document.companies:
+            result.logos = set_logos(
+                api, document.companies, write=options.write,
+                base_dir=document.path.parent if document.path else None,
+                aliases=config_aliases(directory),
+                created_by_run=True)
 
+    # The combined provenance goes in the folder before it is zipped, so the
+    # archive carries it; each record's own file needs the archive's name,
+    # so it goes on after.
+    records = {}
+    if options.write and options.provenance:
+        result.provenance, records = _write_provenance(
+            document, result, book, ctx)
     if options.archive:
         result.archive = archive_import(api, document, result.lines,
                                         write=options.write)
+    if records:
+        _attach_provenance(api, document, records, result)
     return result
+
+
+def _write_provenance(document: StockFile, result: StockImportResult, book,
+                      ctx: ImportContext):
+    """Compile this run's provenance and add it to the import's file."""
+    outcome = ProvenanceOutcome()
+    if not book.events:
+        outcome.reason = "nothing was written, so there is nothing to record"
+        return outcome, {}
+    run = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    templates = {t.pk: name for name, t in ctx.templates.items()}
+    records = provenance.compile_records(
+        document, result.lines, book, templates=templates,
+        logos=result.logos, run=run, version=invimport_version())
+    folder, reason = import_folder(document)
+    if folder is None:
+        outcome.reason = f"no combined file: {reason}"
+    else:
+        outcome.file = provenance.write_combined(
+            provenance.combined_path(folder, document), document,
+            result.lines, book, records, templates=templates, run=run,
+            version=invimport_version())
+    return outcome, records
+
+
+def _attach_provenance(api, document: StockFile, records,
+                       result: StockImportResult) -> None:
+    """Put each record's provenance document on the record."""
+    archive = result.archive.name if result.archive else ""
+    with tempfile.TemporaryDirectory() as tmp:
+        for (model, pk), doc in records.items():
+            if archive:
+                doc["import"]["archive"] = archive
+            path = provenance.record_file(Path(tmp), document, doc)
+            comment = (f"{provenance.RECORD_COMMENT}: "
+                       f"{doc['import'].get('folder') or document.file_id} - "
+                       f"where the facts came from and what the import did")
+            if attach_file(api, model, pk, path, comment):
+                result.provenance.attached.append((model, pk, path.name))
+            else:
+                result.provenance.failed.append((model, pk, path.name))
+
+
+def invimport_version() -> str:
+    try:
+        return metadata.version("inventree-importer")
+    except metadata.PackageNotFoundError:     # pragma: no cover
+        return ""
 
 
 def _import_line(api, document: StockFile, line: StockLine,
@@ -466,6 +545,8 @@ def _import_line(api, document: StockFile, line: StockLine,
     if order is not None:
         try:
             item.save({"purchase_order": order.pk})
+            ledger.note("stockitem", item.pk, ledger.LINKED_TO_ORDER,
+                        purchase_order=order.pk)
         except Exception:                        # pragma: no cover
             log.warning("    could not link stock %s to order %s",
                         item.pk, order.pk)
@@ -577,6 +658,8 @@ def _notes_on(api, route: str, pk: int | None, text: str,
     if not write:
         return NOTES_WOULD_WRITE
     api.patch(f"{route}/{pk}/", {"notes": text})
+    ledger.note(ledger.MODELS.get(route, route), pk, ledger.NOTES_WRITTEN,
+                characters=len(text))
     return NOTES_WRITTEN
 
 

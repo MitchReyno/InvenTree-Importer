@@ -51,7 +51,7 @@ LINE_KEYS = {
     "location", "notes", "tags", "batch", "packaging",
     "link", "datasheet", "datasheet_pages", "image", "images",
     "stock_images", "attachments", "part_of",
-    "confidence", "needs_review",
+    "confidence", "needs_review", "provenance",
 }
 ORDER_KEYS = {"reference", "date", "target_date", "description",
               "link", "notes", "tags", "invoice"}
@@ -79,14 +79,15 @@ PART_KEYS = {
     "id", "category", "suggest_category", "name", "description", "type",
     "ipn",
     "parameters", "link", "datasheet", "datasheet_pages", "image", "images",
-    "attachments", "notes",
+    "attachments", "notes", "provenance",
 }
-MANUFACTURER_PART_KEYS = {"id", "part", "manufacturer", "mpn", "notes"}
+MANUFACTURER_PART_KEYS = {"id", "part", "manufacturer", "mpn", "notes",
+                          "provenance"}
 V2_LINE_KEYS = {
     "id", "part", "manufacturer_part", "quantity", "approximate",
     "condition", "supplier", "sku", "unit_price", "currency", "order",
     "location", "notes", "tags", "batch", "packaging", "link",
-    "stock_images", "confidence", "needs_review",
+    "stock_images", "confidence", "needs_review", "provenance",
 }
 # In version 2 the category belongs to the part, so it is not a line default.
 V2_DEFAULTABLE = {"supplier", "currency", "location", "order", "condition",
@@ -94,11 +95,40 @@ V2_DEFAULTABLE = {"supplier", "currency", "location", "order", "condition",
 # A company's logo travels with the import as `companies`, keyed by the name a
 # line gives as its manufacturer or supplier. Only an empty logo is filled: a
 # company that already has one keeps it.
-COMPANY_KEYS = {"image"}
+COMPANY_KEYS = {"image", "provenance"}
+
+# Where each fact came from. A row is one source - a datasheet and its pages,
+# a snapshot, a photo, something the user said - and lists every fact it
+# supports, so a datasheet behind ten parameters is one row, not ten.
+PROVENANCE_KINDS = ("photo", "datasheet", "databook", "web", "record",
+                    "document", "standard", "message", "measurement",
+                    "inference", "other")
+PROVENANCE_KEYS = {"id", "kind", "title", "file", "url", "pages", "snapshot",
+                   "where", "quote", "by", "date", "retrieved", "because",
+                   "derived_from", "note", "facts"}
+# What identifies the source: a row with none of these says nothing.
+PROVENANCE_ANCHORS = ("file", "url", "snapshot", "quote", "title", "because")
+FACT_KEYS = {"field", "claim", "note"}
+
+# The fields a fact may name, by what the row is on. A dotted name reaches
+# into a mapping: parameters.Resistance, order.reference, notes.summary.
+PART_FACT_FIELDS = {"category", "name", "description", "type", "ipn",
+                    "parameters", "link", "datasheet", "datasheet_pages",
+                    "image", "images", "attachments", "notes"}
+MANUFACTURER_PART_FACT_FIELDS = {"manufacturer", "mpn", "notes"}
+STOCK_FACT_FIELDS = {"quantity", "approximate", "condition", "supplier",
+                     "sku", "unit_price", "currency", "order", "location",
+                     "notes", "tags", "batch", "packaging", "link",
+                     "stock_images"}
+LINE_FACT_FIELDS = (PART_FACT_FIELDS | MANUFACTURER_PART_FACT_FIELDS
+                    | STOCK_FACT_FIELDS)
+COMPANY_FACT_FIELDS = {"name", "image"}
+DOTTED_FACT_FIELDS = {"parameters", "order", "notes"}
 # A version 2 line is expanded into the version 1 shape the importer runs on.
 # These carry what that shape had no field for.
 EXPANDED_KEYS = {"part_notes", "manufacturer_part_notes", "supplier_link",
-                 "part_ref", "manufacturer_part_ref"}
+                 "part_ref", "manufacturer_part_ref", "part_provenance",
+                 "manufacturer_part_provenance"}
 
 # InvenTree's StockItem.packaging is a 50 character column. Longer is refused
 # here, naming the line, rather than by the server mid-import.
@@ -201,6 +231,16 @@ class StockLine:
     part_ref: str = ""
     manufacturer_part_ref: str = ""
 
+    # Where the facts came from: rows of {kind, source..., facts}. A version
+    # 1 line's rows cover the part, the maker's number and the stock alike;
+    # in version 2 the part's and the manufacturer part's rows ride on every
+    # line naming them, and the line's own rows (with the file-wide ones)
+    # are in `provenance`.
+    provenance: list[dict[str, Any]] = field(default_factory=list)
+    part_provenance: list[dict[str, Any]] = field(default_factory=list)
+    manufacturer_part_provenance: list[dict[str, Any]] = field(
+        default_factory=list)
+
     # Labels and the lot this quantity came out of. Both describe the stock
     # rather than the part: the same component can arrive as new old stock in
     # one delivery and current production in the next, so neither belongs on
@@ -251,8 +291,11 @@ class StockFile:
     # Set from source.reference, else a hash of the file. Half of the barcode
     # that makes re-running an import a no-op.
     file_id: str = ""
-    # Company name -> {"image": path or URL}, from the file's `companies`.
-    companies: dict[str, dict[str, str]] = field(default_factory=dict)
+    # Company name -> {"image": path or URL, "provenance": [...]}, from the
+    # file's `companies`.
+    companies: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # The file-wide provenance rows; each line carries them too.
+    provenance: list[dict[str, Any]] = field(default_factory=list)
 
     def key_for(self, line: StockLine) -> str:
         """The idempotence key: stable per line, per file."""
@@ -709,6 +752,15 @@ def _line_from(raw: dict[str, Any], index: int,
     if not line.category:
         problems.append(Problem(line_id, "category", "is required"))
 
+    # A version 2 line names its part; its own rows are about the stock.
+    allowed = STOCK_FACT_FIELDS if line.part_ref else LINE_FACT_FIELDS
+    line.provenance = parse_provenance(
+        raw.get("provenance"), line_id, "line", allowed, problems,
+        parameters=None if line.part_ref else line.parameters)
+    line.part_provenance = list(raw.get("part_provenance") or [])
+    line.manufacturer_part_provenance = list(
+        raw.get("manufacturer_part_provenance") or [])
+
     return line
 
 
@@ -837,6 +889,14 @@ def parse_document(data: Any, path: Path | None = None) -> StockFile:
                                     f"{line.part_of!r} comes later in the file; "
                                     f"it must come first"))
 
+    # File-wide rows - the invoice, the user's description of the lot -
+    # speak for every line, so each line carries them.
+    shared = parse_provenance(
+        data.get("provenance"), "", "file",
+        STOCK_FACT_FIELDS if version == 2 else LINE_FACT_FIELDS, problems)
+    for line in lines:
+        line.provenance = line.provenance + shared
+
     companies = parse_companies(data.get("companies"), problems)
     named = _companies_named(lines)
     for name in companies:
@@ -851,9 +911,176 @@ def parse_document(data: Any, path: Path | None = None) -> StockFile:
             p.describe() for p in unique(problems)))
 
     document = StockFile(version=version, source=source, lines=lines, path=path,
-                         companies=companies)
+                         companies=companies, provenance=shared)
+    _check_provenance_ids(document, problems)
+    if problems:
+        raise StockFileError("\n".join(
+            p.describe() for p in unique(problems)))
     document.file_id = file_id_for(document, data)
     return document
+
+
+# --------------------------------------------------------------------------
+# Provenance
+# --------------------------------------------------------------------------
+def parse_provenance(value: Any, owner: str, kind: str, allowed: set[str],
+                     problems: list[Problem], *,
+                     parameters: dict[str, Any] | None = None
+                     ) -> list[dict[str, Any]]:
+    """
+    A `provenance` list, checked and normalised. Every row keeps what was
+    given; its facts become {"field": ...} or {"claim": ...} mappings.
+
+    `allowed` is the fields a fact on this entry may name. When the entry's
+    parameters are known, a fact naming a parameter it does not have is a
+    mistake worth catching - usually a misspelling.
+    """
+    if value in (None, ""):
+        return []
+    if isinstance(value, dict):
+        value = [value]
+    if not isinstance(value, list):
+        problems.append(Problem(owner, "provenance",
+                                "must be a list of source rows", kind=kind))
+        return []
+    rows: list[dict[str, Any]] = []
+    for index, raw in enumerate(value):
+        where = f"provenance[{index}]"
+        if not isinstance(raw, dict):
+            problems.append(Problem(owner, where, "must be a mapping with "
+                                                  "kind and facts", kind=kind))
+            continue
+        for key in raw:
+            if key not in PROVENANCE_KEYS:
+                problems.append(Problem(owner, f"{where}.{key}",
+                                        "not a recognised field",
+                                        did_you_mean=_close(key,
+                                                            PROVENANCE_KEYS),
+                                        kind=kind))
+        row = {key: raw[key] for key in raw
+               if key in PROVENANCE_KEYS and raw[key] not in (None, "", [])}
+        source_kind = str(row.get("kind") or "").strip()
+        if source_kind not in PROVENANCE_KINDS:
+            problems.append(Problem(
+                owner, f"{where}.kind",
+                f"{source_kind!r} is not a kind of source; one of "
+                f"{', '.join(PROVENANCE_KINDS)}" if source_kind
+                else "is required",
+                did_you_mean=_close(source_kind, PROVENANCE_KINDS)
+                if source_kind else [], kind=kind))
+        row["kind"] = source_kind
+        if not any(row.get(key) for key in PROVENANCE_ANCHORS):
+            problems.append(Problem(
+                owner, where, "names no source - give a file, url, "
+                              "snapshot, quote or title (or, for an "
+                              "inference, because)", kind=kind))
+        if source_kind == "inference" and not row.get("because"):
+            problems.append(Problem(owner, f"{where}.because",
+                                    "an inference must say why", kind=kind))
+        derived = row.get("derived_from", [])
+        if isinstance(derived, str):
+            derived = [derived]
+        if not isinstance(derived, list):
+            problems.append(Problem(owner, f"{where}.derived_from",
+                                    "must be a list of row ids", kind=kind))
+            derived = []
+        if derived:
+            row["derived_from"] = [str(d) for d in derived]
+        for key in ("id", "pages"):
+            if key in row:
+                row[key] = str(row[key]).strip()
+        row["facts"] = _as_facts(raw.get("facts"), owner, kind,
+                                 f"{where}.facts", allowed, parameters,
+                                 problems)
+        rows.append(row)
+    return rows
+
+
+def _as_facts(value: Any, owner: str, kind: str, where: str,
+              allowed: set[str], parameters: dict[str, Any] | None,
+              problems: list[Problem]) -> list[dict[str, str]]:
+    if isinstance(value, (str, dict)):
+        value = [value]
+    if not value or not isinstance(value, list):
+        problems.append(Problem(owner, where, "list at least one fact this "
+                                              "source supports", kind=kind))
+        return []
+    facts: list[dict[str, str]] = []
+    for item in value:
+        if isinstance(item, str):
+            item = {"field": item}
+        if not isinstance(item, dict) or set(item) - FACT_KEYS or (
+                ("field" in item) == ("claim" in item)):
+            problems.append(Problem(
+                owner, where, f"{item!r}: a fact is a field name, or "
+                              f"{{field, note}}, or {{claim, note}}",
+                kind=kind))
+            continue
+        fact = {k: str(v).strip() for k, v in item.items()
+                if v not in (None, "")}
+        if "field" in fact:
+            _check_fact_field(fact["field"], owner, kind, where, allowed,
+                              parameters, problems)
+        facts.append(fact)
+    return facts
+
+
+def _check_fact_field(name: str, owner: str, kind: str, where: str,
+                      allowed: set[str], parameters: dict[str, Any] | None,
+                      problems: list[Problem]) -> None:
+    root, dot, rest = name.partition(".")
+    if root not in allowed:
+        problems.append(Problem(owner, where,
+                                f"{name!r} is not a field of this {kind}",
+                                did_you_mean=_close(root, allowed), kind=kind))
+    elif dot and root not in DOTTED_FACT_FIELDS:
+        problems.append(Problem(owner, where,
+                                f"{name!r}: {root} has no parts to name",
+                                kind=kind))
+    elif root == "order" and dot and rest not in ORDER_KEYS:
+        problems.append(Problem(owner, where,
+                                f"{name!r} is not an order field",
+                                did_you_mean=[f"order.{k}" for k in
+                                              _close(rest, ORDER_KEYS)],
+                                kind=kind))
+    elif (root == "parameters" and dot and parameters is not None
+          and rest not in parameters):
+        problems.append(Problem(owner, where,
+                                f"{name!r}: this {kind} has no parameter "
+                                f"{rest!r}",
+                                did_you_mean=[f"parameters.{k}" for k in
+                                              _close(rest, parameters)],
+                                kind=kind))
+
+
+def _check_provenance_ids(document: StockFile,
+                          problems: list[Problem]) -> None:
+    """Row ids are unique across the file; derived_from names real rows."""
+    seen: dict[str, int] = {}
+    groups = [document.provenance]
+    for line in document.lines:
+        groups += [line.provenance, line.part_provenance,
+                   line.manufacturer_part_provenance]
+    groups += [c.get("provenance") or [] for c in document.companies.values()]
+    rows: dict[int, dict[str, Any]] = {}
+    for group in groups:
+        for row in group:
+            rows[id(row)] = row                  # a shared row counts once
+    for row in rows.values():
+        if row.get("id"):
+            seen[row["id"]] = seen.get(row["id"], 0) + 1
+    for row_id, count in seen.items():
+        if count > 1:
+            problems.append(Problem("", "provenance",
+                                    f"row id {row_id!r} is used {count} "
+                                    f"times; ids must be unique"))
+    for row in rows.values():
+        for target in row.get("derived_from") or []:
+            if target not in seen:
+                problems.append(Problem(
+                    "", "provenance",
+                    f"derived_from names {target!r}, which is no row's id",
+                    did_you_mean=_close(target, seen)))
 
 
 # --------------------------------------------------------------------------
@@ -897,6 +1124,10 @@ def parse_companies(value: Any, problems: list[Problem]
                                     kind="company"))
             continue
         companies[name] = {"image": image.strip()}
+        rows = parse_provenance(body.get("provenance"), name, "company",
+                                COMPANY_FACT_FIELDS, problems)
+        if rows:
+            companies[name]["provenance"] = rows
     return companies
 
 
@@ -1028,6 +1259,18 @@ def _expand(data: dict[str, Any], rows: list[Any],
                                 "put general facts on the part instead",
                 kind="manufacturer part"))
 
+    part_rows = {
+        part_id: parse_provenance(
+            entry.get("provenance"), part_id, "part", PART_FACT_FIELDS,
+            problems, parameters=entry.get("parameters")
+            if isinstance(entry.get("parameters"), dict) else None)
+        for part_id, entry in parts.items()}
+    maker_rows = {
+        mp_id: parse_provenance(entry.get("provenance"), mp_id,
+                                "manufacturer part",
+                                MANUFACTURER_PART_FACT_FIELDS, problems)
+        for mp_id, entry in makers.items()}
+
     first_line: dict[str, str] = {}
     noted_makers: set[str] = set()
     used_parts: set[str] = set()
@@ -1089,8 +1332,9 @@ def _expand(data: dict[str, Any], rows: list[Any],
 
         used_parts.add(part_id)
         merged: dict[str, Any] = {k: v for k, v in part.items()
-                                  if k not in ("id", "notes")}
+                                  if k not in ("id", "notes", "provenance")}
         merged["part_ref"] = part_id
+        merged["part_provenance"] = part_rows.get(part_id, [])
         if part_id in first_line:
             merged["part_of"] = first_line[part_id]
         else:
@@ -1101,6 +1345,7 @@ def _expand(data: dict[str, Any], rows: list[Any],
             merged["mpn"] = maker.get("mpn")
             merged["manufacturer"] = maker.get("manufacturer")
             merged["manufacturer_part_ref"] = mp_id
+            merged["manufacturer_part_provenance"] = maker_rows.get(mp_id, [])
             if mp_id not in noted_makers:
                 noted_makers.add(mp_id)
                 merged["manufacturer_part_notes"] = maker.get("notes")

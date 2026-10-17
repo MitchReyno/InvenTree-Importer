@@ -87,6 +87,12 @@ def server(inventree):
     return inventree
 
 
+def files(server):
+    """What was attached, less the provenance every write also leaves."""
+    return [a for a in server.attachments
+            if not a["filename"].startswith("provenance-")]
+
+
 def run(config, *lines, **options):
     document = parse_document({
         "source": {"reference": "notes.jpg"},
@@ -653,7 +659,7 @@ def test_further_images_are_attached_to_the_part(config, server, tmp_path):
                  options=ImportOptions(write=True))
     part = next(p for p in server.part_rows if p.get("IPN") == "RES-00001")
     assert part.get("image")
-    attached = [a for a in server.attachments if a["model_type"] == "part"]
+    attached = [a for a in files(server) if a["model_type"] == "part"]
     assert sorted(a["filename"] for a in attached) == ["box.jpg", "label.jpg"]
     assert {a["model_id"] for a in attached} == {part["pk"]}
     assert all(a["comment"] == "imported from stock.json" for a in attached)
@@ -669,7 +675,7 @@ def test_lines_sharing_a_part_attach_each_image_once(config, server, tmp_path):
                   {"id": "2", "quantity": 2, **line}]}))
     import_stock(read_file(path), connect(), directory=config,
                  options=ImportOptions(write=True))
-    attached = [a for a in server.attachments if a["model_type"] == "part"]
+    attached = [a for a in files(server) if a["model_type"] == "part"]
     assert [a["filename"] for a in attached] == ["label.jpg"]
 
 
@@ -692,10 +698,10 @@ def test_stock_images_attach_to_each_stock_item_not_the_part(
                      options=ImportOptions(write=True))
 
     first, second = server.stock_items[0]["pk"], server.stock_items[1]["pk"]
-    attached = [(a["model_id"], a["filename"]) for a in server.attachments
+    attached = [(a["model_id"], a["filename"]) for a in files(server)
                 if a["model_type"] == "stockitem"]
     assert attached == [(first, "batch-a.jpg"), (second, "batch-b.jpg")]
-    assert not [a for a in server.attachments if a["model_type"] == "part"]
+    assert not [a for a in files(server) if a["model_type"] == "part"]
 
 
 def test_attachments_are_kept_on_the_part(config, server, tmp_path):
@@ -720,11 +726,11 @@ def test_attachments_are_kept_on_the_part(config, server, tmp_path):
                               options=ImportOptions(write=True))
     assert result.lines[0].action == EXISTS
     part = next(p for p in server.part_rows if p.get("IPN") == "RES-00001")
-    attached = sorted((a["filename"], a["comment"]) for a in server.attachments
+    attached = sorted((a["filename"], a["comment"]) for a in files(server)
                       if a["model_type"] == "part")
     assert attached == [("label-scan.pdf", "imported from stock.json"),
                         ("nsn.html", "Source: NSN listing (snapshot)")]
-    assert {a["model_id"] for a in server.attachments} == {part["pk"]}
+    assert {a["model_id"] for a in files(server)} == {part["pk"]}
 
 
 def test_attachments_must_name_a_file():
@@ -747,7 +753,7 @@ def test_a_missing_further_image_is_skipped(config, server, tmp_path):
     result = import_stock(read_file(path), connect(), directory=config,
                           options=ImportOptions(write=True))
     assert result.lines[0].action == CREATED
-    attached = [a for a in server.attachments if a["model_type"] == "part"]
+    attached = [a for a in files(server) if a["model_type"] == "part"]
     assert [a["filename"] for a in attached] == ["label.jpg"]
 
 
@@ -774,7 +780,7 @@ def _stock_file(tmp_path, *lines):
 
 
 def _datasheets(server):
-    return sorted((a["model_type"], a["filename"]) for a in server.attachments
+    return sorted((a["model_type"], a["filename"]) for a in files(server)
                   if a["comment"].startswith("Datasheet"))
 
 
@@ -807,7 +813,7 @@ def test_a_local_datasheet_is_attached_to_the_part_and_manufacturer_part(
     assert result.lines[0].datasheet == "1N4007.pdf"
     assert _datasheets(server) == [("manufacturerpart", "1N4007.pdf"),
                                    ("part", "1N4007.pdf")]
-    part = next(a for a in server.attachments if a["model_type"] == "part")
+    part = next(a for a in files(server) if a["model_type"] == "part")
     assert part["model_id"] == result.lines[0].part
     assert part["contents"].startswith(b"%PDF-")
 
@@ -824,7 +830,7 @@ def test_a_data_book_attaches_the_device_pages_and_the_whole_book(
                           options=ImportOptions(write=True))
     assert result.lines[0].datasheet == "book_p10-11.pdf, book.pdf"
     attached = sorted((a["model_type"], a["filename"], a["comment"])
-                      for a in server.attachments)
+                      for a in files(server))
     assert attached == [
         ("manufacturerpart", "book.pdf", "Datasheet (full document)"),
         ("manufacturerpart", "book_p10-11.pdf", "Datasheet"),
@@ -833,7 +839,7 @@ def test_a_data_book_attaches_the_device_pages_and_the_whole_book(
     ]
 
     def pages(name):
-        row = next(a for a in server.attachments if a["filename"] == name)
+        row = next(a for a in files(server) if a["filename"] == name)
         reader = PdfReader(io.BytesIO(row["contents"]))
         return [int(p.mediabox.width) - 100 for p in reader.pages]
 
@@ -894,7 +900,7 @@ def test_a_dry_run_names_the_datasheet_and_attaches_nothing(config, server,
     result = import_stock(document, connect(), directory=config,
                           options=ImportOptions(write=False))
     assert result.lines[0].datasheet == "1N4007.pdf"
-    assert server.attachments == []
+    assert files(server) == []
 
 
 def test_a_missing_local_datasheet_does_not_stop_the_line(config, server,
@@ -922,7 +928,7 @@ def test_a_datasheet_added_later_reaches_a_line_already_imported(
     assert len(server.stock_items) == 1
     assert _datasheets(server) == [("manufacturerpart", "1N4007.pdf"),
                                    ("part", "1N4007.pdf")]
-    part = next(a for a in server.attachments if a["model_type"] == "part")
+    part = next(a for a in files(server) if a["model_type"] == "part")
     assert part["model_id"] == first.lines[0].part
 
 
@@ -1044,8 +1050,8 @@ def test_the_invoice_is_attached_to_the_order(config, server, tmp_path):
     import_stock(document, connect(), directory=config,
                  options=ImportOptions(write=True))
 
-    assert len(server.attachments) == 1
-    attached = server.attachments[0]
+    assert len(files(server)) == 1
+    attached = files(server)[0]
     assert attached["model_type"] == "purchaseorder"
     assert attached["model_id"] == server.purchase_orders[0]["pk"]
     assert attached["filename"] == "inv-88213.pdf"
@@ -1065,7 +1071,7 @@ def test_lines_sharing_an_order_attach_the_invoice_once(config, server,
                  options=ImportOptions(write=True))
 
     assert len(server.purchase_orders) == 1
-    assert len(server.attachments) == 1
+    assert len(files(server)) == 1
 
 
 def test_re_importing_does_not_attach_the_invoice_twice(config, server,
@@ -1081,7 +1087,7 @@ def test_re_importing_does_not_attach_the_invoice_twice(config, server,
 
     once()
     once()
-    assert len(server.attachments) == 1
+    assert len(files(server)) == 1
 
 
 def test_an_invoice_that_is_not_there_does_not_stop_the_import(config, server,
@@ -1095,7 +1101,7 @@ def test_an_invoice_that_is_not_there_does_not_stop_the_import(config, server,
     import_stock(document, connect(), directory=config,
                  options=ImportOptions(write=True))
 
-    assert server.attachments == []
+    assert files(server) == []
     assert len(server.stock_items) == 1
     assert len(server.purchase_orders) == 1
 
@@ -1308,7 +1314,7 @@ def _import(path, config, write=True, **options):
 
 
 def _zips(server):
-    return [a for a in server.attachments if a["filename"].endswith(".zip")]
+    return [a for a in files(server) if a["filename"].endswith(".zip")]
 
 
 ON_ORDER = {**RESISTOR, **ORDER, "order": {"reference": "INV-88213"}}
@@ -1340,9 +1346,11 @@ def test_the_zip_holds_the_import_file_and_all_its_sources(config, server,
         assert zf.read("rockby-88213/photos/l01-label.jpg") == \
             b"\xff\xd8\xff\xd9"
     # Under the import's own name, so it unpacks to the layout it came from;
-    # the machine's hidden files are not the import's.
+    # the machine's hidden files are not the import's. The run's provenance
+    # is written before the folder is zipped, so it travels with it.
     assert names == ["rockby-88213/photos/l01-label.jpg",
                      "rockby-88213/rockby-88213.json",
+                     "rockby-88213/rockby-88213.provenance.json",
                      "rockby-88213/rockby-88213.sources.json",
                      "rockby-88213/snapshots/l01-listing.html"]
 
@@ -1451,7 +1459,7 @@ def test_a_dry_run_says_where_the_archive_would_go_and_writes_nothing(
     path = _import_dir(tmp_path, ON_ORDER, DIODE)
     result = _import(path, config, write=False)
 
-    assert server.attachments == [] and server.purchase_orders == []
+    assert files(server) == [] and server.purchase_orders == []
     archive = result.archive
     assert archive.name.startswith("import-rockby-88213-")
     assert len(archive.files) == 4
@@ -1464,10 +1472,10 @@ def test_a_dry_run_of_an_imported_file_says_it_is_already_attached(
         config, server, tmp_path):
     path = _import_dir(tmp_path, ON_ORDER)
     _import(path, config)
-    before = len(server.attachments)
+    before = len(files(server))
     result = _import(path, config, write=False)
 
-    assert len(server.attachments) == before
+    assert len(files(server)) == before
     assert result.archive.targets[0].outcome == ALREADY_ATTACHED
 
 
@@ -1554,3 +1562,173 @@ def test_a_company_that_has_a_logo_keeps_it(config, server, tmp_path):
     assert result.logos[0].action == "has one"
     assert result.logos[0].company == "Rockby Electronics"
     assert server.company_images == []
+
+
+# --------------------------------------------------------------------------
+# The ledger: what a run wrote, record by record
+# --------------------------------------------------------------------------
+def test_the_ledger_records_every_write_of_a_run(config, server, tmp_path):
+    from invimport.inventree import ledger
+
+    (tmp_path / "chip.jpg").write_bytes(b"\xff\xd8\xff\xd9")
+    (tmp_path / "label.jpg").write_bytes(b"\xff\xd8\xff\xd9")
+    path = tmp_path / "stock.json"
+    path.write_text(json.dumps({
+        "source": {"reference": "notes.jpg"},
+        "lines": [{"id": "1", "quantity": 3, **RESISTOR,
+                   "manufacturer": "YAGEO", "mpn": "MFR-25FTE52-4K7",
+                   "image": "chip.jpg", "stock_images": ["label.jpg"]}]}))
+    with ledger.recording() as book:
+        import_stock(read_file(path), connect(), directory=config,
+                     options=ImportOptions(write=True))
+    seen = {(model, what) for (model, _), events in book.records().items()
+            for what in (e.what for e in events)}
+    assert {("part", "created"), ("part", "parameter added"),
+            ("part", "image set"), ("company", "created"),
+            ("manufacturerpart", "created"), ("stockitem", "created"),
+            ("stockitem", "file attached")} <= seen
+    attached = next(e for e in book.events if e.what == "file attached")
+    assert attached.detail["file"] == "label.jpg"
+    assert len(attached.detail["sha256"]) == 64
+
+
+def test_nothing_is_recorded_outside_a_recording(config, server):
+    from invimport.inventree import ledger
+
+    run(config, RESISTOR)
+    assert ledger._active is None
+
+
+# --------------------------------------------------------------------------
+# Provenance: kept on each record the run touched, and with the import
+# --------------------------------------------------------------------------
+CITED = {
+    **ON_ORDER, "manufacturer": "YAGEO", "mpn": "MFR-25FTE52-4K7",
+    "batch": "8423",
+    "provenance": [
+        {"id": "ds", "kind": "datasheet", "file": "snapshots/l01-listing.html",
+         "pages": "2", "facts": ["parameters.Resistance",
+                                 "parameters.Tolerance"]},
+        {"kind": "photo", "file": "photos/l01-label.jpg",
+         "where": "packet label", "quote": "MFR-25FTE52-4K7 LOT 8423",
+         "facts": ["mpn", "batch", {"claim": "sealed packet"}]},
+        {"kind": "document", "title": "Rockby invoice 88213",
+         "facts": ["order.reference", "sku"]},
+    ]}
+
+
+def provenance_files(server):
+    return {(a["model_type"], a["model_id"]): json.loads(a["contents"])
+            for a in server.attachments
+            if a["filename"].startswith("provenance-")}
+
+
+def test_each_record_the_run_made_gets_its_own_provenance(config, server,
+                                                          tmp_path):
+    result = _import(_import_dir(tmp_path, CITED), config)
+    docs = provenance_files(server)
+    assert {model for model, _ in docs} == {
+        "part", "manufacturerpart", "supplierpart", "stockitem",
+        "purchaseorder", "company"}
+    assert len(result.provenance.attached) == len(docs)
+
+    part = docs[("part", result.lines[0].part)]
+    assert part["format"] == "invimport-provenance/1"
+    assert part["import"]["reference"] == "rockby-88213"
+    assert part["import"]["archive"] == result.archive.name
+    assert part["lines"] == ["1"]
+    assert {"what": "created"}.items() <= part["changes"][0].items()
+    assert {c.get("parameter") for c in part["changes"]} >= {"Resistance",
+                                                             "Tolerance"}
+    # Only the part's facts are on the part; the datasheet row is one row.
+    row, = part["provenance"]
+    assert (row["kind"], row["pages"]) == ("datasheet", "2")
+    assert row["facts"] == [
+        {"field": "parameters.Resistance", "value": "4k7"},
+        {"field": "parameters.Tolerance", "value": "1%"}]
+    assert part["values"]["parameters"] == {"Resistance": "4k7",
+                                            "Tolerance": "1%"}
+
+    stock = docs[("stockitem", result.lines[0].stock_item)]
+    photo, = stock["provenance"]
+    assert photo["quote"] == "MFR-25FTE52-4K7 LOT 8423"
+    assert photo["facts"] == [{"field": "batch", "value": "8423"},
+                              {"claim": "sealed packet"}]
+    maker = docs[("manufacturerpart", result.lines[0].manufacturer_part)]
+    assert maker["provenance"][0]["facts"] == [
+        {"field": "mpn", "value": "MFR-25FTE52-4K7"}]
+    order = docs[("purchaseorder", result.lines[0].purchase_order)]
+    assert order["provenance"][0]["facts"] == [
+        {"field": "order.reference", "value": "INV-88213"}]
+    assert order["related"]["part"] == [result.lines[0].part]
+
+
+def test_the_combined_provenance_is_in_the_folder_and_the_zip(config, server,
+                                                              tmp_path):
+    path = _import_dir(tmp_path, CITED)
+    result = _import(path, config)
+    combined = json.loads((path.parent / "rockby-88213.provenance.json")
+                          .read_text())
+    assert result.provenance.file.name == "rockby-88213.provenance.json"
+    assert len(combined["provenance"]) == 3
+    run_, = combined["runs"]
+    assert run_["lines"][0]["action"] == "created"
+    assert {e["model"] for e in run_["events"]} >= {"part", "stockitem"}
+    assert combined["sources_map"] == {"1": ["photos/x.jpg"]}
+    with zipfile.ZipFile(io.BytesIO(_zips(server)[0]["contents"])) as zf:
+        assert "rockby-88213/rockby-88213.provenance.json" in zf.namelist()
+
+
+def test_a_re_run_that_changes_nothing_records_nothing(config, server,
+                                                       tmp_path):
+    path = _import_dir(tmp_path, CITED)
+    _import(path, config)
+    before = len(server.attachments)
+    combined = (path.parent / "rockby-88213.provenance.json").read_text()
+    result = _import(path, config)
+    assert len(server.attachments) == before
+    assert result.provenance.reason.startswith("nothing was written")
+    assert (path.parent / "rockby-88213.provenance.json").read_text() == \
+        combined
+
+
+def test_a_dry_run_records_no_provenance(config, server, tmp_path):
+    path = _import_dir(tmp_path, CITED)
+    result = _import(path, config, write=False)
+    assert result.provenance is None
+    assert not (path.parent / "rockby-88213.provenance.json").exists()
+    assert provenance_files(server) == {}
+
+
+def test_provenance_can_be_left_out(config, server, tmp_path):
+    path = _import_dir(tmp_path, CITED)
+    _import(path, config, provenance=False)
+    assert provenance_files(server) == {}
+    assert not (path.parent / "rockby-88213.provenance.json").exists()
+
+
+def test_a_version_2_parts_rows_go_on_the_part(config, server, tmp_path):
+    folder = tmp_path / "v2-import"
+    folder.mkdir()
+    path = folder / "v2-import.json"
+    path.write_text(json.dumps({
+        "version": 2, "source": {"reference": "v2-import"},
+        "parts": [{"id": "r", **RESISTOR, "provenance": [
+            {"kind": "web", "url": "https://example.com/r",
+             "facts": ["parameters.Resistance"]}]}],
+        "lines": [{"id": "a", "part": "r", "quantity": 1, "batch": "7",
+                   "provenance": [{"kind": "photo", "file": "p.jpg",
+                                   "facts": ["batch"]}]},
+                  {"id": "b", "part": "r", "quantity": 2}]}))
+    result = _import(path, config)
+    docs = provenance_files(server)
+    part = docs[("part", result.lines[0].part)]
+    assert part["lines"] == ["a", "b"]
+    assert part["entries"] == ["r"]
+    row, = part["provenance"]
+    assert row["on"] == {"kind": "part", "id": "r"}
+    first = docs[("stockitem", result.lines[0].stock_item)]
+    assert first["provenance"][0]["facts"] == [{"field": "batch",
+                                                "value": "7"}]
+    second = docs[("stockitem", result.lines[1].stock_item)]
+    assert second["provenance"] == []

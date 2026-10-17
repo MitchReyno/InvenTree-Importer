@@ -35,6 +35,7 @@ from types import SimpleNamespace
 from typing import Any, Callable, Iterable
 
 from .. import cache
+from . import ledger
 from ..config import (
     CONFIG_DIR,
     CategoryConfig,
@@ -487,9 +488,13 @@ def apply_parameters(
             touched += 1
         elif update and str(current.data) != value:
             if write:
-                writes.append(
-                    lambda current=current, value=value: current.save(
-                        data={"data": value}))
+                def change(current=current, value=value,
+                           template_pk=template.pk, was=str(current.data)):
+                    current.save(data={"data": value})
+                    ledger.note(model_type.rpartition(".")[2], model_id,
+                                ledger.PARAMETER_UPDATED,
+                                template=template_pk, value=value, was=was)
+                writes.append(change)
             touched += 1
 
     _write_parameters(writes)
@@ -517,6 +522,8 @@ def attach_part_image(part, path: Path) -> bool:
         return False
     try:
         part.uploadImage(str(path))
+        ledger.note("part", part.pk, ledger.IMAGE_SET,
+                    **ledger.file_facts(path))
         return True
     except Exception as exc:
         log.warning("    [warn] could not upload image for part %s: %s",

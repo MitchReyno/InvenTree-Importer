@@ -172,6 +172,19 @@ A report the caller can apply directly, per item (by line id):
    <site>`); product image URL if asked for.
 3. **Parameters**: name → value → source (document and page), using the
    vocabulary's names.
+   **Provenance rows**, ready to paste into the import file: one row per
+   source, listing every fact it supports, grouped by the entry it goes on -
+   the part (`parameters.<name>`, `description`, `datasheet`, `link`,
+   `image`, `notes.<section>`), the manufacturer part (`manufacturer`, `mpn`)
+   or the line. Each row has a `kind` (`datasheet`, `databook`, `web`,
+   `record`, `standard`, `inference`, ...), what names the source (`url`
+   and/or `file`, `pages`, `snapshot`, `title`), `retrieved`, `by`
+   (`component-researcher`) and `facts`. Anything decoded or carried over
+   rather than read - a grade from a suffix, a maker from a CAGE code, a value
+   from a series datasheet - is an `inference` row with `because`, naming the
+   rows it rests on in `derived_from` (give those an `id`). Quote short
+   passages that settle a fact (`quote`). The stock-import skill's
+   "Provenance" section has the full format.
 4. **Facts for the notes**, sorted by the record each is true of, so a fact is
    written once rather than copied onto every lot. Short plain facts, never
    "per the user":

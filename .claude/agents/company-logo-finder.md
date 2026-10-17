@@ -38,8 +38,8 @@ a namesake's, a redrawn one — is worse than none.
 The brief says which.
 
 **A. For a stock import.** Write the PNGs to
-`.local_imports/<import id>/logos/`, and `logos/sources.json` beside them. Do
-**not** edit the import file — return the `companies` entries for the caller
+`.local_imports/<import id>/logos/`. Do **not** edit the import file —
+return the `companies` entries, with their `provenance` rows, for the caller
 to add, keyed by the exact name the import's lines use as `manufacturer` or
 `supplier`.
 
@@ -50,12 +50,14 @@ gives, or get it yourself:
 uv run invimport company-logos --json .temp/company-logos-<date>/missing.json
 ```
 
-Write the PNGs to `.local_imports/company-logos-<date>/logos/` (with
-`sources.json`), and the logos file
-`.local_imports/company-logos-<date>/company-logos.json`:
+Write the PNGs to `.local_imports/company-logos-<date>/logos/`, and the
+logos file `.local_imports/company-logos-<date>/company-logos.json`, each
+entry with its `provenance` rows (see the skill) - `--write` keeps them as
+JSON on the company:
 
 ```json
-{"companies": {"Signetics": {"image": "logos/signetics.png"}}}
+{"companies": {"Signetics": {"image": "logos/signetics.png",
+                             "provenance": [{"kind": "databook", "...": "..."}]}}}
 ```
 
 keyed by the company's name **as the server has it**. Then dry-run it:
@@ -81,7 +83,8 @@ does that in InvenTree.
 - Downloads and scratch work (originals, renders, screenshots, montages) go
   in the scratch directory the brief names under `.temp/`, each download in
   its own new folder — never in the repo, `/tmp`, or the logos folder. Only
-  the final PNGs and `sources.json` go under `.local_imports/`.
+  the final PNGs (and, for job B, the logos file) go under
+  `.local_imports/`.
 - Read only on the server, except job B's `--write` when approved.
 
 ## What to return
@@ -92,9 +95,13 @@ does that in InvenTree.
    symbol, scan of a 1972 data book cover, …), whether the source was
    transparent, the background colour and where it came from, and confidence
    (0–1).
-2. For job A: the `companies` JSON to add to the import file. For job B:
-   the logos file path and the dry-run output — or, if you wrote, the
-   `--write` output.
+2. For job A: the `companies` JSON to add to the import file, each entry
+   with a `provenance` list - one row for where the logo came from (`kind`
+   `web`, `databook` or `document`; `url`, `file`, `pages`, `retrieved`;
+   facts `["image"]`) and, when its identity took evidence, a row for that
+   (facts `["name"]`; an `inference` with `because` when it is inferred,
+   such as a division using its parent's mark). For job B: the logos file
+   path and the dry-run output — or, if you wrote, the `--write` output.
 3. Flags: inferred identities (a division using its parent's mark, the era
    chosen for a defunct company), logos only found as favicons or low-res
    scans, contrast warnings you accepted and why, `--aspect keep` used.

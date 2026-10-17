@@ -731,3 +731,113 @@ def test_a_malformed_company_is_refused(companies, expected):
             lines=[{"id": "a", "quantity": 1, "manufacturer": "YAGEO",
                     "category": "Resistors/Through Hole Resistors"}],
             companies=companies))
+
+
+# --------------------------------------------------------------------------
+# Provenance
+# --------------------------------------------------------------------------
+DATASHEET_ROW = {"kind": "datasheet", "file": "datasheets/ds.pdf",
+                 "pages": 3, "facts": ["parameters.Resistance",
+                                       {"field": "parameters.Tolerance",
+                                        "note": "table 2"}]}
+
+
+def resistor(**extra):
+    return {"id": "a", "quantity": 1,
+            "category": "Resistors/Through Hole Resistors",
+            "parameters": {"Resistance": "4k7", "Tolerance": "1%"}, **extra}
+
+
+def test_one_source_row_carries_every_fact_it_supports():
+    line = parse_document(doc(lines=[resistor(
+        provenance=[DATASHEET_ROW])])).lines[0]
+    row, = line.provenance
+    assert row["kind"] == "datasheet" and row["pages"] == "3"
+    assert row["facts"] == [{"field": "parameters.Resistance"},
+                            {"field": "parameters.Tolerance",
+                             "note": "table 2"}]
+
+
+def test_a_claim_is_a_fact_that_names_no_field():
+    line = parse_document(doc(lines=[resistor(provenance=[{
+        "kind": "message", "quote": "all from one sealed bag",
+        "facts": [{"claim": "the lot is one batch"}, "quantity"]}])])).lines[0]
+    assert line.provenance[0]["facts"][0] == {"claim": "the lot is one batch"}
+
+
+@pytest.mark.parametrize("row, expected", [
+    ({**DATASHEET_ROW, "kind": "rumour"}, "'rumour' is not a kind of source"),
+    ({"kind": "web", "facts": ["link"]}, "names no source"),
+    ({"kind": "inference", "quote": "x", "facts": ["mpn"]},
+     "an inference must say why"),
+    ({**DATASHEET_ROW, "facts": []}, "list at least one fact"),
+    ({**DATASHEET_ROW, "facts": ["parameters.Resistence"]},
+     "has no parameter 'Resistence'"),
+    ({**DATASHEET_ROW, "facts": ["wattage"]}, "'wattage' is not a field"),
+    ({**DATASHEET_ROW, "facts": ["order.supplier"]}, "is not an order field"),
+    ({**DATASHEET_ROW, "source": "x"}, "source: not a recognised field"),
+])
+def test_a_malformed_source_row_is_refused(row, expected):
+    with pytest.raises(StockFileError, match=expected):
+        parse_document(doc(lines=[resistor(provenance=[row])]))
+
+
+def test_derived_from_must_name_a_row():
+    rows = [{**DATASHEET_ROW, "id": "ds"},
+            {"kind": "inference", "because": "same series as the datasheet",
+             "derived_from": ["ds", "nsn"], "facts": ["description"]}]
+    with pytest.raises(StockFileError, match="derived_from names 'nsn'"):
+        parse_document(doc(lines=[resistor(description="x",
+                                           provenance=rows)]))
+
+
+def test_row_ids_are_unique_across_the_file():
+    row = {**DATASHEET_ROW, "id": "ds"}
+    with pytest.raises(StockFileError, match="row id 'ds' is used 2 times"):
+        parse_document(doc(lines=[resistor(provenance=[row]),
+                                  {**resistor(provenance=[row]), "id": "b"}]))
+
+
+def test_file_wide_rows_ride_on_every_line():
+    document = parse_document(doc(
+        lines=[resistor(), {**resistor(), "id": "b"}],
+        provenance=[{"kind": "document", "file": "invoice.pdf",
+                     "facts": ["quantity", "order.reference"]}]))
+    assert len(document.provenance) == 1
+    assert all(line.provenance == document.provenance
+               for line in document.lines)
+
+
+def test_version_2_rows_stay_with_the_entry_they_are_on():
+    document = parse_document({
+        "version": 2,
+        "parts": [{"id": "r", "category": "Resistors/Through Hole Resistors",
+                   "parameters": {"Resistance": "4k7"},
+                   "provenance": [{**DATASHEET_ROW,
+                                   "facts": ["parameters.Resistance"]}]}],
+        "manufacturer_parts": [{"id": "r/y", "part": "r",
+                                "manufacturer": "YAGEO", "mpn": "MFR-25",
+                                "provenance": [{"kind": "photo",
+                                                "file": "p.jpg",
+                                                "facts": ["mpn"]}]}],
+        "lines": [{"id": "a", "manufacturer_part": "r/y", "quantity": 1,
+                   "provenance": [{"kind": "photo", "file": "p.jpg",
+                                   "facts": ["batch"]}], "batch": "8423"},
+                  {"id": "b", "part": "r", "quantity": 2}]})
+    first, second = document.lines
+    assert first.part_provenance[0]["facts"] == [
+        {"field": "parameters.Resistance"}]
+    assert first.manufacturer_part_provenance[0]["facts"] == [{"field": "mpn"}]
+    assert first.provenance[0]["facts"] == [{"field": "batch"}]
+    assert second.part_provenance == first.part_provenance
+
+
+def test_a_version_2_line_cannot_cite_its_parts_fields():
+    with pytest.raises(StockFileError, match="'mpn' is not a field of this "
+                                             "line"):
+        parse_document({
+            "version": 2,
+            "parts": [{"id": "r", "category": "Diodes", "type": "1N4148"}],
+            "lines": [{"id": "a", "part": "r", "quantity": 1,
+                       "provenance": [{"kind": "photo", "file": "p.jpg",
+                                       "facts": ["mpn"]}]}]})

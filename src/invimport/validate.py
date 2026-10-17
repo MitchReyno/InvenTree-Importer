@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from . import provenance
 from .config import CategoryConfig, ParameterConfig
 from .inventree.matching import candidates, match_path, ratio
 from .inventree.values import (
@@ -201,6 +202,7 @@ def validate(
     _check_unconfirmed_repeats(document, categories, report)
     _attribute_to_entries(document, report)
     _check_company_logos(document, base_dir, report)
+    _check_provenance(document, base_dir, report)
     return report
 
 
@@ -428,6 +430,60 @@ def _check_company_logos(document: StockFile, base_dir: Path | None,
                 name, "image",
                 f"{image!r} is not a file (looked for {path}), so no logo "
                 f"will be set", kind="company"))
+
+
+def _check_provenance(document: StockFile, base_dir: Path | None,
+                      report: Report) -> None:
+    """
+    Each source row once: its local files exist, and each fact it cites is
+    set on the entry it is on - a citation for an empty field has usually
+    landed on the wrong entry.
+    """
+    shared = {id(row) for row in document.provenance}
+    seen: set[int] = set()
+
+    def check_files(row, owner: str, kind: str) -> None:
+        for key in ("file", "snapshot"):
+            text = str(row.get(key) or "").strip()
+            if not text or absolute_url(text):
+                continue
+            path = Path(text).expanduser()
+            if not path.is_absolute() and base_dir is not None:
+                path = base_dir / path
+            if not path.is_file():
+                report.warnings.append(Problem(
+                    owner, f"provenance {key}",
+                    f"{text!r} is not a file (looked for {path})", kind=kind))
+
+    for row in document.provenance:
+        seen.add(id(row))
+        check_files(row, "", "file")
+    for line in document.lines:
+        owners = {provenance.PART: (line.part_ref or line.id, "part"
+                                    if line.part_ref else "line"),
+                  provenance.MANUFACTURER_PART: (line.manufacturer_part_ref,
+                                                 "manufacturer part"),
+                  provenance.LINE: (line.id, "line")}
+        for group, rows in provenance.row_groups(line):
+            owner, kind = owners[group]
+            for row in rows:
+                if id(row) in seen or id(row) in shared:
+                    continue
+                seen.add(id(row))
+                check_files(row, owner, kind)
+                for fact in row.get("facts") or []:
+                    name = fact.get("field")
+                    if not name:
+                        continue
+                    if provenance.fact_value(line, name, group) in (
+                            "", None, [], {}):
+                        report.warnings.append(Problem(
+                            owner, "provenance",
+                            f"cites {name!r}, which this {kind} does not set",
+                            kind=kind))
+    for name, company in document.companies.items():
+        for row in company.get("provenance") or []:
+            check_files(row, name, "company")
 
 
 def _check_identity(line: StockLine, category: CategoryConfig,

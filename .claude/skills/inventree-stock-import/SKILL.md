@@ -210,13 +210,39 @@ hold, and keeps the lines down to the stock itself:
       "notes": {
         "summary": ["Metal film resistor, 100 kohm ±1%, 0.25 W, axial leads"],
         "references": ["YAGEO MFR series datasheet (linked)"]
-      }
+      },
+      "provenance": [
+        {"id": "mfr-ds", "kind": "datasheet",
+         "title": "YAGEO MFR series datasheet",
+         "url": "https://www.yageo.com/upload/media/product/products/datasheet/lr/YAGEO_RCHIP_MFR_datasheets.pdf",
+         "pages": "3-5", "retrieved": "2026-08-29", "by": "component-researcher",
+         "facts": ["parameters.Power Rating", "parameters.Composition",
+                   "parameters.Temperature Coefficient",
+                   "parameters.Max Working Voltage",
+                   "parameters.Operating Temp Min",
+                   "parameters.Operating Temp Max",
+                   {"field": "parameters.Diameter", "note": "dimensions table"},
+                   {"field": "parameters.Length", "note": "dimensions table"},
+                   "datasheet"]},
+        {"kind": "web", "title": "YAGEO product search",
+         "url": "https://www.yageo.com/en/ProductSearch/Search?k=MFR-25FTE52-100K",
+         "retrieved": "2026-08-29", "facts": ["link", "description", "image"]},
+        {"kind": "inference", "derived_from": ["mfr-ds"],
+         "because": "MFR-25 F-tolerance, 100K value code, per the datasheet's ordering-code table",
+         "facts": ["parameters.Resistance", "parameters.Tolerance",
+                   "parameters.Package", "parameters.Mounting"]}
+      ]
     }
   ],
   "manufacturer_parts": [
     {"id": "res-100k/yageo", "part": "res-100k", "manufacturer": "YAGEO",
      "mpn": "MFR-25FTE52-100K",
-     "notes": {"summary": ["F in the part number is the ±1% tolerance code"]}}
+     "notes": {"summary": ["F in the part number is the ±1% tolerance code"]},
+     "provenance": [
+       {"kind": "photo", "file": "photos/source/IMG_4821.jpg",
+        "where": "invoice line 3", "quote": "MFR-25FTE52-100K  YAGEO",
+        "facts": ["mpn", "manufacturer"]}
+     ]}
   ],
   "lines": [
     {
@@ -227,8 +253,20 @@ hold, and keeps the lines down to the stock itself:
       "unit_price": 0.0996,
       "packaging": "Cut Tape",
       "notes": {"stock": ["One length of cut tape, counted individually"]},
-      "confidence": 0.95
+      "confidence": 0.95,
+      "provenance": [
+        {"kind": "message", "by": "user", "date": "2026-08-29",
+         "quote": "25 on a strip of cut tape, I counted them",
+         "facts": ["quantity", "packaging", "notes.stock"]}
+      ]
     }
+  ],
+  "provenance": [
+    {"kind": "document", "title": "Rockby invoice R-99213",
+     "file": "photos/source/IMG_4821.jpg",
+     "quote": "Invoice R-99213  14/08/2026  MFR-25FTE52-100K  25 @ 0.0996",
+     "facts": ["supplier", "sku", "unit_price", "currency",
+               "order.reference", "order.date"]}
   ]
 }
 ```
@@ -326,6 +364,55 @@ that does not exist is created, with its parents, on `--write`; the dry run
 marks such a line `(new location)` so the user sees the new location before
 anything is made.
 
+## Provenance: cite every fact
+
+Every value the file sets came from somewhere, and the file says where. Each
+part, manufacturer part and line (and each `companies` entry) gets a
+`provenance` list: **one row per source**, listing every fact that source
+supports. A datasheet behind eight parameters is one row with eight facts,
+not eight rows. On `--write` the rows are joined with what the run did and
+kept as JSON on every record it created or changed, and in
+`<import id>.provenance.json` in the import folder (and so in its archive).
+
+| `kind` | for | name it by |
+|---|---|---|
+| `photo` | the user's photos - device, packet, tube, label | `file`, `where` (which label, which part of the photo), `quote` (your transcription) |
+| `datasheet` | a datasheet for this part | `url` and/or `file`, `pages` |
+| `databook` | data books, catalogues, app notes | `url`/`file`, `pages` |
+| `web` | distributor or maker pages, forum posts, cross-reference sites | `url`, `snapshot`, `retrieved` |
+| `record` | NSN/FLIS, CAGE, an existing InvenTree record, an earlier import | `url`/`title`, `snapshot` |
+| `document` | invoice, receipt, packing slip, certificate | `file`, `quote` |
+| `standard` | MIL/JEDEC specs, a maker's date-code or numbering scheme | `title`, `url`, `where` |
+| `message` | what the user said, an email, a hand-written list | `quote`, `by`, `date` |
+| `measurement` | something the user measured or tested | `quote`, `note` |
+| `inference` | deduced, not read | `because`, `derived_from` (the row ids it rests on) |
+| `other` | anything else | `title`, `note` |
+
+- **Facts** are the entry's own fields: `mpn`, `manufacturer`, `description`,
+  `parameters.<name>`, `datasheet`, `image`, `notes.<section>`, and on a line
+  `quantity`, `batch`, `packaging`, `sku`, `unit_price`, `order.reference`...
+  A fact that is not a field is `{"claim": "..."}`; add `"note"` to either
+  for detail (`{"field": "parameters.Diameter", "note": "dimensions table"}`).
+  A version 2 line cites stock facts only - the part's facts go on the part.
+- **File-wide sources** - the invoice that covers every line, the user's
+  description of the whole lot - go in a top-level `provenance` list; their
+  facts are line fields and apply to every line.
+- **Read is not deduced.** A value decoded from a part number, a date code
+  turned into a year, a maker taken from a CAGE code or a logo, a parameter
+  carried over from a series datasheet: each is an `inference` row with
+  `because`, pointing at the rows it rests on with `derived_from` (give
+  those rows an `id`).
+- **Quote what you read.** A photo or document row's `quote` is the text as
+  printed; `where` says where on the photo or page.
+- **Cite the snapshot.** A `web` or `record` row names its `snapshot` file;
+  the research subagent returns the rows ready-made with them.
+- Never invent a source to fill a gap. A value with no source is either left
+  out or comes from a `message` row (the user said so) or an `inference`.
+
+`--validate` refuses a fact naming a field the entry does not have (a
+misspelt parameter is caught there) and warns about a cited field that is
+not set or a cited local file that is missing - fix both.
+
 ## Research: hand it to a subagent
 
 Looking parts up — identifying them, finding datasheets and data-book pages,
@@ -362,7 +449,9 @@ skip the subagent because an item looks easy.
    notes by record; keep them where it put them, and move any that landed on
    the wrong one (see [Notes](#notes-three-records-three-kinds-of-fact)).
    Write notes as plain facts. Suggest `--mirror-datasheets` when the report
-   says a datasheet lives on a mirror.
+   says a datasheet lives on a mirror. Add its **provenance rows** to the
+   entries they belong to - the part's, the manufacturer part's, the line's
+   (see [Provenance](#provenance-cite-every-fact)).
 4. **Check before you trust.** Spot-check that the snapshots exist and that a
    few key values match the cited page; anything that looks constructed
    rather than found goes back to the subagent or is left out. Same-part

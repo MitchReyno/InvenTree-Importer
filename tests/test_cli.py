@@ -1217,7 +1217,8 @@ def test_import_stock_reports_the_archive_it_would_attach_then_does(
 
     assert main(argv + ["--write"]) == 0
     assert "attached" in capsys.readouterr().out
-    assert [a["model_type"] for a in inventree.attachments] == [
+    assert [a["model_type"] for a in inventree.attachments
+            if not a["filename"].startswith("provenance-")] == [
         "purchaseorder"]
 
 

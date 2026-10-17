@@ -68,6 +68,10 @@ def test_the_worked_example_passes_validation_against_the_real_config(
     """
     path = tmp_path / "example.json"
     path.write_text(json.dumps(example))
+    # The photos its provenance cites, as the import's folder would hold them.
+    for name in re.findall(r'"file": "([^"]+)"', json.dumps(example)):
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_bytes(b"")
     report = validate(read_file(path), load_categories_config(),
                       load_parameters_config())
     assert report.ok, report.text()

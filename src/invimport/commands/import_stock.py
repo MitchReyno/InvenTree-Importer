@@ -48,6 +48,7 @@ from ..stockfile import (
     LINE_KEYS,
     MANUFACTURER_PART_KEYS,
     PART_KEYS,
+    PROVENANCE_KINDS,
     SUPPORTED_VERSIONS,
     V2_LINE_KEYS,
     StockFileError,
@@ -115,6 +116,10 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                              "to the part, as well as linking it (local "
                              "datasheet files are always attached); also "
                              f"on when {MIRROR_ENV_VAR} is set")
+    parser.add_argument("--no-provenance", action="store_true",
+                        help="do not record where each record's facts came "
+                             "from and what the import did (a JSON file on "
+                             "each record, and one for the import)")
     parser.add_argument("--no-archive", action="store_true",
                         help="do not zip the import's folder and attach it "
                              "to its purchase orders or suppliers")
@@ -308,6 +313,7 @@ def schema() -> dict[str, Any]:
                            "description": "Agent hint. Never stored."},
             "needs_review": {"type": "boolean",
                              "description": "Agent hint. Never stored."},
+            "provenance": provenance_schema(),
         },
     }
     fields = line["properties"]
@@ -348,6 +354,7 @@ def schema() -> dict[str, Any]:
                                     "for."},
             "manufacturer": fields["manufacturer"],
             "mpn": fields["mpn"],
+            "provenance": provenance_schema(),
             "notes": notes_schema(
                 notes_md.MANUFACTURER_PART_SECTIONS,
                 "What is true of this number at this maker only: what its "
@@ -429,10 +436,81 @@ def schema() -> dict[str, Any]:
                                   "description": "Logo URL, or a path "
                                                  "relative to the stock "
                                                  "file."},
+                        "provenance": provenance_schema(),
                     },
                 },
             },
+            "provenance": {
+                **provenance_schema(),
+                "description": "Sources that speak for every line - the "
+                               "invoice, the user's description of the lot. "
+                               "Facts name line fields.",
+            },
             "lines": {"type": "array"},
+        },
+    }
+
+
+def provenance_schema() -> dict[str, Any]:
+    """Where an entry's facts came from: one row per source."""
+    text = {"type": "string"}
+    return {
+        "type": "array",
+        "description": "Where this entry's facts came from. One row per "
+                       "source, listing every fact it supports; kept with "
+                       "each record on the server as provenance JSON.",
+        "items": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["kind", "facts"],
+            "properties": {
+                "id": {**text, "description": "Unique in the file; what "
+                                              "derived_from names."},
+                "kind": {"enum": list(PROVENANCE_KINDS)},
+                "title": {**text, "description": "What the source is, e.g. "
+                                                 "'1981 Signetics Logic "
+                                                 "Data Book'."},
+                "file": {**text, "description": "A local copy, relative to "
+                                                "this file."},
+                "url": {**text, "format": "uri"},
+                "pages": {**text, "description": "1-based PDF pages, e.g. "
+                                                 "'140-142'."},
+                "snapshot": {**text, "description": "The snapshot of the "
+                                                    "page, relative to this "
+                                                    "file."},
+                "where": {**text, "description": "Where in the source: a "
+                                                 "table, the tube label, "
+                                                 "the top of the photo."},
+                "quote": {**text, "description": "What the source says, "
+                                                 "verbatim."},
+                "by": {**text, "description": "Who read or stated it: the "
+                                              "user, an agent."},
+                "date": {**text, "description": "When the source was "
+                                                "published or said."},
+                "retrieved": {**text, "description": "When it was read or "
+                                                     "fetched."},
+                "because": {**text, "description": "For an inference: the "
+                                                   "reasoning."},
+                "derived_from": {"type": "array", "items": text,
+                                 "description": "Ids of the rows an "
+                                                "inference rests on."},
+                "note": text,
+                "facts": {
+                    "type": "array", "minItems": 1,
+                    "items": {"oneOf": [
+                        {**text, "description": "A field of this entry: "
+                                                "'mpn', "
+                                                "'parameters.Resistance', "
+                                                "'order.reference'."},
+                        {"type": "object", "additionalProperties": False,
+                         "required": ["field"],
+                         "properties": {"field": text, "note": text}},
+                        {"type": "object", "additionalProperties": False,
+                         "required": ["claim"],
+                         "properties": {"claim": text, "note": text}},
+                    ]},
+                },
+            },
         },
     }
 
@@ -724,6 +802,31 @@ def report_archive(archive) -> None:
         print("    no imported lines to attach it to")
 
 
+def report_provenance(outcome, enabled: bool) -> None:
+    """Where this run's provenance went, or why there is none."""
+    if outcome is None:
+        if enabled:
+            print("\n  provenance: recorded on --write")
+        return
+    if outcome.file is None and not outcome.attached:
+        print(f"\n  provenance: none - {outcome.reason}")
+        return
+    print("\n  provenance:")
+    if outcome.file is not None:
+        print(f"    + {outcome.file.name} (in the import folder and its "
+              f"archive)")
+    elif outcome.reason:
+        print(f"    {outcome.reason}")
+    if outcome.attached:
+        kinds: dict[str, int] = {}
+        for model, _, _ in outcome.attached:
+            kinds[model] = kinds.get(model, 0) + 1
+        print(f"    + attached to {len(outcome.attached)} record(s): "
+              f"{', '.join(f'{n} {k}' for k, n in kinds.items())}")
+    for model, pk, name in outcome.failed:
+        print(f"    ! could not attach {name} to {model} {pk}")
+
+
 def report_logos(logos) -> None:
     """What became of each company logo the file gives."""
     if not logos:
@@ -756,6 +859,7 @@ def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
         create_orders=not args.no_orders,
         mirror_datasheets=mirror_datasheets(args),
         archive=not args.no_archive,
+        provenance=not args.no_provenance,
         choose_category=ask_category if interactive else None,
         choose_part=ask_part if interactive else None,
         choose_name_match=ask_name_match if interactive else None,
@@ -771,6 +875,7 @@ def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
         report_actions(document, result, report.resolved)
         report_archive(result.archive)
         report_logos(result.logos)
+        report_provenance(result.provenance, not args.no_provenance)
         for key in totals:
             totals[key] += result.counts()[key]
 

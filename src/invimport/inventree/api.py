@@ -16,6 +16,8 @@ import logging
 import os
 import sys
 
+from . import ledger
+
 log = logging.getLogger(__name__)
 
 try:
@@ -121,7 +123,9 @@ def _create(cls, api, data, **kwargs):
         raise InvenTreeError(
             f"creating {cls.__name__} at /api/{cls.URL}/ returned nothing"
         )
-    return cls(api, data=response)
+    created = cls(api, data=response)
+    ledger.created(cls.URL, created.pk, payload)
+    return created
 
 
 InventreeObject.create = classmethod(_create)

@@ -41,6 +41,7 @@ from types import SimpleNamespace
 from typing import Any, Callable, Iterable
 
 from ..util import dig
+from . import ledger
 from .matching import candidates, company_aliases, match_name
 from .api import (
     Company,
@@ -376,6 +377,8 @@ def attach_file(api, model_type: str, model_id: int, path: Path,
         log.warning("    [warn] could not attach %s to %s %s (%s)",
                     path.name, model_type, model_id, code)
         return False
+    ledger.note(model_type, model_id, ledger.FILE_ATTACHED, comment=comment,
+                **ledger.file_facts(path))
     return True
 
 

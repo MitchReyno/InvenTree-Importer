@@ -94,3 +94,23 @@ def test_the_command_applies_a_logos_file(server, logo, tmp_path, capsys):
     assert main(["company-logos", str(path), "--write"]) == 0
     assert server.company_images == [3]
     assert "1 set" in capsys.readouterr().out
+
+
+def test_a_logo_set_from_a_file_keeps_where_it_came_from(server, logo,
+                                                         tmp_path):
+    path = tmp_path / "logos.json"
+    path.write_text(json.dumps({"companies": {"Signetics": {
+        "image": "logo.png",
+        "provenance": [{"kind": "databook",
+                        "title": "1981 Signetics Logic Data Book",
+                        "pages": "1", "facts": ["image"]}]}}}))
+    assert main(["company-logos", str(path), "--write"]) == 0
+    doc, = [json.loads(a["contents"]) for a in server.attachments
+            if a["filename"].startswith("provenance-")]
+    assert doc["record"] == {"model": "company", "pk": 3}
+    assert doc["changes"][0]["what"] == "image set"
+    assert doc["values"]["image"]["sha256"]
+    assert doc["provenance"][0]["title"] == "1981 Signetics Logic Data Book"
+    assert main(["company-logos", str(path)]) == 0     # dry run: nothing new
+    assert len([a for a in server.attachments
+                if a["filename"].startswith("provenance-")]) == 1
