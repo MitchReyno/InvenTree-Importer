@@ -533,14 +533,18 @@ they actually hold, with its own markings, label and date code. So:
 2. **Decide what each line needs**: the part's `image` (the device, or the
    packet when no device was photographed), each batch's `stock_images`, a
    group shot for `images`, and what must stay out of frame (price or count
-   tags, hands, other lots).
+   tags, hands, other lots). Note each photo's orientation (sideways, upside
+   down, tilted) and any lighting problem you saw while reading it — a
+   colour cast, a dark or hazy shot, glare over a label — so the subagent can
+   turn the crops upright and correct the lighting.
 3. **Dispatch the `component-image-cropper` agent** (Agent tool,
    `subagent_type: "component-image-cropper"`, defined in
    `.claude/agents/component-image-cropper.md`). Its instructions are built
    in; your prompt is the brief — the import file, the output
    folder `.local_imports/<import id>/photos/`, the scratch directory
    `.temp/<import id>/images/`, every
-   source photo by absolute path with a note on what it shows, every wanted
+   source photo by absolute path with a note on what it shows (including its
+   orientation and lighting problems), every wanted
    output (line, field, content, suggested name), and whether it is a redo.
    The subagent knows nothing you do not write there. One subagent can take a
    whole batch of photos; run it in the background and carry on with research
@@ -548,8 +552,9 @@ they actually hold, with its own markings, label and date code. So:
 4. **Apply its report.** Put the returned paths into the lines' `image`,
    `images` and `stock_images`, update every reference to a path it says
    changed, and open its montage to check the crops yourself before showing
-   the user the dry run. Pass on what it flagged — soft images, non-square
-   crops, partly legible labels.
+   the user the dry run: each crop upright, level, and neither too dark nor
+   colour-shifted. Pass on what it flagged — soft images, non-square crops,
+   uncorrectable glare, partly legible labels.
 
 Reference images relative to the stock file
 (`"photos/l04-f4520bpc.jpg"`); the per-import folder stops two imports that
@@ -884,7 +889,7 @@ Report to the user:
   up and not found)
 - the interpretation montage sheets (sent, not just named), for photo imports
 - what the image subagent produced and flagged (non-square crops, soft
-  images, partly legible labels)
+  images, uncorrectable glare, partly legible labels)
 - any line the validator warned about, especially partial `spec` identities that
   will make the import stop and ask
 - which source pages were snapshotted and attached, and any you could not
