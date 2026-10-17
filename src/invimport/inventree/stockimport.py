@@ -267,12 +267,16 @@ def import_stock(
 
         # After the lines, so a company this run created is there to take
         # one.
+        # Only the companies this run created: one already on the server
+        # is left as it is.
         if document.companies:
             result.logos = set_logos(
                 api, document.companies, write=options.write,
                 base_dir=document.path.parent if document.path else None,
                 aliases=config_aliases(directory),
-                created_by_run=True)
+                only_created={e.pk for e in book.events
+                              if e.model == "company"
+                              and e.what == ledger.CREATED})
 
     # The combined provenance goes in the folder before it is zipped, so the
     # archive carries it; each record's own file needs the archive's name,

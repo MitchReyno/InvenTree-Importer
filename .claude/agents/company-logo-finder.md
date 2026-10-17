@@ -37,7 +37,10 @@ a namesake's, a redrawn one — is worse than none.
 
 The brief says which.
 
-**A. For a stock import.** Write the PNGs to
+**A. For a stock import** - logos for the companies the import will create.
+If a company in the brief turns out to be on the server already
+(`invimport company-logos --show "<name>"` finds it), skip it and say so: the
+import leaves existing companies alone. Write the PNGs to
 `.local_imports/<import id>/logos/`. Do **not** edit the import file —
 return the `companies` entries, with their `provenance` rows, for the caller
 to add, keyed by the exact name the import's lines use as `manufacturer` or

@@ -138,10 +138,11 @@ have not looked at.
 
 ## Where the logos go
 
-- **For a stock import:** `.local_imports/<import id>/logos/<company>.png`,
-  in the import file's top-level `companies` section under the name the
-  lines use. The import uploads each after its lines, so a company it creates
-  gets one; a company that already has a logo keeps it.
+- **For a stock import** - only the companies it creates:
+  `.local_imports/<import id>/logos/<company>.png`, in the import file's
+  top-level `companies` section under the name the lines use. The import
+  uploads each after its lines; a company already on the server is left
+  alone, logo or not.
 - **For companies already on the server:** a logos file - a `companies`
   section on its own - at
   `.local_imports/company-logos-<date>/company-logos.json`, the PNGs in

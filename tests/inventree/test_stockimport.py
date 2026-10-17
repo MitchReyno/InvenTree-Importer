@@ -1552,14 +1552,21 @@ def test_a_dry_run_says_a_new_company_would_get_its_logo(config, server,
     assert server.company_images == []
 
 
-def test_a_company_that_has_a_logo_keeps_it(config, server, tmp_path):
+@pytest.mark.parametrize("image", ["/media/company_images/hand-picked.png",
+                                   None])
+@pytest.mark.parametrize("write", [True, False])
+def test_a_company_already_on_the_server_is_left_alone(config, server,
+                                                       tmp_path, image,
+                                                       write):
+    """An import's logos are for the companies it creates - logo or not,
+    one already there is `invimport company-logos` work."""
     server.add_company("Rockby Electronics", pk=5,
-                       image="/media/company_images/hand-picked.png")
+                       **({"image": image} if image else {}))
     document = logo_file(tmp_path, {"Rockby": {"image": "logo.png"}},
                          supplier="Rockby", sku="D-1N4007")
     result = import_stock(document, connect(), directory=config,
-                          options=ImportOptions(write=True))
-    assert result.logos[0].action == "has one"
+                          options=ImportOptions(write=write))
+    assert result.logos[0].action == "on the server - left alone"
     assert result.logos[0].company == "Rockby Electronics"
     assert server.company_images == []
 

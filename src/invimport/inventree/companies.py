@@ -40,6 +40,7 @@ LIST_LIMIT = 1000
 SET = "set"
 WOULD_SET = "would set"
 HAS_ONE = "has one"
+EXISTING = "on the server - left alone"
 NOT_FOUND = "not on the server"
 FAILED = "failed"
 
@@ -79,14 +80,16 @@ def set_logos(api, companies: dict[str, dict[str, str]], *,
               write: bool = False,
               base_dir: Path | None = None,
               aliases: dict[str, list[str]] | None = None,
-              created_by_run: bool = False,
+              only_created: set[int] | None = None,
               cache_dir: Path = cache.IMAGES_DIR) -> list[LogoAction]:
     """
     Upload each company's logo where it has none. Returns one action each.
 
-    created_by_run: the names come from an import that creates the companies
-    it lacks. A dry run of it cannot find them yet, so they are reported as
-    would-set rather than as missing.
+    only_created: an import's logos, which are for the companies it creates -
+    the pks it created. A company already on the server before the import is
+    left alone, logo or not (giving one of those a logo is `invimport
+    company-logos`); a dry run cannot find the ones it would create, so they
+    are reported as would-set rather than missing.
     """
     server = list_companies(api)
     by_name = {str(getattr(c, "name", "")): c for c in server}
@@ -99,7 +102,7 @@ def set_logos(api, companies: dict[str, dict[str, str]], *,
         matched = match_name(name, list(by_name), aliases)
         company = by_name.get(matched) if matched else None
         if company is None:
-            if created_by_run and not write:
+            if only_created is not None and not write:
                 action.action = WOULD_SET
                 action.reason = "not on the server yet; set when the import creates it"
             else:
@@ -107,6 +110,9 @@ def set_logos(api, companies: dict[str, dict[str, str]], *,
             continue
         action.company = str(company.name)
         action.pk = company.pk
+        if only_created is not None and company.pk not in only_created:
+            action.action = EXISTING
+            continue
         if getattr(company, "image", None):
             action.action = HAS_ONE
             continue

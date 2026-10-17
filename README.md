@@ -741,12 +741,13 @@ a top-level `companies` section keyed by the name the lines use:
 "companies": {"Signetics": {"image": "logos/signetics.png"}}
 ```
 
-`image` is a URL or a path relative to the stock file. Logos are uploaded
-after the lines, so a company the import creates gets one too; a company that
-already has a logo keeps it. A company no line names is refused, and a local
-file that is not there is a validation warning. The dry run lists each logo as
-`would set`, `has one`, `not on the server` or `failed`. For companies already
-on the server, see [`company-logos`](#company-logos).
+`image` is a URL or a path relative to the stock file. It is for companies
+the import creates: logos are uploaded after the lines, and a company already
+on the server is left alone - with a logo or without (give those one with
+[`company-logos`](#company-logos)). A company no line names is refused, and a local
+file that is not there is a validation warning. The report lists each logo as
+`would set` or `set`, `on the server - left alone`, `not on the server` (a
+company whose lines were skipped, so it was never created) or `failed`.
 
 Run `uv run invimport import-stock --schema` for the full field reference.
 

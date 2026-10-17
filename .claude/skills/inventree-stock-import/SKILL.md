@@ -55,7 +55,7 @@ background and in parallel:
 - the **image subagent** when the user's photos are to become part or stock
   images — see [Images: hand them to a subagent](#images-hand-them-to-a-subagent).
 - the **logo subagent** when a manufacturer or supplier the lines name will
-  be new on the server, or is there with no logo — see
+  be new on the server — see
   [Logos: hand them to a subagent](#logos-hand-them-to-a-subagent).
 
 While they work, do the existing-records check (2b) and settle questions with
@@ -288,9 +288,9 @@ supplier, currency and order there once rather than repeating them. In version
 
 `companies` gives a logo for a manufacturer or supplier the lines name, keyed
 by that name: `"companies": {"Signetics": {"image": "logos/signetics.png"}}`.
-It is uploaded after the lines, so a company the import creates gets it, and a
-company that already has a logo keeps it. The logos come from the logo
-subagent (see [Logos](#logos-hand-them-to-a-subagent)).
+It is only for companies the import creates: it is uploaded after the lines,
+and a company already on the server is left as it is, logo or not. The logos
+come from the logo subagent (see [Logos](#logos-hand-them-to-a-subagent)).
 
 **Give every part a `name`, unless its category builds one from parameters.**
 Resistors and capacitors are named by their category's template (`Resistor
@@ -614,15 +614,19 @@ its stock images.
 
 ## Logos: hand them to a subagent
 
-Every manufacturer and supplier should carry its logo. Finding one — the
+Every company an import creates should carry its logo. Finding one — the
 company's own mark, not an acquirer's or a namesake's, on the background it is
 normally shown on — is a job for the **`company-logo-finder` agent**, not for
 you, and the rules for it live in the `company-logos` skill it loads.
 
-1. **Work out which companies need one**: those the lines name that are not
-   on the server yet, and those on the server with no image
-   (`uv run invimport company-logos` lists them; match by name and the
-   learned aliases).
+1. **Work out which companies are new**: the manufacturers and suppliers the
+   lines name that are not on the server. `uv run invimport company-logos
+   --show "<name>"` exits 1 for a company that is not there, listing the
+   closest names - one that is plainly the same company counts as there (the
+   import will match it, not create it). **Skip every company already on the
+   server**, with a logo or without: the import leaves them alone, so
+   finding them a logo is wasted work. When none are new, there is nothing
+   to dispatch.
 2. **Dispatch the `company-logo-finder` agent** (Agent tool,
    `subagent_type: "company-logo-finder"`, defined in
    `.claude/agents/company-logo-finder.md`), in the background, alongside the
@@ -639,8 +643,8 @@ you, and the rules for it live in the `company-logos` skill it loads.
    `has one` or why not. Tool problems it reports are fixed in the script or
    the `company-logos` skill (or put to the user), not collected as notes.
 
-When the user asks for logos on companies already on the server, outside any
-import, dispatch the same agent with job B; it writes a logos file and stops
+Logos for companies already on the server are a separate job, only when the
+user asks for one: dispatch the same agent with job B; it writes a logos file and stops
 at the dry run of `invimport company-logos` unless your brief says the user
 approved uploading.
 

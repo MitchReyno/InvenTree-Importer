@@ -833,7 +833,8 @@ def report_logos(logos) -> None:
         return
     print("\n  company logos:")
     mark = {companies.SET: "+", companies.WOULD_SET: "+",
-            companies.HAS_ONE: "=", companies.NOT_FOUND: "-",
+            companies.HAS_ONE: "=", companies.EXISTING: "=",
+            companies.NOT_FOUND: "-",
             companies.FAILED: "!"}
     for logo in logos:
         detail = f" - {logo.reason}" if logo.reason else ""
