@@ -578,6 +578,7 @@ it never ends up in an import's archive (below).
 | `--mirror-datasheets`| Download each datasheet URL and attach a copy to the part; also on when `INVIMPORT_MIRROR_DATASHEETS` is set (e.g. in `.env`) |
 | `--no-archive`       | Do not zip the import's folder onto its orders or suppliers |
 | `--no-provenance`    | Do not record provenance JSON on the records or in the folder |
+| `--plan FILE`        | Also write each line's relation to the server as JSON (new or existing part, location, stock already there), with existing parts' images in `FILE`'s folder - read by the interpretation montage |
 | `--yes`              | Do not prompt; report anything ambiguous instead           |
 
 #### The file

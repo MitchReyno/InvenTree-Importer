@@ -133,6 +133,11 @@ Diodes:
       - Voltage - DC Reverse (Vr) (Max)
       - "Current - Reverse Leakage @ Vr"
   Schottky Diodes: {}
+  Other Diodes:
+    identity: mpn
+    description: Diodes whose specific function or subtype is not established
+    parameters:
+      - Technology
   Signal Diodes:
     key_parameters:
       - "Current - Reverse Leakage @ Vr"
@@ -223,6 +228,7 @@ Integrated Circuits:
       - Input Bias Current
       - Output Current
       - Number of Circuits
+      - Amplifier Type
     aliases:
       - Integrated Circuits (ICs) / Linear / Amplifiers / Instrumentation, Op Amps, Buffer Amps
   Power Management:
@@ -243,6 +249,9 @@ Integrated Circuits:
       aliases:
         - Integrated Circuits (ICs) / Power Management (PMIC) / Voltage Reference
     Voltage Regulators:
+      parameters:
+        - Output Configuration
+        - Number of Regulators
       aliases:
         - Integrated Circuits (ICs) / Power Management (PMIC) / Voltage Regulators - Linear, Low Drop Out (LDO) Regulators
 
@@ -317,11 +326,18 @@ Integrated Circuits:
     aliases:
       - Integrated Circuits (ICs) / Linear / Amplifiers / Audio Amplifiers
   Logic:
+    Arithmetic Logic Units:
+      description: Arithmetic logic units for arithmetic and Boolean operations
+      parameters:
+        - Number of Bits per Element
+        - Technology
+        - Grade
     Flip Flops:
       key_parameters:
         - Clock Frequency
         - Output Type
       parameters:
+        - Logic Type
         - Clock Frequency
         - Quiescent Current
         - Input Capacitance
@@ -353,6 +369,13 @@ Integrated Circuits:
         - Current - Output High, Low
       aliases:
         - Integrated Circuits (ICs) / Logic / Buffers, Drivers, Receivers, Transceivers
+    Specialty Logic:
+      description: "Microprogram sequencers and other special-function logic"
+      parameters:
+        - Logic Type
+        - Propagation Delay (Max)
+      aliases:
+        - Integrated Circuits (ICs) / Logic / Specialty Logic
   "Display Drivers, Controllers":
     identity: mpn
     ipn_prefix: IC
@@ -458,6 +481,9 @@ Resistors:
     - Resistance
     - Temperature Coefficient
     - Tolerance
+  Thermistors:
+    identity: mpn
+    description: Thermistors for temperature sensing and compensation
   Through Hole Resistors:
     name: "Resistor {Resistance} {Tolerance}% {Power Rating}W {Composition}"
     parameters:
@@ -547,6 +573,7 @@ Transistors:
       - Transistor Type
       - Current - Collector (Ic) (Max)
       - DC Current Gain (hFE) (Min) @ Ic, Vce
+      - Semiconductor Material
     aliases:
       - Discrete Semiconductor Products / Transistors / Bipolar (BJT) / Single Bipolar Transistors
   JFETs: {}
@@ -797,6 +824,17 @@ Vacuum Tubes & Valves:
   description: Vacuum tubes (valves) and other vacuum devices such as vacuum switches
   parameters:
     - Max Working Voltage
+
+Modules:
+  ipn_prefix: MOD
+  identity: mpn
+  Circuit Modules:
+    description: Encapsulated or potted circuit sub-assemblies with pins, such as military plug-in modules
+    parameters:
+      - Mounting
+      - Size / Dimension
+      - Height
+      - Number of Positions or Pins (Grid)
 
 Relays:
   ipn_prefix: RLY

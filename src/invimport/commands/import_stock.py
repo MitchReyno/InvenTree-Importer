@@ -5,6 +5,7 @@ Import stock from a data file, for everything DigiKey cannot tell us about.
     invimport import-stock stock.json --validate # check only, machine-readable
     invimport import-stock --schema              # the input format, as JSON Schema
     invimport import-stock --vocabulary          # the category and parameter names
+    invimport import-stock stock.json --plan p.json  # also write the plan as JSON
 
 JSON, YAML or CSV; see PROPOSAL-stock-import.md for the shape and the reasoning.
 
@@ -63,6 +64,7 @@ from ..inventree.archive import (
     WOULD_ATTACH,
 )
 from ..inventree import companies
+from ..inventree.importplan import build_plan, write_plan
 from ..inventree.parts import NEW_PART
 from ..inventree.stockimport import (
     CREATED,
@@ -123,6 +125,11 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--no-archive", action="store_true",
                         help="do not zip the import's folder and attach it "
                              "to its purchase orders or suppliers")
+    parser.add_argument("--plan", type=Path, metavar="FILE",
+                        help="also write what each line does, or would do, "
+                             "to the server as JSON - new or existing part, "
+                             "location and the stock already there - for "
+                             "the interpretation montage")
     parser.add_argument("--yes", action="store_true",
                         help="do not prompt; report anything ambiguous "
                              "instead")
@@ -870,6 +877,7 @@ def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
 
     api = connect()
     totals = {"created": 0, "exists": 0, "skipped": 0, "review": 0}
+    plans = []
     for document, report in reports:
         result = import_stock(document, api, directory=args.config,
                               options=options)
@@ -877,9 +885,16 @@ def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
         report_archive(result.archive)
         report_logos(result.logos)
         report_provenance(result.provenance, not args.no_provenance)
+        if args.plan:
+            plans.append(build_plan(
+                api, document, result,
+                image_dir=args.plan.parent / f"{args.plan.stem}-images"))
         for key in totals:
             totals[key] += result.counts()[key]
 
+    if args.plan:
+        write_plan(args.plan, plans)
+        print(f"\nplan written to {args.plan}")
     print(f"\n{totals['created']} created, {totals['exists']} already there, "
           f"{totals['skipped']} skipped, {totals['review']} need review.")
     if not args.write:

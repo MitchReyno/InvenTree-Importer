@@ -112,7 +112,7 @@ out of it. `.local_imports/` is gitignored; generated files stay local.
 
 **Scratch work goes in `.temp/`**, at the repo root (also gitignored):
 previews, ROI overlays, review montages, test crops, the interpretation
-montage sheets, throwaway scripts and intermediate output — use
+montage PDF, throwaway scripts and intermediate output — use
 `.temp/<import id>/` as the scratch directory for this import. Never put
 scratch files in `.local_imports/`, in the repo proper, or in the system temporary directory.
 
@@ -579,11 +579,22 @@ montage and send it to the user (SendUserFile, or open it) together with the
 dry run. Do this every time an import came from photos, and again after any
 change to lines, grouping or crops.
 
-The montage is one sheet per stock location. Each proposed part gets a section
+The montage is one PDF of A4-shaped pages; each stock location starts a new
+page, and a part's section is never split across pages. Each proposed part gets a section
 with its part image, MPN/type, maker, category, stock-item count and total
 quantity. Under that, each line gets a row: what you read (id, quantity, batch,
 packaging, condition, confidence), then the source photo(s) it came from, then
 its stock images.
+
+With a **plan** from the dry run, the montage also shows how the import
+relates to the server: each part is badged NEW PART or EXISTING PART (IPN and
+pk), an existing part lists the stock already on it, the total after the
+import, which manufacturer/supplier parts and notes already exist, and the
+server's own image (teal "ON SERVER" band) when the server keeps it instead of
+the file's. Each line is badged NEW STOCK ITEM, ALREADY IMPORTED or SKIPPED,
+and its location says whether it is new or already holds this part's stock. A
+part image that is a URL is fetched and drawn with a purple "WEB IMAGE" band
+naming the site.
 
 1. **Write the sources map** beside the import file as
    `.local_imports/<import id>/<import id>.sources.json`. It maps each line
@@ -599,20 +610,30 @@ its stock images.
    session paths, which disappear. The import file cannot hold this map
    because its schema rejects unknown keys. Keep the map in step with the line
    ids.
-2. **Run it** from the repo root, writing into `.temp/` — the sheets are a
-   review aid, not a source, so they stay out of the import folder:
+2. **Write the plan, then run it** from the repo root, writing into `.temp/`
+   — the plan and the PDF are review aids, not sources, so they stay out of
+   the import folder. The plan comes from a dry run (nothing is written):
 
    ```bash
+   uv run invimport import-stock .local_imports/<import id>/<import id>.json --yes \
+       --plan .temp/<import id>/plan/plan.json
    uv run -q --with pillow python .claude/skills/inventree-stock-import/scripts/interpretation_montage.py \
-       .local_imports/<import id>/<import id>.json .temp/<import id>/interp
+       .local_imports/<import id>/<import id>.json .temp/<import id>/interp \
+       --plan .temp/<import id>/plan/plan.json
    ```
 
-   It prints the path of each sheet. `--sources` overrides the map path.
-3. **Look at every sheet yourself before sending it.** Read each row against
+   It writes `.temp/<import id>/interp/<import id>.pdf` and prints its path
+   and page count. `--sources` overrides the map path. Re-run both after any
+   change to the file or the server - the plan is a snapshot.
+3. **Look at every page yourself before sending it.** Read each row against
    its source photo:
    - the quantity matches the tag or label;
    - each bag is counted once, and no photo is used for two lots;
-   - the part grouping is the one the user chose.
+   - the part grouping is the one the user chose;
+   - every EXISTING PART is one you asked the user about, joined the way they
+     decided, and its "after this import" total is right;
+   - no line is ALREADY IMPORTED or SKIPPED unless you expect it (a barcode
+     clash means the import id is already taken - rename it).
 
    A red frame or "no source photo listed" means a missing file or map entry.
    Fix it, don't send it.
@@ -887,7 +908,7 @@ Report to the user:
 - **anything you guessed, inferred or could not read** — list these explicitly
 - which lines have no `datasheet` or `image`, and why (unidentified, or looked
   up and not found)
-- the interpretation montage sheets (sent, not just named), for photo imports
+- the interpretation montage PDF (sent, not just named), for photo imports
 - what the image subagent produced and flagged (non-square crops, soft
   images, uncorrectable glare, partly legible labels)
 - any line the validator warned about, especially partial `spec` identities that
