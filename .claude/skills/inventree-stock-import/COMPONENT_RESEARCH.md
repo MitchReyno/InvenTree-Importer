@@ -64,6 +64,9 @@ contradictions, and date anything that may go stale (`(2026-10)`).
   NSN, then `grep -l` the part number. Sibling custom parts often got
   consecutive NIINs on one date. The `/search?q=` pages of nsnparts.us and
   NSN Depot return nothing useful to `curl`. (2026-10)
+- **Obscured NSN digit:** fetch NSN Depot / nsnparts for all ten candidates; a non-5962 FSC (or nsnparts' INC stub) means wrong. If none fits, the visible digits may be misread too: scan `596200369??39`-style and `grep -l` the MPN (5962-00-369-?339 was really 369-9839). An old TM may show an NSN under its former FSC (5805-00-944-8570 is now 5895). (2026-10)
+- A JAN number on the bag may be listed only on the **replacement** NSN (JM38510/07801BJA on 5962-01-286-2907, not the bag's 01-054-4379). NSN Depot's summary "Replacement NSN" is often one this NSN *absorbed* - read the ISC table. ISO Group (curl OK) gives cancel dates when nsnparts shows the INC stub. (2026-10)
+- Google (browser-harness) finds NSNs for SMD numbers via WBParts/parttarget hits ("5962-8552301QX" -> 5962-01-238-6840). radionerds.com Army TM PDFs curl fine and map NSN <-> drawing number. (2026-10)
 
 ## Data books and datasheets
 
@@ -239,6 +242,19 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - No catalogue online for Quality Components Inc (Ridgway PA) or Stackpole
   GA ceramics (WebSearch, Bing, archive.org; 2026-10); search engines confuse
   it with Quality Components of Syracuse NY, a rep firm.
+- Data-book pages found 2026-10 (PDF page numbers):
+  Solid State Scientific 1984 *4000 Series CMOS* (`solidStateScientific/`): 4520B pp.232-234, ordering p.296, 883C/JAN key p.303 (PDF = printed - 2).
+  Siliconix 1980 *Analog Switch*: DG503 pp.110-113, ordering key p.22 (A -55/+125, P side-braze, /883 class B).
+  Silicon General 1990 *Product Catalog*: SG7800 pp.268-279, SG1568 pp.216-218; 1978 *Linear IC*: one-page tables (SG748 p.51), no SG8xxx house numbers.
+  Mostek 1980 *Industrial Products*: MK5002 pp.66-69, package key p.10 (P side-brazed, J CERDIP, N plastic).
+  Motorola 1971 *TTL*: MTTL MC400/500 pp.66-69, SUHL cross-reference pp.20-21; 1991 *Military MECL*: 10531 = JM38510/06101 pp.324-329.
+  Fairchild 1978 *TTL*: 54S/74S109 pp.234-235 (table prints 6A, the 16-pin DIP is 6B); 1978 *Full Line Condensed*: 9S41 p.229; 1979 *Linear Op-Amp*: uA791 pp.224-229, order key p.420.
+  National 1975 *Interface*: DS7833 pp.115-118; 1976 *Special Functions*: LH740A pp.93-94; 1982 *Hybrid*: LH0033 pp.121-131.
+  AMD 1978 *Am2900*: Am2911 pp.82-95; 1988 *Military MOS*: Am9513A + SMD 5962-85523 decode pp.19-25.
+  Signetics 1978 *TTL*: JAN case/finish table p.727, slash cross-ref p.732; 1990 *Military Vol 2*: marking key p.25, 54S181 pp.573-582.
+  RCA 1975 *COS/MOS*: CD4023A pp.65-71, suffix letters p.32; 1975 *High Reliability*: /1-/5 key p.229 (/3 = class B).
+  Harris 1997 *Cross-Reference Guide*: JAN /122 op-amps pp.258, 274 (/12202 = HA2-2600).
+- Intel M2732A military sheet (Oct 1986) mirror: hobbylab.jp `parts/Processor/PDF_ProcessorMemory/D2732A_Intel.pdf`. Allegro AMS-105 cross-reference (greypossom.com) maps DESC numbers to SSS `883C4xxxBC`. (2026-10)
 
 ## CAGE / FSCM codes seen
 
@@ -308,6 +324,14 @@ contradictions, and date anything that may go stale (`(2026-10)`).
   Stewart Warner Electronics. SWnnn-xP numbers are DTL second-sources
   (SW945-1P = 945, SW941-1P = 941, SW751/SW751-2P = 951, SW7402N = 7402).
   No Stewart-Warner catalogue is online.
+- 31019 Solid State Scientific numbers, now registered to Allegro MicroSystems (SCL/883C4xxx CMOS)
+- 53399 GPD Optoelectronics (Germanium Power Devices), Salem NH; bags read `G,JAN2N158` ("G," undecoded)
+- 17856 Siliconix; 34649 Intel sales office; 34335 AMD; 93322 GE Aviation Systems (source-control 710xxxx-00x)
+- 34333 Silicon General -> Linfinity -> Microsemi AMSG, Garden Grove; 34148 Fairchild Camera & Instrument (obsolete)
+- 02735 RCA Solid State Div (cancelled; MCRLs list RCA CD4000 numbers under 34371 / 1MY79 instead)
+- 18324 Signetics (now Philips Semiconductors); 34371 Harris -> Intersil/Renesas; 2T266 Arrow Electronics Dayton (distributor, printed beside the maker)
+- 15280 Northrop Grumman Defensive Systems Div (-> 26916); 3V146 Rochester Electronics; 3B150 Raytheon El Paso (with 49956)
+- 50088 STMicroelectronics Inc (Mostek MK numbers); 60496 Micrel (FLIS spells "M1C"); S0633 TEAC Tokyo; 53938 Evans & Sutherland; 80063 US Army CECOM (SM-C-5290xx modules)
 
 ## Labels, markings and packaging
 
@@ -382,6 +406,11 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - TI `-1` suffix on SN74ALS244A-type bus drivers = IOL raised to 48 mA, only
   at VCC 4.75-5.25 V; no 54-series -1.
 - DS3692 is the MIL-STD-188-114 version of the DS3691 (the RS-422/423 one).
+- JAN manufacturer designating symbols: Motorola = "CGG" (on DLA labels "FSCM 04713 (CGG)" and on chips), Signetics = "DKB". The small Δ on JAN chips is the ESD triangle, not a logo; Signetics line 2 reads Δ + S-logo + YYWW + DKB + USA (the blocky S looks like a 5). Don't run the logo matcher on the Δ. (2026-10)
+- MIL-M-38510 numbers: `JM38510/` + slash sheet (3) + device (2) + class + case (C = 14-DIP, E = 16-DIP, J = 24-DIP, G = 8-can) + finish (A solder dip, B tin, C gold, X any). 00401 = 5402, 00803 = 5407, 06101 = 10131/10531, 07801 = 54S181, 12202 = HA-2600.
+- Fairchild 9Sxx = 9000-series Schottky functions with no 74 number (9S41 = quad 2-2-3-3 AND); bag OCR and FLIS both misspell 9S41 as "9541" - read S/5 from the full-resolution photo.
+- SUHL SG3xx = Motorola MC4xx/5xx MTTL = TI SNGxxx = Raytheon RGxxx; VCC pin 4 / GND pin 10, not 54/74 compatible.
+- An Army ECOM "MULTIPLEXER SUBASSEMBLY" (SM-C-5290xx) is a potted PWB module with pins, not an IC (category Modules/Circuit Modules).
 
 ## Traps
 
@@ -454,6 +483,10 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - Dead ends: eBay item pages and lintechcomponents.com 403 curl; Datasheet
   Archive lists only stock for Elec-Trol; archive.org free-text maker search
   is noise — use `title:(...)`.
+- DLA folded commercial NSNs into military ones (74S109DC/PC into the 54S109DMQB NSN, 1988; SN7400N into the M38510/00104BCB NSN, 1989): a shared NSN does not mean same grade - check the ISC history before merging parts.
+- A blank PROM/EPROM and a programmed one sit on different NSNs: MICROCIRCUIT, MEMORY (the SMD) vs MICROCIRCUIT, DIGITAL carrying a prime's dash number (Collins 641-4260-005). Flag as possibly programmed.
+- FLIS and a maker sheet can disagree badly (2N158: 17 W / 2 A FLIS vs 1.5 W / 3 A NJ Semi). Report both.
+- InvenTree parameter choices are stored comma-separated: a choice containing a comma ("Positive, Negative") splits into two. Don't add one. (2026-10)
 
 ## Tooling
 
@@ -479,3 +512,5 @@ contradictions, and date anything that may go stale (`(2026-10)`).
   Connectors`. Read part parameters with
   `GET /api/parameter/?model_type=part.part&model_id=<pk>` (`/api/part/parameter/` 404s).
 - zsh: never name a shell variable `path` (it clobbers PATH).
+- **Parallel research agents share the browser-harness daemon** and hijack each other's tabs. Run each with its own `BU_NAME=<name>`, or at least `new_tab()` once and `switch_tab(id)` on every call; check the title before saving HTML. (2026-10)
+- eBay search in browser-harness: image id is `g:<id>` in each result link's `hash=`; fetch `i.ebayimg.com/images/g/<id>/s-l1600.jpg` without visiting the item. aeri.com is Cloudflare-blocked (dead end). (2026-10)

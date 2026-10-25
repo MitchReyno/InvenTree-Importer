@@ -769,6 +769,10 @@ Logic Type:
     - NOR Gate
     - XOR (Exclusive OR)
     - Monostable
+    - Decade Counter
+    - JK Type
+    - D-Type
+    - Microprogram Sequencer
   aliases:
     - Logic Type
 
@@ -838,6 +842,7 @@ Memory Format:
     - FLASH
     - PROM
     - SRAM
+    - EPROM
   aliases:
     - Memory Format
 
@@ -853,6 +858,7 @@ Memory Organization:
     - 1K x 4
     - 1K x 1
     - 256 x 1
+    - 4K x 8
   aliases:
     - Memory Organization
 
@@ -1016,3 +1022,26 @@ Voltage - On State (Vtm) (Max):
   aliases:
     - Voltage - On State (Vtm) (Max)
   parse: quantity
+
+Amplifier Type:
+  description: "Kind of amplifier, e.g. General Purpose, J-FET, Buffer, Power"
+  aliases:
+    - Amplifier Type
+
+Semiconductor Material:
+  description: "Semiconductor the device is made from: Germanium or Silicon"
+  choices:
+    - Germanium
+    - Silicon
+  aliases:
+    - Semiconductor Material
+
+Output Configuration:
+  description: "Regulator output polarity: Positive, Negative, or Positive and Negative (dual/tracking)"
+  aliases:
+    - Output Configuration
+
+Number of Regulators:
+  parse: quantity
+  aliases:
+    - Number of Regulators
