@@ -132,12 +132,21 @@ Diodes:
       - "Current - Average Rectified (Io)"
       - Voltage - DC Reverse (Vr) (Max)
       - "Current - Reverse Leakage @ Vr"
-  Schottky Diodes: {}
+  Schottky Diodes:
+    parameters:
+      - Capacitance
+      - Power Rating
+      - "Current - Reverse Leakage @ Vr"
+      - Voltage - DC Reverse (Vr) (Max)
   Other Diodes:
     identity: mpn
     description: Diodes whose specific function or subtype is not established
     parameters:
       - Technology
+      - Semiconductor Material
+      - "Current - Average Rectified (Io)"
+      - "Current - Reverse Leakage @ Vr"
+      - Voltage - DC Reverse (Vr) (Max)
   Signal Diodes:
     key_parameters:
       - "Current - Reverse Leakage @ Vr"
@@ -147,6 +156,9 @@ Diodes:
       - "Current - Reverse Leakage @ Vr"
       - Technology
       - Voltage - DC Reverse (Vr) (Max)
+      - Power Rating
+      - Capacitance
+      - Reverse Recovery Time (trr)
     aliases:
       - Discrete Semiconductor Products / Diodes / Rectifiers / Single Diodes
   Zener Diodes:
@@ -187,6 +199,18 @@ Inductors:
       - Frequency - Self Resonant
     aliases:
       - Inductors, Coils, Chokes / Fixed Inductors
+  Adjustable Inductors:
+    # Tuned by a core slug, so the nominal inductance alone does not
+    # identify one; match on the maker's number instead.
+    identity: mpn
+    description: Variable inductors and RF coils with an adjustable core
+    parameters:
+      - DC Resistance (DCR) (Max)
+      - Current Rating
+      - Q @ Freq
+      - Frequency - Self Resonant
+    aliases:
+      - Inductors, Coils, Chokes / Adjustable Inductors
 Integrated Circuits:
   ipn_prefix: IC
   identity: mpn
@@ -320,6 +344,14 @@ Integrated Circuits:
     aliases:
       - Integrated Circuits (ICs) / Logic / Shift Registers
   "Optocouplers, Optoisolators":
+    parameters:
+      - Number of Channels
+      - Output Type
+      - Current Transfer Ratio (Min)
+      - Voltage - Isolation
+      - Voltage - Output (Max)
+      - Current - DC Forward (If) (Max)
+      - Voltage - Forward (Vf) (Typ)
     aliases:
       - Isolators / Optocouplers, Optoisolators / Logic Output Optoisolators
   Audio Amplifiers:
@@ -376,6 +408,16 @@ Integrated Circuits:
         - Propagation Delay (Max)
       aliases:
         - Integrated Circuits (ICs) / Logic / Specialty Logic
+    "Signal Switches, Multiplexers, Decoders":
+      description: "Decoders, demultiplexers, multiplexers and logic-level signal switches"
+      parameters:
+        - Logic Type
+        - Multiplexer/Demultiplexer Circuit
+        - Number of Circuits
+        - Propagation Delay (Max)
+        - Supply Current
+      aliases:
+        - "Integrated Circuits (ICs) / Logic / Signal Switches, Multiplexers, Decoders"
   "Display Drivers, Controllers":
     identity: mpn
     ipn_prefix: IC
@@ -429,7 +471,17 @@ Optoelectronics:
     - Operating Temp Max
     - Operating Temp Min
     - Package
-  Discrete LEDs: {}
+  Discrete LEDs:
+    parameters:
+      - Color
+      - Wavelength - Peak
+      - Millicandela Rating
+      - Viewing Angle
+      - Voltage - Forward (Vf) (Typ)
+      - Max Forward Voltage Drop
+      - Current Rating
+      - Power Rating
+      - Size / Dimension
   Graphical Displays: {}
   LED Displays & Indicators: {}
 
@@ -445,6 +497,10 @@ Potentiometers:
     - Tolerance
     - Power Rating
   Rotary Potentiometers:
+    parameters:
+      - Composition
+      - Taper
+      - Number of Turns
     aliases:
       - Potentiometers, Variable Resistors / Rotary Potentiometers, Rheostats
   Slide Potentiometers:
@@ -839,10 +895,17 @@ Modules:
 Relays:
   ipn_prefix: RLY
   identity: mpn
+  # Whole relays sit directly in Relays; only spares have a subcategory.
+  structural: false
   parameters:
     - Input Voltage
     - Mounting
     - Switch Circuit
     - Coil Resistance
+    - Current Rating
     - Operating Temp Max
     - Operating Temp Min
+  Relay Accessories:
+    description: Relay spares and accessories - contact sets, sockets, covers
+    aliases:
+      - Relays / Accessories
