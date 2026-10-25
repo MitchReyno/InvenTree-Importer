@@ -21,8 +21,8 @@ Scripts are in `.claude/skills/company-logos/scripts/`, run with
 | `invimport company-logos --show NAME` | what the server knows about a company: fields, aliases, SKUs and links, part numbers, orders |
 | `commons.py search` / `get` | finds Commons files; fetches the original with a preview and its metadata |
 | `wayback_logo.py DOMAIN` | the logo images a company's own site used, from the Wayback Machine |
-| `find_in_pdf.py PDF PATTERN` | the pages of a magazine or data book that mention the company (`--fuzzy` for OCR) |
-| `scan_logo.py PDF --page N` | renders a page at its native dpi; with `--region`, trims a logo to its ink and cleans the paper |
+| `find_in_pdf.py PDF PATTERN` | the pages of a magazine or data book that mention the company (`--fuzzy` for OCR); a URL download resumes and retries, and waits out HTTP 429 |
+| `scan_logo.py PDF --page N` | renders a page at its native dpi; with `--region`, trims a logo to its ink (`--mask` paints out neighbouring text) and cleans the paper (`--whiten`, `--whiten-uneven`) |
 | `browser-scripts/logo_bg.py` | (in browser-harness) the logos on a page, the colour behind each, inline SVGs saved with their colours |
 | `logo.py inspect` / `sample` / `flatten` | transparency and colours; a colour from a screenshot; the final opaque PNG |
 | `review.py LOGOS OUT` | montage, 64 px strip, and flags for wide, small or non-square logos |
@@ -56,7 +56,9 @@ Prefer, in order:
    colours written in (a header SVG takes them from CSS and renders black on
    its own). A press or brand-assets page may have a cleaner file. For a
    company whose site is gone or rebranded, `wayback_logo.py` fetches the
-   logos its old site served.
+   logos its old site served. If browser-harness cannot connect (see
+   "When the browser is unavailable" below), fetch the logo file with curl
+   and carry on without `logo_bg.py`.
 2. **Wikimedia Commons** - usually an SVG traced from official material, and
    often the only clean vector for a defunct company. `commons.py get`
    fetches the original. **Files are sometimes mislabelled** (one "Microsemi"
@@ -64,9 +66,27 @@ Prefer, in order:
 3. **The company's own printed material**, for vintage makers: a data book
    or catalogue cover (bitsavers; its mirror
    `ftp.mirrorservice.org/sites/www.bitsavers.org/` answers scripts that
-   bitsavers.org refuses), or an ad in a trade magazine
-   (worldradiohistory.com has Electronics and others - `find_in_pdf.py`
-   finds the page). `scan_logo.py` cuts it out at the scan's own resolution.
+   bitsavers.org refuses), or an ad in a trade magazine. `find_in_pdf.py`
+   finds the page; `scan_logo.py` cuts it out at the scan's own resolution.
+   Where to look:
+   - **Electronic Engineers Master (EEM) catalogues** on bitsavers -
+     `https://bitsavers.org/components/eem/`, mirror
+     `https://ftp.mirrorservice.org/sites/www.bitsavers.org/components/eem/`.
+     The best way to identify an obscure vintage maker: the trade-name
+     index and the yellow-pages manufacturer listings give its full name and
+     town, and point to its own catalogue pages in the same volume, which
+     carry its logo (Hi-G Inc is on EEM 1971 Vol 1, PDF page 567). The
+     volumes are a few hundred MB; `find_in_pdf.py` resumes a broken
+     download.
+   - ***Electronics* magazine** on worldradiohistory.com - its index is
+     `https://www.worldradiohistory.com/Electronics%20_Master_Page.htm` (the
+     space in the name makes it hard to guess), with issue PDFs under
+     `https://www.worldradiohistory.com/Archive-Electronics/60s/YY/` (`70s`,
+     `80s` likewise). Makers advertised there, often with their logo. The
+     site rate-limits: scan issues **one at a time**, never in parallel;
+     `find_in_pdf.py` waits out HTTP 429 as the server asks. If it still
+     gives up, wait several minutes before the next issue rather than
+     pressing on.
 
 Datasheets on third-party archives are often from after an acquisition and
 carry the acquirer's mark - check whose logo it is. A site that renders with
@@ -94,6 +114,24 @@ out of the colours.
 **Opaque logo** (or a scan): its own ground is the one it is shown on - keep
 it, or whiten paper with `scan_logo.py --whiten`, and say which.
 
+Cleaning a scan with `scan_logo.py --region`:
+
+- **Neighbouring text inside the logo's box** (a catalogue title whose
+  letter sits in the mark's bounding box): add `--mask X0,Y0,X1,Y1` (page
+  pixels, like `--region`; repeat for more) - it paints that box with the
+  paper colour before the trim. Mask only what is not the logo, never part
+  of the mark, and say so in the note.
+- **Unevenly aged paper** (a blotch, a fold, a darker edge): `--whiten`
+  scales by one paper colour and leaves the rest tinted. `--whiten-uneven`
+  turns every near-white, low-saturation pixel white and leaves the logo's
+  colours as they are; tune it with `--white-level` (0-255, how light a
+  pixel must be to count as paper; default the paper's lightness less 40)
+  and `--max-tint` (0-1 saturation, default 0.25). Lower the tint if a pale
+  colour in the logo is being lost; it can follow `--whiten`. Check the
+  result for a faded pale part of the mark.
+- Never paint or threshold by hand: these options record what was done, for
+  the provenance note.
+
 **Transparent logo:** use the colour the company shows *this variant* on,
 and record where it came from:
 
@@ -107,6 +145,26 @@ and record where it came from:
 - **Nothing found:** a dark or full-colour logo goes on white (`#ffffff`); a
   white or very light one on the company's documented brand colour, else a
   neutral dark (`#1f2937`). Say it was the default, not observed.
+
+### When the browser is unavailable
+
+A subagent cannot ask the user anything. If browser-harness cannot connect -
+Chrome's "Allow remote debugging?" prompt needs `mac-approve` and it returns
+`accessibility-required`, or the doctor reports Chrome unreachable - do not
+wait, retry in a loop or change any user or system setting:
+
+- Report it in your result: the exact message, and that `logo_bg.py` could
+  not run.
+- Carry on without the browser: fetch logo files with curl, and for the
+  background use the other evidence above or the default (`#ffffff` for a
+  dark or full-colour logo), noted as **the default, not observed - the
+  browser was unavailable**, so it can be checked later.
+
+Run browser-harness under your own daemon name (`BU_NAME=<name>`, as the
+browser-harness skill describes) and stop only that one when done:
+`BU_NAME=<name> browser-harness --reload`. **Never `pkill -f
+browser-harness`** or kill its processes by pattern - other agents and the
+user share the browser and run their own daemons.
 
 ## 4. Produce the image
 
