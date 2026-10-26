@@ -255,6 +255,11 @@ contradictions, and date anything that may go stale (`(2026-10)`).
   RCA 1975 *COS/MOS*: CD4023A pp.65-71, suffix letters p.32; 1975 *High Reliability*: /1-/5 key p.229 (/3 = class B).
   Harris 1997 *Cross-Reference Guide*: JAN /122 op-amps pp.258, 274 (/12202 = HA2-2600).
 - Intel M2732A military sheet (Oct 1986) mirror: hobbylab.jp `parts/Processor/PDF_ProcessorMemory/D2732A_Intel.pdf`. Allegro AMS-105 cross-reference (greypossom.com) maps DESC numbers to SSS `883C4xxxBC`. (2026-10)
+- Motorola 1974 *Discrete Series A Vol 3 Non-Registered* (102 MB, no outlines): MCR649-1..-7 / P-suffix TO-3 SCRs pp.166-168. 1978 *Power Device Data* (75 MB): SCR selector p.731, thyristor cross-ref pp.742-745, MCR649AP/2N2573 pp.761-763. Attach page extracts, not the books.
+  Fairchild 1980 *Optoelectronics*: MV5352/53/54 pp.81-83, LED table p.17 (1978 ed. pp.92-93). Litronix 1982 *Optoelectronics Catalog* (bitsavers `components/litronix/_dataBooks/`): IL-1 pp.208-211, coupler selector p.202. HP Optoelectronics Designer's Catalogs are at `bitsavers.org/components/hp/<year>_Optoelectronics_Designers_Catalog.pdf` (not `_dataBooks/`; bitsavers 403s curl, use the ftp.mirrorservice.org mirror): 1978 5082-4403/4415/4444 lamps pp.19-20.
+  TI CG1/8, CG1/4, CG1/2 hermetic glass carbon-film resistors (RN55/60/65): bulletin DL-S 634364 at pp.651-652 of archive.org's *1968-1969 TI Preferred Semiconductors and Components Databook* (image PDF; the `_text.pdf` has the same pages). (2026-10)
+- MIL-M-38510/10D (2005) is reproduced whole in a Rochester 5446BEA datasheet on atta.szlcsc.com (curl OK); Rochester `*BEA-ROCS` sheets often carry whole JAN slash sheets. Slash sheets end with a "Manufacturers' designations" table (Table IV) - use it to back a maker taken from a label CAGE. (2026-10)
+- MIL-PRF-39007/7G (RWR78): everyspec `download.php?spec=...pdf` needs a browser User-Agent (`curl -A`); scans have no text layer. NASA NEPP `nepp.nasa.gov/npsl/Resistors/39007/39007pn.htm` decodes the PIN; `.../mic/mono/NSL_PND.html` the MIL-M-38510 finish letters. Welwyn MFR sheet p.1 tabulates BS CECC 40101-019 styles (EX = 0.5 W/70°C, 350 V, 250 ppm). Hi-G 2K series (Nuova Hi-G Italia 2002) at jinzon.com.tw/pdf/series2K.pdf. (2026-10)
 
 ## CAGE / FSCM codes seen
 
@@ -332,6 +337,11 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - 18324 Signetics (now Philips Semiconductors); 34371 Harris -> Intersil/Renesas; 2T266 Arrow Electronics Dayton (distributor, printed beside the maker)
 - 15280 Northrop Grumman Defensive Systems Div (-> 26916); 3V146 Rochester Electronics; 3B150 Raytheon El Paso (with 49956)
 - 50088 STMicroelectronics Inc (Mostek MK numbers); 60496 Micrel (FLIS spells "M1C"); S0633 TEAC Tokyo; 53938 Evans & Sutherland; 80063 US Army CECOM (SM-C-5290xx modules)
+- 06228 Texas Instruments Dallas (cancelled -> 96214 Raytheon McKinney after the 1997 defence sale); TI drawing series 507551-xxx / 531511-xxx (±1% RN60 resistors: dash = E96 index + 96 per decade, 193 = 1.00k, 289 = 10.0k)
+- 50579 Litronix (registered to Siemens Microelectronics Optoelectronics Div, Cupertino); 0MS63 Quality Technologies; 58361 General Instrument opto; 50522/29083/76541 Monsanto; 50434 Avago
+- 91662 Elco Corp (now AVX; Elco Europe D2643); 74063 Hartman (TE Connectivity dba CII Technologies Hartman); 27361 Burke Products; 18212 American Trans-Coil (ATC), Oyster Bay NY; 37695 Raytheon Fort Wayne
+- 05347 Ultronix (UltrOhm wirewound resistors, Grand Junction CO; later Vishay, sold to Ohmite 2006/07 - the Malvern PA address on the CAGE is Vishay's); ultronix.com (Hatfield PA degreasers) is unrelated; 02289 Hi-G Co (Nytronics), crystal-can relays; 10138 Astronautics Corp of America; 32669 ABB Inc (vendor, not maker); 06848 Honeywell South Bend (ex-Bendix)
+- UK: K0967 MBDA UK; U1395 Welwyn; K7766 BSI; K0851 MoD DStan; K4184 Vishay Ltd
 
 ## Labels, markings and packaging
 
@@ -411,6 +421,9 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - Fairchild 9Sxx = 9000-series Schottky functions with no 74 number (9S41 = quad 2-2-3-3 AND); bag OCR and FLIS both misspell 9S41 as "9541" - read S/5 from the full-resolution photo.
 - SUHL SG3xx = Motorola MC4xx/5xx MTTL = TI SNGxxx = Raytheon RGxxx; VCC pin 4 / GND pin 10, not 54/74 compatible.
 - An Army ECOM "MULTIPLEXER SUBASSEMBLY" (SM-C-5290xx) is a potted PWB module with pins, not an IC (category Modules/Circuit Modules).
+- HP 1990-xxxx are HP's internal stock numbers for 5082 LEDs (1990-0327 = 5082-4415). A hand correction 5961 -> 5980 on an LED/opto label is right: those NIINs moved to FSC 5980; ISO Group answers an old-FSC query with the current record. (2026-10)
+- Old Navy bag labels embed the FSN without dashes (`RM5945779675 2D334` = 5945-779-6752). TI resistor packets of 1966-68 carry the old FSN + `AY` with `-00-` added by hand. (2026-10)
+- A DLA item name can be wrong: "LIGHT EMITTING DIODE" on an IL-1 optocoupler; "RESISTOR" on a potentiometer (check FLIS INC, e.g. 37406 = variable wirewound). (2026-10)
 
 ## Traps
 
@@ -487,6 +500,9 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - A blank PROM/EPROM and a programmed one sit on different NSNs: MICROCIRCUIT, MEMORY (the SMD) vs MICROCIRCUIT, DIGITAL carrying a prime's dash number (Collins 641-4260-005). Flag as possibly programmed.
 - FLIS and a maker sheet can disagree badly (2N158: 17 W / 2 A FLIS vs 1.5 W / 3 A NJ Semi). Report both.
 - InvenTree parameter choices are stored comma-separated: a choice containing a comma ("Positive, Negative") splits into two. Don't add one. (2026-10)
+- A bag P/N can sit on a different NSN from the one written on the bag (Elco 55-47202 is on 5935-00-797-5083, not the handwritten 5961-924-4456): search the P/N on its own. (2026-10)
+- On a cancelled NSN, NSN Depot silently shows the replacement's MCRL (clue: RNCC E / RNVC 8). FLIS can quote a sibling's figure (45 mcd = MV5352 on an MV5353 NSN) or contradict the part numbers (39.100 kohm vs RNR60C3922) or itself (340° stops yet 3600° rotation). (2026-10)
+- Look-alikes: MCR649P-x (20 A, 1974) is not MCR649AP-x (2N2573-79, 25 A); HP 5082-4415 (0.8 mcd) and -4444 (0.3 mcd) name each other as replacements; "14300-010" is also a Piper cable. A glass resistor marked CG1/4 is TI, not Corning. (2026-10)
 
 ## Tooling
 
@@ -514,3 +530,21 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - zsh: never name a shell variable `path` (it clobbers PATH).
 - **Parallel research agents share the browser-harness daemon** and hijack each other's tabs. Run each with its own `BU_NAME=<name>`, or at least `new_tab()` once and `switch_tab(id)` on every call; check the title before saving HTML. (2026-10)
 - eBay search in browser-harness: image id is `g:<id>` in each result link's `hash=`; fetch `i.ebayimg.com/images/g/<id>/s-l1600.jpg` without visiting the item. aeri.com is Cloudflare-blocked (dead end). (2026-10)
+- A fresh `BU_NAME` browser-harness daemon triggers Chrome's "Allow remote debugging?" prompt - run the command in the background, approve, then wait. cage.report can take 90 s+; Digi-Key/Boeing Shop snapshots take minutes - batch them in the background. (2026-10)
+
+## Diode research additions (2026-10-25)
+
+- HP 1901-0683: HP 1740A manual PDF page 68 (printed 6-18) specifies 10 kV, 5 mA, 250 ns. A parts-table extract is identity evidence, not a full datasheet.
+- TI 1967/8 shortform printed page 25 gives 1N2918 5 kV/250 mA, 0.5 µA leakage, case C/drawing KK. Motorola 1966 PDF page 59 and 1972 indexes print 500 V for 1N2904, conflicting with 3500 V type references; leave voltage unresolved.
+- Motorola TVS/Zener cross-reference PDF page 27 distinguishes Direct and Similar Replacement: 1/4M17Z5 → 1N5247B is Similar. Do not transfer all replacement ratings.
+- Blunham CV Register PDF pages 64, 86 and 225 identify CV7040 prototypes, CV9056 = 1S44 and NSN 5961-99-037-4339. Other editions use different page offsets.
+- Mullard 1974/75 PDF page 48 (printed 47) gives AAZ15 gold-bonded germanium data; its forward-voltage and leakage figures are typical, not maxima.
+- Nexperia BZX79 PDF opened in web reader but direct download returned 403; NSNParts 5961990374339 returned an INC XML stub, not useful evidence.
+
+- HP 5082-2301: original seven-page HP Schottky sheet at rf-microwave.com/resources/products_attachments/5a4386e880d6d.pdf; low-1/f table on PDF page 3. Packet/body 2301 and 831 identify the type and raw batch separately. Express 400 mV as 0.4 V for the forward-voltage parser; the dry run otherwise shows 400 V.
+- Motorola TVS/Zener book: PDF pages 215/219 cover 1N4739A; 223/226/227 cover 1N5927B. Registered 1N5927B 1.5 W differs from general Surmetic 3 W thermal ratings; preserve lead/ambient conditions.
+- Motorola 1N742 index distinguishes 150 V 10% (no suffix) from 5% (A). NIIN 00-968-6486 references both; do not infer a tolerance suffix from the NSN record alone.
+- General Diode 1N907A shortform row is PDF page 3; elevated leakage footnote means +100°C despite the column heading. The 20 mA value is a forward-voltage test current, not maximum current.
+- Collins Quality Standards Manual 1963 PDF page 138 (A-6), and Navy NEETS Module 7 PDF pages 42–43, explain EIA RS-236 diode bands. A black prefix can pad a two-digit 1N number; blue means suffix F only when it is actually a suffix band.
+- AAZ over 3 on a packet may be a partial type plus quantity. No exact AAZ3 diode entry was found in this research; do not substitute AAZ13.
+- Philips marking-code table PDF page 5 maps C16 PH to BZV85-C16. Nexperia BZV85 PDF opened in the web reader but direct downloads returned 403 (2026-10-25).

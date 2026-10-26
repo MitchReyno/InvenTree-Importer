@@ -38,6 +38,13 @@ Capacitance:
   # of prefix gives, and 100p rather than 0.1n.
   prefixes: [u, n, p]
 
+Reverse Recovery Time (trr):
+  units: ns
+  description: Diode reverse recovery time; retain test conditions and limit type in notes
+  aliases:
+    - Reverse Recovery Time (trr)
+  parse: quantity
+
 Composition:
   description: Resistive element material
   aliases:
@@ -664,6 +671,7 @@ Switch Circuit:
   choices:
     - SPDT
     - SPST - NO
+    - DPDT
   aliases:
     - Switch Circuit
 
@@ -723,7 +731,7 @@ Number of Drivers/Receivers:
     - Number of Drivers/Receivers
 
 Multiplexer/Demultiplexer Circuit:
-  description: Channel arrangement of a multiplexer, e.g. 16:1 or 2 x 4:1
+  description: Channel arrangement of a multiplexer or decoder, e.g. 16:1, 2 x 4:1 or 4:10
   aliases:
     - Multiplexer/Demultiplexer Circuit
 
@@ -773,6 +781,7 @@ Logic Type:
     - JK Type
     - D-Type
     - Microprogram Sequencer
+    - Decoder/Demultiplexer
   aliases:
     - Logic Type
 
@@ -823,6 +832,7 @@ Output Type:
     "Tri-State & Non-Inverted":
       - "Tri-State, Non-Inverted"
   choices:
+    - Transistor with Base
     - Complementary
     - Non-Inverted
     - Tri-State
@@ -1045,3 +1055,72 @@ Number of Regulators:
   parse: quantity
   aliases:
     - Number of Regulators
+
+Wavelength - Peak:
+  units: m
+  description: Peak emission wavelength
+  aliases:
+    - Wavelength - Peak
+  parse: quantity
+  prefixes: [n]
+
+Millicandela Rating:
+  units: cd
+  description: Axial luminous intensity at the test current (typical unless stated)
+  aliases:
+    - Millicandela Rating
+  parse: quantity
+  prefixes: [m]
+
+Viewing Angle:
+  units: "°"
+  description: Total viewing angle to half intensity
+  aliases:
+    - Viewing Angle
+  parse: quantity
+
+Voltage - Forward (Vf) (Typ):
+  units: V
+  description: Typical LED forward voltage at the test current
+  aliases:
+    - Voltage - Forward (Vf) (Typ)
+  parse: quantity
+
+Number of Channels:
+  parse: quantity
+  aliases:
+    - Number of Channels
+
+Current Transfer Ratio (Min):
+  units: "%"
+  description: Minimum optocoupler current transfer ratio at the stated forward current
+  aliases:
+    - Current Transfer Ratio (Min)
+  parse: percent
+
+Voltage - Isolation:
+  units: V
+  description: Input-to-output isolation test voltage
+  aliases:
+    - Voltage - Isolation
+  parse: quantity
+
+Voltage - Output (Max):
+  units: V
+  description: Maximum output voltage (phototransistor VCEO)
+  aliases:
+    - Voltage - Output (Max)
+  parse: quantity
+
+Current - DC Forward (If) (Max):
+  units: A
+  description: Maximum continuous LED forward current
+  aliases:
+    - Current - DC Forward (If) (Max)
+  parse: quantity
+  prefixes: [m]
+
+Taper:
+  description: Resistance law of a potentiometer, e.g. Linear or Logarithmic
+  aliases:
+    - Taper
