@@ -1,7 +1,8 @@
 # Import execution contracts — Stage 0
 
-Status: agreed implementation contracts, **not implemented interfaces**. Current
-behavior is in [ARCHITECTURE.md](../ARCHITECTURE.md). The
+Status: agreed target contracts; future CLI/executor/store interfaces below are
+**not implemented**. Stage 1 safety primitives are recorded separately below.
+Current behavior is in [ARCHITECTURE.md](../ARCHITECTURE.md). The
 [plan](import-execution-plan.md) owns stage status and acceptance gates.
 
 ## Decisions and rationale
@@ -199,3 +200,31 @@ See [handover](handovers/import-execution-stage-0.md) for actual validations.
 Stage 1 fixes error/absence boundaries without claiming durable recovery. Each
 later stage must keep this contract accurate or explicitly record a justified
 adjustment with reviewer evidence in its handover and maintained plan.
+
+## Stage 1 implemented safety primitives
+
+- `collections.list_rows` and `list_models` return complete collections or raise
+  `DiscoveryError`; no partial prefix or failed read represents absence. Bounds,
+  shape/count/identity validation, loops and same-origin/API-root pagination
+  validation are implemented. This is application-link validation, not a new
+  transport, redirect policy or target-capability guarantee.
+- `stock.BarcodeError` exposes category, operation, stock_item_pk and owner_pk.
+  Exact HTTP 400 `error == "No match found for barcode data"` is supported absence;
+  other failures remain errors. Link read-back confirms intended owner or a
+  different owner; unknown ownership never authorizes duplicate cleanup.
+  `BarcodeInUse` now means a confirmed different stock owner, with both PKs.
+- `purchase_orders.attach_file_outcome` returns `AttachmentOutcome` with state,
+  model_type/model_id, filename, safe reason and `satisfied`. States are uploaded,
+  already_satisfied, failed and unknown. Already satisfied retains the legacy
+  filename-based policy; it is not executor-grade verified artifact identity.
+  Listing failure is failed with no POST; unsettled POST is unknown; explicit
+  client rejection is failed. The existing `attach_file` boolean still means
+  a confirmed new upload, and datasheet/photo/document count APIs count uploads.
+  `attach_datasheet_outcomes` is the structured multi-target counterpart.
+- Archive/provenance retain separate existing/unknown results; failed archive
+  preflight never proceeds to upload. These results have no durable retry or
+  restart semantics. Later executor handlers must strengthen artifact identity
+  before treating legacy name satisfaction as verified selected evidence.
+
+Source/stub evidence, compatibility tradeoffs and validation are recorded in the
+[Stage 1 handover](handovers/import-execution-stage-1.md).

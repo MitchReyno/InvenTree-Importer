@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .collections import list_models
 from ..config import (
     ParameterConfig,
     UnitConfig,
@@ -155,7 +156,7 @@ def sync_templates(
         parameters = load_parameters_config(directory)
 
     api = api or connect()
-    existing = {t.name: t for t in ParameterTemplate.list(api, limit=1000)}
+    existing = {t.name: t for t in list_models(ParameterTemplate, api, limit=1000)}
     result = SyncResult()
 
     # Checked before anything is written: InvenTree rejects a template whose

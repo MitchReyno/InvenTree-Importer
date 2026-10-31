@@ -22,6 +22,7 @@ from typing import Any
 
 from requests import RequestException
 
+from .collections import list_rows
 from .api import InvenTreeError
 from .parts import UNRESOLVED_PK
 from .stockimport import NOTES_KEPT, LineAction
@@ -94,9 +95,8 @@ class PlanBuilder:
     def part(self, pk: int) -> dict[str, Any]:
         if pk not in self._parts:
             p = self._get(f"part/{pk}/", path_detail="true") or {}
-            items = self._get("stock/", part=pk, location_detail="true") or []
-            if isinstance(items, dict):
-                items = items.get("results", [])
+            items = list_rows(self.api, "stock/", params={
+                "part": pk, "location_detail": "true"})
             self._parts[pk] = {
                 "pk": pk, "ipn": p.get("IPN") or "", "name": p.get("name") or "",
                 "category": p.get("category_path") and "/".join(

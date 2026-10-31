@@ -36,10 +36,14 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import date
+from enum import Enum
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable, Iterable
 
+from requests import HTTPError
+
+from .collections import DiscoveryError, list_models, list_rows
 from ..util import dig
 from . import ledger
 from .matching import candidates, match_name
@@ -158,7 +162,7 @@ class ImportResult:
 # --------------------------------------------------------------------------
 def list_suppliers(api) -> list[Any]:
     """Every company flagged as a supplier, name-sorted for a stable menu."""
-    companies = Company.list(api, is_supplier=True, limit=LIST_LIMIT)
+    companies = list_models(Company, api, is_supplier=True, limit=LIST_LIMIT)
     return sorted(companies, key=lambda c: str(getattr(c, "name", "")).lower())
 
 
@@ -291,7 +295,7 @@ def supplier_pk(supplier: Any) -> int:
 # --------------------------------------------------------------------------
 def supplier_parts_by_sku(api, supplier: int) -> dict[str, Any]:
     """Index a supplier's parts by SKU, upper-cased so matching is case-blind."""
-    parts = SupplierPart.list(api, supplier=supplier, limit=LIST_LIMIT)
+    parts = list_models(SupplierPart, api, supplier=supplier, limit=LIST_LIMIT)
     return {str(p.SKU).strip().upper(): p for p in parts if getattr(p, "SKU", None)}
 
 
@@ -303,7 +307,7 @@ def orders_by_reference(api, supplier: int) -> dict[str, Any]:
     idempotent. The API has no supplier_reference filter, so the supplier's
     orders are listed and matched here.
     """
-    orders = PurchaseOrder.list(api, supplier=supplier, limit=LIST_LIMIT)
+    orders = list_models(PurchaseOrder, api, supplier=supplier, limit=LIST_LIMIT)
     return {str(o.supplier_reference).strip(): o
             for o in orders if getattr(o, "supplier_reference", None)}
 
@@ -317,61 +321,98 @@ ATTACHMENT_MODEL = "purchaseorder"
 
 def attachments(api, model_type: str, model_id: int) -> list[dict[str, Any]]:
     """Whatever is already attached to this record."""
-    response = api.get(ATTACHMENT_URL,
-                       params={"model_type": model_type,
-                               "model_id": model_id, "limit": LIST_LIMIT})
-    if isinstance(response, dict):
-        return response.get("results") or []
-    return list(response or [])
+    rows = list_rows(api, ATTACHMENT_URL, params={
+        "model_type": model_type, "model_id": model_id, "limit": LIST_LIMIT})
+    if any(not isinstance(row.get("filename"), str) or not row["filename"] for row in rows):
+        raise DiscoveryError("invalid attachment filename in collection")
+    return rows
 
 
 def attached_names(api, model_type: str, model_id: int) -> set[str]:
-    """Filenames already attached to this record. Empty if it cannot list."""
+    """Filenames on a completely read record; failures propagate."""
+    return {str(row.get("filename") or "").rsplit("/", 1)[-1]
+            for row in attachments(api, model_type, model_id)}
+
+
+class AttachmentState(str, Enum):
+    UPLOADED = "uploaded"
+    ALREADY_SATISFIED = "already_satisfied"
+    FAILED = "failed"
+    UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True)
+class AttachmentOutcome:
+    """Per-target result; filename satisfaction retains the legacy dedupe policy.
+
+    Already satisfied is name-based evidence, not verified byte identity.
+    Unknown means an attempted POST may have committed and must not be replayed
+    blindly by a future executor.
+    """
+    state: AttachmentState
+    model_type: str
+    model_id: int | None
+    filename: str
+    reason: str = ""
+
+    @property
+    def satisfied(self) -> bool:
+        return self.state in (AttachmentState.UPLOADED, AttachmentState.ALREADY_SATISFIED)
+
+
+def attach_file_outcome(api, model_type: str, model_id: int | None, path: Path,
+                        comment: str = "") -> AttachmentOutcome:
+    """List completely before upload and retain uncertainty after dispatch."""
+    def outcome(state: AttachmentState, reason: str = "") -> AttachmentOutcome:
+        return AttachmentOutcome(state, model_type, model_id, path.name, reason)
+
+    if model_id is None:
+        return outcome(AttachmentState.FAILED, "missing target")
     try:
-        return {str(row.get("filename") or "").rsplit("/", 1)[-1]
-                for row in attachments(api, model_type, model_id)}
-    except Exception as exc:                     # pragma: no cover
-        log.warning("    [warn] could not list attachments on %s %s: %s",
-                    model_type, model_id, exc)
-        return set()
+        present = path.name in attached_names(api, model_type, model_id)
+    except Exception:
+        log.warning("    could not list attachments on %s %s", model_type, model_id)
+        return outcome(AttachmentState.FAILED, "attachment discovery failed")
+    if present:
+        return outcome(AttachmentState.ALREADY_SATISFIED)
+    try:
+        handle = path.open("rb")
+    except OSError:
+        return outcome(AttachmentState.FAILED, "could not open local file")
+    try:
+        with handle:
+            response = api.request(
+                ATTACHMENT_URL, method="POST",
+                data={"model_type": model_type, "model_id": model_id, "comment": comment},
+                files={"attachment": (path.name, handle)})
+    except HTTPError as exc:
+        # SDK stores status in its argument rather than attaching Response.
+        status = exc.response.status_code if exc.response is not None else (
+            exc.args[0].get("status_code") if exc.args and isinstance(exc.args[0], dict) else None)
+        if isinstance(status, int) and 400 <= status < 500 and status != 408:
+            return outcome(AttachmentState.FAILED, "upload rejected")
+        return outcome(AttachmentState.UNKNOWN, "upload request did not settle")
+    except Exception:
+        log.warning("    attachment outcome unknown on %s %s", model_type, model_id)
+        return outcome(AttachmentState.UNKNOWN, "upload request did not settle")
+    status = getattr(response, "status_code", None)
+    if isinstance(status, int) and 400 <= status < 500 and status != 408:
+        return outcome(AttachmentState.FAILED, "upload rejected")
+    if status not in (200, 201):
+        return outcome(AttachmentState.UNKNOWN, "upload response did not confirm success")
+    # Local accounting cannot turn a confirmed upload into a retryable failure.
+    try:
+        ledger.note(model_type, model_id, ledger.FILE_ATTACHED, comment=comment,
+                    **ledger.file_facts(path))
+    except OSError:
+        log.warning("    could not record uploaded attachment facts")
+    return outcome(AttachmentState.UPLOADED)
 
 
 def attach_file(api, model_type: str, model_id: int, path: Path,
                 comment: str = "") -> bool:
-    """
-    Upload a file against any record. Says whether it uploaded.
-
-    A record already carrying a file of that name is left alone, so
-    re-running an import does not stack up copies. A failure warns rather
-    than raises: the stock is the point of the import, and losing it over a
-    file that would not upload is the worse outcome.
-    """
-    if model_id is None:
-        return False
-    if path.name in attached_names(api, model_type, model_id):
-        return False
-
-    try:
-        with path.open("rb") as handle:
-            response = api.request(
-                ATTACHMENT_URL, method="POST",
-                data={"model_type": model_type,
-                      "model_id": model_id,
-                      "comment": comment},
-                files={"attachment": (path.name, handle)})
-    except Exception as exc:
-        log.warning("    [warn] could not attach %s to %s %s: %s",
-                    path.name, model_type, model_id, exc)
-        return False
-
-    if response is None or response.status_code not in (200, 201):
-        code = getattr(response, "status_code", "no response")
-        log.warning("    [warn] could not attach %s to %s %s (%s)",
-                    path.name, model_type, model_id, code)
-        return False
-    ledger.note(model_type, model_id, ledger.FILE_ATTACHED, comment=comment,
-                **ledger.file_facts(path))
-    return True
+    """Compatibility adapter: True only when a new upload was confirmed."""
+    return attach_file_outcome(api, model_type, model_id, path, comment).state == AttachmentState.UPLOADED
 
 
 def order_attachments(api, order_pk: int) -> list[dict[str, Any]]:
@@ -418,7 +459,7 @@ def default_stock_location(api) -> int | None:
     imported stock does not land in a nested bin by accident. None at all
     means the order can still be booked, but nothing can be received.
     """
-    locations = StockLocation.list(api, limit=LIST_LIMIT)
+    locations = list_models(StockLocation, api, limit=LIST_LIMIT)
     if not locations:
         return None
     if len(locations) == 1:
@@ -450,7 +491,7 @@ def receive_stock(
     """
     existing: list[Any] = []
     if po is not None:
-        existing = list(StockItem.list(api, purchase_order=po.pk, limit=LIST_LIMIT))
+        existing = list(list_models(StockItem, api, purchase_order=po.pk, limit=LIST_LIMIT))
     claimed: set[int] = set()
 
     outstanding: list[dict[str, Any]] = []
@@ -622,7 +663,7 @@ def import_sales_order(
     already = existing.get(reference_key)
     if already is not None:
         parts_by_pk = {p.pk: p for p in parts.values()}
-        po_lines = PurchaseOrderLineItem.list(api, order=already.pk, limit=LIST_LIMIT)
+        po_lines = list_models(PurchaseOrderLineItem, api, order=already.pk, limit=LIST_LIMIT)
         actions: list[LineAction] = []
         booked: list[tuple[LineAction, Any]] = []
         for po_line in po_lines:

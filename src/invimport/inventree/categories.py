@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
+from .collections import list_models
 from .. import cache
 from ..config import (
     CONFIG_DIR,
@@ -108,7 +109,7 @@ def sync_categories(
         categories = load_categories_config(directory)
 
     api = api or connect()
-    existing = {c.pathstring: c for c in PartCategory.list(api, limit=1000)
+    existing = {c.pathstring: c for c in list_models(PartCategory, api, limit=1000)
                 if getattr(c, "pathstring", None)}
     resolved = {path: cat.pk for path, cat in existing.items()}
     result = CategorySyncResult()

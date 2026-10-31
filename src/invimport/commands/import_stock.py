@@ -60,6 +60,7 @@ from ..inventree.archive import (
     ALREADY_ATTACHED,
     ATTACHED,
     FAILED,
+    UNKNOWN,
     PURCHASE_ORDER,
     WOULD_ATTACH,
 )
@@ -793,7 +794,7 @@ def report_archive(archive) -> None:
     if archive.reason:
         print(f"    {archive.reason}")
     mark = {ATTACHED: "+", WOULD_ATTACH: "+", ALREADY_ATTACHED: "=",
-            FAILED: "!"}
+            FAILED: "!", UNKNOWN: "!"}
     for target in archive.targets:
         kind = "order" if target.kind == PURCHASE_ORDER else "supplier"
         label = target.label if target.pk is None else f"{kind} {target.label}"
@@ -815,7 +816,8 @@ def report_provenance(outcome, enabled: bool) -> None:
         if enabled:
             print("\n  provenance: recorded on --write")
         return
-    if outcome.file is None and not outcome.attached:
+    if (outcome.file is None and not outcome.attached and not outcome.failed
+            and not outcome.already_satisfied and not outcome.unknown):
         print(f"\n  provenance: none - {outcome.reason}")
         return
     print("\n  provenance:")
@@ -830,6 +832,10 @@ def report_provenance(outcome, enabled: bool) -> None:
             kinds[model] = kinds.get(model, 0) + 1
         print(f"    + attached to {len(outcome.attached)} record(s): "
               f"{', '.join(f'{n} {k}' for k, n in kinds.items())}")
+    for model, pk, name in outcome.already_satisfied:
+        print(f"    = {name} already attached to {model} {pk}")
+    for model, pk, name in outcome.unknown:
+        print(f"    ! upload outcome unknown for {name} on {model} {pk}")
     for model, pk, name in outcome.failed:
         print(f"    ! could not attach {name} to {model} {pk}")
 

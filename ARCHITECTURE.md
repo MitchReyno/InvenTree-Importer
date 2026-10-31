@@ -1,7 +1,7 @@
 # Import architecture
 
-This describes implemented behavior at Stage 0 (main baseline `b2e4a12`, SDK
-`inventree==0.13.5`). Future contracts are explicitly separated below. Keep this
+This describes implemented behavior through Stage 1 (Stage 0 baseline `bdef68b`,
+SDK `inventree==0.13.5`). Future contracts are explicitly separated below. Keep this
 file current whenever a later stage changes code; update the maintained plan
 and stage handover with acceptance evidence and justified changes.
 
@@ -72,8 +72,26 @@ before the caller receives a client. SDK `testServer` and `downloadFile` call
 `requests` directly. Constructors/saves may reload models. Attachment upload uses
 API `request`; notes/tags/order links use saves/PATCH; barcode lookup/link use
 POST. External images/datasheets use independent download helpers. SDK 0.13.5
-model `list` unwraps one `results` page without following `next`; `limit=1000`
-is a page hint. Absence decisions are therefore not generally pagination-safe.
+model `list` still unwraps only one page. Importer collection consumers now use
+`inventree/collections.py:list_rows/list_models` explicitly instead of SDK `list`.
+They enumerate list or `results`/`next` responses completely, preserving narrow
+filters, with 1,000-page / 100,000-row bounds, repeated-request/page detection,
+model identity validation and final count checks when supplied. Invalid, partial,
+late-failed or unsafe-target collections raise `DiscoveryError` (an
+`InvenTreeError`); callers cannot use a partial prefix as absence.
+
+Pagination accepts same-origin links strictly beneath the configured API root,
+rejects scheme/host/root escapes, credentials, fragments, encoded traversal,
+ambiguous query fields and SDK scheme-like endpoint tricks before dispatch. Query
+strings are passed separately because SDK URL construction appends a slash.
+This validates application pagination targets, not general SDK redirects or live
+server completeness guarantees. `limit=1000` remains a page hint. Complete reads
+cover categories/templates/units, companies, part/manufacturer/supplier matching,
+locations/orders, parameters, attachment discovery and report stock collections.
+Known MPN part identity uses a detail read; supplier-part caches load per supplier,
+and specification matching reads each candidate part's parameters rather than
+all server parameters. Shared helper consumers in DigiKey commands gain these read
+fixes too; their execution/recovery migration remains Stage 7.
 
 `parts.apply_parameters` issues independent parameter writes through a bounded
 thread pool (up to `PARAMETER_WORKERS`); errors propagate after already-issued
@@ -104,14 +122,26 @@ Write runs compile combined provenance in the import folder, then build a
 content-named archive of eligible import-folder files and attach it to orders or
 suppliers; per-record provenance follows. Combined provenance is read/append/
 rewrite. Archive hashing and ZIP construction read source files separately.
-Attachment deduplication is based on listings/names and metadata, not general
-verified byte identity. Failed attachment listing can currently become an empty
-set; attachment boolean results conflate already present and failed. A retry
-cannot assume a historical upload is content-verified.
+Attachment deduplication is based on complete listings/names and metadata, not
+general verified byte identity. A failed list blocks the upload. The structured
+`AttachmentOutcome` distinguishes uploaded, already_satisfied, failed and unknown;
+`attach_file` still returns True only for a confirmed new upload. Datasheet and
+photo/document count APIs retain new-upload counts. Datasheet backfill, provenance
+and archives consume structured satisfaction; archive/provenance expose unknown
+outcomes. A lost upload is unknown, and a retry cannot assume a historical upload
+is content-verified. No durable evidence retry policy exists yet.
 
-Barcode lookup currently treats every exception as absence. Barcode linking
-translates every exception into `BarcodeInUse`; stock creation then attempts
-compensating deletion. A lost link response can therefore trigger unsafe cleanup.
+Barcode lookup recognizes only the exact supported HTTP 400 no-match error as
+absence; auth, validation, transient, transport and invalid responses fail closed.
+Localized/changed no-match text needs explicit support rather than guessing.
+Linking reads ownership back even after a successful POST. Confirmed intended
+ownership succeeds; confirmed different stock ownership raises `BarcodeInUse`.
+Only that latter case permits deletion of the duplicate created by the current
+call. Uncertain link/read-back or deletion retains a structured `BarcodeError`
+with known stock PK and does not claim registration success. The importer reuses
+that confirmed conflict owner rather than performing an uncertain second lookup.
+These diagnostics are in memory only; an ambiguous stock create still lacks a
+durable identity or recovery guard.
 Part creation precedes parameter writes: an incomplete specification part can
 fail later rediscovery, whereas an existing type part can skip missing parameters.
 PO contributions are unconditional creates with no durable correlation contract.

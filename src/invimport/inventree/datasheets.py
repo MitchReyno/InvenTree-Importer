@@ -38,10 +38,13 @@ from urllib.parse import unquote, urldefrag, urlparse
 import requests
 from pypdf import PdfReader, PdfWriter
 
+from .collections import list_models, list_rows
 from .. import cache
 from ..util import absolute_url, parse_pages
 from .api import ManufacturerPart, Part, PartCategory
-from .purchase_orders import ATTACHMENT_URL, attach_file
+from .purchase_orders import (
+    ATTACHMENT_URL, AttachmentOutcome, AttachmentState, attach_file_outcome,
+)
 
 log = logging.getLogger(__name__)
 
@@ -309,23 +312,25 @@ def attach_datasheet(api, files: list[DatasheetFile], *, part: int | None,
     Returns how many uploads were made. A record already holding a file of
     that name is left alone, so re-running attaches nothing twice.
     """
-    uploaded = 0
+    return sum(outcome.state == AttachmentState.UPLOADED for outcome in
+               attach_datasheet_outcomes(api, files, part=part,
+                                         manufacturer_parts=manufacturer_parts))
+
+
+def attach_datasheet_outcomes(api, files: list[DatasheetFile], *, part: int | None,
+                              manufacturer_parts: list[int] | tuple[int, ...] = ()
+                              ) -> list[AttachmentOutcome]:
+    """Structured outcomes for every selected file/target, including existing files."""
     targets = [(PART_MODEL, part)] + [(MANUFACTURER_PART_MODEL, pk)
-                                      for pk in manufacturer_parts]
-    for file in files:
-        for model_type, pk in targets:
-            if pk is not None and attach_file(api, model_type, pk, file.path,
-                                              file.comment):
-                uploaded += 1
-    return uploaded
+                                     for pk in manufacturer_parts]
+    return [attach_file_outcome(api, model_type, pk, file.path, file.comment)
+            for file in files for model_type, pk in targets if pk is not None]
 
 
 def parts_with_datasheets(api) -> set[int]:
     """Parts already carrying an attachment commented as a datasheet."""
-    response = api.get(ATTACHMENT_URL, params={
+    rows = list_rows(api, ATTACHMENT_URL, params={
         "model_type": PART_MODEL, "limit": LIST_LIMIT})
-    rows = (response.get("results") or []) if isinstance(response, dict) \
-        else list(response or [])
     return {int(row["model_id"]) for row in rows
             if str(row.get("comment") or "").strip().startswith(
                 DATASHEET_COMMENT)
@@ -373,7 +378,7 @@ def candidate_urls(part, manufacturer_parts: list[Any]) -> list[str]:
 
 def _category_pks(api, pathstring: str) -> set[int]:
     """The named category and everything under it."""
-    categories = PartCategory.list(api, limit=LIST_LIMIT)
+    categories = list_models(PartCategory, api, limit=LIST_LIMIT)
     wanted = pathstring.strip("/").casefold()
     roots = {c.pk for c in categories
              if str(getattr(c, "pathstring", "")).casefold() == wanted}
@@ -414,12 +419,12 @@ def backfill(api, *, write: bool = False, category: str = "",
     Downloads run `workers` at a time. Uploads, and on_item, stay in part
     order on this thread, so the report reads the same however many ran.
     """
-    parts = Part.list(api, limit=LIST_LIMIT)
+    parts = list_models(Part, api, limit=LIST_LIMIT)
     if category:
         keep = _category_pks(api, category)
         parts = [p for p in parts if getattr(p, "category", None) in keep]
     by_part: dict[int, list[Any]] = {}
-    for mp in ManufacturerPart.list(api, limit=LIST_LIMIT):
+    for mp in list_models(ManufacturerPart, api, limit=LIST_LIMIT):
         by_part.setdefault(int(mp.part), []).append(mp)
     done = parts_with_datasheets(api)
 
@@ -455,9 +460,17 @@ def backfill(api, *, write: bool = False, category: str = "",
                     if write:
                         same = [mp.pk for mp in by_part.get(part.pk, [])
                                 if absolute_url(getattr(mp, "link", "")) == url]
-                        attach_datasheet(api, [DatasheetFile(path)],
-                                         part=part.pk, manufacturer_parts=same)
-                        item.action = ATTACHED
+                        outcomes = attach_datasheet_outcomes(
+                            api, [DatasheetFile(path)], part=part.pk,
+                            manufacturer_parts=same)
+                        if all(outcome.satisfied for outcome in outcomes):
+                            item.action = (ATTACHED if any(
+                                outcome.state == AttachmentState.UPLOADED
+                                for outcome in outcomes) else HAS_ONE)
+                        else:
+                            item.action = FAILED
+                            item.reason = "; ".join(dict.fromkeys(
+                                outcome.reason for outcome in outcomes if not outcome.satisfied))
             items.append(item)
             if on_item is not None:
                 on_item(item)

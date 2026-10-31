@@ -36,6 +36,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable
 
+from .collections import list_models
 from ..config import (
     CATEGORIES_FILE,
     CONFIG_DIR,
@@ -76,12 +77,13 @@ from .parts import (
     resolve_part,
 )
 from .purchase_orders import (
-    attach_file,
+    attach_file_outcome,
     attach_order_file,
     next_reference,
     resolve_supplier,
     split_marketplace,
     supplier_pk,
+    supplier_parts_by_sku,
 )
 from .stock import (
     BarcodeInUse,
@@ -155,6 +157,8 @@ class ProvenanceOutcome:
     file: Path | None = None                     # the combined file
     reason: str = ""                             # why there is none
     attached: list[tuple[str, int, str]] = field(default_factory=list)
+    already_satisfied: list[tuple[str, int, str]] = field(default_factory=list)
+    unknown: list[tuple[str, int, str]] = field(default_factory=list)
     failed: list[tuple[str, int, str]] = field(default_factory=list)
 
 
@@ -231,17 +235,17 @@ def import_stock(
         categories=categories,
         parameters=parameters,
         server_categories={c.pathstring: c
-                           for c in PartCategory.list(api, limit=LIST_LIMIT)
+                           for c in list_models(PartCategory, api, limit=LIST_LIMIT)
                            if getattr(c, "pathstring", None)},
-        templates={t.name: t for t in ParameterTemplate.list(api, limit=LIST_LIMIT)},
+        templates={t.name: t for t in list_models(ParameterTemplate, api, limit=LIST_LIMIT)},
     )
 
     result = StockImportResult()
     supplier_cache: dict[str, Any] = {}
     location_cache: dict[str, Any] = {}
     order_cache: dict[tuple[int, str], Any] = {}
-    supplier_parts = {(sp.supplier, str(sp.SKU).strip().upper()): sp
-                      for sp in SupplierPart.list(api, limit=LIST_LIMIT)}
+    # Load a complete supplier-scoped collection only when a line needs it.
+    supplier_parts: dict[int, dict[str, Any]] = {}
 
     # Mirrored datasheets are fetched together up front; each line then finds
     # its file already in the cache instead of waiting on its own download.
@@ -322,10 +326,14 @@ def _attach_provenance(api, document: StockFile, records,
             comment = (f"{provenance.RECORD_COMMENT}: "
                        f"{doc['import'].get('folder') or document.file_id} - "
                        f"where the facts came from and what the import did")
-            if attach_file(api, model, pk, path, comment):
-                result.provenance.attached.append((model, pk, path.name))
-            else:
-                result.provenance.failed.append((model, pk, path.name))
+            outcome = attach_file_outcome(api, model, pk, path, comment)
+            bucket = {
+                "uploaded": result.provenance.attached,
+                "already_satisfied": result.provenance.already_satisfied,
+                "unknown": result.provenance.unknown,
+                "failed": result.provenance.failed,
+            }[outcome.state]
+            bucket.append((model, pk, path.name))
 
 
 def invimport_version() -> str:
@@ -534,10 +542,10 @@ def _import_line(api, document: StockFile, line: StockLine,
             condition=line.condition, notes=notes,
             batch=line.batch, packaging=line.packaging, tags=line.tags,
             key=key)
-    except BarcodeInUse:
-        # Something else claimed the key between the check above and now.
+    except BarcodeInUse as exc:
+        # Duplicate cleanup completed and reconciliation identified the owner.
         action.action = EXISTS
-        action.stock_item = already_imported(api, key)
+        action.stock_item = exc.owner_pk
         return action
 
     if order is not None:
@@ -624,7 +632,7 @@ def _existing_datasheet(api, document: StockFile, line: StockLine,
         return
     action.part = part
     number = (line.mpn or line.type).strip().upper()
-    mfr_parts = [mp.pk for mp in ManufacturerPart.list(api, part=part,
+    mfr_parts = [mp.pk for mp in list_models(ManufacturerPart, api, part=part,
                                                        limit=LIST_LIMIT)
                  if number and str(mp.MPN).strip().upper() == number]
     attach_datasheet(api, datasheets, part=part, manufacturer_parts=mfr_parts)
@@ -693,7 +701,7 @@ def _existing_notes(api, line: StockLine, options: ImportOptions,
     action.part = part
     number = (line.mpn or line.type).strip().upper()
     if number and line.manufacturer and line.manufacturer_part_notes:
-        found = [mp.pk for mp in ManufacturerPart.list(api, part=part,
+        found = [mp.pk for mp in list_models(ManufacturerPart, api, part=part,
                                                        limit=LIST_LIMIT)
                  if str(mp.MPN).strip().upper() == number]
         action.manufacturer_part = found[0] if found else None
@@ -893,9 +901,12 @@ def _supplier_part(api, line: StockLine, supplier, resolved,
     pk = supplier_pk(supplier)
     if pk == UNRESOLVED_PK:
         return None
-    key = (pk, line.sku.strip().upper())
-    if key in supplier_parts:
-        found = supplier_parts[key]
+    if pk not in supplier_parts:
+        supplier_parts[pk] = supplier_parts_by_sku(api, pk)
+    known = supplier_parts[pk]
+    key = line.sku.strip().upper()
+    if key in known:
+        found = known[key]
         part_pk = getattr(resolved.part, "pk", None)
         if part_pk not in (None, UNRESOLVED_PK) and getattr(found, "part", part_pk) != part_pk:
             # InvenTree refuses stock whose supplier part belongs to another
@@ -921,7 +932,7 @@ def _supplier_part(api, line: StockLine, supplier, resolved,
     if link:
         payload["link"] = link
     created = SupplierPart.create(api, payload)
-    supplier_parts[key] = created
+    known[key] = created
     return created
 
 
@@ -964,7 +975,7 @@ def _purchase_order(api, line: StockLine, supplier,
         return cache[key]
 
     order = None
-    found = PurchaseOrder.list(api, supplier=pk, limit=LIST_LIMIT)
+    found = list_models(PurchaseOrder, api, supplier=pk, limit=LIST_LIMIT)
     for existing in found:
         if str(getattr(existing, "supplier_reference", "")).strip() == reference:
             order = existing

@@ -34,6 +34,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable, Iterable
 
+from .collections import DiscoveryError, list_models
 from .. import cache
 from . import ledger
 from ..config import (
@@ -163,7 +164,7 @@ def ipn_prefix(category: CategoryConfig) -> str:
 
 def next_ipn(api, prefix: str) -> str:
     """The next unused '{prefix}-00001' on the server."""
-    existing = Part.list(api, IPN_regex=rf"^{re.escape(prefix)}-\d+$",
+    existing = list_models(Part, api, IPN_regex=rf"^{re.escape(prefix)}-\d+$",
                          limit=LIST_LIMIT)
     numbers: list[int] = []
     pattern = re.compile(rf"^{re.escape(prefix)}-(\d+)$", re.IGNORECASE)
@@ -239,14 +240,13 @@ def find_part_by_mpn(api, mpn: str) -> Any | None:
     """The Part that already has this manufacturer part number, or None."""
     if not mpn:
         return None
-    found = ManufacturerPart.list(api, MPN=mpn, limit=LIST_LIMIT)
+    found = list_models(ManufacturerPart, api, MPN=mpn, limit=LIST_LIMIT)
     if not found:
         return None
     pk = getattr(found[0], "part", None)
     if pk is None:
         return None
-    matches = Part.list(api, limit=LIST_LIMIT)
-    return next((part for part in matches if part.pk == pk), None)
+    return Part(api, pk=pk)
 
 
 def answers_to(part, designator: str) -> bool:
@@ -280,7 +280,7 @@ def find_part_by_type(api, category_pk: int, designator: str) -> Any | None:
     """
     if not designator:
         return None
-    for part in Part.list(api, category=category_pk, limit=LIST_LIMIT):
+    for part in list_models(Part, api, category=category_pk, limit=LIST_LIMIT):
         if answers_to(part, designator):
             return part
     return None
@@ -290,7 +290,7 @@ def parts_named(api, category_pk: int, name: str) -> list[Any]:
     """Every Part in this category known by this name or keyword."""
     if not str(name or "").strip():
         return []
-    return [part for part in Part.list(api, category=category_pk,
+    return [part for part in list_models(Part, api, category=category_pk,
                                        limit=LIST_LIMIT)
             if answers_to(part, name)]
 
@@ -299,8 +299,25 @@ def find_part_by_ipn(api, ipn: str) -> Any | None:
     """The Part with this IPN. An explicit override - no matching involved."""
     if not ipn:
         return None
-    found = Part.list(api, IPN=ipn, limit=LIST_LIMIT)
+    found = list_models(Part, api, IPN=ipn, limit=LIST_LIMIT)
     return found[0] if found else None
+
+
+def _parameter_template_id(parameter, model_id: int) -> int:
+    template = getattr(parameter, "template", None)
+    if (isinstance(template, bool) or not isinstance(template, int) or template <= 0
+            or getattr(parameter, "model_id", None) != model_id):
+        raise DiscoveryError("invalid parameter identity in collection")
+    return template
+
+
+def _parameters_for_parts(api, parts: list[Any]) -> dict[int, dict[int, str]]:
+    """Read only candidate parts' parameters, completely before matching."""
+    return {part.pk: {
+        _parameter_template_id(row, part.pk): str(row.data)
+        for row in list_models(Parameter, api, model_type=PART_MODEL_TYPE,
+                               model_id=part.pk, limit=LIST_LIMIT)}
+        for part in parts}
 
 
 def find_part_by_spec(
@@ -324,18 +341,11 @@ def find_part_by_spec(
     if len(needed) != len(key_parameters):
         return None
 
-    parts = Part.list(api, category=category_pk, limit=LIST_LIMIT)
+    parts = list_models(Part, api, category=category_pk, limit=LIST_LIMIT)
     if not parts:
         return None
 
-    stored = Parameter.list(api, model_type=PART_MODEL_TYPE, limit=LIST_LIMIT)
-    by_part: dict[int, dict[int, str]] = {}
-    for row in stored:
-        model_id = getattr(row, "model_id", None)
-        template = getattr(row, "template", None)
-        if model_id is None or template is None:
-            continue
-        by_part.setdefault(int(model_id), {})[int(template)] = str(row.data)
+    by_part = _parameters_for_parts(api, parts)
 
     template_pk = {name: tmpl.pk for name, tmpl in templates.items()}
 
@@ -360,7 +370,7 @@ def find_part_by_spec(
 # Manufacturers
 # --------------------------------------------------------------------------
 def list_manufacturers(api) -> list[Any]:
-    companies = Company.list(api, is_manufacturer=True, limit=LIST_LIMIT)
+    companies = list_models(Company, api, is_manufacturer=True, limit=LIST_LIMIT)
     return sorted(companies, key=lambda c: str(getattr(c, "name", "")).lower())
 
 
@@ -454,10 +464,10 @@ def apply_parameters(
     """
     if model_id in (None, UNRESOLVED_PK) or not values:
         return 0
-    existing = Parameter.list(api, model_type=model_type,
+    existing = list_models(Parameter, api, model_type=model_type,
                               model_id=model_id, limit=LIST_LIMIT)
-    by_template = {int(p.template): p for p in existing
-                   if getattr(p, "template", None) is not None}
+    by_template = {_parameter_template_id(parameter, model_id): parameter
+                   for parameter in existing}
     touched = 0
     writes: list[Callable[[], Any]] = []
 
@@ -810,18 +820,12 @@ def parts_matching_partial_spec(
     """
     if not supplied:
         return []
-    stored = Parameter.list(api, model_type=PART_MODEL_TYPE, limit=LIST_LIMIT)
-    by_part: dict[int, dict[int, str]] = {}
-    for row in stored:
-        model_id = getattr(row, "model_id", None)
-        template = getattr(row, "template", None)
-        if model_id is None or template is None:
-            continue
-        by_part.setdefault(int(model_id), {})[int(template)] = str(row.data)
+    parts = list_models(Part, api, category=category_pk, limit=LIST_LIMIT)
+    by_part = _parameters_for_parts(api, parts)
 
     template_pk = {name: tmpl.pk for name, tmpl in templates.items()}
     found = []
-    for part in Part.list(api, category=category_pk, limit=LIST_LIMIT):
+    for part in parts:
         have = by_part.get(part.pk, {})
         agrees = True
         for name, value in supplied.items():
@@ -1024,7 +1028,7 @@ def resolve_part(
     mfr_number = line.mpn or line.type
     if part.pk != UNRESOLVED_PK and manufacturer is not None and mfr_number:
         step("manufacturer_part")
-        existing = ManufacturerPart.list(api, part=part.pk, MPN=mfr_number,
+        existing = list_models(ManufacturerPart, api, part=part.pk, MPN=mfr_number,
                                          manufacturer=manufacturer.pk,
                                          limit=LIST_LIMIT)
         mfr_part = existing[0] if existing else None
@@ -1284,9 +1288,9 @@ def import_supplier_parts(
             parameters = load_parameters_config(directory)
 
     server_categories = {c.pathstring: c
-                         for c in PartCategory.list(api, limit=LIST_LIMIT)
+                         for c in list_models(PartCategory, api, limit=LIST_LIMIT)
                          if getattr(c, "pathstring", None)}
-    templates = {t.name: t for t in ParameterTemplate.list(api, limit=LIST_LIMIT)}
+    templates = {t.name: t for t in list_models(ParameterTemplate, api, limit=LIST_LIMIT)}
     existing_parts = supplier_parts_by_sku(api, supplier_pk)
     manufacturer_cache: dict[str, Any] = {}
 

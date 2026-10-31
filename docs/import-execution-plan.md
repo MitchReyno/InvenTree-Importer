@@ -1,7 +1,8 @@
 # Staged implementation plan — observable, resumable stock imports
 
-Status: maintained implementation plan. Stage 0 establishes contracts; Stages
-1–7 remain unimplemented at this baseline. Companion documents:
+Status: maintained implementation plan. Stage 0 establishes contracts; Stage 1
+implements safe reads/errors and awaits independent review; Stages 2–7 remain
+unimplemented. Companion documents:
 [design](import-execution-design.md), [contracts](import-execution-contracts.md),
 [architecture](../ARCHITECTURE.md). Baseline main `b2e4a12` includes PR #9;
 preserve its DigiKey request-error, configuration-replacement and report-plan-read
@@ -12,7 +13,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 | Stage | Status | Acceptance evidence |
 |---|---|---|
 | 0 | Complete; independently approved for PR opening | [Stage 0 handover](handovers/import-execution-stage-0.md) |
-| 1 | Pending | Error taxonomy and complete-read gates below |
+| 1 | Implemented; awaiting independent review | [Stage 1 handover](handovers/import-execution-stage-1.md); error taxonomy and complete-read fault regressions |
 | 2 | Pending | Whole-command request coverage and worker correlation gates below |
 | 3 | Pending | Real-store ownership/restart gates below |
 | 4 | Pending | Durable reference-slice fault matrix below |
@@ -176,6 +177,19 @@ helper only if multiple callers genuinely share its contract.
 - No regressions in existing no-op repeat imports or PR #9 error contracts.
 
 **Release boundary:** can ship independently; do not describe it as resumable.
+
+**Implemented decisions / scope adjustments:** explicit shared `collections`
+helpers replace importer model list calls without globally patching SDK behavior.
+Common category/unit/company/part/order/datasheet modules consequently improve
+DigiKey read completeness too; Stage 7 execution migration is unchanged. Discovery
+is narrowed to supplier-scoped lazy caches and candidate-part parameter reads;
+known MPN part identity uses a detail read. This trades additional per-candidate
+reads for bounded relevant discovery instead of server-wide parameter scans.
+Barcode links now always verify ownership. English exact no-match text is the
+only supported absence contract; changed/localized text fails closed. Attachment
+satisfaction preserves legacy filename policy and does not establish byte identity.
+No persistence, executor, automatic replay or durable resume was introduced.
+
 
 ## Stage 2 — structured observations and complete request visibility
 

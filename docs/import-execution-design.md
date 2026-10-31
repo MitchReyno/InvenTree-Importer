@@ -109,16 +109,12 @@ drifted values beyond the intended repair permission.
 
 ### Barcode lookup and cleanup conflate distinct failures
 
-`find_by_barcode` (`inventree/stock.py:791-804`) turns all exceptions into absence.
-`link_barcode` (`:817-830`) turns all failures into BarcodeInUse, and `add_stock`
-(`:904-964`) responds by attempting deletion. If the link was applied but its response was lost, this can delete
-legitimately registered stock.
-
-Expected unknown-barcode responses need a specific verified contract. Transport,
-auth, decoding and true conflicts must remain distinguishable. An uncertain link
-requires read-back; a conflict must establish which record owns the key before
-any cleanup decision. Do not treat all HTTP 400s as absence or all link exceptions
-as conflicts. Do not automatically delete after an uncertain outcome.
+Stage 1 fixes this baseline defect: exact supported 400 no-match responses alone
+mean absence; link ownership is read back before success or duplicate cleanup.
+Auth/transport/validation/invalid response and unknown write outcomes remain
+errors; known stock PKs are retained in structured error context. Cleanup is
+limited to the current call's new duplicate after confirmed different owner.
+See architecture/contracts for implemented scope. This is not durable recovery.
 
 ### Whole-line reruns do not complete all pending work
 
@@ -142,22 +138,20 @@ PO-line create safely; do not assume a new unique server field exists.
 
 ### First-page-only discovery undermines absence decisions
 
-The installed SDK's `InventreeObject.list` extracts `results` without following
-`next`; `get` makes one request. `limit=1000` does not guarantee completeness.
-Attachment listing and existing-stock report reads also expose first-page risks.
-
-Introduce complete, bounded, target-safe pagination for decisions that rely on
-absence. Prefer narrow queries; enumerate their relevant pages completely rather
-than fetching every resource eagerly. Incomplete discovery is unavailable evidence,
-not proof that a record or attachment does not exist. Detect pagination loops,
-malformed pages and unexpected target links before declaring completeness.
+SDK `InventreeObject.list` still reads one page. Stage 1 routes importer model and
+direct collection consumers through explicit complete bounded target-safe helpers.
+Narrow supplier/candidate-parameter reads avoid eager server-wide scans. Malformed,
+failed, looped, bounded-out or foreign-page reads are unavailable evidence.
+This application boundary does not establish target uniqueness, trusted redirects
+or saved target continuity for the future durable executor.
 
 ### Optional outcome and finalization contracts are incomplete
 
-`purchase_orders.py:327-383` turns attachment-list failures into an empty set and
-returns False for both existing files and failed uploads. This prevents accurate
-progress and can allow upload after failed deduplication. Use explicit satisfied,
-uploaded, failed and unknown outcomes.
+Stage 1 blocks attachment upload after failed discovery and exposes structured
+uploaded/already_satisfied/failed/unknown outcomes while preserving legacy boolean
+and count adapters. Archives/provenance and datasheet backfill use satisfaction
+correctly. Filename-based legacy satisfaction remains weaker than verified artifact
+identity required for future executor reconciliation.
 
 An exception from a stock line prevents later lines and ordinary finalization.
 Normal CLI status mostly counts skipped/review lines, not all failed requested
