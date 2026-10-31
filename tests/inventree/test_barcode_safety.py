@@ -131,3 +131,41 @@ def test_unconfirmed_delete_response_cannot_report_duplicate_success(monkeypatch
         add_stock(api, part=4, quantity=1, key="key")
     assert not isinstance(caught.value, BarcodeInUse)
     assert caught.value.stock_item_pk == 42 and caught.value.owner_pk == 41
+
+
+@pytest.mark.parametrize("stock_owner", [None, {}, "bad", [], True, {"pk": "4"}])
+@pytest.mark.parametrize("other_owner", ["part", "stocklocation"])
+def test_malformed_stock_owner_cannot_fall_back_to_another_model(stock_owner, other_owner):
+    api = Mock()
+    api.post.return_value = {"stockitem": stock_owner, other_owner: {"pk": 4}}
+    with pytest.raises(BarcodeError) as caught:
+        already_imported(api, "key")
+    assert caught.value.category == "invalid_response"
+
+
+def test_multiple_valid_model_owners_are_ambiguous():
+    api = Mock()
+    api.post.return_value = {"stockitem": {"pk": 42}, "part": {"pk": 4}}
+    with pytest.raises(BarcodeError, match="invalid_response"):
+        already_imported(api, "key")
+
+
+def test_malformed_mixed_link_readback_cannot_authorize_duplicate_cleanup(monkeypatch):
+    item = Mock(pk=42)
+    monkeypatch.setattr(stock.StockItem, "create", Mock(return_value=item))
+    api = Mock()
+    api.post.side_effect = [None, {"stockitem": "bad", "part": {"pk": 4}}]
+    with pytest.raises(BarcodeError) as caught:
+        add_stock(api, part=4, quantity=1, key="key")
+    assert caught.value.category == "uncertain_write"
+    assert caught.value.stock_item_pk == 42
+    item.delete.assert_not_called()
+
+
+@pytest.mark.parametrize("contradiction", [{"stockitem": {"pk": 4}}, {"plugin": "matched"}])
+def test_no_match_text_with_conflicting_owner_evidence_is_not_absence(contradiction):
+    api = Mock()
+    api.post.side_effect = http_error(400, {
+        "error": "No match found for barcode data", **contradiction})
+    with pytest.raises(BarcodeError):
+        already_imported(api, "key")

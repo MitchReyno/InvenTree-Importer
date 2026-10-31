@@ -202,9 +202,49 @@ operation; no inventory service was contacted.
 
 ## Independent review and fixes
 
-Pending fresh independent review. This section will be updated with findings,
-owner fixes, rerun evidence and reviewer clearance before PR opening. Passing
-owner tests alone do not count as independent approval.
+Fresh independent review is in progress; approval remains pending for the updated
+head and latest-main integration. Passing owner tests do not count as clearance.
+
+The reviewer found a P1 malformed mixed-owner bypass: the permissive UI parser
+could select a valid part/location around an invalid stockitem value, while
+`find_by_barcode` checked only key presence and `already_imported` returned the
+raw value. Examples with stockitem empty/None/string plus a valid part could
+therefore return absence or a non-PK value. Fixed the strict `_scan` boundary to
+require exactly one recognized owner model and validate its raw positive integer
+PK. Multiple valid model owners are also rejected as ambiguous. The standalone
+UI `barcode_hit` parser retains its characterized priority behavior; it no longer
+establishes identity for absence/registration decisions.
+
+Added 14 regression cases for mixed malformed stock owners, multiple valid model
+owners and uncertain mixed link read-back that cannot delete stock. Follow-up
+owner audit also rejects contradictory owner/plugin evidence in an otherwise
+matching no-match HTTP 400 body (two additional regressions): exact text must not
+bypass conflicting evidence. Owner check:
+`uv run --no-sync pytest tests/inventree/test_barcode_safety.py tests/inventree/test_stock.py`
+initially passed **80 tests in 0.68s**; with the contradictory-body regressions,
+**82 passed in 0.77s**. Changed-file Ruff and whitespace passed. Further
+review findings and final recheck evidence will be added before PR opening.
+
+### Latest conventions integration and audit
+
+The user added a requirement to pull latest main CONVENTIONS.md into every stacked
+PR. Read the full `origin/main:CONVENTIONS.md` at `c22b7a1`, including its new
+function/orchestration, explicit-helper-input, meaningful-state-lifetime,
+purposeful-module, lower-level-dependency and scenario-local-test guidance.
+Stage 0 is incorporating main by normal merge; Stage 1 will normal-merge the final
+reviewed Stage 0 head once supplied, preserving published history.
+
+Audited the new Stage 1 code against that full guidance: collection paging,
+next-target validation, barcode classification/reconciliation and one-file upload
+remain focused operations with explicit client/target/file inputs and useful typed
+results. The upload's small local outcome closure shares only its target/file
+context. Immutable attachment outcome state has a clear per-attempt lifetime;
+no namespace-only coordinator or new cross-run mutable singleton was introduced.
+The shared collection module is justified by actual model/direct-list consumers;
+no lower-level code imports command modules. New scenario fixtures stay in their
+behavior-specific test files. Kept the strict barcode ownership boundary separate
+from permissive UI parsing and added the constructor return annotation. No
+unrelated file-size refactor or new execution package was needed for this stage.
 
 ## Limits and next-stage integration
 

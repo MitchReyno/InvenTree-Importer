@@ -58,7 +58,7 @@ class BarcodeError(RuntimeError):
     """Safe barcode diagnostics; a known stock identity survives link failure."""
 
     def __init__(self, category: str, operation: str, *, stock_item_pk: int | None = None,
-                 owner_pk: int | None = None):
+                 owner_pk: int | None = None) -> None:
         self.category = category
         self.operation = operation
         self.stock_item_pk = stock_item_pk
@@ -105,20 +105,22 @@ def _scan(api, key: str) -> dict | None:
     except HTTPError as exc:
         status, body = _http_failure(exc)
         # Exact existing server/stub contract; other 400/plugin failures are not absence.
-        if status == 400 and body.get("error") == "No match found for barcode data":
+        if (status == 400 and body.get("error") == "No match found for barcode data"
+                and body.get("plugin") is None
+                and not any(kind in body for kind in ("stockitem", "stocklocation", "part"))):
             return None
         raise BarcodeError(_failure_category(exc), "lookup") from exc
     except RequestException as exc:
         raise BarcodeError(_failure_category(exc), "lookup") from exc
     if not isinstance(found, dict):
         raise BarcodeError("invalid_response", "lookup")
-    try:
-        hit = barcode_hit(found)
-    except (TypeError, ValueError):
-        hit = None
-    if hit is None:
+    # Ownership is a single validated model, never a fallback chosen around a
+    # malformed higher-priority key. barcode_hit remains a permissive UI parser;
+    # absence/registration decisions need this stricter response boundary.
+    owners = [kind for kind in ("stockitem", "stocklocation", "part") if kind in found]
+    if len(owners) != 1:
         raise BarcodeError("invalid_response", "lookup")
-    payload = found[hit.kind]
+    payload = found[owners[0]]
     pk = payload.get("pk") if isinstance(payload, dict) else payload
     if isinstance(pk, bool) or not isinstance(pk, int) or pk <= 0:
         raise BarcodeError("invalid_response", "lookup")

@@ -133,6 +133,8 @@ is content-verified. No durable evidence retry policy exists yet.
 
 Barcode lookup recognizes only the exact supported HTTP 400 no-match error as
 absence; auth, validation, transient, transport and invalid responses fail closed.
+Ownership responses must contain exactly one recognized model with a positive
+integer PK; malformed mixed-model payloads cannot fall through to absence.
 Localized/changed no-match text needs explicit support rather than guessing.
 Linking reads ownership back even after a successful POST. Confirmed intended
 ownership succeeds; confirmed different stock ownership raises `BarcodeInUse`.

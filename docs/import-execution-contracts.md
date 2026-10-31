@@ -210,7 +210,9 @@ adjustment with reviewer evidence in its handover and maintained plan.
   transport, redirect policy or target-capability guarantee.
 - `stock.BarcodeError` exposes category, operation, stock_item_pk and owner_pk.
   Exact HTTP 400 `error == "No match found for barcode data"` is supported absence;
-  other failures remain errors. Link read-back confirms intended owner or a
+  other failures remain errors. A response must identify exactly one recognized
+  owner model with a positive integer PK; malformed/multiple model keys fail
+  closed. Link read-back confirms intended owner or a
   different owner; unknown ownership never authorizes duplicate cleanup.
   `BarcodeInUse` now means a confirmed different stock owner, with both PKs.
 - `purchase_orders.attach_file_outcome` returns `AttachmentOutcome` with state,
