@@ -12,7 +12,8 @@ atomic configuration replacement and contextual report-read failures are preserv
 
 This stage implements runtime read/error safety only. It adds no durable journal,
 registry, executor, executable preview, automatic replay, restart or resume claim.
-Independent review is pending; the owner has not pushed, opened or merged a PR.
+Independent implementation review approved the integrated code; final documentation
+recheck is pending. The owner has not pushed, opened or merged a PR.
 Operational worktree paths and suggested PR metadata are in the external handoff,
 not embedded in repository files.
 
@@ -204,8 +205,16 @@ operation; no inventory service was contacted.
 
 ## Independent review and fixes
 
-Fresh independent review is in progress; approval remains pending for the updated
-head and latest-main integration. Passing owner tests do not count as clearance.
+Fresh independent review rechecked integrated head `a60c83e` against the updated
+Stage 0/conventions and cleared the implementation with no further findings. The
+P1 below is resolved. The reviewer independently passed **136 safety/stock tests**
+and **48 direct matrix checks** (six invalid stock-owner forms, two alternate
+model keys and four lookup/link/create paths), confirming known-PK retention and
+no deletion on malformed ownership. Full normal/scanner suite outcomes remain
+owner evidence; the reviewer did not claim to repeat those suites.
+
+The final handover/plan status-only commit is pending reviewer documentation
+recheck before root opens the PR. Owner tests alone were not the approval gate.
 
 The reviewer found a P1 malformed mixed-owner bypass: the permissive UI parser
 could select a valid part/location around an invalid stockitem value, while
@@ -224,8 +233,8 @@ matching no-match HTTP 400 body (two additional regressions): exact text must no
 bypass conflicting evidence. Owner check:
 `uv run --no-sync pytest tests/inventree/test_barcode_safety.py tests/inventree/test_stock.py`
 initially passed **80 tests in 0.68s**; with the contradictory-body regressions,
-**82 passed in 0.77s**. Changed-file Ruff and whitespace passed. Further
-review findings and final recheck evidence will be added before PR opening.
+**82 passed in 0.77s**. Changed-file Ruff and whitespace passed. Independent matrix validation then
+confirmed the correction across the four consumer paths.
 
 ### Latest conventions integration and audit
 
@@ -269,8 +278,9 @@ Final validation on integrated code (`a60c83e`, including the P1 correction):
   uses its own scenario-local temporary data and local HTTP stub sockets.
 - The full changed-Python Ruff command listed above passed again, as did working
   whitespace and the integrated-base-to-head whitespace/ancestry/conventions checks.
-- The handover-only final evidence update introduces no further runtime changes;
-  independent reviewer recheck of the final head remains required before PR opening.
+- The handover/plan final evidence/status updates introduce no further runtime
+  changes. Independent runtime review has cleared `a60c83e`; final documentation
+  recheck remains required before PR opening.
 
 ## Limits and next-stage integration
 

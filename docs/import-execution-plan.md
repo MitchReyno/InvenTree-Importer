@@ -1,7 +1,7 @@
 # Staged implementation plan — observable, resumable stock imports
 
 Status: maintained implementation plan. Stage 0 establishes contracts; Stage 1
-implements safe reads/errors and awaits independent review; Stages 2–7 remain
+implements independently reviewed safe reads/errors; Stages 2–7 remain
 unimplemented. Companion documents:
 [design](import-execution-design.md), [contracts](import-execution-contracts.md),
 [architecture](../ARCHITECTURE.md). Baseline main `c22b7a1` includes PR #11
@@ -14,7 +14,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 | Stage | Status | Acceptance evidence |
 |---|---|---|
 | 0 | Complete; upstream incorporation independently approved | [Stage 0 handover](handovers/import-execution-stage-0.md) |
-| 1 | Implemented; awaiting independent review | [Stage 1 handover](handovers/import-execution-stage-1.md); error taxonomy and complete-read fault regressions |
+| 1 | Complete; independent implementation review approved | [Stage 1 handover](handovers/import-execution-stage-1.md); error taxonomy and complete-read fault regressions |
 | 2 | Pending | Whole-command request coverage and worker correlation gates below |
 | 3 | Pending | Real-store ownership/restart gates below |
 | 4 | Pending | Durable reference-slice fault matrix below |
