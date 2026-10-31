@@ -77,14 +77,26 @@ def test_markings_are_copied_verbatim_into_a_code_block():
     """A label is evidence: no reflowing, no `*` read as emphasis."""
     text = render({"markings": ["NSN 5962-00-482-5624", "*A 7/81*"]},
                   STOCK_SECTIONS)
-    assert text == ("### Markings\n\n```\nNSN 5962-00-482-5624\n*A 7/81*\n"
-                    "```")
+    assert text == ("### Markings\n\n    NSN 5962-00-482-5624\n    *A 7/81*")
 
 
-def test_backticks_in_a_marking_cannot_close_its_block():
+def test_backticks_in_a_marking_stay_inside_its_block():
     text = render({"markings": "a ``` b"}, STOCK_SECTIONS)
-    assert text.startswith("### Markings\n\n````\n")
-    assert text.endswith("\n````")
+    assert text == "### Markings\n\n    a ``` b"
+
+
+def test_double_quotes_in_a_marking_are_not_fenced():
+    """InvenTree refuses a fenced block holding `"`: Python-Markdown writes
+    it as &quot; and the sanitiser's output then differs."""
+    text = render({"markings": ['18 OFF "S010"', "1N 914 DIODE"]},
+                  STOCK_SECTIONS)
+    assert "```" not in text
+    assert text == '### Markings\n\n    18 OFF "S010"\n    1N 914 DIODE'
+
+
+def test_a_blank_line_inside_markings_keeps_the_block_whole():
+    text = render({"markings": "top label\n\nbottom label"}, STOCK_SECTIONS)
+    assert text == "### Markings\n\n    top label\n\n    bottom label"
 
 
 def test_plain_text_notes_render_unchanged():

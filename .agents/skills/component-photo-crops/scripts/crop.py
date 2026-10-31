@@ -25,6 +25,14 @@ Options:
                side (default 0.06). Raise it when edges or leads are clipped.
   --exact      skip detection: crop the ROI itself (then square it if possible)
   --nosquare   keep the tight box; do not grow towards square
+  --package-box X0 Y0 X1 Y1
+               measured package bounds, excluding long lead ends. Make a
+               square with the package at medium scale, about one third of
+               the frame; positional ROI still excludes unwanted content.
+  --package-fill F
+               approximate package fraction of square width/height (default
+               0.34 with --package-box). Refuses if the square cannot fit the
+               safe ROI; never silently tightens, slides or pads it.
   --max N      longest side of the saved image (default 1600)
 
 Orientation (the ROI is always given in the unrotated photo's pixels):
@@ -53,6 +61,7 @@ made.
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 
 import numpy as np
@@ -63,6 +72,47 @@ QUARTER_TURNS = {90: Image.Transpose.ROTATE_270,
                  180: Image.Transpose.ROTATE_180,
                  270: Image.Transpose.ROTATE_90}
 MAX_STRAIGHTEN = 15.0
+
+
+def package_square(package: tuple[int, int, int, int],
+                   roi: tuple[int, int, int, int], fill: float,
+                   degrees: float = 0) -> tuple[int, int, int, int]:
+    """A centred square from measured package bounds, within the safe ROI.
+
+    Transform the bounds with the same rotation as the source photo. The
+    enclosing rectangle is conservative for a tilted package, so fill is an
+    approximate maximum rather than an automatic foreground measurement.
+    """
+    if not math.isfinite(fill) or not 0 < fill <= 1:
+        raise ValueError("--package-fill must be finite and greater than 0 through 1")
+    px0, py0, px1, py1 = package
+    x0, y0, x1, y1 = roi
+    if not (x0 <= px0 < px1 <= x1 and y0 <= py0 < py1 <= y1):
+        raise ValueError("--package-box must have positive area inside the safe ROI")
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    theta = math.radians(degrees)
+    co, si = math.cos(theta), math.sin(theta)
+    points = [(cx + (x-cx)*co - (y-cy)*si,
+               cy + (x-cx)*si + (y-cy)*co)
+              for x in (px0, px1) for y in (py0, py1)]
+    lo_x, hi_x = min(p[0] for p in points), max(p[0] for p in points)
+    lo_y, hi_y = min(p[1] for p in points), max(p[1] for p in points)
+    if max(hi_x-lo_x, hi_y-lo_y) > fill * min(x1-x0, y1-y0):
+        raise ValueError("requested package framing does not fit the safe ROI; "
+                         "widen the ROI only if clear, or use a group view")
+    side = math.ceil(max(hi_x-lo_x, hi_y-lo_y) / fill)
+    left = math.floor((lo_x+hi_x-side) / 2)
+    top = math.floor((lo_y+hi_y-side) / 2)
+    # Rounding a rotated fractional box must not trim its far edge at fill=1.
+    while left+side < hi_x or top+side < hi_y:
+        side += 1
+        left = math.floor((lo_x+hi_x-side) / 2)
+        top = math.floor((lo_y+hi_y-side) / 2)
+    box = left, top, left+side, top+side
+    if left < x0 or top < y0 or left+side > x1 or top+side > y1:
+        raise ValueError("requested package framing does not fit the safe ROI; "
+                         "widen the ROI only if clear, or use a group view")
+    return box
 
 
 def find_object(roi: Image.Image,
@@ -134,6 +184,10 @@ def main() -> int:
     ap.add_argument("--margin", type=float, default=0.06)
     ap.add_argument("--exact", action="store_true")
     ap.add_argument("--nosquare", action="store_true")
+    ap.add_argument("--package-box", type=int, nargs=4, metavar=("X0", "Y0", "X1", "Y1"),
+                    help="measured package bounds in source pixels, excluding lead ends")
+    ap.add_argument("--package-fill", type=float, metavar="F",
+                    help="package fraction of square width/height (default 0.34 with --package-box)")
     ap.add_argument("--max", type=int, default=1600)
     ap.add_argument("--rotate", type=int, choices=sorted(QUARTER_TURNS))
     ap.add_argument("--straighten", type=float, metavar="D")
@@ -143,6 +197,13 @@ def main() -> int:
     ap.add_argument("--gamma", type=float, metavar="G")
     ap.add_argument("--sharpen", action="store_true")
     a = ap.parse_args()
+    if a.package_box is not None and (a.exact or a.nosquare):
+        ap.error("--package-box cannot be combined with --exact or --nosquare")
+    if a.package_fill is not None and a.package_box is None:
+        ap.error("--package-fill requires --package-box")
+    fill = a.package_fill if a.package_fill is not None else 0.34
+    if not math.isfinite(fill) or not 0 < fill <= 1:
+        ap.error("--package-fill must be finite and greater than 0 through 1")
     if a.straighten is not None and abs(a.straighten) > MAX_STRAIGHTEN:
         ap.error(f"--straighten is for small tilts (at most {MAX_STRAIGHTEN:g} "
                  "degrees); use --rotate for quarter turns")
@@ -156,11 +217,30 @@ def main() -> int:
     x0, y0, x1, y1 = a.x0, a.y0, a.x1, a.y1
     x0, y0, x1, y1 = max(0, x0), max(0, y0), min(W, x1), min(H, y1)
 
+    package_box = None
+    if a.package_box is not None:
+        try:
+            package_box = package_square(tuple(a.package_box), (x0, y0, x1, y1),
+                                         fill, a.straighten or 0)
+        except ValueError as exc:
+            ap.error(str(exc))
+
     valid = None
     if a.straighten:
         im, valid = straighten(im, (x0, y0, x1, y1), a.straighten)
+        if package_box is not None:
+            # A square inside the unrotated ROI can still sample an excluded
+            # neighbour after rotation. Track the source safe area itself,
+            # with two pixels of clearance for bicubic interpolation.
+            safe = Image.new("L", (W, H), 0)
+            safe.paste(255, (x0, y0, x1, y1))
+            valid = safe.filter(ImageFilter.MinFilter(5)).rotate(
+                -a.straighten, resample=Image.Resampling.NEAREST,
+                center=((x0+x1)/2, (y0+y1)/2), fillcolor=0)
 
-    if a.exact:
+    if package_box is not None:
+        bx0, by0, bx1, by1 = package_box
+    elif a.exact:
         bx0, by0, bx1, by1 = x0, y0, x1, y1
     else:
         found = find_object(im.crop((x0, y0, x1, y1)),
@@ -194,12 +274,19 @@ def main() -> int:
 
     box = (int(bx0), int(by0), int(bx1), int(by1))
     if valid is not None and valid.crop(box).getextrema()[0] == 0:
+        if package_box is not None:
+            print("straightening makes the package square sample outside the "
+                  "safe ROI; widen it only if clear, or straighten less",
+                  file=sys.stderr)
+            return 1
         print("straightening brings corner fill into the crop; tighten the "
               "ROI or straighten less", file=sys.stderr)
         return 1
     crop = im.crop(box)
 
     done = []
+    if package_box is not None:
+        done.append(f"package-fill={fill:g}")
     if a.straighten:
         done.append(f"straighten={a.straighten:g}")
     if a.rotate:

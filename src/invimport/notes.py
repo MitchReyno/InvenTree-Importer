@@ -28,7 +28,6 @@ written as it stands.
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 # (key in the file, heading in InvenTree), in the order they are rendered.
@@ -175,7 +174,11 @@ def _bullets(items: list[str]) -> str:
 
 
 def _code_block(text: str) -> str:
-    """Fenced so that no run of backticks inside can close it early."""
-    longest = max((len(run) for run in re.findall(r"`+", text)), default=0)
-    fence = "`" * max(3, longest + 1)
-    return f"{fence}\n{text.strip(chr(10))}\n{fence}"
+    """
+    Indented, not fenced: InvenTree refuses notes whose HTML changes when it
+    sanitises them, and Python-Markdown writes `"` in a fenced block as
+    `&quot;`, which the sanitiser turns back into `"`. An indented block
+    escapes only `&`, `<` and `>`, and no backticks inside can close it.
+    """
+    lines = text.strip("\n").split("\n")
+    return "\n".join("    " + line if line.strip() else "" for line in lines)

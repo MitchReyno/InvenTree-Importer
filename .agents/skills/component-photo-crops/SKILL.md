@@ -8,8 +8,9 @@ description: Crop photos of electronic components, their packets and labels into
 Turn the user's photos of components — loose parts, sealed packets, tubes,
 blister strips, labels — into images that show one thing clearly. These become
 the part's picture and the stock items' photos in their inventory, so a crop
-that clips the leads, shows a neighbour's corner or cuts a label in half is a
-worse record than no crop at all.
+must keep the package and its markings intact, exclude neighbours and keep
+labels whole. For small axial parts, a square close-up may deliberately crop
+the lead ends.
 
 Two scripts do the mechanical work; your job is choosing what each crop should
 contain and checking that it does. Run them from the repo root with `uv run`
@@ -18,6 +19,7 @@ contain and checking that it does. Run them from the repo root with `uv run`
 ```bash
 S=.claude/skills/component-photo-crops/scripts
 uv run --with pillow --with numpy python $S/crop.py SRC OUT X0 Y0 X1 Y1 [--margin F] [--exact] [--nosquare] \
+    [--package-box X0 Y0 X1 Y1] [--package-fill F] \
     [--rotate 90|180|270] [--straighten D] [--wb] [--autocontrast [PCT]] [--gamma G] [--sharpen]
 uv run --with pillow python $S/montage.py OUT.png IMG [IMG ...]
 ```
@@ -47,7 +49,9 @@ does not have to become a stored image.
 
 Typical outputs for one photo set:
 
-- **The part image** — the component itself, markings readable, leads in. If
+- **The part image** — the component itself, markings readable. For diodes and
+  other small axial components, prefer a square package close-up even when
+  some lead ends fall outside the frame. If
   only the packet was photographed, the packet is the best image there is;
   say so rather than presenting it as a device photo.
 - **One stock image per batch** — the packet, tube or card of *that* lot, with
@@ -98,10 +102,38 @@ displays whole and consistently. Find the item's bounds first, then grow the
 shorter side about the centre — taking the extra from plain background, equally
 on both sides (see [Centre the subject](#centre-the-subject)). Do not
 force it: if squaring would pull a neighbouring component, a hand, a label,
-tag or other unwanted content back into frame (a long axial part, a strip of
-several pouches, a hand-held bag), keep the tighter non-square crop. Cutting
+tag or other unwanted content back into frame (a strip of several pouches,
+a hand-held bag), keep the tighter non-square crop. Cutting
 out what does not belong matters more than the aspect ratio. Never stretch, or
 pad with a fake background, to reach 1:1.
+
+For diodes and other small axial components, prefer **medium 1:1 framing**:
+the package's longer image-axis extent should usually occupy about one third
+of the square (roughly 30–40%), with visible lead on both sides. Centre the
+complete package and markings; lead ends may cross the crop edges. Avoid
+defaulting to a tight body close-up. Keep a wider view when lead shape or
+condition is the purpose of the photo.
+
+Use measured package bounds with `--package-box X0 Y0 X1 Y1`; the script
+defaults to `--package-fill 0.34`. The positional ROI is the larger safe area
+that excludes neighbours and tags, not the package bounds. For example:
+
+```bash
+uv run --with pillow --with numpy python $S/crop.py photo.jpg diode.jpg \
+    1000 1000 4000 4000 --package-box 2300 2400 2700 2600
+```
+
+This makes a centred square approximately three package lengths across,
+without upscaling. Bounds and any straightening use the source pixels shown
+by the grid; after straightening, the enclosing package box is conservative,
+so check the actual framing on the montage. `--package-fill` is optional for
+deliberately tighter or wider variants. This mode replaces detection and
+cannot combine with `--exact` or `--nosquare`. If the desired square cannot
+fit the safe ROI, the script refuses rather than zooming in, moving the
+subject off-centre or padding. Widen the ROI only if clear; otherwise choose
+a square group view or retain a suitable wider context image. Do not remove
+neighbours to force an isolated package. A measured `--exact` square remains
+available for a manually reviewed framing, such as a user-selected variant.
 
 ## Centre the subject
 
@@ -126,11 +158,13 @@ clean background; otherwise accept the centred non-square crop.
   margin on that side caps the margin on the other. Keep the crop tight and
   centred rather than lopsided.
 
-## Keep the whole item
+## Keep the important features whole
 
-- **Include the leads.** A box on the body alone cuts the pins off, and a DIP
-  with no legs is a worse picture than a stock photo. Raise `--margin`
-  (0.12–0.15) for parts with leads, or extend the ROI well past the body.
+- **Keep the package and markings intact.** For small axial components,
+  intentionally cropping lead ends for a square package view is acceptable
+  and often preferred. For other packages, include the pins or leads; raise
+  `--margin` (0.12–0.15) or extend the ROI when needed. A view documenting
+  lead condition should include the relevant lead span.
 - **Include the packet's edges and seal.** The seal state is part of the
   record (sealed / opened), so a crop of a pouch shows all four edges.
 - **Keep labels whole.** A label cut mid-line loses the date code or contract
@@ -204,12 +238,14 @@ Build a montage of all the crops and read it:
 uv run --with pillow python $S/montage.py .temp/<import id>/review.png OUT1.jpg OUT2.jpg ...
 ```
 
-Look for an item clipped at an edge (leads, pouch edges, label text), a
+Look for unintended clipping (package, pins, pouch edges, label text), a
 neighbour or tag intruding, dead space, a subject off-centre (more space on
 one side than the other), markings sideways or upside down, a visible tilt,
 a colour cast, a crop too dark or too flat to read, an over-processed one
 (noise, halos, shifted colours), and the wrong item (the montage labels
-each file with its name and size). Fix the offenders and look again; a second
+each file with its name and size). Deliberately cropped axial lead ends are
+acceptable when the complete package is clear and centred. Fix the offenders
+and look again; a second
 pass is normal. Never report a crop you have not looked at.
 
 **A photo taken through a tube or bag stays soft.** Upscaling and sharpening
@@ -236,7 +272,8 @@ the only fix, and the user can decide whether it is worth taking.
 Return, for every output: its path, which source photo and ROI it came from,
 its final size and aspect ratio, what it shows, any rotation, straightening or
 lighting adjustment applied (as `crop.py` printed it), and anything worth
-flagging — non-square and why, soft or low-resolution, glare or shadow that
+flagging — intentional axial lead cropping, non-square and why, soft or
+low-resolution, glare or shadow that
 could not be corrected, a label only partly legible, a tag read (and what it
 says), an item you could not isolate. Include the montage
 path. Do not edit stock files or upload anything; that is the caller's job.

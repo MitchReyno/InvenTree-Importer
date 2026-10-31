@@ -1002,8 +1002,10 @@ A Claude skill wrapping that loop lives in
 `.claude/skills/inventree-stock-import/`. It delegates part research and
 image cropping to the `component-researcher` and `component-image-cropper`
 agents in `.claude/agents/`;
-research runs share what they learn through its `COMPONENT_RESEARCH.md`. The
-subagents use the `source-snapshots` and `component-photo-crops` skills.
+`COMPONENT_RESEARCH.md` is a concise reference for research methods, useful
+sources and recurring traps, updated only when likely to help future sessions. Part-specific
+findings and source evidence stay with each import. The subagents use the
+`source-snapshots` and `component-photo-crops` skills.
 
 ### Source snapshots
 
