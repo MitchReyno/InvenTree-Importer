@@ -1,6 +1,6 @@
 # Import architecture
 
-This is the current implementation through Stage 7 (independent review pending),
+This is the current implementation through Stage 7 (bounded opt-in independently approved),
 based on main `c22b7a1`
 (including the code-organization conventions) and SDK `inventree==0.13.5`.
 The ordinary stock CLI still uses the legacy workflow. The durable workflow is
@@ -361,3 +361,18 @@ result. Shared `records.review` derives aggregate certainty from the effects it
 retains; mixed/explicit unknown outcomes remain uncertain. No accepted or unknown
 receipt is replayed to repair a conflict. These checks still cannot make several
 remote reads and a POST atomic against a later external actor.
+
+
+## Stage 7 independent clearance
+
+The bounded Stage 7 implementation is independently approved at exact hash
+`b27badf80a03c3b753a5293010054514c4a064c8`. All six material findings are cleared;
+both rejected candidates remain historical evidence in the
+[handover](docs/handovers/import-execution-stage-7.md#final-independent-clearance).
+Independent focused verification passed 395 tests in 139.66 seconds, with the
+original/adapted adverse cases and inherited SDK/stock/CLI protections passing.
+The SDK probe matched 154 actual sends to 154 unique pre-send intents, including
+11 media GETs. Owner normal 1879/1 skip/43 deselected and scanner 43 are separate
+owner evidence. This clearance retains every documented one-order, model-only,
+capability, exact-source, old-plan, serial/local and live-server limitation; it
+does not enable default rollout, media/archive parity or production concurrency.

@@ -7,8 +7,8 @@ with independent review approved. Stage 4 implements the bounded durable stock
 reference slice with independent review approved. Stage 5 implements the opt-in
 full-domain library with independent exact-head review approved. Stage 6 implements
 the explicit CLI opt-in with independent exact-head review approved. Stage 7 adds
-a bounded DigiKey opt-in and measured serial-execution decision; independent
-review is pending.
+a bounded DigiKey opt-in and measured serial-execution decision with independent
+exact-head review approved.
 Companion documents:
 [design](import-execution-design.md), [contracts](import-execution-contracts.md),
 [architecture](../ARCHITECTURE.md). Baseline main `c22b7a1` includes PR #11
@@ -27,7 +27,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 | 4 | Complete; independent bounded-slice review approved | [Stage 4 handover](handovers/import-execution-stage-4.md); persistent fake-server fault matrix and actual observed SDK composition |
 | 5 | Complete; independent opt-in full-library review approved | [Stage 5 handover](handovers/import-execution-stage-5.md); all eight findings corrected; 221 focused tests passed and 150 SDK sends/intents |
 | 6 | Complete; independent opt-in CLI review approved | [Stage 6 handover](handovers/import-execution-stage-6.md); corrected normal1772, focused261/CLI31+journal9; scanner43; legacy default gated |
-| 7 | Implemented bounded opt-in; independent review pending | [Stage 7 handover](handovers/import-execution-stage-7.md); one-order preparation, distinct contributions/issue/receipt; synthetic measurement retains serial execution |
+| 7 | Complete bounded opt-in; independent exact-head review approved | [Stage 7 handover](handovers/import-execution-stage-7.md#final-independent-clearance); all six findings cleared at b27badf; independent focused395 and SDK154 sends/intents; serial execution retained |
 
 Deliver all stages as sequential stacked PRs. Each stage has a separate owner
 and independent review before its PR opens. Keep this plan flexible: record
@@ -736,8 +736,27 @@ the handover. Initial rejection is preserved; owner tests do not imply clearance
 
 The c5eab95 exact-head recheck additionally rejected a late receipt precondition
 gap (observable totals/status changed after selection) and invalid aggregate review
-certainty with retained accepted effects. The next corrected candidate refreshes
+certainty with retained accepted effects. The final corrected candidate refreshes
 selection and binds totals/status/location at final dispatch/no-write settlement,
 keeps manual changes review-only, and preserves valid confirmed/unknown review
 results. Rejection, reproduced outcomes and final checks remain in the handover;
-publication still requires independent approval of the next exact commit.
+the final independent clearance below supersedes the earlier pending recheck.
+
+
+## Stage 7 final independent clearance
+
+Approved exact implementation: `b27badf80a03c3b753a5293010054514c4a064c8`. All six
+material findings are independently cleared, with no material unresolved finding.
+Rejections of 343bea9 and c5eab95 remain historical and are not retroactively approved.
+Independent focused execution/SDK/DigiKey API:395 passed in 139.66 seconds. Original/
+adapted adverse cases and inherited protections also pass:154 SDK sends/intents,
+unknown archive transfer retained across revision 2, held-lock/artifact protection,
+semantic corruption refusal, Ctrl-C/export130 and active-writer/SIGINT recovery.
+
+Owner normal1879/1 existing skip/43 deselected, focused 395 and scanner 43 remain
+separate evidence. The bounded one-order/model-only/no-media/archive, explicit
+capability/exact-source/old-plan, serial/local and unverified live-server limits
+remain release constraints. No default switch, allocator claim, migration, production
+pool or exactly-once remote guarantee follows from clearance. Full review history
+and operational guidance remain in the handover. A subsequent clearance-record
+commit changes documentation only; root owns stacked publication and no merge.

@@ -667,3 +667,14 @@ selected call. Changed state requires review or stable read-only satisfaction,
 never automatic remaining receipt. Accepted effects retain valid aggregate review
 certainty. This is an additional conditional client gate, not a remote transaction
 or proof that no external actor can race after the final read.
+
+
+The bounded Stage 7 design/implementation is independently approved at exact
+`b27badf80a03c3b753a5293010054514c4a064c8`. All six material findings are cleared;
+independent focused 395 passed in 139.66 seconds, with the original/adapted adverse
+reproductions and inherited SDK 154-intent, unknown-archive, output/journal and
+cancellation protections passing. Both rejected candidates and corrections remain
+in the [handover](handovers/import-execution-stage-7.md#final-independent-clearance).
+Approval retains the stated one-order/model-only/no-media/archive, exact-source/
+capability/old-plan, serial/local and live-server limits. This clearance record
+changes no runtime behavior or plan/journal contract.

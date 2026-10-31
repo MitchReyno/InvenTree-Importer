@@ -632,3 +632,16 @@ effects, and unknown aggregate/state when any retained or explicit unknown exist
 Accepted receipt/readback conflict returns valid needs-review data rather than
 raising a constructor error, retaining historical accepted effects and no-replay
 policy. Known outputs/attempts/IDs and plan/journal schemas remain unchanged.
+
+
+### Stage 7 approved contract boundary
+
+Independent exact-head review approved `b27badf80a03c3b753a5293010054514c4a064c8`
+with all six material findings cleared. Independent focused verification passed
+395 tests in 139.66 seconds; original/adapted adverse cases and inherited SDK 154
+pre-send-intent, unknown archive, output/journal and cancellation protections pass.
+See the [final handover clearance](handovers/import-execution-stage-7.md#final-independent-clearance)
+for evidence and both preserved rejection histories. No contract is relaxed by
+clearance: one complete order, model-only/no-media/archive scope, source/capability/
+old-plan gates, conservative unknown/manual-state handling and serial/local ownership
+remain. No live conditional/uniqueness/atomicity or default-rollout guarantee is added.

@@ -1,5 +1,10 @@
 # Stage 7 handover — bounded DigiKey orders and measured concurrency
 
+Current disposition: **independently approved** at exact implementation hash
+`b27badf80a03c3b753a5293010054514c4a064c8`. All six material findings are cleared.
+The [final independent clearance](#final-independent-clearance) supersedes the
+historical pending milestones below while preserving both rejected candidates.
+
 ## Baseline, ownership and release boundary
 
 Exact reviewed/published Stage 6 base:
@@ -24,7 +29,8 @@ repair/recovery. Existing ordinary command defaults remain legacy. Product media
 downloaded datasheet attachments and per-order evidence archives are not included
 in this bounded DigiKey preview. Existing taxonomy/templates must be mapped first.
 This is not a default-rollout/parity or arbitrary multi-order allocator clearance.
-Independent exact-head review remains pending at this owner handover milestone.
+At the initial owner handover milestone, independent review was pending; the
+final clearance below records the current approved disposition.
 
 ## Actual work and integration steps
 
@@ -560,3 +566,52 @@ the independent reviewer against the next exact clean hash before publication.
 The one-order/model-only/no-media/archive, exact-source/capability/old-plan, serial/
 local and unverified live-server limits remain; no production pool, migration,
 force replay or remote rollback was added. No owner push/PR/merge/live-service call.
+
+
+## Final independent clearance
+
+**APPROVED for the bounded Stage 7 stacked PR at exact implementation hash
+`b27badf80a03c3b753a5293010054514c4a064c8`.** All six material findings are independently
+cleared; no material unresolved finding remains. The prior rejections of
+`343bea94199b0f9f8847e38599781dbe74752dee` and
+`c5eab95b1dab46c9f056fdc92018500fc2af9b0a` remain historical evidence and are
+not retroactively approved. Earlier pending/recheck/publication-block statements
+record their then-current milestones; this disposition supersedes those pending
+conditions only, preserving their failure/correction history and every release limit.
+
+Final independent evidence at the approved exact clean head:
+
+- Focused execution/actual SDK observation/DigiKey API: **395 passed in 139.66 seconds**.
+- Original/adapted Company, contribution-set, exact-number, historical-date and
+  late receipt/status/location probes pass. The final selected-total check stops
+  stale receipt; accepted-readback conflict returns confirmed/needs-review and
+  fresh-process repair never repeats it. Changing totals during unknown no-write
+  satisfaction retains uncertainty, one historical receipt and one stock.
+- Actual SDK full-domain probe: **154 actual sends = 154 unique pre-send INTENTs**,
+  including 11 guarded media GETs. No double journal wrapper was introduced.
+- Unknown original archive remains uncertain across immutable revision 2; its
+  upload count stays 1 and total uploads 6→7. Held lock inode/artifact protection,
+  semantic journal corruption refusal, Ctrl-C plus export failure 130 and active
+  writer local status/actual SIGINT recovery with exactly 1 stock all pass.
+- Independent residual-file Ruff, complete base-to-head whitespace and required
+  latest-main ancestry pass; reviewed HEAD is exact and worktree clean.
+
+Owner normal **1879 passed/1 existing skip/43 deselected in 175.35 seconds**,
+focused **395 passed in 141.01 seconds** and scanner **43 passed in 44.97 seconds**
+remain separate owner evidence. Normal/scanner were not redundantly repeated by
+the independent reviewer. No live inventory/vendor request, source edit, publication
+or further delegation was performed by that reviewer.
+
+Approval covers only the documented explicit opt-in/legacy-default, one complete
+sales order, model-only/no DigiKey media/datasheet/archive parity, pre-mapped taxonomy,
+exact 13 integer + 6 fractional source bounds, advertised writable capabilities, old-plan
+history/claim preservation without semantic migration, conservative unknown/manual
+state handling, and serial local ownership with synthetic-only concurrency evidence.
+It does not establish live allocator/uniqueness/immutable-instance identity, conditional
+updates, cross-client atomicity or exactly-once effects. Changes after the last
+relevant observation remain outside the client guarantee.
+
+The final clearance-record commit updates only maintained documentation and this
+handover. Whitespace is checked; runtime suites are intentionally not rerun because
+no runtime/test/dependency/evidence bytes change. Root owns publication of the
+stacked PR from that final documentation head. No owner push/PR/merge/live action.
