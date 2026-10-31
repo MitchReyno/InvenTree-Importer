@@ -115,7 +115,7 @@ def _generated_archive(content: bytes) -> bool:
         return False
 
 
-def frozen_sources(document: StockFile) -> list[dict[str, str]]:
+def frozen_sources(document: StockFile, *, generated_paths: tuple[Path, ...] = ()) -> list[dict[str, str]]:
     from ..inventree.archive import import_folder
     from .artifacts import is_owned_execution_file
     from .stock_assets import stable_bytes
@@ -124,7 +124,10 @@ def frozen_sources(document: StockFile) -> list[dict[str, str]]:
         return []
     sources: dict[Path, bytes] = {}
     generated_images: set[Path] = set()
+    generated_outputs = {path.resolve() for path in generated_paths}
     for path in sorted(folder.rglob("*")):
+        if path.resolve() in generated_outputs:
+            continue
         relative = path.relative_to(folder)
         if any(segment.startswith(".") for segment in relative.parts) or not path.is_file() or is_owned_execution_file(path):
             continue
@@ -150,7 +153,8 @@ def frozen_sources(document: StockFile) -> list[dict[str, str]]:
             if path.resolve() not in generated_images]
 
 
-def with_finalization(plan: Plan, document: StockFile, *, archive: bool, provenance: bool) -> Plan:
+def with_finalization(plan: Plan, document: StockFile, *, archive: bool, provenance: bool,
+                      generated_paths: tuple[Path, ...] = ()) -> Plan:
     """Freeze the complete settled graph, manifest, source claims and upload scope."""
     operations = list(plan.operations)
     settled = [op.id for op in operations]
@@ -170,7 +174,7 @@ def with_finalization(plan: Plan, document: StockFile, *, archive: bool, provena
         provenance_op = add("provenance_snapshot", {"sources": source_rows, "source": document.source}, settled)
     archive_op = None
     if archive:
-        manifest = frozen_sources(document)
+        manifest = frozen_sources(document, generated_paths=generated_paths)
         sources = {Path(item["name"]).name: item["sha256"] for item in manifest}
         for operation in plan.operations:
             desired = operation.desired.values()

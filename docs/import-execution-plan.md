@@ -5,7 +5,8 @@ implements independently reviewed safe reads/errors; Stage 2 implements in-memor
 observations; Stage 3 implements the explicit-handler execution/store foundation
 with independent review approved. Stage 4 implements the bounded durable stock
 reference slice with independent review approved. Stage 5 implements the opt-in
-full-domain library with independent exact-head review approved; Stages 6–7 remain pending.
+full-domain library with independent exact-head review approved. Stage 6 implements
+the explicit CLI opt-in and awaits independent review; Stage 7 remains pending.
 Companion documents:
 [design](import-execution-design.md), [contracts](import-execution-contracts.md),
 [architecture](../ARCHITECTURE.md). Baseline main `c22b7a1` includes PR #11
@@ -23,7 +24,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 | 3 | Complete; independent foundation review approved | [Stage 3 handover](handovers/import-execution-stage-3.md); real SQLite/restart, canonical claims, serial fake-handler gates |
 | 4 | Complete; independent bounded-slice review approved | [Stage 4 handover](handovers/import-execution-stage-4.md); persistent fake-server fault matrix and actual observed SDK composition |
 | 5 | Complete; independent opt-in full-library review approved | [Stage 5 handover](handovers/import-execution-stage-5.md); all eight findings corrected; 221 focused tests passed and 150 SDK sends/intents |
-| 6 | Pending | Compatibility/default rollout gates below |
+| 6 | Implemented; independent review pending | [Stage 6 handover](handovers/import-execution-stage-6.md); normal1750, final focused243/CLI22, scanner43; legacy default gated |
 | 7 | Pending | DigiKey adaptation and measured concurrency gates below |
 
 Deliver all stages as sequential stacked PRs. Each stage has a separate owner
@@ -636,3 +637,20 @@ opening its stacked PR. No stage authorizes live inventory calls or writes.
 Target uniqueness, absence response taxonomy, conditional writes, PO-line
 correlation and attachment-content verification remain capabilities to establish
 with supported evidence, or handle conservatively as uncertainty/review.
+
+## Stage 6 release decision
+
+The implemented `import-run` command is the explicit opt-in durable full stock
+workflow; `import-stock` keeps its existing default/flags and montage `--plan`
+schema. This deliberately defers the default switch until parity/fault gates pass.
+See [operator contracts](import-run.md) and [Stage 6 handover](handovers/import-execution-stage-6.md).
+Preparation is noninteractive with explicit choices; no implicit category-YAML
+persistence, multi-new-PO allocator or basename conflict guessing is introduced.
+Status is local and versioned, including attempt/request export. Invocation event
+stream IDs/sequences are separate from durable journal sequence; snapshots rebuild
+after missed render events. Resume/retry require an audited same-database continuity
+reason where immutable identity is unavailable; this never overrides known drift.
+Abandon keeps a blocking tombstone, not a reason-only uncertainty clearance.
+Required-output prerequisite recovery differs from settlement barriers: selecting
+evidence does not arbitrarily retry failed inventory branches. There is no TUI
+dependency or legacy fallback after execution failure.

@@ -17,7 +17,9 @@ from .dispatch import guarded
 from .executor import (
     ContinuityReview,
     OperationContext,
+    _dependency_settled,
     _failed,
+    _invoke,
     execute_plan,
     execute_serial,
     resume_run,
@@ -25,7 +27,7 @@ from .executor import (
     validate_target_observation,
 )
 from .models import OperationSpec, Plan, State, Target, canonical
-from .observation import durable_correlation
+from .observation import durable_correlation, operation
 from .ownership import JournalError, Registry, normalize_endpoint
 from .stock_api import StockAPI
 from .stock_handlers import StockHandlers
@@ -140,6 +142,65 @@ def resume_stock(plan: Plan, run_id: str, path: Path, *, api: StockAPI, current_
     return _report(plan, snapshot, path.parent)
 
 
+def _repair_selected_operations(store: RunStore, handlers: StockHandlers, operation_id: str, *,
+                                cancelled: Event) -> None:
+    """Recover usable prerequisites, never turn settlement into blanket retry."""
+    plan = store.plan
+    specs = {op.id: op for op in plan.operations}
+    if operation_id not in specs:
+        raise ValueError("unknown operation ID")
+    attempted: set[str] = set()
+
+    def repair_selected(selected: str) -> None:
+        if selected in attempted:
+            return
+        attempted.add(selected)
+        spec = specs[selected]
+        # Only required usable outputs need recovery. Settlement
+        # barriers authorize finalization after failed inventory;
+        # selecting evidence must not retry every failed branch.
+        for reference in spec.requires:
+            previous = store.results().get(reference.operation)
+            if previous is None or not any(output.name == reference.name for output in previous.outputs):
+                repair_selected(reference.operation)
+        results = store.results()
+        outputs = {(key, output.name): output for key, result in results.items() for output in result.outputs}
+        if any((ref.operation, ref.name) not in outputs for ref in spec.requires):
+            return  # Honest blocked result; no speculative dispatch.
+        states = store.states()
+        for parent in spec.settled_after:
+            if not _dependency_settled(plan, parent, states, outputs):
+                repair_selected(parent)
+        states, results = store.states(), store.results()
+        outputs = {(key, output.name): output for key, result in results.items() for output in result.outputs}
+        if not all(_dependency_settled(plan, parent, states, outputs) for parent in spec.settled_after):
+            return
+        state = states[selected]
+        if state in SETTLED_SUCCESS:
+            return
+        if state in {State.PENDING, State.READY, State.BLOCKED}:
+            _invoke(spec, store, handlers.mapping, cancelled=cancelled or Event(), outputs=outputs)
+            return
+        attempt = store.start_stock_repair(selected)
+        context = OperationContext(store, attempt, cancelled=cancelled or Event(), inputs=outputs)
+        with durable_correlation(run=store.run_id, operation=selected, attempt=attempt.id,
+                                 source=spec.attribution.source, group=spec.group), guarded(context), operation("stock repair"):
+            try:
+                context.check()
+                result = handlers.repair(spec, context)
+                context.check()
+            except JournalError:
+                raise
+            except BaseException as exc:
+                store.finish(attempt, _failed(exc, context))
+                if not isinstance(exc, (RequestException, ConnectionError, TimeoutError, InterruptedError)):
+                    raise
+            else:
+                store.finish(attempt, result)
+
+    repair_selected(operation_id)
+
+
 def repair_stock(plan: Plan, run_id: str, path: Path, operation_id: str, *, api: StockAPI,
                  current_target: Target, continuity: ContinuityReview | None = None,
                  cancelled: Event | None = None) -> dict:
@@ -159,25 +220,8 @@ def repair_stock(plan: Plan, run_id: str, path: Path, operation_id: str, *, api:
                 registry.activate(run_id, location=path, revision=plan.revision)
                 store.owner_check = lambda: registry.check_ownership(run_id, location=path, revision=plan.revision)
                 store.recover_interrupted()
-                spec = next(op for op in plan.operations if op.id == operation_id)
-                results = store.results()
-                outputs = {(key, output.name): output for key, result in results.items() for output in result.outputs}
-                if any((reference.operation, reference.name) not in outputs for reference in spec.requires):
-                    raise ValueError("repair dependencies have no usable output")
-                attempt = store.start_stock_repair(operation_id)
-                context = OperationContext(store, attempt, cancelled=cancelled or Event(), inputs=outputs)
-                with durable_correlation(run=run_id, operation=operation_id, attempt=attempt.id,
-                                         source=spec.attribution.source, group=spec.group), guarded(context):
-                    try:
-                        context.check()
-                        result = StockHandlers(api).repair(spec, context)
-                        context.check()
-                    except JournalError:
-                        raise
-                    except (RequestException, ConnectionError, TimeoutError, InterruptedError) as exc:
-                        store.finish(attempt, _failed(exc, context))
-                    else:
-                        store.finish(attempt, result)
+                _repair_selected_operations(store, StockHandlers(api), operation_id,
+                                            cancelled=cancelled or Event())
                 snapshot = execute_serial(store, StockHandlers(api).mapping, cancelled=cancelled)
                 from .stock_finalization import refresh_finalization
                 snapshot = refresh_finalization(store, StockHandlers(api), cancelled=cancelled)
@@ -193,7 +237,7 @@ def repair_stock(plan: Plan, run_id: str, path: Path, operation_id: str, *, api:
 
 def prepare_full_stock(document: StockFile, *, categories: Mapping[str, CategoryConfig],
                        parameters: Mapping[str, ParameterConfig], target: Target, api: StockAPI,
-                       options: ImportOptions | None = None) -> Plan:
+                       options: ImportOptions | None = None, generated_paths: tuple[Path, ...] = ()) -> Plan:
     """Opt-in full library preparation. All callbacks run before approval.
 
     Uses the same planner and handlers as the representative compatibility slice.
@@ -204,7 +248,8 @@ def prepare_full_stock(document: StockFile, *, categories: Mapping[str, Category
     from .stock_preparation import prepare_stock
     options = options or ImportOptions()
     plan = prepare_stock(document, categories=categories, parameters=parameters, target=target, api=api, options=options)
-    return with_finalization(plan, document, archive=options.archive, provenance=options.provenance)
+    return with_finalization(plan, document, archive=options.archive, provenance=options.provenance,
+                             generated_paths=generated_paths)
 
 
 def project_stock_result(plan: Plan, snapshot: dict, *, run_directory: Path | None = None) -> StockImportResult:

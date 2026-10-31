@@ -58,6 +58,8 @@ class StockRequests:
             self.context.after(request, outcome="exchange_unknown")
             raise
         self.context.after(request, outcome="received")
+        if method in {"get", "options"} or route == "barcode/":
+            self.context.check()
         return result
 
     def get(self, route: str, *, params: dict | None = None) -> Any:

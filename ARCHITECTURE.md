@@ -1,9 +1,9 @@
 # Import architecture
 
-This is the current implementation through Stage 5, based on main `c22b7a1`
+This is the current implementation through Stage 6, based on main `c22b7a1`
 (including the code-organization conventions) and SDK `inventree==0.13.5`.
 The ordinary stock CLI still uses the legacy workflow. The durable workflow is
-an explicit library opt-in; CLI rollout belongs to Stage 6. See the maintained
+an explicit library and `import-run` CLI opt-in; the legacy default is gated. See the maintained
 [design](docs/import-execution-design.md), [contracts](docs/import-execution-contracts.md),
 [plan](docs/import-execution-plan.md) and [stage handovers](docs/handovers/).
 
@@ -52,7 +52,7 @@ there is no fallback to the legacy importer during execution. The full entry add
 selected enrichment and finalization. All callbacks run during preparation and
 only their resolved choices become executable inputs. `ImportOptions.write` never
 causes preparation to mutate inventory; `execute_stock` is the explicit execution
-boundary. Stage 6 must bind this boundary to CLI write approval.
+boundary. `commands/import_run.py` binds it to explicit CLI `--write` approval.
 
 ## Domain responsibilities
 
@@ -193,9 +193,28 @@ and repair, and the actual observed pinned SDK with fake HTTP multipart/media
 boundaries. These establish client behavior, not live uniqueness, exactly-once
 remote effects, target identity or cross-client transaction guarantees.
 
-Stage 6 owns CLI prepare/execute/status/resume/retry presentation, write approval,
-JSON/exit contracts, operational retention documentation and default rollout after
-review/parity gates. Category config-file persistence needs an explicit supplied
+Stage 6 exposes opt-in CLI prepare/execute/status/resume/retry/abandon, write
+approval, JSON/exit contracts and [operational guidance](docs/import-run.md).
+The default switch remains gated on parity/fault review. Category config-file persistence needs an explicit supplied
 configuration target/precondition contract before a future CLI promises it.
 DigiKey migration and bounded concurrency remain Stage 7. The library is serial;
 legacy thread pools remain confined to legacy parameter/download workflows.
+
+## Durable CLI boundary
+
+`commands/import_run` owns parsing and presentation; `execution.run_control` owns
+local discovery, consistent status/attempt/request projection and blocking audit
+disposition. `repair_stock` recovers missing usable prerequisites under their
+original operation IDs; settlement dependencies do not become blanket failed-line
+retries. The CLI uses the existing observation/actual SDK seam throughout setup,
+authentication, discovery and execution. Public SDK errors are safe class labels;
+`InvocationFailure` preserves their cause for embedding callers. Library callers
+remain quiet unless they opt into observation.
+
+CLI status never connects. Resume/retry explicitly record reviewed same-database
+continuity reasons; SDK server details are never promoted to immutable identity.
+Abandon retains a blocking tombstone. Plan bytes and journal operations remain the
+approved scope after source deletion. Invocation events and durable SQLite journal
+sequences are distinct streams; status reconstructs state after renderer/event loss.
+The new command has no TUI dependency, implicit local YAML writes or fallback to
+legacy. Existing `import-stock` flags and montage schema remain untouched.

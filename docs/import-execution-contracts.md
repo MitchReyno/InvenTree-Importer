@@ -1,9 +1,8 @@
 # Import execution contracts
 
-Status: agreed target contracts with Stage 1–4 implemented boundaries recorded
-below. The future CLI and complete stock-domain execution/recovery remain
-**not released**; Stage 3 exposes foundation APIs and Stage 4 adds an opt-in,
-bounded stock library. Full stock coverage and CLI release remain Stage 5/6.
+Status: Stage 1–5 library boundaries are independently reviewed. Stage 6 adds
+an opt-in durable full-stock CLI with local status and audited recovery/disposition;
+its independent review remains pending. The legacy CLI default remains gated.
 Current behavior is in [ARCHITECTURE.md](../ARCHITECTURE.md). The
 [plan](import-execution-plan.md) owns stage status and acceptance gates.
 
@@ -22,7 +21,7 @@ Current behavior is in [ARCHITECTURE.md](../ARCHITECTURE.md). The
 | Immutable artifacts, external execution report | Frozen bytes/targets can be retried without new inventory effects. Recording upload outcome inside the same archive would change the artifact being uploaded. |
 | Small execution package, synchronous handlers | Proposed `src/invimport/execution/` separates models, planning, store, executor and observation by responsibility as needed. No workflow DSL, generic plugin engine, async rewrite or second importer policy implementation. Follow CONVENTIONS.md: classes own coherent state/resources, orchestration calls focused named operations with explicit inputs/options, and dependencies flow commands → workflows → lower-level operations. Create modules/packages only for demonstrated cohesive responsibilities. |
 
-## Concrete future CLI/library contracts
+## Concrete CLI/library contracts
 
 Reserve a new top-level `invimport import-run` command with subcommands below;
 existing `import-stock FILE ... --plan FILE` keeps its meaning and schema. Names
@@ -36,7 +35,7 @@ They are not available until implemented behind the staged feature gate.
 | `invimport import-run status RUN_ID --json` | Read committed local snapshot without connecting; expose pending/blocked/uncertain work and artifact locations. `--json` keeps stdout machine-readable; progress/diagnostics go to stderr. |
 | `invimport import-run resume RUN_ID --write` | Revalidate identity/preconditions, reconcile interrupted effects and execute pending approved operations; never rebind choices or restore historical quantities. |
 | `invimport import-run retry-operation RUN_ID OPERATION_ID --write` | Select domain recovery including unmet prerequisites and reconciliation. Never blindly replay a request or bypass approval. |
-| `invimport import-run abandon RUN_ID --reason TEXT --write` | Reviewed ownership disposition, not deletion/rollback. Reject unresolved remote effects until explicit evidence/review accounts for them; preserve audit history and a persistent safety disposition for unsafe same-import work. No force flag that silently clears uncertainty. |
+| `invimport import-run abandon RUN_ID --reason TEXT --write` | Reviewed ownership disposition, not deletion/rollback. Never clear unresolved remote effects from a reason alone; retain a blocking audited tombstone and persistent same-import claim. No force flag that silently clears uncertainty. |
 
 Use `--json` consistently for new command result snapshots, and `--events FILE`
 for redacted sequenced JSONL export. `--yes` suppresses confirmations only when
@@ -490,3 +489,20 @@ single-new-PO allocator restriction, explicit category-config destination bounda
 conservative source-basename consistency refusal and local serial ownership scope.
 It does not approve CLI/default rollout, infer live server capabilities or promise
 exactly-once remote effects. Stage 6 still owns its explicit release/parity gates.
+
+## Stage 6 release decision
+
+The implemented `import-run` command is the explicit opt-in durable full stock
+workflow; `import-stock` keeps its existing default/flags and montage `--plan`
+schema. This deliberately defers the default switch until parity/fault gates pass.
+See [operator contracts](import-run.md) and [Stage 6 handover](handovers/import-execution-stage-6.md).
+Preparation is noninteractive with explicit choices; no implicit category-YAML
+persistence, multi-new-PO allocator or basename conflict guessing is introduced.
+Status is local and versioned, including attempt/request export. Invocation event
+stream IDs/sequences are separate from durable journal sequence; snapshots rebuild
+after missed render events. Resume/retry require an audited same-database continuity
+reason where immutable identity is unavailable; this never overrides known drift.
+Abandon keeps a blocking tombstone, not a reason-only uncertainty clearance.
+Required-output prerequisite recovery differs from settlement barriers: selecting
+evidence does not arbitrarily retry failed inventory branches. There is no TUI
+dependency or legacy fallback after execution failure.

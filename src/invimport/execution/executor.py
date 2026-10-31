@@ -134,18 +134,26 @@ def _invoke(spec: OperationSpec, store: RunStore, handlers: Mapping[Kind, Handle
     context = OperationContext(store, attempt, cancelled=cancelled, inputs=outputs)
     with durable_correlation(run=store.run_id, operation=spec.id, attempt=attempt.id,
                              source=spec.attribution.source, group=spec.group), guarded(context):
+        observation = active()
+        if observation:
+            observation.emit("operation_started", spec.kind.value)
         try:
+            context.check()
             result = handlers[spec.kind](spec, context)
         except JournalError:
             raise  # no failed-result write can make a broken journal healthy
         except BaseException as exc:
             store.finish(attempt, _failed(exc, context))
+            if observation:
+                observation.emit("operation_finished", spec.kind.value, outcome="stopped")
             if not isinstance(exc, (ClassifiedFailure, InterruptedError, RequestException, TimeoutError, ConnectionError)):
                 raise  # programming errors and Ctrl-C stop new work
             return
         if context.unknown_write and result.certainty != Certainty.UNKNOWN:
             raise ValueError("handler swallowed an uncertain write without reconciliation")
         store.finish(attempt, result)
+        if observation:
+            observation.emit("operation_finished", spec.kind.value, outcome=result.state.value)
 
 
 def _dependency_settled(plan: Plan, parent: str, states: Mapping[str, State],
@@ -209,6 +217,10 @@ def execute_plan(plan: Plan, handlers: Mapping[Kind, Handler], *, current_target
             with RunStore(path, plan=plan, run_id=run_id, create=True) as store:
                 registry.activate(run_id, location=path, revision=plan.revision)
                 store.owner_check = lambda: registry.check_ownership(run_id, location=path, revision=plan.revision)
+                observation = active()
+                if observation:
+                    with durable_correlation(run=run_id, operation="run", attempt="", source="", group="execution"):
+                        observation.emit("run_started", "durable run")
                 snapshot = execute_serial(store, handlers, cancelled=cancelled)
                 if all(row["state"] in {State.SUCCEEDED, State.ALREADY_SATISFIED, State.SKIPPED} for row in snapshot["operations"]):
                     registry.complete(run_id)

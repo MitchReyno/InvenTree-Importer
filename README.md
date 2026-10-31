@@ -1425,3 +1425,12 @@ not for this README.
 DigiKey is a trademark of Digi-Key Corporation. InvenTree is a trademark of its
 respective owners. This project is an independent tool and is **not affiliated
 with, endorsed by, or sponsored by** either.
+
+### Durable stock imports (opt-in)
+
+Use `uv run invimport import-run prepare FILE --output PLAN.json`, review the
+resolved hierarchy, then `uv run invimport import-run execute PLAN.json --write`.
+Local `status`, explicit `resume`/`retry-operation`, JSON/events and blocking
+`abandon` are described in the [operator workflow](docs/import-run.md).
+`import-stock` remains the legacy default with its existing flags and `--plan`
+schema while remaining parity/rollout gates are reviewed.

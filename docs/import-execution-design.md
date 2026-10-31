@@ -14,7 +14,8 @@ handlers with selected evidence-backed repair under the original operation IDs.
 Stage 5 extends that shared planner through `prepare_full_stock`, with per-domain
 enrichment, typed settled barriers and immutable provenance/archive revisions.
 See architecture and the Stage 5 handover for exact scope and evidence. Full
-library execution is opt-in; default rollout and import-run CLI remain Stage 6.
+library execution and the Stage 6 `import-run` CLI are opt-in. Legacy default
+rollout remains gated; Stage 6 independent review is pending.
 
 ## Recommendation and scope
 
@@ -575,3 +576,20 @@ Independent exact-head review subsequently approved corrected implementation
 opt-in full-library stage. The handover records 221 independently passing focused tests,
 150 SDK sends matching 150 intents and fresh-process recipient/unknown-transfer safeguards.
 The documented limits and Stage 6 CLI/default rollout gates remain unchanged.
+
+## Stage 6 release decision
+
+The implemented `import-run` command is the explicit opt-in durable full stock
+workflow; `import-stock` keeps its existing default/flags and montage `--plan`
+schema. This deliberately defers the default switch until parity/fault gates pass.
+See [operator contracts](import-run.md) and [Stage 6 handover](handovers/import-execution-stage-6.md).
+Preparation is noninteractive with explicit choices; no implicit category-YAML
+persistence, multi-new-PO allocator or basename conflict guessing is introduced.
+Status is local and versioned, including attempt/request export. Invocation event
+stream IDs/sequences are separate from durable journal sequence; snapshots rebuild
+after missed render events. Resume/retry require an audited same-database continuity
+reason where immutable identity is unavailable; this never overrides known drift.
+Abandon keeps a blocking tombstone, not a reason-only uncertainty clearance.
+Required-output prerequisite recovery differs from settlement barriers: selecting
+evidence does not arbitrarily retry failed inventory branches. There is no TUI
+dependency or legacy fallback after execution failure.

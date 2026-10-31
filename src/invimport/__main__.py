@@ -34,6 +34,7 @@ from .commands import COMMANDS
 from .config import ConfigError
 from .digikey.api import DigiKeyError
 from .env import DEFAULT_ENV_FILE, load_env_file
+from .execution.run_control import InvocationFailure
 from .inventree.api import InvenTreeError
 
 
@@ -117,6 +118,9 @@ def cli(argv: list[str] | None = None) -> int:
     """
     try:
         return main(argv)
+    except InvocationFailure as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
     except (ConfigError, DigiKeyError, InvenTreeError) as exc:
         print(f"\nERROR: {exc}", file=sys.stderr)
         return 1

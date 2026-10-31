@@ -379,6 +379,8 @@ def load_run_status(run_id: str) -> dict:
     try:
         with closing(sqlite3.connect(f"file:{quote(path.as_posix())}?mode=ro", uri=True)) as connection:
             connection.execute("BEGIN")
+            if connection.execute("PRAGMA quick_check").fetchone() != ("ok",):
+                raise JournalError("run journal integrity check failed")
             if connection.execute("PRAGMA user_version").fetchone() != (1,):
                 raise JournalError("unsupported run schema")
             rows = connection.execute("SELECT id,revision,plan FROM run").fetchall()
@@ -387,6 +389,18 @@ def load_run_status(run_id: str) -> dict:
             plan = Plan.loads(rows[0][2])
             if plan.revision != revision:
                 raise JournalError("stored plan revision mismatch")
+            operation_rows = connection.execute("SELECT id,state,result,attribution FROM operations").fetchall()
+            specs = {op.id: op for op in plan.operations}
+            if {row[0] for row in operation_rows} != set(specs):
+                raise JournalError("journal operation set mismatch")
+            for key, state, result, attribution in operation_rows:
+                validated_state = State(state)
+                if result is None and validated_state not in {State.PENDING, State.READY, State.RUNNING, State.BLOCKED}:
+                    raise JournalError("settled operation result missing")
+                if result is not None:
+                    result_from_json(result)
+                if json.loads(attribution) != json.loads(canonical(asdict(specs[key].attribution))):
+                    raise JournalError("journal source attribution mismatch")
             snapshot = _snapshot(connection, run_id=run_id, revision=revision)
             from .artifacts import retention_snapshot
             return snapshot | {"retention": retention_snapshot(path.parent, snapshot)} if snapshot["prepared_artifacts"] else snapshot

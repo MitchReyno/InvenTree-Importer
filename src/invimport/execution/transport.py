@@ -49,6 +49,8 @@ class ObservedRequests:
                     guard.after(request, outcome="exchange_unknown")
                     raise
                 guard.after(request, outcome="http_received")
+                if not request_is_mutation(name, url):
+                    guard.check()
                 return response
             return self._observed_dispatch(name, url, kwargs, observation)
         return dispatch
@@ -86,6 +88,8 @@ class ObservedRequests:
             outcome=("no_response" if response is None else
                      "http_error" if response.status_code >= 300 else "http_received"),
             redirects=len(getattr(response, "history", ())))
+        if name in {"get", "options"} and observation.cancelled.is_set():
+            raise InterruptedError("import cancelled after read")
         return response
 
 
