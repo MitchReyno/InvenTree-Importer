@@ -385,7 +385,8 @@ Stage 4's representative slice, not a whole-import resume or exactly-once claim.
   Completed-run resume is committed status retrieval, with no mutation replay.
 
 See the [Stage 4 handover](handovers/import-execution-stage-4.md) for actual
-validation, policy decisions, scope adjustments and pending independent review.
+validation, policy decisions, scope adjustments and exact-head independent
+clearance of `4c2f127f45d7da93800bd95db8e83a16cb433f5a`.
 
 Stage 4 independent-review refinements: saved PO identity does not waive frozen
 metadata/currency preconditions. Both saved-order repair and each dependent

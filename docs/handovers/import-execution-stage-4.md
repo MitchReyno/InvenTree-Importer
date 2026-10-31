@@ -13,7 +13,8 @@ is a local persistent fake or fake HTTP transport.
 The Stage 4 opt-in library implements a real, bounded StockFile workflow. It does
 not enable a new CLI, replace legacy `import_stock`, claim whole-import recovery,
 or claim exactly-once remote effects. Full enrichment/provenance/archive migration
-is Stage 5; release/default/CLI work is Stage 6. Independent review is pending.
+is Stage 5; release/default/CLI work is Stage 6. Independent review approved
+implementation head `4c2f127f45d7da93800bd95db8e83a16cb433f5a` for this bounded slice.
 
 Read AGENTS.md, current CONVENTIONS.md, ARCHITECTURE.md, maintained execution
 contracts/plan/design, Stage 3 comprehensive handover and independent review
@@ -225,8 +226,9 @@ cause duplicate effects. No raw SDK/log canary is emitted by the new library.
 ## Independent review and next stage
 
 Independent review of `c872660d1132da351ec3ac4173281c4975ade885` found two
-P1 safety defects and one P2 preparation scope defect. Clearance is withheld
-pending fixes/recheck; root owns publication. No live calls or publication occurred.
+P1 safety defects and one P2 preparation scope defect. Clearance was initially
+withheld pending fixes/recheck; the final approval below supersedes that disposition.
+Root owns publication. No live calls or publication occurred during this review.
 
 - **P1, checkpointed and consumed PO metadata:** the saved-output shortcut
   validated supplier/reference identity but skipped frozen description/currency/
@@ -270,7 +272,28 @@ the owner selection above includes that additional regression. Final review-fix 
 1 existing skip, 43 deselected in 66.48s**. Changed-Python Ruff and complete
 base-to-head whitespace checks passed. Scanner was not repeated for these
 stock-domain-only fixes; no scanner/UI or shared transport/store behavior changed.
-Exact committed approval recheck remains pending. No generic retry guard was weakened.
+No generic retry guard was weakened.
+
+### Final independent clearance
+
+Independent review approved exact implementation head
+`4c2f127f45d7da93800bd95db8e83a16cb433f5a` for the bounded Stage 4 stacked PR,
+with no material unresolved findings. This supersedes the original rejected
+candidate while retaining the findings and corrections above. The reviewer
+confirmed the committed hash and clean working tree; re-ran checkpointed and
+already-succeeded PO metadata reproductions, confirmed-upload no-replay and
+multiple-new-PO rejection; and repeated the real observed SDK evidence scenario.
+Both PO paths require review without new contributions, the upload count remains
+one, and 68 actual SDK sends match 68 durable intents with complete reports.
+
+Independent exact-head focused command
+`.venv/bin/pytest tests/execution tests/inventree/test_request_observation.py -q -o addopts=''`
+passed **166 tests in 28.81s**. Base-to-head whitespace passed. The broad normal,
+Ruff and scanner results above remain owner evidence, not independent reruns.
+This final status update changes documentation only; whitespace was checked and
+runtime suites were not repeated. Root may publish after recording this clearance.
+Approval does not enable complete Stage 5 migration, CLI/default rollout or new
+server-side uniqueness/atomicity claims.
 
 Stage 5 should consume this bounded library, retain its invariants and add full
 manufacturer/MPN relationships, enrichment/media/notes, source/provenance staging,

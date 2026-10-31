@@ -4,7 +4,7 @@ Status: maintained implementation plan. Stage 0 establishes contracts; Stage 1
 implements independently reviewed safe reads/errors; Stage 2 implements in-memory
 observations; Stage 3 implements the explicit-handler execution/store foundation
 with independent review approved. Stage 4 implements the bounded durable stock
-reference slice, pending independent review. Stages 5–7 remain unimplemented. Companion documents:
+reference slice with independent review approved. Stages 5–7 remain unimplemented. Companion documents:
 [design](import-execution-design.md), [contracts](import-execution-contracts.md),
 [architecture](../ARCHITECTURE.md). Baseline main `c22b7a1` includes PR #11
 code-organization guidance and PR #9;
@@ -19,7 +19,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 | 1 | Complete; independent implementation review approved | [Stage 1 handover](handovers/import-execution-stage-1.md); error taxonomy and complete-read fault regressions |
 | 2 | Complete; independent implementation review approved | [Stage 2 handover](handovers/import-execution-stage-2.md); whole-command dispatch visibility, worker correlation and secret-canary regressions |
 | 3 | Complete; independent foundation review approved | [Stage 3 handover](handovers/import-execution-stage-3.md); real SQLite/restart, canonical claims, serial fake-handler gates |
-| 4 | Implemented; independent review pending | [Stage 4 handover](handovers/import-execution-stage-4.md); persistent fake-server fault matrix and actual observed SDK composition |
+| 4 | Complete; independent bounded-slice review approved | [Stage 4 handover](handovers/import-execution-stage-4.md); persistent fake-server fault matrix and actual observed SDK composition |
 | 5 | Pending | Full workflow and immutable artifact gates below |
 | 6 | Pending | Compatibility/default rollout gates below |
 | 7 | Pending | DigiKey adaptation and measured concurrency gates below |
@@ -461,6 +461,14 @@ through the real compatibility adapter with a fake transport. Then stop/restart
 in a fresh process against retained fake server state,
 compare record counts/identities and final report. No duplicate known effects;
 legitimate identical lots remain separate; unavoidable ambiguity is explicit.
+
+Independent review approved exact Stage 4 implementation head
+`4c2f127f45d7da93800bd95db8e83a16cb433f5a`, including both PO metadata
+consumption/repair guards, confirmed-upload no-replay and the explicit one-new-PO
+allocation limit. Exact-head focused recheck passed 166 tests in 28.81s; all
+initial findings are resolved. See the comprehensive Stage 4 handover for owner
+full-suite evidence, reviewer scope and retained limitations. This clears the
+bounded library slice for its stacked PR; Stage 5/6 coverage/release gates remain.
 
 ## Stage 5 — full stock workflow and evidence finalization
 
