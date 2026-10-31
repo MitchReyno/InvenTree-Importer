@@ -14,11 +14,12 @@ from pathlib import Path
 import sys
 from uuid import uuid4
 
-from ..config import load_categories_config, load_parameters_config
+from ..config import CONFIG_DIR, load_categories_config, load_parameters_config
 from ..execution.executor import ContinuityReview
 from ..execution.models import Plan, Target
 from ..execution.observation import Event, Observation, observing, operation
-from ..execution.ownership import normalize_endpoint, state_root
+from ..execution.ownership import JournalError, normalize_endpoint, state_root
+from ..execution.output_paths import GeneratedOutputs, UnsafeOutputError, preparation_source_paths
 from ..execution.run_control import (InvocationFailure, abandon_run, complete, inspect_run,
                                      preview, record_continuity, saved_run)
 from ..execution.stock_preparation import PreparationReview
@@ -100,12 +101,14 @@ def _current(plan: Plan | None = None) -> Target:
     return Target(endpoint)
 
 
-def _prepare(args: argparse.Namespace) -> dict:
+def _prepare(args: argparse.Namespace, outputs: GeneratedOutputs) -> dict:
     if not 0 <= args.min_confidence <= 1:
         raise ValueError("min-confidence must be between 0 and 1")
     categories = load_categories_config(args.config)
     parameters = load_parameters_config(args.config)
     document = read_file(args.file)
+    outputs.protect(preparation_source_paths(document))
+    outputs.validate()
     report = validate(document, categories, parameters)
     if not report.ok:
         raise ValueError("stock input validation failed; use import-stock --validate")
@@ -123,13 +126,14 @@ def _prepare(args: argparse.Namespace) -> dict:
                                   target=target, api=api, options=options,
                                   generated_paths=tuple(path for path in (args.output, args.events) if path))
     _hierarchy(plan)
+    outputs.validate()
     _atomic(args.output, plan.dumps() + "\n")
     return {**preview(plan), "prepared": True, "output": str(args.output)}
 
 
-def _perform(args: argparse.Namespace, observation: Observation) -> tuple[dict, int]:
+def _perform(args: argparse.Namespace, observation: Observation, outputs: GeneratedOutputs) -> tuple[dict, int]:
     if args.action == "prepare":
-        return _prepare(args), 0
+        return _prepare(args, outputs), 0
     if args.action == "status":
         result = inspect_run(args.run_id)
         return result, 0 if result["complete"] else 1
@@ -174,15 +178,21 @@ def _perform(args: argparse.Namespace, observation: Observation) -> tuple[dict, 
 
 def run(args: argparse.Namespace) -> int:
     _outline(args.action)
-    inputs = [getattr(args, name, None) for name in ("file", "plan")]
-    outputs = [getattr(args, name, None) for name in ("output", "events")]
-    if (len({path.resolve() for path in outputs if path}) != len([path for path in outputs if path])
-            or any(path.resolve() == source.resolve() for path in outputs if path for source in inputs if source)
-            or any(path.name in {"registry.sqlite3", "run.sqlite3", "registry.initialized", ".invimport-run"}
-                   for path in outputs if path)):
+    inputs = [getattr(args, name, None) for name in ("file", "plan", "env_file")]
+    destinations = [getattr(args, name, None) for name in ("output", "events")]
+    directories = [getattr(args, "run_directory", None)]
+    if args.action == "prepare":
+        directories.append(args.config or CONFIG_DIR)
+    outputs = GeneratedOutputs((path for path in destinations if path),
+                               inputs=(path for path in inputs if path),
+                               directories=(path for path in directories if path),
+                               require_registry=hasattr(args, "run_id"))
+    try:
+        outputs.validate()
+    except (UnsafeOutputError, JournalError, OSError):
         if args.json:
             print(json.dumps({"format": "invimport-run-error/1", "error": "unsafe_output_destination"}))
-        print("ERROR: generated outputs must not replace input or execution authority", file=sys.stderr)
+        print("ERROR: generated outputs must not replace input, configuration or local execution authority", file=sys.stderr)
         return 1
 
     def render(event: Event) -> None:
@@ -195,7 +205,7 @@ def run(args: argparse.Namespace) -> int:
     failure: Exception | None = None
     with observing(observation):
         try:
-            result, code = _perform(args, observation)
+            result, code = _perform(args, observation, outputs)
         except (KeyboardInterrupt, InterruptedError):
             observation.cancelled.set()
             result, code = {"format": "invimport-run-error/1", "error": "cancelled"}, 130
@@ -214,10 +224,12 @@ def run(args: argparse.Namespace) -> int:
         finally:
             if args.events:
                 try:
+                    outputs.validate()
                     _atomic(args.events, "".join(json.dumps({"format": "invimport-observation/1", "stream": observation.run, **asdict(event)}) + "\n" for event in observation.snapshot()))
-                except OSError:
+                except (UnsafeOutputError, JournalError, OSError):
                     result = {**result, "events_saved": False}
-                    code = 1
+                    if code != 130:
+                        code = 1
     started = next((event for event in observation.snapshot() if event.kind == "run_started"), None)
     if started is not None:
         result.setdefault("run_id", started.context.run)

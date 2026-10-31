@@ -24,7 +24,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 | 3 | Complete; independent foundation review approved | [Stage 3 handover](handovers/import-execution-stage-3.md); real SQLite/restart, canonical claims, serial fake-handler gates |
 | 4 | Complete; independent bounded-slice review approved | [Stage 4 handover](handovers/import-execution-stage-4.md); persistent fake-server fault matrix and actual observed SDK composition |
 | 5 | Complete; independent opt-in full-library review approved | [Stage 5 handover](handovers/import-execution-stage-5.md); all eight findings corrected; 221 focused tests passed and 150 SDK sends/intents |
-| 6 | Implemented; independent review pending | [Stage 6 handover](handovers/import-execution-stage-6.md); normal1750, final focused243/CLI22, scanner43; legacy default gated |
+| 6 | Implemented; independent review pending | [Stage 6 handover](handovers/import-execution-stage-6.md); corrected normal1772, focused261/CLI31+journal9; scanner43; legacy default gated |
 | 7 | Pending | DigiKey adaptation and measured concurrency gates below |
 
 Deliver all stages as sequential stacked PRs. Each stage has a separate owner
@@ -654,3 +654,12 @@ Abandon keeps a blocking tombstone, not a reason-only uncertainty clearance.
 Required-output prerequisite recovery differs from settlement barriers: selecting
 evidence does not arbitrarily retry failed inventory branches. There is no TUI
 dependency or legacy fallback after execution failure.
+
+Stage 6 independent review identified and corrected three boundary defects:
+generated outputs must be checked against actual owned run/config/input roots
+(including custom registered roots without markers), journal projection/result
+relationships must be validated against attempt/checkpoint/request history, and
+failed event persistence must preserve cancellation exit 130. Read-only output
+preflight cannot recreate missing canonical authority. RUNNING checkpoint/prior
+results and BLOCKED retry-wait transitions remain valid; neither permits unknown
+effects to become successful. See the Stage 6 handover for exact review/retest evidence.

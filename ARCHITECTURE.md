@@ -218,3 +218,14 @@ approved scope after source deletion. Invocation events and durable SQLite journ
 sequences are distinct streams; status reconstructs state after renderer/event loss.
 The new command has no TUI dependency, implicit local YAML writes or fallback to
 legacy. Existing `import-stock` flags and montage schema remain untouched.
+
+`execution.output_paths.GeneratedOutputs` validates generated destinations against
+resolved canonical/registered/marked/new run roots and invocation source/config
+identities before work and each write. Registry enumeration is read-only. Export
+paths cannot replace held lock inodes or retained artifacts; unrelated equal
+basenames outside owned roots remain valid. `execution.journal_validation` checks
+operation projections against checkpoint/attempt/settlement history and request
+bindings before store use, status and completion. Legitimate RUNNING checkpoints
+and BLOCKED retry-wait projections remain readable; UNKNOWN cannot be promoted to
+success through row-only corruption. Event persistence failure remains separate
+from cancellation's exit 130.

@@ -593,3 +593,12 @@ Abandon keeps a blocking tombstone, not a reason-only uncertainty clearance.
 Required-output prerequisite recovery differs from settlement barriers: selecting
 evidence does not arbitrarily retry failed inventory branches. There is no TUI
 dependency or legacy fallback after execution failure.
+
+Stage 6 independent review identified and corrected three boundary defects:
+generated outputs must be checked against actual owned run/config/input roots
+(including custom registered roots without markers), journal projection/result
+relationships must be validated against attempt/checkpoint/request history, and
+failed event persistence must preserve cancellation exit 130. Read-only output
+preflight cannot recreate missing canonical authority. RUNNING checkpoint/prior
+results and BLOCKED retry-wait transitions remain valid; neither permits unknown
+effects to become successful. See the Stage 6 handover for exact review/retest evidence.

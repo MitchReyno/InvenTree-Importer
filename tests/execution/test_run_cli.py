@@ -459,3 +459,115 @@ def test_event_export_failure_reports_incomplete_without_replaying_writes(scene,
     assert snapshot['events_saved'] is False
     assert inspect_run(snapshot['run_id'])['complete']
     assert len(api.get('stock/')) == 2
+
+
+def test_events_cannot_replace_held_run_lock_or_retained_artifact(scene, tmp_path):
+    from invimport.execution.ownership import FileLock, OwnershipError
+    api, categories, parameters = scene
+    doc = document(tmp_path)
+    plan = prepare_full_stock(doc, api=api, categories=categories, parameters=parameters,
+                              target=Target(api.api_url), options=ImportOptions())
+    directory = tmp_path / 'custom-run'
+    snapshot = execute_stock(plan, api=api, current_target=plan.target, run_directory=directory)
+    lock = directory / 'run.lock'
+    with FileLock(lock):
+        inode = lock.stat().st_ino
+        rejected = invoke_process(['status', snapshot['run_id'], '--events', str(lock), '--json'], api, tmp_path)
+        assert rejected.returncode == 1
+        assert json.loads(rejected.stdout)['error'] == 'unsafe_output_destination'
+        assert lock.stat().st_ino == inode
+        with pytest.raises(OwnershipError):
+            with FileLock(lock):
+                pytest.fail('original lock was bypassed')
+    receipt = snapshot['prepared_artifacts'][0]
+    artifact = directory / 'artifacts' / receipt['filename']
+    original = artifact.read_bytes()
+    rejected = invoke_process(['status', snapshot['run_id'], '--events', str(artifact), '--json'], api, tmp_path)
+    assert rejected.returncode == 1 and artifact.read_bytes() == original
+    assert inspect_run(snapshot['run_id'])['complete']
+
+
+def test_output_guard_protects_registered_run_without_marker_and_canonical_locks(scene, tmp_path):
+    from invimport.execution.ownership import state_root
+    api, _, plan, path = prepared(scene, tmp_path)
+    directory = tmp_path / 'custom-run'
+    snapshot = execute_stock(plan, api=api, current_target=plan.target, run_directory=directory)
+    (directory / '.invimport-run').unlink()
+    targets = [directory / 'new-export.jsonl', directory / 'run.sqlite3-wal',
+               state_root() / 'execution' / 'registry.lock',
+               state_root() / 'execution' / 'registry.sqlite3-journal']
+    for target in targets:
+        existed = target.exists()
+        original = target.read_bytes() if existed else None
+        rejected = invoke_process(['status', snapshot['run_id'], '--events', str(target), '--json'], api, tmp_path)
+        assert rejected.returncode == 1 and json.loads(rejected.stdout)['error'] == 'unsafe_output_destination'
+        assert target.read_bytes() == original if existed else not target.exists()
+    # The basename is not a policy: this unrelated destination remains allowed.
+    allowed = invoke_process(['status', snapshot['run_id'], '--events', str(tmp_path / 'run.lock'), '--json'], api, tmp_path)
+    assert allowed.returncode == 0
+    assert (tmp_path / 'run.lock').read_text().strip() == ''  # status makes no API observations
+
+
+def test_output_guard_protects_marked_unregistered_and_new_run_directories(scene, tmp_path):
+    from invimport.execution.artifacts import initialize_run_directory
+    api, _, _, path = prepared(scene, tmp_path)
+    marked = tmp_path / 'marked-run'
+    initialize_run_directory(marked)
+    for destination, extra in ((marked / 'artifacts' / 'event.jsonl', []),
+                                (tmp_path / 'future-run' / 'events.jsonl', ['--run-directory', str(tmp_path / 'future-run')])):
+        rejected = invoke_process(['execute', str(path), '--events', str(destination), '--write', '--json', *extra], api, tmp_path)
+        assert rejected.returncode == 1 and json.loads(rejected.stdout)['error'] == 'unsafe_output_destination'
+        assert not destination.exists()
+    assert not api.get('stock/')
+
+
+@pytest.mark.parametrize('destination_kind', ['image', 'provenance', 'config', 'env', 'input'])
+def test_prepare_outputs_cannot_overwrite_explicit_sources_or_configuration(
+        scene, tmp_path, monkeypatch, capsys, destination_kind):
+    api, categories, parameters = scene
+    doc = document(tmp_path)
+    source = tmp_path / 'source.txt'
+    source.write_bytes(b'approved source bytes')
+    payload = json.loads(doc.path.read_text())
+    payload['lines'][0]['image'] = source.name
+    payload['lines'][0]['provenance'] = [{'kind': 'document', 'file': source.name, 'facts': ['type']}]
+    doc.path.write_text(json.dumps(payload))
+    config = tmp_path / 'selected-config'
+    config.mkdir()
+    config_file = config / 'categories.yaml'
+    config_file.write_bytes(b'configuration bytes')
+    env_file = tmp_path / 'input.env'
+    env_file.write_text('INVENTREE_TOKEN=credential-canary\n')
+    destination = {'image': source, 'provenance': source, 'config': config_file, 'env': env_file, 'input': doc.path}[destination_kind]
+    if destination_kind == 'provenance':
+        payload['lines'][0].pop('image')
+        doc.path.write_text(json.dumps(payload))
+    before = destination.read_bytes()
+    monkeypatch.setattr(import_run, 'connect', lambda: pytest.fail('unsafe output must fail before connection'))
+    monkeypatch.setattr(import_run, 'load_categories_config', lambda _: categories)
+    monkeypatch.setattr(import_run, 'load_parameters_config', lambda _: parameters)
+    assert cli(['--env-file', str(env_file), 'import-run', 'prepare', str(doc.path), '--config', str(config),
+                '--output', str(tmp_path / 'plan.json'), '--events', str(destination), '--json']) == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result.get('events_saved') is False or result['error'] == 'unsafe_output_destination'
+    assert destination.read_bytes() == before
+    assert not api.get('stock/')
+
+
+def test_cancelled_write_retains_exit130_when_event_export_fails(scene, tmp_path, monkeypatch, capsys):
+    api, _, _, path = prepared(scene, tmp_path)
+    original = api.post
+    def interrupted(route, payload):
+        result = original(route, payload)
+        if route == 'stock/':
+            raise KeyboardInterrupt()
+        return result
+    monkeypatch.setattr(api, 'post', interrupted)
+    monkeypatch.setattr(import_run, 'connect', lambda: api)
+    monkeypatch.setattr(import_run, '_atomic', lambda *args: (_ for _ in ()).throw(OSError('disk full')))
+    monkeypatch.setenv('INVENTREE_URL', api.api_url)
+    assert cli(['import-run', 'execute', str(path), '--write', '--events', str(tmp_path / 'events.jsonl'), '--json']) == 130
+    result = json.loads(capsys.readouterr().out)
+    assert result['error'] == 'cancelled' and result['events_saved'] is False
+    assert any(row['state'] == 'uncertain' for row in inspect_run(result['run_id'])['operations'])
+    assert len(api.get('stock/')) == 1

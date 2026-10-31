@@ -61,7 +61,8 @@ no UI/hardware dependencies or global SDK/request patches were added.
 8. Froze explicit generated-output identities into archive discovery exclusions.
    Exact output/event destinations are excluded before reading partial old output
    bytes; unrelated vendor JSONL remains source evidence. Output destinations cannot
-   replace input or execution-authority filenames. No generic extension/name bans
+   replace input or execution authority. The review correction below replaces the
+   original incomplete filename guard with actual root/identity protection. No generic extension/name bans
    were added to archive selection.
 9. Updated current architecture, README, maintained design/plan/contracts and added
    `docs/import-run.md` covering commands, recovery, storage, sensitivity, retention,
@@ -125,7 +126,7 @@ PYTHONPATH=src "$BASE_ENV/bin/ruff" check src/invimport/__main__.py src/invimpor
 git diff --check
 ```
 
-Validation results:
+Initial candidate validation results (historical, before independent-review fixes):
 
 - Required normal `make test` (scoped permission for loopback fake servers):
   **1750 passed, 1 existing skip, 43 deselected**, 134.00 seconds. It includes the
@@ -177,9 +178,81 @@ partial generated outputs versus genuine evidence; and ambiguity without prompts
 
 ## Independent review and remaining limits
 
-No independent Stage 6 review result is claimed yet. The root coordinator must
-assign a fresh reviewer against the exact committed candidate and obtain clearance
-before publication. Any findings/fixes and exact reruns belong here before PR.
+Independent initial review of `1acda3eaca27fc5e117b1cfb3e85a7b5c41fed45` found three
+material defects. That candidate is not approved. The independent reviewer reran
+243 focused cases and separately exercised fresh-process status during an active
+writer/real SIGINT, 150 guarded actual SDK sends/intents and historical unknown
+artifact revision behavior; those passed but did not negate these new findings.
+The initial report is retained externally as `stage6-review.md`. Final clearance
+must name the corrected committed candidate before root publishes.
+
+### Review findings, corrections and regression evidence
+
+1. **P1 — Generated output can replace held locks/retained artifacts.** The original
+   filename-only guard allowed `--events` inside a custom run. The review probe
+   replaced `run.lock` while held, allowing a second exclusive lock on a new inode;
+   another export overwrote retained bytes after reporting complete. Replaced the
+   denylist with reusable `execution.output_paths.GeneratedOutputs`. It checks
+   resolved canonical state, every registered custom run root (even without a
+   marker), marked roots, an explicitly supplied future run directory, selected
+   config/env/input/plan identities and explicitly referenced local sources before
+   work and before each generated write. Canonical registry enumeration is SQLite
+   read-only and fails closed when required authority is missing; it cannot create
+   a new registry during status/resume. Unsafe destinations are never used in the
+   finally export. Unrelated equal basenames and genuine vendor JSONL remain valid;
+   explicit partial generated destinations remain excluded from source manifests.
+   Regressions hold the original lock across a fresh CLI subprocess, require inode
+   stability and second-lock refusal, verify immutable artifact bytes/retention,
+   cover registry locks/sidecars/custom roots without markers/unregistered marked
+   roots/future roots, protect source/provenance/config/env/input files and allow an
+   unrelated `run.lock` output elsewhere.
+2. **P1 — Row-only semantic corruption can certify UNKNOWN as success.** Changing
+   `operations.state` from uncertain to succeeded while its result remained
+   UNCERTAIN/UNKNOWN was accepted by local status and the completed resume shortcut.
+   Added shared `execution.journal_validation` for writer open/snapshot, committed
+   status and run inspection. It validates plan/operation/attribution, row/result
+   agreement, declared/non-rebound output history, attempt intents/settlements and
+   request-to-attempt/event bindings. Result certainty policy still uses typed
+   `OperationResult`. Completion also refuses an untrusted success projection over
+   a non-success result. The explicit valid exceptions are preserved: RUNNING can
+   retain a newly checkpointed or prior result under its unique latest open attempt;
+   BLOCKED can retain prior RETRY_WAIT; audited semantic reads can be requeued or
+   blocked without erasing their failed result. Regressions corrupt state, certainty,
+   output PK, attempt owner and request owner and require status/resume/store refusal
+   with zero remote calls. Valid running-checkpoint/repair, blocked retry-wait and
+   safe-read-requeue histories remain usable. The review's original semantic probe
+   now returns exit 1 / JournalError for both status and resume.
+3. **P2 — Event export failure overrides cancellation exit.** The original finally
+   handler set exit 1 after an applied-write Ctrl-C when event persistence failed.
+   Preserve exit 130 while separately returning `events_saved: false`. The regression
+   applies one stock write then interrupts, fails event persistence, requires exit
+   130, retained run ID/unknown result and exactly one stock. The original review
+   cancellation probe now reports exit 130 with the independent export failure.
+
+Corrected-runtime validation:
+
+- Final `make test`, with scoped permission for local loopback fake servers:
+  **1772 passed, 1 existing skip, 43 deselected**, 137.11 seconds. All corrected
+  runtime files and all 40 Stage 6 cases are included. The earlier 1750 normal result
+  above is historical first-candidate evidence, not the corrected candidate count.
+- Final combined execution/actual-SDK suite: **261 passed**, 103.84 seconds.
+- New output/cancellation CLI coverage: **31 passed**, 23.54 seconds; new shared
+  semantic journal coverage: **9 passed**, 8.16 seconds (also included in both broad
+  corrected runs). No live APIs/hardware were used.
+- Changed-Python Ruff and `git diff --check`: pass. The corrected run adds
+  `execution/output_paths.py`, `execution/journal_validation.py` and
+  `tests/execution/test_journal_validation.py` to the Python check list above.
+- Corrected-runtime scanner rerun: **43 passed, 1773 deselected**, 42.32 seconds.
+- Adapted original output probe now returns 1 for both unsafe destinations,
+  preserves the held lock inode, refuses a second exclusive lock and leaves all
+  retained receipts verified. The probe's original success-only `complete` lookup
+  and second-lock assumption were adapted to observe the expected refusal; the
+  production CLI was exercised unchanged. Original semantic and cancellation probes
+  return the corrected outcomes recorded above.
+
+ A source-protection test initially
+used invalid provenance fact syntax; corrected its fixture to a valid field-name
+fact before counting its pass. No production failure was hidden by that harness fix.
 
 Current limits are documented in `docs/import-run.md`. Local locks/registry exclude
 supported writers only within one configured user-state scope. Different roots,

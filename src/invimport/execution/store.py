@@ -9,9 +9,10 @@ import sqlite3
 from typing import Callable, Iterator
 from uuid import uuid4
 
-from .models import (Certainty, Effect, ErrorCategory, OperationResult, Output,
+from .models import (Certainty, ErrorCategory, OperationResult,
                      Plan, Retry, SafeError, State, canonical, execution_eligible, has_unknown_effects)
 from .ownership import FileLock, JournalError, open_database
+from .journal_validation import result_from_json, validate_journal
 from .artifacts import initialize_run_directory
 
 
@@ -23,22 +24,6 @@ class Attempt:
     number: int
     mutation: bool
     reconciliation: bool = False
-
-
-def result_from_json(text: str) -> OperationResult:
-    try:
-        raw = json.loads(text)
-        raw["state"] = State(raw["state"])
-        raw["certainty"] = Certainty(raw["certainty"])
-        raw["retry"] = Retry(raw["retry"])
-        raw["outputs"] = tuple(Output(**o) for o in raw["outputs"])
-        raw["effects"] = tuple(Effect(**e) for e in raw["effects"])
-        if raw["error"]:
-            raw["error"] = SafeError(**raw["error"])
-        return OperationResult(**raw)
-    except (ValueError, KeyError, TypeError) as exc:
-        raise JournalError("invalid persisted operation result; recovery required") from exc
-
 
 
 class RunStore:
@@ -137,16 +122,7 @@ class RunStore:
             raise JournalError("journal initialization failed") from exc
 
     def _validate(self) -> None:
-        try:
-            if self.connection.execute("PRAGMA user_version").fetchone()[0] != 1:
-                raise JournalError("unsupported run schema; no automatic migration")
-            rows = self.connection.execute("SELECT id,revision,plan FROM run").fetchall()
-            if rows != [(self.run_id, self.plan.revision, self.plan.dumps())]:
-                raise JournalError("run plan/input/target/revision drift")
-            if {r[0] for r in self.connection.execute("SELECT id FROM operations")} != {op.id for op in self.plan.operations}:
-                raise JournalError("journal operation set mismatch")
-        except sqlite3.Error as exc:
-            raise JournalError("run schema unavailable") from exc
+        validate_journal(self.connection, plan=self.plan, run_id=self.run_id)
 
     def _event(self, connection: sqlite3.Connection, kind: str, operation: str,
                attempt: str = "", **safe_fields) -> None:
@@ -331,6 +307,7 @@ class RunStore:
 
     def snapshot(self) -> dict:
         self.check_health()
+        validate_journal(self.connection, plan=self.plan, run_id=self.run_id)
         return _snapshot(self.connection, run_id=self.run_id, revision=self.plan.revision)
 
     def export(self, path: Path) -> None:
@@ -389,18 +366,7 @@ def load_run_status(run_id: str) -> dict:
             plan = Plan.loads(rows[0][2])
             if plan.revision != revision:
                 raise JournalError("stored plan revision mismatch")
-            operation_rows = connection.execute("SELECT id,state,result,attribution FROM operations").fetchall()
-            specs = {op.id: op for op in plan.operations}
-            if {row[0] for row in operation_rows} != set(specs):
-                raise JournalError("journal operation set mismatch")
-            for key, state, result, attribution in operation_rows:
-                validated_state = State(state)
-                if result is None and validated_state not in {State.PENDING, State.READY, State.RUNNING, State.BLOCKED}:
-                    raise JournalError("settled operation result missing")
-                if result is not None:
-                    result_from_json(result)
-                if json.loads(attribution) != json.loads(canonical(asdict(specs[key].attribution))):
-                    raise JournalError("journal source attribution mismatch")
+            validate_journal(connection, plan=plan, run_id=run_id)
             snapshot = _snapshot(connection, run_id=run_id, revision=revision)
             from .artifacts import retention_snapshot
             return snapshot | {"retention": retention_snapshot(path.parent, snapshot)} if snapshot["prepared_artifacts"] else snapshot

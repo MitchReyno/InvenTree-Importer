@@ -7,7 +7,8 @@ from pathlib import Path
 import sqlite3
 from urllib.parse import quote
 
-from .models import Plan, State
+from .models import Plan, State, canonical
+from .journal_validation import result_from_json, validate_journal
 from .ownership import FileLock, JournalError, Registry
 from .store import _snapshot, load_run_status
 
@@ -21,8 +22,13 @@ SUCCESS = {State.SUCCEEDED, State.ALREADY_SATISFIED, State.SKIPPED}
 def complete(snapshot: dict) -> bool:
     """Completion includes selected optional work and current local retention."""
     retention = snapshot.get("retention", {})
-    return (all(row["state"] in SUCCESS for row in snapshot["operations"])
-            and retention.get("complete", True))
+    for row in snapshot["operations"]:
+        if row["state"] not in SUCCESS or row.get("result") is None:
+            return False
+        result = result_from_json(canonical(row["result"]))
+        if result.state != row["state"]:
+            return False
+    return retention.get("complete", True)
 
 
 def saved_run(run_id: str) -> tuple[Plan, Path]:
@@ -52,6 +58,7 @@ def inspect_run(run_id: str) -> dict:
             connection.execute("BEGIN")
             if connection.execute("SELECT id,revision FROM run").fetchall() != [(run_id, plan.revision)]:
                 raise JournalError("run changed during inspection")
+            validate_journal(connection, plan=plan, run_id=run_id)
             snapshot = _snapshot(connection, run_id=run_id, revision=plan.revision)
             from .artifacts import retention_snapshot
             snapshot["retention"] = retention_snapshot(path.parent, snapshot)
