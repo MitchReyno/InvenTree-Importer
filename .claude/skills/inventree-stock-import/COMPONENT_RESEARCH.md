@@ -548,3 +548,4 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - Collins Quality Standards Manual 1963 PDF page 138 (A-6), and Navy NEETS Module 7 PDF pages 42–43, explain EIA RS-236 diode bands. A black prefix can pad a two-digit 1N number; blue means suffix F only when it is actually a suffix band.
 - AAZ over 3 on a packet may be a partial type plus quantity. No exact AAZ3 diode entry was found in this research; do not substitute AAZ13.
 - Philips marking-code table PDF page 5 maps C16 PH to BZV85-C16. Nexperia BZV85 PDF opened in the web reader but direct downloads returned 403 (2026-10-25).
+- TI U-197 (2026-10-27): exact hyphenated marking is listed under NSN 5961-00-045-9823, CAGE 01295. RNVC 1 marks an incomplete reference; FLIS glass enclosure differs from the photographed flanged metal body. Keep the record's 400 V silicon figures as attributed notes, not device parameters. The related Tektronix 153-0007-00 selection is not a direct TI datasheet.
