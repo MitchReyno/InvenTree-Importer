@@ -398,3 +398,23 @@ Owner implementation is complete. Root must arrange independent re-review of thi
 optional pacing commit before updating PR20; prior runtime clearance is historical
 and does not automatically approve new code. Root alone publishes. No further
 runtime/test changes follow these checks, and no merge is authorized here.
+
+## Optional pacing independent clearance
+
+**APPROVED at exact pacing runtime hash
+`028214ef4ed0fc6893c8b0ec1567aa727a8413f4`.** Independent review reported no
+findings and **21 passing demo tests in 47.50 seconds**, plus separate multipart
+pre-effect ordering and actual CLI restart/hash-preservation probes. Those probes
+confirm pacing occurs before multipart effects and changing runtime delay preserves
+the existing saved target, identity and data. Owner normal **1900 passed/1 existing
+skip/43 deselected in 216.93 seconds** and focused **21 passed in 50.35 seconds**
+remain separate evidence; they are not added to the independent count.
+
+Default 0, bounded integer 0–1000 ms, recommended 250 ms, unpaced identity probe,
+explicit restart, new workspace for full replay, and all existing isolation,
+continuity, uncertainty and synthetic-only limits remain. This clearance update
+changes only this handover; approved runtime/test bytes are unchanged, so no tests
+are rerun and only whitespace is checked. All user untracked workspaces and servers
+remain untouched; no workspace inspection, server stop, stack initialization,
+rebase, push, PR or merge was performed. Root owns the fast-forward PR20 update
+and publication metadata; merging remains outside this owner authorization.
