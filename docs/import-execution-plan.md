@@ -4,7 +4,8 @@ Status: maintained implementation plan. Stage 0 establishes contracts; Stage 1
 implements safe reads/errors and awaits independent review; Stages 2–7 remain
 unimplemented. Companion documents:
 [design](import-execution-design.md), [contracts](import-execution-contracts.md),
-[architecture](../ARCHITECTURE.md). Baseline main `b2e4a12` includes PR #9;
+[architecture](../ARCHITECTURE.md). Baseline main `c22b7a1` includes PR #11
+code-organization guidance and PR #9;
 preserve its DigiKey request-error, configuration-replacement and report-plan-read
 fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 
@@ -12,7 +13,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 
 | Stage | Status | Acceptance evidence |
 |---|---|---|
-| 0 | Complete; independently approved for PR opening | [Stage 0 handover](handovers/import-execution-stage-0.md) |
+| 0 | Complete; upstream incorporation independently approved | [Stage 0 handover](handovers/import-execution-stage-0.md) |
 | 1 | Implemented; awaiting independent review | [Stage 1 handover](handovers/import-execution-stage-1.md); error taxonomy and complete-read fault regressions |
 | 2 | Pending | Whole-command request coverage and worker correlation gates below |
 | 3 | Pending | Real-store ownership/restart gates below |
@@ -51,8 +52,13 @@ Stage 7: DigiKey adaptation and measured concurrency (separate decisions)
 ```
 
 Source paths below are ownership/responsibility suggestions, not a requirement to
-create every named module. Follow CONVENTIONS.md; keep helpers near their consumers
-until a shared responsibility justifies extraction. Avoid unrelated formatting,
+create every named module. Follow CONVENTIONS.md, including its merged PR #11
+organization guidance: focused named orchestration, explicit inputs/options,
+coherent class-owned state, meaningful module/package boundaries, dependencies
+from commands to workflows to lower-level operations, and behavior-grouped tests.
+Do not create a class or package merely to provide a namespace. Keep helpers at
+the narrowest responsibility that owns their contract until actual shared callers
+justify extraction. Avoid unrelated formatting,
 new workflow frameworks or speculative generic plugin APIs.
 
 ## Invariants across all stages

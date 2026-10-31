@@ -25,7 +25,8 @@ matching/value-normalization rules deliberately, preserve public APIs and import
 identities, and keep presentation separate from execution. Do not build a generic
 workflow language, distributed scheduler or wholesale async rewrite.
 
-Implementation baseline: main `b2e4a12`, including PR #9's DigiKey request-error,
+Implementation baseline: main `c22b7a1`, including PR #11 code-organization
+conventions and PR #9's DigiKey request-error,
 configuration-replacement and report-plan-read fixes; installed SDK
 `inventree==0.13.5`. Preserve those fixes. Source line references are baseline
 landmarks, not stable future line numbers. No live server capabilities or
