@@ -15,6 +15,8 @@ from time import monotonic
 from typing import Callable, Iterator
 from uuid import uuid4
 
+from .dispatch import active_guard, guarded
+
 
 @dataclass(frozen=True)
 class Correlation:
@@ -105,7 +107,8 @@ def operation(label: str, *, source: str | None = None, group: str | None = None
         yield
         return
     parent = current_context(observation)
-    context = replace(parent, operation=uuid4().hex, attempt=uuid4().hex,
+    context = replace(parent, operation=parent.operation if _durable_scope.get() else uuid4().hex,
+                      attempt=parent.attempt if _durable_scope.get() else uuid4().hex,
                       source=parent.source if source is None else source,
                       group=parent.group if group is None else group)
     token = _active.set((observation, context))
@@ -130,13 +133,20 @@ def operation(label: str, *, source: str | None = None, group: str | None = None
 def correlated(function: Callable) -> Callable:
     """Capture explicitly at submission, restore immutable context in a worker."""
     captured = _active.get()
+    captured_guard = active_guard()
+    captured_durable = _durable_scope.get()
 
     @wraps(function)
     def run(*args, **kwargs):
         token = _active.set(captured)
+        durable_token = _durable_scope.set(captured_durable)
         try:
+            if captured_guard is not None:
+                with guarded(captured_guard):
+                    return function(*args, **kwargs)
             return function(*args, **kwargs)
         finally:
+            _durable_scope.reset(durable_token)
             _active.reset(token)
     return run
 
@@ -161,3 +171,23 @@ def request_origin() -> str:
 
 def mark_request(request: str) -> None:
     _request_origin.set(request)
+
+
+_durable_scope: ContextVar[bool] = ContextVar("durable_operation_scope", default=False)
+
+
+@contextmanager
+def durable_correlation(*, run: str, operation: str, attempt: str,
+                        source: str, group: str) -> Iterator[None]:
+    """Bridge one stable journal attempt to invocation-local request rendering."""
+    observation = active()
+    if observation is None:
+        yield
+        return
+    token = _active.set((observation, Correlation(run, operation, attempt, source, group)))
+    durable_token = _durable_scope.set(True)
+    try:
+        yield
+    finally:
+        _durable_scope.reset(durable_token)
+        _active.reset(token)

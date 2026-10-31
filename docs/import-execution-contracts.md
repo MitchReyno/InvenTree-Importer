@@ -1,7 +1,8 @@
-# Import execution contracts — Stage 0
+# Import execution contracts
 
-Status: agreed target contracts; future CLI/executor/store interfaces below are
-**not implemented**. Stage 1 safety and Stage 2 observation primitives are recorded separately below.
+Status: agreed target contracts with Stage 1–3 implemented boundaries recorded
+below. The future CLI and complete stock-domain execution/recovery remain
+**not implemented**; Stage 3 exposes foundation APIs with explicit handlers.
 Current behavior is in [ARCHITECTURE.md](../ARCHITECTURE.md). The
 [plan](import-execution-plan.md) owns stage status and acceptance gates.
 
@@ -262,3 +263,70 @@ Source/stub evidence, compatibility tradeoffs and validation are recorded in the
   Current requests settle according to their transport result. No durable partial
   report, restart semantics, automatic retry or general independent continuation
   is promised by this stage. Future operation/store contracts above remain gates.
+
+
+## Stage 3 implemented foundation contract
+
+- `models.Plan` schema 1 canonically serializes immutable desired/baseline JSON,
+  logical IDs, named output references, source attribution, conflict resources,
+  target/decision evidence and semantic digests. Unknown schema/normalization,
+  dependency cycles/missing outputs and contradictory shared inputs are rejected.
+  Outputs require a positive model PK and record identity evidence, and confirmed
+  output identity cannot change on reconciliation. State, certainty and retry
+  eligibility remain separate records.
+- `preparation.prepare_import` and `validate_preparation` freeze v1/v2 identity,
+  stockfile keys, transitive part_of/shared part subjects, config/input semantics,
+  supplied file content hashes and explicit company/part decisions. Discovery
+  exposes complete bounded reads only. The stock preparation is intentionally
+  marked `stock_domain_resolution_and_handlers` unsupported, so it cannot be
+  executed as a resolved mutation preview. Stage 4 must integrate existing matching
+  policies and account for all referenced files before approving domain operations.
+  No callback, SDK object, raw response or original source path persists.
+- `executor.execute_plan`, `resume_run` and `retry_operation` are explicit-handler
+  library foundations; no domain handler or CLI is enabled by default.
+  `store.load_run_status` reads one committed snapshot through canonical run
+  discovery without connecting to inventory. `RunStore.export` atomically writes
+  a portable JSON projection. Observation's retained event tuple remains only a
+  rendering snapshot, never authoritative execution state.
+- Registry reservations precede DB creation, activation precedes dispatch, and
+  every child dispatch checks active canonical ownership plus the journal.
+  Lifetime OS locks and a process ledger/import owner exclude simultaneous writes;
+  nested caller ledger scopes remain supported. Alternate run directories/cwd and
+  fresh invocations find unresolved claims. Missing/moved/corrupt journals and
+  unknown schemas fail closed; no migration from an unrecognized version exists.
+  The initialized marker detects deletion of the registry file in a retained
+  state root; deleting/relocating the entire configured root is outside the local
+  guarantee and requires operator migration/recovery.
+- Supported current-version legacy `import_stock` writes consult the registry and
+  hold exclusion before stock discovery/mutations. This guard releases on normal
+  return and leaves a blocking reservation on an exception/interruption. It does
+  not make legacy results/PKs resumable or change selected-enrichment exit policy.
+  Old binaries, other user roots/hosts and unknown unregistered endpoint aliases
+  remain outside this local scope.
+- Only normalized safe HTTP(S) endpoints are accepted; credentials/query/fragment
+  and unsafe paths are rejected. Verified instance evidence comes from the caller,
+  never inferred from SDK server_details. Without it, saved PK reuse requires an
+  explicit revision-bound continuity review. Even with continuity, actual domain
+  handlers must re-read/validate the model and record identity before using a PK.
+  Reviewed aliases preserve one namespace; unresolved conflicts require migration.
+- SQLite commits attempt/request intent before send and atomically binds outputs,
+  effect certainty, attribution, state and audit event after settlement. Interrupted
+  writes and interrupted reconciliation retain unknown effects. Unknown outcomes
+  cannot be successful/complete and cannot be reset for blind create replay.
+  Explicit read-only reconciliation preserves prior confirmed identities.
+- Mandatory dispatch guards are not observers. Renderer failure is isolated;
+  store/ownership failure propagates and stops subsequent child sends, including
+  after request-start delivery. `barcode_lookup_request` explicitly marks the
+  supported barcode POST as read; verbs alone do not determine effect semantics.
+  Journal request IDs and durable run/operation/attempt IDs are used by Stage 2
+  rendering and decode/model observations, including nested visual operations.
+- User-only marked run directories retain `artifacts/`; custom new run directories
+  must be empty. Canonical state, marked runs and reserved DB/WAL/SHM files are
+  excluded from recursive evidence enumeration. Snapshots use relative artifact
+  references; no automatic destructive retention or full artifact migration is
+  included. Reconciliation/abandonment retain audit history and blocking tombstones;
+  no forced-clear action is provided.
+
+The [Stage 3 handover](handovers/import-execution-stage-3.md) records acceptance
+proof and the preparation/domain-integration adjustment. This is readiness for
+Stage 4's representative slice, not a whole-import resume or exactly-once claim.

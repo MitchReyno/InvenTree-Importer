@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from ..execution.transport import exception_reason
+from ..execution.artifacts import is_execution_file
 from ..stockfile import StockFile
 from .purchase_orders import AttachmentState, attach_file_outcome, attachments
 
@@ -153,7 +154,7 @@ def archive_files(folder: Path) -> list[Path]:
         relative = path.relative_to(folder)
         if any(part.startswith(".") for part in relative.parts):
             continue
-        if not path.is_file():
+        if not path.is_file() or is_execution_file(path):
             continue
         if (path.suffix.lower() == ".zip"
                 and path.name.startswith(ARCHIVE_PREFIX)):

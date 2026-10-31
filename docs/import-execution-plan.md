@@ -16,7 +16,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 | 0 | Complete; upstream incorporation independently approved | [Stage 0 handover](handovers/import-execution-stage-0.md) |
 | 1 | Complete; independent implementation review approved | [Stage 1 handover](handovers/import-execution-stage-1.md); error taxonomy and complete-read fault regressions |
 | 2 | Complete; independent implementation review approved | [Stage 2 handover](handovers/import-execution-stage-2.md); whole-command dispatch visibility, worker correlation and secret-canary regressions |
-| 3 | Pending | Real-store ownership/restart gates below |
+| 3 | Implemented; independent review pending | [Stage 3 handover](handovers/import-execution-stage-3.md); real SQLite/restart, canonical claims, serial fake-handler gates |
 | 4 | Pending | Durable reference-slice fault matrix below |
 | 5 | Pending | Full workflow and immutable artifact gates below |
 | 6 | Pending | Compatibility/default rollout gates below |
@@ -292,6 +292,14 @@ Stage 4 rather than treated as a reusable framework product.
   denied/validation failures do not automatically pause all other resources.
 
 ### 3B. Planning and compatibility
+
+**Stage 3 adjustment:** implemented preparation freezes real read-only discovery
+choices, semantic digests, v1/v2 source identities and supplied file hashes, but
+marks stock domain resolution/handlers explicitly unsupported. Full stock mutation
+preview generation moves into Stage 4 alongside real matching/handler integration;
+this avoids inventing an approved preview without the domain effects/reconciliation
+that define it. Existing `--plan` remains unchanged. Explicit-handler foundation
+plans exercise scheduling/store contracts now; there is no stock CLI rollout.
 
 - Build a read-only discovery plan, then a resolved mutation preview with symbolic
   outputs. Store chosen company/part PKs and decision reasons, not callbacks.

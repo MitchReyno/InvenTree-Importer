@@ -5,8 +5,12 @@ Status: agreed target design; implementation is staged and incomplete. See
 [maintained plan](import-execution-plan.md) for gates/status and
 [contracts](import-execution-contracts.md) for concrete Stage 0 decisions.
 This document describes intended behavior unless explicitly labeled current.
-Stage 2 now supplies in-memory observations described in architecture/contracts;
-its invocation-local IDs and snapshots are not the future durable executor.
+Stage 2 supplies in-memory observations; Stage 3 adds typed explicit-handler plans,
+a serial executor, canonical ownership and SQLite state beneath them. Stable
+journal correlation now bridges the observer when executing a durable attempt.
+Stock preparation explicitly marks domain resolution/handlers unsupported pending
+Stage 4 integration; no whole-import resume or import-run CLI is enabled. See the
+Stage 3 handover for the justified preview boundary adjustment.
 
 ## Recommendation and scope
 

@@ -1,6 +1,6 @@
 # Import architecture
 
-This describes implemented behavior through Stage 2 (reviewed Stage 0 baseline
+This describes implemented behavior through Stage 3 (reviewed Stage 0 baseline
 `bfaefd1`, main `c22b7a1`, SDK `inventree==0.13.5`). This includes PR #9 fixes
 and PR #11 code-organization conventions; the latter changes guidance, not
 runtime behavior. Future contracts are explicitly separated below. Keep this
@@ -167,13 +167,86 @@ but cannot undo or durably classify an in-flight effect. Legacy line/finalizatio
 abort behavior and coarse completion policy remain. No retry, backoff, dependency
 scheduler, durable blocked state, journal, restart/resume or TUI is implemented.
 
+## Implemented execution foundation (Stage 3)
+
+The execution package now separates immutable JSON-only models, preparation,
+canonical ownership, per-run SQLite state, serial execution and dispatch guards.
+This is an explicit-handler library foundation, not a durable replacement for
+`import_stock`, and there is no `import-run` CLI yet.
+
+`execution/models.py` defines versioned Plan/OperationSpec/OperationResult,
+logical pre-PK IDs, named prerequisite outputs, typed states/certainty/retry,
+identity-bearing outputs, effects and source attribution. Plan validation rejects
+missing outputs, cycles and contradictory shared-resource inputs. Desired input
+objects own canonical JSON copies. Plan revisions include semantic input/config,
+file hashes, target evidence, decisions and operation scope; stored plans cannot
+silently rebind a changed revision or confirmed output identity.
+
+`execution/preparation.py:prepare_import` performs bounded read-only discovery
+through an explicit read interface and freezes chosen record identities/reasons,
+source keys, v1 part_of/v2 shared references and supplied file hashes. Its returned
+stock preparation explicitly declares unsupported domain resolution/handlers and
+cannot execute. Complete stock mutation preview planning depends on Stage 4's
+actual policy/handler integration; this stage does not simulate a resolved preview.
+The existing post-import `--plan` projection remains unchanged.
+
+`execution/ownership.py` discovers one canonical `INVIMPORT_STATE_DIR` (absolute),
+or the runtime platform user state/data directory, independent of cwd and custom
+run directories. `execution/registry.sqlite3` stores target associations, unresolved
+claims, run locations/history and audit dispositions. Reservation commits precede
+run initialization; linking/activation precedes dispatch. No cross-DB atomicity is
+claimed. OS locks exclude same-import/journal writers; process ownership excludes
+simultaneous imports/global ledger recording while retaining nested caller ledgers.
+Missing/corrupt/unknown-schema files, moved registered runs and incompatible claims
+fail closed. An initialized marker detects registry-file deletion. Reviewed alias
+association cannot create a second namespace around existing unresolved claims;
+abandonment retains blocking tombstones. This scope cannot exclude old binaries,
+other hosts/user roots or unregistered endpoint aliases.
+
+`execution/store.py` owns one SQLite run writer, version checks and transactions.
+Attempt/request intents commit before sends; result output PKs, certainty, source
+attribution, state and audit events commit together. Interrupted writes become
+uncertain; interrupted reads may retry. Reconciliation preserves confirmed PKs
+and cannot replace their identities. Snapshots read committed state, including
+through canonical `load_run_status` while a writer is active; JSON is an atomic
+portable export, never another authoritative backend.
+
+`execution/executor.py` executes explicit supplied handlers serially in plan order.
+Named usable outputs, rather than group/whole-parent success, gate consumers;
+blocked children reactivate after reconciliation. Unknown writes never requeue
+as creates. `resume_run` and read-only `retry_operation` are foundation APIs, not
+complete stock resume. Saved PK reuse requires verified instance evidence or an
+explicit continuity review; Stage 4 handlers must additionally validate each
+model/record identity. URL or PK existence and SDK server_details are not proof.
+
+The mandatory `execution/dispatch.py` guard runs independently of best-effort
+Observation callbacks. Every SDK child send and explicit fake/non-SDK dispatch
+checks cancellation, journal and canonical ownership, commits intent, then records
+outcome. There is another health/cancellation check after request-start rendering.
+An explicit barcode-lookup POST scope represents that semantic read; other POSTs
+remain mutations. Stable journal run/operation/attempt/request IDs bridge Stage 2
+rendering, including nested visual scopes. Renderer errors cannot duplicate work;
+journal errors stop new work. No domain handler is registered by default.
+
+Current-version legacy `import_stock(..., options.write=True)` consults the same
+canonical claims before discovery/mutations and holds exclusion for the whole run.
+Normal return releases its claim; interruption/exception leaves a reservation.
+It remains nondurable and has no supported recovery of that legacy reservation:
+operator review is required. Dry runs/offline validation create no registry.
+
+Run directories/files use user-only permissions where supported; custom new run
+directories must be empty. Each owns a marked retained directory and `artifacts/`.
+Archive enumeration excludes canonical state, marked custom run directories and
+reserved SQLite journal/WAL/SHM names. No automatic deletion/retention is added.
+Full immutable artifact staging/provenance/upload migration remains Stage 5.
+
 ## Implemented provenance, outcomes and limitations
 
 `inventree/ledger.py` has process-global active recording state and a lock around
 its event list. It observes selected successful creates/updates and PO links,
 not every effect: barcode/tag/deletion and post-recording finalization are
-incomplete. It is neither a durable journal nor isolation between simultaneous
-runs. Source attribution is compiled from document rows, results and these events;
+incomplete. It is not a durable journal. Stage 3 excludes overlapping recording
+owners and imports, while retaining nested recording on the owning thread. Source attribution is compiled from document rows, results and these events;
 a line exception can bypass its result and all ordinary finalization.
 
 Write runs compile combined provenance in the import folder, then build a
@@ -201,7 +274,8 @@ call. Uncertain link/read-back or deletion retains a structured `BarcodeError`
 with known stock PK and does not claim registration success. The importer reuses
 that confirmed conflict owner rather than performing an uncertain second lookup.
 These diagnostics are in memory only; an ambiguous stock create still lacks a
-durable identity or recovery guard.
+durable identity. Stage 3's legacy exclusion guard retains a reservation after
+an exception, but does not supply domain recovery.
 Part creation precedes parameter writes: an incomplete specification part can
 fail later rediscovery, whereas an existing type part can skip missing parameters.
 PO contributions are unconditional creates with no durable correlation contract.
@@ -209,22 +283,20 @@ These defects are baseline limitations to fix, not supported recovery behavior.
 
 Normal completion counts created/exists/skipped/review lines; CLI exit 1 is based
 on skipped/review lines and does not represent every selected enrichment failure.
-No authoritative run store, cross-process ownership, executable mutation preview,
-durable correlated request stream, resumable operation state or complete partial report
-exists yet. Barcode fixture uniqueness is not proof of a live target's atomicity.
+The Stage 3 store/ownership/executor foundation is opt-in for explicit handlers.
+Legacy stock execution has no authoritative operation state, executable mutation
+preview, resumable domain operations or complete durable partial report yet. Barcode fixture uniqueness is not proof of a live target's atomicity.
 No local client can guarantee exactly-once remote effects after a lost response.
 
 ## Agreed target, not implemented
 
 The [design](docs/import-execution-design.md),
 [contracts and matrices](docs/import-execution-contracts.md) and
-[staged plan](docs/import-execution-plan.md) define the next architecture:
-small typed domain operations, explicit prerequisite outputs, pre-dispatch request
-visibility, one sequential durable executor, SQLite local state and JSON exports.
-Preparation is read-only; execution requires approved scope and explicit write
-permission. Logical operation IDs survive resolved PKs and restart. Canonical
-same-target/import ownership survives process exit and alternate run directories.
-Unknown effects require reconciliation/review, never blind mutation replay.
+[staged plan](docs/import-execution-plan.md) define the remaining integration:
+stock-domain operation planning/handlers, full evidence staging and CLI release.
+Stage 3 provides typed specs, named outputs, a serial executor and SQLite/ownership
+foundation. Durable stock handlers still need approved scope/write policy,
+identity revalidation and domain reconciliation before enabling inventory work.
 
 Required identity outputs gate stock; optional enrichment can fail independently
 but selected incomplete work makes the new-mode result incomplete. Preserve manual

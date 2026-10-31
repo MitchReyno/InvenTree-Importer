@@ -228,6 +228,16 @@ def import_stock(
     """Import a document; observations are opt-in through an observing scope."""
     source = sha256(document.file_id.encode()).hexdigest()[:16]
     with operation("stock document", source=source, group="document"):
+        options = options or ImportOptions()
+        api = api or connect()
+        if options.write:
+            from ..execution.models import Target
+            from ..execution.ownership import legacy_write_guard
+            endpoint = getattr(api, "api_url", None)
+            if not isinstance(endpoint, str) or not endpoint:
+                raise ValueError("write requires a known inventory API root")
+            with legacy_write_guard(Target(endpoint), document.file_id):
+                return _import_stock(document, api, directory=directory, options=options)
         return _import_stock(document, api, directory=directory, options=options)
 
 

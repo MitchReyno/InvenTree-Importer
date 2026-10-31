@@ -31,6 +31,12 @@ from invimport.digikey import api as digikey_api  # noqa: E402
 from tests.support import FakeDigiKey, InvenTreeStub  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def execution_state_root(tmp_path, monkeypatch):
+    """Every test owns its canonical state scope; never write user app data."""
+    monkeypatch.setenv("INVIMPORT_STATE_DIR", str(tmp_path / "execution-state"))
+
+
 @pytest.fixture
 def digikey():
     """Patch the DigiKey transport and token grant; yields the FakeDigiKey."""

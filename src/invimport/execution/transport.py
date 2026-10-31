@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 import requests
 
 from .observation import Observation, active, mark_request
+from .dispatch import active_guard, request_is_mutation
 
 
 class QuietSDKLog:
@@ -36,37 +37,56 @@ class ObservedRequests:
 
         def dispatch(url, **kwargs):
             observation = self.observation or active()
-            if observation is None:
-                return getattr(self.transport, name)(url, **kwargs)
-            label = f"{name.upper()} {self.service}{safe_target(url, self.service)}"
-            request = uuid4().hex
-            if observation.cancelled.is_set():
-                observation.emit("request_cancelled", label, request=request,
-                                 outcome="not_dispatched")
-                raise InterruptedError("import cancelled before request dispatch")
-            started = monotonic()
-            mark_request(request)
-            observation.emit("request_started", label, request=request)
-            if observation.cancelled.is_set():
-                observation.emit("request_finished", label, request=request,
-                                 outcome="not_dispatched")
-                raise InterruptedError("import cancelled before request dispatch")
-            try:
-                response = getattr(self.transport, name)(url, **kwargs)
-            except BaseException:
-                observation.emit("request_finished", label, request=request,
-                                 elapsed_seconds=monotonic() - started,
-                                 outcome="exchange_unknown")
-                raise
-            observation.emit(
-                "request_finished", label, request=request,
-                status=response.status_code if response is not None else None,
-                elapsed_seconds=monotonic() - started,
-                outcome=("no_response" if response is None else
-                         "http_error" if response.status_code >= 300 else "http_received"),
-                redirects=len(getattr(response, "history", ())))
-            return response
+            guard = active_guard()
+            if guard is not None:
+                request = guard.before(mutation=request_is_mutation(name, url),
+                                       label=f"{name}_inventory")
+                try:
+                    # Retain the existing observer/cancellation boundary without
+                    # recursively invoking this mandatory guard.
+                    response = self._observed_dispatch(name, url, kwargs, observation, request=request)
+                except BaseException:
+                    guard.after(request, outcome="exchange_unknown")
+                    raise
+                guard.after(request, outcome="http_received")
+                return response
+            return self._observed_dispatch(name, url, kwargs, observation)
         return dispatch
+
+    def _observed_dispatch(self, name, url, kwargs, observation, *, request=None):
+        if observation is None:
+            return getattr(self.transport, name)(url, **kwargs)
+        label = f"{name.upper()} {self.service}{safe_target(url, self.service)}"
+        request = request or uuid4().hex
+        if observation.cancelled.is_set():
+            observation.emit("request_cancelled", label, request=request,
+                             outcome="not_dispatched")
+            raise InterruptedError("import cancelled before request dispatch")
+        started = monotonic()
+        mark_request(request)
+        observation.emit("request_started", label, request=request)
+        guard = active_guard()
+        if guard is not None:
+            guard.check()
+        if observation.cancelled.is_set():
+            observation.emit("request_finished", label, request=request,
+                             outcome="not_dispatched")
+            raise InterruptedError("import cancelled before request dispatch")
+        try:
+            response = getattr(self.transport, name)(url, **kwargs)
+        except BaseException:
+            observation.emit("request_finished", label, request=request,
+                             elapsed_seconds=monotonic() - started,
+                             outcome="exchange_unknown")
+            raise
+        observation.emit(
+            "request_finished", label, request=request,
+            status=response.status_code if response is not None else None,
+            elapsed_seconds=monotonic() - started,
+            outcome=("no_response" if response is None else
+                     "http_error" if response.status_code >= 300 else "http_received"),
+            redirects=len(getattr(response, "history", ())))
+        return response
 
 
 def external_get(url: str, *, transport=requests, **kwargs):
