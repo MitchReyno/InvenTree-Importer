@@ -18,8 +18,9 @@ photos. You return findings; the caller decides and writes.
 
 1. **Read the research memory**:
    `.claude/skills/inventree-stock-import/COMPONENT_RESEARCH.md`.
-   It holds what earlier research runs learned — which sites work and how,
-   traps, decoded codes. Use it; do not re-learn what it already says.
+   It holds research methods, useful source locations and recurring traps,
+   not evidence for an item's identity or ratings. Reuse import-specific
+   findings supplied in the brief and verify facts against the cited sources.
 2. **Load the `source-snapshots` skill** (Skill tool). Every web page you rely
    on gets snapshotted with it.
 3. **Get the vocabulary** from the repo root
@@ -205,13 +206,16 @@ A report the caller can apply directly, per item (by line id):
    same part — for the caller to put to the user.
 6. **Proposed config changes**, each with the item that prompted it.
 7. **Unresolved**: what you could not find or fetch, and where you looked.
-8. **Learnings for COMPONENT_RESEARCH.md** — the part the next research run
-   benefits from. Short, specific, reusable entries, grouped by topic (sites
-   and how to reach them, data books and their page offsets, decoded CAGE /
-   FSCM codes, marking and label conventions, traps and dead ends, tooling).
-   Include what *didn't* work as well as what did. Leave out anything already
-   in the memory file and anything only true of this one item; never include
-   credentials or personal details.
+8. **General guidance correction (optional).** Omit this section during
+   routine research. Propose a change to `COMPONENT_RESEARCH.md` only for a
+   reusable research shortcut, useful source or recurring trap likely to help
+   future sessions beyond this item, and explain that value. Concrete URLs,
+   lookup patterns and brief examples are welcome when they save repeated work.
+   Do not propose part numbers, CAGE mappings,
+   suffix decodes, catalogue page locations, search histories or temporary site
+   failures for the shared guide. Keep those in the item findings or unresolved
+   section with their evidence; the caller preserves them with the import.
+   Return proposals only; do not edit the shared guide.
 
 ## What your brief gives you
 

@@ -436,10 +436,10 @@ skip the subagent because an item looks easy.
    whole batch; for a large batch, split by item so several run in parallel.
    Run them in the background.
 2. **The subagent reads
-   [COMPONENT_RESEARCH.md](COMPONENT_RESEARCH.md) first** — the memory that
-   carries site quirks, data-book page offsets, decoded CAGE codes and traps
-   between research runs. Its instructions tell it to; you keep it current
-   (step 5).
+   [COMPONENT_RESEARCH.md](COMPONENT_RESEARCH.md) first** — a compact guide to
+   research methods, useful source locations and recurring traps. Put findings
+   specific to the items from earlier work in this import in the brief,
+   rather than adding them to the shared guide.
 3. **Apply the report.** For each part: `category`, `name`, `type`, `description`,
    `datasheet` (+ `datasheet_pages`), `link`, `image` (a URL only when there
    is no photo of the device), `parameters`, `attachments` (the snapshot paths
@@ -458,11 +458,16 @@ skip the subagent because an item looks easy.
    evidence in the report is a question for the user (see 2b), never a
    decision. Proposed config changes go through
    [When the vocabulary does not cover the part](#when-the-vocabulary-does-not-cover-the-part).
-5. **Update [COMPONENT_RESEARCH.md](COMPONENT_RESEARCH.md)** with the report's
-   learnings: merge each into the right section, drop duplicates of what is
-   already there, correct entries the new run disproved, date anything that
-   may go stale, and keep it short — it is read in full at the start of every
-   research run. Do this every time, before reporting to the user.
+5. **Keep research details with the import.** Preserve item-specific findings
+   in the report, record notes and provenance, alongside the import's snapshots
+   and datasheets. Leave [COMPONENT_RESEARCH.md](COMPONENT_RESEARCH.md) unchanged
+   during routine imports. Update it only for a reusable research shortcut,
+   useful source or recurring trap likely to help future sessions beyond this
+   item. Concrete URLs, lookup patterns and brief examples are welcome when
+   they save repeated work; merge them rather than appending a session log.
+   Part numbers, CAGE mappings,
+   suffix decodes, catalogue page locations and temporary site failures belong
+   with the import, not in the shared guide. An update is not a completion step.
 
 When the user later corrects or adds an item that needs looking up, that is a
 research job too.
@@ -928,8 +933,8 @@ Report to the user:
   will make the import stop and ask
 - which source pages were snapshotted and attached, and any you could not
   capture (and why)
-- what the research subagent could not find or settle, and which of its
-  learnings you added to `COMPONENT_RESEARCH.md`
+- what the research subagent could not find or settle; mention a shared
+  research-guide correction only if one was warranted
 - the result of the existing-records check for each new item, and what the
   user decided about any match
 - any parameter or choice you added to the config, and the command that
