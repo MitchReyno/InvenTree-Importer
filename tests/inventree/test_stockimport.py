@@ -1171,7 +1171,7 @@ def test_stock_notes_hold_only_the_stock_and_its_source(config, server):
     first = server.stock_items[0]["notes"]
     # No Source section: this document was never read from a file.
     assert first == ("### This stock\n\n- Ten in a tube\n\n"
-                     "### Markings\n\n```\nC8162J\n8427\n```")
+                     "### Markings\n\n    C8162J\n    8427")
     assert "NAND" not in first and "ceramic" not in first
 
 
