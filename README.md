@@ -1443,3 +1443,11 @@ with `orders --order ID --json order.json`; optional supplied product rows creat
 missing models through shared policies. See the [DigiKey operator scope](docs/import-run.md#digikey-order-opt-in)
 for partial/remaining choices, required target capabilities, media exclusions and
 recovery limits. Ordinary command defaults remain legacy; execution remains serial.
+
+### Try import execution with synthetic data
+
+Run `uv run invimport demo serve --workspace demo-partial --scenario partial`,
+then follow the [loopback demo guide](docs/import-demo.md) in a second terminal.
+It uses the real CLI/SDK and a persistent fake HTTP server to show plan hierarchy,
+request progress, partial evidence outcomes and targeted recovery without any
+real inventory or vendor credentials.

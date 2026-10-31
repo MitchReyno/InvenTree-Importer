@@ -16,6 +16,7 @@ from . import (
     company_logos,
     datasheets,
     discover,
+    demo,
     import_orders,
     import_run,
     import_stock,
@@ -28,4 +29,4 @@ from . import (
 # Registration order is the order shown in --help.
 COMMANDS = [product, orders, import_orders, parameters, categories,
             discover, supplier_parts, import_stock, datasheets,
-            company_logos, import_run]
+            company_logos, import_run, demo]

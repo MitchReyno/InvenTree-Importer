@@ -376,3 +376,25 @@ The SDK probe matched 154 actual sends to 154 unique pre-send intents, including
 owner evidence. This clearance retains every documented one-order, model-only,
 capability, exact-source, old-plan, serial/local and live-server limitation; it
 does not enable default rollout, media/archive parity or production concurrency.
+
+## Loopback demonstration boundary
+
+`commands.demo` provides `demo serve/run/inspect` around reusable
+`demo.workspace`, `demo.server`, `demo.state` and `demo.runner` modules.
+An owned private workspace seeds fictional stock/config/evidence and a persistent
+SQLite fake. The actual pinned SDK and real separate-process `import-run` CLI
+exchange HTTP with its loopback-only server, including setup/auth, OPTIONS, CRUD,
+barcode ownership, multipart attachments and local media byte verification.
+Application modules never import test fixtures or change `sys.path`.
+
+The runner pins the running package and private environment/target/state, verifies
+the server nonce without proxy/redirect following before network work, and retains
+explicit write/continuity requirements. Status stays local. Initial OS-selected
+port, instance and consumed before-application attachment fault survive restart;
+a changed/occupied target never silently reallocates an existing history. A
+workspace permits one write execution; selected recovery uses the ordinary registry,
+claims, journal, IDs/results and immutable finalization rules. No engine policy is
+bypassed. Foreground Ctrl-C stops the listener; no automatic cleanup/reset exists.
+See the [guide](docs/import-demo.md) and [handover](docs/handovers/import-execution-demo.md).
+This deliberately bounded synthetic fake is client-contract evidence, not a live
+server, API emulator, immutable identity capability or exactly-once guarantee.

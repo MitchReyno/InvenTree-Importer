@@ -103,8 +103,10 @@ def main(argv: list[str] | None = None) -> int:
 
     configure_logging(args.verbose)
 
-    # Load credentials once, up front, so every command sees the same env.
-    load_env_file(args.env_file)
+    # Demo owns a private child environment and must never load real credentials.
+    # Other commands share the ordinary credential setup.
+    if args.command != "demo":
+        load_env_file(args.env_file)
     if args.command in {"orders", "product", "import-orders", "supplier-parts"}:
         from .execution.observation import Observation, observing, operation
         from .execution.transport import protect_import_logs

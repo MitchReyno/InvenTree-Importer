@@ -319,3 +319,11 @@ satisfaction can resolve an unknown receipt. If an accepted receipt has conflict
 read-back, its confirmed acceptance remains in a valid needs-review result and
 fresh-process repair cannot repeat it. Remote changes after the final observations
 remain outside the client's non-atomic GET/POST guarantee.
+
+## Try the synthetic loopback demo
+
+Use [the demo guide](import-demo.md) to run this actual CLI against a private,
+persistent HTTP stub without real credentials. It demonstrates hierarchy/request
+progress, registered lots with failed evidence, stopped-server local status, server
+restart and selected recovery with unchanged known inventory PKs. The demo is a
+separate owned workspace and never a replacement target/state for a real run.

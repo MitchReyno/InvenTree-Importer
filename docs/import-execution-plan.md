@@ -760,3 +760,13 @@ remain release constraints. No default switch, allocator claim, migration, produ
 pool or exactly-once remote guarantee follows from clearance. Full review history
 and operational guidance remain in the handover. A subsequent clearance-record
 commit changes documentation only; root owns stacked publication and no merge.
+
+## Follow-on: user-run loopback demonstration
+
+The separate demo stage adds an application-owned persistent HTTP fake and strict
+private CLI launcher after independently approved Stage 7. It demonstrates real
+SDK/CLI stock execution and selected evidence recovery, retaining every production
+approval/continuity/journal/claim rule. Happy and explicit before-application
+attachment-403 scenarios are in scope; DigiKey and lost-response demos are deferred.
+See [demo guide](import-demo.md) and [owner handover](handovers/import-execution-demo.md).
+Independent review of this follow-on remains required before publication.
