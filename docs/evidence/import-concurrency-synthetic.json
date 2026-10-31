@@ -1,0 +1,88 @@
+{
+  "format": "invimport-synthetic-concurrency-evaluation/1",
+  "network_calls": 0,
+  "tasks": 24,
+  "latency_seconds": 0.01,
+  "repeats": 3,
+  "samples": [
+    {
+      "workers": 1,
+      "elapsed_seconds": 0.298112,
+      "bytes": 576,
+      "requests": 24,
+      "completed": 24
+    },
+    {
+      "workers": 1,
+      "elapsed_seconds": 0.291418,
+      "bytes": 576,
+      "requests": 24,
+      "completed": 24
+    },
+    {
+      "workers": 1,
+      "elapsed_seconds": 0.295979,
+      "bytes": 576,
+      "requests": 24,
+      "completed": 24
+    },
+    {
+      "workers": 2,
+      "elapsed_seconds": 0.149988,
+      "bytes": 576,
+      "requests": 24,
+      "completed": 24
+    },
+    {
+      "workers": 2,
+      "elapsed_seconds": 0.150043,
+      "bytes": 576,
+      "requests": 24,
+      "completed": 24
+    },
+    {
+      "workers": 2,
+      "elapsed_seconds": 0.147386,
+      "bytes": 576,
+      "requests": 24,
+      "completed": 24
+    },
+    {
+      "workers": 4,
+      "elapsed_seconds": 0.075688,
+      "bytes": 576,
+      "requests": 24,
+      "completed": 24
+    },
+    {
+      "workers": 4,
+      "elapsed_seconds": 0.072593,
+      "bytes": 576,
+      "requests": 24,
+      "completed": 24
+    },
+    {
+      "workers": 4,
+      "elapsed_seconds": 0.076052,
+      "bytes": 576,
+      "requests": 24,
+      "completed": 24
+    }
+  ],
+  "summary": [
+    {
+      "workers": 1,
+      "median_elapsed_seconds": 0.295979
+    },
+    {
+      "workers": 2,
+      "median_elapsed_seconds": 0.149988
+    },
+    {
+      "workers": 4,
+      "median_elapsed_seconds": 0.075688
+    }
+  ],
+  "executor_workers_enabled": 1,
+  "decision": "retain_serial_executor_pending_live_rate_client_ownership_and_resource_evidence"
+}

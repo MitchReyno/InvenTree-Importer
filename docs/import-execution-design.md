@@ -603,3 +603,45 @@ failed event persistence must preserve cancellation exit 130. Read-only output
 preflight cannot recreate missing canonical authority. RUNNING checkpoint/prior
 results and BLOCKED retry-wait transitions remain valid; neither permits unknown
 effects to become successful. See the Stage 6 handover for exact review/retest evidence.
+
+
+## Stage 7 bounded DigiKey integration
+
+DigiKey uses shared plans/journals/dispatch and component model policies through
+its own preparation, contribution, issue and receipt handlers. It does not wrap
+the legacy import in a single opaque operation or translate receipt work into
+ordinary stockfile lots. The opt-in accepts exactly one complete sales order,
+freezes original line identities/partial choices/location/prices, and retains the
+existing default commands until broader parity/allocator release gates pass.
+
+The order `reference` and line contribution `reference` are reviewed source
+correlation, not a claimed server uniqueness/idempotency capability. Known outputs
+survive interruption; unknown creates are never adopted by payload. Issue status
+and exact received totals can reconcile satisfied intent without attributing
+individual stock to this actor. Partial/manual receipt changes require review;
+accepted or unknown receive requests are never blindly repeated.
+
+A committed fake-latency read/download benchmark compares isolated candidate
+pools. It supplies no live performance/rate/thread-safety evidence. Retain serial
+execution: actual SDK dispatch/SQLite ownership, global legacy ledger, allocation
+and shared-record/artifact contracts currently require it. No deployable-app,
+workflow-package or plugin migration follows the exploratory discussion. See the
+[Stage 7 handover](handovers/import-execution-stage-7.md) for evidence and limits.
+
+
+PO-line creation additionally requires read-only target OPTIONS to advertise
+writable boolean `merge_items` and `auto_pricing` controls; DigiKey also requires
+a writable source `reference` of sufficient length. New previews freeze capability
+evidence and `merge_items=false`, `auto_pricing=false`. Execution rechecks support
+before POST and validates source quantity/price/currency before dependent work.
+The [current official PO-line schema](https://docs.inventree.org/en/stable/api/schema/order/#post-apiorderpo-line)
+defaults merging on; reference is not a uniqueness constraint. Metadata is an
+advertised capability, not proof of server uniqueness or atomicity. Modified/older
+servers without the required controls are outside this supported creation slice.
+
+Older schema-1/2 plans remain readable without serialization or ID migration. A
+new stock run from an older plan lacking frozen line controls is rejected before
+mutation and must be prepared again. Existing stored runs retain their revision,
+claims, outputs and history: known-output inspection/repair remains supported, but
+a pending old-policy contribution cannot silently acquire new flags/reference or
+be created. No active-run migration, claim clearing or generic replay is supplied.

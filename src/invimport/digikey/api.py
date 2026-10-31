@@ -18,12 +18,17 @@ developer portal - Product Information access does not grant OrderStatus.
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 import logging
 import os
 import time
 from typing import Any
 
 import requests
+
+from ..execution.dispatch import semantic_read_request
+from ..execution.observation import active
+from ..execution.transport import ObservedRequests
 
 log = logging.getLogger(__name__)
 
@@ -115,26 +120,34 @@ def resolve_account_id() -> str:
 def get_access_token(client_id: str, client_secret: str, sandbox: bool = False) -> str:
     """Two-legged OAuth2 client-credentials grant."""
     url = SANDBOX_TOKEN_URL if sandbox else TOKEN_URL
-    resp = requests.post(
-        url,
-        data={
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "grant_type": "client_credentials",
-        },
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        timeout=30,
-    )
+    try:
+        resp = ObservedRequests(active(), service="DigiKey authentication", transport=requests).post(
+            url,
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "grant_type": "client_credentials",
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=30,
+        )
+    except requests.RequestException as exc:
+        raise DigiKeyError("Token request failed (transport)") from exc
     if resp.status_code != 200:
         raise DigiKeyError(
             f"Token request failed ({resp.status_code}). "
             f"Check the client id/secret and that the app is subscribed to the "
-            f"API product you are calling. Body: {resp.text[:400]}"
+            f"API product you are calling."
         )
-    payload = resp.json()
+    try:
+        payload = resp.json()
+    except ValueError as exc:
+        raise DigiKeyError("Invalid token response JSON") from exc
+    if not isinstance(payload, dict):
+        raise DigiKeyError("Expected an object in token response")
     token = payload.get("access_token")
-    if not token:
-        raise DigiKeyError(f"No access_token in token response: {payload}")
+    if not isinstance(token, str) or not token:
+        raise DigiKeyError("No access_token in token response")
     return token
 
 
@@ -207,16 +220,17 @@ def request_json(
     Retry transient failures for GETs and explicitly safe read-only POSTs;
     never replay an arbitrary POST whose outcome may be unknown.
     """
+    transport = ObservedRequests(active(), service="DigiKey", transport=requests)
     can_retry = json_body is None or retry_safe
     attempts = MAX_RETRIES if can_retry else 1
-    target = label or "DigiKey endpoint"
+    target = "DigiKey endpoint"  # Caller labels can contain URLs or untrusted SKU text.
     for attempt in range(1, attempts + 1):
         try:
             if json_body is None:
-                resp = requests.get(url, headers=headers, params=params, timeout=30)
+                resp = transport.get(url, headers=headers, params=params, timeout=30)
             else:
-                resp = requests.post(url, headers=headers, json=json_body,
-                                     timeout=30)
+                with semantic_read_request("post", url) if retry_safe else nullcontext():
+                    resp = transport.post(url, headers=headers, json=json_body, timeout=30)
         except (requests.ConnectionError, requests.Timeout) as exc:
             if attempt == attempts:
                 raise DigiKeyError(
@@ -233,7 +247,7 @@ def request_json(
                     raise DigiKeyError(f"Invalid JSON response for {target}") from exc
                 if not isinstance(payload, dict):
                     raise DigiKeyError(f"Expected a JSON object for {target}")
-                time.sleep(REQUEST_DELAY_S)
+                _wait(REQUEST_DELAY_S)
                 return payload
 
             if resp.status_code == 404:
@@ -253,6 +267,24 @@ def request_json(
                 )
             log.warning("    [http %s] %s (attempt %s)",
                         resp.status_code, target, attempt)
-        time.sleep(min(60, 2 ** attempt))
+        _wait(min(60, 2 ** attempt))
 
     raise DigiKeyError(f"No request attempts configured for {target}")
+
+
+def _wait(seconds: float) -> None:
+    """One retry budget, with interruptible service pacing and safe events."""
+    observation = active()
+    if observation is None:
+        time.sleep(seconds)
+        return
+    observation.emit("service_wait", "DigiKey backoff", outcome="waiting")
+    remaining = seconds
+    while remaining > 0:
+        if observation.cancelled.is_set():
+            raise InterruptedError("DigiKey read cancelled during backoff")
+        interval = min(remaining, 0.1)
+        time.sleep(interval)
+        remaining -= interval
+    if observation.cancelled.is_set():
+        raise InterruptedError("DigiKey read cancelled during backoff")

@@ -4,8 +4,6 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Callable
 
-from requests import HTTPError
-
 from ..inventree.collections import list_rows
 from ..inventree.stock import already_imported
 from .dispatch import barcode_lookup_request
@@ -13,66 +11,17 @@ from .executor import OperationContext
 from .models import (
     Certainty,
     Effect,
-    ErrorCategory,
     Kind,
     OperationResult,
     OperationSpec,
     Output,
     Retry,
-    SafeError,
     State,
 )
 from .stock_api import StockAPI, StockRequests
-from .stock_preparation import matching_parts, record_identity
-
-ROUTES = {"part.part": "part/", "company.company": "company/", "company.supplierpart": "company/part/",
-          "stock.stockitem": "stock/", "order.purchaseorder": "order/po/",
-          "order.purchaseorderlineitem": "order/po-line/", "common.parameter": "parameter/", "company.manufacturerpart": "company/part/manufacturer/",
-          "part.partcategory": "part/category/", "stock.stocklocation": "stock/location/",
-          "common.parametertemplate": "parameter/template/"}
-IDENTITY_FIELDS = {"part.part": ("category", "IPN", "name", "keywords"),
-                   "company.company": ("name", "is_supplier"),
-                   "company.supplierpart": ("part", "supplier", "SKU"),
-                   "stock.stockitem": ("part",),
-                   "order.purchaseorder": ("supplier", "supplier_reference"),
-                   "order.purchaseorderlineitem": ("order", "part"),
-                   "common.parameter": ("model_type", "model_id", "template", "data"),
-                   "company.manufacturerpart": ("part", "manufacturer", "MPN"),
-                   "part.partcategory": ("name", "parent"), "stock.stocklocation": ("name", "parent"),
-                   "common.parametertemplate": ("name",)}
-
-
-def review(code: str, *, unknown: bool = False, effects: tuple[Effect, ...] = ()) -> OperationResult:
-    return OperationResult(State.UNCERTAIN if unknown else State.NEEDS_REVIEW,
-                           Certainty.UNKNOWN if unknown else Certainty.NONE,
-                           Retry.RECONCILE if unknown else Retry.REVIEW, effects=effects,
-                           error=SafeError(ErrorCategory.UNCERTAIN_WRITE if unknown else ErrorCategory.CONFLICT, code))
-
-
-def _output(row: dict, model: str, *, name: str = "record") -> Output:
-    return Output(name, model, row["pk"], record_identity(row, IDENTITY_FIELDS[model]))
-
-
-def _success(output: Output, *, created: bool = False) -> OperationResult:
-    return OperationResult(State.SUCCEEDED if created else State.ALREADY_SATISFIED,
-                           Certainty.CONFIRMED, outputs=(output,),
-                           effects=(Effect("create", Certainty.CONFIRMED, output.model, output.pk),) if created else ())
-
-
-def _read(api: StockRequests, output: Output) -> dict | None:
-    try:
-        row = api.get(f"{ROUTES[output.model]}{output.pk}/")
-    except HTTPError as exc:
-        from ..inventree.stock import _http_failure
-        if _http_failure(exc)[0] == 404:
-            return None
-        raise
-    if not isinstance(row, dict) or row.get("pk") != output.pk:
-        return None
-    if record_identity(row, IDENTITY_FIELDS[output.model]) != output.identity_digest:
-        return None
-    return row
-
+from .stock_preparation import matching_parts
+from .records import ROUTES, create_record, record_output, read_record, satisfied_record, review
+from .order_line_policy import OrderLineCapabilityError, line_values_match, order_line_policy
 
 def _order_metadata_matches(spec: OperationSpec, row: dict) -> bool:
     """Identity permits locating an order; approved metadata gates new effects."""
@@ -81,12 +30,15 @@ def _order_metadata_matches(spec: OperationSpec, row: dict) -> bool:
 
 def _validated_input(parent: OperationSpec, output: Output, api: StockRequests) -> dict | None:
     """One identity/approved-metadata policy for every output consumer."""
-    row = _read(api, output)
+    row = read_record(api, output)
     if row is None:
         return None
     if parent.kind == Kind.COMPANY and any(row.get(key, False) != value for key, value in parent.desired.values()["payload"].items() if key.startswith("is_")):
         return None
-    if parent.desired.values().get("action") == "order" and not _order_metadata_matches(parent, row):
+    desired = parent.desired.values()
+    if desired.get("action") == "order_line" and not line_values_match(row, quantity=desired["quantity"], price=desired["unit_price"], currency=desired["currency"]):
+        return None
+    if desired.get("action") == "order" and not _order_metadata_matches(parent, row):
         return None
     return row
 
@@ -101,38 +53,6 @@ def _inputs(spec: OperationSpec, context: OperationContext, api: StockRequests) 
             return None
         resolved.append((output, row))
     return resolved
-
-
-def _create(spec: OperationSpec, context: OperationContext, api: StockRequests, *, model: str, payload: dict) -> OperationResult:
-    try:
-        response = api.post(ROUTES[model], payload)
-    except HTTPError as exc:
-        from ..inventree.stock import _http_failure
-        status, _ = _http_failure(exc)
-        if status in {400, 401, 403, 404, 405, 422}:
-            return OperationResult(State.FAILED, retry=Retry.RECONCILE,
-                                   error=SafeError(ErrorCategory.DENIED if status in {401, 403} else ErrorCategory.VALIDATION,
-                                                   "create_rejected"))
-        raise
-    rows = response if isinstance(response, list) else [response]
-    trustworthy = [row for row in rows if isinstance(row, dict) and type(row.get("pk")) is int and row["pk"] > 0]
-    effects = tuple(Effect("create", Certainty.CONFIRMED, model, row["pk"]) for row in trustworthy)
-    if len(rows) != 1 or len(trustworthy) != 1:
-        return review("invalid_create_cardinality", unknown=True, effects=effects + (Effect("create_response", Certainty.UNKNOWN),))
-    row = trustworthy[0]
-    fields = IDENTITY_FIELDS[model]
-    if any(row.get(key) != payload.get(key) for key in fields):
-        return review("invalid_create_identity", unknown=True, effects=effects + (Effect("create_response", Certainty.UNKNOWN),))
-    result = _success(_output(row, model), created=True)
-    context.store.checkpoint(context.attempt, result)
-    with context.store.transaction() as connection:
-        context.store._event(connection, "confirmed_mutation_fields", spec.id, context.attempt.id,
-                             model=model, pk=row["pk"], effect_kind="create",
-                             fields={key: value for key, value in payload.items() if row.get(key) == value})
-    from ..inventree import ledger
-    ledger.created(ROUTES[model], row["pk"], payload)
-    # No SDK model construction/reload can precede this checkpoint.
-    return result
 
 
 class StockHandlers:
@@ -163,16 +83,18 @@ class StockHandlers:
         unknown_create = repair and prior is not None and prior.certainty == Certainty.UNKNOWN
         if prior and prior.outputs:
             saved = prior.outputs[0]
-            saved_row = _read(api, saved)
+            saved_row = read_record(api, saved)
             if saved_row is None:
                 return review("saved_record_missing_or_changed", unknown=prior.certainty == Certainty.UNKNOWN)
+            if action == "order_line" and not line_values_match(saved_row, quantity=desired["quantity"], price=desired["unit_price"], currency=desired["currency"]):
+                return review("chosen_order_line_financial_drift")
             if action == "order" and not _order_metadata_matches(spec, saved_row):
                 return review("chosen_order_metadata_drift")
             if action in {"part", "supplier", "stock", "supplier_part", "manufacturer_part", "order", "order_line", "parameter", "taxonomy"}:
                 if action == "parameter":
                     if saved_row.get("data") != desired["value"]:
                         return review("parameter_value_drift")
-                return replace(_success(saved), effects=tuple(effect for effect in prior.effects if effect.certainty == Certainty.CONFIRMED))
+                return replace(satisfied_record(saved), effects=tuple(effect for effect in prior.effects if effect.certainty == Certainty.CONFIRMED))
         if action in {"asset_stage", "asset_extract", "provenance_snapshot", "evidence_archive", "artifact_upload", "outcome_report"}:
             from .stock_finalization import run_local_or_final
             return run_local_or_final(spec, context, api, repair=repair)
@@ -206,12 +128,26 @@ class StockHandlers:
                 return review("uncorrelated_order_line_create", unknown=True)
             order = next(output for output, row in inputs if output.model == "order.purchaseorder")
             part = next(output for output, row in inputs if output.model == "company.supplierpart")
-            payload = {"order": order.pk, "part": part.pk, "quantity": desired["quantity"], "received": desired["quantity"]}
+            if "creation_policy" not in desired:
+                return review("order_line_create_policy_unapproved")
+            try:
+                policy = order_line_policy(api)
+            except OrderLineCapabilityError:
+                return review("order_line_create_policy_unavailable")
+            if policy["payload"] != desired["creation_policy"]["payload"]:
+                return review("order_line_create_policy_changed")
+            payload = {**policy["payload"], "order": order.pk, "part": part.pk, "quantity": desired["quantity"], "received": desired["quantity"]}
             if desired["unit_price"] is not None:
                 payload["purchase_price"] = desired["unit_price"]
                 if desired["currency"]:
                     payload["purchase_price_currency"] = desired["currency"]
-            return _create(spec, context, api, model="order.purchaseorderlineitem", payload=payload)
+            result = create_record(spec, context, api, model="order.purchaseorderlineitem", payload=payload)
+            if result.outputs:
+                observed = read_record(api, result.outputs[0])
+                if observed is None or not line_values_match(observed, quantity=desired["quantity"], price=desired["unit_price"], currency=desired["currency"]):
+                    return replace(review("order_line_financial_fields_unconfirmed"), outputs=result.outputs,
+                                   effects=result.effects, certainty=Certainty.CONFIRMED)
+            return result
         if action == "evidence":
             from .stock_evidence import ensure_evidence
             return ensure_evidence(spec, context, api, inputs, repair=repair)
@@ -223,7 +159,7 @@ class StockHandlers:
         model = desired["model"]
         if baseline.get("pk"):
             output = Output("record", model, baseline["pk"], baseline["identity"])
-            return _success(output) if _read(api, output) is not None else review("chosen_record_drift")
+            return satisfied_record(output) if read_record(api, output) is not None else review("chosen_record_drift")
         if repair:
             return review("uncorrelated_create", unknown=True)
         # Revalidate absence; a newly matching record requires a fresh reviewed choice.
@@ -254,7 +190,7 @@ class StockHandlers:
                     return review("part_discovery_changed")
         if list_rows(api, ROUTES[model], params=filters):
             return review("discovery_changed")
-        return _create(spec, context, api, model=model, payload=payload)
+        return create_record(spec, context, api, model=model, payload=payload)
 
     def _parameter(self, spec: OperationSpec, context: OperationContext, api: StockRequests,
                    desired: dict, inputs: list[tuple[Output, dict]], *, repair: bool) -> OperationResult:
@@ -269,11 +205,11 @@ class StockHandlers:
         if rows:
             if rows[0].get("data") != desired["value"]:
                 return review("parameter_value_drift")
-            return _success(_output(rows[0], "common.parameter"))
+            return satisfied_record(record_output(rows[0], "common.parameter"))
         if repair and context.store.results()[spec.id].certainty == Certainty.UNKNOWN:
             return review("uncorrelated_parameter_create", unknown=True)
         payload = {"model_type": part.model, "model_id": part.pk, "template": template, "data": desired["value"]}
-        return _create(spec, context, api, model="common.parameter", payload=payload)
+        return create_record(spec, context, api, model="common.parameter", payload=payload)
 
     def _stock(self, spec: OperationSpec, context: OperationContext, api: StockRequests,
                    desired: dict, inputs: list[tuple[Output, dict]], *, repair: bool) -> OperationResult:
@@ -287,7 +223,7 @@ class StockHandlers:
             baseline = spec.baseline.values().get("pk")
             if baseline != owner:
                 return review("unowned_stock_create", unknown=repair)
-            return _success(_output(row, "stock.stockitem"))
+            return satisfied_record(record_output(row, "stock.stockitem"))
         if spec.baseline.values().get("pk"):
             return review("historical_stock_missing")
         if repair:
@@ -299,7 +235,7 @@ class StockHandlers:
         supplier_part = next((output for output, row in inputs if output.model == "company.supplierpart"), None)
         if supplier_part:
             payload["supplier_part"] = supplier_part.pk
-        return _create(spec, context, api, model="stock.stockitem", payload=payload)
+        return create_record(spec, context, api, model="stock.stockitem", payload=payload)
 
     def _barcode(self, spec: OperationSpec, context: OperationContext, api: StockRequests,
                   desired: dict, inputs: list[tuple[Output, dict]]) -> OperationResult:
@@ -307,7 +243,7 @@ class StockHandlers:
         with barcode_lookup_request():
             owner = already_imported(api, desired["key"])
         if owner == stock.pk:
-            return _success(replace(stock, name="record"))
+            return satisfied_record(replace(stock, name="record"))
         if owner is not None:
             return review("barcode_owner_conflict")
         self._authorize(context, spec, "barcode_absent", stock)
@@ -317,7 +253,7 @@ class StockHandlers:
             owner = already_imported(api, desired["key"])
         if owner != stock.pk:
             return review("barcode_not_confirmed", unknown=True)
-        return _success(stock)
+        return satisfied_record(stock)
 
     def _patch(self, spec: OperationSpec, context: OperationContext, api: StockRequests,
                   desired: dict, inputs: list[tuple[Output, dict]]) -> OperationResult:
@@ -330,7 +266,7 @@ class StockHandlers:
             if not isinstance(current, list) or any(not isinstance(tag, str) for tag in current):
                 return review("invalid_tags")
             if set(desired["tags"]).issubset(current):
-                return _success(stock)
+                return satisfied_record(stock)
             if not owned:
                 return review("historical_stock_tags_require_review")
             payload = {"tags": list(dict.fromkeys([*current, *desired["tags"]]))}
@@ -338,7 +274,7 @@ class StockHandlers:
             order = next(output for output, row in inputs if output.model == "order.purchaseorder")
             current = row.get("purchase_order")
             if current == order.pk:
-                return _success(stock)
+                return satisfied_record(stock)
             if current is not None:
                 return review("order_link_drift")
             payload = {"purchase_order": order.pk}
@@ -346,13 +282,13 @@ class StockHandlers:
         response = api.patch(f"stock/{stock.pk}/", payload)
         fields = {key: value for key, value in payload.items() if isinstance(response, dict) and response.get(key) == value}
         checkpoint_effect(context, stock, desired["action"], fields=fields)
-        observed = _read(api, stock)
+        observed = read_record(api, stock)
         if observed is None or any(observed.get(key) != value for key, value in payload.items()):
             return review("metadata_not_confirmed", unknown=True)
         if desired["action"] == "order_link":
             from ..inventree import ledger
             ledger.note("stockitem", stock.pk, ledger.LINKED_TO_ORDER, purchase_order=payload["purchase_order"])
-        return _success(stock)
+        return satisfied_record(stock)
 
     @staticmethod
     def _authorize(context: OperationContext, spec: OperationSpec, reason: str, output: Output) -> None:
@@ -369,7 +305,7 @@ class StockHandlers:
         baseline = spec.baseline.values()
         if baseline.get("pk"):
             output = Output("record", "company.supplierpart", baseline["pk"], baseline["identity"])
-            return _success(output) if _read(api, output) else review("chosen_supplier_part_drift")
+            return satisfied_record(output) if read_record(api, output) else review("chosen_supplier_part_drift")
         if repair:
             return review("uncorrelated_supplier_part_create", unknown=True)
         rows = [row for row in list_rows(api, "company/part/", params={"supplier": supplier.pk})
@@ -380,7 +316,7 @@ class StockHandlers:
             return review("supplier_part_discovery_changed")
         if repair:
             return review("uncorrelated_supplier_part_create", unknown=True)
-        return _create(spec, context, api, model="company.supplierpart",
+        return create_record(spec, context, api, model="company.supplierpart",
                        payload={"part": part.pk, "supplier": supplier.pk, "SKU": desired["SKU"],
                                 **({"manufacturer_part": next(output.pk for output, _ in inputs if output.model == "company.manufacturerpart")}
                                    if any(output.model == "company.manufacturerpart" for output, _ in inputs) else {}),
@@ -393,10 +329,10 @@ class StockHandlers:
         baseline = spec.baseline.values()
         if baseline.get("pk"):
             output = Output("record", "order.purchaseorder", baseline["pk"], baseline["identity"])
-            row = _read(api, output)
+            row = read_record(api, output)
             if row is None or any(row.get(key) != value for key, value in payload.items()):
                 return review("chosen_order_metadata_drift")
-            return _success(output)
+            return satisfied_record(output)
         if repair:
             return review("uncorrelated_order_create", unknown=True)
         rows = [row for row in list_rows(api, "order/po/", params={"supplier": supplier.pk})
@@ -410,7 +346,7 @@ class StockHandlers:
         from ..inventree.purchase_orders import next_reference
         if next_reference(api) != payload["reference"]:
             return review("order_reference_allocation_changed")
-        return _create(spec, context, api, model="order.purchaseorder", payload=payload)
+        return create_record(spec, context, api, model="order.purchaseorder", payload=payload)
 
     def _manufacturer_part(self, spec: OperationSpec, context: OperationContext, api: StockRequests,
                            desired: dict, inputs: list[tuple[Output, dict]], *, repair: bool) -> OperationResult:
@@ -419,7 +355,7 @@ class StockHandlers:
         baseline = spec.baseline.values()
         if baseline.get("pk"):
             output = Output("record", "company.manufacturerpart", baseline["pk"], baseline["identity"])
-            return _success(output) if _read(api, output) else review("chosen_manufacturer_part_drift")
+            return satisfied_record(output) if read_record(api, output) else review("chosen_manufacturer_part_drift")
         if repair:
             return review("uncorrelated_manufacturer_part_create", unknown=True)
         rows = list_rows(api, "company/part/manufacturer/",
@@ -427,7 +363,7 @@ class StockHandlers:
         if rows:
             return review("manufacturer_part_discovery_changed")
         payload = {key: desired[key] for key in ("MPN", "description", "link") if desired.get(key)}
-        return _create(spec, context, api, model="company.manufacturerpart",
+        return create_record(spec, context, api, model="company.manufacturerpart",
                        payload={**payload, "part": part.pk, "manufacturer": manufacturer.pk})
 
 

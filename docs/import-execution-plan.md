@@ -6,7 +6,9 @@ observations; Stage 3 implements the explicit-handler execution/store foundation
 with independent review approved. Stage 4 implements the bounded durable stock
 reference slice with independent review approved. Stage 5 implements the opt-in
 full-domain library with independent exact-head review approved. Stage 6 implements
-the explicit CLI opt-in with independent exact-head review approved; Stage 7 remains pending.
+the explicit CLI opt-in with independent exact-head review approved. Stage 7 adds
+a bounded DigiKey opt-in and measured serial-execution decision; independent
+review is pending.
 Companion documents:
 [design](import-execution-design.md), [contracts](import-execution-contracts.md),
 [architecture](../ARCHITECTURE.md). Baseline main `c22b7a1` includes PR #11
@@ -25,7 +27,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 | 4 | Complete; independent bounded-slice review approved | [Stage 4 handover](handovers/import-execution-stage-4.md); persistent fake-server fault matrix and actual observed SDK composition |
 | 5 | Complete; independent opt-in full-library review approved | [Stage 5 handover](handovers/import-execution-stage-5.md); all eight findings corrected; 221 focused tests passed and 150 SDK sends/intents |
 | 6 | Complete; independent opt-in CLI review approved | [Stage 6 handover](handovers/import-execution-stage-6.md); corrected normal1772, focused261/CLI31+journal9; scanner43; legacy default gated |
-| 7 | Pending | DigiKey adaptation and measured concurrency gates below |
+| 7 | Implemented bounded opt-in; independent review pending | [Stage 7 handover](handovers/import-execution-stage-7.md); one-order preparation, distinct contributions/issue/receipt; synthetic measurement retains serial execution |
 
 Deliver all stages as sequential stacked PRs. Each stage has a separate owner
 and independent review before its PR opens. Keep this plan flexible: record
@@ -678,3 +680,46 @@ See the [Stage 6 handover](handovers/import-execution-stage-6.md) for exact scop
 This clears the explicit opt-in stock CLI only: legacy default/parity, local/serial
 ownership, one-new-PO, source-basename, no category-YAML persistence and no semantic
 migration/force-unlock limits remain. Stage 7 uses a separate owner and review.
+
+
+## Stage 7 implementation adjustment
+
+The public opt-in is `import-run prepare-digikey` plus existing execute/recovery
+commands and explicit library entrypoints. It accepts one complete sales order
+per invocation until a supported target reference allocator is established. This
+is a declared preparation limit, not a hidden selected-batch truncation or an
+OPTIONS uniqueness claim. Existing legacy defaults/options remain unchanged.
+
+Shared component-only preparation reuses Part/manufacturer/SKU/parameter policy
+builders without inventing a StockFile or planning direct stock before receiving.
+Unknown creates remain review-only; existing uncorrelated legacy contributions
+require review. Correlated missing approved contributions repair independently.
+Issue and one multi-line receipt reconcile current state without guessed stock
+ownership or replay. Partial/manual received totals require conservative review;
+approved initial remaining amounts are explicit. Media/archive parity is not
+promised for this DigiKey opt-in and remains a default-rollout gate.
+
+A reproducible synthetic read/download experiment is committed in `docs/evidence/`.
+It demonstrates candidate overlap under fake latency only. Serial execution is
+retained because live rate/SDK client ownership, global ledger isolation and
+allocation/shared-field/artifact safety have not been established for pools.
+No worker setting or production concurrency was enabled. These bounded limits
+remain release constraints, even after independent review of the implementation.
+
+
+PO-line creation additionally requires read-only target OPTIONS to advertise
+writable boolean `merge_items` and `auto_pricing` controls; DigiKey also requires
+a writable source `reference` of sufficient length. New previews freeze capability
+evidence and `merge_items=false`, `auto_pricing=false`. Execution rechecks support
+before POST and validates source quantity/price/currency before dependent work.
+The [current official PO-line schema](https://docs.inventree.org/en/stable/api/schema/order/#post-apiorderpo-line)
+defaults merging on; reference is not a uniqueness constraint. Metadata is an
+advertised capability, not proof of server uniqueness or atomicity. Modified/older
+servers without the required controls are outside this supported creation slice.
+
+Older schema-1/2 plans remain readable without serialization or ID migration. A
+new stock run from an older plan lacking frozen line controls is rejected before
+mutation and must be prepared again. Existing stored runs retain their revision,
+claims, outputs and history: known-output inspection/repair remains supported, but
+a pending old-policy contribution cannot silently acquire new flags/reference or
+be created. No active-run migration, claim clearing or generic replay is supplied.

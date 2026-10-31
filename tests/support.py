@@ -587,7 +587,9 @@ class InvenTreeStub:
                 # which the real server derives from the orders it already has.
                 nxt = f"PO-{len(stub.purchase_orders) + 1:04d}"
                 return self._send(200, {
-                    "actions": {"POST": {"reference": {"default": nxt}}}
+                    "actions": {"POST": {"reference": {"default": nxt, "type": "string", "max_length": 100},
+                                         "merge_items": {"type": "boolean", "default": True},
+                                         "auto_pricing": {"type": "boolean", "default": False}}}
                 })
 
             def do_POST(self):

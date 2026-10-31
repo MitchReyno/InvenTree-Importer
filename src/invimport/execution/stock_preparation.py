@@ -35,14 +35,11 @@ from .models import (
 from .ownership import normalize_endpoint
 from .preparation import DiscoverySnapshot, ReadAPI, prepare_import
 from .stock_api import StockAPI
+from .records import record_identity
 
 
 class PreparationReview(ValueError):
     """The requested scope cannot safely become an executable preview."""
-
-
-def record_identity(row: Mapping, fields: tuple[str, ...]) -> str:
-    return digest({key: row.get(key) for key in fields})
 
 
 def single(rows: list[dict], label: str) -> dict | None:
@@ -91,7 +88,7 @@ def matching_parts(api: ReadAPI, *, category_pk: int, identity_kind: str, design
     return matched
 
 
-class _Preview:
+class DomainPreview:
     def __init__(self, document: StockFile, api: StockAPI, parameters: Mapping[str, ParameterConfig],
                  options: ImportOptions | None = None) -> None:
         self.options = options
@@ -274,7 +271,7 @@ def prepare_stock(document: StockFile, *, categories: Mapping[str, CategoryConfi
                  "options": {key: value for key, value in vars(options).items() if not callable(value)} if options else {}}
     plan = prepare_import(document, config_semantics=semantics, target=target, api=api,
                           discover=lambda read: DiscoverySnapshot((), "stock_v1"))
-    preview = _Preview(document, api, parameters, options)
+    preview = DomainPreview(document, api, parameters, options)
     server_categories = {r["pathstring"]: r for r in list_rows(api, "part/category/")}
     preview.location_rows = list_rows(api, "stock/location/")
     locations = {r["pathstring"]: r for r in preview.location_rows}
@@ -289,7 +286,7 @@ def prepare_stock(document: StockFile, *, categories: Mapping[str, CategoryConfi
     return result
 
 
-def _prepare_line(preview: _Preview, line: StockLine, *, categories: Mapping[str, CategoryConfig],
+def _prepare_line(preview: DomainPreview, line: StockLine, *, categories: Mapping[str, CategoryConfig],
                   server_categories: dict[str, dict], locations: dict[str, dict]) -> None:
     options = preview.options
     if options:
@@ -366,7 +363,7 @@ def _prepare_line(preview: _Preview, line: StockLine, *, categories: Mapping[str
         prepare_enrichment(preview, line, part, manufacturer_part, supplier_part, order, category)
 
 
-def _supplier_part(preview: _Preview, line: StockLine, part: OperationSpec,
+def _supplier_part(preview: DomainPreview, line: StockLine, part: OperationSpec,
                    supplier: OperationSpec | None, manufacturer_part: OperationSpec | None = None) -> OperationSpec | None:
     if not line.sku:
         if line.order_reference:
@@ -394,7 +391,7 @@ def _supplier_part(preview: _Preview, line: StockLine, part: OperationSpec,
                                 ((OutputRef(manufacturer_part.id, "record"),) if manufacturer_part else ()), line=line)
 
 
-def _order(preview: _Preview, line: StockLine, supplier: OperationSpec | None) -> OperationSpec | None:
+def _order(preview: DomainPreview, line: StockLine, supplier: OperationSpec | None) -> OperationSpec | None:
     if not line.order_reference or (preview.options and not preview.options.create_orders):
         return None
     if supplier is None:
@@ -429,7 +426,7 @@ def _order(preview: _Preview, line: StockLine, supplier: OperationSpec | None) -
                        requires=(OutputRef(supplier.id, "record"),), line=line)
 
 
-def _stock(preview: _Preview, line: StockLine, part: OperationSpec, gates: tuple[OutputRef, ...],
+def _stock(preview: DomainPreview, line: StockLine, part: OperationSpec, gates: tuple[OutputRef, ...],
            supplier_part: OperationSpec | None, order: OperationSpec | None, locations: dict) -> None:
     key = preview.document.key_for(line)
     with barcode_lookup_request():
@@ -458,7 +455,15 @@ def _stock(preview: _Preview, line: StockLine, part: OperationSpec, gates: tuple
     preview.add(Kind.METADATA, key, action="tags", payload={"tags": line.tags},
                 requires=(OutputRef(stock.id, "record"), OutputRef(barcode.id, "record")), line=line)
     if order and supplier_part and not owner:
-        contribution = preview.add(Kind.METADATA, key, action="order_line", payload={"quantity": line.quantity, "unit_price": line.unit_price, "currency": line.currency},
+        contribution = preview.add(Kind.METADATA, key, action="order_line", payload={"quantity": line.quantity, "unit_price": line.unit_price, "currency": line.currency,
+                                             "creation_policy": _line_policy(preview)},
                                     requires=(OutputRef(order.id, "record"), OutputRef(supplier_part.id, "record")), line=line)
         preview.add(Kind.METADATA, key, action="order_link", payload={},
                     requires=(OutputRef(stock.id, "record"), OutputRef(order.id, "record"), OutputRef(contribution.id, "record")), line=line)
+
+
+def _line_policy(preview: DomainPreview) -> dict:
+    from .order_line_policy import order_line_policy
+    if not hasattr(preview, "order_line_policy"):
+        preview.order_line_policy = order_line_policy(preview.api)
+    return preview.order_line_policy

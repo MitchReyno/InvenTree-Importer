@@ -93,7 +93,7 @@ def _verification_receipt(spec: OperationSpec, context: OperationContext, target
 def ensure_evidence(spec: OperationSpec, context: OperationContext, api: StockRequests,
                     inputs: list[tuple[Output, dict]], *, repair: bool) -> OperationResult:
     from ..inventree.collections import list_rows
-    from .stock_handlers import _success, review
+    from .records import satisfied_record, review
     desired = spec.desired.values()
     content = b64decode(desired["bytes"], validate=True)
     if sha256(content).hexdigest() != desired["sha256"]:
@@ -114,7 +114,7 @@ def ensure_evidence(spec: OperationSpec, context: OperationContext, api: StockRe
         verified = _verified(api, {"attachment": current["image"]}, desired["sha256"])
         if verified is True:
             _verification_receipt(spec, context, target, desired, image=True)
-            return _success(target)
+            return satisfied_record(target)
         previous = context.store.results().get(spec.id)
         if previous and any(effect.kind == "upload" for effect in previous.effects):
             return review("uploaded_image_not_verified")
@@ -135,7 +135,7 @@ def ensure_evidence(spec: OperationSpec, context: OperationContext, api: StockRe
         verified = _verified(api, matches[0], desired["sha256"])
         if verified is True:
             _verification_receipt(spec, context, target, desired, image=False)
-            return _success(target)
+            return satisfied_record(target)
         return review("evidence_bytes_conflict" if verified is False else "evidence_verification_unavailable")
     if repair:
         previous = context.store.results().get(spec.id)
@@ -163,7 +163,7 @@ def ensure_evidence(spec: OperationSpec, context: OperationContext, api: StockRe
         context.store._event(connection, "evidence_transfer_started", spec.id, context.attempt.id,
                              sha256=desired["sha256"], model=target.model, pk=target.pk)
     try:
-        from .stock_handlers import ROUTES
+        from .records import ROUTES
         route = f"{ROUTES[target.model]}{target.pk}/" if image else "attachment/"
         response = api.request(route, method="PATCH" if image else "POST",
                                data={} if image else {"model_type": target.model, "model_id": target.pk,
@@ -186,14 +186,14 @@ def ensure_evidence(spec: OperationSpec, context: OperationContext, api: StockRe
                              effects=(Effect("upload", Certainty.CONFIRMED, target.model, target.pk),)))
     # A successful upload response confirms a transfer, not remote byte identity.
     if image:
-        from .stock_handlers import ROUTES
+        from .records import ROUTES
         current = api.get(f"{ROUTES[target.model]}{target.pk}/")
         matches = [{"attachment": current.get("image")} ] if current.get("image") else []
         if len(matches) != 1 or _verified(api, matches[0], desired["sha256"]) is not True:
             return replace(review("uploaded_image_not_verified"), certainty=Certainty.CONFIRMED,
                            effects=(Effect("upload", Certainty.CONFIRMED, target.model, target.pk),))
         _verification_receipt(spec, context, target, desired, image=True)
-        return replace(_success(target), state=State.SUCCEEDED,
+        return replace(satisfied_record(target), state=State.SUCCEEDED,
                        effects=(Effect("upload", Certainty.CONFIRMED, target.model, target.pk),))
     rows = list_rows(api, "attachment/", params={"model_type": target.model, "model_id": target.pk})
     matches = [row for row in rows if str(row.get("filename", "")).rsplit("/", 1)[-1] == desired["filename"]]
@@ -201,4 +201,4 @@ def ensure_evidence(spec: OperationSpec, context: OperationContext, api: StockRe
         return replace(review("uploaded_evidence_not_verified"), certainty=Certainty.CONFIRMED,
                        effects=(Effect("upload", Certainty.CONFIRMED, target.model, target.pk),))
     _verification_receipt(spec, context, target, desired, image=False)
-    return replace(_success(target, created=False), state=State.SUCCEEDED, effects=(Effect("upload", Certainty.CONFIRMED, target.model, target.pk),))
+    return replace(satisfied_record(target, created=False), state=State.SUCCEEDED, effects=(Effect("upload", Certainty.CONFIRMED, target.model, target.pk),))

@@ -221,13 +221,21 @@ class Registry:
     @contextmanager
     def writer(self, target: Target, import_id: str, *, run_id: str, revision: str,
                location: Path, resume: bool = False) -> Iterator[None]:
+        with process_writer():
+            with self._claim_writer(target, import_id, run_id=run_id, revision=revision,
+                                    location=location, resume=resume):
+                yield
+
+    @contextmanager
+    def _claim_writer(self, target: Target, import_id: str, *, run_id: str, revision: str,
+               location: Path, resume: bool = False) -> Iterator[None]:
         # Bind the endpoint under the canonical lock before choosing a claim
         # namespace. A concurrent legacy writer must see the same verified ID.
         with FileLock(self.directory / "registry.lock"), self.connection:
             identity = self.identity(target)
             self.connection.execute("INSERT OR IGNORE INTO targets VALUES (?,?)", (normalize_endpoint(target.endpoint), identity))
         key = sha256((identity + "\0" + import_id).encode()).hexdigest()
-        with process_writer(), FileLock(self.directory / f"claim-{key}.lock"):
+        with FileLock(self.directory / f"claim-{key}.lock"):
             with FileLock(self.directory / "registry.lock"), self.connection:
                 row = self.connection.execute("SELECT run_id,location,revision,state FROM claims WHERE identity=? AND import_id=?", (identity, import_id)).fetchone()
                 if row and row[3] != "complete":
@@ -303,5 +311,36 @@ def legacy_write_guard(target: Target, import_id: str) -> Iterator[None]:
                              location=registry.directory / "legacy-unrecoverable"):
             yield
             registry.complete(run_id)
+    finally:
+        registry.close()
+
+
+@contextmanager
+def legacy_write_guards(target: Target, import_ids: tuple[str, ...]) -> Iterator[None]:
+    """Hold all selected legacy order claims under one serial process owner.
+
+    Scope acquisition precedes all remote work. Known acquisition failure can
+    close newly reserved no-dispatch claims; failures after yielding retain them.
+    Existing unresolved claims are never completed or changed by that cleanup.
+    """
+    from contextlib import ExitStack
+    from uuid import uuid4
+    registry = Registry()
+    acquired = []
+    try:
+        with process_writer(), ExitStack() as stack:
+            try:
+                for import_id in sorted(set(import_ids)):
+                    run_id = "legacy-" + uuid4().hex
+                    stack.enter_context(registry._claim_writer(target, import_id, run_id=run_id,
+                        revision="legacy", location=registry.directory / "legacy-unrecoverable"))
+                    acquired.append(run_id)
+            except BaseException:
+                for run_id in acquired:
+                    registry.complete(run_id)
+                raise
+            yield
+            for run_id in acquired:
+                registry.complete(run_id)
     finally:
         registry.close()

@@ -18,7 +18,7 @@ from .models import Kind, OperationSpec, OutputRef
 from .stock_preparation import PreparationReview
 
 if TYPE_CHECKING:
-    from .stock_preparation import _Preview
+    from .stock_preparation import DomainPreview
 
 
 def stable_bytes(path: Path) -> bytes:
@@ -67,7 +67,7 @@ def extract_pdf(content: bytes, pages: str) -> bytes:
         raise PreparationReview("requested datasheet cannot be read as PDF") from exc
 
 
-def prepare_asset(preview: _Preview, line: StockLine, target: OperationSpec, source: str, *,
+def prepare_asset(preview: DomainPreview, line: StockLine, target: OperationSpec, source: str, *,
                   comment: str = "", image: bool = False, pages: str = "", only_created: bool = False) -> None:
     base = preview.document.path.parent if preview.document.path else None
     filename, content = source_bytes(source, base)

@@ -9,10 +9,10 @@ from .models import Kind, OperationSpec, OutputRef
 from .stock_preparation import PreparationReview
 
 if TYPE_CHECKING:
-    from .stock_preparation import _Preview
+    from .stock_preparation import DomainPreview
 
 
-def path_operation(preview: _Preview, line: StockLine, path: str, *, model: str,
+def path_operation(preview: DomainPreview, line: StockLine, path: str, *, model: str,
                    route: str, existing: dict[str, dict]) -> dict:
     current = []
     parent: OperationSpec | None = None
@@ -37,7 +37,7 @@ def path_operation(preview: _Preview, line: StockLine, path: str, *, model: str,
     return existing[path]
 
 
-def prepare_templates(preview: _Preview, line: StockLine, category: CategoryConfig) -> None:
+def prepare_templates(preview: DomainPreview, line: StockLine, category: CategoryConfig) -> None:
     for name in category.parameters:
         if name in preview.templates:
             continue
@@ -50,7 +50,7 @@ def prepare_templates(preview: _Preview, line: StockLine, category: CategoryConf
         preview.templates[name] = {"pk": None, "name": name, "_operation": operation}
 
 
-def prepare_location(preview: _Preview, line: StockLine, requested: str) -> dict:
+def prepare_location(preview: DomainPreview, line: StockLine, requested: str) -> dict:
     """Resolve the shared escaped-name syntax by name and parent identity."""
     from ..inventree.stock import location_names
     names = location_names(requested)

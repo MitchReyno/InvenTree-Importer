@@ -7,19 +7,12 @@ from pathlib import Path
 from threading import Event
 from typing import Mapping
 
-from requests import RequestException
-
 from ..config import CategoryConfig, ParameterConfig
 from ..inventree.stockimport import ImportOptions, StockImportResult
 from ..stockfile import StockFile
 
-from .dispatch import guarded
 from .executor import (
     ContinuityReview,
-    OperationContext,
-    _dependency_settled,
-    _failed,
-    _invoke,
     execute_plan,
     execute_serial,
     resume_run,
@@ -27,7 +20,7 @@ from .executor import (
     validate_target_observation,
 )
 from .models import OperationSpec, Plan, State, Target, canonical
-from .observation import durable_correlation, operation
+from .domain_repair import repair_selected_operations
 from .ownership import JournalError, Registry, normalize_endpoint
 from .stock_api import StockAPI
 from .stock_handlers import StockHandlers
@@ -116,6 +109,8 @@ def execute_stock(plan: Plan, *, api: StockAPI, current_target: Target, run_dire
                   cancelled: Event | None = None) -> dict:
     """Execute only a reviewed frozen preview, acquiring canonical ownership."""
     _bind(plan, api, current_target)
+    if any(op.desired.values().get("action") == "order_line" and "creation_policy" not in op.desired.values() for op in plan.operations):
+        raise ValueError("older prepared PO contribution requires reprepare before starting a new run")
     try:
         snapshot = execute_plan(plan, StockHandlers(api).mapping, current_target=current_target,
                                 run_directory=run_directory, cancelled=cancelled)
@@ -142,65 +137,6 @@ def resume_stock(plan: Plan, run_id: str, path: Path, *, api: StockAPI, current_
     return _report(plan, snapshot, path.parent)
 
 
-def _repair_selected_operations(store: RunStore, handlers: StockHandlers, operation_id: str, *,
-                                cancelled: Event) -> None:
-    """Recover usable prerequisites, never turn settlement into blanket retry."""
-    plan = store.plan
-    specs = {op.id: op for op in plan.operations}
-    if operation_id not in specs:
-        raise ValueError("unknown operation ID")
-    attempted: set[str] = set()
-
-    def repair_selected(selected: str) -> None:
-        if selected in attempted:
-            return
-        attempted.add(selected)
-        spec = specs[selected]
-        # Only required usable outputs need recovery. Settlement
-        # barriers authorize finalization after failed inventory;
-        # selecting evidence must not retry every failed branch.
-        for reference in spec.requires:
-            previous = store.results().get(reference.operation)
-            if previous is None or not any(output.name == reference.name for output in previous.outputs):
-                repair_selected(reference.operation)
-        results = store.results()
-        outputs = {(key, output.name): output for key, result in results.items() for output in result.outputs}
-        if any((ref.operation, ref.name) not in outputs for ref in spec.requires):
-            return  # Honest blocked result; no speculative dispatch.
-        states = store.states()
-        for parent in spec.settled_after:
-            if not _dependency_settled(plan, parent, states, outputs):
-                repair_selected(parent)
-        states, results = store.states(), store.results()
-        outputs = {(key, output.name): output for key, result in results.items() for output in result.outputs}
-        if not all(_dependency_settled(plan, parent, states, outputs) for parent in spec.settled_after):
-            return
-        state = states[selected]
-        if state in SETTLED_SUCCESS:
-            return
-        if state in {State.PENDING, State.READY, State.BLOCKED}:
-            _invoke(spec, store, handlers.mapping, cancelled=cancelled or Event(), outputs=outputs)
-            return
-        attempt = store.start_stock_repair(selected)
-        context = OperationContext(store, attempt, cancelled=cancelled or Event(), inputs=outputs)
-        with durable_correlation(run=store.run_id, operation=selected, attempt=attempt.id,
-                                 source=spec.attribution.source, group=spec.group), guarded(context), operation("stock repair"):
-            try:
-                context.check()
-                result = handlers.repair(spec, context)
-                context.check()
-            except JournalError:
-                raise
-            except BaseException as exc:
-                store.finish(attempt, _failed(exc, context))
-                if not isinstance(exc, (RequestException, ConnectionError, TimeoutError, InterruptedError)):
-                    raise
-            else:
-                store.finish(attempt, result)
-
-    repair_selected(operation_id)
-
-
 def repair_stock(plan: Plan, run_id: str, path: Path, operation_id: str, *, api: StockAPI,
                  current_target: Target, continuity: ContinuityReview | None = None,
                  cancelled: Event | None = None) -> dict:
@@ -220,7 +156,7 @@ def repair_stock(plan: Plan, run_id: str, path: Path, operation_id: str, *, api:
                 registry.activate(run_id, location=path, revision=plan.revision)
                 store.owner_check = lambda: registry.check_ownership(run_id, location=path, revision=plan.revision)
                 store.recover_interrupted()
-                _repair_selected_operations(store, StockHandlers(api), operation_id,
+                repair_selected_operations(store, StockHandlers(api), operation_id,
                                             cancelled=cancelled or Event())
                 snapshot = execute_serial(store, StockHandlers(api).mapping, cancelled=cancelled)
                 from .stock_finalization import refresh_finalization

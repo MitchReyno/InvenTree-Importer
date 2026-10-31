@@ -110,7 +110,10 @@ class StockServer:
             with self.connect() as connection:
                 count = connection.execute("SELECT count(*) FROM rows WHERE route='order/po/'").fetchone()[0]
             reference = f"PO-{count + 1}"
-            return SimpleNamespace(status_code=200, json=lambda: {"actions": {"POST": {"reference": {"default": reference}}}})
+            return SimpleNamespace(status_code=200, json=lambda: {"actions": {"POST": {
+                "reference": {"default": reference, "type": "string", "max_length": 100},
+                "merge_items": {"type": "boolean", "default": True},
+                "auto_pricing": {"type": "boolean", "default": False}}}})
         self._call("post", route)
         mode = self._fault(route)
         if mode == "before":

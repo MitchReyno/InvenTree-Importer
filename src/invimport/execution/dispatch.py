@@ -43,9 +43,24 @@ def barcode_lookup_request() -> Iterator[None]:
 
 def request_is_mutation(method: str, url: str) -> bool:
     from urllib.parse import urlsplit
+    if _semantic_read.get() == (method.lower(), url):
+        return False
     if method.lower() in {"get", "options"}:
         return False
     if (_semantic_barcode_read.get() and method.lower() == "post"
             and urlsplit(url).path.rstrip("/").endswith("/barcode")):
         return False
     return True
+
+
+_semantic_read: ContextVar[tuple[str, str] | None] = ContextVar("semantic_read_request", default=None)
+
+
+@contextmanager
+def semantic_read_request(method: str, url: str) -> Iterator[None]:
+    """Declare precisely one endpoint exchange a semantic read (e.g. search POST)."""
+    token = _semantic_read.set((method.lower(), url))
+    try:
+        yield
+    finally:
+        _semantic_read.reset(token)

@@ -189,7 +189,7 @@ scope. HTTP success is distinct from decoded model and confirmed domain effect.
 | Dry run / --yes / --write / --no-* | No remote effects without write; selected scope, matching and confidence policies | New resolved preview and durable permissions; --yes not ambiguity authorization |
 | Existing reimport/notes/company eligibility | Preserve manual data, selected enrichment and created-company logo policy | Durable pending work persists; historic quantity/batch/location/part immutable |
 | Missing location / coarse completion | Legacy behavior characterized | New mode unresolved requested location review, barcode-confirmed registration, incomplete selected evidence exit 1 |
-| Transport visibility | Library stays UI-independent | Whole stock invocation correlated; unmigrated DigiKey excluded until Stage 7 |
+| Transport visibility | Library stays UI-independent | Whole stock and supported DigiKey CLI invocations correlated, including token/fetch/search attempts; durable DigiKey order opt-in remains bounded |
 
 ## Baseline evidence and next gate
 
@@ -530,3 +530,63 @@ verification. The [handover](handovers/import-execution-stage-6.md) records deta
 No legacy-default switch, full interactive/montage parity, cross-host ownership,
 live immutable identity/allocator/atomicity, exactly-once effects or arbitrary plan
 migration/force-unlock capability is implied by this clearance.
+
+
+## Stage 7 DigiKey contracts
+
+- Plan/journal schemas and logical ID construction remain unchanged. DigiKey
+  operations use an explicit `digikey_v1` reconciliation policy; selected domain
+  repair shares the existing history-preserving authorization seam. There is no
+  generic mutation requeue/replay or new-ID repair.
+- Source namespace is supplier PK plus original sales order ID. Supported legacy
+  order writers hold the same canonical namespace, including direct sales-order
+  calls; a batch acquires all claims before effects under one process writer.
+- One complete sales order is the declared preparation bound. OPTIONS remains
+  only one proposed PO reference; it is never a reservation or uniqueness proof.
+- Original source contribution identities remain distinct even for identical
+  SKU/quantity/price lines. Explicit IDs survive reordering; absent IDs are scoped
+  by the frozen original array digest and original position. Uncorrelated existing
+  contributions/source-array changes require review, not matching guesses.
+- Known PO/line PKs checkpoint before dependent calls. Unknown creates without
+  saved usable identity are review-only, even if reference/payload matches exist.
+  Rejected no-effect contribution creates permit explicit conditional repair.
+- Issue is a separate operation; observed open/completed order status can satisfy
+  a lost issue intent. Receipt is one multi-effect operation for one endpoint
+  request. Accepted effects checkpoint before read-back. Unknown or already
+  accepted receipts never automatically dispatch again.
+- Exact current received totals on revalidated approved lines can satisfy receipt
+  intent while preserving unknown original attempt history. These totals establish
+  state, not actor attribution or StockItem identity. No guessed stock outputs,
+  consumed-quantity reset or deleted-stock recreation is permitted. Partial/manual
+  totals require review. Initial approved remaining amounts are explicit/frozen.
+- Explicit receiving location identity, supplier SKU/Part relationship, PO metadata,
+  quantity and decimal price/currency are revalidated by consumers. No fallback to
+  another location or legacy execution follows failure.
+- Optional missing models use shared matching/parameter-ownership/raw-create
+  policies. Taxonomy/template/config choices must be resolved before preparation.
+  DigiKey media/archive parity remains outside the bounded opt-in release scope.
+- DigiKey read transport observes every actual token/GET/search attempt, excludes
+  URLs/headers/bodies/secrets, and retains one bounded retry owner. Semantic search
+  POST scope is exact to its endpoint; arbitrary POSTs remain nonretryable writes.
+  Cancellation interrupts retry/pacing waits before subsequent requests.
+- Synthetic concurrency measurements are labeled synthetic. Executor/SQLite/SDK
+  ownership remains serial and the global legacy ledger is not claimed isolated
+  for parallel runs. No live uniqueness/rate/thread/atomicity guarantee is inferred.
+
+
+PO-line creation additionally requires read-only target OPTIONS to advertise
+writable boolean `merge_items` and `auto_pricing` controls; DigiKey also requires
+a writable source `reference` of sufficient length. New previews freeze capability
+evidence and `merge_items=false`, `auto_pricing=false`. Execution rechecks support
+before POST and validates source quantity/price/currency before dependent work.
+The [current official PO-line schema](https://docs.inventree.org/en/stable/api/schema/order/#post-apiorderpo-line)
+defaults merging on; reference is not a uniqueness constraint. Metadata is an
+advertised capability, not proof of server uniqueness or atomicity. Modified/older
+servers without the required controls are outside this supported creation slice.
+
+Older schema-1/2 plans remain readable without serialization or ID migration. A
+new stock run from an older plan lacking frozen line controls is rejected before
+mutation and must be prepared again. Existing stored runs retain their revision,
+claims, outputs and history: known-output inspection/repair remains supported, but
+a pending old-policy contribution cannot silently acquire new flags/reference or
+be created. No active-run migration, claim clearing or generic replay is supplied.

@@ -177,6 +177,66 @@ an empty replacement registry. A failed event export is reported and does not al
 confirmed effects. Reports/events are replaceable projections; journals and immutable
 artifact receipts/bytes are the recovery authority.
 
+## DigiKey order opt-in
+
+The durable path accepts **one complete sales order per invocation**. Obtain
+flattened source JSON using the existing read command; cache, refresh, sandbox,
+account and locale behavior remains with that command. Fetch product rows before
+preparation when missing supplier models should be created. No vendor fetch or
+interactive category/config write is hidden inside durable execution.
+
+```sh
+uv run invimport orders --order 87654321 --json order.json
+uv run invimport product SKU-A SKU-B --json products.json
+uv run invimport import-run prepare-digikey order.json --supplier 12 --location 4 --output approved-order.json --json
+uv run invimport import-run execute approved-order.json --json
+uv run invimport import-run execute approved-order.json --write --json
+```
+
+Add `--create-parts --products products.json --config config --create-manufacturers`
+to preparation only when those model choices are approved. Category aliases and
+parameter templates must already be mapped/synchronized. Otherwise use existing
+supplier SKUs or explicitly choose `--partial`; unmatched lines are never silently
+omitted. `--no-receive` approves booking only. Receiving requires a resolved numeric
+location PK: no alternate location is silently chosen. For an existing partially
+received line, `--receive-remaining` explicitly freezes the observed remainder;
+without it preparation stops for review. Decimal prices and currency are frozen.
+
+The library equivalent is `execution.digikey_preparation.prepare_digikey`, followed
+by `execution.digikey_workflow.execute_digikey`, `resume_digikey` or `repair_digikey`.
+It accepts already-fetched complete order/product values, resolved supplier/location
+PKs and optional existing ImportOptions callbacks; it performs no implicit legacy
+import. All callbacks and model decisions finish before execution. Receipt operations
+represent a single multi-line endpoint call, so retry-operation selects that one
+operation ID. Use the same status, reviewed continuity, selected retry and blocking
+abandon commands documented above. Source JSON may be removed after the approved
+plan is retained; recovery uses the immutable saved plan. Status never connects.
+
+A lost create response without a saved trustworthy PK remains uncertain. Never
+rerun a fresh import or select the legacy command to bypass it. Known created PO
+and contribution PKs survive interruption. A rejected initial contribution can be
+repaired under its original approved ID, then eligible issue/receipt work proceeds.
+Existing correlated lines retain quantity/pricing/received history. Existing legacy
+orders without original contribution correlation require review; the importer will
+not guess duplicate-looking lines by SKU or quantity. Changes to an original line
+array without stable explicit line IDs also require review.
+
+After an issue/receipt response is lost, selected repair reads current order status
+and exact received totals. Fully satisfied approved totals can complete the intent
+while retaining the unknown original attempt. They do not prove importer ownership
+of a StockItem; no stock PK is guessed. Partial/manual changes require review and
+never cause automatic remaining receipt/recreation. Consumed quantities and deleted
+stock remain historical. Accepted receipt effects also prevent replay after failed
+read-back. No force/rebase/rollback option is provided.
+
+The bounded opt-in creates Part/manufacturer/SKU/parameter models and PO receipt
+work; product images, downloaded datasheet attachments and per-order evidence
+archives are not part of this DigiKey preview. The legacy commands remain available
+with their existing options and canonical order exclusion. Stock evidence behavior
+is unchanged. Neither path proves server-side allocation uniqueness, atomic updates
+or cross-client exactly-once effects. Keep execution serial; the committed synthetic
+latency evaluation is not production performance evidence.
+
 ## Rollout gates
 
 The opt-in supports full stock library domain work and artifact finalization within
@@ -186,6 +246,27 @@ basename collision resolution. `import-stock --plan` remains the legacy report
 projection; the durable command does not currently generate that montage. Library
 `project_stock_result` remains available for report integrations. The default must
 stay legacy until remaining parity/fault and operational gates are reviewed.
-DigiKey adaptation, live-target allocator/identity guarantees and concurrency remain
-Stage 7 work. Fake transports establish client contracts, not cross-client
+The Stage 7 DigiKey opt-in implements the bounded one-order/model/receipt scope
+above, and its measured concurrency decision retains serial execution. Remaining
+release gates include media/archive/interactive parity, supported live allocator
+and target-continuity capabilities, and any future client/rate/ownership evidence
+for concurrency. Fake transports establish client contracts, not cross-client
 exactly-once effects or live server atomicity.
+
+
+PO-line creation additionally requires read-only target OPTIONS to advertise
+writable boolean `merge_items` and `auto_pricing` controls; DigiKey also requires
+a writable source `reference` of sufficient length. New previews freeze capability
+evidence and `merge_items=false`, `auto_pricing=false`. Execution rechecks support
+before POST and validates source quantity/price/currency before dependent work.
+The [current official PO-line schema](https://docs.inventree.org/en/stable/api/schema/order/#post-apiorderpo-line)
+defaults merging on; reference is not a uniqueness constraint. Metadata is an
+advertised capability, not proof of server uniqueness or atomicity. Modified/older
+servers without the required controls are outside this supported creation slice.
+
+Older schema-1/2 plans remain readable without serialization or ID migration. A
+new stock run from an older plan lacking frozen line controls is rejected before
+mutation and must be prepared again. Existing stored runs retain their revision,
+claims, outputs and history: known-output inspection/repair remains supported, but
+a pending old-policy contribution cannot silently acquire new flags/reference or
+be created. No active-run migration, claim clearing or generic replay is supplied.

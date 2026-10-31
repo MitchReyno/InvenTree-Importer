@@ -58,6 +58,8 @@ from .api import (
     connect,
 )
 
+from ..execution.digikey_ownership import guard_order_writes, guard_sales_order_writes
+
 log = logging.getLogger(__name__)
 
 # The name a supplier is created under, and the spellings DigiKey trades as -
@@ -626,6 +628,7 @@ def plan_lines(sales_order: dict[str, Any], parts: dict[str, Any],
     return actions
 
 
+@guard_sales_order_writes
 def import_sales_order(
     api,
     order: dict[str, Any],
@@ -748,6 +751,7 @@ def import_sales_order(
                    pk=purchase_order.pk, lines=lines)
 
 
+@guard_order_writes
 def import_orders(
     orders: Iterable[dict[str, Any]],
     api=None,

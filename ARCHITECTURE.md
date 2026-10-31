@@ -1,6 +1,7 @@
 # Import architecture
 
-This is the current implementation through Stage 6, based on main `c22b7a1`
+This is the current implementation through Stage 7 (independent review pending),
+based on main `c22b7a1`
 (including the code-organization conventions) and SDK `inventree==0.13.5`.
 The ordinary stock CLI still uses the legacy workflow. The durable workflow is
 an explicit library and `import-run` CLI opt-in; the legacy default is gated. See the maintained
@@ -197,7 +198,7 @@ Stage 6 exposes opt-in CLI prepare/execute/status/resume/retry/abandon, write
 approval, JSON/exit contracts and [operational guidance](docs/import-run.md).
 The default switch remains gated on parity/fault review. Category config-file persistence needs an explicit supplied
 configuration target/precondition contract before a future CLI promises it.
-DigiKey migration and bounded concurrency remain Stage 7. The library is serial;
+DigiKey adds an explicit bounded order-domain opt-in described below. The library is serial;
 legacy thread pools remain confined to legacy parameter/download workflows.
 
 ## Durable CLI boundary
@@ -229,3 +230,90 @@ bindings before store use, status and completion. Legitimate RUNNING checkpoints
 and BLOCKED retry-wait projections remain readable; UNKNOWN cannot be promoted to
 success through row-only corruption. Event persistence failure remains separate
 from cancellation's exit 130.
+
+
+## DigiKey durable order boundary
+
+`import-run prepare-digikey` reads complete flattened order JSON exported by
+`orders --order ID --json FILE`. Optional `product --json FILE` rows supply
+missing model inputs. Authentication and vendor fetching stay in the existing
+read commands; their complete invocation outline precedes connection/auth, with
+per-send observations and cancellation-aware bounded DigiKey retry/backoff.
+Token errors never export response bodies or credentials. Search POST retries
+require an exact endpoint semantic-read scope. The existing request_json loop
+remains the only transient retry owner; token grants make one observed attempt.
+Cache/locale/account/sandbox/refresh options retain their existing interfaces.
+
+`execution.digikey_preparation` accepts exactly one complete sales order per
+invocation. It rejects a selected batch before mutations rather than importing a
+subset. This preserves the inherited allocator restriction: OPTIONS offers one
+reference candidate, not a reservation. No reference arithmetic or server-side
+uniqueness is inferred. The import namespace is supplier PK plus original sales
+order ID (`digikey.identity`), shared with supported legacy `import_orders` and
+direct `import_sales_order` writers. Legacy multi-order claims are acquired under
+one serial process owner before work; unresolved durable claims cannot be bypassed
+by selecting the legacy writer. Canonical exclusion remains local to this state
+root/user. Different source orders can progress after a run settles incomplete.
+
+Each original source line becomes a distinct contribution; repeated SKUs are not
+merged. Original explicit line IDs are retained. When absent, the immutable
+original array digest plus original position is the identity; changed arrays on
+an existing order require review. A line `reference` records this correlation.
+Existing uncorrelated legacy lines require review, never guessed SKU/quantity
+matching. Known PO/line output checkpoints survive restart. Unknown creates remain
+review-only without a trustworthy saved output, even when a matching reference
+appears. Existing correlated orders can add missing approved contributions after
+a rejected initial create. Prices use finite decimal strings and currency remains
+frozen. Existing quantity/price/relationship/order metadata drift blocks consumers.
+
+`component_preparation` selects only shared Part/manufacturer/SKU/parameter builders
+from `DomainPreview`; it uses normalized model inputs without creating a StockFile
+or planning direct stock/barcode operations. Existing category/template mappings
+and explicit manufacturer decisions are required. `records` owns shared guarded
+raw-create cardinality/PK checks, identity reads and checkpoint-before-dependent-work
+policies for both domains. There is no second divergent matching importer.
+
+`digikey_handlers` separates PO creation, contribution creation, issue and receipt.
+Issue reconciles observed current order status. One receipt operation dispatches
+one request for multiple line amounts and records multiple line effects. Accepted
+effects checkpoint before read-back. Unknown/accepted receipt requests are never
+replayed. Exact approved current received totals can satisfy intent while the old
+unknown attempt remains in history. This observation does not identify who created
+stock and never produces guessed StockItem outputs. Partial/manual totals require
+review. Preparation of a partially received existing line requires explicit
+`--receive-remaining`; it freezes only the approved remainder. Consumption, manual
+stock quantity changes and deleted stock are preserved. Receiving requires an
+explicit resolved location, frozen by identity. `--no-receive` books only.
+
+`digikey_workflow` uses the shared journal, ownership, semantic validation, actual
+SDK dispatch guards and selected prerequisite-repair scheduler. CLI execute/status/
+resume/retry/abandon keep the existing JSON, write, continuity and cancellation
+contracts. Stock plans remain compatible; no default workflow changes or raw
+legacy fallback follow new-engine failure. DigiKey model media/archives, interactive
+category learning inside durable preparation and arbitrary multi-order allocation
+remain outside this opt-in scope. Obtain and map those inputs before preparation.
+
+The reproducible [synthetic evaluation](docs/evidence/import-concurrency-synthetic.json)
+and `scripts/evaluate-import-concurrency.py` show only simulated independent I/O
+latency, not live performance. Production executor workers remain one: the SQLite
+writer/SDK dispatch owner, process-global legacy ledger, shared allocation/fields/
+artifacts and unverified live total rate budgets do not justify parallel writes or
+shared clients. Candidate synthetic pools are isolated benchmark code only.
+
+
+PO-line creation additionally requires read-only target OPTIONS to advertise
+writable boolean `merge_items` and `auto_pricing` controls; DigiKey also requires
+a writable source `reference` of sufficient length. New previews freeze capability
+evidence and `merge_items=false`, `auto_pricing=false`. Execution rechecks support
+before POST and validates source quantity/price/currency before dependent work.
+The [current official PO-line schema](https://docs.inventree.org/en/stable/api/schema/order/#post-apiorderpo-line)
+defaults merging on; reference is not a uniqueness constraint. Metadata is an
+advertised capability, not proof of server uniqueness or atomicity. Modified/older
+servers without the required controls are outside this supported creation slice.
+
+Older schema-1/2 plans remain readable without serialization or ID migration. A
+new stock run from an older plan lacking frozen line controls is rejected before
+mutation and must be prepared again. Existing stored runs retain their revision,
+claims, outputs and history: known-output inspection/repair remains supported, but
+a pending old-policy contribution cannot silently acquire new flags/reference or
+be created. No active-run migration, claim clearing or generic replay is supplied.

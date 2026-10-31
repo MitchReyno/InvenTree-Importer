@@ -1434,3 +1434,12 @@ Local `status`, explicit `resume`/`retry-operation`, JSON/events and blocking
 `abandon` are described in the [operator workflow](docs/import-run.md).
 `import-stock` remains the legacy default with its existing flags and `--plan`
 schema while remaining parity/rollout gates are reviewed.
+
+
+For DigiKey, the explicit opt-in is `import-run prepare-digikey order.json
+--supplier PK --location PK --output approved-order.json`, followed by the same
+reviewed execute/recovery commands. It accepts one complete sales order exported
+with `orders --order ID --json order.json`; optional supplied product rows create
+missing models through shared policies. See the [DigiKey operator scope](docs/import-run.md#digikey-order-opt-in)
+for partial/remaining choices, required target capabilities, media exclusions and
+recovery limits. Ordinary command defaults remain legacy; execution remains serial.

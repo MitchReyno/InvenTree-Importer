@@ -1,4 +1,4 @@
-"""Opt-in durable stock imports. Prepare and review before explicit --write.
+"""Opt-in durable stock and bounded DigiKey orders. Review before explicit --write.
 
 Status is local. Resume/retry require reviewed database continuity acknowledgement
 when no immutable identity is available. Abandon preserves a blocking tombstone.
@@ -30,16 +30,28 @@ from ..stockfile import read_file
 from ..validate import validate
 
 NAME = "import-run"
-HELP = "prepare, execute and recover an opt-in durable stock import"
+HELP = "prepare, execute and recover opt-in durable stock or DigiKey imports"
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     commands = parser.add_subparsers(dest="action", required=True)
-    for name in ("prepare", "execute", "status", "resume", "retry-operation", "abandon"):
+    for name in ("prepare", "prepare-digikey", "execute", "status", "resume", "retry-operation", "abandon"):
         sub = commands.add_parser(name)
         sub.add_argument("--json", action="store_true", help="emit one JSON result on stdout")
         sub.add_argument("--events", type=Path, help="write redacted sequenced invocation JSONL")
-        if name == "prepare":
+        if name == "prepare-digikey":
+            sub.add_argument("file", type=Path, help="complete flattened orders JSON from orders --json")
+            sub.add_argument("--output", type=Path, required=True)
+            sub.add_argument("--supplier", type=int, required=True)
+            sub.add_argument("--location", type=int)
+            sub.add_argument("--partial", action="store_true")
+            sub.add_argument("--no-receive", action="store_true")
+            sub.add_argument("--receive-remaining", action="store_true")
+            sub.add_argument("--create-parts", action="store_true")
+            sub.add_argument("--products", type=Path, help="previously fetched flattened product rows JSON")
+            sub.add_argument("--config", type=Path)
+            sub.add_argument("--create-manufacturers", action="store_true")
+        elif name == "prepare":
             sub.add_argument("file", type=Path)
             sub.add_argument("--output", type=Path, required=True)
             sub.add_argument("--config", type=Path)
@@ -64,7 +76,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
             sub.add_argument("--continuity-reason", help="reviewed same database continuity acknowledgement; cannot override identity drift")
         if name == "abandon":
             sub.add_argument("--reason", required=True, help="audit reason; unresolved ownership remains blocked")
-        if name not in {"prepare", "status"}:
+        if name not in {"prepare", "prepare-digikey", "status"}:
             sub.add_argument("--write", action="store_true", help="explicitly authorize this operation")
         sub.add_argument("--yes", action="store_true", help="accept already explicit choices; never implies --write or continuity")
 
@@ -131,7 +143,33 @@ def _prepare(args: argparse.Namespace, outputs: GeneratedOutputs) -> dict:
     return {**preview(plan), "prepared": True, "output": str(args.output)}
 
 
+def _prepare_digikey(args: argparse.Namespace, outputs: GeneratedOutputs) -> dict:
+    from ..execution.digikey_preparation import prepare_digikey
+    source = json.loads(args.file.read_text(encoding="utf-8"))
+    if not isinstance(source, list):
+        raise ValueError("DigiKey source must be the complete flattened orders array")
+    products = json.loads(args.products.read_text(encoding="utf-8")) if args.products else {}
+    if isinstance(products, list):
+        products = {row["SKU"].upper(): row for row in products}
+    categories = load_categories_config(args.config) if args.create_parts else {}
+    parameters = load_parameters_config(args.config) if args.create_parts else {}
+    target = _current()
+    with operation("connection", group="connection"):
+        api = connect()
+    plan = prepare_digikey(source, supplier=args.supplier, location=args.location,
+                           partial=args.partial, receive=not args.no_receive,
+                           receive_remaining=args.receive_remaining, target=target, api=api,
+                           create_parts=args.create_parts, products=products, categories=categories, parameters=parameters,
+                           options=ImportOptions(create_manufacturers=args.create_manufacturers))
+    _hierarchy(plan)
+    outputs.validate()
+    _atomic(args.output, plan.dumps() + "\n")
+    return {**preview(plan), "prepared": True, "output": str(args.output)}
+
+
 def _perform(args: argparse.Namespace, observation: Observation, outputs: GeneratedOutputs) -> tuple[dict, int]:
+    if args.action == "prepare-digikey":
+        return _prepare_digikey(args, outputs), 0
     if args.action == "prepare":
         return _prepare(args, outputs), 0
     if args.action == "status":
@@ -159,16 +197,20 @@ def _perform(args: argparse.Namespace, observation: Observation, outputs: Genera
                                       sha256(args.continuity_reason.encode()).hexdigest())
     with operation("connection", group="connection"):
         api = connect()
+    execute, resume, repair = execute_stock, resume_stock, repair_stock
+    if plan.decisions.values().get("domain") == "digikey_v1":
+        from ..execution.digikey_workflow import execute_digikey, repair_digikey, resume_digikey
+        execute, resume, repair = execute_digikey, resume_digikey, repair_digikey
     with operation(args.action, group="execution"):
         if args.action == "execute":
             directory = args.run_directory or state_root() / "execution" / "runs" / uuid4().hex
-            result = execute_stock(plan, api=api, current_target=current, run_directory=directory,
+            result = execute(plan, api=api, current_target=current, run_directory=directory,
                                    cancelled=observation.cancelled)
         elif args.action == "resume":
-            result = resume_stock(plan, args.run_id, path, api=api, current_target=current,
+            result = resume(plan, args.run_id, path, api=api, current_target=current,
                                   continuity=continuity, cancelled=observation.cancelled)
         else:
-            result = repair_stock(plan, args.run_id, path, args.operation_id, api=api,
+            result = repair(plan, args.run_id, path, args.operation_id, api=api,
                                   current_target=current, continuity=continuity,
                                   cancelled=observation.cancelled)
     if observation.cancelled.is_set():
@@ -178,10 +220,10 @@ def _perform(args: argparse.Namespace, observation: Observation, outputs: Genera
 
 def run(args: argparse.Namespace) -> int:
     _outline(args.action)
-    inputs = [getattr(args, name, None) for name in ("file", "plan", "env_file")]
+    inputs = [getattr(args, name, None) for name in ("file", "plan", "env_file", "products")]
     destinations = [getattr(args, name, None) for name in ("output", "events")]
     directories = [getattr(args, "run_directory", None)]
-    if args.action == "prepare":
+    if args.action in {"prepare", "prepare-digikey"}:
         directories.append(args.config or CONFIG_DIR)
     outputs = GeneratedOutputs((path for path in destinations if path),
                                inputs=(path for path in inputs if path),

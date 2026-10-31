@@ -307,7 +307,7 @@ def _local_result(kind: str) -> OperationResult:
 
 
 def run_local_or_final(spec: OperationSpec, context: OperationContext, api: StockRequests, *, repair: bool) -> OperationResult:
-    from .stock_handlers import review
+    from .records import review
     desired = spec.desired.values()
     action = desired["action"]
     directory = context.store.path.parent
@@ -363,7 +363,8 @@ def run_local_or_final(spec: OperationSpec, context: OperationContext, api: Stoc
 
 
 def _select_target(spec: OperationSpec, context: OperationContext, api: StockRequests) -> tuple[OperationSpec, Output] | OperationResult:
-    from .stock_handlers import _validated_input, review
+    from .records import review
+    from .stock_handlers import _validated_input
     desired = spec.desired.values()
     operations = {op.id: op for op in context.store.plan.operations}
     saved = context.store.connection.execute(
@@ -396,7 +397,7 @@ def _select_target(spec: OperationSpec, context: OperationContext, api: StockReq
 
 def _upload_versions(spec: OperationSpec, context: OperationContext, api: StockRequests) -> OperationResult:
     from .stock_evidence import ensure_evidence
-    from .stock_handlers import review
+    from .records import review
     desired = spec.desired.values()
     selection = _select_target(spec, context, api)
     if isinstance(selection, OperationResult):

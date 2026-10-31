@@ -13,11 +13,12 @@ from ..inventree.values import from_supplier
 from ..stockfile import StockLine
 from ..util import absolute_url
 from .models import Kind, OperationSpec, OutputRef
-from .stock_preparation import PreparationReview, record_identity, single
+from .records import record_identity
+from .stock_preparation import PreparationReview, single
 
 if TYPE_CHECKING:
     from ..config import CategoryConfig
-    from .stock_preparation import _Preview
+    from .stock_preparation import DomainPreview
 
 
 def validate_line_choice(line: StockLine, options: ImportOptions) -> bool:
@@ -28,7 +29,7 @@ def validate_line_choice(line: StockLine, options: ImportOptions) -> bool:
     return True
 
 
-def prepare_company(preview: _Preview, line: StockLine, name: str, *, role: str) -> OperationSpec | None:
+def prepare_company(preview: DomainPreview, line: StockLine, name: str, *, role: str) -> OperationSpec | None:
     from .stock_choices import company_choice
     options = preview.options
     callback = options.choose_supplier if role == "is_supplier" else options.choose_manufacturer
@@ -52,7 +53,7 @@ def prepare_company(preview: _Preview, line: StockLine, name: str, *, role: str)
                                  "identity": record_identity(existing, ("name", "is_supplier")) if existing else None}, line=line)
 
 
-def prepare_parameters(preview: _Preview, line: StockLine, target: OperationSpec,
+def prepare_parameters(preview: DomainPreview, line: StockLine, target: OperationSpec,
                        values: dict[str, str]) -> None:
     for name, value in values.items():
         template = preview.templates.get(name)
@@ -64,7 +65,7 @@ def prepare_parameters(preview: _Preview, line: StockLine, target: OperationSpec
                              ((OutputRef(template["_operation"].id, "record"),) if "_operation" in template else ()), line=line)
 
 
-def prepare_manufacturer_part(preview: _Preview, line: StockLine, part: OperationSpec,
+def prepare_manufacturer_part(preview: DomainPreview, line: StockLine, part: OperationSpec,
                               category: CategoryConfig) -> OperationSpec | None:
     if not line.manufacturer:
         return None
@@ -90,13 +91,13 @@ def prepare_manufacturer_part(preview: _Preview, line: StockLine, part: Operatio
     return operation
 
 
-def _notes(preview: _Preview, line: StockLine, target: OperationSpec | None, text: str) -> None:
+def _notes(preview: DomainPreview, line: StockLine, target: OperationSpec | None, text: str) -> None:
     if target and text:
         preview.add(Kind.METADATA, target.subject + ":notes", action="notes",
                     payload={"text": text}, requires=(OutputRef(target.id, "record"),), line=line)
 
 
-def prepare_enrichment(preview: _Preview, line: StockLine, part: OperationSpec,
+def prepare_enrichment(preview: DomainPreview, line: StockLine, part: OperationSpec,
                        manufacturer_part: OperationSpec | None, supplier_part: OperationSpec | None,
                        order: OperationSpec | None, category: CategoryConfig) -> None:
     from .stock_assets import prepare_asset

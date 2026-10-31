@@ -105,6 +105,20 @@ def main(argv: list[str] | None = None) -> int:
 
     # Load credentials once, up front, so every command sees the same env.
     load_env_file(args.env_file)
+    if args.command in {"orders", "product", "import-orders", "supplier-parts"}:
+        from .execution.observation import Observation, observing, operation
+        from .execution.transport import protect_import_logs
+        print("DigiKey invocation: validate choices → connection/authentication → complete order/product discovery → frozen review choices → inventory operations only if --write", file=sys.stderr)
+        observation = Observation(lambda event: print(
+            f"[{event.sequence}] {event.kind}: {event.label} {event.outcome}", file=sys.stderr))
+        protect_import_logs()
+        with observing(observation), operation("DigiKey invocation"):
+            try:
+                return args._run(args)
+            except (KeyboardInterrupt, InterruptedError, DigiKeyError, InvenTreeError, ConfigError):
+                raise
+            except Exception as exc:
+                raise InvocationFailure(f"DigiKey invocation stopped ({type(exc).__name__})") from exc
     return args._run(args)
 
 
@@ -124,7 +138,7 @@ def cli(argv: list[str] | None = None) -> int:
     except (ConfigError, DigiKeyError, InvenTreeError) as exc:
         print(f"\nERROR: {exc}", file=sys.stderr)
         return 1
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, InterruptedError):
         print("\ninterrupted", file=sys.stderr)
         return 130
 

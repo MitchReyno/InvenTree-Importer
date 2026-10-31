@@ -178,13 +178,13 @@ class RunStore:
     def start_stock_repair(self, operation: str) -> Attempt:
         """Authorize a bounded stock-domain reconciliation, preserving prior result.
 
-        Only stock_v1 specs participate. The trusted domain handler must read and
+        Only explicitly registered stock_v1/digikey_v1 specs participate. The trusted domain handler must read and
         validate the saved record and conditional preconditions before each write;
         this is not permission to rerun an original create handler.
         """
         spec = next(op for op in self.plan.operations if op.id == operation)
         previous = self.results().get(operation)
-        if (not spec.mutation or spec.reconciliation != "stock_v1" or previous is None
+        if (not spec.mutation or spec.reconciliation not in {"stock_v1", "digikey_v1"} or previous is None
                 or previous.retry not in {Retry.RECONCILE, Retry.REVIEW}):
             raise ValueError("operation has no domain repair authorization")
         with self.transaction() as connection:
