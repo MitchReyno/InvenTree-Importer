@@ -12,7 +12,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 
 | Stage | Status | Acceptance evidence |
 |---|---|---|
-| 0 | Contracts complete; upstream incorporation awaiting independent recheck | [Stage 0 handover](handovers/import-execution-stage-0.md) |
+| 0 | Complete; upstream incorporation independently approved | [Stage 0 handover](handovers/import-execution-stage-0.md) |
 | 1 | Pending | Error taxonomy and complete-read gates below |
 | 2 | Pending | Whole-command request coverage and worker correlation gates below |
 | 3 | Pending | Real-store ownership/restart gates below |

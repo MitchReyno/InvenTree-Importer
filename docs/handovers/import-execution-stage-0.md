@@ -175,9 +175,16 @@ Updated baseline metadata in architecture/design/plan to the incorporated main.
 Moved the two new baseline tests unchanged into their existing rerun/location
 behavior groups, keeping their fixtures and assertions intact.
 
-The earlier independent approval above applies to the pre-incorporation content.
-This merge and its convention-alignment edits await independent recheck; the plan
-status reflects that limit. No new runtime/recovery guarantees are claimed.
+Independent final recheck approved integrated head `813e39f` for push with no
+new findings. The reviewer read the full updated conventions, compared the
+incorporation against previously reviewed `bdef68b`, checked the architecture/
+contract/plan and handover updates, and confirmed both relocated test ASTs are
+identical. Reviewer changed-test Ruff and base-to-final whitespace checks passed;
+the upstream-only change is CONVENTIONS.md. Full-suite/focused results below are
+owner evidence, not independently repeated in this recheck. No live capabilities
+or recovery runtime guarantees were tested or claimed. The reviewer explicitly
+permitted this review-status-only update without another runtime test cycle;
+`git diff --check` passed for the final documentation update.
 
 Validation after incorporation:
 
