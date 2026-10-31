@@ -1112,6 +1112,16 @@ square PNG. The rules are in `.claude/skills/company-logos/SKILL.md`.
 Every command's logic is importable. The library returns data, logs rather than
 prints, and raises rather than exiting — so it composes.
 
+DigiKey lookups preserve missing-resource handling for HTTP 404, but service,
+transport and invalid-response failures raise `DigiKeyError` rather than being
+reported as missing products or empty order history. Transient failures use
+bounded retries for GET requests and read-only keyword searches; arbitrary
+`Client.post()` calls are not replayed unless `retry_safe=True` is explicit.
+
+Import-plan record reads raise `InvenTreeError` on request failure rather than
+publishing empty-looking records. Optional image failures remain warnings.
+A failed plan does not roll back an import that already wrote records.
+
 ```python
 from invimport import load_env, digikey_connect, fetch_orders, fetch_products, line_items
 
@@ -1320,6 +1330,10 @@ behind that would make the next `import-stock` report `already there` and
 create nothing.
 
 ## Development
+
+Read [CONVENTIONS.md](CONVENTIONS.md) before writing or reviewing code. It covers
+Python coding practices, error handling, testing and change review; [AGENTS.md](AGENTS.md)
+contains the project-specific workflow and required checks.
 
 ```bash
 make test                     # everything but the scanner TUI tests

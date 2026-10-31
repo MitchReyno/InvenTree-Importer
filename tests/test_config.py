@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import stat
+from pathlib import Path
+
 import pytest
+
+from invimport import config
 
 from invimport.config import (
     CONFIG_DIR,
@@ -601,3 +606,65 @@ def test_name_style_needs_prefixes_to_write_around(conf):
     parameters = PARAMETERS + "\nCapacitance:\n  units: F\n  name_style: rkm\n"
     with pytest.raises(ConfigError, match="no prefixes"):
         load_parameters_config(conf(parameters=parameters))
+
+
+@pytest.mark.parametrize("initial,mutate", [
+    ("Part: {}\n", lambda path: add_alias(path, ["Part"], "Alias")),
+    ("Part:\n  aliases: [Old]\n", lambda path: add_alias(path, ["Part"], "Alias")),
+    ("Part:\n  aliases:\n    - Old\n", lambda path: add_alias(path, ["Part"], "Alias")),
+    ("Part: {}\n", lambda path: add_value_alias(path, "Part", "Value", "Spelling")),
+    ("Part:\n  values:\n    Old: [x]\n",
+     lambda path: add_value_alias(path, "Part", "Value", "Spelling")),
+    ("", lambda path: add_alias(path, ["Part"], "Alias")),
+    ("", lambda path: add_category(path, ["New"])),
+])
+def test_config_replacement_failure_preserves_original(initial, mutate, tmp_path, monkeypatch):
+    path = tmp_path / "config.yaml"
+    path.write_text(initial, encoding="utf-8")
+
+    def fail_replace(source, target):
+        # The complete new file must be on the same filesystem before replace.
+        assert source.parent == path.parent
+        assert source.read_text(encoding="utf-8") != initial
+        assert path.read_text(encoding="utf-8") == initial
+        raise OSError("replacement failed")
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    with pytest.raises(OSError, match="replacement failed"):
+        mutate(path)
+    assert path.read_text(encoding="utf-8") == initial
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_config_flush_failure_preserves_original_and_cleans_up(tmp_path, monkeypatch):
+    path = tmp_path / "config.yaml"
+    path.write_text("Part: {}\n", encoding="utf-8")
+
+    def fail_sync(fd):
+        raise OSError("disk failure")
+
+    monkeypatch.setattr(config.os, "fsync", fail_sync)
+    with pytest.raises(OSError, match="disk failure"):
+        add_alias(path, ["Part"], "Alias")
+    assert path.read_text(encoding="utf-8") == "Part: {}\n"
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_config_replacement_preserves_permissions_and_symlink(tmp_path):
+    target = tmp_path / "actual.yaml"
+    target.write_text("Part: {}\n", encoding="utf-8")
+    target.chmod(0o640)
+    link = tmp_path / "config.yaml"
+    link.symlink_to(target.name)
+    assert add_alias(link, ["Part"], "Alias")
+    assert link.is_symlink()
+    assert "Alias" in target.read_text(encoding="utf-8")
+    assert stat.S_IMODE(target.stat().st_mode) == 0o640
+    assert set(tmp_path.iterdir()) == {target, link}
+
+
+def test_new_config_file_can_be_created(tmp_path):
+    path = tmp_path / "new.yaml"
+    assert add_category(path, ["New"])
+    assert "New:" in path.read_text(encoding="utf-8")
+    assert list(tmp_path.iterdir()) == [path]

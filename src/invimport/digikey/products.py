@@ -89,7 +89,7 @@ def search_for_product(sku: str, client: Client) -> dict[str, Any] | None:
     template = (SANDBOX_KEYWORD_SEARCH_URL if client.sandbox
                 else KEYWORD_SEARCH_URL)
     found = client.post(template, {"Keywords": sku, "Limit": 5, "Offset": 0},
-                        label=sku)
+                        label=sku, retry_safe=True)
     if not found:
         return None
 
@@ -287,8 +287,9 @@ def fetch_products(
     """
     Fetch and parse every SKU, returning one dict per SKU in input order.
 
-    A SKU with no API result yields {"SKU": ..., "error": "no API result"} rather
-    than being dropped, so the output lines up with the input.
+    A missing SKU yields {"SKU": ..., "error": "no API result"} rather than
+    being dropped. Request failures raise DigiKeyError instead of being reported
+    as missing products.
 
     on_result, if given, is called as each SKU completes with the extracted row
     and the raw payload - useful for progress output without buffering.

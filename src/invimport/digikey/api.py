@@ -167,9 +167,11 @@ class Client:
         return request_json(url, self.headers(with_account), params, label)
 
     def post(self, url: str, body: dict[str, Any],
-             label: str = "") -> dict[str, Any] | None:
+             label: str = "", *, retry_safe: bool = False) -> dict[str, Any] | None:
+        """POST once unless the caller explicitly identifies a safe read."""
         headers = {**self.headers(), "Content-Type": "application/json"}
-        return request_json(url, headers, label=label, json_body=body)
+        return request_json(url, headers, label=label, json_body=body,
+                            retry_safe=retry_safe)
 
 
 def connect(sandbox: bool = False, need_account: bool = False) -> Client:
@@ -196,47 +198,61 @@ def request_json(
     params: dict[str, Any] | None = None,
     label: str = "",
     json_body: dict[str, Any] | None = None,
+    *,
+    retry_safe: bool = False,
 ) -> dict[str, Any] | None:
-    """
-    Call a DigiKey endpoint with retry/backoff. Returns the parsed body, or
-    None if the resource is absent (404) or every attempt failed.
+    """Return JSON, or None only for a missing resource (404).
 
-    POSTs when json_body is given; GETs otherwise.
-
-    Raises DigiKeyError on 401/403, which mean the token or the app's API
-    subscriptions are wrong - retrying those just wastes quota.
+    Other HTTP, transport and invalid-response failures raise DigiKeyError.
+    Retry transient failures for GETs and explicitly safe read-only POSTs;
+    never replay an arbitrary POST whose outcome may be unknown.
     """
-    for attempt in range(1, MAX_RETRIES + 1):
-        if json_body is None:
-            resp = requests.get(url, headers=headers, params=params, timeout=30)
+    can_retry = json_body is None or retry_safe
+    attempts = MAX_RETRIES if can_retry else 1
+    target = label or "DigiKey endpoint"
+    for attempt in range(1, attempts + 1):
+        try:
+            if json_body is None:
+                resp = requests.get(url, headers=headers, params=params, timeout=30)
+            else:
+                resp = requests.post(url, headers=headers, json=json_body,
+                                     timeout=30)
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            if attempt == attempts:
+                raise DigiKeyError(
+                    f"Request failed for {target} after {attempt} attempt(s)"
+                ) from exc
+            log.warning("    [connection failed] %s (attempt %s)", target, attempt)
+        except requests.RequestException as exc:
+            raise DigiKeyError(f"Request failed for {target}") from exc
         else:
-            resp = requests.post(url, headers=headers, json=json_body,
-                                 timeout=30)
+            if resp.status_code == 200:
+                try:
+                    payload = resp.json()
+                except ValueError as exc:
+                    raise DigiKeyError(f"Invalid JSON response for {target}") from exc
+                if not isinstance(payload, dict):
+                    raise DigiKeyError(f"Expected a JSON object for {target}")
+                time.sleep(REQUEST_DELAY_S)
+                return payload
 
-        if resp.status_code == 200:
-            time.sleep(REQUEST_DELAY_S)
-            return resp.json()
+            if resp.status_code == 404:
+                log.warning("    [not found] %s", target)
+                return None
 
-        if resp.status_code == 404:
-            log.warning("    [not found] %s", label)
-            return None
+            if resp.status_code in (401, 403):
+                raise DigiKeyError(
+                    f"Auth rejected ({resp.status_code}) for {target}. Token expired "
+                    "or the app is not subscribed to this API product."
+                )
 
-        if resp.status_code == 429:
-            wait = min(60, 2 ** attempt)
-            log.warning("    [rate limited] sleeping %ss (attempt %s)", wait, attempt)
-            time.sleep(wait)
-            continue
+            transient = resp.status_code in (408, 429, 500, 502, 503, 504)
+            if not transient or attempt == attempts:
+                raise DigiKeyError(
+                    f"HTTP {resp.status_code} for {target} after {attempt} attempt(s)"
+                )
+            log.warning("    [http %s] %s (attempt %s)",
+                        resp.status_code, target, attempt)
+        time.sleep(min(60, 2 ** attempt))
 
-        if resp.status_code in (401, 403):
-            raise DigiKeyError(
-                f"Auth rejected ({resp.status_code}) for {label}. Token expired or "
-                f"the app is not subscribed to this API product. Body: {resp.text[:300]}"
-            )
-
-        log.warning("    [http %s] %s: %s", resp.status_code, label, resp.text[:200])
-        time.sleep(2 ** attempt)
-
-    log.warning("    [give up] %s after %s attempts", label, MAX_RETRIES)
-    return None
-
-
+    raise DigiKeyError(f"No request attempts configured for {target}")

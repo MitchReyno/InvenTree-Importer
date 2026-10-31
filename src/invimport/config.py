@@ -22,7 +22,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import stat
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -500,6 +503,35 @@ def _body_end(lines: list[str], key_index: int) -> int:
     return len(lines)
 
 
+def _write_config(path: Path, text: str) -> None:
+    """Replace one config file without exposing a partial write.
+
+    Follow existing symlinks as write_text did, and retain the target's mode.
+    This protects a single write, not concurrent read-modify-write operations.
+    """
+    target = path.resolve()
+    try:
+        mode = stat.S_IMODE(target.stat().st_mode)
+    except FileNotFoundError:
+        mode = None
+
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=target.parent,
+                prefix=f".{target.name}.", suffix=".tmp", delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(text)
+            if mode is not None:
+                os.fchmod(stream.fileno(), mode)
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.replace(target)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
 def add_alias(path: Path, keys: list[str], alias: str) -> bool:
     """Add `alias` to the aliases list of the mapping at `keys`."""
     return add_list_item(path, keys, "aliases", alias)
@@ -551,7 +583,7 @@ def add_list_item(path: Path, keys: list[str], list_key: str,
     if aliases_at is None:
         insertion = f"{' ' * aliases_indent}{list_key}:\n{item}"
         lines.insert(key_index + 1, insertion)
-        path.write_text("".join(lines), encoding="utf-8")
+        _write_config(path, "".join(lines))
         return True
 
     # A flow sequence - `parameters: [Resistance]` - cannot take a block item
@@ -564,7 +596,7 @@ def add_list_item(path: Path, keys: list[str], list_key: str,
         rendered = ", ".join([*flow, format_yaml_key(value)])
         head = lines[aliases_at].split(":", 1)[0]
         lines[aliases_at] = f"{head}: [{rendered}]\n"
-        path.write_text("".join(lines), encoding="utf-8")
+        _write_config(path, "".join(lines))
         return True
 
     aliases_end = _body_end(lines, aliases_at)
@@ -581,7 +613,7 @@ def add_list_item(path: Path, keys: list[str], list_key: str,
             insert_at = index + 1
             break
     lines.insert(insert_at, item)
-    path.write_text("".join(lines), encoding="utf-8")
+    _write_config(path, "".join(lines))
     return True
 
 
@@ -624,7 +656,7 @@ def add_value_alias(path: Path, parameter: str, canonical: str,
             f"{' ' * (child_indent + 4)}- {format_yaml_key(spelling)}\n"
         )
         lines.insert(param_at + 1, block)
-        path.write_text("".join(lines), encoding="utf-8")
+        _write_config(path, "".join(lines))
         return True
 
     values_end = _body_end(lines, values_at)
@@ -636,7 +668,7 @@ def add_value_alias(path: Path, parameter: str, canonical: str,
             f"{' ' * (can_indent + 2)}- {format_yaml_key(spelling)}\n"
         )
         lines.insert(values_end, block)
-        path.write_text("".join(lines), encoding="utf-8")
+        _write_config(path, "".join(lines))
         return True
 
     return add_list_item(path, [parameter, "values"], canonical, spelling)
@@ -668,7 +700,7 @@ def _append_block(path: Path, lines: list[str], block: str) -> bool:
         body += "\n"
     if body and not body.endswith("\n\n"):
         body += "\n"
-    path.write_text(body + block, encoding="utf-8")
+    _write_config(path, body + block)
     return True
 
 
@@ -750,5 +782,5 @@ def add_category(path: Path, keys: list[str], alias: str | None = None,
 
     _as_block_mapping(lines, parent_index)
     lines.insert(_body_end(lines, parent_index), block)
-    path.write_text("".join(lines), encoding="utf-8")
+    _write_config(path, "".join(lines))
     return True
