@@ -343,3 +343,21 @@ consumer. Invalid, unsupported, read-only, overridden or changed dates require
 review. Omitted dates remain omitted. Older DigiKey plans that omit supplied dates
 or disagree with exact supported source amounts stay readable but cannot execute
 under a silent semantic migration. Stock plan compatibility remains as documented.
+
+
+Receipt selection refreshes order status and each total after location resolution.
+One immutable `ReceiptPreconditions` record binds that exact selection to current
+received totals, order status and frozen location at final dispatch. The final
+callback validates those values, Company/PO/complete contribution scope before
+recording mutation intent; changed state requires review instead of another
+remaining calculation. Pending10 is required for an actual issue, open20 for an
+actual receipt. Stable full totals may satisfy receipt intent on open/completed
+orders20/30 without a POST; cancelled/held/reset states require review. No-write
+satisfaction is revalidated too, so late changes cannot clear an old unknown
+attempt using stale counters. Validation evidence is journaled before receipt send.
+
+Accepted receipt read-back conflicts retain confirmed effects in a valid review
+result. Shared `records.review` derives aggregate certainty from the effects it
+retains; mixed/explicit unknown outcomes remain uncertain. No accepted or unknown
+receipt is replayed to repair a conflict. These checks still cannot make several
+remote reads and a POST atomic against a later external actor.

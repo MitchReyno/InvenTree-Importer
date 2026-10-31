@@ -614,3 +614,21 @@ be created. No active-run migration, claim clearing or generic replay is supplie
 - Shared callback validation precedes actual mutation request intent; it does not
   add a second durable child around an observed SDK send. GET/POST races remain
   possible without a demonstrated server atomic precondition capability.
+
+
+### Receipt dispatch and review certainty
+
+A receipt's immutable selected preconditions bind current received totals, status
+and explicit location to its exact amount. Refreshed selection follows location
+lookup; final dispatch rechecks the selected totals/status/location together with
+Company/PO/complete contribution identities. No changed/manual partial state can
+authorize automatic remaining receipt. Issue mutation requires pending10, receive
+mutation open20; full stable totals may settle read-only on20/30. Other states
+require review. The no-write satisfaction path revalidates before resolving prior
+uncertainty. Successful final receipt checks are journaled before mutation intent.
+
+`records.review` preserves confirmed aggregate certainty when retaining confirmed
+effects, and unknown aggregate/state when any retained or explicit unknown exists.
+Accepted receipt/readback conflict returns valid needs-review data rather than
+raising a constructor error, retaining historical accepted effects and no-replay
+policy. Known outputs/attempts/IDs and plan/journal schemas remain unchanged.

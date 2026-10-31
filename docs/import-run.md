@@ -299,3 +299,23 @@ capabilities stop preparation; target overrides/later date drift block consumers
 With no source date, no date is invented. Old DigiKey plans that omitted a supplied
 date or disagree with exact supported source values require reviewed reprepare
 before execution; active claims/history are not cleared or migrated automatically.
+
+
+### Late receipt changes
+
+The final receipt check binds the exact selected amount to current line totals,
+open order status and the frozen location. If a manual receipt, status change or
+location change is observed before dispatch, execution stops for review instead
+of sending a stale amount or automatically calculating a new remainder. A fully
+satisfied current intent may settle without any receive request; this does not
+identify the actor or a StockItem. Partial changed amounts remain review-only,
+including after selected retry.
+
+Actual issue requires pending status10; actual receive requires open status20.
+Closed/completed status30 can satisfy fully received intent by observation only,
+and cannot receive an outstanding amount. Cancelled, held or reset statuses
+require review. Current totals/status/location are checked again before no-write
+satisfaction can resolve an unknown receipt. If an accepted receipt has conflicting
+read-back, its confirmed acceptance remains in a valid needs-review result and
+fresh-process repair cannot repeat it. Remote changes after the final observations
+remain outside the client's non-atomic GET/POST guarantee.

@@ -1,13 +1,13 @@
 """DigiKey contribution, issue and one multi-effect receipt reconciliation."""
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from decimal import Decimal, localcontext
 from typing import Callable
 
 from ..inventree.collections import list_rows
 from .executor import ClassifiedFailure, OperationContext
-from .models import Certainty, Effect, ErrorCategory, Kind, OperationResult, OperationSpec, Output, Retry, SafeError, State, digest
+from .models import Certainty, Effect, ErrorCategory, Kind, OperationResult, OperationSpec, Output, Retry, SafeError, State
 from .digikey_preparation import line_matches, number
 from .stock_api import StockAPI, StockRequests
 from .order_line_policy import OrderLineCapabilityError, order_line_policy
@@ -15,6 +15,13 @@ from .order_policy import OrderDateCapabilityError, creation_date_policy
 from .stock_handlers import StockHandlers
 from .stock_preparation import PreparationReview
 from .records import IDENTITY_FIELDS, create_record, read_company_role, read_record, record_identity, satisfied_record, review
+
+
+@dataclass(frozen=True)
+class ReceiptPreconditions:
+    """Observed state to which this exact receipt or satisfaction is bound."""
+    status: int
+    received: tuple[tuple[int, str], ...]
 
 
 class DigiKeyHandlers:
@@ -69,30 +76,41 @@ class DigiKeyHandlers:
         raise ValueError("unsupported DigiKey domain action")
 
     def _before_mutation(self, api: StockRequests, context: OperationContext) -> None:
-        failure = self._consumption_failure(api, context)
+        failure = self._consumption_failure(api, context, mutation=True)
         if failure:
             raise ClassifiedFailure(SafeError(ErrorCategory.CONFLICT, failure), retry=Retry.REVIEW)
 
-    def _consumption_failure(self, api: StockRequests, context: OperationContext) -> str | None:
+    def _consumption_failure(self, api: StockRequests, context: OperationContext, *, mutation: bool = False,
+                             receipt: ReceiptPreconditions | None = None) -> str | None:
         operations = context.store.plan.operations
+        current = next(op for op in operations if op.id == context.attempt.operation)
+        if receipt is not None:
+            desired_receipt = current.desired.values()
+            location = Output("location", "stock.stocklocation", desired_receipt["location"], desired_receipt["location_identity"])
+            if read_record(api, location) is None:
+                return "digikey_receiving_location_drift"
         original = next(op for op in operations if op.desired.values().get("action") == "dk_order")
         desired = original.desired.values()
         supplier = Output("record", "company.company", desired["payload"]["supplier"], desired["supplier_identity"]["identity"])
         if read_company_role(api, supplier, role="is_supplier") is None:
             return "digikey_supplier_drift"
-        current = next(op for op in operations if op.id == context.attempt.operation)
         order = context.inputs.get((original.id, "record"))
         if order is not None:
             row = read_record(api, order)
             if row is None or not self._approved(original, row):
                 return "digikey_order_metadata_drift"
+            if mutation and current.desired.values()["action"] == "dk_issue" and row.get("status") != 10:
+                return "digikey_issue_status_changed"
+            if receipt is not None and (row.get("status") != receipt.status or mutation and row.get("status") != 20):
+                return "digikey_receipt_status_changed"
         if current.desired.values()["action"] in {"dk_issue", "dk_receive"}:
-            order = context.inputs.get((original.id, "record"))
-            if order is None or not self._order_scope(api, context, order.pk):
-                return "digikey_order_contribution_scope_drift"
+            expected = dict(receipt.received) if receipt is not None else None
+            if order is None or not self._order_scope(api, context, order.pk, received=expected):
+                return "digikey_receipt_preconditions_changed" if receipt is not None else "digikey_order_contribution_scope_drift"
         return None
 
-    def _order_scope(self, api: StockRequests, context: OperationContext, order_pk: int) -> bool:
+    def _order_scope(self, api: StockRequests, context: OperationContext, order_pk: int, *,
+                     received: dict[int, str] | None = None) -> bool:
         """Order-wide effects consume exactly the approved complete line set."""
         expected = {}
         for spec in context.store.plan.operations:
@@ -111,6 +129,12 @@ class DigiKeyHandlers:
             if (part is None or row.get("part") != part.pk or row.get("order") != order_pk or record_identity(row, IDENTITY_FIELDS[output.model]) != output.identity_digest
                     or not self._approved(spec, row)):
                 return False
+            if received is not None:
+                try:
+                    if number(row.get("received", 0) or 0) != received.get(output.pk):
+                        return False
+                except PreparationReview:
+                    return False
         return True
 
     @staticmethod
@@ -228,11 +252,24 @@ class DigiKeyHandlers:
 
     def _receive(self, spec: OperationSpec, context: OperationContext, api: StockRequests, prior: OperationResult | None, inputs: list[tuple[Output, dict]], operations: dict[str, OperationSpec]) -> OperationResult:
         desired = spec.desired.values()
-        where = api.get(f"stock/location/{desired['location']}/")
-        if not isinstance(where, dict) or digest({key: where.get(key) for key in ("name", "parent")}) != desired["location_identity"]:
+        location = Output("location", "stock.stocklocation", desired["location"], desired["location_identity"])
+        where = read_record(api, location)
+        if where is None:
             return review("digikey_receiving_location_drift", unknown=bool(prior and prior.certainty == Certainty.UNKNOWN))
-        order_output, order = next((output, row) for output, row in inputs if output.model == "order.purchaseorder")
-        by_pk = {output.pk: (output, row) for output, row in inputs if output.model == "order.purchaseorderlineitem"}
+        order_output = next(output for output, _ in inputs if output.model == "order.purchaseorder")
+        order = read_record(api, order_output)
+        original = next(op for op in operations.values() if op.desired.values()["action"] == "dk_order")
+        if order is None or not self._approved(original, order):
+            return review("digikey_order_metadata_drift", unknown=bool(prior and prior.certainty == Certainty.UNKNOWN))
+        if order.get("status") not in {20, 30}:
+            return review("digikey_order_not_open_for_receipt", unknown=bool(prior and prior.certainty == Certainty.UNKNOWN))
+        by_pk = {}
+        for operation_id in desired["line_operations"]:
+            output = context.inputs[(operation_id, "record")]
+            current = read_record(api, output)
+            if current is None or not self._approved(operations[operation_id], current):
+                return review("digikey_receipt_line_drift", unknown=bool(prior and prior.certainty == Certainty.UNKNOWN))
+            by_pk[output.pk] = output, current
         items = []
         effects = []
         totals = []
@@ -267,13 +304,32 @@ class DigiKeyHandlers:
         with context.store.transaction() as connection:
             context.store._event(connection, "digikey_received_totals_observed", spec.id, context.attempt.id,
                                  order=order_output.pk, totals=totals)
+        preconditions = ReceiptPreconditions(order["status"], tuple((pk, current) for pk, current, _, _ in totals))
         if not items:
+            failure = self._consumption_failure(api, context, receipt=preconditions)
+            if failure:
+                return review(failure, unknown=bool(prior and prior.certainty == Certainty.UNKNOWN), effects=tuple(effects))
             return OperationResult(State.ALREADY_SATISFIED, Certainty.CONFIRMED, effects=tuple(effects))
         if prior and (prior.certainty == Certainty.UNKNOWN or any(effect.kind == "receive_accepted" for effect in prior.effects)):
             return review("digikey_receipt_outcome_unresolved", unknown=True, effects=prior.effects)
         if order.get("status") != 20:
             return review("digikey_order_not_open_for_receipt")
-        api.post(f"order/po/{order_output.pk}/receive/", {"items": items, "location": desired["location"]})
+        previous_check = api.before_mutation
+        def receipt_check(requests: StockRequests) -> None:
+            failure = self._consumption_failure(requests, context, mutation=True, receipt=preconditions)
+            if failure:
+                raise ClassifiedFailure(SafeError(ErrorCategory.CONFLICT, failure), retry=Retry.REVIEW)
+            with context.store.transaction() as connection:
+                context.store._event(connection, "digikey_receipt_preconditions_checked", spec.id, context.attempt.id,
+                                     order=order_output.pk, status=preconditions.status, received=preconditions.received,
+                                     location=desired["location"])
+        api.before_mutation = receipt_check
+        try:
+            api.post(f"order/po/{order_output.pk}/receive/", {"items": items, "location": desired["location"]})
+        except ClassifiedFailure as exc:
+            return review(exc.error.code, effects=tuple(effects))
+        finally:
+            api.before_mutation = previous_check
         # Checkpoint accepted multi-effect exchange BEFORE any dependent read.
         accepted = tuple(Effect("receive_accepted", Certainty.CONFIRMED, "order.purchaseorderlineitem", item["line_item"]) for item in items)
         checkpoint = OperationResult(State.NEEDS_REVIEW, Certainty.CONFIRMED, Retry.RECONCILE, effects=tuple(effects) + accepted)
@@ -284,7 +340,11 @@ class DigiKeyHandlers:
             row = read_record(api, output)
             expected = next(spec.desired.values()["quantity"] for spec in operations.values()
                             if spec.id in desired["line_operations"] and context.inputs[(spec.id, "record")].pk == output.pk)
-            if row is None or number(row.get("received", 0) or 0) != expected:
+            try:
+                matches = row is not None and number(row.get("received", 0) or 0) == expected
+            except PreparationReview:
+                matches = False
+            if not matches:
                 return review("digikey_receipt_readback_conflict", effects=checkpoint.effects)
             observed_effects.append(Effect("received_total_observed", Certainty.CONFIRMED, output.model, output.pk))
         return OperationResult(State.SUCCEEDED, Certainty.CONFIRMED, effects=accepted + tuple(observed_effects))

@@ -657,3 +657,13 @@ shared historical date policy behind a writable target capability. Receipt amoun
 use an owned Decimal context. Original rejected evidence and current corrected
 validation remain recorded in the Stage 7 handover; no semantic reset/migration,
 manual record rewrite or live atomicity guarantee follows from these corrections.
+
+
+The second exact-head review identified stale receipt selection despite observable
+later totals/status changes. Complete contribution identity alone does not bind
+a quantity/status-sensitive action. Receipt selection now refreshes its state and
+a final immutable precondition record binds exact totals/status/location to the
+selected call. Changed state requires review or stable read-only satisfaction,
+never automatic remaining receipt. Accepted effects retain valid aggregate review
+certainty. This is an additional conditional client gate, not a remote transaction
+or proof that no external actor can race after the final read.

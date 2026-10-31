@@ -732,3 +732,12 @@ candidate adds shared before-mutation consumption checks, exact-set reconciliati
 bounded exact decimal handling/owned receipt arithmetic, and source-date capability/
 readback validation. Regression and independent recheck outcomes are recorded in
 the handover. Initial rejection is preserved; owner tests do not imply clearance.
+
+
+The c5eab95 exact-head recheck additionally rejected a late receipt precondition
+gap (observable totals/status changed after selection) and invalid aggregate review
+certainty with retained accepted effects. The next corrected candidate refreshes
+selection and binds totals/status/location at final dispatch/no-write settlement,
+keeps manual changes review-only, and preserves valid confirmed/unknown review
+results. Rejection, reproduced outcomes and final checks remain in the handover;
+publication still requires independent approval of the next exact commit.

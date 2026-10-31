@@ -455,3 +455,108 @@ worktree is committed clean for independent exact-head recheck. Initial343bea9
 rejection is retained above. Root publication remains blocked until that independent
 recheck approves; the stage owner has not pushed, opened a PR, merged or called a
 live account/inventory service.
+
+
+## Second exact-head recheck rejection and residual receipt corrections
+
+Independent recheck of `c5eab95b1dab46c9f056fdc92018500fc2af9b0a` confirmed
+the earlier source/Company/complete-set fixes, but **did not approve** the candidate:
+
+- P1: receipt amount/status selection used cached inputs. The independent
+  `stage7-receipt-revalidation-repro.py` manually changed received0→5 during the
+  location lookup; a later guarded line collection explicitly saw5, but the
+  cached payload still received5 again and made10. This was observable drift,
+  not an unavoidable final-read/POST race.
+- The same P1 includes `stage7-receipt-status-repro.py`: status20→40 during location
+  lookup was later reread as40, but metadata-only checks ignored status and sent
+  the cached receipt5, completing over a cancelled order.
+- Related P2: accepted receipt/readback conflict called review with confirmed
+  effects but aggregate certainty none. OperationResult correctly rejected that
+  invalid combination with ValueError, hiding the intended review outcome behind
+  an unexpected exception. Accepted effects still existed in the checkpoint.
+
+Reviewer exact-head focused372 passed in119.73s; those passing cases did not cover
+these late boundaries. No initial/corrected approval is inferred from owner counts
+or from that independent focused pass. Original rejected evidence remains intact.
+
+### Actual corrections and rationale
+
+1. Refresh current order status and line totals after the location lookup, rather
+   than selecting amounts from the earlier dependency-read cache. Changed partial
+   totals remain review-only against frozen approval; a full current total can
+   satisfy intent without a new receive. There is no automatic new remainder.
+2. Bind selected receipt state in an immutable ReceiptPreconditions record. The
+   final domain callback revalidates location first, Company/PO/current status,
+   complete contribution identity/financial scope and exact selected totals. The
+   callback then journals checked status/totals/location before mutation intent.
+   It replaces the metadata-only callback with its stricter superset; no actual
+   SDK send acquires an invented second journal wrapper.
+3. Require current pending10 immediately before actual issue and open20 immediately
+   before actual receive. Stable full totals may settle read-only on20/30; closed
+   status30 with outstanding amounts and cancelled/held/reset states cannot receive.
+   Current state is revalidated before no-write satisfaction resolves old uncertainty.
+4. If final selected preconditions changed, return valid needs-review without a
+   mutation intent or endpoint send. Restore the attempt's ordinary callback after
+   the selected call. A fresh selected repair reads current state under the same
+   operation/claim; it cannot automatically receive changed partial amounts.
+5. Derive shared review aggregate certainty from retained effects. Confirmed-only
+   effects produce confirmed needs-review; mixed/explicit unknown effects retain
+   uncertain aggregate/state. Receipt readback conflicts, including unsupported
+   amounts, preserve accepted effects as review data without constructor failure.
+   Accepted or unknown receipt requests remain nonreplayable.
+
+The stronger receipt check is necessary even after complete-set/Company validation:
+identity and approved quantity do not establish the current received baseline or
+order status. It does not claim atomic multi-record reads/POST against an actor
+changing state after the last relevant observation. No broader workflow, concurrency,
+allocation, plan migration or release-scope expansion was introduced.
+
+### Regression and reproduction evidence
+
+Added23 meaningful late-boundary tests in
+`tests/execution/test_digikey_receipt_preconditions.py`:
+
+- manual received0→partial2/full5 at initial location resolution and final callback;
+  no receive POST/mutation intent, no quantity10, no new StockItem; partial stays
+  review-only in a fresh process, full intent can settle without replay/ownership guess;
+- current status10/30/40/50 at both boundaries, late location rename/deletion, and
+  current issue status20/30/40 before dispatch; no stale order transition/receipt;
+- accepted normal-response receipt with readback3 or unsupported5.0000001 returns
+  valid confirmed/needs-review, retains accepted effect, preserves stock/manual
+  counters, and fresh-process repair never sends a second receipt;
+- lost receipt reconciliation with completed/cancelled status or a total changing
+  during no-write satisfaction; old uncertainty remains when state is unstable,
+  exactly one historical receipt/StockItem remains, and no stock PK is guessed;
+- direct mixed/confirmed review aggregate validation.
+
+First new selection:23 passed in9.56s; inherited DigiKey + four-finding selection:
+75 passed in19.01s. Both independent original residual scripts ran unchanged on
+the corrected working tree: manual full received remains5, operation settles
+already_satisfied with zero receive sends/new stock; cancelled40 remains40 with
+needs_review and no stock. No unexpected constructor ValueError is raised.
+
+Final required normal/focused/scanner/Ruff/whitespace checks are recorded below
+after completion. A new clean exact commit is required for another independent
+recheck; these owner results do not clear either rejected candidate.
+
+
+## Final residual-correction owner verification
+
+Final unchanged effect/recovery runtime after both follow-up fixes:
+
+- `make test`: **1879 passed, 1 existing skip, 43 deselected in175.35s**.
+- Focused execution/observed SDK/DigiKey API: **395 passed in141.01s**.
+- `make test-scanner`: **43 passed, 1880 deselected in44.97s**.
+- Required uv Ruff over changed Python/all src and complete staged/base-to-head
+  whitespace pass. Existing pinned environment, explicit worktree PYTHONPATH and
+  task-local uv cache; normal tests use scoped local-loopback stubs only.
+- Original residual totals/status repros pass safely as recorded above; all new
+  no-double/fresh-process/certainty cases are included in final broad/focused runs.
+- No effect code changed after these runs. Only this validation/handoff status
+  documentation is updated before the new local candidate commit.
+
+Owner checks do not supersede the343bea9 orc5eab95 rejections. Root must revive
+the independent reviewer against the next exact clean hash before publication.
+The one-order/model-only/no-media/archive, exact-source/capability/old-plan, serial/
+local and unverified live-server limits remain; no production pool, migration,
+force replay or remote rollback was added. No owner push/PR/merge/live-service call.

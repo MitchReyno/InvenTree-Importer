@@ -32,8 +32,11 @@ IDENTITY_FIELDS = {"part.part": ("category", "IPN", "name", "keywords"),
 
 
 def review(code: str, *, unknown: bool = False, effects: tuple[Effect, ...] = ()) -> OperationResult:
+    unknown = unknown or any(effect.certainty == Certainty.UNKNOWN for effect in effects)
+    certainty = (Certainty.UNKNOWN if unknown else Certainty.CONFIRMED
+                 if any(effect.certainty == Certainty.CONFIRMED for effect in effects) else Certainty.NONE)
     return OperationResult(State.UNCERTAIN if unknown else State.NEEDS_REVIEW,
-                           Certainty.UNKNOWN if unknown else Certainty.NONE,
+                           certainty,
                            Retry.RECONCILE if unknown else Retry.REVIEW, effects=effects,
                            error=SafeError(ErrorCategory.UNCERTAIN_WRITE if unknown else ErrorCategory.CONFLICT, code))
 
