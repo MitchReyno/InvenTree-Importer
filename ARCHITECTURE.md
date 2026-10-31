@@ -1,8 +1,10 @@
 # Import architecture
 
-This describes implemented behavior at Stage 0 (main baseline `b2e4a12`, SDK
-`inventree==0.13.5`). Future contracts are explicitly separated below. Keep this
-file current whenever a later stage changes code; update the maintained plan
+This describes implemented behavior at Stage 0 (main baseline `c22b7a1`, SDK
+`inventree==0.13.5`). This includes PR #9 fixes and PR #11 code-organization
+conventions; the latter changes guidance, not runtime behavior. Future contracts
+are explicitly separated below. Keep this file current whenever a later stage
+changes code; update the maintained plan
 and stage handover with acceptance evidence and justified changes.
 
 ## Implemented boundaries and data flow
@@ -145,3 +147,12 @@ inputs. Each stage must update this file and supply a comprehensive tracked
 `docs/handovers/import-execution-stage-N.md`, including decisions, plan adjustments,
 validation and independent-review fixes. See the plan for gates before any claim
 of durable recovery or default rollout.
+
+Future implementation follows CONVENTIONS.md: keep orchestration as named domain
+operations with explicit inputs/options, let classes own coherent per-run state or
+resources, and introduce module/package boundaries only where responsibilities
+justify them. Dependencies flow from commands to reusable workflows to lower-level
+operations; lower-level code must not import commands. Keep behavior tests and
+scenario fixtures near their integration package instead of exposing implementation
+stages as test APIs. These constraints refine organization without changing recovery
+or compatibility contracts.

@@ -2,7 +2,9 @@
 
 ## Baseline and scope
 
-Base: main `b2e4a1285bf7ad6e09798a7b753833feaa158ec0`, merged PR #9.
+Original base: main `b2e4a1285bf7ad6e09798a7b753833feaa158ec0`, merged PR #9.
+Current incorporated upstream: `c22b7a15aca7d338733aaf820bbd19e4fadac414`
+(PR #11 code-organization conventions), merged without rebasing published history.
 Stage 0 adds maintained architecture/design/contracts and focused characterization
 coverage. No executor, runtime safety fix, server capability probe or live inventory
 call/write is included. Future interfaces are explicitly not implemented.
@@ -154,3 +156,42 @@ resume yet. Update ARCHITECTURE.md and plan status, record any justified contrac
 shift, add fault-focused tests and a Stage 1 handover. All later stages preserve
 logical identities/source attribution, explicit ownership discovery, immutable
 artifacts and no legacy mutation fallback after uncertain durable work.
+
+## Upstream incorporation — PR #11 conventions
+
+Merged `origin/main` at `c22b7a1` with a normal merge commit
+`6a224ef` (`chore(merge): incorporate code organization conventions`). The merge
+was conflict-free and adds only the 66 upstream CONVENTIONS.md lines since the
+original baseline. Parent checkout and the Stage 1 worktree/branch were untouched;
+no rebase, force push or publication was performed by this owner.
+
+Read the full updated conventions and checked Stage 0 scope against focused
+orchestration/helpers, coherent class state, explicit inputs/options, meaningful
+module/package boundaries, command-to-workflow dependency direction and behavior-
+grouped tests. The future small execution package already fits that guidance;
+architecture, contracts and maintained plan now make these organizational
+constraints explicit without adding framework structure or changing safety policy.
+Updated baseline metadata in architecture/design/plan to the incorporated main.
+Moved the two new baseline tests unchanged into their existing rerun/location
+behavior groups, keeping their fixtures and assertions intact.
+
+The earlier independent approval above applies to the pre-incorporation content.
+This merge and its convention-alignment edits await independent recheck; the plan
+status reflects that limit. No new runtime/recovery guarantees are claimed.
+
+Validation after incorporation:
+
+- `make test`: **1412 passed, 1 skipped, 43 deselected**, 32.57 seconds.
+  Scanner/TUI and live capability checks remain excluded for the reasons above.
+- `.venv/bin/python -m pytest tests/inventree/test_stockimport.py -q -k 'legacy_unresolved_requested_location or same_import_key_preserves_historical'`:
+  both tests passed against the local HTTP stub.
+- `.venv/bin/ruff check tests/inventree/test_stockimport.py`: passed.
+- `git diff --check`: passed.
+- The upstream-only diff was confirmed to contain CONVENTIONS.md only; no server
+  calls or writes were performed outside the isolated local test fixture.
+
+Plan adjustment: explicitly apply merged organization guidance and group existing
+characterization cases by behavior. No operation, ownership, compatibility,
+artifact or rollout gate changed. Next Stage 1 owner should incorporate this head
+through the root-managed stack and follow the updated CONVENTIONS.md; this Stage 0
+owner does not mutate downstream worktrees.
