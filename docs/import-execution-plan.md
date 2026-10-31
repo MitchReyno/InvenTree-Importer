@@ -11,7 +11,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 
 | Stage | Status | Acceptance evidence |
 |---|---|---|
-| 0 | Contracts/baseline complete; independent review pending | [Stage 0 handover](handovers/import-execution-stage-0.md) |
+| 0 | Complete; independently approved for PR opening | [Stage 0 handover](handovers/import-execution-stage-0.md) |
 | 1 | Pending | Error taxonomy and complete-read gates below |
 | 2 | Pending | Whole-command request coverage and worker correlation gates below |
 | 3 | Pending | Real-store ownership/restart gates below |
@@ -247,7 +247,7 @@ Stage 4 rather than treated as a reusable framework product.
 - Define typed operation kinds, prerequisite output references, resource conflict
   keys, desired inputs, baseline/preconditions, attribution, optionality and
   reconciliation handlers. Persist data, never closures/SDK objects/callbacks.
-- Define pending/ready/running/satisfied/succeeded/retry_wait/failed/uncertain/
+- Define pending/ready/running/already_satisfied/succeeded/retry_wait/failed/uncertain/
   needs_review/blocked/skipped states and effect certainty separately. Specify
   legal transitions and how repaired outputs reactivate blocked descendants.
 - Run one operation at a time. A small explicit dependency map is enough; retain

@@ -120,9 +120,29 @@ The authoritative detailed matrices and record fields are in
 
 ## Independent review
 
-Pending independent review before PR opening. Update this section with findings,
-fixes and rerun validation before final approval; do not infer clearance from the
+Independent pre-PR review approved Stage 0 for PR opening with no P0/P1/P2
+findings and no missing Stage 0 gate. The reviewer inspected the complete eight-file
+change at `837d903`, project guidance, architecture/design/plan/contracts/handover,
+current importer/identity/config/cache/pool behavior and installed SDK list/startup/
+download paths. This is independent implementation review, not reliance on the
 prior proposal review.
+
+One P3 consistency correction was requested: Stage 3's plan named the state
+`satisfied`; the contract/design name is `already_satisfied`. The owner aligned
+the plan and the reviewer independently rechecked that one-line working diff.
+The follow-up also marks Stage 0 complete in the maintained plan. No runtime
+contract or acceptance gate changed.
+
+The reviewer independently ran the two added tests: **2 passed** through the local
+HTTP stub; changed-test Ruff, base-to-head whitespace and portability checks also
+passed. Initial reviewer uv cache access and localhost socket binding were denied
+by sandbox restrictions; the existing interpreter plus narrowly scoped escalation
+for the local stub resolved these. The full 1412-case normal-suite and 252-case
+focused outcomes above remain owner evidence; the reviewer did not rerun them.
+No live calls, capability probes or inventory writes occurred. Approval covers
+baseline documentation/contracts and characterization, not durable runtime,
+automatic reconciliation, target capabilities or default rollout. The final
+documentation-only review incorporation was checked with `git diff --check`.
 
 ## Next-stage integration
 
