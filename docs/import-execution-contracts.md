@@ -1,0 +1,647 @@
+# Import execution contracts
+
+Status: Stage 1–5 library boundaries are independently reviewed. Stage 6 adds
+an opt-in durable full-stock CLI with local status and audited recovery/disposition;
+its corrected implementation has independent exact-head approval. The legacy CLI
+default remains gated.
+Current behavior is in [ARCHITECTURE.md](../ARCHITECTURE.md). The
+[plan](import-execution-plan.md) owns stage status and acceptance gates.
+
+## Decisions and rationale
+
+| Decision | Rationale, alternatives and limits |
+|---|---|
+| SQLite is authoritative; JSON snapshots/events are exports | Transactions must bind outputs, attempts, attribution and state. One backend avoids divergent recovery semantics; atomic JSON remains an abandoned alternative, not another implementation. Use stdlib sqlite3, explicit schema versions and one writer. |
+| Canonical registry plus per-run SQLite | Ownership cannot depend on cwd, input directory or caller-selected journal path. The registry retains unresolved claims even if a run DB disappears. Process locks alone lose that evidence at exit. |
+| Retain legacy parameter/download pools during observation | Avoid an unmeasured performance regression. Stage 2 passes immutable operation/attempt/source context explicitly into workers, synchronizes sequences and queues delivery safely; renderer consumption cannot own semantic outcomes. Durable Stage 4 parameter operations are separately checkpointed and sequential. |
+| Logical IDs precede server identities | A preview cannot know future PKs. Stable semantic references prevent task renaming on restart. PKs are outputs and conflict keys, never order-dependent operation names. |
+| Conservative target identity and reviewed aliases | URL/PK existence alone cannot detect server restore/replacement. Reject uncertain saved-identity reuse; do not infer equivalence from hostname similarity, redirects, credentials or matching payloads. |
+| New-mode location/barcode policies | Explicit requested unresolved location needs review. Registration requires confirmed barcode ownership of the intended stock. Legacy location behavior remains until documented rollout; strict registration avoids reporting orphan stock as complete. |
+| Selected metadata/evidence failures yield incomplete exit 1 | Optional work may not gate inventory, but requesting it implies an accountable result. Disabled/inapplicable work is not failure. |
+| Preserve manual/historical fields | Resume repairs approved pending work, not inventory correction. Missing approved parameters can be added; changed nonempty values or PO links need review. Tags merge observed additions, with an explicit external GET/PATCH race limit. |
+| Immutable artifacts, external execution report | Frozen bytes/targets can be retried without new inventory effects. Recording upload outcome inside the same archive would change the artifact being uploaded. |
+| Small execution package, synchronous handlers | Proposed `src/invimport/execution/` separates models, planning, store, executor and observation by responsibility as needed. No workflow DSL, generic plugin engine, async rewrite or second importer policy implementation. Follow CONVENTIONS.md: classes own coherent state/resources, orchestration calls focused named operations with explicit inputs/options, and dependencies flow commands → workflows → lower-level operations. Create modules/packages only for demonstrated cohesive responsibilities. |
+
+## Concrete CLI/library contracts
+
+Reserve a new top-level `invimport import-run` command with subcommands below;
+existing `import-stock FILE ... --plan FILE` keeps its meaning and schema. Names
+are selected here to avoid overloading file positional arguments or `--plan`.
+They are not available until implemented behind the staged feature gate.
+
+| Future invocation | Contract |
+|---|---|
+| `invimport import-run prepare FILE --output PLAN.json` | Validate locally, display conditional outline before connection, perform read-only discovery, collect explicit decisions and emit versioned resolved mutation preview. Never claim offline outline is server-resolved. Carries existing applicable stock config/selection flags. |
+| `invimport import-run execute PLAN.json --write` | Validate frozen input/config/target/decisions, claim ownership, show approved preview and execute only approved semantic scope. Without --write, validation/preview only; no mutations. |
+| `invimport import-run status RUN_ID --json` | Read committed local snapshot without connecting; expose pending/blocked/uncertain work and artifact locations. `--json` keeps stdout machine-readable; progress/diagnostics go to stderr. |
+| `invimport import-run resume RUN_ID --write` | Revalidate identity/preconditions, reconcile interrupted effects and execute pending approved operations; never rebind choices or restore historical quantities. |
+| `invimport import-run retry-operation RUN_ID OPERATION_ID --write` | Select domain recovery including unmet prerequisites and reconciliation. Never blindly replay a request or bypass approval. |
+| `invimport import-run abandon RUN_ID --reason TEXT --write` | Reviewed ownership disposition, not deletion/rollback. Never clear unresolved remote effects from a reason alone; retain a blocking audited tombstone and persistent same-import claim. No force flag that silently clears uncertainty. |
+
+Use `--json` consistently for new command result snapshots, and `--events FILE`
+for redacted sequenced JSONL export. `--yes` suppresses confirmations only when
+choices are already explicit; it never selects ambiguous identities. Ctrl-C is
+cooperative cancellation checked before **every child mutation** and after reads,
+waits or decisions. An in-flight request settles confirmed or uncertain.
+New-mode exit codes: 0 selected applicable work satisfied; 1 incomplete/failed/
+uncertain/review/blocked; 2 usage error; 130 interrupted. Unexpected programming
+errors stop new work with diagnostics, rather than reporting a skipped line.
+
+Keep `import_stock`, `ImportOptions`, `StockImportResult` and `LineAction` callable
+without UI/process exits. New `prepare_import`, `execute_plan`, `load_run_status`,
+`resume_run` and `retry_operation` functions belong to the execution package;
+accept explicit dependencies/decisions and return typed results. Existing callbacks
+remain compatibility adapters. Public names may be refined with an explicit plan
+adjustment before shipping; no closure, SDK object or callback is persisted.
+
+## Storage, target validation and ownership namespace
+
+Resolve a canonical state root at runtime using an absolute
+`INVIMPORT_STATE_DIR` override, otherwise the operating-system user state/data
+convention (XDG state on Linux, Application Support on macOS, local application
+data on Windows), under `inventree-importer`. This configuration defines one
+supported local safety scope and must be documented consistently for CLI/library
+callers. Changing it is a scope relocation requiring migration; it is not a
+per-invocation escape hatch. Arbitrary old binaries/other hosts/alternate user
+accounts cannot be excluded by a local registry.
+
+Within that root reserve `execution/registry.sqlite3`, `execution/runs/<run_id>/run.sqlite3`
+and `execution/runs/<run_id>/artifacts/`. The registry is authoritative for
+ownership, each run DB for execution state: these are two responsibilities, not
+two interchangeable state backends. Any optional `--run-directory DIR` relocates
+run bytes only; canonical registry discovery remains mandatory. Store canonical
+run locations with migration/recovery checks; portable JSON exports use relative
+artifact paths and contain no credentials. Active SQLite files must stay local,
+not shared/synchronized while open. Create user-only directories/files where
+supported; report inability to enforce permissions and redact stored context.
+Never recursively include this root in evidence. Retain unresolved runs/artifacts
+until reviewed reconciliation; do not implement automatic destructive retention.
+
+Registry claims key on target identity + stock `file_id`, not just filename or
+run ID. Normalize scheme/host/default port and API-root path conservatively;
+reject userinfo/query/fragment and unsafe target changes. Store chosen endpoint,
+observed server identity/capabilities and reviewed alias association. Do not assume
+an unverified SDK `server_details` field is an immutable instance UUID. Reuse
+saved PKs only after verified target continuity **and** model/record-identity
+preconditions; absent a trustworthy instance identity, require explicit reviewed
+continuity evidence on restart before saved PK reuse. A mismatch/restored target
+needs review, never silent PK reattachment or create. Alias registration requires
+an explicit reviewed association, checks existing claims and cannot create a
+second ownership namespace for an unresolved target/import.
+
+Claim protocol must favor blocking over forgotten effects: persist canonical
+reservation before permitting mutations, link/confirm the durable run, then mark
+active. A crash between registry and run DB leaves a reservation requiring review.
+Do not claim cross-DB atomicity. Missing/moved/corrupt referenced DBs or schema
+mismatch block fresh writes until recovery. Both new entry points and supported
+current-version legacy library/CLI write paths consult registry and lock before
+mutation; no bypass by another journal directory or process restart. Hold one
+active ledger recording per process until explicit context removes its global
+state. Completed runs release active ownership only when selected work is settled
+with no unresolved effects/pending work; later intentional enrichment makes a new
+reviewed revision without changing historical stock. Reviewed abandonment retains
+uncertainty tombstones where needed: uncertainty is not made safe by dropping a
+lock. Stage 3 must implement and test this before Stage 4 consumes it.
+
+## Data, identity and state contracts
+
+Plan schema v1 records input v1/v2, `file_id`, normalized semantic digest,
+config/normalization version, target/capability evidence, selection policy,
+resolved decisions, baseline/desired fields and frozen file hashes. A plan revision
+is immutable. A run has a fresh opaque UUID; revision and run IDs never replace
+barcode keys. Changed reference-free input can change file_id; same-reference
+semantic edits require review/new revision, not permission for stock correction.
+
+Operation ID: versioned kind + canonical logical subject + semantic discriminator,
+encoded deterministically (or hashed from canonical representation). Example:
+`parameter/part:shared-resistor/template:Resistance` within a plan's import namespace.
+Version 2 uses shared part/model keys; version 1 chooses deterministic logical
+representatives from stable line IDs and persisted approved sharing decisions.
+Do not derive IDs from list index, scheduling order or unknown server PK. Shared
+supplier-part keys include chosen supplier logical reference and normalized SKU;
+PO keys include supplier/reference; differing assignments/metadata require review.
+PO-line operations remain per original line contribution, even for identical lots.
+Resolved PKs identify conflicts without changing operation IDs.
+
+| Record | Minimum persisted fields |
+|---|---|
+| OperationSpec | Schema/kind, logical ID, typed desired inputs, output references, preconditions/baseline, selection/requiredness, group, conflict keys, source/line attribution, reconciliation kind |
+| OperationResult | State, usable named outputs with model/PK and validation evidence, confirmed/uncertain effects, attribution, structured safe error, retry eligibility |
+| Attempt | Run/operation/attempt ID, durable pre-dispatch intent, start/end, outcome/certainty and bounded retry budget |
+| Request | Unique request ID, parent attempt, service, safe method/target label, start/end, HTTP versus decode/model outcome; secrets excluded |
+| Event/snapshot | Schema, monotonic synchronized sequence, correlation, safe summary; committed snapshot authoritative even if renderer misses events |
+| Artifact | Immutable bytes/hash/media type, relative retained location, original source attribution, approved targets, prepared/uploaded/verified/uncertain status |
+
+Operation states: pending, ready, running, succeeded, already_satisfied,
+retry_wait, failed, uncertain, needs_review, blocked, skipped. Persist effect
+certainty separately (none, confirmed, unknown); terminal state alone is not retry
+permission. Dependencies name usable outputs, not whole-line success. A part_of
+child may proceed after usable part identity even if its parent stock/photo fails;
+required identity-parameter incompleteness blocks consumers. Stop new mutations
+on journal failure or unexpected programmer error. Renderer failures are best
+effort and cannot change a confirmed effect into a retryable failure.
+
+## Operation and policy matrix
+
+Every row is a future handler contract. Current implementation locations are
+listed in architecture/design; absence of capability evidence means review.
+
+| Family / input | Usable output / effect boundary | Reconciliation and unknown case | Requiredness / sharing |
+|---|---|---|---|
+| Validate/discover input/config/files/target | Frozen choices, complete query evidence; read/local staging only | Failed/partial/foreign pagination never absence; stale identity needs review | Global invalid input blocks dependent work; narrow bounded reads |
+| Category/manufacturer/supplier/location resolution | Chosen model+PK checkpoint per confirmed create | Re-read identity; lost create without reliable correlation uncertain; no fuzzy rebind | Category/part identity required; explicitly requested unresolved location review; companies shared by approved identity |
+| Part / manufacturer part / supplier part | Confirmed model+PK before parameter work | Validate single object/singleton list, all trustworthy PKs captured; invalid/multiple/decode/reload failures after POST uncertain/review, no replay | Preserve MPN/type/spec policies; supplier+SKU with different part conflict |
+| One model parameter / template / approved value | Confirmed value on known PK; one independent checkpoint | Read current value; add absent approved value, accept desired, review changed nonempty/manual; incomplete read blocks write | Identity templates gate stock; optional templates do not; logical model/template identity |
+| PO / supplier + reference + metadata | Confirmed PO PK and approved fields | Compare dates/currency/notes/tags/invoices; conflicting shared requests review | Selected orders, shared explicitly; reference allocation serialized |
+| PO-line / original import line contribution | Confirmed returned line PK immediately | Reuse known identity; lost response requires verified target marker or uncertainty; payload/quantity similarity insufficient | One contribution per lot, never collapse identical lots |
+| Stock / line lot / quantity,batch,part,location | Known stock PK then barcode ownership, separately checkpointed | Lost create no safe correlation → uncertain; missing/deleted/consumed record review, never recreate to restore baseline | Required inventory; immutable logical barcode key |
+| Barcode / intended PK + import key | Confirmed key owner equals intended stock | Specific absence taxonomy only; read-back uncertain link; true conflict review; no delete on unknown | Registration prerequisite; read-only lookup POST remains a read |
+| Tags / approved tags + owned stock | Approved tags present on confirmed target | Union observed unrelated additions; conflicting assumptions review; later external race not protected without verified atomic support | Selected metadata, no inventory gate; same-field conflict key |
+| Stock PO link / approved order | Intended link confirmed | Set only absent/already intended; divergent/manual link review | Selected order metadata; no historical field overwrite |
+| Notes/name / baseline, desired/model | Confirmed missing-field addition; existing names/notes preserved | Read-back desired/empty/manual distinction; unknown PATCH reconcile | Preserve legacy policies; selected enrichment |
+| Datasheet/image/document/invoice/logo | Confirmed target+artifact identity or explicit unresolved result | Failed list blocks upload; same filename alone insufficient; lost upload verify trustworthy content or review | Selected evidence does not gate inventory; logos retain originating created-company eligibility |
+| Provenance/archive/report | Confirmed-change snapshot, frozen manifest/bytes, per-target outcomes | Atomic local replacement; validate source staging; retain pending original uploads; disk failure stops mutations, best-effort diagnostics | Settle relevant branches, even failed; no recursive outcome-in-archive; no-op avoids churn |
+
+No server uniqueness, conditional write, import-key create, PO marker or byte
+verification capability is assumed. Allocation conflict keys also cover IPN
+prefix and PO reference generation. Observation covers startup, CRUD/OPTIONS,
+barcode POST, attachment transfer, SDK reload, pagination, external download and
+post-import --plan requests. Show/flushed start row before every dispatch even
+in non-TTY mode; additional detail only may be hidden. SDK logging protection
+starts before connection and covers password/token acquisition. Redirect history
+is observation, not independent domain replay. One layer owns retry budgets.
+
+## Error vocabulary and compatibility matrix
+
+Errors carry category, safe service/operation/request IDs, code, retry policy,
+effect certainty and preserved safe cause. Categories: absent (verified read
+contract only), validation, conflict, denied/auth, transient, transport,
+invalid_response, uncertain_write, programmer_error, local_journal_failure.
+A 403 upload is not automatically global invalid credentials; evidence determines
+scope. HTTP success is distinct from decoded model and confirmed domain effect.
+
+| Surface | Preserve | Intentional future difference / gate |
+|---|---|---|
+| Input schema v1/v2, source rows, barcode keys | Required line IDs, expansion and earlier-line part_of | Separate plan schema, no renumbering; input drift reviewed |
+| import_stock / result dataclasses / callbacks | Quiet noninteractive library and existing consumers | Durable APIs explicit; registry guard prevents legacy uncertainty bypass |
+| --validate/schema/vocabulary | Offline usable, existing JSON consumers | No journal/network prerequisite for pure validation |
+| Existing --plan | Post-import montage projection including reads/images | New executable PLAN.json is distinct and versioned |
+| Dry run / --yes / --write / --no-* | No remote effects without write; selected scope, matching and confidence policies | New resolved preview and durable permissions; --yes not ambiguity authorization |
+| Existing reimport/notes/company eligibility | Preserve manual data, selected enrichment and created-company logo policy | Durable pending work persists; historic quantity/batch/location/part immutable |
+| Missing location / coarse completion | Legacy behavior characterized | New mode unresolved requested location review, barcode-confirmed registration, incomplete selected evidence exit 1 |
+| Transport visibility | Library stays UI-independent | Whole stock and supported DigiKey CLI invocations correlated, including token/fetch/search attempts; durable DigiKey order opt-in remains bounded |
+
+## Baseline evidence and next gate
+
+Existing tests already cover v1/v2 expansion, partial specs, company/notes policy,
+optional assets, part_of, repeat imports, --plan consumers and PR #9 failures.
+Stage 0 adds only missing observable baselines for unresolved explicit location
+and unchanged historic stock fields on same-key rerun. SDK inspection confirmed
+0.13.5 list/testServer/downloadFile paths; no live calls/capabilities measured.
+See [handover](handovers/import-execution-stage-0.md) for actual validations.
+Stage 1 fixes error/absence boundaries without claiming durable recovery. Each
+later stage must keep this contract accurate or explicitly record a justified
+adjustment with reviewer evidence in its handover and maintained plan.
+
+## Stage 1 implemented safety primitives
+
+- `collections.list_rows` and `list_models` return complete collections or raise
+  `DiscoveryError`; no partial prefix or failed read represents absence. Bounds,
+  shape/count/identity validation, loops and same-origin/API-root pagination
+  validation are implemented. This is application-link validation, not a new
+  transport, redirect policy or target-capability guarantee.
+- `stock.BarcodeError` exposes category, operation, stock_item_pk and owner_pk.
+  Exact HTTP 400 `error == "No match found for barcode data"` is supported absence;
+  other failures remain errors. A response must identify exactly one recognized
+  owner model with a positive integer PK; malformed/multiple model keys fail
+  closed. Link read-back confirms intended owner or a
+  different owner; unknown ownership never authorizes duplicate cleanup.
+  `BarcodeInUse` now means a confirmed different stock owner, with both PKs.
+- `purchase_orders.attach_file_outcome` returns `AttachmentOutcome` with state,
+  model_type/model_id, filename, safe reason and `satisfied`. States are uploaded,
+  already_satisfied, failed and unknown. Already satisfied retains the legacy
+  filename-based policy; it is not executor-grade verified artifact identity.
+  Listing failure is failed with no POST; unsettled POST is unknown; explicit
+  client rejection is failed. The existing `attach_file` boolean still means
+  a confirmed new upload, and datasheet/photo/document count APIs count uploads.
+  `attach_datasheet_outcomes` is the structured multi-target counterpart.
+- Archive/provenance retain separate existing/unknown results; failed archive
+  preflight never proceeds to upload. These results have no durable retry or
+  restart semantics. Later executor handlers must strengthen artifact identity
+  before treating legacy name satisfaction as verified selected evidence.
+
+Source/stub evidence, compatibility tradeoffs and validation are recorded in the
+[Stage 1 handover](handovers/import-execution-stage-1.md).
+
+## Stage 2 implemented observation contract
+
+- `Observation`, frozen `Correlation` and frozen `Event` provide schema version 1,
+  synchronized invocation-local sequences, run/operation/attempt/source/group and
+  request identities. `snapshot()` returns an immutable event tuple; `export()`
+  returns credential-free dictionaries. Neither API persists or resumes work.
+- `observing()` opts library callers in; CLI `import-stock` installs a plain stderr
+  observer before connection and retains it through post-import plan generation.
+  Offline validation/schema/vocabulary remain outside the observation/network scope.
+- Every application dispatch emits request_started before HTTP invocation and a
+  correlated request_finished for received/error/unknown exchange. Cancellation
+  before dispatch emits request_cancelled/not_dispatched. Redirect history is a
+  count on the received response, not independently replayable wire requests.
+- SDK decode and create-model outcomes carry the originating request ID and are
+  distinct from HTTP exchange. Received
+  success is not domain-effect confirmation; model failure after POST does not
+  erase the HTTP result. Event identity is not a mutation/idempotency key.
+- Existing parameter/prefetch pools explicitly capture immutable source context
+  and allocate child operation attempts. Observer delivery is serialized through
+  a queue under the sequence lock; failure is counted and never replayed as work.
+- Events omit arbitrary strings from network exceptions, headers, payloads and
+  URLs. Inventory routes use an allowlist; query strings are never labels. Unsafe
+  legacy free-form logging is suppressed only inside observed imports; bound SDK
+  credentials/payload logging is disabled before its constructor. CLI reports safe
+  failure type and established allowlisted plan-read messages. Caught upload/archive/PDF exception-result reasons are safe before rendering;
+  outside observed scopes library diagnostic reasons are preserved. Library
+  exception objects/causes and Stage 1 attachment/barcode contracts remain available.
+- `Observation.cancelled` stops new request dispatches; interruption sets it.
+  Current requests settle according to their transport result. No durable partial
+  report, restart semantics, automatic retry or general independent continuation
+  is promised by this stage. Future operation/store contracts above remain gates.
+
+
+## Stage 3 implemented foundation contract
+
+- `models.Plan` schema 1 canonically serializes immutable desired/baseline JSON,
+  logical IDs, named output references, source attribution, conflict resources,
+  target/decision evidence and semantic digests. Unknown schema/normalization,
+  dependency cycles/missing outputs and contradictory shared inputs are rejected.
+  Outputs require a positive model PK and record identity evidence, and confirmed
+  output identity cannot change on reconciliation. State, certainty and retry
+  eligibility remain separate records.
+- `preparation.prepare_import` and `validate_preparation` freeze v1/v2 identity,
+  stockfile keys, transitive part_of/shared part subjects, config/input semantics,
+  supplied file content hashes and explicit company/part decisions. Discovery
+  exposes complete bounded reads only. The stock preparation is intentionally
+  marked `stock_domain_resolution_and_handlers` unsupported, so it cannot be
+  executed as a resolved mutation preview. Stage 4 must integrate existing matching
+  policies and account for all referenced files before approving domain operations.
+  No callback, SDK object, raw response or original source path persists.
+- `executor.execute_plan`, `resume_run` and `retry_operation` are explicit-handler
+  library foundations; no domain handler or CLI is enabled by default.
+  `store.load_run_status` reads one committed snapshot through canonical run
+  discovery without connecting to inventory. `RunStore.export` atomically writes
+  a portable JSON projection. Observation's retained event tuple remains only a
+  rendering snapshot, never authoritative execution state.
+- All supported execute/resume/reconcile boundaries reject known target/instance
+  conflicts independently of whether any PK has been saved. `execute_plan`
+  requires an explicit current target observation. Missing saved PKs may relax
+  manual continuity review, never authorize a known target mismatch.
+- Registry reservations precede DB creation, activation precedes dispatch, and
+  every child dispatch checks active canonical ownership plus the journal.
+  Lifetime OS locks and a process ledger/import owner exclude simultaneous writes;
+  nested caller ledger scopes remain supported. Alternate run directories/cwd and
+  fresh invocations find unresolved claims. Missing/moved/corrupt journals and
+  unknown schemas fail closed; relative platform state environment roots are
+  rejected rather than made cwd-dependent. There is no migration from an unrecognized version exists.
+  The initialized marker detects deletion of the registry file in a retained
+  state root; deleting/relocating the entire configured root is outside the local
+  guarantee and requires operator migration/recovery.
+- Supported current-version legacy `import_stock` writes consult the registry and
+  hold exclusion before stock discovery/mutations. This guard releases on normal
+  return and leaves a blocking reservation on an exception/interruption. It does
+  not make legacy results/PKs resumable or change selected-enrichment exit policy.
+  Old binaries, other user roots/hosts and unknown unregistered endpoint aliases
+  remain outside this local scope.
+- Only normalized safe HTTP(S) endpoints are accepted; credentials/query/fragment
+  and unsafe paths are rejected. Verified instance evidence comes from the caller,
+  never inferred from SDK server_details. Without it, saved PK reuse requires an
+  explicit revision-bound continuity review. Even with continuity, actual domain
+  handlers must re-read/validate the model and record identity before using a PK.
+  Reviewed aliases preserve one namespace; unresolved conflicts require migration.
+- SQLite commits attempt/request intent before send and atomically binds outputs,
+  effect certainty, attribution, state and audit event after settlement. Interrupted
+  writes and interrupted reconciliation retain unknown effects. Unknown outcomes
+  cannot be successful/complete and cannot be reset for blind create replay.
+  Scheduler and store-start eligibility both inspect certainty/retry independently
+  of state; retry_wait with reconcile/review permission never replays the original
+  mutation handler. Only safe read policy on an actual semantic-read spec may
+  requeue original read work, retaining confirmed outputs. Unknown effect records
+  require aggregate unknown certainty; aggregate flags cannot hide/clear an unknown
+  effect. Contradictory persisted pre-fix records fail closed for operator recovery.
+  Explicit read-only reconciliation preserves prior confirmed identities.
+- Mandatory dispatch guards are not observers. Renderer failure is isolated;
+  store/ownership failure propagates and stops subsequent child sends, including
+  after request-start delivery. `barcode_lookup_request` explicitly marks the
+  supported barcode POST as read; verbs alone do not determine effect semantics.
+  Journal request IDs and durable run/operation/attempt IDs are used by Stage 2
+  rendering and decode/model observations, including nested visual operations.
+- User-only marked run directories retain `artifacts/`; custom new run directories
+  must be empty. Canonical state, marked runs and reserved DB/WAL/SHM files are
+  excluded from recursive evidence enumeration. Snapshots use relative artifact
+  references; no automatic destructive retention or full artifact migration is
+  included. Reconciliation/abandonment retain audit history and blocking tombstones;
+  no forced-clear action is provided.
+
+The [Stage 3 handover](handovers/import-execution-stage-3.md) records acceptance
+proof and the preparation/domain-integration adjustment. This is readiness for
+Stage 4's representative slice, not a whole-import resume or exactly-once claim.
+
+
+## Stage 4 implemented stock-domain contract
+
+- `prepare_stock` returns executable immutable specs for the declared spec/type
+  subset; unsupported requested fields and missing/unresolved locations reject
+  before writes. It shares legacy normalization/naming/value/type policies and
+  the same matcher for preparation and pre-create revalidation. Existing choices,
+  exact payloads, sources, template policies and PO allocation freeze in the plan.
+- `execute_stock` and `resume_stock` bind the actual API endpoint and current
+  target, use canonical claims, preserve legacy exclusion, and report every
+  selected line. Only confirmed barcode ownership registers a stock lot.
+- Raw API create responses require dict/singleton list, positive PK and expected
+  identity. Multiple/malformed results preserve trustworthy identities as effects
+  and remain uncertain. SDK constructor/reload is deliberately absent from the
+  durable create path; immediate `RunStore.checkpoint` precedes dependent calls.
+- One approved parameter is one operation. Established identity plus explicit
+  frozen scope permits missing additions to matched Parts in the new mode.
+  Nonempty/manual drift needs review; legacy no-update behavior is unchanged.
+- `repair_stock` records domain authorization and read-back evidence under the
+  same operation ID, retains attempts/results/outputs/confirmed effects/history,
+  and conditionally repairs metadata without requeuing original mutations.
+  Generic `authorize_retry` remains semantic-read-only. Unknown uncorrelated
+  Part/stock/supplier/SKU/order/PO-line creates do not replay. A uniquely observed
+  parameter at its intended model/template/value can satisfy read reconciliation;
+  absence after unknown create remains uncertain. An explicit 4xx rejection or
+  settled pre-send failure allows revalidated missing work to proceed.
+- Tags preserve observed unrelated additions only on this import's owned new
+  stock. Divergent PO links and missing/changed record identity require review.
+  Quantity, batch, location and Part are never restored. No cleanup DELETE exists.
+  GET-plus-PATCH does not establish cross-client atomicity.
+- Every original line has its own PO contribution ID, including identical lots.
+  Only a trustworthy saved PK resolves an uncertain PO-line create. Historical
+  stock without contribution ownership cannot acquire inferred new PO lines.
+- `FrozenEvidence`/`with_evidence` retain explicit bytes and one logical target.
+  Filename alone cannot satisfy recovery; downloaded SHA-256 identity is required.
+  Uploaded/verified/rejected/unknown outcomes remain distinct, and pending retries
+  require no new inventory effects. Full provenance/archive staging is Stage 5.
+- Partial reports include confirmed outputs, failures and named blocked outputs.
+  Best-effort reporting after journal failure never authorizes another send.
+  Completed-run resume is committed status retrieval, with no mutation replay.
+
+See the [Stage 4 handover](handovers/import-execution-stage-4.md) for actual
+validation, policy decisions, scope adjustments and exact-head independent
+clearance of `4c2f127f45d7da93800bd95db8e83a16cb433f5a`.
+
+Stage 4 independent-review refinements: saved PO identity does not waive frozen
+metadata/currency preconditions. Both saved-order repair and each dependent
+contribution/link consumption revalidate the approved payload; manual drift remains
+review and is never overwritten. Confirmed upload effects prohibit reupload when
+a later listing omits the attachment; selected repair is verification-only, with
+pending bytes/history retained. Preparation rejects more than one distinct new
+PO allocation because a read-only OPTIONS default does not reserve a reference;
+Stage 5 must add a verified policy before expanding that scope.
+
+
+## Implemented Stage 5 plan, artifact and compatibility contracts
+
+- Full opt-in boundary: `execution.stock_workflow.prepare_full_stock` reuses
+  `stock_preparation` and the same domain handlers as bounded `prepare_stock`.
+  Existing CLI/default and legacy entry interfaces remain unchanged.
+- Execution plan schema 2 adds typed immutable `settled_after` operation IDs.
+  Both output and settlement dependencies participate in validation/cycle checks.
+  Settlement permits failed/uncertain/reviewed/blocked branches without turning
+  missing outputs into usable records. Schema-1 load/dump/revision remains stable;
+  new fields in schema 1 are rejected. SQLite storage schema stays 1.
+- Full scopes include maker/MPN/SKU relationships, model-owned parameters,
+  explicit taxonomy/templates/locations, empty notes/links, attachments,
+  primary/stock images, datasheet/full-PDF/extract, invoices and originating-run
+  company logos. Options and callbacks freeze before approval; no execution
+  callback can change record choice. Manual values remain protected.
+- `create_manufacturers`, `create_suppliers` and `create_orders` suppress their
+  unselected creation/relationship scope while permitting stock where applicable.
+  A disabled or failed explicit location cannot become unlocated. Confidence
+  review and partial-skip choices are explicit planned line outcomes.
+- MPN matching is scoped to the selected manufacturer, with explicit-IPN priority
+  and no arbitrary first global relationship. Missing taxonomy/parameter
+  templates and approved location paths have individually checkpointed creates.
+  Category configuration chosen by a callback is explicit API input; this API
+  does not infer a destination for local YAML persistence.
+- Every local artifact has a persisted content receipt (relative filename, size,
+  SHA-256, effect-set fingerprint). Source bytes/manifest/targets freeze before
+  execution. Source containment and execution-root exclusions precede archiving.
+  Retained bytes, not a mutable source path, supply pending repair work.
+- `invimport-execution-provenance/1` records precise confirmed changed fields and
+  uncertain attempts separately from source claims, including failed-line
+  attribution. Existing `invimport-provenance/1` and historical runs are untouched.
+- Order: settled inventory/enrichment, confirmed-change snapshot, immutable ZIP,
+  uploads, external report. Missing target is inapplicable/skipped, not failed.
+  No-op imports generate no arbitrary archive. Filename identity is insufficient.
+- Selected inventory repair can append an immutable artifact revision under the
+  original approved operation IDs/source/target scope. The journal authorizes
+  this transition with a precise effect-set fingerprint and retains prior results,
+  outputs, bytes and transfer receipts. Per-content transfer history remains
+  authoritative for old uncertainty/confirmed sends; a new revision cannot replay
+  an older transfer or overwrite its bytes.
+- Reports use `invimport-execution-report/1`, preserving prepared revisions and
+  transfer events as well as operation state/certainty/effects/retry/blocking.
+  `project_stock_result` returns legacy `StockImportResult` suitable for existing
+  `build_plan`; local provenance paths require an explicit `run_directory` and
+  actual file existence. Report-write failure never means saved success.
+- The one-new-PO allocation restriction remains; expanding it requires a verified
+  target allocator contract. CLI write approval/default rollout remain Stage 6.
+
+
+### Stage 5 independent-review corrections
+
+- Full mode permits genuinely omitted locations and freezes effective defaults.
+  Explicit requested locations retain strict review on failure. Escaped names use
+  shared `location_names`, resolved by name/parent instead of ambiguous pathstrings.
+- Source exclusion requires canonical/marked run ownership or positively recognized
+  generated content. Generic source folder/filename/extension/plan-like keys do not
+  identify generated data. Report-owned downloaded image references and marked
+  generated ZIPs remain excluded; legitimate vendor ZIPs remain source evidence.
+- Partial-new decisions persist identities of the originally declined candidate
+  set. Revalidation compares that evidence, preserving the approved new decision
+  while blocking actual subsequent candidate changes. This is not create replay.
+- Archive routing is per source line with frozen PO-preferred/supplier alternatives.
+  Fallback applies only when the preferred operation has no checkpointed output.
+  Known target drift reviews without fallback. The first validated selection is
+  journal-locked across repair/revision. Inapplicable/disabled lines are explicitly
+  unattached; no usable applicable recipient is review, not successful skipping.
+- All finalization targets use the same parent identity/role/frozen-PO-metadata
+  validator as other consumers, before each transfer or reconciliation read.
+- Accepted upload transfer effects retain source attribution and `sent_content`
+  separately. `confirmed_fields` requires remote verification receipts; image
+  receipts confirm content SHA without claiming an unobserved remote filename.
+- Completed status/resume and result projection validate retained receipt SHA/size.
+  Local missing/corrupt/unavailable retention remains separate from historical
+  successful remote effects and does not authorize replay/reopening of writes.
+
+
+### Stage 5 independent exact-head clearance
+
+Independent review approved implementation commit
+`59f74e5f6095e209e84920a61ca60d6cd7d8b130` for the opt-in full-library stacked
+PR after independently checking all eight corrections. Focused execution/domain/
+SDK tests passed **221 in 65.03s**; the full observed SDK scenario matched
+**150 transport sends to 150 durable intents**. Fresh-process supplier-recipient
+locking and unknown-old-transfer/new-artifact-revision safeguards passed. No
+material unresolved findings remain at that exact implementation commit.
+
+The initial rejected candidate and all eight findings remain documented in the
+[Stage 5 handover](handovers/import-execution-stage-5.md). Clearance retains the
+single-new-PO allocator restriction, explicit category-config destination boundary,
+conservative source-basename consistency refusal and local serial ownership scope.
+It does not approve CLI/default rollout, infer live server capabilities or promise
+exactly-once remote effects. Stage 6 still owns its explicit release/parity gates.
+
+## Stage 6 release decision
+
+The implemented `import-run` command is the explicit opt-in durable full stock
+workflow; `import-stock` keeps its existing default/flags and montage `--plan`
+schema. This deliberately defers the default switch until parity/fault gates pass.
+See [operator contracts](import-run.md) and [Stage 6 handover](handovers/import-execution-stage-6.md).
+Preparation is noninteractive with explicit choices; no implicit category-YAML
+persistence, multi-new-PO allocator or basename conflict guessing is introduced.
+Status is local and versioned, including attempt/request export. Invocation event
+stream IDs/sequences are separate from durable journal sequence; snapshots rebuild
+after missed render events. Resume/retry require an audited same-database continuity
+reason where immutable identity is unavailable; this never overrides known drift.
+Abandon keeps a blocking tombstone, not a reason-only uncertainty clearance.
+Required-output prerequisite recovery differs from settlement barriers: selecting
+evidence does not arbitrarily retry failed inventory branches. There is no TUI
+dependency or legacy fallback after execution failure.
+
+Stage 6 independent review identified and corrected three boundary defects:
+generated outputs must be checked against actual owned run/config/input roots
+(including custom registered roots without markers), journal projection/result
+relationships must be validated against attempt/checkpoint/request history, and
+failed event persistence must preserve cancellation exit 130. Read-only output
+preflight cannot recreate missing canonical authority. RUNNING checkpoint/prior
+results and BLOCKED retry-wait transitions remain valid; neither permits unknown
+effects to become successful. See the Stage 6 handover for exact review/retest evidence.
+
+### Stage 6 independent exact-head clearance
+
+Independent review approved `93c5f355da8caffef272c2bfb35f7261e7fb67f2` for the
+explicit opt-in durable stock CLI. All three initial findings are cleared; initial
+`1acda3e` remains rejected historical evidence. Independent focused validation
+passed **261 cases in 96.68 seconds**, including 31 CLI and 9 journal-validation
+cases. Original adverse probes, active-writer/real SIGINT, SDK150-send/intent and
+unknown archive-revision probes passed; independent Ruff and whitespace checks
+also passed. Owner normal1772/scanner43 evidence remains separate from reviewer
+verification. The [handover](handovers/import-execution-stage-6.md) records details.
+No legacy-default switch, full interactive/montage parity, cross-host ownership,
+live immutable identity/allocator/atomicity, exactly-once effects or arbitrary plan
+migration/force-unlock capability is implied by this clearance.
+
+
+## Stage 7 DigiKey contracts
+
+- Plan/journal schemas and logical ID construction remain unchanged. DigiKey
+  operations use an explicit `digikey_v1` reconciliation policy; selected domain
+  repair shares the existing history-preserving authorization seam. There is no
+  generic mutation requeue/replay or new-ID repair.
+- Source namespace is supplier PK plus original sales order ID. Supported legacy
+  order writers hold the same canonical namespace, including direct sales-order
+  calls; a batch acquires all claims before effects under one process writer.
+- One complete sales order is the declared preparation bound. OPTIONS remains
+  only one proposed PO reference; it is never a reservation or uniqueness proof.
+- Original source contribution identities remain distinct even for identical
+  SKU/quantity/price lines. Explicit IDs survive reordering; absent IDs are scoped
+  by the frozen original array digest and original position. Uncorrelated existing
+  contributions/source-array changes require review, not matching guesses.
+- Known PO/line PKs checkpoint before dependent calls. Unknown creates without
+  saved usable identity are review-only, even if reference/payload matches exist.
+  Rejected no-effect contribution creates permit explicit conditional repair.
+- Issue is a separate operation; observed open/completed order status can satisfy
+  a lost issue intent. Receipt is one multi-effect operation for one endpoint
+  request. Accepted effects checkpoint before read-back. Unknown or already
+  accepted receipts never automatically dispatch again.
+- Exact current received totals on revalidated approved lines can satisfy receipt
+  intent while preserving unknown original attempt history. These totals establish
+  state, not actor attribution or StockItem identity. No guessed stock outputs,
+  consumed-quantity reset or deleted-stock recreation is permitted. Partial/manual
+  totals require review. Initial approved remaining amounts are explicit/frozen.
+- Explicit receiving location identity, supplier SKU/Part relationship, PO metadata,
+  quantity and decimal price/currency are revalidated by consumers. No fallback to
+  another location or legacy execution follows failure.
+- Optional missing models use shared matching/parameter-ownership/raw-create
+  policies. Taxonomy/template/config choices must be resolved before preparation.
+  DigiKey media/archive parity remains outside the bounded opt-in release scope.
+- DigiKey read transport observes every actual token/GET/search attempt, excludes
+  URLs/headers/bodies/secrets, and retains one bounded retry owner. Semantic search
+  POST scope is exact to its endpoint; arbitrary POSTs remain nonretryable writes.
+  Cancellation interrupts retry/pacing waits before subsequent requests.
+- Synthetic concurrency measurements are labeled synthetic. Executor/SQLite/SDK
+  ownership remains serial and the global legacy ledger is not claimed isolated
+  for parallel runs. No live uniqueness/rate/thread/atomicity guarantee is inferred.
+
+
+PO-line creation additionally requires read-only target OPTIONS to advertise
+writable boolean `merge_items` and `auto_pricing` controls; DigiKey also requires
+a writable source `reference` of sufficient length. New previews freeze capability
+evidence and `merge_items=false`, `auto_pricing=false`. Execution rechecks support
+before POST and validates source quantity/price/currency before dependent work.
+The [current official PO-line schema](https://docs.inventree.org/en/stable/api/schema/order/#post-apiorderpo-line)
+defaults merging on; reference is not a uniqueness constraint. Metadata is an
+advertised capability, not proof of server uniqueness or atomicity. Modified/older
+servers without the required controls are outside this supported creation slice.
+
+Older schema-1/2 plans remain readable without serialization or ID migration. A
+new stock run from an older plan lacking frozen line controls is rejected before
+mutation and must be prepared again. Existing stored runs retain their revision,
+claims, outputs and history: known-output inspection/repair remains supported, but
+a pending old-policy contribution cannot silently acquire new flags/reference or
+be created. No active-run migration, claim clearing or generic replay is supplied.
+
+
+### Stage 7 independent-review corrections
+
+- Frozen supplier Company identity/role and PO metadata are shared consumption
+  preconditions at operation entry and immediately before mutation, including
+  shared component models and observed-satisfaction/reconciliation paths.
+- Issue/receipt consume the exact complete approved contribution set. Enumerated
+  unexpected, duplicate or substituted PK/reference/parent/Part/financial identities
+  require review, even when all expected saved records remain present. No manual
+  rows are deleted/reset and partial policy does not widen the approved set.
+- Durable JSON decimals retain exact JSON-safe text. Library Decimal values are
+  copied exactly. Canonicalization never uses context-rounding normalize; the
+  supported source bound is13 integer/6 fractional digits. Receipt arithmetic owns
+  its precision. Lossy/nonfinite vendor/cache numeric decoding is rejected before
+  export rather than silently changing source value; legacy safe numeric types stay.
+- Shared as_date order-first/sales-fallback historical date policy freezes supplied
+  creation_date plus writable target capability. Invalid/unsupported dates require
+  preparation review; returned/existing/later date disagreement blocks consumers.
+  Absent dates remain absent. Old conflicting DigiKey plans remain readable with
+  history/claims intact, but cannot acquire corrected source intent implicitly.
+- Shared callback validation precedes actual mutation request intent; it does not
+  add a second durable child around an observed SDK send. GET/POST races remain
+  possible without a demonstrated server atomic precondition capability.
+
+
+### Receipt dispatch and review certainty
+
+A receipt's immutable selected preconditions bind current received totals, status
+and explicit location to its exact amount. Refreshed selection follows location
+lookup; final dispatch rechecks the selected totals/status/location together with
+Company/PO/complete contribution identities. No changed/manual partial state can
+authorize automatic remaining receipt. Issue mutation requires pending10, receive
+mutation open20; full stable totals may settle read-only on20/30. Other states
+require review. The no-write satisfaction path revalidates before resolving prior
+uncertainty. Successful final receipt checks are journaled before mutation intent.
+
+`records.review` preserves confirmed aggregate certainty when retaining confirmed
+effects, and unknown aggregate/state when any retained or explicit unknown exists.
+Accepted receipt/readback conflict returns valid needs-review data rather than
+raising a constructor error, retaining historical accepted effects and no-replay
+policy. Known outputs/attempts/IDs and plan/journal schemas remain unchanged.
+
+
+### Stage 7 approved contract boundary
+
+Independent exact-head review approved `b27badf80a03c3b753a5293010054514c4a064c8`
+with all six material findings cleared. Independent focused verification passed
+395 tests in 139.66 seconds; original/adapted adverse cases and inherited SDK 154
+pre-send-intent, unknown archive, output/journal and cancellation protections pass.
+See the [final handover clearance](handovers/import-execution-stage-7.md#final-independent-clearance)
+for evidence and both preserved rejection histories. No contract is relaxed by
+clearance: one complete order, model-only/no-media/archive scope, source/capability/
+old-plan gates, conservative unknown/manual-state handling and serial/local ownership
+remain. No live conditional/uniqueness/atomicity or default-rollout guarantee is added.

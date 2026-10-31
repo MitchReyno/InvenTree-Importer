@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ..execution.transport import exception_reason
+from .collections import list_models
 from .. import cache
 from . import ledger
 from .api import Company, ManufacturerPart, PurchaseOrder, SupplierPart
@@ -55,7 +57,7 @@ class LogoAction:
 
 def list_companies(api) -> list[Any]:
     """Every company, name-sorted for a stable listing."""
-    companies = Company.list(api, limit=LIST_LIMIT)
+    companies = list_models(Company, api, limit=LIST_LIMIT)
     return sorted(companies, key=lambda c: str(getattr(c, "name", "")).lower())
 
 
@@ -116,7 +118,7 @@ def set_logos(api, companies: dict[str, dict[str, str]], *,
         except Exception as exc:
             log.warning("    [warn] could not upload a logo for %s: %s",
                         company.name, exc)
-            action.reason = str(exc)
+            action.reason = exception_reason(exc)
             continue
         ledger.note("company", company.pk, ledger.IMAGE_SET,
                     **ledger.file_facts(path))
@@ -155,20 +157,20 @@ def company_details(api, company) -> dict[str, Any]:
         if value:
             details[key] = str(value)
     if details["supplier"]:
-        parts = SupplierPart.list(api, supplier=pk, limit=LIST_LIMIT)
+        parts = list_models(SupplierPart, api, supplier=pk, limit=LIST_LIMIT)
         details["supplier_parts"] = len(parts)
         details["skus"] = [
             {"sku": str(p.SKU), **({"link": str(p.link)}
                                    if getattr(p, "link", "") else {})}
             for p in parts[:SHOW_ROWS]]
-        orders = PurchaseOrder.list(api, supplier=pk, limit=LIST_LIMIT)
+        orders = list_models(PurchaseOrder, api, supplier=pk, limit=LIST_LIMIT)
         details["orders"] = [
             " ".join(str(v) for v in (o.reference,
                                       getattr(o, "supplier_reference", ""),
                                       getattr(o, "issue_date", "")) if v)
             for o in orders[:SHOW_ROWS]]
     if details["manufacturer"]:
-        made = ManufacturerPart.list(api, manufacturer=pk, limit=LIST_LIMIT)
+        made = list_models(ManufacturerPart, api, manufacturer=pk, limit=LIST_LIMIT)
         details["manufacturer_parts"] = len(made)
         details["mpns"] = [str(m.MPN) for m in made[:SHOW_ROWS]]
     details["attachments"] = [

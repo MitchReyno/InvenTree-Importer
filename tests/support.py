@@ -137,8 +137,8 @@ class Response:
             self.text = json.dumps(payload)
             self.content = self.text.encode()
 
-    def json(self):
-        return self._payload
+    def json(self, **kwargs):
+        return json.loads(self.text, **kwargs) if kwargs else self._payload
 
 
 class FakeDigiKey:
@@ -587,7 +587,10 @@ class InvenTreeStub:
                 # which the real server derives from the orders it already has.
                 nxt = f"PO-{len(stub.purchase_orders) + 1:04d}"
                 return self._send(200, {
-                    "actions": {"POST": {"reference": {"default": nxt}}}
+                    "actions": {"POST": {"reference": {"default": nxt, "type": "string", "max_length": 100},
+                                         "merge_items": {"type": "boolean", "default": True},
+                                         "auto_pricing": {"type": "boolean", "default": False},
+                                         "creation_date": {"type": "date", "read_only": False}}}
                 })
 
             def do_POST(self):

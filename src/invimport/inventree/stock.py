@@ -1,5 +1,5 @@
 """
-Create stock, and make creating it twice impossible.
+Create stock with barcode identity and conservative link reconciliation.
 
     from invimport.inventree.stock import add_stock, already_imported
 
@@ -19,11 +19,16 @@ twice" from something this code checks into something the database refuses.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from requests import HTTPError, RequestException
+from requests.exceptions import InvalidJSONError
+
+from .collections import list_models, list_rows
 from .api import PART_MODEL_TYPE, StockItem, StockLocation
 
 log = logging.getLogger(__name__)
@@ -49,8 +54,77 @@ CONDITION_STATUS = {
 }
 
 
-class BarcodeInUse(RuntimeError):
-    """The server refused a barcode because something already has it."""
+class BarcodeError(RuntimeError):
+    """Safe barcode diagnostics; a known stock identity survives link failure."""
+
+    def __init__(self, category: str, operation: str, *, stock_item_pk: int | None = None,
+                 owner_pk: int | None = None) -> None:
+        self.category = category
+        self.operation = operation
+        self.stock_item_pk = stock_item_pk
+        self.owner_pk = owner_pk
+        super().__init__(f"barcode {operation}: {category}; stock={stock_item_pk}; owner={owner_pk}")
+
+
+class BarcodeInUse(BarcodeError):
+    """Reconciliation confirmed that the key belongs to another stock item."""
+
+
+def _http_failure(exc: HTTPError) -> tuple[int | None, dict]:
+    # SDK 0.13.5 raises HTTPError(detail), without Response, and includes secrets
+    # in detail. Read only status/body; never copy that dictionary into diagnostics.
+    if exc.response is not None:
+        status, body = exc.response.status_code, exc.response.text
+    elif exc.args and isinstance(exc.args[0], dict):
+        status, body = exc.args[0].get("status_code"), exc.args[0].get("body")
+    else:
+        return None, {}
+    try:
+        payload = json.loads(body) if isinstance(body, str) else {}
+    except (ValueError, TypeError):
+        payload = {}
+    return status, payload if isinstance(payload, dict) else {}
+
+
+def _failure_category(exc: RequestException) -> str:
+    if isinstance(exc, InvalidJSONError):
+        return "invalid_response"
+    if isinstance(exc, HTTPError):
+        status, _ = _http_failure(exc)
+        if status in (401, 403):
+            return "denied/auth"
+        if status == 429 or (isinstance(status, int) and status >= 500):
+            return "transient"
+        return "validation"
+    return "transport"
+
+
+def _scan(api, key: str) -> dict | None:
+    try:
+        found = api.post("barcode/", {"barcode": key})
+    except HTTPError as exc:
+        status, body = _http_failure(exc)
+        # Exact existing server/stub contract; other 400/plugin failures are not absence.
+        if (status == 400 and body.get("error") == "No match found for barcode data"
+                and body.get("plugin") is None
+                and not any(kind in body for kind in ("stockitem", "stocklocation", "part"))):
+            return None
+        raise BarcodeError(_failure_category(exc), "lookup") from exc
+    except RequestException as exc:
+        raise BarcodeError(_failure_category(exc), "lookup") from exc
+    if not isinstance(found, dict):
+        raise BarcodeError("invalid_response", "lookup")
+    # Ownership is a single validated model, never a fallback chosen around a
+    # malformed higher-priority key. barcode_hit remains a permissive UI parser;
+    # absence/registration decisions need this stricter response boundary.
+    owners = [kind for kind in ("stockitem", "stocklocation", "part") if kind in found]
+    if len(owners) != 1:
+        raise BarcodeError("invalid_response", "lookup")
+    payload = found[owners[0]]
+    pk = payload.get("pk") if isinstance(payload, dict) else payload
+    if isinstance(pk, bool) or not isinstance(pk, int) or pk <= 0:
+        raise BarcodeError("invalid_response", "lookup")
+    return found
 
 
 KIND_LABELS = {
@@ -168,10 +242,10 @@ def _as_int(value: Any) -> int | None:
 
 def fetch_parameters(api, part_pk: int) -> list[dict[str, str]]:
     """The named parameter values hanging off this part."""
-    rows = _as_list(_api_get(api, "parameter/",
-                             model_type=PART_MODEL_TYPE, model_id=part_pk))
+    rows = list_rows(api, "parameter/", params={
+        "model_type": PART_MODEL_TYPE, "model_id": part_pk})
     templates: dict[int, dict[str, Any]] = {}
-    for tmpl in _as_list(_api_get(api, "parameter/template/")):
+    for tmpl in list_rows(api, "parameter/template/"):
         pk = _as_int(tmpl.get("pk") if isinstance(tmpl, dict) else None)
         if pk is not None and isinstance(tmpl, dict):
             templates[pk] = tmpl
@@ -223,15 +297,11 @@ def _load_part(api, pk: int, existing: dict[str, Any] | None = None
 
 
 def fetch_stock_items(api, **filters) -> list[dict[str, Any]]:
-    return [row for row in _as_list(
-        _api_get(api, "stock/", limit=LIST_LIMIT, **filters))
-        if isinstance(row, dict)]
+    return list_rows(api, "stock/", params={"limit": LIST_LIMIT, **filters})
 
 
 def fetch_child_locations(api, parent_pk: int) -> list[dict[str, Any]]:
-    return [row for row in _as_list(
-        _api_get(api, "stock/location/", parent=parent_pk, limit=LIST_LIMIT))
-        if isinstance(row, dict)]
+    return list_rows(api, "stock/location/", params={"parent": parent_pk, "limit": LIST_LIMIT})
 
 
 def _annotate_stock_items(api, items: list[dict[str, Any]]
@@ -310,15 +380,10 @@ def lookup_barcode(api, key: str) -> BarcodeHit | None:
     """Resolve a scan to a part, stock item or location, or None."""
     if not key:
         return None
-    try:
-        found = api.post("barcode/", {"barcode": key})
-    except Exception:
-        return None
-    if not isinstance(found, dict):
+    found = _scan(api, key)
+    if found is None:
         return None
     hit = barcode_hit(found, scan=key)
-    if hit is None:
-        return None
     return enrich_hit(api, hit)
 
 
@@ -792,15 +857,12 @@ def find_by_barcode(api, key: str) -> dict[str, Any] | None:
     """What this barcode points at, or None if nothing does."""
     if not key:
         return None
-    try:
-        found = api.post("barcode/", {"barcode": key})
-    except Exception:
-        # The endpoint answers 400 for an unknown barcode, which the client
-        # raises. Not knowing it is the normal case, not a failure.
+    found = _scan(api, key)
+    if found is None:
         return None
-    if isinstance(found, dict) and found.get("stockitem"):
-        return found
-    return None
+    if "stockitem" not in found:
+        raise BarcodeError("conflict", "lookup")
+    return found
 
 
 def already_imported(api, key: str) -> int | None:
@@ -822,10 +884,23 @@ def link_barcode(api, key: str, stock_item_pk: int) -> None:
     itself rather than a record of one: a second import of the same line
     cannot succeed even if every check above it were wrong.
     """
+    failure = None
     try:
         api.post("barcode/link/", {"barcode": key, "stockitem": stock_item_pk})
-    except Exception as exc:
-        raise BarcodeInUse(f"{key!r} is already assigned: {exc}") from exc
+    except RequestException as exc:
+        failure = exc
+    # Even a successful HTTP response is not ownership evidence. A lost response
+    # may have committed; read back before deciding whether a duplicate exists.
+    try:
+        owner = already_imported(api, key)
+    except BarcodeError as exc:
+        raise BarcodeError("uncertain_write", "link", stock_item_pk=stock_item_pk) from exc
+    if owner == stock_item_pk:
+        return
+    if owner is not None:
+        raise BarcodeInUse("conflict", "link", stock_item_pk=stock_item_pk,
+                           owner_pk=owner) from failure
+    raise BarcodeError("uncertain_write", "link", stock_item_pk=stock_item_pk) from failure
 
 
 # --------------------------------------------------------------------------
@@ -833,7 +908,7 @@ def link_barcode(api, key: str, stock_item_pk: int) -> None:
 # --------------------------------------------------------------------------
 def locations_by_path(api) -> dict[str, Any]:
     return {str(loc.pathstring): loc
-            for loc in StockLocation.list(api, limit=LIST_LIMIT)
+            for loc in list_models(StockLocation, api, limit=LIST_LIMIT)
             if getattr(loc, "pathstring", None)}
 
 
@@ -920,9 +995,8 @@ def add_stock(
     """
     Create one stock item and stamp its import key on it.
 
-    The key is linked immediately after creation. If that link is refused the
-    item is removed again, so a refused import leaves nothing behind rather
-    than an untracked pile of stock that the next run would create once more.
+    Confirm barcode ownership after linking. Only a confirmed different stock
+    owner permits duplicate cleanup; uncertainty preserves the new PK in the error.
     """
     payload: dict[str, Any] = {
         "part": part,
@@ -948,12 +1022,18 @@ def add_stock(
     if key:
         try:
             link_barcode(api, key, item.pk)
-        except BarcodeInUse:
+        except BarcodeInUse as exc:
+            # Both identities are known and this item was created by this call.
+            if exc.owner_pk == item.pk or exc.owner_pk is None:
+                raise
             try:
-                item.delete()
-            except Exception:                    # pragma: no cover - best effort
-                log.warning("    could not remove stock item %s after a "
-                            "refused barcode", item.pk)
+                response = item.delete()
+            except RequestException as cleanup_error:
+                raise BarcodeError("uncertain_write", "duplicate cleanup",
+                                   stock_item_pk=item.pk, owner_pk=exc.owner_pk) from cleanup_error
+            if getattr(response, "status_code", None) != 204:
+                raise BarcodeError("uncertain_write", "duplicate cleanup",
+                                   stock_item_pk=item.pk, owner_pk=exc.owner_pk) from exc
             raise
     # Tags go on in a second request. The create endpoint lists tags as a
     # writable field and answers 201, but the item it makes has none - only

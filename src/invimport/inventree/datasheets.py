@@ -36,12 +36,20 @@ from typing import Any, Callable
 from urllib.parse import unquote, urldefrag, urlparse
 
 import requests
+
 from pypdf import PdfReader, PdfWriter
 
+from ..execution.transport import exception_reason
+from ..execution.observation import active, worker
+from ..execution.transport import external_get
+
+from .collections import list_models, list_rows
 from .. import cache
 from ..util import absolute_url, parse_pages
 from .api import ManufacturerPart, Part, PartCategory
-from .purchase_orders import ATTACHMENT_URL, attach_file
+from .purchase_orders import (
+    ATTACHMENT_URL, AttachmentOutcome, AttachmentState, attach_file_outcome,
+)
 
 log = logging.getLogger(__name__)
 
@@ -121,7 +129,8 @@ def cached_pdf(url: str, cache_dir: Path = DATASHEETS_DIR) -> Path | None:
 
 def _fetch(url: str) -> requests.Response:
     """One GET. Separate so tests can stand in for the network."""
-    return requests.get(url, timeout=60, headers={"User-Agent": USER_AGENT})
+    return external_get(url, transport=requests, timeout=60,
+                        headers={"User-Agent": USER_AGENT})
 
 
 def download_pdf(url: str, *, cache_dir: Path = DATASHEETS_DIR,
@@ -188,8 +197,15 @@ class Downloads:
                 future.set_result(download_pdf(
                     url, cache_dir=self.cache_dir, refresh=self.refresh))
             except Exception as exc:             # pragma: no cover
-                future.set_result((None, f"download failed: {exc}"))
-        return future.result()
+                future.set_result((None, f"download failed: {type(exc).__name__}"))
+        observation = active()
+        waiting = not owner and not future.done()
+        if waiting and observation:
+            observation.emit("wait_started", "shared datasheet download")
+        result = future.result()
+        if waiting and observation:
+            observation.emit("wait_finished", "shared datasheet download")
+        return result
 
 
 def prefetch(urls, *, cache_dir: Path = DATASHEETS_DIR,
@@ -205,7 +221,10 @@ def prefetch(urls, *, cache_dir: Path = DATASHEETS_DIR,
         return
     downloads = Downloads(cache_dir=cache_dir)
     with ThreadPoolExecutor(max_workers=min(workers, len(wanted))) as pool:
-        list(pool.map(downloads.get, wanted))
+        futures = [pool.submit(worker(downloads.get, label="datasheet download",
+                                      group="downloads"), url) for url in wanted]
+        for future in futures:
+            future.result()
 
 
 def extract_pages(source: Path, pages_text: str, *,
@@ -239,7 +258,7 @@ def extract_pages(source: Path, pages_text: str, *,
         buffer = io.BytesIO()
         writer.write(buffer)
     except Exception as exc:
-        return None, f"could not read {source.name} as a PDF: {exc}"
+        return None, f"could not read {source.name} as a PDF: {exception_reason(exc)}"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(buffer.getvalue())
     return target, ""
@@ -309,23 +328,25 @@ def attach_datasheet(api, files: list[DatasheetFile], *, part: int | None,
     Returns how many uploads were made. A record already holding a file of
     that name is left alone, so re-running attaches nothing twice.
     """
-    uploaded = 0
+    return sum(outcome.state == AttachmentState.UPLOADED for outcome in
+               attach_datasheet_outcomes(api, files, part=part,
+                                         manufacturer_parts=manufacturer_parts))
+
+
+def attach_datasheet_outcomes(api, files: list[DatasheetFile], *, part: int | None,
+                              manufacturer_parts: list[int] | tuple[int, ...] = ()
+                              ) -> list[AttachmentOutcome]:
+    """Structured outcomes for every selected file/target, including existing files."""
     targets = [(PART_MODEL, part)] + [(MANUFACTURER_PART_MODEL, pk)
-                                      for pk in manufacturer_parts]
-    for file in files:
-        for model_type, pk in targets:
-            if pk is not None and attach_file(api, model_type, pk, file.path,
-                                              file.comment):
-                uploaded += 1
-    return uploaded
+                                     for pk in manufacturer_parts]
+    return [attach_file_outcome(api, model_type, pk, file.path, file.comment)
+            for file in files for model_type, pk in targets if pk is not None]
 
 
 def parts_with_datasheets(api) -> set[int]:
     """Parts already carrying an attachment commented as a datasheet."""
-    response = api.get(ATTACHMENT_URL, params={
+    rows = list_rows(api, ATTACHMENT_URL, params={
         "model_type": PART_MODEL, "limit": LIST_LIMIT})
-    rows = (response.get("results") or []) if isinstance(response, dict) \
-        else list(response or [])
     return {int(row["model_id"]) for row in rows
             if str(row.get("comment") or "").strip().startswith(
                 DATASHEET_COMMENT)
@@ -373,7 +394,7 @@ def candidate_urls(part, manufacturer_parts: list[Any]) -> list[str]:
 
 def _category_pks(api, pathstring: str) -> set[int]:
     """The named category and everything under it."""
-    categories = PartCategory.list(api, limit=LIST_LIMIT)
+    categories = list_models(PartCategory, api, limit=LIST_LIMIT)
     wanted = pathstring.strip("/").casefold()
     roots = {c.pk for c in categories
              if str(getattr(c, "pathstring", "")).casefold() == wanted}
@@ -414,12 +435,12 @@ def backfill(api, *, write: bool = False, category: str = "",
     Downloads run `workers` at a time. Uploads, and on_item, stay in part
     order on this thread, so the report reads the same however many ran.
     """
-    parts = Part.list(api, limit=LIST_LIMIT)
+    parts = list_models(Part, api, limit=LIST_LIMIT)
     if category:
         keep = _category_pks(api, category)
         parts = [p for p in parts if getattr(p, "category", None) in keep]
     by_part: dict[int, list[Any]] = {}
-    for mp in ManufacturerPart.list(api, limit=LIST_LIMIT):
+    for mp in list_models(ManufacturerPart, api, limit=LIST_LIMIT):
         by_part.setdefault(int(mp.part), []).append(mp)
     done = parts_with_datasheets(api)
 
@@ -428,7 +449,8 @@ def backfill(api, *, write: bool = False, category: str = "",
              for part in parts}
     downloads = Downloads(cache_dir=cache_dir, refresh=refresh)
     pool = ThreadPoolExecutor(max_workers=max(1, workers))
-    pending = {part.pk: pool.submit(_first_pdf, downloads, links[part.pk])
+    pending = {part.pk: pool.submit(worker(_first_pdf, label="datasheet download",
+                                         group="downloads"), downloads, links[part.pk])
                for part in parts
                if part.pk not in done and links[part.pk]}
 
@@ -455,9 +477,17 @@ def backfill(api, *, write: bool = False, category: str = "",
                     if write:
                         same = [mp.pk for mp in by_part.get(part.pk, [])
                                 if absolute_url(getattr(mp, "link", "")) == url]
-                        attach_datasheet(api, [DatasheetFile(path)],
-                                         part=part.pk, manufacturer_parts=same)
-                        item.action = ATTACHED
+                        outcomes = attach_datasheet_outcomes(
+                            api, [DatasheetFile(path)], part=part.pk,
+                            manufacturer_parts=same)
+                        if all(outcome.satisfied for outcome in outcomes):
+                            item.action = (ATTACHED if any(
+                                outcome.state == AttachmentState.UPLOADED
+                                for outcome in outcomes) else HAS_ONE)
+                        else:
+                            item.action = FAILED
+                            item.reason = "; ".join(dict.fromkeys(
+                                outcome.reason for outcome in outcomes if not outcome.satisfied))
             items.append(item)
             if on_item is not None:
                 on_item(item)

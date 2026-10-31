@@ -40,8 +40,12 @@ import json
 import os
 import sys
 from pathlib import Path
+from hashlib import sha256
 from typing import Any
 
+from ..execution.observation import Observation, observing, operation
+from ..execution.transport import protect_import_logs, safe_failure
+from .import_progress import ImportProgress
 from .. import notes as notes_md
 from ..config import load_categories_config, load_parameters_config
 from ..stockfile import (
@@ -60,6 +64,7 @@ from ..inventree.archive import (
     ALREADY_ATTACHED,
     ATTACHED,
     FAILED,
+    UNKNOWN,
     PURCHASE_ORDER,
     WOULD_ATTACH,
 )
@@ -793,7 +798,7 @@ def report_archive(archive) -> None:
     if archive.reason:
         print(f"    {archive.reason}")
     mark = {ATTACHED: "+", WOULD_ATTACH: "+", ALREADY_ATTACHED: "=",
-            FAILED: "!"}
+            FAILED: "!", UNKNOWN: "!"}
     for target in archive.targets:
         kind = "order" if target.kind == PURCHASE_ORDER else "supplier"
         label = target.label if target.pk is None else f"{kind} {target.label}"
@@ -815,7 +820,8 @@ def report_provenance(outcome, enabled: bool) -> None:
         if enabled:
             print("\n  provenance: recorded on --write")
         return
-    if outcome.file is None and not outcome.attached:
+    if (outcome.file is None and not outcome.attached and not outcome.failed
+            and not outcome.already_satisfied and not outcome.unknown):
         print(f"\n  provenance: none - {outcome.reason}")
         return
     print("\n  provenance:")
@@ -830,6 +836,10 @@ def report_provenance(outcome, enabled: bool) -> None:
             kinds[model] = kinds.get(model, 0) + 1
         print(f"    + attached to {len(outcome.attached)} record(s): "
               f"{', '.join(f'{n} {k}' for k, n in kinds.items())}")
+    for model, pk, name in outcome.already_satisfied:
+        print(f"    = {name} already attached to {model} {pk}")
+    for model, pk, name in outcome.unknown:
+        print(f"    ! upload outcome unknown for {name} on {model} {pk}")
     for model, pk, name in outcome.failed:
         print(f"    ! could not attach {name} to {model} {pk}")
 
@@ -858,6 +868,32 @@ def mirror_datasheets(args: argparse.Namespace) -> bool:
 
 
 def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
+    observation = Observation(ImportProgress())
+    protect_import_logs()
+    with observing(observation):
+        phases = ["connection", "discovery", "lines"]
+        if mirror_datasheets(args):
+            phases.insert(2, "datasheet prefetch")
+        if any(document.companies for document, _ in reports):
+            phases.append("company logos")
+        if args.write and not args.no_provenance:
+            phases.append("provenance")
+        if not args.no_archive:
+            phases.append("archive")
+        if args.plan:
+            phases.append("report plan reads/downloads")
+        observation.emit("outline", " -> ".join(phases))
+        try:
+            with operation("import invocation", group="invocation"):
+                return _write_run(args, reports)
+        except Exception as exc:
+            # Legacy SDK errors can contain authorization/payload/body dictionaries.
+            # Their causes remain available to library users; CLI is a safe boundary.
+            print(f"ERROR: {safe_failure(exc)}", file=sys.stderr, flush=True)
+            return 1
+
+
+def _write_run(args: argparse.Namespace, reports: list[Any]) -> int:
     interactive = _prompt.interactive() and not args.yes
     options = ImportOptions(
         write=args.write,
@@ -875,7 +911,8 @@ def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
         choose_supplier=ask_company("supplier") if interactive else None,
     )
 
-    api = connect()
+    with operation("connection", group="connection"):
+        api = connect()
     totals = {"created": 0, "exists": 0, "skipped": 0, "review": 0}
     plans = []
     for document, report in reports:
@@ -886,9 +923,11 @@ def write_run(args: argparse.Namespace, reports: list[Any]) -> int:
         report_logos(result.logos)
         report_provenance(result.provenance, not args.no_provenance)
         if args.plan:
-            plans.append(build_plan(
-                api, document, result,
-                image_dir=args.plan.parent / f"{args.plan.stem}-images"))
+            with operation("report plan", group="report",
+                           source=sha256(document.file_id.encode()).hexdigest()[:16]):
+                plans.append(build_plan(
+                    api, document, result,
+                    image_dir=args.plan.parent / f"{args.plan.stem}-images"))
         for key in totals:
             totals[key] += result.counts()[key]
 

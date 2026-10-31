@@ -184,6 +184,26 @@ def test_editing_one_line_does_not_re_import_the_others(config, server):
     assert [a.action for a in second.lines] == [EXISTS, EXISTS]
 
 
+def test_same_import_key_preserves_historical_stock_fields_on_rerun(config, server):
+    document, first = run(config, {
+        **DIODE, "quantity": 7, "batch": "original", "location": "Shelf/Drawer"})
+    stored = server.stock_items[0]
+    historical = {field: stored.get(field)
+                  for field in ("part", "quantity", "batch", "location")}
+    document.lines[0].quantity = 99
+    document.lines[0].batch = "revised"
+    document.lines[0].location = "Another/Drawer"
+    document.lines[0].type = "1N4148"
+
+    result = import_stock(document, connect(), directory=config,
+                          options=ImportOptions(write=True))
+
+    assert result.lines[0].action == EXISTS
+    assert result.lines[0].stock_item == first.lines[0].stock_item
+    assert len(server.stock_items) == 1
+    assert {field: stored.get(field) for field in historical} == historical
+
+
 # --------------------------------------------------------------------------
 # Suppliers, orders and locations
 # --------------------------------------------------------------------------
@@ -226,6 +246,17 @@ def test_a_location_path_is_created_and_used(config, server):
     assert server.stock_items[0]["location"] == next(
         loc["pk"] for loc in server.locations
         if loc.get("pathstring") == "Workshop/Drawer A")
+
+
+def test_legacy_unresolved_requested_location_still_creates_unlocated_stock(
+        config, server):
+    """New resumable mode will deliberately require review for this case."""
+    _, result = run(config, {**DIODE, "location": "Unknown/Drawer"},
+                    create_locations=False)
+
+    assert result.lines[0].action == CREATED
+    assert not result.lines[0].location
+    assert server.stock_items[0].get("location") is None
 
 
 def test_a_default_location_applies_where_a_line_gives_none(config, server):

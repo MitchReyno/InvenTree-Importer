@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .collections import list_models
 from ..config import UnitConfig, load_units_config
 from .api import CustomUnit, connect
 
@@ -84,7 +85,7 @@ def sync_units(
         units = load_units_config(directory)
 
     api = api or connect()
-    existing = {u.name: u for u in CustomUnit.list(api, limit=1000)}
+    existing = {u.name: u for u in list_models(CustomUnit, api, limit=1000)}
     result = UnitSyncResult()
 
     for unit in units.values():

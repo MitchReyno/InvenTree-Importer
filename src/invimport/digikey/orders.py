@@ -127,6 +127,7 @@ def fetch_sales_order_payload(client: Client, sales_order_id: int,
 def extract_line_item(item: dict[str, Any]) -> dict[str, Any]:
     """Flatten a LineItem into the fields an import cares about."""
     return {
+        "source_line_id": item.get("LineItemId") or item.get("LineNumber") or item.get("LineItemNumber"),
         "digikey_part": dig(item, "DigiKeyProductNumber"),
         "manufacturer_part": dig(item, "ManufacturerProductNumber"),
         "description": dig(item, "Description"),

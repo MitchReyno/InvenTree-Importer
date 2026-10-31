@@ -30,6 +30,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
+from ..execution.ownership import ledger_recording_scope
+
 # What happened to a record.
 CREATED = "created"
 PARAMETER_ADDED = "parameter added"
@@ -116,12 +118,13 @@ _active: Ledger | None = None
 def recording() -> Iterator[Ledger]:
     """Note every write made inside the block, nested blocks included."""
     global _active
-    previous = _active
-    _active = Ledger(parent=previous)
-    try:
-        yield _active
-    finally:
-        _active = previous
+    with ledger_recording_scope():
+        previous = _active
+        _active = Ledger(parent=previous)
+        try:
+            yield _active
+        finally:
+            _active = previous
 
 
 def note(model: str, pk: Any, what: str, **detail: Any) -> None:

@@ -45,8 +45,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
+from ..execution.transport import exception_reason
+from ..execution.artifacts import is_execution_file
 from ..stockfile import StockFile
-from .purchase_orders import attach_file, attachments
+from .purchase_orders import AttachmentState, attach_file_outcome, attachments
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +67,7 @@ ATTACHED = "attached"
 WOULD_ATTACH = "would attach"
 ALREADY_ATTACHED = "already attached"
 FAILED = "failed"
+UNKNOWN = "unknown"
 
 # The fixed timestamp written into every zip entry. A zip records each file's
 # modification time, so without this the same folder zipped twice gives two
@@ -110,7 +113,7 @@ class ImportArchive:
     def counts(self) -> dict[str, int]:
         return {
             outcome: sum(1 for t in self.targets if t.outcome == outcome)
-            for outcome in (ATTACHED, WOULD_ATTACH, ALREADY_ATTACHED, FAILED)
+            for outcome in (ATTACHED, WOULD_ATTACH, ALREADY_ATTACHED, FAILED, UNKNOWN)
         }
 
 
@@ -151,7 +154,7 @@ def archive_files(folder: Path) -> list[Path]:
         relative = path.relative_to(folder)
         if any(part.startswith(".") for part in relative.parts):
             continue
-        if not path.is_file():
+        if not path.is_file() or is_execution_file(path):
             continue
         if (path.suffix.lower() == ".zip"
                 and path.name.startswith(ARCHIVE_PREFIX)):
@@ -271,12 +274,7 @@ def _existing(api, target: ArchiveTarget, folder: Path, name: str,
     """
     if target.pk is None:
         return False, []
-    try:
-        rows = attachments(api, target.model_type, target.pk)
-    except Exception as exc:                     # pragma: no cover
-        log.warning("    [warn] could not list attachments on %s %s: %s",
-                    target.model_type, target.pk, exc)
-        return False, []
+    rows = attachments(api, target.model_type, target.pk)
     marker = f"sha256 {digest[:DIGEST_LENGTH]}"
     prefix = f"{ARCHIVE_PREFIX}{folder.name}-"
     present, earlier = False, []
@@ -316,8 +314,12 @@ def archive_import(api, document: StockFile, lines: Iterable[Any], *,
 
     pending = []
     for target in archive.targets:
-        present, target.earlier = _existing(api, target, folder, archive.name,
-                                            archive.digest)
+        try:
+            present, target.earlier = _existing(api, target, folder, archive.name,
+                                                archive.digest)
+        except Exception:
+            target.outcome = FAILED
+            continue
         if present:
             target.outcome = ALREADY_ATTACHED
         elif write and target.pk is not None:
@@ -333,12 +335,16 @@ def archive_import(api, document: StockFile, lines: Iterable[Any], *,
         try:
             path = build_zip(folder, files, Path(scratch) / archive.name)
         except OSError as exc:
-            archive.reason = f"could not zip {folder}: {exc}"
+            archive.reason = f"could not zip {folder}: {exception_reason(exc)}"
             for target in pending:
                 target.outcome = FAILED
             return archive
         for target in pending:
-            uploaded = attach_file(api, target.model_type, target.pk, path,
-                                   comment)
-            target.outcome = ATTACHED if uploaded else FAILED
+            outcome = attach_file_outcome(api, target.model_type, target.pk, path, comment)
+            target.outcome = {
+                AttachmentState.UPLOADED: ATTACHED,
+                AttachmentState.ALREADY_SATISFIED: ALREADY_ATTACHED,
+                AttachmentState.FAILED: FAILED,
+                AttachmentState.UNKNOWN: UNKNOWN,
+            }[outcome.state]
     return archive

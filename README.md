@@ -44,6 +44,11 @@ Two design points worth knowing up front:
   importable functions that return data and print nothing, so you can compose
   new tooling from them. See [Using it as a library](#using-it-as-a-library).
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the implemented import flow and its
+limitations, and the [execution plan](docs/import-execution-plan.md) for the
+staged observable/resumable design. Future interfaces in those documents are
+not available commands yet.
+
 ## Getting started
 
 ### Requirements
@@ -1420,3 +1425,29 @@ not for this README.
 DigiKey is a trademark of Digi-Key Corporation. InvenTree is a trademark of its
 respective owners. This project is an independent tool and is **not affiliated
 with, endorsed by, or sponsored by** either.
+
+### Durable stock imports (opt-in)
+
+Use `uv run invimport import-run prepare FILE --output PLAN.json`, review the
+resolved hierarchy, then `uv run invimport import-run execute PLAN.json --write`.
+Local `status`, explicit `resume`/`retry-operation`, JSON/events and blocking
+`abandon` are described in the [operator workflow](docs/import-run.md).
+`import-stock` remains the legacy default with its existing flags and `--plan`
+schema while remaining parity/rollout gates are reviewed.
+
+
+For DigiKey, the explicit opt-in is `import-run prepare-digikey order.json
+--supplier PK --location PK --output approved-order.json`, followed by the same
+reviewed execute/recovery commands. It accepts one complete sales order exported
+with `orders --order ID --json order.json`; optional supplied product rows create
+missing models through shared policies. See the [DigiKey operator scope](docs/import-run.md#digikey-order-opt-in)
+for partial/remaining choices, required target capabilities, media exclusions and
+recovery limits. Ordinary command defaults remain legacy; execution remains serial.
+
+### Try import execution with synthetic data
+
+Run `uv run invimport demo serve --workspace demo-partial --scenario partial`,
+then follow the [loopback demo guide](docs/import-demo.md) in a second terminal.
+It uses the real CLI/SDK and a persistent fake HTTP server to show plan hierarchy,
+request progress, partial evidence outcomes and targeted recovery without any
+real inventory or vendor credentials.

@@ -1376,3 +1376,63 @@ def test_failed_plan_is_reported_without_publishing_it(
         assert plan.read_text(encoding="utf-8") == "previous plan"
     else:
         assert not plan.exists()
+
+
+def test_import_stock_requests_visible_before_dispatch_including_plan(
+        inventree, tmp_path, monkeypatch, capsys):
+    import io
+    import requests
+    from invimport.commands.import_progress import ImportProgress
+
+    class ProgressStream(io.StringIO):
+        flushes = 0
+
+        def flush(self):
+            self.flushes += 1
+            super().flush()
+
+    events = []
+    original_render = ImportProgress.__call__
+
+    def render(self, event):
+        events.append(event)
+        return original_render(self, event)
+
+    monkeypatch.setattr(ImportProgress, "__call__", render)
+    stream = ProgressStream()
+    monkeypatch.setattr('sys.stderr', stream)
+    _seed_stock_tree(inventree)
+    directory = _stock_config(tmp_path)
+    path = _stock_file(tmp_path, [{
+        'id': 'a', 'quantity': 1, 'category': 'Resistors/Through Hole Resistors',
+        'parameters': {'Resistance': '1 kohm'}}])
+    second = _stock_file(tmp_path, [{
+        'id': 'b', 'quantity': 2, 'category': 'Resistors/Through Hole Resistors',
+        'parameters': {'Resistance': '2 kohm'}}], name='second.json')
+    original = requests.get
+    dispatches = []
+
+    def send(url, **kwargs):
+        lines = stream.getvalue().splitlines()
+        assert 'outline:' in lines[0]
+        assert ' start GET inventory' in lines[-1]
+        assert stream.flushes >= len(lines)
+        dispatches.append((url, 'operation_started: report plan' in stream.getvalue()))
+        return original(url, **kwargs)
+
+    monkeypatch.setattr(requests, 'get', send)
+    plan = tmp_path / 'plan.json'
+    assert main(['import-stock', '--config', str(directory), '--yes',
+                 '--write', '--no-archive', '--no-provenance',
+                 '--plan', str(plan), str(path), str(second)]) == 0
+    assert any(during_plan for _, during_plan in dispatches)
+    assert plan.is_file()
+    document_sources = {event.context.source for event in events
+                        if event.kind == 'operation_started' and event.label == 'stock document'}
+    report_sources = {event.context.source for event in events
+                      if event.kind == 'operation_started' and event.label == 'report plan'}
+    assert len(document_sources) == 2
+    assert report_sources == document_sources
+    assert all(event.context.source in document_sources for event in events
+               if event.kind == 'request_started' and event.context.group == 'report')
+    assert 'request ' not in capsys.readouterr().out

@@ -17,6 +17,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from .digikey.numbers import lossless_float, reject_nonfinite
+
 # Root for all cached supplier responses, relative to the working directory.
 CACHE_ROOT = Path(".cache")
 DIGIKEY_ROOT = CACHE_ROOT / ".digikey"
@@ -38,7 +40,7 @@ def load(cache_dir: Path, key: str) -> dict[str, Any] | None:
     path = cache_path(cache_dir, key)
     if not path.exists():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8"), parse_float=lossless_float, parse_constant=reject_nonfinite)
 
 
 def store(cache_dir: Path, key: str, data: dict[str, Any]) -> None:
