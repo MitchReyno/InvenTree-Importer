@@ -110,8 +110,12 @@ def ensure_evidence(spec: OperationSpec, context: OperationContext, api: StockRe
                                      sha256=desired["sha256"], model=target.model, pk=target.pk)
             return _success(target)
         return review("evidence_bytes_conflict" if verified is False else "evidence_verification_unavailable")
-    if repair and context.store.results()[spec.id].certainty == Certainty.UNKNOWN:
-        return review("uncorrelated_evidence_upload", unknown=True)
+    if repair:
+        previous = context.store.results()[spec.id]
+        if any(effect.kind == "upload" and effect.certainty == Certainty.CONFIRMED for effect in previous.effects):
+            return review("uploaded_evidence_not_visible")
+        if previous.certainty == Certainty.UNKNOWN:
+            return review("uncorrelated_evidence_upload", unknown=True)
     try:
         response = api.request("attachment/", method="POST",
                                data={"model_type": target.model, "model_id": target.pk},

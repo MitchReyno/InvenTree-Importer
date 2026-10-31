@@ -517,3 +517,10 @@ no-update behavior. Conflicting nonempty values are never overwritten. Uncertain
 creates without trustworthy IDs remain unresolved even if payloads look identical.
 The local SQLite authority and read/PATCH repair do not imply exactly-once remote
 creates or atomic preservation of external changes after a metadata read.
+
+Independent review tightened three Stage 4 boundaries: frozen PO metadata/currency
+must remain valid whenever a saved order is repaired or consumed by new work;
+a confirmed upload effect cannot authorize replacement when its row disappears;
+and multiple distinct new PO allocations reject before writes because reading
+OPTIONS cannot reserve multiple references. These preserve the original no-drift,
+no-replay contracts while explicitly bounding new-order scope until Stage 5.

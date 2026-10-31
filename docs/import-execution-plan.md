@@ -380,7 +380,11 @@ field repair, effect attribution and finalization.
 **Implemented scope/adjustments:** `prepare_stock`/`execute_stock`/`resume_stock`/
 `repair_stock` are opt-in library interfaces. Complete spec/type matching, existing
 locations, shared supplier/SKU/PO, distinct stock/PO contributions, barcode/tags/
-links and an explicit frozen evidence artifact are supported. Manufacturer/MPN,
+links and an explicit frozen evidence artifact are supported. At most one distinct
+new PO may allocate a reference; multiple new allocations reject during preparation
+until Stage 5 supplies a verified policy. Saved PO outputs must still satisfy
+frozen metadata/currency requirements whenever consumed. Confirmed uploads permit
+verification only, never replacement after disappearance from listing. Manufacturer/MPN,
 automatic taxonomy/location creation, invoices and full media/provenance/archive
 migration reject before writes and remain Stage 5. An explicitly requested missing
 location and an omitted location both require review in this subset. Legacy

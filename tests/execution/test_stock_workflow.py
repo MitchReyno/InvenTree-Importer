@@ -636,3 +636,88 @@ def test_client_target_change_after_read_is_rejected_before_any_write(scene, tmp
         execute_stock(plan, api=api, current_target=TARGET, run_directory=tmp_path / "run")
     assert not original("part/")
     assert not original("stock/")
+
+
+@pytest.mark.parametrize("stop", ["checkpoint", "settled"])
+@pytest.mark.parametrize("field,value", [("description", "manual description"), ("order_currency", "EUR"),
+                                         ("tags", ["manual"]), ("notes", "manual notes"),
+                                         ("start_date", "2025-01-01"), ("target_date", "2025-01-02"),
+                                         ("link", "https://manual.example/"), ("reference", "MANUAL-PO")])
+def test_checkpointed_and_settled_order_metadata_drift_blocks_new_contributions(scene, tmp_path, stop, field, value):
+    api = scene[0]
+    doc = document(tmp_path)
+    for line in doc.lines:
+        line.currency = "USD"
+        line.unit_price = 1
+        line.order.update({"description": "approved description", "tags": ["approved"], "notes": "approved notes",
+                           "date": "2026-10-01", "target_date": "2026-10-02", "link": "https://approved.example/"})
+    plan = prepare(scene, doc)
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(plan.dumps())
+    directory = tmp_path / "run"
+    script = '''import sys, os
+from pathlib import Path
+from invimport.execution.models import Plan
+from invimport.execution.stock_workflow import execute_stock
+from invimport.execution.store import RunStore
+from tests.execution.stock_server import StockServer
+plan = Plan.loads(Path(sys.argv[1]).read_text())
+method = 'checkpoint' if sys.argv[4] == 'checkpoint' else 'finish'
+original = getattr(RunStore, method)
+def stop(self, attempt, result):
+    original(self, attempt, result)
+    if next(op for op in self.plan.operations if op.id == attempt.operation).desired.values()['action'] == 'order':
+        os._exit(74)
+setattr(RunStore, method, stop)
+execute_stock(plan, api=StockServer(Path(sys.argv[2])), current_target=plan.target, run_directory=Path(sys.argv[3]))
+'''
+    result = subprocess.run([sys.executable, "-c", script, str(plan_path), str(api.path), str(directory), stop], capture_output=True)
+    assert result.returncode == 74, result.stderr
+    order = api.get("order/po/")[0]
+    api.patch(f"order/po/{order['pk']}/", {field: value})
+    with sqlite_connection(directory / "run.sqlite3") as connection:
+        run_id = connection.execute("SELECT id FROM run").fetchone()[0]
+    snapshot = resume_stock(plan, run_id, directory / "run.sqlite3", api=api, current_target=TARGET)
+    assert not api.get("order/po-line/")
+    selected = operation(plan, "order") if stop == "checkpoint" else operation(plan, "order_line")
+    snapshot = repair(plan, snapshot, directory, api, selected)
+    assert row(snapshot, selected)["state"] == State.NEEDS_REVIEW
+    assert not api.get("order/po-line/")
+    assert api.get(f"order/po/{order['pk']}/")[field] == value
+    assert all(not line["complete"] for line in snapshot["report"]["lines"])
+    assert len(api.get("order/po/")) == 1
+
+
+def test_confirmed_upload_missing_from_listing_is_verification_only_on_repeated_repairs(scene, tmp_path, monkeypatch):
+    api = scene[0]
+    plan = with_evidence(prepare(scene, document(tmp_path)), FrozenEvidence("a", "proof.txt", b"retained exact bytes"))
+    original_get = api.get
+    def get(route, **kwargs):
+        return [] if route == "attachment/" else original_get(route, **kwargs)
+    monkeypatch.setattr(api, "get", get)
+    directory = tmp_path / "run"
+    snapshot = execute_stock(plan, api=api, current_target=TARGET, run_directory=directory)
+    evidence = operation(plan, "evidence")
+    assert row(snapshot, evidence)["state"] == State.NEEDS_REVIEW
+    assert len(original_get("attachment/")) == 1
+    for _ in range(3):
+        snapshot = repair(plan, snapshot, directory, api, evidence)
+        result = row(snapshot, evidence)
+        assert result["state"] == State.NEEDS_REVIEW
+        assert any(effect["kind"] == "upload" and effect["certainty"] == "confirmed" for effect in result["result"]["effects"])
+        assert len(original_get("attachment/")) == 1
+    assert any(path.read_bytes() == b"retained exact bytes" for path in (directory / "artifacts").iterdir())
+
+
+def test_multiple_distinct_new_order_allocations_reject_during_read_only_preparation(scene, tmp_path):
+    api = scene[0]
+    doc = document(tmp_path)
+    doc.lines[1].order["reference"] = "Different-Invoice"
+    with pytest.raises(PreparationReview, match="multiple new purchase order allocations"):
+        prepare(scene, doc)
+    assert not api.get("part/") and not api.get("stock/")
+    assert not api.get("company/") and not api.get("order/po/")
+    # A read-only OPTIONS default is not a reservation: it advances only on create.
+    assert api.request("order/po/", method="OPTIONS").json()["actions"]["POST"]["reference"]["default"] == "PO-1"
+    api.seed("order/po/", {"reference": "PO-1"})
+    assert api.request("order/po/", method="OPTIONS").json()["actions"]["POST"]["reference"]["default"] == "PO-2"

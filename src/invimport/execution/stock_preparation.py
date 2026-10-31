@@ -90,6 +90,7 @@ class _Preview:
         self.operations: dict[str, OperationSpec] = {}
         self.parts: dict[str, tuple[OperationSpec, tuple[OutputRef, ...]]] = {}
         self.line_parts: dict[str, OperationSpec] = {}
+        self.new_order_subject: str | None = None
         self.reserved_ipns = {str(row.get("IPN") or "") for row in list_rows(api, "part/")}
         self.templates = {row["name"]: row for row in list_rows(api, "parameter/template/")}
 
@@ -296,9 +297,14 @@ def _order(preview: _Preview, line: StockLine, supplier: OperationSpec | None) -
                            if row.get("supplier_reference") == line.order_reference], "purchase order")
         if existing and any(existing.get(key) != value for key, value in payload.items()):
             raise PreparationReview(f"line {line.id}: existing order metadata/currency conflict")
+    subject = supplier.subject + ":order:" + line.order_reference
+    if existing is None:
+        if preview.new_order_subject not in {None, subject}:
+            raise PreparationReview("multiple new purchase order allocations require Stage 5")
+        preview.new_order_subject = subject
     from ..inventree.purchase_orders import next_reference
     payload["reference"] = existing["reference"] if existing else next_reference(preview.api)
-    return preview.add(Kind.METADATA, supplier.subject + ":order:" + line.order_reference, action="order",
+    return preview.add(Kind.METADATA, subject, action="order",
                        payload={"payload": payload},
                        baseline={"pk": existing["pk"] if existing else None,
                                  "identity": record_identity(existing, ("supplier", "supplier_reference")) if existing else None},

@@ -107,7 +107,10 @@ class StockServer:
     def request(self, route: str, *, method: str, **kwargs):
         if method == "OPTIONS":
             self._call("options", route)
-            return SimpleNamespace(status_code=200, json=lambda: {"actions": {"POST": {"reference": {"default": "PO-1"}}}})
+            with self.connect() as connection:
+                count = connection.execute("SELECT count(*) FROM rows WHERE route='order/po/'").fetchone()[0]
+            reference = f"PO-{count + 1}"
+            return SimpleNamespace(status_code=200, json=lambda: {"actions": {"POST": {"reference": {"default": reference}}}})
         self._call("post", route)
         mode = self._fault(route)
         if mode == "before":

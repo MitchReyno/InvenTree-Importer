@@ -260,7 +260,9 @@ marketplace parsing and the strict barcode-absence contract. Shared spec/type
 identity produces stable logical Part/parameter/supplier/SKU/order operations;
 each original line retains its stock lot and PO contribution, even for identical
 payloads. Preparation freezes actual chosen PK/identity, create payloads, parameter
-policies and PO reference allocation. Matching is shared with pre-create
+policies and PO reference allocation. The subset permits at most one distinct
+new PO allocation per plan: OPTIONS is not a reservation, so multiple new orders
+require Stage 5 allocation support before any writes. Matching is shared with pre-create
 revalidation. Conflicting shared metadata/currency and existing SKU assignments
 are rejected. Unsupported requested enrichment, invoice/provenance/company media,
 MPN/manufacturer identity and unresolved/missing locations require review before
@@ -296,14 +298,18 @@ without trustworthy saved PK/correlation stay uncertain. PO-line and stock lots
 are never matched by payload. No delete or historical quantity/batch/location/
 part restoration is issued. Tags union currently observed unrelated additions on
 owned new stock; GET-plus-PATCH cannot protect an external write racing after GET.
-Divergent PO links and changed/missing saved identities require review.
+Divergent PO links and changed/missing saved identities require review. Saved PO
+outputs also revalidate every frozen metadata/currency requirement both during
+repair and before a dependent contribution/link can write.
 
 `stock_evidence.py` freezes one explicitly supplied byte artifact and logical
 stock target in the plan. Pending bytes also stage in retained `artifacts/`.
 Filename matches require downloaded-byte SHA-256 verification; unavailable or
 different bytes require review. Uploaded, verified/already-satisfied, rejected and
 unknown transfers have distinct states/effects/events. Lost uploads can settle by
-verified target/bytes without new inventory writes. Full provenance/archive
+verified target/bytes without new inventory writes. A retained confirmed upload
+effect is verification-only even if its attachment later vanishes from listing;
+repair cannot authorize replacement uploads. Full provenance/archive
 migration remains Stage 5. The local `partial-report.json` projects all selected
 lines, usable PKs, failures and named blocked prerequisites. Only confirmed barcode
 operations register stock. Journal-error reporting is best effort and cannot

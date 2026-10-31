@@ -386,3 +386,12 @@ Stage 4's representative slice, not a whole-import resume or exactly-once claim.
 
 See the [Stage 4 handover](handovers/import-execution-stage-4.md) for actual
 validation, policy decisions, scope adjustments and pending independent review.
+
+Stage 4 independent-review refinements: saved PO identity does not waive frozen
+metadata/currency preconditions. Both saved-order repair and each dependent
+contribution/link consumption revalidate the approved payload; manual drift remains
+review and is never overwritten. Confirmed upload effects prohibit reupload when
+a later listing omits the attachment; selected repair is verification-only, with
+pending bytes/history retained. Preparation rejects more than one distinct new
+PO allocation because a read-only OPTIONS default does not reserve a reference;
+Stage 5 must add a verified policy before expanding that scope.

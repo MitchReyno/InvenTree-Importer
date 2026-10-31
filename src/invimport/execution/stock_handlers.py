@@ -44,8 +44,6 @@ def review(code: str, *, unknown: bool = False, effects: tuple[Effect, ...] = ()
                            error=SafeError(ErrorCategory.UNCERTAIN_WRITE if unknown else ErrorCategory.CONFLICT, code))
 
 
-
-
 def _output(row: dict, model: str, *, name: str = "record") -> Output:
     return Output(name, model, row["pk"], record_identity(row, IDENTITY_FIELDS[model]))
 
@@ -71,12 +69,21 @@ def _read(api: StockRequests, output: Output) -> dict | None:
     return row
 
 
+def _order_metadata_matches(spec: OperationSpec, row: dict) -> bool:
+    """Identity permits locating an order; approved metadata gates new effects."""
+    return all(row.get(key) == value for key, value in spec.desired.values()["payload"].items())
+
+
 def _inputs(spec: OperationSpec, context: OperationContext, api: StockRequests) -> list[tuple[Output, dict]] | None:
     resolved = []
+    operations = {operation.id: operation for operation in context.store.plan.operations}
     for reference in spec.requires:
         output = context.inputs[(reference.operation, reference.name)]
         row = _read(api, output)
         if row is None:
+            return None
+        parent = operations[reference.operation]
+        if parent.desired.values().get("action") == "order" and not _order_metadata_matches(parent, row):
             return None
         resolved.append((output, row))
     return resolved
@@ -136,12 +143,14 @@ class StockHandlers:
         unknown_create = repair and prior is not None and prior.certainty == Certainty.UNKNOWN
         if prior and prior.outputs:
             saved = prior.outputs[0]
-            if _read(api, saved) is None:
+            saved_row = _read(api, saved)
+            if saved_row is None:
                 return review("saved_record_missing_or_changed", unknown=prior.certainty == Certainty.UNKNOWN)
+            if action == "order" and not _order_metadata_matches(spec, saved_row):
+                return review("chosen_order_metadata_drift")
             if action in {"part", "supplier", "stock", "supplier_part", "order", "order_line", "parameter"}:
                 if action == "parameter":
-                    row = _read(api, saved)
-                    if row.get("data") != desired["value"]:
+                    if saved_row.get("data") != desired["value"]:
                         return review("parameter_value_drift")
                 return replace(_success(saved), effects=tuple(effect for effect in prior.effects if effect.certainty == Certainty.CONFIRMED))
         if action in {"part", "supplier"}:

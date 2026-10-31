@@ -224,9 +224,53 @@ cause duplicate effects. No raw SDK/log canary is emitted by the new library.
 
 ## Independent review and next stage
 
-Independent review is pending at this local implementation handoff. Root will
-record findings/rechecks and own publication. This owner remains available for
-review fixes and will not push, open or merge the PR.
+Independent review of `c872660d1132da351ec3ac4173281c4975ade885` found two
+P1 safety defects and one P2 preparation scope defect. Clearance is withheld
+pending fixes/recheck; root owns publication. No live calls or publication occurred.
+
+- **P1, checkpointed and consumed PO metadata:** the saved-output shortcut
+  validated supplier/reference identity but skipped frozen description/currency/
+  metadata validation. A checkpointed order could therefore settle after manual
+  drift, and an already-succeeded order could be consumed by a pending/repaired
+  contribution despite drift. Saved-order repair now validates the frozen payload,
+  and every dependent consumption rechecks that same metadata before dispatch.
+  Manual conflicts require review and remain unchanged; retained PK/effect/history
+  do not become permission to write contributions to a drifted order. Sixteen
+  fresh-process regressions cover checkpointed versus already-settled orders and
+  description, currency, tags, notes, start/target dates, link and reference drift.
+- **P1, confirmed upload replay:** a successful upload checkpoint could have
+  CONFIRMED transfer certainty but remain unverified when later listing omitted
+  its row. The previous guard checked only UNKNOWN, so selected repair could
+  upload a second copy. Any retained confirmed upload effect now makes repair
+  verification-only even when listing is empty or the attachment was deleted.
+  A regression repeats repair three times against an omitted listing and proves
+  one total upload, retained exact bytes/target and review status. No automatic
+  replacement/reupload contract is introduced.
+- **P2, multiple new PO reference allocations:** repeated read-only OPTIONS calls
+  are not reservations; two distinct new orders could freeze the same next
+  reference, then predictably fail allocation checks after unrelated stock writes.
+  The bounded slice now rejects more than one distinct new PO allocation during
+  read-only preparation. Shared new order and already-existing orders remain
+  supported. A realistic fake advances its OPTIONS default only after creation;
+  the regression proves rejection before any inventory/company/order mutation.
+  Stage 5 may expand allocation only with a supported verified policy, never
+  generic arithmetic on an arbitrary server's reference pattern.
+
+The first new regression selection passed **72 stock-domain tests in 28.47s**.
+After the allocation regression, the focused foundation/domain/SDK selection passed
+**166 tests in 28.98s** (80 foundation, 73 stock-domain, 13 SDK observation).
+Changed-Python Ruff and whitespace passed. The independent reviewer reproduced
+all three fixes against the working tree and found no additional material issue.
+The reviewer also exercised actual observed SDK multipart upload plus guarded media
+download: **68 distinct sends matched 68 durable intents**, reports were complete,
+and no guard/correlation duplication occurred. Their focused command passed
+**165 tests in 30.11s**, collected before the final allocation test was added;
+the owner selection above includes that additional regression. Final review-fix normal command
+`UV_NO_SYNC=1 UV_CACHE_DIR="$STAGE4_UV_CACHE" make test` passed **1677 tests,
+1 existing skip, 43 deselected in 66.48s**. Changed-Python Ruff and complete
+base-to-head whitespace checks passed. Scanner was not repeated for these
+stock-domain-only fixes; no scanner/UI or shared transport/store behavior changed.
+Exact committed approval recheck remains pending. No generic retry guard was weakened.
 
 Stage 5 should consume this bounded library, retain its invariants and add full
 manufacturer/MPN relationships, enrichment/media/notes, source/provenance staging,
