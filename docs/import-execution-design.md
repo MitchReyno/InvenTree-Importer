@@ -568,3 +568,10 @@ receipts, and completed local-retention integrity. The current implementation
 uses those contracts; the initial candidate remains rejected history in the
 Stage 5 handover. Local retention failure does not invalidate prior remote success
 or authorize remote replay. Review clearance remains an exact-commit gate.
+
+
+Independent exact-head review subsequently approved corrected implementation
+`59f74e5f6095e209e84920a61ca60d6cd7d8b130`, clearing all eight findings for the
+opt-in full-library stage. The handover records 221 independently passing focused tests,
+150 SDK sends matching 150 intents and fresh-process recipient/unknown-transfer safeguards.
+The documented limits and Stage 6 CLI/default rollout gates remain unchanged.

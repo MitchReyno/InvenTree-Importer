@@ -10,8 +10,8 @@ Exact base: reviewed/published Stage 4
 `git merge-base --is-ancestor`; CONVENTIONS.md is unchanged from that inherited
 version. Parent checkout and other worktrees were not edited. No further agents,
 publication, PR creation, merging, live inventory calls or capability probes were
-performed. Root owns fresh independent review and publication. This handover is
-an implementation-owner record, not independent clearance.
+performed. Root owns fresh independent review and publication. This implementation-owner handover records the independent exact-head clearance
+in its final section, preserving the earlier rejected-candidate history.
 
 The ordinary CLI/default and legacy public entry points remain unchanged. Stage 5
 provides an explicit full-library candidate, not a claim that every legacy
@@ -328,7 +328,52 @@ Final required checks and exact committed recheck disposition follow below.
   planning, evidence/reporting and read-only local retention; they do not change
   scanner/UI behavior, shared location parser or shared request transport, so no
   additional scanner rerun was justified.
-- The corrected exact committed candidate still needs independent recheck of all
-  eight findings. Passing owner tests does not supersede the initial rejection.
+- At this owner-check milestone, the corrected exact candidate still needed
+  independent recheck of all eight findings. The final independent clearance
+  below now supersedes that pending disposition; owner tests alone did not.
   No runtime changes followed these final checks; remaining edits record results
   and commit/handoff status only.
+
+
+## Final independent clearance
+
+**APPROVED for the Stage 5 opt-in full-library stacked PR:** implementation head
+`59f74e5f6095e209e84920a61ca60d6cd7d8b130`.
+
+The independent reviewer rechecked the exact committed hash and clean worktree,
+source/test/documentation corrections and all eight original findings. **No
+material unresolved findings remain.** This supersedes the initial rejection of
+`b01b46f8d8741fdc9a0c92974311bfc7612ea3b3` while preserving its findings,
+reproductions and corrections above. Latest-main conventions remain inherited.
+
+Independent corrected-head evidence:
+
+- Focused command
+  `.venv/bin/pytest tests/execution tests/inventree/test_request_observation.py -q -x -o addopts=''`:
+  **221 passed in 65.03s**.
+- Actual observed pinned SDK full-domain workflow: **150 actual transport sends
+  matched 150 unique durable intents**, each in INTENT immediately before dispatch;
+  11 guarded media GETs, two images and expected maker relationship/archive.
+- Fresh-process preferred-PO repair preserves the originally selected supplier
+  recipient for both immutable archive revisions and retains one selection receipt.
+- Unknown old archive transfer remains verification-only when fresh-process
+  inventory repair creates another immutable effect-set revision; original
+  archive upload count remains one. No uncertainty is cleared by revised
+  fingerprints or recipient handling.
+- Independent escaped existing/new location, whitespace/ambiguous pathstring,
+  source/generated-content exclusion, mixed per-line routing, partial-new,
+  omitted/default location, PO drift, wrong-byte upload provenance and completed
+  retention-damage reproductions passed. Retention-only reporting performed
+  zero remote calls and preserved successful historical remote outcomes.
+- Base-to-implementation-head whitespace passed. Normal **1732 passed / 1 existing
+  skip / 43 deselected**, Ruff and scanner43 results above remain owner evidence;
+  the reviewer did not claim those broad suites as independent reruns.
+
+Approval remains bounded by the documented one-new-PO allocator restriction,
+explicit category-YAML destination/precondition boundary, conservative source
+basename consistency rejection, serial/local ownership scope and unimplemented
+Stage 6 CLI/default/parity rollout. It does not establish live target uniqueness,
+allocator/atomic-update guarantees, immutable instance continuity or exactly-once
+remote effects. Root owns publication; no runtime changes accompany this status
+update. Only whitespace was rechecked for this documentation-only clearance commit;
+runtime suites were not repeated.

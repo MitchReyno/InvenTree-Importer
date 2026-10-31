@@ -4,8 +4,8 @@ Status: maintained implementation plan. Stage 0 establishes contracts; Stage 1
 implements independently reviewed safe reads/errors; Stage 2 implements in-memory
 observations; Stage 3 implements the explicit-handler execution/store foundation
 with independent review approved. Stage 4 implements the bounded durable stock
-reference slice with independent review approved. Stage 5 has an opt-in full-domain
-implementation candidate awaiting independent review; Stages 6–7 remain pending.
+reference slice with independent review approved. Stage 5 implements the opt-in
+full-domain library with independent exact-head review approved; Stages 6–7 remain pending.
 Companion documents:
 [design](import-execution-design.md), [contracts](import-execution-contracts.md),
 [architecture](../ARCHITECTURE.md). Baseline main `c22b7a1` includes PR #11
@@ -22,7 +22,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 | 2 | Complete; independent implementation review approved | [Stage 2 handover](handovers/import-execution-stage-2.md); whole-command dispatch visibility, worker correlation and secret-canary regressions |
 | 3 | Complete; independent foundation review approved | [Stage 3 handover](handovers/import-execution-stage-3.md); real SQLite/restart, canonical claims, serial fake-handler gates |
 | 4 | Complete; independent bounded-slice review approved | [Stage 4 handover](handovers/import-execution-stage-4.md); persistent fake-server fault matrix and actual observed SDK composition |
-| 5 | Implemented; independent full-domain review pending | [Stage 5 handover](handovers/import-execution-stage-5.md); eight independent-review corrections, recheck pending |
+| 5 | Complete; independent opt-in full-library review approved | [Stage 5 handover](handovers/import-execution-stage-5.md); all eight findings corrected; 221 focused tests passed and 150 SDK sends/intents |
 | 6 | Pending | Compatibility/default rollout gates below |
 | 7 | Pending | DigiKey adaptation and measured concurrency gates below |
 
@@ -477,14 +477,16 @@ bounded library slice for its stacked PR; Stage 5/6 coverage/release gates remai
 **Likely files:** stockimport.py, parts.py, companies.py, purchase_orders.py,
 archive.py, provenance.py, datasheets.py, ledger.py, commands/import_stock.py.
 
-**Implemented candidate:** `prepare_full_stock` extends the shared Stage 4 planner
-and handlers; the CLI default is unchanged. It adds maker/MPN/SKU relationships,
+**Implemented and independently reviewed:** `prepare_full_stock` extends the
+shared Stage 4 planner and handlers; the CLI default is unchanged. It adds maker/MPN/SKU relationships,
 per-model parameters, configured taxonomy/template/location creation, notes,
 media/PDF/invoice/logo work, frozen confidence/partial-skip outcomes, immutable
 artifact revisions and a legacy result bridge. See the
 [Stage 5 handover](handovers/import-execution-stage-5.md) for evidence and limits.
-Independent review rejected the initial candidate with eight material findings;
-corrections and exact-commit recheck evidence are tracked in the handover.
+Independent review rejected the initial candidate with eight material findings,
+then approved exact corrected implementation commit
+`59f74e5f6095e209e84920a61ca60d6cd7d8b130` with no material unresolved findings.
+The handover preserves the rejection, corrections and independent recheck evidence.
 Plan schema 2 adds typed settled barriers while preserving schema-1 bytes/revisions;
 SQLite schema remains 1. Artifact revisions have effect-set identity separate from
 executable plan revision. Provenance uses a separate versioned durable format,

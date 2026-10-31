@@ -472,3 +472,21 @@ Stage 5 must add a verified policy before expanding that scope.
 - Completed status/resume and result projection validate retained receipt SHA/size.
   Local missing/corrupt/unavailable retention remains separate from historical
   successful remote effects and does not authorize replay/reopening of writes.
+
+
+### Stage 5 independent exact-head clearance
+
+Independent review approved implementation commit
+`59f74e5f6095e209e84920a61ca60d6cd7d8b130` for the opt-in full-library stacked
+PR after independently checking all eight corrections. Focused execution/domain/
+SDK tests passed **221 in 65.03s**; the full observed SDK scenario matched
+**150 transport sends to 150 durable intents**. Fresh-process supplier-recipient
+locking and unknown-old-transfer/new-artifact-revision safeguards passed. No
+material unresolved findings remain at that exact implementation commit.
+
+The initial rejected candidate and all eight findings remain documented in the
+[Stage 5 handover](handovers/import-execution-stage-5.md). Clearance retains the
+single-new-PO allocator restriction, explicit category-config destination boundary,
+conservative source-basename consistency refusal and local serial ownership scope.
+It does not approve CLI/default rollout, infer live server capabilities or promise
+exactly-once remote effects. Stage 6 still owns its explicit release/parity gates.
