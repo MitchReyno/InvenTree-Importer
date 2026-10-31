@@ -212,8 +212,56 @@ Final full-suite commands after the final runtime changes:
 
 ## Independent review and next-stage integration
 
-Independent review is pending. Owner has not pushed/opened a PR. Review fixes and
-revalidation belong here before root publishes this stage.
+Fresh independent review passed the original 60-test focused selection, then
+found two P1 and two P2 runtime issues plus a stale plan-opening status line.
+Clearance remains pending recheck. Owner has not pushed/opened a PR.
+
+- **P2, deep immutability and schema:** frozen dataclasses accepted caller-owned
+  lists; mutating operations/provides/attribution after validation changed the
+  approved revision/scope. Constructors now defensively own tuple sequences across
+  plans/specs/attribution/results/discovery decisions, validate primitive/enum/
+  output identities, and reject malformed records. Plan reload uses exact nested
+  schema fields instead of dropping unknown attribution keys, and rejects duplicate
+  JSON keys. Regression tests mutate every original sequence after approval and
+  prove stable serialization/revision/reload, and reject invalid enums, outputs,
+  nested structures and unknown fields. Successful results cannot retain recovery
+  permission or unknown effects.
+- **P2, platform state root:** relative XDG_STATE_HOME/LOCALAPPDATA could move the
+  canonical authority with cwd. Both are now rejected before creating state.
+  Tests establish a claim under an absolute platform root, change cwd and prove
+  exclusion, then substitute a relative root and prove failure without creating
+  a second registry. The maintained plan opening now accurately describes the
+  implemented Stage 3 foundation rather than saying Stages 3–7 are unimplemented.
+- **P1, target mismatch without saved outputs:** resume previously only applied
+  full instance checks when choices/outputs existed; known instance A→B drift at
+  the same URL could dispatch an independent pending mutation. All execute/resume/
+  reconcile paths now reject known target conflicts independently of PK presence.
+  `execute_plan` requires an explicit current target observation, avoiding an
+  inferred fresh observation from the persisted plan. The exact no-output
+  classified-failure/cancellation/pending-write scenario proves no wrong-target
+  mutation, with direct execute and unknown-effect reconciliation checks too.
+- **P1, retry state bypass:** RETRY_WAIT was eligible without consulting stored
+  certainty/retry. A handler could catch a lost create response and return
+  RETRY_WAIT/UNKNOWN/RECONCILE; another execute_serial then repeated the create.
+  Both scheduler and RunStore.start now enforce separate eligibility: original
+  mutation handlers cannot replay unknown/reconcile/review outcomes. Tests cover
+  unknown+reconcile, unknown+review and none+review; saved outputs remain intact.
+  A real owned run resumes without replay and settles through a read-only
+  reconciliation attempt instead.
+- An attempted AST-based test-call update lacked end-position metadata in the
+  shell Python and stopped after the execute signature changed. The immediately
+  following focused command reported eight missing-current_target failures (one
+  worker warning). Updated every test call explicitly; corrected focused suite
+  passed **87 tests** (74 foundation plus 13 SDK/request observation). This was a
+  temporary test adaptation failure, not a failing final behavior.
+- Review-fix `UV_NO_SYNC=1 UV_CACHE_DIR="$STAGE3_UV_CACHE" make test`:
+  **1598 passed, 1 existing skip, 43 deselected in 39.48s**.
+- Review-fix `UV_NO_SYNC=1 UV_CACHE_DIR="$STAGE3_UV_CACHE" make test-scanner`:
+  **43 passed, 1599 deselected in 43.59s**.
+- Changed-Python Ruff and `git diff --check` passed after the review changes.
+  No live service requests or inventory writes. Independent clearance remains
+  pending reviewer recheck of the corrected commit.
+
 
 Stage 4 must consume this foundation with one real durable slice: preserve
 existing matching and field policies, generate genuinely resolved mutation specs,

@@ -11,7 +11,7 @@ from requests import RequestException
 
 from .dispatch import guarded
 from .models import (Certainty, ErrorCategory, Kind, OperationResult, OperationSpec,
-                     Output, Plan, Retry, SafeError, State, Target, validate_plan)
+                     Output, Plan, Retry, SafeError, State, Target, execution_eligible, validate_plan)
 from .observation import active, durable_correlation
 from .ownership import JournalError, Registry, normalize_endpoint
 from .store import Attempt, RunStore
@@ -35,12 +35,20 @@ class ContinuityReview:
     evidence_digest: str
 
 
-def validate_continuity(plan: Plan, current: Target, *, review: ContinuityReview | None) -> None:
+def validate_target_observation(plan: Plan, current: Target) -> None:
+    """Known target conflicts block all work, even without any saved PKs."""
     if normalize_endpoint(plan.target.endpoint) != normalize_endpoint(current.endpoint):
         raise ValueError("target endpoint drift requires a reviewed plan revision")
+    if plan.target.instance_id and current.instance_id and plan.target.instance_id != current.instance_id:
+        raise ValueError("target instance continuity failed")
     if plan.target.instance_id and plan.target.identity_evidence:
-        if (current.instance_id != plan.target.instance_id or not current.identity_evidence):
+        if current.instance_id != plan.target.instance_id or not current.identity_evidence:
             raise ValueError("verified target instance continuity failed")
+
+
+def validate_continuity(plan: Plan, current: Target, *, review: ContinuityReview | None) -> None:
+    validate_target_observation(plan, current)
+    if plan.target.instance_id and plan.target.identity_evidence:
         return
     if (review is None or review.revision != plan.revision
             or normalize_endpoint(review.endpoint) != normalize_endpoint(current.endpoint)
@@ -156,7 +164,7 @@ def execute_serial(store: RunStore, handlers: Mapping[Kind, Handler], *,
     while True:
         states, results = store.states(), store.results()
         outputs = {(operation, output.name): output for operation, result in results.items() for output in result.outputs}
-        eligible = [op for op in store.plan.operations if op.id not in attempted and states[op.id] in {State.PENDING, State.READY, State.BLOCKED, State.RETRY_WAIT}]
+        eligible = [op for op in store.plan.operations if op.id not in attempted and execution_eligible(states[op.id], results.get(op.id), mutation=op.mutation)]
         ready = next((op for op in eligible if all((r.operation, r.name) in outputs for r in op.requires)), None)
         if ready is None or cancelled.is_set():
             for op in eligible:
@@ -167,10 +175,11 @@ def execute_serial(store: RunStore, handlers: Mapping[Kind, Handler], *,
         attempted.add(ready.id)
 
 
-def execute_plan(plan: Plan, handlers: Mapping[Kind, Handler], *,
+def execute_plan(plan: Plan, handlers: Mapping[Kind, Handler], *, current_target: Target,
                  run_directory: Path | None = None, cancelled: Event | None = None) -> dict:
     """Library foundation only; handlers must be explicitly supplied and reviewed."""
     validate_plan(plan)
+    validate_target_observation(plan, current_target)
     if plan.unsupported:
         raise ValueError("preparation has unsupported domain work")
     registry = Registry()
@@ -201,10 +210,9 @@ def resume_run(plan: Plan, run_id: str, path: Path, handlers: Mapping[Kind, Hand
         with registry.writer(plan.target, plan.import_id, run_id=run_id, revision=plan.revision,
                              location=path, resume=True):
             with RunStore(path, plan=plan, run_id=run_id, create=False) as store:
+                validate_target_observation(plan, current_target)
                 if plan.decisions.values().get("choices") or any(result.outputs for result in store.results().values()):
                     validate_continuity(plan, current_target, review=continuity)
-                elif normalize_endpoint(current_target.endpoint) != normalize_endpoint(plan.target.endpoint):
-                    raise ValueError("target drift")
                 registry.activate(run_id, location=path, revision=plan.revision)
                 store.owner_check = lambda: registry.check_ownership(run_id, location=path, revision=plan.revision)
                 store.recover_interrupted()

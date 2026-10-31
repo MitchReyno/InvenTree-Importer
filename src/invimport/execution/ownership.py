@@ -56,8 +56,12 @@ def state_root() -> Path:
     if sys.platform == "darwin":
         return Path.home() / "Library" / "Application Support" / "inventree-importer"
     if sys.platform == "win32":
-        return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "inventree-importer"
-    return Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / "inventree-importer"
+        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    else:
+        base = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state"))
+    if not base.is_absolute():
+        raise ValueError("platform state directory must be absolute")
+    return base / "inventree-importer"
 
 
 def private_directory(path: Path) -> None:

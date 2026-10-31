@@ -10,7 +10,7 @@ from typing import Callable, Iterator
 from uuid import uuid4
 
 from .models import (Certainty, Effect, ErrorCategory, OperationResult, Output,
-                     Plan, Retry, SafeError, State, canonical)
+                     Plan, Retry, SafeError, State, canonical, execution_eligible)
 from .ownership import FileLock, JournalError, open_database
 from .artifacts import initialize_run_directory
 
@@ -31,9 +31,9 @@ def result_from_json(text: str) -> OperationResult:
     raw["certainty"] = Certainty(raw["certainty"])
     raw["retry"] = Retry(raw["retry"])
     raw["outputs"] = tuple(Output(**o) for o in raw["outputs"])
-    raw["effects"] = tuple(Effect(e["kind"], Certainty(e["certainty"]), e["model"], e["pk"]) for e in raw["effects"])
+    raw["effects"] = tuple(Effect(**e) for e in raw["effects"])
     if raw["error"]:
-        raw["error"] = SafeError(ErrorCategory(raw["error"]["category"]), raw["error"]["code"])
+        raw["error"] = SafeError(**raw["error"])
     return OperationResult(**raw)
 
 
@@ -158,12 +158,16 @@ class RunStore:
 
     def start(self, operation: str, *, mutation: bool, reconciliation: bool = False) -> Attempt:
         with self.transaction() as connection:
-            state = State(connection.execute("SELECT state FROM operations WHERE id=?", (operation,)).fetchone()[0])
-            allowed = {State.PENDING, State.READY, State.BLOCKED, State.RETRY_WAIT}
-            if reconciliation and not mutation:
-                allowed |= {State.UNCERTAIN, State.NEEDS_REVIEW, State.FAILED}
-            if state not in allowed:
-                raise ValueError("operation is not eligible for dispatch")
+            row = connection.execute("SELECT state,result FROM operations WHERE id=?", (operation,)).fetchone()
+            state = State(row[0])
+            previous = result_from_json(row[1]) if row[1] is not None else None
+            if reconciliation:
+                eligible = (not mutation and previous is not None and previous.retry == Retry.RECONCILE
+                            and state in {State.UNCERTAIN, State.NEEDS_REVIEW, State.FAILED, State.RETRY_WAIT, State.BLOCKED})
+            else:
+                eligible = execution_eligible(state, previous, mutation=mutation)
+            if not eligible:
+                raise ValueError("operation is not eligible for dispatch; reconciliation or review required")
             number = connection.execute("SELECT count(*)+1 FROM attempts WHERE operation=?", (operation,)).fetchone()[0]
             attempt = Attempt(uuid4().hex, self.run_id, operation, number, mutation, reconciliation)
             connection.execute("INSERT INTO attempts(id,operation,number,mutation,reconciliation,state) VALUES (?,?,?,?,?,?)", (attempt.id, operation, number, mutation, reconciliation, "intent"))

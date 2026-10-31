@@ -15,7 +15,7 @@ import pytest
 
 from invimport.execution.executor import (ClassifiedFailure, ContinuityReview, execute_plan,
                                          execute_serial, resume_run, validate_continuity)
-from invimport.execution.models import (Attribution, Certainty, ErrorCategory, Inputs, Kind,
+from invimport.execution.models import (Attribution, Certainty, Effect, ErrorCategory, Inputs, Kind,
                                        OperationResult, OperationSpec, Output, OutputRef, Plan,
                                        Retry, SafeError, State, Target, validate_plan)
 from invimport.execution.observation import Observation, observing
@@ -271,7 +271,7 @@ def test_registry_claim_survives_owner_exit_and_custom_journal_cannot_bypass(tmp
             with RunStore(path, plan=document, run_id="prior", create=True):
                 pass
         with pytest.raises(OwnershipError, match="unresolved"):
-            execute_plan(document, {Kind.PART: lambda *args: success()}, run_directory=tmp_path / "alternate")
+            execute_plan(document, {Kind.PART: lambda *args: success()}, run_directory=tmp_path / "alternate", current_target=TARGET)
         with pytest.raises(OwnershipError, match="unresolved"):
             with legacy_write_guard(TARGET, document.import_id):
                 pytest.fail("guard allowed legacy write")
@@ -319,8 +319,8 @@ def test_registry_missing_corrupt_and_unknown_schema_fail_closed(tmp_path):
 
 def test_complete_run_allows_new_revision_without_overwriting_prior_journal(tmp_path):
     document = plan(operation())
-    one = execute_plan(document, {Kind.PART: lambda *args: success()}, run_directory=tmp_path / "one")
-    two = execute_plan(replace(document, config_digest="enrichment-approved"), {Kind.PART: lambda *args: success()}, run_directory=tmp_path / "two")
+    one = execute_plan(document, {Kind.PART: lambda *args: success()}, run_directory=tmp_path / "one", current_target=TARGET)
+    two = execute_plan(replace(document, config_digest="enrichment-approved"), {Kind.PART: lambda *args: success()}, run_directory=tmp_path / "two", current_target=TARGET)
     assert one["run_id"] != two["run_id"]
     assert (tmp_path / "one" / "run.sqlite3").is_file()
 
@@ -333,7 +333,7 @@ def test_process_ledger_overlap_rejected_but_nested_recording_preserved(tmp_path
             ledger.note("part", 1, "created")
         def other():
             try:
-                execute_plan(plan(operation()), {Kind.PART: lambda *args: success()}, run_directory=tmp_path / "other")
+                execute_plan(plan(operation()), {Kind.PART: lambda *args: success()}, run_directory=tmp_path / "other", current_target=TARGET)
             except OwnershipError as exc:
                 errors.append(type(exc))
         thread = Thread(target=other)
@@ -361,7 +361,7 @@ def test_preparation_freezes_source_ids_decisions_files_and_detects_drift(tmp_pa
     assert prepared.decisions.values()["sources"]["b"] == {"stock_key": "invimport:receipt:b", "part_subject": "a", "manufacturer_part_subject": "", "part_of": "a"}
     assert Plan.loads(prepared.dumps()) == prepared
     with pytest.raises(ValueError, match="unsupported"):
-        execute_plan(prepared, {})
+        execute_plan(prepared, {}, current_target=TARGET)
     validate_preparation(prepared, document, config_semantics={"normalization": "v1"}, target=TARGET, files={"part.jpg": image})
     image.write_bytes(b"changed")
     with pytest.raises(ValueError, match="content drift"):
@@ -411,7 +411,7 @@ with registry.writer(plan.target, plan.import_id, run_id="crashed", revision=pla
     result = subprocess.run([sys.executable, str(script), str(tmp_path)], env=environment, capture_output=True, timeout=20)
     assert result.returncode == 19, result.stderr.decode()
     with pytest.raises(OwnershipError):
-        execute_plan(document, {Kind.PART: lambda *args: success(output())}, run_directory=tmp_path / "alternate")
+        execute_plan(document, {Kind.PART: lambda *args: success(output())}, run_directory=tmp_path / "alternate", current_target=TARGET)
     resumed = resume_run(document, "crashed", tmp_path / "run.sqlite3", {Kind.PART: lambda *args: pytest.fail("replayed create")}, current_target=TARGET)
     assert resumed["operations"][0]["state"] == "uncertain"
     with sqlite3.connect(tmp_path / "remote.sqlite3") as connection:
@@ -455,7 +455,7 @@ def test_registry_disappearance_after_get_prevents_next_mutation(tmp_path):
         context.dispatch(lambda: calls.append("patch"), mutation=True, label="patch_part")
         return success()
     with pytest.raises(JournalError):
-        execute_plan(plan(operation()), {Kind.PART: handler}, run_directory=tmp_path / "run")
+        execute_plan(plan(operation()), {Kind.PART: handler}, run_directory=tmp_path / "run", current_target=TARGET)
     assert calls == ["get"]
 
 
@@ -542,8 +542,8 @@ def test_status_reads_active_and_completed_runs_after_later_revision(tmp_path):
         snapshots.append(load_run_status(context.store.run_id))
         return success()
     document = plan(operation())
-    first = execute_plan(document, {Kind.PART: handler}, run_directory=tmp_path / "first")
-    execute_plan(replace(document, config_digest="new"), {Kind.PART: handler}, run_directory=tmp_path / "second")
+    first = execute_plan(document, {Kind.PART: handler}, run_directory=tmp_path / "first", current_target=TARGET)
+    execute_plan(replace(document, config_digest="new"), {Kind.PART: handler}, run_directory=tmp_path / "second", current_target=TARGET)
     assert snapshots[0]["operations"][0]["state"] == State.RUNNING
     assert load_run_status(first["run_id"]) == first
 
@@ -674,3 +674,182 @@ def test_failed_settlement_rolls_back_output_state_and_source_event_together(tmp
         assert connection.execute("SELECT state,result FROM operations").fetchone() == ("running", None)
         assert connection.execute("SELECT count(*) FROM events WHERE kind='operation_settled'").fetchone() == (0,)
         assert connection.execute("SELECT state FROM attempts").fetchone() == ("intent",)
+
+
+def test_approved_records_defensively_own_all_sequence_inputs():
+    from invimport.execution.models import Effect
+    lines, provides, conflicts = ["lot-a"], ["part"], ["logical:part"]
+    parent = OperationSpec.build(Kind.PART, "parent", provides=provides, conflicts=conflicts,
+                                 attribution=Attribution("source", lines))
+    requires = [OutputRef(parent.id, "part")]
+    child = operation("child", requires=requires)
+    operations, unsupported = [parent, child], ["domain_handler"]
+    approved = replace(plan(), operations=operations, unsupported=unsupported)
+    validate_plan(approved)
+    before, revision = approved.dumps(), approved.revision
+    outputs, effects = [output()], [Effect("created", Certainty.CONFIRMED, "part", 71)]
+    settled = OperationResult(State.SUCCEEDED, Certainty.CONFIRMED, outputs=outputs, effects=effects)
+    for sequence in (lines, provides, conflicts, requires, operations, unsupported, outputs, effects):
+        sequence.clear()
+    assert approved.dumps() == before and approved.revision == revision
+    assert Plan.loads(before) == approved
+    assert settled.outputs == (output(),) and settled.effects[0].pk == 71
+    assert approved.operations[1].requires == (OutputRef(parent.id, "part"),)
+
+
+@pytest.mark.parametrize("construct", [
+    lambda: OperationResult("unrecognized_state"),
+    lambda: OperationResult(State.FAILED, retry="unrecognized_retry"),
+    lambda: Effect("update", "unrecognized_certainty", pk=-1),
+    lambda: Effect("update", Certainty.CONFIRMED, "part", -1),
+    lambda: Output("", "", 1, "proof"),
+    lambda: Output("part", "part", True, "proof"),
+    lambda: Output("part", "part", 1, ["mutable-proof"]),
+    lambda: Attribution("source", "not-an-array"),
+    lambda: operation(provides=["part", "part"]),
+    lambda: operation(requires=[{"operation": "mutable", "name": "part"}]),
+    lambda: OperationResult(State.FAILED, outputs=[{"pk": 71}]),
+    lambda: replace(plan(), target={"endpoint": TARGET.endpoint}),
+])
+def test_invalid_typed_record_construction_is_rejected(construct):
+    with pytest.raises(ValueError):
+        construct()
+
+
+@pytest.mark.parametrize("location", ["plan", "attribution", "desired", "target", "reference"])
+def test_plan_load_rejects_unknown_nested_schema_fields(location):
+    parent = operation(provides=("part",))
+    child = operation("child", requires=(OutputRef(parent.id, "part"),))
+    raw = json.loads(plan(parent, child).dumps())
+    records = {"plan": raw, "attribution": raw["operations"][0]["attribution"],
+               "desired": raw["operations"][0]["desired"], "target": raw["target"],
+               "reference": raw["operations"][1]["requires"][0]}
+    records[location]["future_field"] = "must-not-disappear"
+    with pytest.raises(ValueError, match="schema"):
+        Plan.loads(json.dumps(raw))
+
+
+def test_duplicate_json_keys_are_not_silently_rebound():
+    with pytest.raises(ValueError, match="duplicate"):
+        Plan.loads(plan().dumps().replace('"import_id":"receipt"', '"import_id":"receipt","import_id":"changed"'))
+    with pytest.raises(ValueError, match="duplicate"):
+        Inputs('{"part":71,"part":99}')
+
+
+@pytest.mark.parametrize("platform,variable", [("linux", "XDG_STATE_HOME"), ("win32", "LOCALAPPDATA")])
+def test_relative_platform_state_root_cannot_change_authority_with_cwd(tmp_path, monkeypatch, platform, variable):
+    import invimport.execution.ownership as ownership
+    monkeypatch.delenv("INVIMPORT_STATE_DIR")
+    monkeypatch.setattr(ownership.sys, "platform", platform)
+    monkeypatch.setenv(variable, str(tmp_path / "canonical"))
+    registry = Registry()
+    try:
+        with registry.writer(TARGET, "receipt", run_id="prior", revision="v1", location=tmp_path / "custom" / "run.sqlite3"):
+            pass
+    finally:
+        registry.close()
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    with pytest.raises(OwnershipError):
+        with legacy_write_guard(TARGET, "receipt"):
+            pytest.fail("cwd bypassed claim")
+    monkeypatch.setenv(variable, "relative-state")
+    with pytest.raises(ValueError, match="absolute"):
+        Registry()
+    assert not (elsewhere / "relative-state").exists()
+
+
+def test_resume_rejects_changed_verified_target_without_any_saved_outputs(tmp_path):
+    from invimport.execution.store import load_run_status
+    original = Target(TARGET.endpoint, "instance-a", "verified-a")
+    changed = Target(TARGET.endpoint, "instance-b", "verified-b")
+    first, pending = operation("first"), operation("pending")
+    approved = replace(plan(first, pending), target=original)
+    cancelled, writes = Event(), []
+    def handler(spec, context):
+        if spec.subject == "first":
+            cancelled.set()
+            raise ClassifiedFailure(SafeError(ErrorCategory.DENIED, "part_denied"))
+        context.dispatch(lambda: writes.append("mutation"), mutation=True, label="create_part")
+        return success()
+    snapshot = execute_plan(approved, {Kind.PART: handler}, run_directory=tmp_path / "run", cancelled=cancelled, current_target=original)
+    assert not any(row["result"] and row["result"]["outputs"] for row in snapshot["operations"])
+    with pytest.raises(ValueError, match="continuity"):
+        resume_run(approved, snapshot["run_id"], tmp_path / "run" / "run.sqlite3", {Kind.PART: handler}, current_target=changed)
+    assert not writes
+    assert load_run_status(snapshot["run_id"])["operations"][1]["state"] == State.PENDING
+
+
+def test_execute_and_reconcile_reject_known_target_conflicts(tmp_path):
+    from invimport.execution.executor import retry_operation
+    original = Target(TARGET.endpoint, "instance-a", "verified-a")
+    changed = Target(TARGET.endpoint, "instance-b", "verified-b")
+    spec = operation()
+    approved = replace(plan(spec), target=original)
+    with pytest.raises(ValueError, match="continuity"):
+        execute_plan(approved, {Kind.PART: lambda *args: pytest.fail("dispatched")}, current_target=changed)
+    registry = Registry()
+    path = tmp_path / "run.sqlite3"
+    try:
+        with registry.writer(original, approved.import_id, run_id="unknown", revision=approved.revision, location=path):
+            with RunStore(path, plan=approved, run_id="unknown", create=True) as store:
+                attempt = store.start(spec.id, mutation=True)
+                store.finish(attempt, OperationResult(State.UNCERTAIN, Certainty.UNKNOWN, Retry.RECONCILE))
+        with pytest.raises(ValueError, match="continuity"):
+            retry_operation(approved, "unknown", path, spec.id, lambda *args: pytest.fail("reconciled wrong target"), current_target=changed)
+    finally:
+        registry.close()
+
+
+@pytest.mark.parametrize("certainty,retry", [(Certainty.UNKNOWN, Retry.RECONCILE),
+                                             (Certainty.UNKNOWN, Retry.REVIEW),
+                                             (Certainty.NONE, Retry.REVIEW)])
+def test_retry_wait_cannot_replay_original_mutation_handler(tmp_path, certainty, retry):
+    spec = operation(provides=("part",))
+    writes = []
+    def handler(spec, context):
+        def create():
+            writes.append("applied-create")
+            if certainty == Certainty.UNKNOWN:
+                raise ConnectionError("lost response")
+        try:
+            context.dispatch(create, mutation=True, label="create_part")
+        except ConnectionError:
+            pass
+        return OperationResult(State.RETRY_WAIT, certainty, retry, outputs=(output(),))
+    with RunStore(tmp_path / "run.sqlite3", plan=plan(spec), run_id="run", create=True) as store:
+        execute_serial(store, {Kind.PART: handler})
+        execute_serial(store, {Kind.PART: handler})
+        with pytest.raises(ValueError, match="reconciliation or review"):
+            store.start(spec.id, mutation=True)
+        assert writes == ["applied-create"]
+        assert store.results()[spec.id].outputs[0].pk == 71
+
+
+def test_resume_retry_wait_reconciles_without_replaying_unknown_create(tmp_path):
+    from invimport.execution.executor import retry_operation
+    spec = operation(provides=("part",))
+    document = plan(spec)
+    writes = []
+    def handler(spec, context):
+        def create():
+            writes.append("applied-create")
+            raise ConnectionError("response lost")
+        try:
+            context.dispatch(create, mutation=True, label="create_part")
+        except ConnectionError:
+            pass
+        return OperationResult(State.RETRY_WAIT, Certainty.UNKNOWN, Retry.RECONCILE)
+    path = tmp_path / "run" / "run.sqlite3"
+    first = execute_plan(document, {Kind.PART: handler}, run_directory=path.parent, current_target=TARGET)
+    resumed = resume_run(document, first["run_id"], path, {Kind.PART: handler}, current_target=TARGET)
+    assert resumed["operations"][0]["result"]["certainty"] == Certainty.UNKNOWN
+    reviewed = ContinuityReview(document.revision, TARGET.endpoint, "reviewed-continuity")
+    def reconcile(spec, context):
+        context.dispatch(lambda: None, mutation=False, label="read_identity")
+        return success(output())
+    reconciled = retry_operation(document, first["run_id"], path, spec.id, reconcile,
+                                 current_target=TARGET, continuity=reviewed)
+    assert writes == ["applied-create"]
+    assert reconciled["operations"][0]["result"]["outputs"][0]["pk"] == 71

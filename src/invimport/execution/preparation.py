@@ -38,6 +38,9 @@ class Decision:
     reason_code: str
 
     def __post_init__(self) -> None:
+        if any(not isinstance(getattr(self, name), str) or not getattr(self, name)
+               for name in ("logical_subject", "model", "identity_digest", "reason_code")):
+            raise ValueError("decision identifiers and evidence must be nonempty text")
         if type(self.pk) is not int or self.pk <= 0 or not self.identity_digest:
             raise ValueError("chosen identity requires PK and identity evidence")
         if not self.reason_code or not self.reason_code.replace("_", "").isalnum():
@@ -50,8 +53,11 @@ class DiscoverySnapshot:
     evidence_digest: str
 
     def __post_init__(self) -> None:
-        if not self.evidence_digest:
+        if not isinstance(self.evidence_digest, str) or not self.evidence_digest:
             raise ValueError("complete discovery evidence required")
+        if not isinstance(self.decisions, (tuple, list)) or any(not isinstance(d, Decision) for d in self.decisions):
+            raise ValueError("typed discovery decisions required")
+        object.__setattr__(self, "decisions", tuple(self.decisions))
         keys = [(d.logical_subject, d.model) for d in self.decisions]
         if len(keys) != len(set(keys)):
             raise ValueError("conflicting discovery decisions")

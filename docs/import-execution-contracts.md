@@ -288,12 +288,17 @@ Source/stub evidence, compatibility tradeoffs and validation are recorded in the
   discovery without connecting to inventory. `RunStore.export` atomically writes
   a portable JSON projection. Observation's retained event tuple remains only a
   rendering snapshot, never authoritative execution state.
+- All supported execute/resume/reconcile boundaries reject known target/instance
+  conflicts independently of whether any PK has been saved. `execute_plan`
+  requires an explicit current target observation. Missing saved PKs may relax
+  manual continuity review, never authorize a known target mismatch.
 - Registry reservations precede DB creation, activation precedes dispatch, and
   every child dispatch checks active canonical ownership plus the journal.
   Lifetime OS locks and a process ledger/import owner exclude simultaneous writes;
   nested caller ledger scopes remain supported. Alternate run directories/cwd and
   fresh invocations find unresolved claims. Missing/moved/corrupt journals and
-  unknown schemas fail closed; no migration from an unrecognized version exists.
+  unknown schemas fail closed; relative platform state environment roots are
+  rejected rather than made cwd-dependent. There is no migration from an unrecognized version exists.
   The initialized marker detects deletion of the registry file in a retained
   state root; deleting/relocating the entire configured root is outside the local
   guarantee and requires operator migration/recovery.
@@ -313,6 +318,9 @@ Source/stub evidence, compatibility tradeoffs and validation are recorded in the
   effect certainty, attribution, state and audit event after settlement. Interrupted
   writes and interrupted reconciliation retain unknown effects. Unknown outcomes
   cannot be successful/complete and cannot be reset for blind create replay.
+  Scheduler and store-start eligibility both inspect certainty/retry independently
+  of state; retry_wait with reconcile/review permission never replays the original
+  mutation handler. Only safe read policy may requeue original read work.
   Explicit read-only reconciliation preserves prior confirmed identities.
 - Mandatory dispatch guards are not observers. Renderer failure is isolated;
   store/ownership failure propagates and stops subsequent child sends, including

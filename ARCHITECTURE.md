@@ -178,7 +178,9 @@ This is an explicit-handler library foundation, not a durable replacement for
 logical pre-PK IDs, named prerequisite outputs, typed states/certainty/retry,
 identity-bearing outputs, effects and source attribution. Plan validation rejects
 missing outputs, cycles and contradictory shared-resource inputs. Desired input
-objects own canonical JSON copies. Plan revisions include semantic input/config,
+objects own canonical JSON copies; sequence fields own immutable tuples, enum/
+primitive fields validate on construction, and reload rejects unknown nested
+schema fields and duplicate JSON keys. Plan revisions include semantic input/config,
 file hashes, target evidence, decisions and operation scope; stored plans cannot
 silently rebind a changed revision or confirmed output identity.
 
@@ -192,7 +194,8 @@ The existing post-import `--plan` projection remains unchanged.
 
 `execution/ownership.py` discovers one canonical `INVIMPORT_STATE_DIR` (absolute),
 or the runtime platform user state/data directory, independent of cwd and custom
-run directories. `execution/registry.sqlite3` stores target associations, unresolved
+run directories. Relative XDG_STATE_HOME/LOCALAPPDATA values are rejected, so
+platform configuration cannot create a new authority when cwd changes. `execution/registry.sqlite3` stores target associations, unresolved
 claims, run locations/history and audit dispositions. Reservation commits precede
 run initialization; linking/activation precedes dispatch. No cross-DB atomicity is
 claimed. OS locks exclude same-import/journal writers; process ownership excludes
@@ -214,8 +217,12 @@ portable export, never another authoritative backend.
 `execution/executor.py` executes explicit supplied handlers serially in plan order.
 Named usable outputs, rather than group/whole-parent success, gate consumers;
 blocked children reactivate after reconciliation. Unknown writes never requeue
-as creates. `resume_run` and read-only `retry_operation` are foundation APIs, not
-complete stock resume. Saved PK reuse requires verified instance evidence or an
+as creates. Both scheduler and store-start eligibility inspect prior certainty/
+retry permission separately from state, so retry_wait cannot authorize mutation
+replay or bypass reconciliation/review. `resume_run` and read-only `retry_operation` are foundation APIs, not
+complete stock resume. Known conflicting target/instance evidence blocks every operation, including
+pending writes with no saved PKs. `execute_plan` requires a current target
+observation; saved PK reuse additionally requires verified instance evidence or an
 explicit continuity review; Stage 4 handlers must additionally validate each
 model/record identity. URL or PK existence and SDK server_details are not proof.
 

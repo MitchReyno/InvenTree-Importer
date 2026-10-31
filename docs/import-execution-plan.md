@@ -1,8 +1,9 @@
 # Staged implementation plan — observable, resumable stock imports
 
 Status: maintained implementation plan. Stage 0 establishes contracts; Stage 1
-implements independently reviewed safe reads/errors; Stage 2 implements in-memory observations; Stages 3–7 remain
-unimplemented. Companion documents:
+implements independently reviewed safe reads/errors; Stage 2 implements in-memory
+observations; Stage 3 implements the explicit-handler execution/store foundation
+with independent review pending. Stages 4–7 remain unimplemented. Companion documents:
 [design](import-execution-design.md), [contracts](import-execution-contracts.md),
 [architecture](../ARCHITECTURE.md). Baseline main `c22b7a1` includes PR #11
 code-organization guidance and PR #9;
