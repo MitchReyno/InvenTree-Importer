@@ -2,8 +2,10 @@
 
 ## Baseline, ownership and release boundary
 
-Base: reviewed Stage 0 head `bdef68b4d1e1ac5eacd2213e08494216279c4a1c`,
-branch `docs/import-execution-contracts`, PR #10. Stage 1 is isolated on
+Initial base: reviewed Stage 0 head `bdef68b4d1e1ac5eacd2213e08494216279c4a1c`,
+branch `docs/import-execution-contracts`, PR #10. Subsequently normal-merged its
+reviewed latest-main incorporation `bfaefd13c2cf730a4f1374131a774b07451ae91f`;
+see integration evidence below. Stage 1 is isolated on
 `fix/import-discovery-and-barcode-errors`, with Stage 0 as its PR target. The
 parent checkout and other worktrees were left unchanged. PR #9's DigiKey errors,
 atomic configuration replacement and contextual report-read failures are preserved.
@@ -178,7 +180,7 @@ operation; no inventory service was contacted.
   it did not recur in the passing run and no logging behavior was changed.
 - An intermediate Ruff invocation found one unnecessary f-string prefix in a new
   test; removed. Final changed-Python Ruff check passed.
-- Final focused command:
+- Pre-review focused command:
 
   ```sh
   uv run --no-sync pytest tests/inventree/test_collection_safety.py tests/inventree/test_barcode_safety.py tests/inventree/test_attachment_safety.py tests/inventree/test_importplan.py tests/inventree/test_parts.py tests/inventree/test_stock.py tests/inventree/test_stockimport.py tests/inventree/test_purchase_orders.py tests/inventree/test_datasheets.py
@@ -186,7 +188,7 @@ operation; no inventory service was contacted.
 
   **401 passed in 9.88s**. An immediately preceding focused run before the final
   invalid-JSON category case passed **400 in 10.33s**.
-- Final `make test`: **1494 passed, 1 skipped, 43 deselected in 34.89s**.
+- Pre-review `make test`: **1494 passed, 1 skipped, 43 deselected in 34.89s**.
   Normal selection excludes scanner/TUI tests; the existing skip is unchanged.
 - `make test-scanner`: **43 passed, 1495 deselected in 42.50s**. It installed
   14 optional scanner packages into the isolated environment, including a public
@@ -231,8 +233,20 @@ The user added a requirement to pull latest main CONVENTIONS.md into every stack
 PR. Read the full `origin/main:CONVENTIONS.md` at `c22b7a1`, including its new
 function/orchestration, explicit-helper-input, meaningful-state-lifetime,
 purposeful-module, lower-level-dependency and scenario-local-test guidance.
-Stage 0 is incorporating main by normal merge; Stage 1 will normal-merge the final
-reviewed Stage 0 head once supplied, preserving published history.
+Stage 0 incorporated main by normal merge and was independently rechecked. Stage 1
+committed the owner-validation review correction as `f3b25cc`, then normally merged
+reviewed Stage 0 head `bfaefd13c2cf730a4f1374131a774b07451ae91f` with
+`git merge --no-ff ...`, producing merge `a60c83e`. No rebase or force push occurred.
+
+Two documentation conflicts required resolution: ARCHITECTURE.md's baseline header
+now retains implemented Stage 1 behavior together with the reviewed Stage 0/main
+baseline and PR #11 conventions; the plan table retains Stage 0's upstream-approved
+status and Stage 1's implemented/pending-review status. Contracts/design and Stage
+0 review history merged cleanly. Source/test runtime changes did not conflict.
+`git diff origin/main -- CONVENTIONS.md` is empty, and `git merge-base --is-ancestor`
+confirms both reviewed Stage 0 and main `c22b7a1` are ancestors. An initial comparison
+to the deliberately untouched parent checkout showed its older conventions differ;
+the authoritative origin/main comparison passes. No parent files were changed.
 
 Audited the new Stage 1 code against that full guidance: collection paging,
 next-target validation, barcode classification/reconciliation and one-file upload
@@ -245,6 +259,18 @@ no lower-level code imports command modules. New scenario fixtures stay in their
 behavior-specific test files. Kept the strict barcode ownership boundary separate
 from permissive UI parsing and added the constructor return annotation. No
 unrelated file-size refactor or new execution package was needed for this stage.
+
+Final validation on integrated code (`a60c83e`, including the P1 correction):
+
+- `UV_NO_SYNC=1 make test`: **1510 passed, 1 skipped, 43 deselected in 35.53s**.
+- `UV_NO_SYNC=1 make test-scanner`: **43 passed, 1511 deselected in 43.05s**.
+- These independent pytest processes ran concurrently with environment sync disabled
+  to avoid either process changing the shared isolated virtual environment. Each
+  uses its own scenario-local temporary data and local HTTP stub sockets.
+- The full changed-Python Ruff command listed above passed again, as did working
+  whitespace and the integrated-base-to-head whitespace/ancestry/conventions checks.
+- The handover-only final evidence update introduces no further runtime changes;
+  independent reviewer recheck of the final head remains required before PR opening.
 
 ## Limits and next-stage integration
 
