@@ -15,7 +15,8 @@ Stage 5 extends that shared planner through `prepare_full_stock`, with per-domai
 enrichment, typed settled barriers and immutable provenance/archive revisions.
 See architecture and the Stage 5 handover for exact scope and evidence. Full
 library execution and the Stage 6 `import-run` CLI are opt-in. Legacy default
-rollout remains gated; Stage 6 independent review is pending.
+rollout remains gated; Stage 6 independent review approved corrected implementation
+`93c5f355da8caffef272c2bfb35f7261e7fb67f2` within its documented release limits.
 
 ## Recommendation and scope
 

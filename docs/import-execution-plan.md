@@ -6,7 +6,7 @@ observations; Stage 3 implements the explicit-handler execution/store foundation
 with independent review approved. Stage 4 implements the bounded durable stock
 reference slice with independent review approved. Stage 5 implements the opt-in
 full-domain library with independent exact-head review approved. Stage 6 implements
-the explicit CLI opt-in and awaits independent review; Stage 7 remains pending.
+the explicit CLI opt-in with independent exact-head review approved; Stage 7 remains pending.
 Companion documents:
 [design](import-execution-design.md), [contracts](import-execution-contracts.md),
 [architecture](../ARCHITECTURE.md). Baseline main `c22b7a1` includes PR #11
@@ -24,7 +24,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 | 3 | Complete; independent foundation review approved | [Stage 3 handover](handovers/import-execution-stage-3.md); real SQLite/restart, canonical claims, serial fake-handler gates |
 | 4 | Complete; independent bounded-slice review approved | [Stage 4 handover](handovers/import-execution-stage-4.md); persistent fake-server fault matrix and actual observed SDK composition |
 | 5 | Complete; independent opt-in full-library review approved | [Stage 5 handover](handovers/import-execution-stage-5.md); all eight findings corrected; 221 focused tests passed and 150 SDK sends/intents |
-| 6 | Implemented; independent review pending | [Stage 6 handover](handovers/import-execution-stage-6.md); corrected normal1772, focused261/CLI31+journal9; scanner43; legacy default gated |
+| 6 | Complete; independent opt-in CLI review approved | [Stage 6 handover](handovers/import-execution-stage-6.md); corrected normal1772, focused261/CLI31+journal9; scanner43; legacy default gated |
 | 7 | Pending | DigiKey adaptation and measured concurrency gates below |
 
 Deliver all stages as sequential stacked PRs. Each stage has a separate owner
@@ -663,3 +663,18 @@ failed event persistence must preserve cancellation exit 130. Read-only output
 preflight cannot recreate missing canonical authority. RUNNING checkpoint/prior
 results and BLOCKED retry-wait transitions remain valid; neither permits unknown
 effects to become successful. See the Stage 6 handover for exact review/retest evidence.
+
+### Stage 6 independent exact-head clearance
+
+Independent review approved corrected implementation
+`93c5f355da8caffef272c2bfb35f7261e7fb67f2` after all three initial findings were
+cleared. Independent corrected focused validation: **261 passed in 96.68 seconds**,
+plus adverse output/semantic/cancellation probes, active-writer SIGINT, actual SDK
+150-send/intent and historical unknown-artifact revision probes. Independent Ruff
+and base-to-head whitespace checks passed. Owner corrected normal **1772 passed,
+1 existing skip, 43 deselected** and scanner **43 passed** are separate owner
+evidence, not reviewer reruns. Initial `1acda3e` remains rejected history.
+See the [Stage 6 handover](handovers/import-execution-stage-6.md) for exact scope.
+This clears the explicit opt-in stock CLI only: legacy default/parity, local/serial
+ownership, one-new-PO, source-basename, no category-YAML persistence and no semantic
+migration/force-unlock limits remain. Stage 7 uses a separate owner and review.

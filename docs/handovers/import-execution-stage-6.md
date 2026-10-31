@@ -183,8 +183,9 @@ material defects. That candidate is not approved. The independent reviewer reran
 243 focused cases and separately exercised fresh-process status during an active
 writer/real SIGINT, 150 guarded actual SDK sends/intents and historical unknown
 artifact revision behavior; those passed but did not negate these new findings.
-The initial report is retained externally as `stage6-review.md`. Final clearance
-must name the corrected committed candidate before root publishes.
+The report is retained externally as `stage6-review.md`. Final clearance below
+names the independently approved corrected implementation; initial rejection is
+preserved separately from that approval.
 
 ### Review findings, corrections and regression evidence
 
@@ -253,6 +254,32 @@ Corrected-runtime validation:
  A source-protection test initially
 used invalid provenance fact syntax; corrected its fixture to a valid field-name
 fact before counting its pass. No production failure was hidden by that harness fix.
+
+### Final independent clearance
+
+**Approved for the Stage 6 explicit opt-in durable stock CLI stacked PR at exact
+corrected implementation hash `93c5f355da8caffef272c2bfb35f7261e7fb67f2`.**
+
+All three initial material findings are independently cleared; no material
+unresolved finding remains. The rejection above applies to initial `1acda3e` only.
+The independent reviewer checked clean exact HEAD/latest-main ancestry, reran the
+corrected focused suite (**261 passed in 96.68 seconds**, including all 31 CLI and
+9 shared journal-validation cases), and passed correction Python Ruff plus
+base-to-head `git diff --check`. The original adverse probes and independent
+active-writer/real SIGINT, full SDK150-send/intent and historical unknown-revision
+probes passed as recorded in the external final report. The reviewer made no
+source edits, commits, publication, live API calls or additional-agent delegation.
+
+Owner normal **1772 passed, 1 existing skip, 43 deselected** and scanner **43 passed,
+1773 deselected** remain owner evidence; the reviewer did not repeat those broad
+suites. The initial 1750/243 results are historical first-candidate evidence and
+are not inflated into corrected verification.
+
+This clearance documentation commit changes no runtime/test behavior. Only
+whitespace validation is repeated for these documentation edits. Approval covers
+the exact implementation hash above and its explicit opt-in/local/serial release
+limits. Root handles publication; Stage 7 has a separate implementation owner and
+independent review. No deployable-app/dependency changes are part of this stage.
 
 Current limits are documented in `docs/import-run.md`. Local locks/registry exclude
 supported writers only within one configured user-state scope. Different roots,

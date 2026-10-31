@@ -2,7 +2,8 @@
 
 Status: Stage 1–5 library boundaries are independently reviewed. Stage 6 adds
 an opt-in durable full-stock CLI with local status and audited recovery/disposition;
-its independent review remains pending. The legacy CLI default remains gated.
+its corrected implementation has independent exact-head approval. The legacy CLI
+default remains gated.
 Current behavior is in [ARCHITECTURE.md](../ARCHITECTURE.md). The
 [plan](import-execution-plan.md) owns stage status and acceptance gates.
 
@@ -515,3 +516,17 @@ failed event persistence must preserve cancellation exit 130. Read-only output
 preflight cannot recreate missing canonical authority. RUNNING checkpoint/prior
 results and BLOCKED retry-wait transitions remain valid; neither permits unknown
 effects to become successful. See the Stage 6 handover for exact review/retest evidence.
+
+### Stage 6 independent exact-head clearance
+
+Independent review approved `93c5f355da8caffef272c2bfb35f7261e7fb67f2` for the
+explicit opt-in durable stock CLI. All three initial findings are cleared; initial
+`1acda3e` remains rejected historical evidence. Independent focused validation
+passed **261 cases in 96.68 seconds**, including 31 CLI and 9 journal-validation
+cases. Original adverse probes, active-writer/real SIGINT, SDK150-send/intent and
+unknown archive-revision probes passed; independent Ruff and whitespace checks
+also passed. Owner normal1772/scanner43 evidence remains separate from reviewer
+verification. The [handover](handovers/import-execution-stage-6.md) records details.
+No legacy-default switch, full interactive/montage parity, cross-host ownership,
+live immutable identity/allocator/atomicity, exactly-once effects or arbitrary plan
+migration/force-unlock capability is implied by this clearance.
