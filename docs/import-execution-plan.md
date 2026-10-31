@@ -15,7 +15,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 |---|---|---|
 | 0 | Complete; upstream incorporation independently approved | [Stage 0 handover](handovers/import-execution-stage-0.md) |
 | 1 | Complete; independent implementation review approved | [Stage 1 handover](handovers/import-execution-stage-1.md); error taxonomy and complete-read fault regressions |
-| 2 | Implemented; independent review pending | [Stage 2 handover](handovers/import-execution-stage-2.md); whole-command dispatch visibility, worker correlation and secret-canary regressions |
+| 2 | Complete; independent implementation review approved | [Stage 2 handover](handovers/import-execution-stage-2.md); whole-command dispatch visibility, worker correlation and secret-canary regressions |
 | 3 | Pending | Real-store ownership/restart gates below |
 | 4 | Pending | Durable reference-slice fault matrix below |
 | 5 | Pending | Full workflow and immutable artifact gates below |

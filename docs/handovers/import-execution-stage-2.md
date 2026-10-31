@@ -179,8 +179,12 @@ automatic approval review rejected an action and no live inventory was contacted
 
 ## Independent review
 
-Independent review found one P1 and two P2 issues; all are corrected pending
-reviewer recheck. No PR has been opened; owner tests are not independent approval.
+Independent review found one P1 and two P2 issues. All were corrected in
+`007f527ac6d2a14c8b2324eb87e92f9540720112` and independently rechecked:
+**Stage 2 is approved for its stacked PR, with no further blocking findings.**
+This clearance covers the implemented observation stage, not live inventory
+calls or future durable recovery. Root owns publication; owner did not push or
+open a PR.
 
 - **P1, caught exception result leak:** a real SDK Company.uploadImage/save/PATCH
   403 raised an HTTPError dictionary containing response body and Authorization.
@@ -224,7 +228,35 @@ reviewer recheck. No PR has been opened; owner tests are not independent approva
   `tests/inventree/test_datasheets.py` to the prior final SDK/CLI/Stage 1 selection:
   **262 passed in 5.95s**. Final new boundary suite: **13 passed in 0.24s**.
   Changed-Python Ruff (including companies/archive) and `git diff --check` pass.
-  No new skip, live request or inventory write. Reviewer recheck remains pending.
+  No new skip, live request or inventory write.
+
+### Independent clearance evidence
+
+The reviewer inspected the complete incremental implementation and SDK seam,
+then independently reproduced and rechecked the corrected boundaries on clean
+fix head `007f527ac6d2a14c8b2324eb87e92f9540720112`:
+
+- Reran the original real SDK Company.uploadImage/save/PATCH fake-403 exploit:
+  result/report/event output contains neither body nor token canary; safe
+  `operation failed (HTTPError)` reason retains the failed upload outcome.
+- Independently exercised simultaneous SDK POST/decode calls through a barrier
+  and explicit workers for two source contexts. Decode request IDs are nonempty,
+  unique and match their originating starts' full correlation. Constructor reload
+  GET identity does not replace the saved create-model POST origin.
+- Ran the actual two-document CLI/local-stub attribution regression: distinct
+  document source digests remain on report operations and requests.
+- Expanded SDK/CLI/Stage 1/company/PDF matrix: **262 passed in 6.03s** with scoped
+  local-loopback permission. Initial reviewer invocation accidentally named
+  nonexistent `tests/inventree/test_archive.py`; no tests ran until corrected.
+- Changed-Python Ruff and `git diff --check` passed; worktree was clean. Reviewed
+  updated architecture/contracts/handover. No implementation edits, live service
+  calls, inventory writes, push, PR or merge were performed by the reviewer.
+
+The reviewer did not redundantly repeat the full normal/scanner suites; their
+results above are owner evidence. Independent verification targeted the actual
+reported defects, concurrent request correlation and changed integration boundary.
+This final status-only documentation update changes no runtime code and requires
+whitespace/documentation checks, not another runtime test repetition.
 
 ## Limitations and Stage 3 handoff
 
