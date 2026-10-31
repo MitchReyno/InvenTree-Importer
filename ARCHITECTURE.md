@@ -219,7 +219,10 @@ Named usable outputs, rather than group/whole-parent success, gate consumers;
 blocked children reactivate after reconciliation. Unknown writes never requeue
 as creates. Both scheduler and store-start eligibility inspect prior certainty/
 retry permission separately from state, so retry_wait cannot authorize mutation
-replay or bypass reconciliation/review. `resume_run` and read-only `retry_operation` are foundation APIs, not
+replay or bypass reconciliation/review. Retry authorization also checks the actual
+spec is a semantic read and retains saved outputs. Every unknown effect must agree
+with aggregate uncertainty; contradictory persisted results fail closed rather
+than losing unknown effects during requeue. `resume_run` and read-only `retry_operation` are foundation APIs, not
 complete stock resume. Known conflicting target/instance evidence blocks every operation, including
 pending writes with no saved PKs. `execute_plan` requires a current target
 observation; saved PK reuse additionally requires verified instance evidence or an

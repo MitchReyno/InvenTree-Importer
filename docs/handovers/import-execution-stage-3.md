@@ -213,7 +213,9 @@ Final full-suite commands after the final runtime changes:
 ## Independent review and next-stage integration
 
 Fresh independent review passed the original 60-test focused selection, then
-found two P1 and two P2 runtime issues plus a stale plan-opening status line.
+found two initial P1 and three P2 runtime issues plus a stale plan-opening status
+line. The deep-immutability and strict-schema findings below share one model
+implementation theme but are two distinct P2 findings.
 Clearance remains pending recheck. Owner has not pushed/opened a PR.
 
 - **P2, deep immutability and schema:** frozen dataclasses accepted caller-owned
@@ -248,6 +250,23 @@ Clearance remains pending recheck. Owner has not pushed/opened a PR.
   unknown+reconcile, unknown+review and none+review; saved outputs remain intact.
   A real owned run resumes without replay and settles through a read-only
   reconciliation attempt instead.
+- **Follow-up P1, retry authorization variants:** recheck confirmed the initial
+  five reproductions were fixed and independently passed 87 focused tests, Ruff
+  and whitespace, then found two remaining authorize_retry paths. First, a result
+  could report aggregate NONE/READ while an individual create effect was UNKNOWN;
+  clearing only aggregate flags discarded uncertainty. Constructors now reject
+  unknown effects without unknown aggregate certainty (and confirmed effects with
+  aggregate NONE); scheduler/store-start/authorization explicitly inspect unknown
+  effects too. Persisted contradictory pre-fix records fail closed as JournalError
+  and retain their raw effect/output evidence rather than being reset. A real
+  SQLite regression exercises authorize_retry, store.start, execute_serial and
+  resume against that persisted record, with no replayed mutation and saved PK
+  retained. Second, a mutation spec mislabeled NONE/READ could use authorize_retry
+  to clear its result and become READY, bypassing scheduler's semantic-read gate.
+  Reset now also requires the actual OperationSpec to be a semantic read. Evidence-
+  backed reconciliation remains separate. Read requeue preserves prior confirmed
+  outputs rather than deleting the result. Tests cover the exact invalid result
+  constructor, mutation-spec reset refusal and retained read-output identity.
 - An attempted AST-based test-call update lacked end-position metadata in the
   shell Python and stopped after the execute signature changed. The immediately
   following focused command reported eight missing-current_target failures (one
@@ -260,8 +279,20 @@ Clearance remains pending recheck. Owner has not pushed/opened a PR.
   **43 passed, 1599 deselected in 43.59s**.
 - Changed-Python Ruff and `git diff --check` passed after the review changes.
   No live service requests or inventory writes. Independent clearance remains
-  pending reviewer recheck of the corrected commit.
+  pending reviewer recheck of the corrected commit. These counts preceded the
+  follow-up retry-authorization corrections; latest evidence appears below.
 
+
+Final follow-up retry-authorization validation:
+
+- Focused `.venv/bin/pytest tests/execution tests/inventree/test_request_observation.py -q`:
+  **93 passed** (80 foundation plus 13 SDK/request tests).
+- `UV_NO_SYNC=1 UV_CACHE_DIR="$STAGE3_UV_CACHE" make test`:
+  **1604 passed, 1 existing skip, 43 deselected in 39.35s**.
+- `UV_NO_SYNC=1 UV_CACHE_DIR="$STAGE3_UV_CACHE" make test-scanner`:
+  **43 passed, 1605 deselected in 43.13s**.
+- Changed-Python Ruff and whitespace passed. No additional failed check, live
+  request or inventory write. Independent re-clearance remains pending.
 
 Stage 4 must consume this foundation with one real durable slice: preserve
 existing matching and field policies, generate genuinely resolved mutation specs,

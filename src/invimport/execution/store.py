@@ -10,7 +10,7 @@ from typing import Callable, Iterator
 from uuid import uuid4
 
 from .models import (Certainty, Effect, ErrorCategory, OperationResult, Output,
-                     Plan, Retry, SafeError, State, canonical, execution_eligible)
+                     Plan, Retry, SafeError, State, canonical, execution_eligible, has_unknown_effects)
 from .ownership import FileLock, JournalError, open_database
 from .artifacts import initialize_run_directory
 
@@ -26,15 +26,19 @@ class Attempt:
 
 
 def result_from_json(text: str) -> OperationResult:
-    raw = json.loads(text)
-    raw["state"] = State(raw["state"])
-    raw["certainty"] = Certainty(raw["certainty"])
-    raw["retry"] = Retry(raw["retry"])
-    raw["outputs"] = tuple(Output(**o) for o in raw["outputs"])
-    raw["effects"] = tuple(Effect(**e) for e in raw["effects"])
-    if raw["error"]:
-        raw["error"] = SafeError(**raw["error"])
-    return OperationResult(**raw)
+    try:
+        raw = json.loads(text)
+        raw["state"] = State(raw["state"])
+        raw["certainty"] = Certainty(raw["certainty"])
+        raw["retry"] = Retry(raw["retry"])
+        raw["outputs"] = tuple(Output(**o) for o in raw["outputs"])
+        raw["effects"] = tuple(Effect(**e) for e in raw["effects"])
+        if raw["error"]:
+            raw["error"] = SafeError(**raw["error"])
+        return OperationResult(**raw)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise JournalError("invalid persisted operation result; recovery required") from exc
+
 
 
 class RunStore:
@@ -237,16 +241,19 @@ class RunStore:
         """
         result = self.results()[operation]
         if reconciled is not None:
-            if result.retry != Retry.RECONCILE or reconciled.certainty == Certainty.UNKNOWN:
+            if (result.retry != Retry.RECONCILE or reconciled.certainty == Certainty.UNKNOWN
+                    or has_unknown_effects(reconciled)):
                 raise ValueError("invalid reconciliation result")
             # A reconciliation is its own durable attempt, not a history rewrite.
             attempt = self.start(operation, mutation=False, reconciliation=True)
             self.finish(attempt, reconciled)
             return
-        if result.retry != Retry.READ or result.certainty != Certainty.NONE:
-            raise ValueError("operation needs reconciliation or review")
+        spec = next(op for op in self.plan.operations if op.id == operation)
+        if (spec.mutation or result.retry != Retry.READ or result.certainty != Certainty.NONE
+                or has_unknown_effects(result)):
+            raise ValueError("operation needs reconciliation or review; only semantic reads can requeue")
         with self.transaction() as connection:
-            connection.execute("UPDATE operations SET state=?,result=NULL WHERE id=?", (State.READY, operation))
+            connection.execute("UPDATE operations SET state=? WHERE id=?", (State.READY, operation))
             self._event(connection, "read_retry_authorized", operation)
 
     def snapshot(self) -> dict:

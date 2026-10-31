@@ -320,7 +320,10 @@ Source/stub evidence, compatibility tradeoffs and validation are recorded in the
   cannot be successful/complete and cannot be reset for blind create replay.
   Scheduler and store-start eligibility both inspect certainty/retry independently
   of state; retry_wait with reconcile/review permission never replays the original
-  mutation handler. Only safe read policy may requeue original read work.
+  mutation handler. Only safe read policy on an actual semantic-read spec may
+  requeue original read work, retaining confirmed outputs. Unknown effect records
+  require aggregate unknown certainty; aggregate flags cannot hide/clear an unknown
+  effect. Contradictory persisted pre-fix records fail closed for operator recovery.
   Explicit read-only reconciliation preserves prior confirmed identities.
 - Mandatory dispatch guards are not observers. Renderer failure is isolated;
   store/ownership failure propagates and stops subsequent child sends, including

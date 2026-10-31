@@ -238,6 +238,10 @@ class OperationResult:
         object.__setattr__(self, "effects", _owned_sequence(self.effects, Effect))
         if self.error is not None and not isinstance(self.error, SafeError):
             raise ValueError("operation result requires a typed safe error")
+        if has_unknown_effects(self) and self.certainty != Certainty.UNKNOWN:
+            raise ValueError("unknown effects require unknown aggregate certainty")
+        if any(e.certainty == Certainty.CONFIRMED for e in self.effects) and self.certainty == Certainty.NONE:
+            raise ValueError("confirmed effects cannot have no aggregate certainty")
         if self.state in {State.PENDING, State.READY, State.RUNNING}:
             raise ValueError("result must be a settled operation outcome")
         if self.state in {State.SUCCEEDED, State.ALREADY_SATISFIED, State.SKIPPED} and (
@@ -248,6 +252,10 @@ class OperationResult:
             raise ValueError("unknown effects require reconciliation or review")
         if len({o.name for o in self.outputs}) != len(self.outputs):
             raise ValueError("duplicate output name")
+
+
+def has_unknown_effects(result: OperationResult) -> bool:
+    return any(effect.certainty == Certainty.UNKNOWN for effect in result.effects)
 
 
 @dataclass(frozen=True)
@@ -351,4 +359,5 @@ def execution_eligible(state: State, result: OperationResult | None, *, mutation
         return False
     if result is None:
         return state != State.RETRY_WAIT
-    return not mutation and result.certainty == Certainty.NONE and result.retry == Retry.READ
+    return (not mutation and result.certainty == Certainty.NONE and result.retry == Retry.READ
+            and not has_unknown_effects(result))

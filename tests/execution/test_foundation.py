@@ -853,3 +853,77 @@ def test_resume_retry_wait_reconciles_without_replaying_unknown_create(tmp_path)
                                  current_target=TARGET, continuity=reviewed)
     assert writes == ["applied-create"]
     assert reconciled["operations"][0]["result"]["outputs"][0]["pk"] == 71
+
+
+@pytest.mark.parametrize("certainty", [Certainty.NONE, Certainty.CONFIRMED])
+def test_unknown_effect_cannot_be_hidden_by_aggregate_certainty(certainty):
+    with pytest.raises(ValueError, match="unknown aggregate"):
+        OperationResult(State.RETRY_WAIT, certainty, Retry.READ,
+                        effects=[Effect("create", Certainty.UNKNOWN)])
+
+
+def test_confirmed_effect_cannot_be_hidden_as_no_effect():
+    with pytest.raises(ValueError, match="aggregate"):
+        OperationResult(State.FAILED, Certainty.NONE, Retry.READ,
+                        effects=[Effect("create", Certainty.CONFIRMED, "part", 71)])
+
+
+def test_authorize_retry_cannot_reset_mutation_mislabeled_as_read(tmp_path):
+    spec = operation(provides=("part",))
+    writes = []
+    def handler(spec, context):
+        context.dispatch(lambda: writes.append("applied-create"), mutation=True, label="create_part")
+        return OperationResult(State.FAILED, Certainty.NONE, Retry.READ, outputs=(output(),))
+    with RunStore(tmp_path / "run.sqlite3", plan=plan(spec), run_id="run", create=True) as store:
+        execute_serial(store, {Kind.PART: handler})
+        with pytest.raises(ValueError, match="only semantic reads"):
+            store.authorize_retry(spec.id)
+        execute_serial(store, {Kind.PART: handler})
+        assert writes == ["applied-create"]
+        assert store.results()[spec.id].outputs == (output(),)
+        assert store.states()[spec.id] == State.FAILED
+
+
+def test_legacy_inconsistent_unknown_effect_is_not_erased_or_replayed(tmp_path):
+    """Real SQLite may contain a pre-fix result; no aggregate flag can clear it."""
+    from dataclasses import asdict
+    from invimport.execution.models import canonical
+    spec = operation(provides=("part",))
+    document = plan(spec)
+    path = tmp_path / "run.sqlite3"
+    registry = Registry()
+    writes = []
+    try:
+        with registry.writer(TARGET, document.import_id, run_id="legacy-result", revision=document.revision, location=path):
+            with RunStore(path, plan=document, run_id="legacy-result", create=True) as store:
+                attempt = store.start(spec.id, mutation=True)
+                store.finish(attempt, OperationResult(State.RETRY_WAIT, Certainty.UNKNOWN, Retry.RECONCILE,
+                                                      outputs=(output(),), effects=(Effect("create", Certainty.UNKNOWN),)))
+                persisted = asdict(store.results()[spec.id])
+                persisted.update(certainty=Certainty.NONE, retry=Retry.READ)
+                with store.connection:
+                    store.connection.execute("UPDATE operations SET result=? WHERE id=?", (canonical(persisted), spec.id))
+                for action in (lambda: store.authorize_retry(spec.id),
+                               lambda: store.start(spec.id, mutation=True),
+                               lambda: execute_serial(store, {Kind.PART: lambda *args: writes.append("replayed-create")})):
+                    with pytest.raises(JournalError, match="persisted operation result"):
+                        action()
+                raw = json.loads(store.connection.execute("SELECT result FROM operations WHERE id=?", (spec.id,)).fetchone()[0])
+                assert raw["effects"][0]["certainty"] == Certainty.UNKNOWN
+                assert raw["outputs"][0]["pk"] == 71
+        with pytest.raises(JournalError, match="persisted operation result"):
+            resume_run(document, "legacy-result", path, {Kind.PART: lambda *args: writes.append("replayed-create")}, current_target=TARGET)
+        assert writes == []
+    finally:
+        registry.close()
+
+
+def test_safe_read_retry_keeps_confirmed_output_identity(tmp_path):
+    spec = operation(mutation=False, provides=("part",))
+    with RunStore(tmp_path / "run.sqlite3", plan=plan(spec), run_id="run", create=True) as store:
+        attempt = store.start(spec.id, mutation=False)
+        store.finish(attempt, OperationResult(State.FAILED, Certainty.NONE, Retry.READ, outputs=(output(),)))
+        store.authorize_retry(spec.id)
+        assert store.results()[spec.id].outputs == (output(),)
+        execute_serial(store, {Kind.PART: lambda *args: success()})
+        assert store.results()[spec.id].outputs == (output(),)
