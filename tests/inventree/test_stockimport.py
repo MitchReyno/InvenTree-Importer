@@ -1766,3 +1766,34 @@ def test_facts_reach_the_records_that_hold_them(config, server, tmp_path):
         "manufacturer"]
     assert sorted(docs[("part", action.part)]["related"]["company"]) == \
         sorted([action.supplier, maker])
+
+
+def test_legacy_unresolved_requested_location_still_creates_unlocated_stock(
+        config, server):
+    """New resumable mode will deliberately require review for this case."""
+    _, result = run(config, {**DIODE, "location": "Unknown/Drawer"},
+                    create_locations=False)
+
+    assert result.lines[0].action == CREATED
+    assert not result.lines[0].location
+    assert server.stock_items[0].get("location") is None
+
+
+def test_same_import_key_preserves_historical_stock_fields_on_rerun(config, server):
+    document, first = run(config, {
+        **DIODE, "quantity": 7, "batch": "original", "location": "Shelf/Drawer"})
+    stored = server.stock_items[0]
+    historical = {field: stored.get(field)
+                  for field in ("part", "quantity", "batch", "location")}
+    document.lines[0].quantity = 99
+    document.lines[0].batch = "revised"
+    document.lines[0].location = "Another/Drawer"
+    document.lines[0].type = "1N4148"
+
+    result = import_stock(document, connect(), directory=config,
+                          options=ImportOptions(write=True))
+
+    assert result.lines[0].action == EXISTS
+    assert result.lines[0].stock_item == first.lines[0].stock_item
+    assert len(server.stock_items) == 1
+    assert {field: stored.get(field) for field in historical} == historical

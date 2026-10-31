@@ -1,6 +1,11 @@
 # Project guidance
 
 Read and follow [CONVENTIONS.md](CONVENTIONS.md) when writing or reviewing code.
+Read [ARCHITECTURE.md](ARCHITECTURE.md) for implemented boundaries and limitations.
+Keep it current when changing import execution. Follow the maintained
+[execution plan](docs/import-execution-plan.md); each stage records decisions,
+plan adjustments, validation and review fixes in a comprehensive tracked
+`docs/handovers/import-execution-stage-N.md` before independent review.
 
 ## Portable paths
 

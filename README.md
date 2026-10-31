@@ -44,6 +44,11 @@ Two design points worth knowing up front:
   importable functions that return data and print nothing, so you can compose
   new tooling from them. See [Using it as a library](#using-it-as-a-library).
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the implemented import flow and its
+limitations, and the [execution plan](docs/import-execution-plan.md) for the
+staged observable/resumable design. Future interfaces in those documents are
+not available commands yet.
+
 ## Getting started
 
 ### Requirements
