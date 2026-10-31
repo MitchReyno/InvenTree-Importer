@@ -348,3 +348,53 @@ concurrency, unconditional unknown-create recovery, conditional-update atomicity
 exactly-once guarantee. Root owns publication and CI verification of the final
 stacked PR against Stage 7. This owner made no push, PR, merge or live request;
 publication authorization here does not authorize merging.
+
+
+## Follow-on: optional request pacing
+
+User feedback after publication: the demo finishes too quickly to watch. This
+focused follow-on adds `demo serve --delay-ms INTEGER`, default 0, bounded 0–1000,
+with 250 ms recommended. It changes only the fake server's API/media request dispatch
+and command adapter. The handler waits before body processing, request receipts,
+fault consumption and mutations; it never introduces an artificial lost-outcome
+window by sleeping after application. The nonce identity probe has no added wait.
+Startup JSON/stderr shows the configured delay. Production CLI progress/verbosity,
+executor, registry, source fixtures and manifest identity remain unchanged.
+
+Pacing is runtime-only. Restart with the flag preserves existing port/nonce/data/
+run/completed steps and does not reset/replay the scenario. The guide says to let
+the current invocation finish, press Ctrl-C in the original server terminal, then
+restart with `--restart --delay-ms 250`. A full slower replay requires a new owned
+workspace. The user's existing untracked demo directory and running server were
+not read, modified, stopped, deleted or staged; tests use independent temporary
+workspaces. No broad git add, stack initialization/rebase or publication is needed.
+
+Regression coverage uses real HTTP with an event-controlled sleep hook: stock and
+request receipts remain absent while dispatch waits, release allows exactly one
+create, media uses the same delay, identity remains unpaced and zero delay does
+not call the wait. No elapsed-time threshold is used. Real CLI startup/restart
+reports 250 ms while manifest and fake DB bytes/identity remain unchanged. Invalid
+CLI bounds/noninteger values fail before workspace creation; the reusable server
+also validates bounds before binding, including accepted upper bound 1000.
+
+Focused/required normal/Ruff/whitespace results and exact candidate disposition
+follow after completion. No production engine, dependency, scanner, skills or
+agent workflow changed. Root owns independent re-review and PR20 update; this
+owner makes no push/PR/merge or live inventory call.
+
+Pacing follow-on owner verification on final unchanged runtime:
+
+- Focused demo suite: **21 passed in 50.35 seconds**, including seven pacing cases.
+- Required `make test`: **1900 passed, 1 existing skip, 43 deselected in
+  216.93 seconds**. No test failure occurred during this follow-on.
+- Required changed-Python uv Ruff and staged/full-change whitespace: **pass**.
+- No scanner/skills/agent changes; corresponding extra checks are inapplicable.
+  The active user demo directory remains untracked and untouched. All test servers
+  are isolated and stopped/reaped by their fixtures; the user's server was not
+  stopped. No new dependency, source/registry/manifest identity change or live
+  inventory request occurred.
+
+Owner implementation is complete. Root must arrange independent re-review of this
+optional pacing commit before updating PR20; prior runtime clearance is historical
+and does not automatically approve new code. Root alone publishes. No further
+runtime/test changes follow these checks, and no merge is authorized here.

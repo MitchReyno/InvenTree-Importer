@@ -6,6 +6,7 @@ from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import re
+from time import sleep
 from urllib.parse import parse_qs, urlsplit
 
 from .state import DemoState, ROUTES
@@ -32,9 +33,12 @@ def multipart(content_type: str, content: bytes) -> tuple[dict, str, bytes]:
 
 
 class DemoHTTPServer(HTTPServer):
-    def __init__(self, state: DemoState, instance: str, port: int = 0) -> None:
+    def __init__(self, state: DemoState, instance: str, port: int = 0, *, delay_ms: int = 0) -> None:
+        if type(delay_ms) is not int or not 0 <= delay_ms <= 1000:
+            raise ValueError("demo delay_ms must be an integer from 0 to 1000")
         state.validate_schema()
         self.state, self.instance = state, instance
+        self.delay_ms = delay_ms
         super().__init__(("127.0.0.1", port), DemoHandler)
 
 
@@ -57,6 +61,8 @@ class DemoHandler(BaseHTTPRequestHandler):
 
     def route(self) -> str | None:
         parsed = urlsplit(self.path)
+        if self.server.delay_ms and parsed.path.startswith(("/api/", "/media/")):
+            sleep(self.server.delay_ms / 1000)
         if parsed.path in {"/api/", "/demo/identity"}:
             return "" if parsed.path == "/api/" else "identity"
         if self.headers.get("Authorization") != "Token " + TOKEN:

@@ -40,9 +40,11 @@ def invoke(environment, *arguments):
 
 
 @contextmanager
-def server(environment, workspace, scenario=None, *, restart=False):
+def server(environment, workspace, scenario=None, *, restart=False, delay_ms=None):
     arguments = [sys.executable, "-m", "invimport", "demo", "serve", "--workspace", str(workspace)]
     arguments += ["--restart"] if restart else ["--scenario", scenario]
+    if delay_ms is not None:
+        arguments += ["--delay-ms", str(delay_ms)]
     with (workspace.parent / (workspace.name + "-server.log")).open("w+", encoding="utf-8") as log:
         process = subprocess.Popen(arguments, env=environment, cwd=ROOT, stdout=subprocess.PIPE, stderr=log, text=True)
         try:
@@ -392,3 +394,93 @@ def test_timeout_after_applied_stock_recovers_original_locator_without_replay(en
             release.set()
             listener.shutdown()
             thread.join(timeout=5)
+
+
+
+@pytest.mark.parametrize("delay", ["-1", "1001", "1.5", "invalid"])
+def test_cli_rejects_invalid_request_delay_before_workspace_creation(environment, tmp_path, delay):
+    workspace = tmp_path / "not-created"
+    rejected = invoke(environment, "serve", "--workspace", workspace, "--scenario", "happy", "--delay-ms", delay)
+    assert rejected.returncode == 2 and "integer from 0 to 1000" in rejected.stderr
+    assert not workspace.exists()
+
+
+def test_restart_changes_only_runtime_pacing_preserving_owned_state(environment, tmp_path):
+    workspace = tmp_path / "paced"
+    with server(environment, workspace, "happy") as original:
+        assert original["delay_ms"] == 0
+    marker = (workspace / "invimport-demo.json").read_bytes()
+    database = (workspace / "server.sqlite3").read_bytes()
+    with server(environment, workspace, restart=True, delay_ms=250) as paced:
+        assert paced["delay_ms"] == 250
+        assert {key: value for key, value in paced.items() if key != "delay_ms"} == {
+            key: value for key, value in original.items() if key != "delay_ms"}
+    assert (workspace / "invimport-demo.json").read_bytes() == marker
+    assert (workspace / "server.sqlite3").read_bytes() == database
+
+
+def test_request_delay_reaches_http_before_effect_and_media_while_health_stays_immediate(tmp_path, monkeypatch):
+    import requests
+    from invimport.demo.server import TOKEN
+
+    workspace, manifest = create_workspace(tmp_path / "paced-http", "happy")
+    state = DemoState(workspace / "server.sqlite3")
+    attachment = state.upload({"model_type": "part.part", "model_id": 1}, "demo.txt", b"DEMO bytes")
+    entered, release = threading.Event(), threading.Event()
+    waits = []
+
+    def controlled_sleep(seconds):
+        waits.append(seconds)
+        entered.set()
+        assert release.wait(timeout=10)
+
+    monkeypatch.setattr("invimport.demo.server.sleep", controlled_sleep)
+    with DemoHTTPServer(state, manifest["instance"], delay_ms=250) as listener:
+        thread = threading.Thread(target=listener.serve_forever, daemon=True)
+        thread.start()
+        session = requests.Session()
+        session.trust_env = False
+        session.headers["Authorization"] = "Token " + TOKEN
+        url = f"http://127.0.0.1:{listener.server_port}"
+        responses, errors = [], []
+
+        def create_stock():
+            try:
+                responses.append(session.post(url + "/api/stock/", json={"part": 1, "quantity": 3}, timeout=10))
+            except Exception as exc:
+                errors.append(exc)
+
+        worker = threading.Thread(target=create_stock)
+        try:
+            health = session.get(url + "/demo/identity", timeout=5)
+            assert health.json()["instance"] == manifest["instance"] and waits == []
+            worker.start()
+            assert entered.wait(timeout=5)
+            assert state.rows("stock/") == []
+            assert not any(row["route"] == "stock/" for row in state.inspect()["requests"])
+            release.set()
+            worker.join(timeout=5)
+            assert not worker.is_alive() and errors == []
+            assert responses[0].status_code == 201 and len(state.rows("stock/")) == 1
+            media = session.get(url + attachment["attachment"], timeout=5)
+            assert media.content == b"DEMO bytes" and waits == [0.25, 0.25]
+            listener.delay_ms = 0
+            session.get(url + "/api/", timeout=5).raise_for_status()
+            assert waits == [0.25, 0.25]  # Current zero-delay default adds no wait.
+        finally:
+            release.set()
+            if worker.ident is not None:
+                worker.join(timeout=5)
+            session.close()
+            listener.shutdown()
+            thread.join(timeout=5)
+
+
+def test_reusable_server_validates_delay_bounds_before_binding(tmp_path):
+    workspace, manifest = create_workspace(tmp_path / "bounds", "happy")
+    state = DemoState(workspace / "server.sqlite3")
+    for value in (-1, 1001, True, 0.5):
+        with pytest.raises(ValueError, match="integer from 0 to 1000"):
+            DemoHTTPServer(state, manifest["instance"], delay_ms=value)
+    with DemoHTTPServer(state, manifest["instance"], delay_ms=1000) as listener:
+        assert listener.delay_ms == 1000

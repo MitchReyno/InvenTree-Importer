@@ -15,6 +15,10 @@ uv run invimport demo serve --workspace demo-partial --scenario partial
 `demo-partial` must be a **new directory** with an existing parent. Do not point it
 at your inventory/configuration folder. The command prints its bound loopback URL,
 instance nonce, workspace paths and next commands. Leave this terminal running.
+For an easier-to-watch pace, add `--delay-ms 250` to the server command. The
+default is 0; accepted values are integer 0–1000 milliseconds per API/media request.
+Startup prints the selected pace.
+
 Use `--scenario happy` and a different new directory for an entirely successful
 run. Both scenarios contain one shared Part, two distinct lots (10 and 20 units),
 one supplier SKU, one PO and two distinct priced PO contributions. A synthetic
@@ -97,6 +101,29 @@ inspect status locally, and restart it before the retry:
 ```sh
 uv run invimport demo serve --workspace demo-partial --restart
 ```
+
+To slow an already running server, let the current import invocation finish,
+then press **Ctrl-C in its original server terminal**. In that same terminal run:
+
+```sh
+uv run invimport demo serve --workspace demo-partial --restart --delay-ms 250
+```
+
+This changes only runtime request pacing. It preserves the original port, nonce,
+fake data, consumed fault, run and completed steps; it does **not** replay or reset
+the scenario. Pacing is not stored in the manifest: supply the flag on each restart
+that should be slowed. Requests wait before API/media dispatch and before any
+mutation/fault consumption, rather than delaying a response after applying a write.
+The identity probe adds no pacing delay.
+
+For a slower **full replay**, start a new workspace that does not already exist:
+
+```sh
+uv run invimport demo serve --workspace demo-paced --scenario partial --delay-ms 250
+```
+
+Use `demo-paced` in the corresponding prepare/execute/status commands. Keep an
+existing workspace when you want to inspect or recover its original history.
 
 Restart binds the original persisted port and database/nonce. If the port is
 occupied, it fails; stop the occupying process using your normal tools or wait
