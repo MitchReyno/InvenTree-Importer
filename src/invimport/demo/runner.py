@@ -5,12 +5,15 @@ import json
 import os
 from pathlib import Path
 import shlex
-import subprocess
+import sqlite3
 import sys
 from email.message import Message
 from typing import BinaryIO
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
+from ..execution.ownership import JournalError
+from .process import run_child
+from .recovery import recover_locator
 from .server import TOKEN
 from .workspace import load_workspace, save_json
 
@@ -55,7 +58,8 @@ def run_import(path: Path, action: str, *, operation_id: str | None = None,
                write: bool = False, continuity_reason: str | None = None) -> int:
     path, manifest = load_workspace(path)
     if action == "execute" and write and ((path / "output" / "run.json").exists()
-            or (path / "state" / "execution" / "registry.sqlite3").exists()):
+            or (path / "state" / "execution" / "registry.sqlite3").exists()
+            or (path / "state" / "execution" / "registry.initialized").exists()):
         raise ValueError("demo workspace already has execution history; use status/resume/retry-operation or a new workspace")
     if action == "prepare":
         arguments = ["prepare", str(path / "source" / "stock.json"), "--config", str(path / "config"),
@@ -63,7 +67,10 @@ def run_import(path: Path, action: str, *, operation_id: str | None = None,
     elif action == "execute":
         arguments = ["execute", str(path / "output" / "plan.json")]
     else:
-        run_id = json.loads((path / "output" / "run.json").read_text(encoding="utf-8"))["run_id"]
+        recovered = recover_locator(path, endpoint(manifest))
+        if recovered is None:
+            raise ValueError("no canonical demo run; execute the reviewed plan first")
+        run_id = recovered["run_id"]
         if not isinstance(run_id, str) or not run_id:
             raise ValueError("missing demo run ID; retained registry remains authority")
         arguments = [action, run_id]
@@ -82,8 +89,18 @@ def run_import(path: Path, action: str, *, operation_id: str | None = None,
     command = [sys.executable, "-P", "-m", "invimport", "--env-file", str(path / "demo.env"), "import-run", *arguments]
     print("DEMO ONLY: " + shlex.join(command), file=sys.stderr, flush=True)
     print(f"DEMO target={endpoint(manifest)} source/config={path} registry={path / 'state'}", file=sys.stderr, flush=True)
-    result = subprocess.run(command, env=child_environment(path, manifest), cwd=path, text=True,
-                            stdout=subprocess.PIPE, check=False, timeout=300)
+    result = None
+    try:
+        result = run_child(command, child_environment(path, manifest), path)
+    finally:
+        if action == "execute" and write:
+            try:
+                recover_locator(path, endpoint(manifest))
+            except (OSError, ValueError, sqlite3.Error, JournalError) as exc:
+                if result is None or result.returncode != 130:
+                    raise
+                print(f"DEMO interrupted; locator projection unavailable ({type(exc).__name__}); canonical state retained", file=sys.stderr)
+
     # SDK hierarchy/progress is inherited stderr. Stdout remains one real CLI result.
     sys.stdout.write(result.stdout)
     sys.stdout.flush()
@@ -91,10 +108,10 @@ def run_import(path: Path, action: str, *, operation_id: str | None = None,
         snapshot = json.loads(result.stdout)
     except ValueError:
         return result.returncode
-    save_json(path / "output" / f"{action}-result.json", snapshot)
-    if action == "execute" and isinstance(snapshot.get("run_id"), str):
-        run_record = path / "output" / "run.json"
-        if run_record.exists() and json.loads(run_record.read_text(encoding="utf-8"))["run_id"] != snapshot["run_id"]:
-            raise ValueError("demo run locator changed; inspect registry rather than replacing history")
-        save_json(run_record, {"run_id": snapshot["run_id"]})
+    try:
+        save_json(path / "output" / f"{action}-result.json", snapshot)
+    except OSError:
+        if result.returncode != 130:
+            raise
+        print("DEMO interrupted; result projection unavailable; canonical state retained", file=sys.stderr)
     return result.returncode

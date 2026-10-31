@@ -1,6 +1,7 @@
 """Persistent fake records, transfers and explicit one-shot demo faults."""
 from __future__ import annotations
 
+from contextlib import closing
 from decimal import Decimal
 from hashlib import sha256
 import json
@@ -31,6 +32,7 @@ class DemoState:
                 CREATE TABLE barcodes(key TEXT PRIMARY KEY, owner INTEGER NOT NULL);
                 CREATE TABLE faults(method TEXT, route TEXT, mode TEXT, consumed INTEGER NOT NULL DEFAULT 0);
                 CREATE TABLE requests(id INTEGER PRIMARY KEY, method TEXT, route TEXT, payload TEXT, outcome TEXT);
+                PRAGMA user_version=1;
             """)
             if partial:
                 connection.execute("INSERT INTO faults(method,route,mode) VALUES ('POST','attachment/','reject_before')")
@@ -39,6 +41,31 @@ class DemoState:
         self.create("stock/location/", {"name": "DEMO Shelf", "pathstring": "DEMO Shelf", "parent": None})
         for name in ("Resistance", "Tolerance"):
             self.create("parameter/template/", {"name": name, "model_type": "", "units": ""})
+
+    def validate_schema(self) -> None:
+        # Version 0 is the original reviewed demo candidate's identical layout;
+        # accept it read-only, without migrating/resetting retained fake state.
+        required = {
+            "records": [("route", "TEXT", 1, 0), ("pk", "INTEGER", 0, 1), ("body", "TEXT", 1, 0)],
+            "media": [("pk", "INTEGER", 0, 1), ("content", "BLOB", 1, 0)],
+            "barcodes": [("key", "TEXT", 0, 1), ("owner", "INTEGER", 1, 0)],
+            "faults": [("method", "TEXT", 0, 0), ("route", "TEXT", 0, 0), ("mode", "TEXT", 0, 0), ("consumed", "INTEGER", 1, 0)],
+            "requests": [("id", "INTEGER", 0, 1), ("method", "TEXT", 0, 0), ("route", "TEXT", 0, 0), ("payload", "TEXT", 0, 0), ("outcome", "TEXT", 0, 0)],
+            "identity": [("instance", "TEXT", 1, 0)],
+        }
+        with closing(sqlite3.connect(self.path.as_uri() + "?mode=ro", uri=True)) as connection:
+            connection.execute("BEGIN")
+            if connection.execute("PRAGMA user_version").fetchone()[0] not in {0, 1}:
+                raise ValueError("unsupported demo fake database schema version")
+            if connection.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
+                raise ValueError("demo fake database integrity check failed")
+            for table, columns in required.items():
+                kind = connection.execute("SELECT type FROM sqlite_master WHERE name=?", (table,)).fetchone()
+                if kind != ("table",):
+                    raise ValueError(f"demo fake database required table unavailable: {table}")
+                actual = [(row[1], row[2], row[3], row[5]) for row in connection.execute(f"PRAGMA table_info({table})")]
+                if actual != columns:
+                    raise ValueError(f"demo fake database required schema differs: {table}")
 
     @staticmethod
     def detail(route: str) -> tuple[str, int | None]:

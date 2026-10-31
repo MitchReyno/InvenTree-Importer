@@ -10,6 +10,7 @@ import signal
 import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlsplit
 import threading
 
 import pytest
@@ -248,3 +249,146 @@ def test_child_uses_running_package_despite_inherited_paths_and_shadow_cwd(envir
                                    env=environment, cwd=ROOT, capture_output=True, text=True, timeout=30)
         assert completed.returncode == 0, completed.stderr
         assert json.loads(completed.stdout)["prepared"]
+
+
+@pytest.mark.skipif(os.name != "posix", reason="process-group SIGINT is POSIX-specific")
+def test_group_sigint_after_stock_keeps_authoritative_locator_and_fresh_recovery(environment, tmp_path):
+    import sqlite3
+    import time
+    from invimport.execution.models import Plan
+
+    workspace = tmp_path / "cancel"
+    with server(environment, workspace, "happy"):
+        result(environment, "run", workspace, "prepare")
+        log = (tmp_path / "cancel.log").open("w", encoding="utf-8")
+        process = subprocess.Popen([sys.executable, "-m", "invimport", "demo", "run", str(workspace), "execute", "--write"],
+                                   env=environment, cwd=ROOT, stdout=subprocess.PIPE, stderr=log,
+                                   start_new_session=True, text=True)
+        try:
+            deadline = time.monotonic() + 20
+            first_stock = None
+            while process.poll() is None and time.monotonic() < deadline:
+                with sqlite3.connect(workspace / "server.sqlite3") as connection:
+                    row = connection.execute("SELECT body FROM records WHERE route='stock/' ORDER BY pk LIMIT 1").fetchone()
+                if row:
+                    first_stock = json.loads(row[0])
+                    os.killpg(process.pid, signal.SIGINT)
+                    break
+                time.sleep(0.005)
+            assert first_stock is not None
+            process.communicate(timeout=20)
+            assert process.returncode == 130
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.communicate(timeout=5)
+            log.close()
+        with sqlite3.connect(workspace / "state" / "execution" / "registry.sqlite3") as connection:
+            original = connection.execute("SELECT run_id,revision FROM runs").fetchall()
+        assert len(original) == 1
+        locator = workspace / "output" / "run.json"
+        assert json.loads(locator.read_text()) == dict(zip(("run_id", "revision"), original[0], strict=True))
+        # A lost projection is reconstructible even if the wrapper itself was killed.
+        locator.unlink()
+        status, _ = result(environment, "run", workspace, "status", code=1)
+        assert (status["run_id"], status["revision"]) == original[0]
+        assert json.loads(locator.read_text())["run_id"] == original[0][0]
+        before_attempts = {row["id"] for row in status["attempts"]}
+        resumed = invoke(environment, "run", workspace, "resume", "--write", "--continuity-reason", REASON)
+        assert resumed.returncode in {0, 1}, resumed.stderr
+        plan = Plan.loads((workspace / "output" / "plan.json").read_text())
+        selected = next(op.id for op in plan.operations if op.desired.values()["action"] == "stock" and "lot-a" in op.attribution.lines)
+        retried = invoke(environment, "run", workspace, "retry-operation", selected, "--write", "--continuity-reason", REASON)
+        assert retried.returncode in {0, 1}, retried.stderr
+        final_result = invoke(environment, "run", workspace, "status")
+        final = json.loads(final_result.stdout)
+        assert final["run_id"] == original[0][0] and final["revision"] == original[0][1]
+        assert before_attempts <= {row["id"] for row in final["attempts"]}
+        stocks = inspected(environment, workspace)["records"]["stock/"]
+        assert len(stocks) <= 2
+        assert [row["pk"] for row in stocks if row["batch"] == "DEMO-A"] == [first_stock["pk"]]
+        blocked = invoke(environment, "run", workspace, "execute", "--write")
+        assert blocked.returncode == 1 and "already has execution history" in blocked.stderr
+
+
+@pytest.mark.parametrize("damage", ["table", "column", "version", "integrity"])
+def test_damaged_fake_schema_refuses_restart_before_identity_or_reseeding(environment, tmp_path, damage):
+    import sqlite3
+
+    workspace = tmp_path / damage
+    with server(environment, workspace, "happy"):
+        pass  # Establish a real bound port before damaging the stopped database.
+    database = workspace / "server.sqlite3"
+    if damage == "integrity":
+        database.write_bytes(b"not a SQLite database")
+    else:
+        with sqlite3.connect(database) as connection:
+            if damage == "table":
+                connection.execute("DROP TABLE media")
+            elif damage == "column":
+                connection.execute("ALTER TABLE requests RENAME COLUMN outcome TO wrong_outcome")
+            else:
+                connection.execute("PRAGMA user_version=999")
+    original = database.read_bytes()
+    refused = invoke(environment, "serve", "--workspace", workspace, "--restart")
+    assert refused.returncode == 1 and not refused.stdout
+    assert "DEMO error" in refused.stderr
+    assert database.read_bytes() == original
+    assert not (workspace / "output" / "run.json").exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="cooperative child SIGINT timeout recovery is POSIX-specific")
+def test_timeout_after_applied_stock_recovers_original_locator_without_replay(environment, tmp_path):
+    from invimport.demo.server import DemoHandler
+    from invimport.demo.workspace import MARKER, save_json
+
+    workspace, manifest = create_workspace(tmp_path / "timeout", "happy")
+    applied, release = threading.Event(), threading.Event()
+
+    class DelayedResponse(DemoHandler):
+        def send(self, code, body):
+            if self.command == "POST" and urlsplit(self.path).path.rstrip("/") == "/api/stock" and code == 201:
+                applied.set()
+                release.wait(timeout=15)
+            try:
+                super().send(code, body)
+            except BrokenPipeError:
+                pass  # The deliberately timed-out child has closed its socket.
+
+    with DemoHTTPServer(DemoState(workspace / "server.sqlite3"), manifest["instance"]) as listener:
+        listener.RequestHandlerClass = DelayedResponse
+        manifest["port"] = listener.server_port
+        save_json(workspace / MARKER, manifest)
+        thread = threading.Thread(target=listener.serve_forever, daemon=True)
+        thread.start()
+        try:
+            result(environment, "run", workspace, "prepare")
+            # Bound the real subprocess wait in this embedding test, preserving
+            # production's ordinary five-minute default and real timeout path.
+            script = "from functools import partial; from invimport.demo import runner; from invimport.demo.process import run_child; from invimport.__main__ import cli; import sys; runner.run_child=partial(run_child, timeout_seconds=5); sys.exit(cli(sys.argv[1:]))"
+            log = (tmp_path / "timeout.log").open("w", encoding="utf-8")
+            process = subprocess.Popen([sys.executable, "-c", script, "demo", "run", str(workspace), "execute", "--write"],
+                                       env=environment, cwd=ROOT, stdout=subprocess.PIPE, stderr=log, text=True)
+            try:
+                assert applied.wait(timeout=10)
+                process.communicate(timeout=20)
+                stderr = (tmp_path / "timeout.log").read_text()
+                assert process.returncode == 1 and "timed out" in stderr
+                locator = json.loads((workspace / "output" / "run.json").read_text())
+                assert locator["run_id"] and locator["revision"]
+                status, _ = result(environment, "run", workspace, "status", code=1)
+                assert (status["run_id"], status["revision"]) == (locator["run_id"], locator["revision"])
+                assert any(row["state"] == "uncertain" for row in status["operations"])
+                remote = DemoState(workspace / "server.sqlite3").inspect()
+                assert remote["counts"]["stock/"] == 1
+                assert invoke(environment, "run", workspace, "execute", "--write").returncode == 1
+                assert DemoState(workspace / "server.sqlite3").inspect()["records"] == remote["records"]
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.communicate(timeout=5)
+                log.close()
+        finally:
+            release.set()
+            listener.shutdown()
+            thread.join(timeout=5)

@@ -380,7 +380,8 @@ does not enable default rollout, media/archive parity or production concurrency.
 ## Loopback demonstration boundary
 
 `commands.demo` provides `demo serve/run/inspect` around reusable
-`demo.workspace`, `demo.server`, `demo.state` and `demo.runner` modules.
+`demo.workspace`, `demo.server`, `demo.state`, `demo.runner`, `demo.process` and
+`demo.recovery` modules.
 An owned private workspace seeds fictional stock/config/evidence and a persistent
 SQLite fake. The actual pinned SDK and real separate-process `import-run` CLI
 exchange HTTP with its loopback-only server, including setup/auth, OPTIONS, CRUD,
@@ -398,3 +399,11 @@ bypassed. Foreground Ctrl-C stops the listener; no automatic cleanup/reset exist
 See the [guide](docs/import-demo.md) and [handover](docs/handovers/import-execution-demo.md).
 This deliberately bounded synthetic fake is client-contract evidence, not a live
 server, API emulator, immutable identity capability or exactly-once guarantee.
+
+On POSIX, demo process control forwards Ctrl-C to a separately grouped child and reaps it,
+retaining exit130; bounded timeout returns1. Read-only canonical registry/journal
+validation reconstructs a missing original run/revision locator after interruption,
+without creating authority or changing effects. Required fake schema/version/table/
+column and SQLite integrity checks run before listener readiness, with no reset or
+migration. The identical original demo schema0 can be read without upgrading it;
+new fake databases use schema1. Real execution SQLite/plan schemas are unchanged.

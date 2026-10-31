@@ -33,6 +33,7 @@ def multipart(content_type: str, content: bytes) -> tuple[dict, str, bytes]:
 
 class DemoHTTPServer(HTTPServer):
     def __init__(self, state: DemoState, instance: str, port: int = 0) -> None:
+        state.validate_schema()
         self.state, self.instance = state, instance
         super().__init__(("127.0.0.1", port), DemoHandler)
 

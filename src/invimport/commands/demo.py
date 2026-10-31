@@ -13,6 +13,7 @@ import sqlite3
 import subprocess
 import sys
 
+from ..execution.ownership import JournalError
 from ..demo.runner import run_import
 from ..demo.server import DemoHTTPServer
 from ..demo.state import DemoState
@@ -83,6 +84,6 @@ def run(args: argparse.Namespace) -> int:
             raise ValueError("continuity reason is valid only for resume/retry-operation")
         return run_import(args.workspace, args.action, operation_id=args.operation_id,
                           write=args.write, continuity_reason=args.continuity_reason)
-    except (OSError, ValueError, KeyError, sqlite3.DatabaseError, subprocess.SubprocessError) as exc:
+    except (OSError, ValueError, KeyError, sqlite3.DatabaseError, subprocess.SubprocessError, JournalError) as exc:
         print(f"DEMO error: {exc}", file=sys.stderr)
         return 1

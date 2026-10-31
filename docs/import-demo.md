@@ -102,9 +102,24 @@ Restart binds the original persisted port and database/nonce. If the port is
 occupied, it fails; stop the occupying process using your normal tools or wait
 for the port to become available. It never chooses a different target for an
 existing history. Never edit the port or copy a different database over this one.
-A missing/corrupt fake database or missing workspace member is an error, rather
-than permission to reseed. Failed initial startup can leave a partial directory;
+A missing/corrupt fake database, unsupported schema, missing/changed required
+table or column, or missing workspace member is an error before binding/ready,
+rather than permission to reseed. Failed initial startup can leave a partial directory;
 retain it for inspection and choose a new directory for another initial launch.
+
+On POSIX systems (including macOS/Linux), Ctrl-C during `demo run` forwards one
+interrupt to its separately grouped child,
+waits for settlement/reaps it, and preserves exit 130. The five-minute child bound
+also stops/reaps the child and reports timeout as exit 1. A write can have applied
+before either interruption: inspect local status before recovery. Known effects
+remain known and uncorrelated lost creates remain uncertain; do not retry a fresh
+execution to get around them. A missing `output/run.json` after interruption is
+reconstructed read-only from the canonical registry and validated original journal,
+claim, plan revision and endpoint before status/resume/retry. This restores only a
+convenience projection, never a claim, result, operation or missing authority.
+Corrupt/missing/ambiguous registry or journal still fails closed. Windows uses
+conservative child termination where POSIX signal-group forwarding is unavailable;
+inspect retained uncertainty before recovery.
 
 There is no daemon, PID file, kill endpoint or automated recursive cleanup.
 After stopping the server and any import process, you may delete **only the exact
@@ -134,7 +149,7 @@ invocation and paths so this boundary is visible.
 | `config/` | Self-contained demo category and parameter configuration |
 | `demo.env`, `home/` | Demo-only environment file and isolated child home/cache |
 | `output/plan.json` | Reviewed executable plan with frozen source bytes |
-| `output/run.json` | Convenience locator for the original run, never execution authority |
+| `output/run.json` | Reconstructible original run/revision locator, never execution authority |
 | `output/*-result.json`, `output/*-events.jsonl` | Latest real CLI projections per action; replaced on the next same action |
 | `state/execution/registry.sqlite3` | Real canonical local registry and retained claims |
 | `state/execution/runs/` | Real journals, attempts/requests, artifacts and outcome reports |

@@ -195,3 +195,111 @@ required before publication. The source/runtime, guide and test files are frozen
 only final validation/handoff bookkeeping follows. Root should publish the reviewed
 candidate as a stacked PR against the Stage 7 branch after clearance. Nothing here
 supersedes its live/parity/serial/unknown-effect limits or authorizes merging.
+
+
+## Independent rejection and corrections
+
+Independent reviewer rejected initial exact candidate
+`227a8409e9c7f3628270281856cd80316d4c2191` with two material findings. The
+passing owner suites above did not cover these boundaries and do not clear that
+candidate retroactively:
+
+1. **P1 cancellation/recovery locator:** actual wrapper+child group SIGINT after
+   the first applied StockItem left a durable run/claim but no `output/run.json`.
+   The wrapper's subprocess.run raised before result/locator saving, so wrapper
+   status/resume/retry could not reach the valid original history. The five-minute
+   timeout had the same missing-projection problem. Fresh execute correctly stayed
+   blocked; the defect stranded supported recovery rather than permitting replay.
+2. **P2 fake schema readiness:** dropping `media` from a retained fake DB still let
+   restart announce ready under its old nonce/port. Identity-table checking alone
+   did not establish the endpoint could serve required byte-verification behavior.
+
+Corrections stay entirely within the demo boundary:
+
+- Added `demo.process` with a separately grouped child on POSIX, one forwarded
+  SIGINT, bounded settle/terminate/kill escalation and reaping. Ctrl-C returns130;
+  timeout retains its controlled exit1. Independent locator/result projection
+  errors cannot override a settled cancellation's130. Hard process death is still
+  not proof that a remote request did not apply; ordinary journal uncertainty rules
+  remain authoritative.
+- Added `demo.recovery`: read-only existing-file registry inspection verifies
+  schema/integrity, exactly one canonical run and matching claim/location/revision;
+  the exact registered journal under the owned run root must validate its schema,
+  original plan revision/endpoint and all semantic history through the existing
+  journal validator. Missing or contradictory authority fails closed. Only the
+  disposable run/revision JSON locator is written. No registry/journal/claim/result
+  or operation is created, edited or reset. Fresh local status/resume/retry uses
+  this discovery even after a prior wrapper died before saving any JSON result.
+- Execute's finally path reconstructs the locator after child settlement, including
+  timeout; a fresh invocation can do the same if the wrapper was hard-killed.
+  Existing-locator mismatch remains an error and fresh execute remains forbidden.
+- Added complete required fake table/column/type/nullability/PK checks, explicit
+  supported schema version and SQLite integrity checking before listener binding/
+  readiness. New fake DBs mark schema1; original candidate schema0 has the identical
+  required layout and is accepted read-only without migration. Missing tables,
+  renamed columns, unsupported version and corrupt bytes are refused without
+  reseeding or changing the damaged DB bytes. Production execution schema is
+  unchanged.
+- Regression tests use actual group SIGINT after persisted stock and fresh-process
+  status/resume/selected retry, retaining the original run/revision/attempt IDs and
+  known stock PK while refusing duplicate creation. A real delayed HTTP response
+  holds an applied stock create across an injected short child deadline, exercising
+  the real subprocess timeout path: exit1, original locator/status reachable,
+  uncertain outcome retained and no new write execution allowed. The injection
+  changes only the embedding wait duration in the test; production remains five
+  minutes. No API/SDK fake replaces the HTTP boundary.
+
+Development corrections during review fixes: the first canonical-locator helper
+incorrectly assumed the run-directory UUID equals the run ID. A real happy test
+caught that before correction was committed; it now uses the registered exact
+location, constrained to the owned canonical runs root and validated against the
+journal's actual ID/revision. The delayed-timeout test initially captured progress into an undrained pipe, so
+its stderr was moved to a file to avoid blocking dispatch. The hook still did not
+delay the request because it compared the raw URL with a query-free path; actual
+SDK URLs carry a query string. Matching the parsed path now deterministically
+holds the applied stock response across the real timeout. Neither correction changes engine policy.
+
+The independent original cancellation reproduction ran unchanged against corrected
+runtime in a new synthetic workspace: wrapper exit130, locator present, fresh local
+status reached the original incomplete run instead of FileNotFoundError. Existing
+reviewer evidence workspaces were not overwritten. Corrected focused/normal checks
+and exact candidate disposition follow after completion. The initial rejection
+remains historical evidence; root must request an exact-head independent recheck.
+
+
+Corrected focused milestone: **14 passed in45.61seconds** (8 original cases,
+real after-effect group SIGINT, four schema-damage cases and real after-effect
+subprocess timeout). The isolated timeout case also passed1/13deselected in7.75s.
+A developmental broad run started before that test-hook correction therefore
+contains its known failed timeout-hook assertion; final required broad evidence
+is recorded separately below and is not inferred from the passing13-case milestone.
+
+
+Final strengthened focused run: **14 passed in48.56seconds**. Schema-damage
+regressions now first start/stop a real server to establish its persisted nonzero
+port, so an unrelated incomplete-startup/port0 guard cannot satisfy the refusal
+assertion. Database bytes remain unchanged on each rejected restart. The earlier
+developmental broad result was **1 failed, 1892 passed, 1 existing skip,
+43 deselected in221.03seconds**; its sole failure was the raw-query URL test hook
+already corrected above. Final normal evidence follows separately. POSIX signal
+tests run on this host; Windows conservatively terminates an interrupted child
+instead of claiming POSIX signal-group behavior, as the guide now states.
+
+## Corrected candidate owner verification
+
+- Final required `make test`: **1893 passed, 1 existing skip, 43 deselected
+  in215.88seconds** on the unchanged corrected runtime.
+- Final strengthened focused demo suite: **14 passed in48.56seconds**, including
+  actual bound-port schema refusal and after-effect signal/timeout cases.
+- Required uv Ruff over all changed Python, complete staged/base-to-head whitespace
+  and inherited required-main ancestry: **pass**. No runtime change follows these
+  checks; only this validation/disposition record is updated.
+- Original independent signal repro passes unchanged in a new workspace. No
+  reviewer evidence was edited; no live inventory/vendor request, production engine
+  change, dependency change, further agent, push, PR or merge occurred.
+
+Both material review corrections are owner-complete. Initial227a840 remains rejected
+history. A fresh independent exact-head recheck must approve the next clean local
+commit before root publishes; this owner verification is not independent clearance.
+The bounded stock/demo, explicit write/continuity, local serial authority, unknown
+create, immutable finalization and no live-capability/exactly-once limits remain.

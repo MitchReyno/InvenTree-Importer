@@ -40,7 +40,9 @@ def load_workspace(path: Path) -> tuple[Path, dict]:
         candidate = path / child
         if candidate.is_symlink() or not candidate.exists():
             raise ValueError(f"missing or symlinked owned demo member: {child}; never recreate lost state")
-    with DemoState(path / "server.sqlite3").connect() as connection:
+    state = DemoState(path / "server.sqlite3")
+    state.validate_schema()
+    with state.connect() as connection:
         instance = connection.execute("SELECT instance FROM identity").fetchall()
     if instance != [(manifest["instance"],)]:
         raise ValueError("demo manifest/database identity differs")
