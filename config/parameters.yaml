@@ -689,6 +689,19 @@ Current - Average Rectified (Io):
     - Current - Average Rectified (Io)
   parse: quantity
 
+Current - Peak (Ip):
+  units: A
+  description: Tunnel diode peak-point current
+  aliases:
+    - Current - Peak (Ip)
+    - Current - Peak
+  parse: quantity
+
+Capacitance Ratio:
+  description: Ratio of capacitance at two stated reverse voltages, e.g. 5.0-6.5 (C3/C25)
+  aliases:
+    - Capacitance Ratio
+
 Transistor Type:
   choices:
     - NPN

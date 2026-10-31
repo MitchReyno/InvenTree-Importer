@@ -132,6 +132,16 @@ Diodes:
       - "Current - Average Rectified (Io)"
       - Voltage - DC Reverse (Vr) (Max)
       - "Current - Reverse Leakage @ Vr"
+  Rectifier Diodes:
+    description: Single diode rectifiers, including general-purpose and high-voltage types
+    parameters:
+      - Semiconductor Material
+      - Technology
+      - "Current - Average Rectified (Io)"
+      - Voltage - DC Reverse (Vr) (Max)
+      - "Current - Reverse Leakage @ Vr"
+      - Reverse Recovery Time (trr)
+      - Power Rating
   Schottky Diodes:
     parameters:
       - Capacitance
@@ -147,6 +157,7 @@ Diodes:
       - "Current - Average Rectified (Io)"
       - "Current - Reverse Leakage @ Vr"
       - Voltage - DC Reverse (Vr) (Max)
+      - Current - Peak (Ip)
   Signal Diodes:
     key_parameters:
       - "Current - Reverse Leakage @ Vr"
@@ -159,8 +170,20 @@ Diodes:
       - Power Rating
       - Capacitance
       - Reverse Recovery Time (trr)
+      - "Current - Average Rectified (Io)"
     aliases:
       - Discrete Semiconductor Products / Diodes / Rectifiers / Single Diodes
+  Varactor Diodes:
+    description: Voltage-variable capacitance diodes for tuning and automatic frequency control
+    parameters:
+      - Capacitance
+      - Capacitance Ratio
+      - Technology
+      - "Current - Reverse Leakage @ Vr"
+      - Voltage - DC Reverse (Vr) (Max)
+      - Power Rating
+    aliases:
+      - Discrete Semiconductor Products / Diodes / Variable Capacitance (Varicaps, Varactors)
   Zener Diodes:
     ignore:
       - Qualification

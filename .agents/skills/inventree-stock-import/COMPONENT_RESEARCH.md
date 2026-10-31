@@ -266,6 +266,8 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - 04713 Motorola (now listed as Freescale/NXP)
 - 07263 Fairchild Semiconductor
 - 01295 Texas Instruments
+- 81483 International Rectifier (FLIS now Infineon Technologies Americas); 59993 older IR code. 03508 GE Semi-Conductor Products Dept, Auburn NY. 82577 Raytheon Company, El Segundo. K1196 Diodes Zetex; K0268 Raytheon Systems Ltd (CV design control); K7654 MoD Procurement (K1007 CV specs). (2026-10)
+- Collins (13499) diode numbers: 353-9009-110/-112 = 1N4454 family (NSN 5961-00-950-6606); 922-6106-0x0 are Collins diode numbers. A pink "NON-STANDARD REQUIREMENT ISSUE" form 074-5181-100 carrying a 922-xxxx number is a Collins-style requisition. (2026-10)
 - 12115 DRS ICAS (design-control numbers like SC5962-…)
 - 13499 Rockwell Collins Government Systems (351-xxxx-010 house numbers)
   — also 350-xxxx-010 and 263-xxxx-0x0 (connectors); A-B chips made for
@@ -503,6 +505,9 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - A bag P/N can sit on a different NSN from the one written on the bag (Elco 55-47202 is on 5935-00-797-5083, not the handwritten 5961-924-4456): search the P/N on its own. (2026-10)
 - On a cancelled NSN, NSN Depot silently shows the replacement's MCRL (clue: RNCC E / RNVC 8). FLIS can quote a sibling's figure (45 mcd = MV5352 on an MV5353 NSN) or contradict the part numbers (39.100 kohm vs RNR60C3922) or itself (340° stops yet 3600° rotation). (2026-10)
 - Look-alikes: MCR649P-x (20 A, 1974) is not MCR649AP-x (2N2573-79, 25 A); HP 5082-4415 (0.8 mcd) and -4444 (0.3 mcd) name each other as replacements; "14300-010" is also a Piper cable. A glass resistor marked CG1/4 is TI, not Corning. (2026-10)
+- The DLA label's maker may be missing from the NSN's own MCRL: Fairchild 07263 1N914B appears only on the replacement NSN 5961-00-022-5664 (JANTX1N914). FLIS 1N914B (75 V / 75 mA / 150 °C ambient) disagrees with maker sheets (100 V / 200 mA / 175 °C TJ). (2026-10)
+- 1S2091 (no suffix) is both a TI 10% zener and a Toshiba signal diode - keep the A. acinv.com "alternate numbers" can contradict the part (922-6106-030 -> SMV1375-3 vs MV109 marking). TekWiki contradicts itself on 152-0125-00 (1N3717 vs 1N3713 pages); the Tek RPR (4.7 mA) governs. (2026-10)
+- Tags reading `5961-PN-<part>` are FSC + part-number stock numbers, not NSNs - no `nsn:` tag. (2026-10)
 
 ## Tooling
 
@@ -549,3 +554,16 @@ contradictions, and date anything that may go stale (`(2026-10)`).
 - AAZ over 3 on a packet may be a partial type plus quantity. No exact AAZ3 diode entry was found in this research; do not substitute AAZ13.
 - Philips marking-code table PDF page 5 maps C16 PH to BZV85-C16. Nexperia BZV85 PDF opened in the web reader but direct downloads returned 403 (2026-10-25).
 - TI U-197 (2026-10-27): exact hyphenated marking is listed under NSN 5961-00-045-9823, CAGE 01295. RNVC 1 marks an incomplete reference; FLIS glass enclosure differs from the photographed flanged metal body. Keep the record's 400 V silicon figures as attributed notes, not device parameters. The related Tektronix 153-0007-00 selection is not a direct TI datasheet.
+- BA110 (2026-10-27): ITT Semiconductor Summary 1969, printed page 32 (one-page scan on DatasheetArchive), confirms a silicon varactor for AFC. Use the exact BA110 row; BA110G and BA110U differ. Capacitance is 10 pF (8–12 pF) at 2 V reverse bias. Breakdown >30 V is a minimum breakdown figure, not a maximum working-voltage rating. The lower DO-7 statement belongs to BA141/BA142, not BA110; catalogue maker attribution does not identify a worn, rebagged lot's maker.
+
+## Diode research additions (2026-10-27)
+
+- Telefunken 1979/80 *Dioden/Diodes Datenbuch* (bitsavers `components/telefunken/`, 269 pp., text layer; use the ftp.mirrorservice.org mirror): AA119 PDF pp.73-75, AA132 pp.77-80, AA133 from p.81, type index p.11 (printed = PDF - 54). DO-7 = "51A2 DIN 41880".
+- SGS-Thomson 1990 *Zener, Schottky and Rectifier Diodes* 1st ed (bitsavers `components/sgs/_dataBooks/`, 23 MB, 690 pp., PDF = printed + 1): zener cross-ref pp.17-32, 1N5333B-1N5388B pp.76-80 (CB-417 outline p.78). The italic ST logo on curved plastic bodies defeats the logo matcher - compare by eye with the logo printed in the book.
+- UK CV specs: patric-sokoll.de (tubedata) hosts scanned MoD CV spec PDFs (`curl -g` for the brackets; no text layer). CV7045 = 200 V 400 mA silicon power diode, prototypes 1S111/1S115 (TI UK), Zetex ZS102; spec allows the CV number as colour bands (violet-(black)-yellow-green = 7045). Blunham CVregister: CV7045 PDF p.64, CV<->NSN p.213, type->CV p.165; OCR renders 1S111 as "15111".
+- Transitron *Silicon Diodes* catalogue (byan-roper.org, no text layer): 1N625-1N629 fast-switching junction types PDF p.7 (TE-1350D 11-58). 1N628 = NSN 5961-00-578-1699; its band code would be blue-red-grey.
+- Tektronix-selected tunnel diodes are marked maker + last four digits of the Tek number ("GE0125" = GE-made 152-0125, 4.7 mA Ge TD-3A class, gold top-hat). TekWiki `Tek_<partno>_rpr.pdf` uploads give Tek part -> NSN -> CAGE -> maker PN (152-0125-00 = GE STD704).
+- Datasheet Archive catalogue-scan rows reach 1960s-70s shortforms (IR 1Z series Bulletin 2204 - T5/T10 suffix = ±5/±10%; TI 1967/8 data book 1S20xxA reference diodes printed p.26; Semicon Indexes). Search rows curl fine; the viewer page needs browser-harness to expose the signed `file=` PDF URL.
+- Westinghouse S1CN1-S12CN1 (1.5 A silicon diffused rectifiers) listed in DatasheetArchive DSA8180004773; the body logo (W with vertical stroke in a circle) is the UK Westinghouse Brake & Signal mark, not Westinghouse Electric's; neither is in the chip-logo set.
+- Motorola MV109 = Mini-L Case 226 ribbon-lead package, red stripe (DS 8546). BZX55 "55C" over "15" is a generic device code printed by several makers - not a maker mark.
+- onsemi PDFs that 403 to curl: open an onsemi page in browser-harness and `fetch('/download/data-sheet/pdf/<x>-d.pdf')` in the tab.
