@@ -36,7 +36,11 @@ from typing import Any, Callable
 from urllib.parse import unquote, urldefrag, urlparse
 
 import requests
+
 from pypdf import PdfReader, PdfWriter
+
+from ..execution.observation import active, worker
+from ..execution.transport import external_get
 
 from .collections import list_models, list_rows
 from .. import cache
@@ -124,7 +128,8 @@ def cached_pdf(url: str, cache_dir: Path = DATASHEETS_DIR) -> Path | None:
 
 def _fetch(url: str) -> requests.Response:
     """One GET. Separate so tests can stand in for the network."""
-    return requests.get(url, timeout=60, headers={"User-Agent": USER_AGENT})
+    return external_get(url, transport=requests, timeout=60,
+                        headers={"User-Agent": USER_AGENT})
 
 
 def download_pdf(url: str, *, cache_dir: Path = DATASHEETS_DIR,
@@ -191,8 +196,15 @@ class Downloads:
                 future.set_result(download_pdf(
                     url, cache_dir=self.cache_dir, refresh=self.refresh))
             except Exception as exc:             # pragma: no cover
-                future.set_result((None, f"download failed: {exc}"))
-        return future.result()
+                future.set_result((None, f"download failed: {type(exc).__name__}"))
+        observation = active()
+        waiting = not owner and not future.done()
+        if waiting and observation:
+            observation.emit("wait_started", "shared datasheet download")
+        result = future.result()
+        if waiting and observation:
+            observation.emit("wait_finished", "shared datasheet download")
+        return result
 
 
 def prefetch(urls, *, cache_dir: Path = DATASHEETS_DIR,
@@ -208,7 +220,10 @@ def prefetch(urls, *, cache_dir: Path = DATASHEETS_DIR,
         return
     downloads = Downloads(cache_dir=cache_dir)
     with ThreadPoolExecutor(max_workers=min(workers, len(wanted))) as pool:
-        list(pool.map(downloads.get, wanted))
+        futures = [pool.submit(worker(downloads.get, label="datasheet download",
+                                      group="downloads"), url) for url in wanted]
+        for future in futures:
+            future.result()
 
 
 def extract_pages(source: Path, pages_text: str, *,
@@ -433,7 +448,8 @@ def backfill(api, *, write: bool = False, category: str = "",
              for part in parts}
     downloads = Downloads(cache_dir=cache_dir, refresh=refresh)
     pool = ThreadPoolExecutor(max_workers=max(1, workers))
-    pending = {part.pk: pool.submit(_first_pdf, downloads, links[part.pk])
+    pending = {part.pk: pool.submit(worker(_first_pdf, label="datasheet download",
+                                         group="downloads"), downloads, links[part.pk])
                for part in parts
                if part.pk not in done and links[part.pk]}
 

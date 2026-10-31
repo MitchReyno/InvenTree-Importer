@@ -1,7 +1,7 @@
 # Staged implementation plan — observable, resumable stock imports
 
 Status: maintained implementation plan. Stage 0 establishes contracts; Stage 1
-implements independently reviewed safe reads/errors; Stages 2–7 remain
+implements independently reviewed safe reads/errors; Stage 2 implements in-memory observations; Stages 3–7 remain
 unimplemented. Companion documents:
 [design](import-execution-design.md), [contracts](import-execution-contracts.md),
 [architecture](../ARCHITECTURE.md). Baseline main `c22b7a1` includes PR #11
@@ -15,7 +15,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 |---|---|---|
 | 0 | Complete; upstream incorporation independently approved | [Stage 0 handover](handovers/import-execution-stage-0.md) |
 | 1 | Complete; independent implementation review approved | [Stage 1 handover](handovers/import-execution-stage-1.md); error taxonomy and complete-read fault regressions |
-| 2 | Pending | Whole-command request coverage and worker correlation gates below |
+| 2 | Implemented; independent review pending | [Stage 2 handover](handovers/import-execution-stage-2.md); whole-command dispatch visibility, worker correlation and secret-canary regressions |
 | 3 | Pending | Real-store ownership/restart gates below |
 | 4 | Pending | Durable reference-slice fault matrix below |
 | 5 | Pending | Full workflow and immutable artifact gates below |
@@ -256,6 +256,16 @@ attribution and unique sequences. Inspect captured non-TTY stderr from dispatch
 to prove the request row was flushed before the call, including --plan calls.
 
 **Gate:** user can watch each application request, but resume is still not promised.
+
+Stage 2 implementation adjustments: observations retain the existing legacy
+control flow and pools. Operation/attempt IDs are invocation-local UUIDs and
+snapshots are retained events, not executable/durable state. No new retry budget
+or blocked scheduler state is invented. The pinned SDK has no transport-injection
+API, so per-client bound function globals substitute requests/logger without
+patching global modules or copying method bodies. Safe structured events replace
+unsafe free-form diagnostics during observed imports; CLI exception args are
+withheld except existing allowlisted plan-read context. See the handover for
+alternatives, limitations, failed checks and review evidence.
 
 ## Stage 3 — typed planner, serial executor and durable state foundation
 

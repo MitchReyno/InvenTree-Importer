@@ -5,6 +5,8 @@ Status: agreed target design; implementation is staged and incomplete. See
 [maintained plan](import-execution-plan.md) for gates/status and
 [contracts](import-execution-contracts.md) for concrete Stage 0 decisions.
 This document describes intended behavior unless explicitly labeled current.
+Stage 2 now supplies in-memory observations described in architecture/contracts;
+its invocation-local IDs and snapshots are not the future durable executor.
 
 ## Recommendation and scope
 

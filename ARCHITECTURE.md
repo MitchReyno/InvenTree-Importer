@@ -1,6 +1,6 @@
 # Import architecture
 
-This describes implemented behavior through Stage 1 (reviewed Stage 0 baseline
+This describes implemented behavior through Stage 2 (reviewed Stage 0 baseline
 `bfaefd1`, main `c22b7a1`, SDK `inventree==0.13.5`). This includes PR #9 fixes
 and PR #11 code-organization conventions; the latter changes guidance, not
 runtime behavior. Future contracts are explicitly separated below. Keep this
@@ -111,6 +111,58 @@ images and writes a JSON review/montage projection. It is not an executable plan
 failed record reads now raise contextual errors, while optional image failures
 retain record data. Do not repurpose this schema for execution state.
 
+## Implemented observation boundary (Stage 2)
+
+`execution/observation.py` owns immutable correlation/events, per-invocation
+sequence allocation, retained in-memory snapshots, a serialized delivery queue
+and cooperative cancellation. `observing(Observation(observer))` opts library
+callers into observations; ordinary library calls remain silent. Operation and
+attempt UUIDs are presentation identities for this invocation, not durable domain
+IDs or stock identities. Source labels are digests of the existing document/line
+keys; they do not expose input paths or facts. Shared document prefetch retains
+document attribution; parameter workers retain their originating line attribution.
+`worker` explicitly captures immutable context at pool submission and gives each
+worker its own attempt. Existing pool sizes/concurrency remain unchanged.
+
+`inventree/observed_api.py` creates each SDK client before connecting and binds
+copies of the pinned SDK methods with per-client requests/logger globals. SDK
+0.13.5 has no transport injection point; retaining its real bodies avoids a
+second vendored implementation while covering constructor `testServer`, token
+acquisition, CRUD/OPTIONS, reloads, attachment requests and `downloadFile`. Neither
+the SDK class/module nor global requests is patched. Binding and transport state
+have client lifetime; upgrading the supported SDK requires re-auditing this seam.
+Independent PDF/product-image adapters cover external downloads, including assets
+used by stock imports. DigiKey API commands/retry loops remain unmigrated.
+
+`commands/import_progress.py` renders flushed request starts and correlated
+terminals to stderr by default, including non-TTY execution. `write_run` installs
+the observation/logging scope before connection, shows a conditional outline,
+and retains it through post-import `--plan` reads/downloads. Requests expand the
+dispatched/settled counters dynamically; these are not estimated total-work or
+successful-effect counts. Each explicit dispatch gets its own ID. Redirects are
+represented by history count, not independent wire-exchange events. HTTP received,
+HTTP error, exchange unknown, SDK decode outcome and create-model construction
+are distinct observations; none implies durable effect confirmation or replay
+permission. A successful POST remains visible if later model construction fails.
+
+Safe events omit bodies, payloads, credentials, query strings and exception args.
+Inventory labels allow only known route nouns/numeric PKs; external downloads use
+a generic service label. SDK free-form diagnostics are replaced at the bound
+client seam before construction, including info-level token logging. During an
+observed scope, legacy importer/SDK/requests/urllib3 free-form logs are suppressed
+because they may interpolate arbitrary exception bodies or signed URLs. Structured
+events become the safe diagnostic channel. Outside that scope legacy importer
+logs remain available. CLI exceptions expose type and a narrowly allowlisted
+existing plan-read diagnostic, never arbitrary SDK exception args. Library causes
+and structured Stage 1 error objects remain unchanged.
+
+Snapshots/events are in-memory only. Observer exceptions increment a delivery
+failure counter and cannot alter request results or trigger replay. Cancellation
+is checked before dispatch; interruption marks the shared observation cancelled,
+but cannot undo or durably classify an in-flight effect. Legacy line/finalization
+abort behavior and coarse completion policy remain. No retry, backoff, dependency
+scheduler, durable blocked state, journal, restart/resume or TUI is implemented.
+
 ## Implemented provenance, outcomes and limitations
 
 `inventree/ledger.py` has process-global active recording state and a lock around
@@ -154,7 +206,7 @@ These defects are baseline limitations to fix, not supported recovery behavior.
 Normal completion counts created/exists/skipped/review lines; CLI exit 1 is based
 on skipped/review lines and does not represent every selected enrichment failure.
 No authoritative run store, cross-process ownership, executable mutation preview,
-correlated request stream, resumable operation state or complete partial report
+durable correlated request stream, resumable operation state or complete partial report
 exists yet. Barcode fixture uniqueness is not proof of a live target's atomicity.
 No local client can guarantee exactly-once remote effects after a lost response.
 

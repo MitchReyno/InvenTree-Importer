@@ -22,6 +22,8 @@ from typing import Any, Callable, Iterable
 
 import requests
 
+from ..execution.transport import external_get
+
 from .. import cache
 from .api import (
     KEYWORD_SEARCH_URL,
@@ -192,7 +194,7 @@ def fetch_image(url: str, cache_dir: Path = cache.IMAGES_DIR,
         return path
 
     try:
-        response = requests.get(url, timeout=30)
+        response = external_get(url, transport=requests, timeout=30)
     except requests.RequestException as exc:
         log.warning("    [warn] image %s: %s", url, exc)
         return None

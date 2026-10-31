@@ -16,6 +16,7 @@ import logging
 import os
 import sys
 
+from ..execution.observation import active
 from . import ledger
 
 log = logging.getLogger(__name__)
@@ -37,6 +38,9 @@ try:
 except ImportError:
     print("ERROR: dependencies missing - run `uv sync`", file=sys.stderr)
     raise
+
+
+from .observed_api import client
 
 
 # --------------------------------------------------------------------------
@@ -123,7 +127,16 @@ def _create(cls, api, data, **kwargs):
         raise InvenTreeError(
             f"creating {cls.__name__} at /api/{cls.URL}/ returned nothing"
         )
-    created = cls(api, data=response)
+    observation = active()
+    try:
+        created = cls(api, data=response)
+    except BaseException:
+        if observation:
+            observation.emit("model_finished", "create response model",
+                             outcome="construction_failed_after_response")
+        raise
+    if observation:
+        observation.emit("model_finished", "create response model", outcome="constructed")
     ledger.created(cls.URL, created.pk, payload)
     return created
 
@@ -141,13 +154,13 @@ def connect() -> InvenTreeAPI:
         raise InvenTreeError("set INVENTREE_URL in the .env or environment")
 
     if token:
-        api = InvenTreeAPI(url, token=token)
+        api = client(url, token=token, observation=active())
     elif user and password:
-        api = InvenTreeAPI(url, username=user, password=password)
+        api = client(url, username=user, password=password, observation=active())
     else:
         raise InvenTreeError(
             "set INVENTREE_TOKEN, or INVENTREE_USER and INVENTREE_PASSWORD"
         )
 
-    log.info("Connected to %s", url)
+    log.info("Connected to InvenTree")
     return api

@@ -1,7 +1,7 @@
 # Import execution contracts — Stage 0
 
 Status: agreed target contracts; future CLI/executor/store interfaces below are
-**not implemented**. Stage 1 safety primitives are recorded separately below.
+**not implemented**. Stage 1 safety and Stage 2 observation primitives are recorded separately below.
 Current behavior is in [ARCHITECTURE.md](../ARCHITECTURE.md). The
 [plan](import-execution-plan.md) owns stage status and acceptance gates.
 
@@ -230,3 +230,33 @@ adjustment with reviewer evidence in its handover and maintained plan.
 
 Source/stub evidence, compatibility tradeoffs and validation are recorded in the
 [Stage 1 handover](handovers/import-execution-stage-1.md).
+
+## Stage 2 implemented observation contract
+
+- `Observation`, frozen `Correlation` and frozen `Event` provide schema version 1,
+  synchronized invocation-local sequences, run/operation/attempt/source/group and
+  request identities. `snapshot()` returns an immutable event tuple; `export()`
+  returns credential-free dictionaries. Neither API persists or resumes work.
+- `observing()` opts library callers in; CLI `import-stock` installs a plain stderr
+  observer before connection and retains it through post-import plan generation.
+  Offline validation/schema/vocabulary remain outside the observation/network scope.
+- Every application dispatch emits request_started before HTTP invocation and a
+  correlated request_finished for received/error/unknown exchange. Cancellation
+  before dispatch emits request_cancelled/not_dispatched. Redirect history is a
+  count on the received response, not independently replayable wire requests.
+- SDK decode and create-model outcomes are distinct from HTTP exchange. Received
+  success is not domain-effect confirmation; model failure after POST does not
+  erase the HTTP result. Event identity is not a mutation/idempotency key.
+- Existing parameter/prefetch pools explicitly capture immutable source context
+  and allocate child operation attempts. Observer delivery is serialized through
+  a queue under the sequence lock; failure is counted and never replayed as work.
+- Events omit arbitrary strings from network exceptions, headers, payloads and
+  URLs. Inventory routes use an allowlist; query strings are never labels. Unsafe
+  legacy free-form logging is suppressed only inside observed imports; bound SDK
+  credentials/payload logging is disabled before its constructor. CLI reports safe
+  failure type and established allowlisted plan-read messages. Library exception
+  objects/causes and Stage 1 attachment/barcode contracts remain available.
+- `Observation.cancelled` stops new request dispatches; interruption sets it.
+  Current requests settle according to their transport result. No durable partial
+  report, restart semantics, automatic retry or general independent continuation
+  is promised by this stage. Future operation/store contracts above remain gates.

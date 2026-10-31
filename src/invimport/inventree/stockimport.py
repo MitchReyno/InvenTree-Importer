@@ -31,11 +31,13 @@ import logging
 import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from hashlib import sha256
 from importlib import metadata
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable
 
+from ..execution.observation import operation
 from .collections import list_models
 from ..config import (
     CATEGORIES_FILE,
@@ -223,6 +225,19 @@ def import_stock(
     directory: Path | str | None = None,
     options: ImportOptions | None = None,
 ) -> StockImportResult:
+    """Import a document; observations are opt-in through an observing scope."""
+    source = sha256(document.file_id.encode()).hexdigest()[:16]
+    with operation("stock document", source=source, group="document"):
+        return _import_stock(document, api, directory=directory, options=options)
+
+
+def _import_stock(
+    document: StockFile,
+    api=None,
+    *,
+    directory: Path | str | None = None,
+    options: ImportOptions | None = None,
+) -> StockImportResult:
     """Create the records every line of the file asks for."""
     api = api or connect()
     options = options or ImportOptions()
@@ -231,14 +246,15 @@ def import_stock(
     categories = load_categories_config(directory)
     parameters = load_parameters_config(directory)
 
-    ctx = ImportContext(
-        categories=categories,
-        parameters=parameters,
-        server_categories={c.pathstring: c
-                           for c in list_models(PartCategory, api, limit=LIST_LIMIT)
-                           if getattr(c, "pathstring", None)},
-        templates={t.name: t for t in list_models(ParameterTemplate, api, limit=LIST_LIMIT)},
-    )
+    with operation("discovery", group="discovery"):
+        ctx = ImportContext(
+            categories=categories,
+            parameters=parameters,
+            server_categories={c.pathstring: c
+                               for c in list_models(PartCategory, api, limit=LIST_LIMIT)
+                               if getattr(c, "pathstring", None)},
+            templates={t.name: t for t in list_models(ParameterTemplate, api, limit=LIST_LIMIT)},
+        )
 
     result = StockImportResult()
     supplier_cache: dict[str, Any] = {}
@@ -250,19 +266,23 @@ def import_stock(
     # Mirrored datasheets are fetched together up front; each line then finds
     # its file already in the cache instead of waiting on its own download.
     if options.mirror_datasheets:
-        prefetch(line.datasheet for line in document.lines)
+        with operation("datasheet prefetch", group="downloads"):
+            prefetch(line.datasheet for line in document.lines)
 
     by_id: dict[str, LineAction] = {}
     with ledger.recording() as book:
-        for line in document.lines:
-            action = _import_line(
-                api, document, line, ctx, options,
-                directory=directory,
-                supplier_cache=supplier_cache, location_cache=location_cache,
-                order_cache=order_cache, supplier_parts=supplier_parts,
-                by_id=by_id)
-            by_id[line.id] = action
-            result.lines.append(action)
+        for index, line in enumerate(document.lines, start=1):
+            source = sha256(document.key_for(line).encode()).hexdigest()[:16]
+            with operation(f"stock line {index}/{len(document.lines)}",
+                           source=source, group="lines"):
+                action = _import_line(
+                    api, document, line, ctx, options,
+                    directory=directory,
+                    supplier_cache=supplier_cache, location_cache=location_cache,
+                    order_cache=order_cache, supplier_parts=supplier_parts,
+                    by_id=by_id)
+                by_id[line.id] = action
+                result.lines.append(action)
 
         # After the lines, so a company this run created is there to take
         # one.
@@ -281,13 +301,16 @@ def import_stock(
     # so it goes on after.
     records = {}
     if options.write and options.provenance:
-        result.provenance, records = _write_provenance(
-            document, result, book, ctx)
+        with operation("provenance snapshot", group="provenance"):
+            result.provenance, records = _write_provenance(
+                document, result, book, ctx)
     if options.archive:
-        result.archive = archive_import(api, document, result.lines,
-                                        write=options.write)
+        with operation("archive", group="archive"):
+            result.archive = archive_import(api, document, result.lines,
+                                            write=options.write)
     if records:
-        _attach_provenance(api, document, records, result)
+        with operation("provenance uploads", group="provenance"):
+            _attach_provenance(api, document, records, result)
     return result
 
 

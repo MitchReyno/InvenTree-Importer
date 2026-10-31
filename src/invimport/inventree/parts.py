@@ -29,11 +29,13 @@ from __future__ import annotations
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable, Iterable
 
+from ..execution.observation import worker
 from .collections import DiscoveryError, list_models
 from .. import cache
 from . import ledger
@@ -510,7 +512,9 @@ def _write_parameters(writes: list[Callable[[], Any]]) -> None:
         return
     workers = min(PARAMETER_WORKERS, len(writes))
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        list(pool.map(lambda fn: fn(), writes))
+        futures = [pool.submit(worker(fn, label="parameter write", group="parameters")) for fn in writes]
+        for future in futures:
+            future.result()
 
 
 # --------------------------------------------------------------------------
