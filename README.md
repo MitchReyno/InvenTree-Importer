@@ -1331,6 +1331,10 @@ create nothing.
 
 ## Development
 
+Read [CONVENTIONS.md](CONVENTIONS.md) before writing or reviewing code. It covers
+Python coding practices, error handling, testing and change review; [AGENTS.md](AGENTS.md)
+contains the project-specific workflow and required checks.
+
 ```bash
 make test                     # everything but the scanner TUI tests
 make test-scanner             # just the scanner TUI tests
