@@ -51,6 +51,11 @@ def single(rows: list[dict], label: str) -> dict | None:
     return rows[0] if rows else None
 
 
+def candidate_identities(rows: list[dict]) -> list[dict]:
+    return sorted(({"pk": row["pk"], "identity": record_identity(row, ("category", "IPN", "name", "keywords"))}
+                   for row in rows), key=lambda item: item["pk"])
+
+
 def _unsupported(document: StockFile) -> None:
     if document.provenance:
         raise PreparationReview("source provenance migration requires prepare_full_stock")
@@ -93,9 +98,11 @@ class _Preview:
         self.document, self.api, self.parameters = document, api, parameters
         self.operations: dict[str, OperationSpec] = {}
         self.parts: dict[str, tuple[OperationSpec, tuple[OutputRef, ...]]] = {}
+        self.effective_lines: dict[str, StockLine] = {}
         self.line_categories: dict[str, CategoryConfig] = {}
         self.line_parts: dict[str, OperationSpec] = {}
         self.manufacturers: dict[str, OperationSpec] = {}
+        self.location_rows: list[dict] = []
         self.new_order_subject: str | None = None
         self.reserved_ipns = {str(row.get("IPN") or "") for row in list_rows(api, "part/")}
         self.templates = {row["name"]: row for row in list_rows(api, "parameter/template/")}
@@ -172,6 +179,11 @@ class _Preview:
                                         templates={name: template["pk"] for name, template in self.templates.items()},
                                         parameters=self.parameters)
         existing = single(candidates, "part")
+        declined = None
+        if self.options and existing is None and category.identity == "spec" and set(category.key_parameters) - values.keys():
+            offered = matching_parts(self.api, category_pk=category_pk, identity_kind="spec", designator="",
+                values=identity, templates={name: template["pk"] for name, template in self.templates.items()}, parameters=self.parameters) if category_pk is not None else []
+            declined = candidate_identities(offered)
         values = part_parameters(category, values)
         payload = {"category": category_pk, "name": line.name or part_name(category, line.type or line.mpn, values, dict(self.parameters), line.description),
                    "description": line.description[:250], "IPN": line.ipn or self.next_ipn(category), "keywords": ""}
@@ -204,7 +216,8 @@ class _Preview:
                         "manufacturer_operation": self.manufacturers[line.id].id if line.id in self.manufacturers else None,
                         "parameter_policies": {name: asdict(self.parameters[name]) for name in values}, "templates": {name: self.templates[name]["pk"] for name in values if name in self.templates}},
                         baseline={"pk": existing["pk"] if existing else None,
-                                  "identity": record_identity(existing, tuple(fields)) if existing else None},
+                                  "identity": record_identity(existing, tuple(fields)) if existing else None,
+                                  **({"declined_candidates": declined} if declined is not None else {})},
                         requires=(OutputRef(self.manufacturers[line.id].id, "record"),)
                                   if category.identity == "mpn" and line.id in self.manufacturers else (), line=line)
         gates = []
@@ -263,12 +276,14 @@ def prepare_stock(document: StockFile, *, categories: Mapping[str, CategoryConfi
                           discover=lambda read: DiscoverySnapshot((), "stock_v1"))
     preview = _Preview(document, api, parameters, options)
     server_categories = {r["pathstring"]: r for r in list_rows(api, "part/category/")}
-    locations = {r["pathstring"]: r for r in list_rows(api, "stock/location/")}
+    preview.location_rows = list_rows(api, "stock/location/")
+    locations = {r["pathstring"]: r for r in preview.location_rows}
     for line in document.lines:
         _prepare_line(preview, line, categories=categories, server_categories=server_categories, locations=locations)
     result = replace(plan, operations=tuple(preview.operations.values()), unsupported=(),
                      decisions=Inputs.freeze({**plan.decisions.values(), "source": document.source,
-                                "line_inputs": {line.id: asdict(line) for line in document.lines}}),
+                                "line_inputs": {line.id: asdict(preview.effective_lines.get(line.id, line)) for line in document.lines},
+                                "options": {key: value for key, value in vars(options).items() if not callable(value)} if options else {}}),
                      schema_version=2 if options else 1)
     validate_plan(result)
     return result
@@ -314,10 +329,11 @@ def _prepare_line(preview: _Preview, line: StockLine, *, categories: Mapping[str
         prepare_templates(preview, line, category)
     if options and not line.location and options.default_location:
         line = replace(line, location=options.default_location)
-    if line.location and line.location not in locations and options and options.create_locations:
-        from .stock_taxonomy import path_operation
-        path_operation(preview, line, line.location, model="stock.stocklocation", route="stock/location/", existing=locations)
-    if not line.location or line.location not in locations:
+    preview.effective_lines[line.id] = line
+    if options and line.location:
+        from .stock_taxonomy import prepare_location
+        locations[line.location] = prepare_location(preview, line, line.location)
+    if (line.location and line.location not in locations) or (not line.location and options is None):
         raise PreparationReview(f"line {line.id}: requested location unresolved")
     if options and line.manufacturer:
         from .stock_enrichment import prepare_company
@@ -430,7 +446,7 @@ def _stock(preview: _Preview, line: StockLine, part: OperationSpec, gates: tuple
         if line.currency:
             payload["purchase_price_currency"] = line.currency
     requires = (OutputRef(part.id, "record"), *gates)
-    location_operation = locations[line.location].get("_operation")
+    location_operation = locations[line.location].get("_operation") if line.location else None
     if location_operation:
         requires += (OutputRef(location_operation.id, "record"),)
     if supplier_part:

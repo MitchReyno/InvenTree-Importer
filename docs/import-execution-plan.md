@@ -22,7 +22,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 | 2 | Complete; independent implementation review approved | [Stage 2 handover](handovers/import-execution-stage-2.md); whole-command dispatch visibility, worker correlation and secret-canary regressions |
 | 3 | Complete; independent foundation review approved | [Stage 3 handover](handovers/import-execution-stage-3.md); real SQLite/restart, canonical claims, serial fake-handler gates |
 | 4 | Complete; independent bounded-slice review approved | [Stage 4 handover](handovers/import-execution-stage-4.md); persistent fake-server fault matrix and actual observed SDK composition |
-| 5 | Implemented; independent full-domain review pending | Full workflow and immutable artifact gates below |
+| 5 | Implemented; independent full-domain review pending | [Stage 5 handover](handovers/import-execution-stage-5.md); eight independent-review corrections, recheck pending |
 | 6 | Pending | Compatibility/default rollout gates below |
 | 7 | Pending | DigiKey adaptation and measured concurrency gates below |
 
@@ -483,6 +483,8 @@ per-model parameters, configured taxonomy/template/location creation, notes,
 media/PDF/invoice/logo work, frozen confidence/partial-skip outcomes, immutable
 artifact revisions and a legacy result bridge. See the
 [Stage 5 handover](handovers/import-execution-stage-5.md) for evidence and limits.
+Independent review rejected the initial candidate with eight material findings;
+corrections and exact-commit recheck evidence are tracked in the handover.
 Plan schema 2 adds typed settled barriers while preserving schema-1 bytes/revisions;
 SQLite schema remains 1. Artifact revisions have effect-set identity separate from
 executable plan revision. Provenance uses a separate versioned durable format,

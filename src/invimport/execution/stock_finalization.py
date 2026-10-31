@@ -15,7 +15,7 @@ from pathlib import Path
 from threading import Event
 from typing import TYPE_CHECKING
 
-from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile, ZipInfo
 
 from ..stockfile import StockFile
 from .executor import OperationContext, _dependency_settled, _failed
@@ -23,7 +23,7 @@ from .dispatch import guarded
 from .observation import durable_correlation
 from .store import RunStore
 from .models import (Attribution, Certainty, Effect, Inputs, Kind, OperationResult,
-                     OperationSpec, Plan, State, canonical, digest, validate_plan)
+                     OperationSpec, Output, Plan, State, canonical, digest, validate_plan)
 from .ownership import JournalError
 from .stock_api import StockRequests
 
@@ -81,38 +81,73 @@ def effect_fingerprint(store: RunStore) -> str:
     return digest(_changes(store))
 
 
+def _generated_documents(content: bytes) -> list[dict]:
+    try:
+        decoded = json.loads(content)
+    except (ValueError, UnicodeDecodeError):
+        return []
+    documents = decoded if isinstance(decoded, list) else [decoded]
+    generated = []
+    for item in documents:
+        if not isinstance(item, dict):
+            continue
+        if (item.get("plan_version") == 1 and isinstance(item.get("lines"), list)
+                and isinstance(item.get("file"), str) and isinstance(item.get("file_id"), str)):
+            generated.append(item)
+        elif item.get("format") in {"invimport-execution-report/1", "invimport-execution-provenance/1", "invimport-provenance/1"}:
+            generated.append(item)
+        elif "schema_version" in item:
+            try:
+                Plan.loads(canonical(item))
+            except (ValueError, TypeError):
+                continue
+            generated.append(item)
+    return generated
+
+
+def _generated_archive(content: bytes) -> bool:
+    if not content.startswith(b"PK"):
+        return False
+    try:
+        with ZipFile(BytesIO(content)) as archive:
+            return archive.comment == b"invimport-evidence-archive/1"
+    except BadZipFile:
+        return False
+
+
 def frozen_sources(document: StockFile) -> list[dict[str, str]]:
-    from ..inventree.archive import archive_files, import_folder
+    from ..inventree.archive import import_folder
+    from .artifacts import is_owned_execution_file
     from .stock_assets import stable_bytes
     folder, _ = import_folder(document)
     if folder is None:
         return []
-    excluded_names = {"PLAN.json", "plan.json", "partial-report.json", "execution-report.json",
-                      "invimport-source-manifest.json", "invimport-confirmed-changes.json"}
-    excluded_dirs = {"artifacts", "montage", "montages", "downloads", "report-images"}
-    manifest = []
-    for path in archive_files(folder):
+    sources: dict[Path, bytes] = {}
+    generated_images: set[Path] = set()
+    for path in sorted(folder.rglob("*")):
         relative = path.relative_to(folder)
-        if path.name in excluded_names or excluded_dirs.intersection(relative.parts):
-            continue
-        if path.name.endswith((".provenance.json", "-wal", "-shm", "-journal")) or path.suffix.lower() == ".zip":
+        if any(segment.startswith(".") for segment in relative.parts) or not path.is_file() or is_owned_execution_file(path):
             continue
         if path.is_symlink() or not path.resolve().is_relative_to(folder.resolve()):
             raise ValueError("archive source escapes its import folder")
         content = stable_bytes(path)
-        if path.suffix.lower() == ".json":
-            try:
-                decoded = json.loads(content)
-            except (ValueError, UnicodeDecodeError):
-                decoded = None
-            documents = decoded if isinstance(decoded, list) else [decoded]
-            if any(isinstance(item, dict) and ("plan_version" in item or
-                   item.get("format") == "invimport-execution-report/1" or
-                   {"schema_version", "operations", "input_digest"}.issubset(item)) for item in documents):
+        generated = _generated_documents(content)
+        for report in generated:
+            if report.get("plan_version") != 1:
                 continue
-        manifest.append({"name": relative.as_posix(), "sha256": sha256(content).hexdigest(),
-                         "bytes": b64encode(content).decode("ascii")})
-    return manifest
+            for line in report["lines"]:
+                existing = line.get("existing_part") if isinstance(line, dict) else None
+                image = existing.get("image") if isinstance(existing, dict) else None
+                if isinstance(image, str) and image:
+                    image_path = (path.parent / image).resolve()
+                    if image_path.is_relative_to(folder.resolve()):
+                        generated_images.add(image_path)
+        if generated or _generated_archive(content):
+            continue
+        sources[path] = content
+    return [{"name": path.relative_to(folder).as_posix(), "sha256": sha256(content).hexdigest(),
+             "bytes": b64encode(content).decode("ascii")} for path, content in sources.items()
+            if path.resolve() not in generated_images]
 
 
 def with_finalization(plan: Plan, document: StockFile, *, archive: bool, provenance: bool) -> Plan:
@@ -120,11 +155,12 @@ def with_finalization(plan: Plan, document: StockFile, *, archive: bool, provena
     operations = list(plan.operations)
     settled = [op.id for op in operations]
     attribution = Attribution(plan.import_id, tuple(line.id for line in document.lines))
-    def add(action: str, payload: dict, after: list[str]) -> OperationSpec:
+    def add(action: str, payload: dict, after: list[str], *, lines: tuple[str, ...] | None = None) -> OperationSpec:
         operation = OperationSpec.build(Kind.EVIDENCE, "finalization:" + plan.import_id,
             discriminator=action + ":" + str(payload.get("target", "")) + ":" + str(payload.get("role", "")),
             desired=Inputs.freeze({"action": action, **payload}), settled_after=tuple(after),
-            provides=("record",) if action == "artifact_upload" else (), attribution=attribution, reconciliation="stock_v1")
+            provides=("record",) if action == "artifact_upload" else (),
+            attribution=Attribution(plan.import_id, lines) if lines is not None else attribution, reconciliation="stock_v1")
         operations.append(operation)
         return operation
     provenance_op = None
@@ -143,18 +179,30 @@ def with_finalization(plan: Plan, document: StockFile, *, archive: bool, provena
         archive_op = add("evidence_archive", {"manifest": manifest,
                          "provenance": provenance_op.id if provenance_op else None},
                          settled + ([provenance_op.id] if provenance_op else []))
-    targets = [op for op in plan.operations if op.desired.values().get("action") == "order"]
-    if not targets:
-        targets = [op for op in plan.operations if op.kind == Kind.COMPANY and op.desired.values()["payload"].get("is_supplier")]
+    target_groups: dict[tuple[str, ...], list[str]] = {}
+    for line in document.lines:
+        order = next((op for op in plan.operations if op.desired.values().get("action") == "order" and line.id in op.attribution.lines), None)
+        supplier = next((op for op in plan.operations if op.kind == Kind.COMPANY and
+                         op.desired.values()["payload"].get("is_supplier") and line.id in op.attribution.lines), None)
+        alternatives = tuple(op.id for op in (order, supplier) if op is not None)
+        target_groups.setdefault(alternatives, []).append(line.id)
     if archive_op:
-        for target in targets:
-            add("artifact_upload", {"target": target.id, "artifact": archive_op.id, "role": "archive"}, [archive_op.id])
+        archive_op = replace(archive_op, desired=Inputs.freeze({**archive_op.desired.values(),
+                             "inapplicable_lines": target_groups.get((), []),
+                             "inapplicable_reasons": {line: "supplier_creation_disabled" if plan.decisions.values().get("options", {}).get("create_suppliers") is False else "no_applicable_order_or_supplier_target"
+                                                      for line in target_groups.get((), [])}}))
+        operations = [archive_op if op.id == archive_op.id else op for op in operations]
+        for alternatives, lines in target_groups.items():
+            if alternatives:
+                add("artifact_upload", {"target": alternatives[0], "target_alternatives": list(alternatives),
+                    "fallback_condition": "preferred_has_no_checkpointed_output", "artifact": archive_op.id, "role": "archive"},
+                    [archive_op.id], lines=tuple(lines))
     if provenance_op:
         records = [op for op in plan.operations if op.kind in {Kind.PART, Kind.COMPANY, Kind.STOCK}
                    or op.desired.values().get("action") in {"supplier_part", "manufacturer_part", "order"}]
         for target in records:
             add("artifact_upload", {"target": target.id, "artifact": provenance_op.id, "role": "provenance"},
-                [provenance_op.id] + ([archive_op.id] if archive_op else []))
+                [provenance_op.id] + ([archive_op.id] if archive_op else []), lines=target.attribution.lines)
     add("outcome_report", {}, [op.id for op in operations])
     result = replace(plan, operations=tuple(operations), schema_version=2)
     validate_plan(result)
@@ -166,6 +214,11 @@ def _changes(store: RunStore) -> list[dict]:
     changes = []
     results = store.results()
     observed = {}
+    verified = {}
+    for operation_id, payload in store.connection.execute(
+            "SELECT operation,safe_json FROM events WHERE kind='evidence_verified' ORDER BY sequence"):
+        receipt = json.loads(payload)
+        verified[(operation_id, receipt["model"], receipt["pk"])] = receipt
     for operation_id, payload in store.connection.execute(
             "SELECT operation,safe_json FROM events WHERE kind='confirmed_mutation_fields' ORDER BY sequence"):
         receipt = json.loads(payload)
@@ -185,12 +238,15 @@ def _changes(store: RunStore) -> list[dict]:
             if (effect.kind == "barcode" and result.state in {State.SUCCEEDED, State.ALREADY_SATISFIED}
                     and effect.certainty == Certainty.CONFIRMED):
                 facts = {"barcode": desired["key"]}
+            sent = None
             if effect.kind == "upload" and effect.certainty == Certainty.CONFIRMED:
-                facts = {key: desired[key] for key in ("filename", "sha256") if key in desired}
+                sent = {key: desired[key] for key in ("filename", "sha256") if key in desired}
+                receipt = verified.get((operation.id, effect.model, effect.pk), {})
+                facts = {key: receipt[key] for key in ("filename", "sha256") if key in receipt} if receipt.get("sha256") == desired.get("sha256") else {}
             changes.append({"operation": operation.id, "source": operation.attribution.source,
                             "lines": list(operation.attribution.lines), "kind": effect.kind,
                             "model": effect.model, "pk": effect.pk, "certainty": effect.certainty.value,
-                            "confirmed_fields": facts})
+                            "confirmed_fields": facts, **({"sent_content": sent} if sent is not None else {})})
     return changes
 
 
@@ -219,7 +275,7 @@ def _archive(spec: OperationSpec, context: OperationContext) -> bytes | None:
             raise JournalError("frozen source manifest content mismatch")
         entries[item["name"]] = content
     manifest = [{"name": item["name"], "sha256": item["sha256"]} for item in desired["manifest"]]
-    entries["invimport-source-manifest.json"] = canonical(manifest).encode()
+    entries[".invimport-evidence/source-manifest.json"] = canonical(manifest).encode()
     if desired["provenance"]:
         receipts = prepared_artifacts(context.store, desired["provenance"])
         if not receipts:
@@ -230,9 +286,10 @@ def _archive(spec: OperationSpec, context: OperationContext) -> bytes | None:
         content = path.read_bytes()
         if retained_hash(context, desired["provenance"]) != sha256(content).hexdigest():
             raise JournalError("provenance artifact failed immutable identity check")
-        entries["invimport-confirmed-changes.json"] = content
+        entries[".invimport-evidence/confirmed-changes.json"] = content
     buffer = BytesIO()
     with ZipFile(buffer, "w", compression=ZIP_DEFLATED) as archive:
+        archive.comment = b"invimport-evidence-archive/1"
         for name, content in sorted(entries.items()):
             info = ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
             info.compress_type = ZIP_DEFLATED
@@ -301,14 +358,46 @@ def run_local_or_final(spec: OperationSpec, context: OperationContext, api: Stoc
     return _local_result(action)
 
 
+def _select_target(spec: OperationSpec, context: OperationContext, api: StockRequests) -> tuple[OperationSpec, Output] | OperationResult:
+    from .stock_handlers import _validated_input, review
+    desired = spec.desired.values()
+    operations = {op.id: op for op in context.store.plan.operations}
+    saved = context.store.connection.execute(
+        "SELECT safe_json FROM events WHERE operation=? AND kind='artifact_target_selected' ORDER BY sequence LIMIT 1", (spec.id,)).fetchone()
+    alternatives = desired.get("target_alternatives", [desired["target"]])
+    if saved:
+        selected = json.loads(saved[0])["target_operation"]
+        if selected not in alternatives:
+            return review("artifact_target_selection_conflict")
+        alternatives = [selected]
+    results = context.store.results()
+    for operation_id in alternatives:
+        result = results.get(operation_id)
+        if result is None or not result.outputs:
+            continue
+        target = result.outputs[0]
+        parent = operations[operation_id]
+        if _validated_input(parent, target, api) is None:
+            return review("artifact_target_identity_or_metadata_drift")
+        if not saved:
+            with context.store.transaction() as connection:
+                context.store._event(connection, "artifact_target_selected", spec.id, context.attempt.id,
+                    target_operation=operation_id, model=target.model, pk=target.pk,
+                    fallback=operation_id != desired["target"], lines=list(spec.attribution.lines))
+        return parent, target
+    if desired.get("role") == "archive":
+        return review("no_usable_applicable_archive_target")
+    return OperationResult(State.SKIPPED)
+
+
 def _upload_versions(spec: OperationSpec, context: OperationContext, api: StockRequests) -> OperationResult:
     from .stock_evidence import ensure_evidence
-    from .stock_handlers import _read, review
+    from .stock_handlers import review
     desired = spec.desired.values()
-    target_result = context.store.results().get(desired["target"])
-    if target_result is None or not target_result.outputs:
-        return OperationResult(State.SKIPPED)
-    target = target_result.outputs[0]
+    selection = _select_target(spec, context, api)
+    if isinstance(selection, OperationResult):
+        return selection
+    target_operation, target = selection
     receipts = prepared_artifacts(context.store, desired["artifact"])
     artifact_result = context.store.results().get(desired["artifact"])
     if not receipts:
@@ -322,7 +411,8 @@ def _upload_versions(spec: OperationSpec, context: OperationContext, api: StockR
         content_hash = sha256(content).hexdigest()
         if receipt["sha256"] != content_hash:
             return review("retained_final_artifact_corrupt")
-        row = _read(api, target)
+        from .stock_handlers import _validated_input
+        row = _validated_input(target_operation, target, api)
         if row is None:
             return review("artifact_target_identity_drift")
         filename = f"invimport-{desired['role']}-{content_hash[:20]}" + (".zip" if desired["role"] == "archive" else ".json")

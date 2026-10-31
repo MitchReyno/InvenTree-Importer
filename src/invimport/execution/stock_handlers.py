@@ -79,18 +79,25 @@ def _order_metadata_matches(spec: OperationSpec, row: dict) -> bool:
     return all(row.get(key) == value for key, value in spec.desired.values()["payload"].items())
 
 
+def _validated_input(parent: OperationSpec, output: Output, api: StockRequests) -> dict | None:
+    """One identity/approved-metadata policy for every output consumer."""
+    row = _read(api, output)
+    if row is None:
+        return None
+    if parent.kind == Kind.COMPANY and any(row.get(key, False) != value for key, value in parent.desired.values()["payload"].items() if key.startswith("is_")):
+        return None
+    if parent.desired.values().get("action") == "order" and not _order_metadata_matches(parent, row):
+        return None
+    return row
+
+
 def _inputs(spec: OperationSpec, context: OperationContext, api: StockRequests) -> list[tuple[Output, dict]] | None:
     resolved = []
     operations = {operation.id: operation for operation in context.store.plan.operations}
     for reference in spec.requires:
         output = context.inputs[(reference.operation, reference.name)]
-        row = _read(api, output)
+        row = _validated_input(operations[reference.operation], output, api)
         if row is None:
-            return None
-        parent = operations[reference.operation]
-        if parent.kind == Kind.COMPANY and any(row.get(key, False) != value for key, value in parent.desired.values()["payload"].items() if key.startswith("is_")):
-            return None
-        if parent.desired.values().get("action") == "order" and not _order_metadata_matches(parent, row):
             return None
         resolved.append((output, row))
     return resolved
@@ -237,8 +244,14 @@ class StockHandlers:
             candidates = matching_parts(api, category_pk=payload["category"], identity_kind=desired["identity_kind"],
                                         designator=desired["type"], values={name: value for name, value in desired["parameters"].items()},
                                         templates=desired["templates"], parameters=policies)
-            if desired["identity_kind"] != "mpn" and candidates:
-                return review("part_discovery_changed")
+            if desired["identity_kind"] != "mpn":
+                from .stock_preparation import candidate_identities
+                approved = baseline.get("declined_candidates")
+                if approved is not None:
+                    if candidate_identities(candidates) != approved:
+                        return review("part_discovery_changed")
+                elif candidates:
+                    return review("part_discovery_changed")
         if list_rows(api, ROUTES[model], params=filters):
             return review("discovery_changed")
         return _create(spec, context, api, model=model, payload=payload)

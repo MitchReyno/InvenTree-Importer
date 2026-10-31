@@ -558,3 +558,13 @@ may supply explicit configuration but do not implicitly write local config YAML;
 a future CLI must provide a frozen configuration destination/precondition contract.
 More than one distinct new PO allocation still requires a verified allocator
 contract. Neither restriction permits a silent fallback to legacy execution.
+
+
+The independent Stage 5 review required corrections before publication: explicit
+per-line archive routing/locked fallback, shared finalization target validation,
+positive owned-source exclusions, approved partial-new candidate revalidation,
+omitted and escaped-name location parity, transfer-versus-verification field
+receipts, and completed local-retention integrity. The current implementation
+uses those contracts; the initial candidate remains rejected history in the
+Stage 5 handover. Local retention failure does not invalidate prior remote success
+or authorize remote replay. Review clearance remains an exact-commit gate.

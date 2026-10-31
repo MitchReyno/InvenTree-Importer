@@ -445,3 +445,30 @@ Stage 5 must add a verified policy before expanding that scope.
   actual file existence. Report-write failure never means saved success.
 - The one-new-PO allocation restriction remains; expanding it requires a verified
   target allocator contract. CLI write approval/default rollout remain Stage 6.
+
+
+### Stage 5 independent-review corrections
+
+- Full mode permits genuinely omitted locations and freezes effective defaults.
+  Explicit requested locations retain strict review on failure. Escaped names use
+  shared `location_names`, resolved by name/parent instead of ambiguous pathstrings.
+- Source exclusion requires canonical/marked run ownership or positively recognized
+  generated content. Generic source folder/filename/extension/plan-like keys do not
+  identify generated data. Report-owned downloaded image references and marked
+  generated ZIPs remain excluded; legitimate vendor ZIPs remain source evidence.
+- Partial-new decisions persist identities of the originally declined candidate
+  set. Revalidation compares that evidence, preserving the approved new decision
+  while blocking actual subsequent candidate changes. This is not create replay.
+- Archive routing is per source line with frozen PO-preferred/supplier alternatives.
+  Fallback applies only when the preferred operation has no checkpointed output.
+  Known target drift reviews without fallback. The first validated selection is
+  journal-locked across repair/revision. Inapplicable/disabled lines are explicitly
+  unattached; no usable applicable recipient is review, not successful skipping.
+- All finalization targets use the same parent identity/role/frozen-PO-metadata
+  validator as other consumers, before each transfer or reconciliation read.
+- Accepted upload transfer effects retain source attribution and `sent_content`
+  separately. `confirmed_fields` requires remote verification receipts; image
+  receipts confirm content SHA without claiming an unobserved remote filename.
+- Completed status/resume and result projection validate retained receipt SHA/size.
+  Local missing/corrupt/unavailable retention remains separate from historical
+  successful remote effects and does not authorize replay/reopening of writes.

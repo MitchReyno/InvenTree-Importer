@@ -36,8 +36,8 @@ def test_archive_uses_fixed_manifest_excludes_run_state_and_noop_has_no_new_arch
     folder.mkdir()
     doc = document(folder)
     (folder / 'evidence.txt').write_bytes(b'evidence')
-    (folder / 'PLAN.json').write_text('{}')
-    (folder / 'old.provenance.json').write_text('{}')
+    (folder / 'PLAN.json').write_text(json.dumps({'plan_version': 1, 'file': 'input.json', 'file_id': 'fixture', 'lines': [{'existing_part': {'image': 'report-images/downloaded.png'}}]}))
+    (folder / 'old.provenance.json').write_text(json.dumps({'format': 'invimport-provenance/1'}))
     (folder / 'report-images').mkdir()
     (folder / 'report-images' / 'downloaded.png').write_bytes(b'not a source')
     directory = folder / 'run'
@@ -54,7 +54,7 @@ def test_archive_uses_fixed_manifest_excludes_run_state_and_noop_has_no_new_arch
     path = artifact_path(run, archive.id)
     original = path.read_bytes()
     with ZipFile(path) as archive_file:
-        assert 'invimport-source-manifest.json' in archive_file.namelist()
+        assert '.invimport-evidence/source-manifest.json' in archive_file.namelist()
         assert 'run/run.sqlite3-wal' not in archive_file.namelist()
     assert sha256(original).hexdigest()[:20] in next(item['filename'] for item in scene[0].get('attachment/') if item['filename'].endswith('.zip'))
     later = full(scene, doc)
@@ -267,6 +267,6 @@ def test_source_manifest_excludes_canonical_root_and_generated_plan_by_content(s
     canonical_root.mkdir()
     (canonical_root / 'sensitive.txt').write_bytes(b'never evidence')
     monkeypatch.setenv('INVIMPORT_STATE_DIR', str(canonical_root))
-    (folder / 'arbitrary-review-output.json').write_text(json.dumps({'plan_version': 1, 'lines': []}))
+    (folder / 'arbitrary-review-output.json').write_text(json.dumps({'plan_version': 1, 'file': 'input.json', 'file_id': 'fixture', 'lines': []}))
     manifest = frozen_sources(doc)
     assert {item['name'] for item in manifest} == {'input.json'}

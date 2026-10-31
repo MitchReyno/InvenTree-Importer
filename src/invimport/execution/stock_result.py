@@ -7,6 +7,7 @@ from ..inventree.archive import ArchiveTarget, ImportArchive
 from ..inventree.companies import LogoAction
 from ..inventree.stockimport import LineAction, ProvenanceOutcome, StockImportResult
 from .models import Plan, State
+from .artifacts import retained_artifact_status
 
 
 def project_stock_result(plan: Plan, snapshot: dict, *, run_directory: Path | None = None) -> StockImportResult:
@@ -93,11 +94,16 @@ def _project_artifacts(plan: Plan, snapshot: dict, result: StockImportResult, di
     if archives:
         operation = archives[0]
         prepared = [receipt for receipt in receipts if receipt['operation'] == operation.id]
-        archive = ImportArchive(files=[item['name'] for item in operation.desired.values()['manifest']])
+        archive = ImportArchive(files=[item['name'] for item in operation.desired.values()['manifest']],
+                                unattached=list(operation.desired.values().get("inapplicable_lines", [])))
         if prepared:
             latest = prepared[-1]
             archive.digest, archive.size = latest['sha256'], latest['size']
             archive.name = f"invimport-archive-{archive.digest[:20]}.zip"
+            if directory:
+                status = retained_artifact_status(directory, latest)
+                if status != "verified":
+                    archive.reason = f"retained archive file is {status}; remote transfer history is unchanged"
         else:
             archive.reason = 'no confirmed inventory changes or applicable prepared source archive'
         result.archive = archive
@@ -107,10 +113,11 @@ def _project_artifacts(plan: Plan, snapshot: dict, result: StockImportResult, di
         result.provenance = ProvenanceOutcome()
         if prepared and directory:
             path = directory / 'artifacts' / prepared[-1]['filename']
-            if path.is_file():
+            status = retained_artifact_status(directory, prepared[-1])
+            if status == "verified":
                 result.provenance.file = path
             else:
-                result.provenance.reason = 'retained provenance file is missing'
+                result.provenance.reason = f"retained provenance file is {status}"
         elif not prepared:
             result.provenance.reason = 'no confirmed changes or unresolved effects to record'
     for operation in plan.operations:
@@ -126,19 +133,33 @@ def _project_artifacts(plan: Plan, snapshot: dict, result: StockImportResult, di
                                            pk=outputs[0]['pk'] if outputs else None))
         if desired.get('action') != 'artifact_upload':
             continue
-        target = operations[desired['target']]
-        outputs = (rows[target.id]['result'] or {}).get('outputs', [])
+        selection = next((item for item in snapshot.get("artifact_targets", []) if item["operation"] == operation.id), None)
+        target = operations[selection["target_operation"] if selection else desired["target"]]
+        outputs = (rows[operation.id]['result'] or {}).get('outputs', []) or (rows[target.id]['result'] or {}).get('outputs', [])
         if not outputs or rows[operation.id]['state'] == State.SKIPPED:
             if desired['role'] == 'archive' and result.archive:
-                result.archive.unattached.extend(target.attribution.lines)
+                result.archive.unattached.extend(operation.attribution.lines)
             continue
         output = outputs[0]
         outcome = _attachment_outcome(rows[operation.id])
         if desired['role'] == 'archive' and result.archive:
             kind = 'purchase order' if output['model'] == 'order.purchaseorder' else 'supplier'
             result.archive.targets.append(ArchiveTarget(kind, output['pk'], target.subject,
-                                                       list(target.attribution.lines), outcome=outcome))
+                                                       list(operation.attribution.lines), outcome=outcome))
         elif desired['role'] == 'provenance' and result.provenance:
             field = {'attached': 'attached', 'already attached': 'already_satisfied',
                      'unknown': 'unknown', 'failed': 'failed'}[outcome]
             getattr(result.provenance, field).append((output['model'], output['pk'], 'Import provenance'))
+    if result.archive:
+        deduplicated = {}
+        priorities = {"unknown": 4, "failed": 3, "attached": 2, "already attached": 1}
+        for target in result.archive.targets:
+            key = (target.kind, target.pk)
+            if key not in deduplicated:
+                deduplicated[key] = target
+                continue
+            existing = deduplicated[key]
+            existing.lines = list(dict.fromkeys([*existing.lines, *target.lines]))
+            if priorities.get(target.outcome, 0) > priorities.get(existing.outcome, 0):
+                existing.outcome = target.outcome
+        result.archive.targets = list(deduplicated.values())

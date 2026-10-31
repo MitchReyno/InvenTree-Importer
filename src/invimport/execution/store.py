@@ -354,6 +354,8 @@ def _snapshot(connection: sqlite3.Connection, *, run_id: str, revision: str) -> 
             "artifacts": "artifacts/",
             "prepared_artifacts": [{"operation": operation, **json.loads(payload)} for operation, payload in connection.execute(
                 "SELECT operation,safe_json FROM events WHERE kind='artifact_prepared' ORDER BY sequence")],
+            "artifact_targets": [{"operation": operation, **json.loads(payload)} for operation, payload in connection.execute(
+                "SELECT operation,safe_json FROM events WHERE kind='artifact_target_selected' ORDER BY sequence")],
             "artifact_transfers": [{"operation": operation, "event": kind, **json.loads(payload)} for operation, kind, payload in connection.execute(
                 "SELECT operation,kind,safe_json FROM events WHERE kind IN ('evidence_transfer_started','evidence_uploaded','evidence_verified') ORDER BY sequence")] }
 
@@ -385,6 +387,8 @@ def load_run_status(run_id: str) -> dict:
             plan = Plan.loads(rows[0][2])
             if plan.revision != revision:
                 raise JournalError("stored plan revision mismatch")
-            return _snapshot(connection, run_id=run_id, revision=revision)
+            snapshot = _snapshot(connection, run_id=run_id, revision=revision)
+            from .artifacts import retention_snapshot
+            return snapshot | {"retention": retention_snapshot(path.parent, snapshot)} if snapshot["prepared_artifacts"] else snapshot
     except (sqlite3.Error, ValueError) as exc:
         raise JournalError("run snapshot unavailable") from exc

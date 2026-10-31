@@ -56,7 +56,8 @@ def _operation_report(spec: OperationSpec, row: dict, rows: dict[str, dict]) -> 
             "effects": result["effects"] if result else [],
             "certainty": result["certainty"] if result else "none",
             "retry": result["retry"] if result else "never",
-            "settled_after": list(spec.settled_after)}
+            "settled_after": list(spec.settled_after),
+            "scope": {key: value for key, value in spec.desired.values().items() if key in {"role", "target", "target_alternatives", "fallback_condition", "inapplicable_lines", "inapplicable_reasons"}}}
 
 
 def _line_report(line: str, source: dict, operations: list[OperationSpec], rows: dict[str, dict]) -> dict:
@@ -80,10 +81,14 @@ def partial_report(plan: Plan, snapshot: dict) -> dict:
     return {"format": "invimport-execution-report/1", "run_id": snapshot["run_id"],
             "revision": plan.revision, "lines": lines,
             "prepared_artifacts": snapshot.get("prepared_artifacts", []),
-            "artifact_transfers": snapshot.get("artifact_transfers", [])}
+            "artifact_transfers": snapshot.get("artifact_transfers", []),
+            "artifact_targets": snapshot.get("artifact_targets", []),
+            "retention": snapshot.get("retention", {"checked": False})}
 
 
 def _report(plan: Plan, snapshot: dict, directory: Path) -> dict:
+    from .artifacts import retention_snapshot
+    snapshot = snapshot | {"retention": retention_snapshot(directory, snapshot)}
     report = partial_report(plan, snapshot)
     temporary = directory / "partial-report.json.tmp"
     temporary.write_text(canonical(report), encoding="utf-8")

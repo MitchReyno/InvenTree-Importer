@@ -76,7 +76,10 @@ parameter has its own checkpoint and repair boundary. Identity gates can block
 stock while independent enrichment/lines proceed. `part_of` needs a usable Part
 output, not success of the earlier line's stock, photograph or complete group.
 
-Missing explicit locations cannot silently become unlocated in durable mode.
+Genuinely omitted locations remain unlocated in full mode. An explicit requested
+location cannot silently become unlocated; defaults freeze in the effective line
+projection. Shared `location_names` parsing resolves escaped slash names by
+name and parent identity, including ambiguous raw pathstrings.
 Configured missing categories/templates and approved location paths become visible
 create operations. Category callback choices can supply a configured category or
 an explicit `CategoryConfig`; the reusable API does not implicitly persist local
@@ -137,22 +140,33 @@ listing is empty; a removed file is not permission to upload a replacement.
 The frozen preview owns source bytes, manifest and logical upload targets before
 hashing/ZIP work executes. Relative sources cannot escape their directory.
 Canonical state roots and marked custom run directories are excluded by identity,
-including nested runs; DB sidecars, generated plans/reports, old provenance and
-report image directories are excluded too. ZIPs use deterministic entries.
+including nested runs and their DB sidecars. Positively recognized generated
+plans/reports/provenance and the downloaded images referenced by those plans are
+excluded; generated ZIPs carry an owned format marker. Generic folder names,
+filenames, suffixes, vendor ZIPs and plan-like JSON keys do not establish ownership.
+The existing hidden-file archive policy remains. ZIPs use deterministic entries.
 
 Visible artifact order is settled inventory/enrichment → confirmed-change
 provenance → immutable source archive → target uploads → external outcome report.
 Source rows are explicitly labeled source claims. Confirmed fields come from
 actual persisted effects, including effects on a line whose later work failed;
-uncertain attempts remain separate from confirmed facts. The durable provenance
+uncertain attempts remain separate from confirmed facts. Accepted transfers retain
+`sent_content` claims separately; only persisted remote byte-verification receipts
+can establish confirmed remote SHA/filename. Image verification confirms SHA
+without inventing a remote filename. The durable provenance
 format is `invimport-execution-provenance/1`, separate from untouched legacy
 `invimport-provenance/1` files. No existing provenance history is rewritten.
 
 Artifact receipts persist relative retained filename, SHA-256, size and effect-set
 fingerprint. Upload validates those bytes and remote content; matching filenames
 are not satisfaction evidence. Retained pending bytes survive source deletion and
-no-new-inventory repair. Missing applicable targets are skipped separately from
-failed transfers. No-change runs do not create arbitrary new archives.
+no-new-inventory repair. Per-line archive routing freezes PO-preferred/supplier-fallback alternatives.
+Fallback is permitted only without a checkpointed preferred output; known
+identity/metadata/role drift requires review. The first validated recipient locks
+in the journal across later repairs/revisions. Truly inapplicable/disabled lines
+are explicitly unattached; an applicable route with no usable recipient requires
+review separately from failed/unknown transfers. Finalization uses the same parent
+identity and approved-metadata validator as ordinary domain consumers. No-change runs do not create arbitrary new archives.
 
 An explicit inventory repair can append a new artifact revision under the same
 approved operation IDs, frozen manifest and originating target scope. Prior bytes,
@@ -162,7 +176,10 @@ new revisions. No uploaded archive is rewritten to include its own upload status
 The detailed `invimport-execution-report/1` includes operation effects/retry/blocking,
 prepared revisions and transfer events. `project_stock_result` bridges current
 legacy `StockImportResult` and `build_plan` consumers; supplying `run_directory`
-allows its provenance outcome to reference an actually retained local file.
+allows its provenance outcome to reference a local file only after receipt
+size/SHA validation. Completed status/resume reports current missing/corrupt local
+retention separately from historical inventory/remote completion, without replaying
+or reopening completed writes.
 
 Atomic local artifact/report failures stop subsequent mutations. Best-effort
 partial reporting never claims a file was saved when writing failed. Active run

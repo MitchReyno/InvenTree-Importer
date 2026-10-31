@@ -240,3 +240,95 @@ remaining edits record validation, handoff and review status only.
 The complete staged whitespace check found one extra EOF blank line in the split
 finalization test file. Removed it, restaged and rechecked successfully; this
 whitespace-only correction does not require repeating runtime tests.
+
+## Independent review — initial rejection and eight corrections
+
+Initial exact candidate `b01b46f8d8741fdc9a0c92974311bfc7612ea3b3` was **not
+approved**. The independent reviewer completed a material pass, reproduced eight
+findings, and requested exact committed recheck after correction. The initial
+implementation/check record above is retained as history, not clearance. The
+following corrections supersede its affected source/routing/location/provenance/
+retention descriptions. Root owns publication after fresh exact-head clearance.
+
+| Finding | Reproduction and correction |
+|---|---|
+| P1: escaped slash placed stock in an unapproved hierarchy | `Bag/JM38510\/10103BPC` was split into three names. Full resolution now uses shared `location_names` with actual name/parent identities, supporting existing/new names, whitespace and ambiguous raw pathstrings. Known parent outputs remain validated before create/consumption. |
+| P1: generic source names/extensions silently omitted evidence | Real evidence under `downloads`/`artifacts`, vendor ZIPs, ordinary `execution-report.json` and `component-journal` disappeared. Full manifests now identify canonical/marked execution roots and positively recognized generated content. Generic names/extensions and generic JSON plan-like keys are preserved. Actual generated-plan image references and marked generated ZIPs are excluded. The existing hidden-file policy remains. |
+| P1: accepted transfer overclaimed unverified remote SHA/filename | A 201 upload with different remote bytes correctly failed verification but provenance certified desired SHA. Accepted transfer attribution now retains explicit `sent_content`; only persisted remote verification receipts populate confirmed remote fields. Images also record verified SHA without inventing a filename. |
+| P2: mixed PO/no-PO lines lost standalone supplier archive targets | Global order preference suppressed the second line's supplier. Routing now freezes each line's order-preferred/supplier alternatives and source attribution, deduplicates target reports, and records inapplicable lines. Missing preferred checkpoint output can use the approved supplier; any known target drift reviews immediately. The first validated recipient is journal-locked across repair/revisions. Applicable-but-unusable targets review; disabled/inapplicable scope is distinct. |
+| P2: explicit partial-new choice could not execute against its offered candidates | `on_partial=new` and callback `new` accepted preview but treated unchanged declined candidates as drift. Preview now freezes the relevant candidate identities; execute compares that set and honors the approved choice while reviewing genuinely changed discovery. Unknown creates remain nonreplayable. |
+| P2: omitted location was rejected in full mode | Full mode now omits the API location field when neither source nor default requests one. Bounded subset restrictions and explicit unresolved-location review remain. Effective defaults freeze in `line_inputs` for legacy projection. |
+| P2: finalization bypassed frozen PO metadata/role validation | A manual PO currency/description edit before provenance allowed uploads. `_validated_input` now owns the shared identity/approved-metadata policy for domain and finalization consumers. Every transfer/read-bound repair revalidates it; drift neither overwrites manual values nor falls back to another target. |
+| P2: completed resume/projection presented corrupt local evidence as usable | Replacing a retained provenance file still returned it as valid. Completed status/resume separately reports receipt-verified local retention. Projection checks size/SHA before returning a path and reports missing/corrupt state for archives too. Historical inventory and verified remote outcomes remain successful; no API sends, replay, replacement or reopen occur merely because local bytes changed. |
+
+### Review-fix engineering choices and scope
+
+- Archive fallback alternatives and conditions are frozen before approval, not
+  inferred after writes. A preferred operation with a saved output that now drifts
+  is a conflict, even if a supplier is available. Target selection commits before
+  transfer and remains fixed across later effect-set revisions. Existing unknown/
+  confirmed per-content transfer guards were preserved unchanged.
+- Canonical/marked root exclusion is separate from the legacy conservative helper
+  that also rejects reserved filenames. Full manifests use the ownership-only
+  helper. Generated ZIPs have an explicit format comment; generated JSON requires
+  actual owned format contracts or a valid executable-plan schema, not a handful
+  of generic keys. Report image ownership comes from generated-plan references,
+  not a blanket folder ban. Archive metadata uses a reserved hidden namespace,
+  so generic legitimate source basenames are not overwritten by packaged metadata.
+- Accepted transfer, source/sent bytes and remotely verified content are three
+  different facts. The effect-kind audit retained validated create/patch fields
+  and read-back-confirmed barcode ownership, while removing desired upload fields
+  from confirmed facts. A successful transfer can still be an incomplete operation.
+- Local retention is a read-only projection, not a transition that invalidates
+  inventory/remote history. Generic foundation snapshots without retained artifacts
+  preserve their prior shape; artifact-bearing status adds explicit retention.
+- A first focused rerun exposed the intentional generic snapshot compatibility
+  assertion after adding unconditional retention. Restricted the additive status
+  field to artifact-bearing snapshots, preserving the foundation contract. An
+  older fixture also expected generic empty JSON files to be excluded by name;
+  replaced that expectation with positively marked generated report/provenance
+  fixtures while adding genuine same-name evidence coverage.
+
+### Review-fix evidence before final committed recheck
+
+- Original independent source/routing/partial/location reproduction now retains
+  all named source files, sends ZIP to both relevant recipients, executes the
+  approved partial-new Part and supports omitted locations.
+- Independent PO finalization reproduction now sends **zero** PO attachments
+  after manual currency/description drift and reports incomplete selected work.
+- Independent upload-provenance reproduction preserves accepted-transfer certainty
+  while `confirmed_fields` remains empty for mismatching remote bytes.
+- First new review selection: **17 passed in 13.06s**; extended review/finalization
+  selection: **37 passed in 25.34s**. The first combined foundation/domain/SDK
+  rerun passed **218 tests in 66.64s** before the final three source/location
+  boundary cases were added.
+- The reviewer independently tested unknown old transfer plus changed effect-set
+  revision and found no replay; their actual observed SDK full scenario matched
+  **141 sends to 141 durable intents**. Those are reviewer results on the initial
+  candidate's unaffected boundaries, not owner claims of corrected-head clearance.
+
+Final required checks and exact committed recheck disposition follow below.
+
+### Corrected-candidate final owner validation
+
+- Review regression coverage now comprises **24 cases**: all eight findings plus
+  callback/policy partial-new decisions, changed-candidate detection, effective
+  defaults, escaped ambiguous/whitespace paths, source-name/JSON preservation,
+  locked supplier fallback after later PO repair, truthful inapplicability,
+  image verification receipts and completed missing/corrupt retention without
+  remote sends. Existing unknown-transfer/revision guards remain exercised.
+- Final focused command:
+  `.venv/bin/pytest tests/execution tests/inventree/test_request_observation.py -q -x -o addopts=''`:
+  **221 passed in 72.19s**.
+- Final required normal command with scoped loopback permission:
+  `UV_NO_SYNC=1 UV_CACHE_DIR="$STAGE5_UV_CACHE" make test`:
+  **1732 passed, 1 existing skip, 43 deselected in 107.29s**.
+- Changed Python Ruff and complete whitespace checks passed. Scanner/TUI results
+  remain the earlier **43 passed** evidence. These review fixes change stock
+  planning, evidence/reporting and read-only local retention; they do not change
+  scanner/UI behavior, shared location parser or shared request transport, so no
+  additional scanner rerun was justified.
+- The corrected exact committed candidate still needs independent recheck of all
+  eight findings. Passing owner tests does not supersede the initial rejection.
+  No runtime changes followed these final checks; remaining edits record results
+  and commit/handoff status only.

@@ -82,6 +82,14 @@ def _verified(api: StockRequests, attachment: dict, content_hash: str) -> bool |
         return sha256(path.read_bytes()).hexdigest() == content_hash
 
 
+def _verification_receipt(spec: OperationSpec, context: OperationContext, target: Output,
+                          desired: dict, *, image: bool) -> None:
+    with context.store.transaction() as connection:
+        context.store._event(connection, "evidence_verified", spec.id, context.attempt.id,
+            sha256=desired["sha256"], model=target.model, pk=target.pk,
+            **({"filename": desired["filename"]} if not image else {}))
+
+
 def ensure_evidence(spec: OperationSpec, context: OperationContext, api: StockRequests,
                     inputs: list[tuple[Output, dict]], *, repair: bool) -> OperationResult:
     from ..inventree.collections import list_rows
@@ -105,6 +113,7 @@ def ensure_evidence(spec: OperationSpec, context: OperationContext, api: StockRe
     if image and current.get("image"):
         verified = _verified(api, {"attachment": current["image"]}, desired["sha256"])
         if verified is True:
+            _verification_receipt(spec, context, target, desired, image=True)
             return _success(target)
         previous = context.store.results().get(spec.id)
         if previous and any(effect.kind == "upload" for effect in previous.effects):
@@ -125,9 +134,7 @@ def ensure_evidence(spec: OperationSpec, context: OperationContext, api: StockRe
     if matches:
         verified = _verified(api, matches[0], desired["sha256"])
         if verified is True:
-            with context.store.transaction() as connection:
-                context.store._event(connection, "evidence_verified", spec.id, context.attempt.id,
-                                     sha256=desired["sha256"], model=target.model, pk=target.pk)
+            _verification_receipt(spec, context, target, desired, image=False)
             return _success(target)
         return review("evidence_bytes_conflict" if verified is False else "evidence_verification_unavailable")
     if repair:
@@ -185,6 +192,7 @@ def ensure_evidence(spec: OperationSpec, context: OperationContext, api: StockRe
         if len(matches) != 1 or _verified(api, matches[0], desired["sha256"]) is not True:
             return replace(review("uploaded_image_not_verified"), certainty=Certainty.CONFIRMED,
                            effects=(Effect("upload", Certainty.CONFIRMED, target.model, target.pk),))
+        _verification_receipt(spec, context, target, desired, image=True)
         return replace(_success(target), state=State.SUCCEEDED,
                        effects=(Effect("upload", Certainty.CONFIRMED, target.model, target.pk),))
     rows = list_rows(api, "attachment/", params={"model_type": target.model, "model_id": target.pk})
@@ -192,4 +200,5 @@ def ensure_evidence(spec: OperationSpec, context: OperationContext, api: StockRe
     if len(matches) != 1 or _verified(api, matches[0], desired["sha256"]) is not True:
         return replace(review("uploaded_evidence_not_verified"), certainty=Certainty.CONFIRMED,
                        effects=(Effect("upload", Certainty.CONFIRMED, target.model, target.pk),))
+    _verification_receipt(spec, context, target, desired, image=False)
     return replace(_success(target, created=False), state=State.SUCCEEDED, effects=(Effect("upload", Certainty.CONFIRMED, target.model, target.pk),))
