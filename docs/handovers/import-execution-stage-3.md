@@ -216,7 +216,8 @@ Fresh independent review passed the original 60-test focused selection, then
 found two initial P1 and three P2 runtime issues plus a stale plan-opening status
 line. The deep-immutability and strict-schema findings below share one model
 implementation theme but are two distinct P2 findings.
-Clearance remains pending recheck. Owner has not pushed/opened a PR.
+All findings are now resolved; final independent foundation clearance is recorded
+below. Owner has not pushed/opened a PR.
 
 - **P2, deep immutability and schema:** frozen dataclasses accepted caller-owned
   lists; mutating operations/provides/attribution after validation changed the
@@ -278,9 +279,9 @@ Clearance remains pending recheck. Owner has not pushed/opened a PR.
 - Review-fix `UV_NO_SYNC=1 UV_CACHE_DIR="$STAGE3_UV_CACHE" make test-scanner`:
   **43 passed, 1599 deselected in 43.59s**.
 - Changed-Python Ruff and `git diff --check` passed after the review changes.
-  No live service requests or inventory writes. Independent clearance remains
-  pending reviewer recheck of the corrected commit. These counts preceded the
-  follow-up retry-authorization corrections; latest evidence appears below.
+  No live service requests or inventory writes. At that intermediate head,
+  clearance remained pending recheck. These counts preceded the follow-up
+  retry-authorization corrections; latest evidence and clearance appear below.
 
 
 Final follow-up retry-authorization validation:
@@ -292,7 +293,42 @@ Final follow-up retry-authorization validation:
 - `UV_NO_SYNC=1 UV_CACHE_DIR="$STAGE3_UV_CACHE" make test-scanner`:
   **43 passed, 1605 deselected in 43.13s**.
 - Changed-Python Ruff and whitespace passed. No additional failed check, live
-  request or inventory write. Independent re-clearance remains pending.
+  request or inventory write.
+
+### Final independent clearance
+
+Independent review approved clean implementation head
+`87e7e25960395189db0809e731f9fe4412163583` for the Stage 3 foundation PR, with no
+remaining actionable correctness finding within its documented scope. This
+supersedes earlier review-pending decisions. All initial two P1/three P2 findings
+and both follow-up retry-authorization variants were independently reproduced as
+fixed, using isolated temporary state, real SQLite and fake child dispatches.
+
+The reviewer independently confirmed target mismatch refusal before pending work,
+owned immutable scope/revisions, strict malformed-record/schema rejection,
+canonical absolute platform roots, conservative original-handler eligibility and
+retry authorization, and fail-closed persisted contradictions retaining saved PK
+and unknown-effect evidence. They reproduced:
+
+- `.venv/bin/pytest tests/execution tests/inventree/test_request_observation.py -q -o addopts=''`:
+  **93 passed in 0.95s** (80 foundation plus 13 SDK/request-observation tests).
+- Changed-Python Ruff: passed.
+- `git diff --check cf550b52a9a65d050790bc75a3eb4d1bce6bc852`: passed.
+- `git status --short`: clean on the reviewed committed implementation head.
+
+The full normal/scanner results above remain owner evidence; the reviewer did not
+repeat those full suites. No implementation edit, live request, inventory write,
+push, PR opening or merge was performed during review. This final clearance/status
+update is documentation only; whitespace checks suffice without another runtime
+suite repetition. Root owns publication.
+
+Readiness is bounded to an explicit-handler foundation. No durable inventory
+handler, whole-stock resume or new CLI is enabled. Original mutation replay is
+intentionally restricted. Stage 4 must define safe domain repair/reconciliation
+while preserving known outputs, attribution, uncertainty and logical operation IDs;
+it must not clear results/uncertainty or mint new operation/run identities merely
+to force another write. The explicit unsupported stock preparation boundary
+remains appropriate until real policy and handler integration is validated.
 
 Stage 4 must consume this foundation with one real durable slice: preserve
 existing matching and field policies, generate genuinely resolved mutation specs,

@@ -3,7 +3,7 @@
 Status: maintained implementation plan. Stage 0 establishes contracts; Stage 1
 implements independently reviewed safe reads/errors; Stage 2 implements in-memory
 observations; Stage 3 implements the explicit-handler execution/store foundation
-with independent review pending. Stages 4–7 remain unimplemented. Companion documents:
+with independent review approved. Stages 4–7 remain unimplemented. Companion documents:
 [design](import-execution-design.md), [contracts](import-execution-contracts.md),
 [architecture](../ARCHITECTURE.md). Baseline main `c22b7a1` includes PR #11
 code-organization guidance and PR #9;
@@ -17,7 +17,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 | 0 | Complete; upstream incorporation independently approved | [Stage 0 handover](handovers/import-execution-stage-0.md) |
 | 1 | Complete; independent implementation review approved | [Stage 1 handover](handovers/import-execution-stage-1.md); error taxonomy and complete-read fault regressions |
 | 2 | Complete; independent implementation review approved | [Stage 2 handover](handovers/import-execution-stage-2.md); whole-command dispatch visibility, worker correlation and secret-canary regressions |
-| 3 | Implemented; independent review pending | [Stage 3 handover](handovers/import-execution-stage-3.md); real SQLite/restart, canonical claims, serial fake-handler gates |
+| 3 | Complete; independent foundation review approved | [Stage 3 handover](handovers/import-execution-stage-3.md); real SQLite/restart, canonical claims, serial fake-handler gates |
 | 4 | Pending | Durable reference-slice fault matrix below |
 | 5 | Pending | Full workflow and immutable artifact gates below |
 | 6 | Pending | Compatibility/default rollout gates below |
@@ -356,6 +356,13 @@ run permits intentional later enrichment. Test real local store transactions/fil
 and restart behavior, not mocked commit calls alone.
 
 **Gate:** foundation ready for one real domain slice, not general release.
+Independent review approved implementation head
+`87e7e25960395189db0809e731f9fe4412163583`; scope and reproduced evidence are in
+[the Stage 3 handover](handovers/import-execution-stage-3.md). No durable inventory
+handler or whole-import resume is enabled. Original mutation replay remains
+intentionally restricted: Stage 4 domain repair must preserve known outputs,
+attribution, uncertainty and logical operation IDs, and must not clear results or
+mint new operation/run identities merely to force another write.
 
 ## Stage 4 — representative durable recovery slice
 
