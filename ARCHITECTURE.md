@@ -1,398 +1,184 @@
 # Import architecture
 
-This describes implemented behavior through Stage 4 (reviewed Stage 0 baseline
-`bfaefd1`, main `c22b7a1`, SDK `inventree==0.13.5`). This includes PR #9 fixes
-and PR #11 code-organization conventions; the latter changes guidance, not
-runtime behavior. Future contracts are explicitly separated below. Keep this
-file current whenever a later stage changes code; update the maintained plan
-and stage handover with acceptance evidence and justified changes.
+This is the current implementation through Stage 5, based on main `c22b7a1`
+(including the code-organization conventions) and SDK `inventree==0.13.5`.
+The ordinary stock CLI still uses the legacy workflow. The durable workflow is
+an explicit library opt-in; CLI rollout belongs to Stage 6. See the maintained
+[design](docs/import-execution-design.md), [contracts](docs/import-execution-contracts.md),
+[plan](docs/import-execution-plan.md) and [stage handovers](docs/handovers/).
 
-## Implemented boundaries and data flow
+## Entry points and input
 
-`src/invimport/__main__.py` loads environment/configuration and dispatches command
-adapters. `src/invimport/commands/import_stock.py` parses flags, validates files,
-collects interactive matching decisions, renders results and chooses exit status.
-`--schema`, `--vocabulary` and `--validate` do not connect to InvenTree.
-A normal dry run connects and discovers remote state; it may download/cache
-assets and produce local reports. It does not intentionally mutate inventory.
+`__main__.py` initializes configuration and dispatches `commands/` adapters.
+`commands/import_stock.py` owns arguments, prompts, progress and exit status.
+`--validate`, `--schema` and `--vocabulary` remain offline. Existing `--plan` is
+an InvenTree montage/review projection, distinct from an executable execution plan.
 
-`src/invimport/stockfile.py` parses JSON/YAML/CSV into `StockFile`/`StockLine`.
-Version 1 embeds part facts in lines; version 2 expands shared parts and
-manufacturer parts into line inputs while retaining source rows. Required line
-IDs identify logical lots. `StockFile.key_for` produces
-`invimport:<file_id>:<line.id>`. `source.reference` supplies file identity when
-present; otherwise a content-derived hash means edited input can change identity.
-`part_of` in version 1 must reference an earlier line. It reuses a resolved part,
-including retrieval from existing stock, rather than merging stock quantities.
+`stockfile.py` parses JSON/YAML/CSV into `StockFile` and `StockLine`. Version 2
+expands shared parts/manufacturer parts while preserving logical source references.
+Line IDs and `StockFile.key_for` retain `invimport:<file_id>:<line.id>` identity.
+`source.reference` supplies file identity; otherwise content contributes its hash.
+`part_of` must reference an earlier line. Reusing a key never authorizes restoring
+historical quantity, batch, location, part assignment or consumed stock.
+
+## Two workflow boundaries
+
+The unchanged public `inventree.stockimport.import_stock` supports current CLI
+callers and `ImportOptions`. It discovers and mutates sequentially, returns
+`StockImportResult`, and uses an in-memory ledger. Discovery, matching, stock,
+enrichment and finalization are interleaved. A line exception can stop subsequent
+work; whole-line reruns are not durable recovery. Its existing-barcode branch
+repairs selected enrichment, preserving manual fields. It may resolve a missing
+location to unlocated stock. These are legacy-path limits.
+
+The durable library lives in `execution.stock_workflow`:
 
 ```text
-file + config → parse/validate → CLI decisions → import_stock
-                                              ↓
-       discovery/caches → line resolution + interleaved writes
-                                              ↓
-             company logos → provenance → archive → provenance uploads
-                                              ↓
-                       StockImportResult → CLI output / --plan projection
+prepare_full_stock(document, categories, parameters, options, target, api)
+    → read-only decisions and source-byte snapshots
+    → immutable plan schema 2 with all approved domain/local/finalization rows
+execute_stock(plan, current_target, api, run_directory)
+    → canonical ownership → journal → guarded serial domain operations
+repair_stock(plan, run_id, journal, operation_id, current_target, api)
+    → explicit selected reconciliation → eligible dependent work
+    → immutable finalization revision if the effect set changed
+resume_stock(plan, run_id, journal, current_target, api)
+    → interrupted-effect classification → pending work; no blind failed-write retry
 ```
 
-`inventree/stockimport.py:import_stock(document, api=None, *, directory=None,
-options=None)` is the reusable, noninteractive library boundary. `ImportOptions`
-carries write permissions, creation controls and caller decision callbacks;
-the core returns `StockImportResult`/`LineAction` rather than calling process
-exit. Callback choices can resolve ambiguity; absent callbacks yield review
-outcomes. It connects itself if the caller supplies no API client.
+`stock_preparation.prepare_stock` remains the bounded spec/type compatibility mode
+when no options are supplied. Both entry points use the same planner and handlers;
+there is no fallback to the legacy importer during execution. The full entry adds
+selected enrichment and finalization. All callbacks run during preparation and
+only their resolved choices become executable inputs. `ImportOptions.write` never
+causes preparation to mutate inventory; `execute_stock` is the explicit execution
+boundary. Stage 6 must bind this boundary to CLI write approval.
 
-The importer loads local category/parameter configuration and remote categories,
-templates and supplier parts, then maintains per-run supplier, location, order
-and part-resolution caches. It loops lines sequentially with no per-line exception
-boundary. Each new line checks its barcode; resolves category, manufacturer,
-part and parameters; resolves supplier/SKU, location, PO and PO contribution;
-adds notes/datasheets/documents/images; creates stock; links barcode and tags;
-links PO and stock images. Discovery and mutations are interleaved. Missing
-location resolution can still yield stock with no location. Shared PO caches
-are keyed by supplier/reference; supplier-part caches by supplier/normalized SKU.
-Contradictory metadata does not yet have a general pre-execution conflict gate.
+## Domain responsibilities
 
-An existing barcode returns early after selected datasheet/notes/name/order reads
-and attachment repair. It does not generally repair missing identity parameters,
-tags, primary images, PO contributions or stock-to-PO links. Existing notes and
-names are preserved. Logos apply only to companies created in the current
-recording session. Category choice can persist local category configuration;
-dry category creation is separately guarded by write permission.
+| Module | Responsibility |
+|---|---|
+| `stock_preparation` | Shared Part/spec/type/IPN planning, identity gates, lots, SKU/PO relationships and shared-input conflict detection |
+| `stock_choices` | Read-only MPN/name/partial-spec/company decisions; selected manufacturer scopes MPN matching |
+| `inventree.part_policy` | Pure manufacturer-number and parameter-ownership policies shared with legacy resolution |
+| `stock_enrichment` | Manufacturer relationships, per-model parameter operations, notes, requested media and originating-company logo scope |
+| `stock_taxonomy` | Explicit category/template/location creation with symbolic parent outputs |
+| `stock_assets` | Stable source reads, immutable bytes and pure PDF extraction contracts |
+| `stock_api` | SDK-compatible request adapter with actual endpoint checks and mandatory dispatch composition |
+| `stock_handlers` / `stock_metadata` | Strict raw create/checkpoint, record revalidation and conditional empty-field/tag/link repair |
+| `stock_evidence` | Attachment/primary-image transfer and remote byte verification; filename alone is insufficient |
+| `stock_finalization` | Effect-derived provenance, immutable archives/revisions, retained artifact uploads and visible local report writing |
+| `stock_result` | Legacy result adapter; operation state remains the authoritative detailed account |
 
-## Implemented effects and transport
+Spec Parts carry identity parameters; manufacturer/SKU models carry their complete
+selected values. Type/MPN Part ownership uses the shared legacy policy. Each
+parameter has its own checkpoint and repair boundary. Identity gates can block
+stock while independent enrichment/lines proceed. `part_of` needs a usable Part
+output, not success of the earlier line's stock, photograph or complete group.
 
-`inventree/api.py` centralizes connection/environment credentials, API 530
-parameter model compatibility and an SDK-wide `InventreeObject.create` override.
-The override accepts dict or list responses, selecting the first list element;
-it records the resulting PK in the in-memory ledger. It does not yet validate
-single-create response cardinality/identity robustly. Main includes PR #9's
-DigiKey error, atomic config replacement and report-plan-read fixes.
+Missing explicit locations cannot silently become unlocated in durable mode.
+Configured missing categories/templates and approved location paths become visible
+create operations. Category callback choices can supply a configured category or
+an explicit `CategoryConfig`; the reusable API does not implicitly persist local
+category YAML. Existing nonempty notes/links/images remain intact. Parameter and
+PO metadata conflicts require review. Tags union observed unrelated additions;
+a concurrent edit after GET can still race PATCH because no atomic target update
+capability has been established.
 
-Normal CRUD uses SDK `request`; constructor connection and `testServer` happen
-before the caller receives a client. SDK `testServer` and `downloadFile` call
-`requests` directly. Constructors/saves may reload models. Attachment upload uses
-API `request`; notes/tags/order links use saves/PATCH; barcode lookup/link use
-POST. External images/datasheets use independent download helpers. SDK 0.13.5
-model `list` still unwraps only one page. Importer collection consumers now use
-`inventree/collections.py:list_rows/list_models` explicitly instead of SDK `list`.
-They enumerate list or `results`/`next` responses completely, preserving narrow
-filters, with 1,000-page / 100,000-row bounds, repeated-request/page detection,
-model identity validation and final count checks when supplied. Invalid, partial,
-late-failed or unsafe-target collections raise `DiscoveryError` (an
-`InvenTreeError`); callers cannot use a partial prefix as absence.
+Company logos require a confirmed company-create effect from this originating run,
+which persists across restart and repair. An existing company with an empty logo
+is still ineligible. Full mode freezes confidence/review and partial-skip outcomes.
+Creation controls retain stock scope while suppressing unselected companies/orders;
+explicit callbacks end before execution. Multiple distinct new PO allocations are
+rejected during preparation: OPTIONS is not a reservation, and no arbitrary
+reference arithmetic is assumed. Existing/shared orders are supported.
 
-Pagination accepts same-origin links strictly beneath the configured API root,
-rejects scheme/host/root escapes, credentials, fragments, encoded traversal,
-ambiguous query fields and SDK scheme-like endpoint tricks before dispatch. Query
-strings are passed separately because SDK URL construction appends a slash.
-This validates application pagination targets, not general SDK redirects or live
-server completeness guarantees. `limit=1000` remains a page hint. Complete reads
-cover categories/templates/units, companies, part/manufacturer/supplier matching,
-locations/orders, parameters, attachment discovery and report stock collections.
-Known MPN part identity uses a detail read; supplier-part caches load per supplier,
-and specification matching reads each candidate part's parameters rather than
-all server parameters. Shared helper consumers in DigiKey commands gain these read
-fixes too; their execution/recovery migration remains Stage 7.
+## Ownership, transport and recovery
 
-`parts.apply_parameters` issues independent parameter writes through a bounded
-thread pool (up to `PARAMETER_WORKERS`); errors propagate after already-issued
-siblings may have succeeded. `datasheets.prefetch` concurrently downloads PDFs
-before stock lines run, with caching/duplicate URL suppression. The separate
-`datasheets` command also uses a pool. Sequential stock lines do not imply all
-requests are serial. DigiKey has its own fetch/auth retry behavior and separate
-supplier-part/order flows; stock-specific future guarantees do not cover them.
+`ownership.py` owns a canonical runtime-discovered registry plus OS locks. Run
+journals can live in custom directories without creating a second same-import
+namespace. Reservations and unresolved effects survive process exit. Supported
+legacy writes consult the same guard. This is one configured local state scope,
+not cross-host exclusion or protection from old binaries/raw external API clients.
 
-Caches live under the runtime working-directory cache root; configuration defaults
-to the package-discovered `config` directory. Local PDF extraction, reports and
-plan images are additional filesystem effects. `--plan` runs **after** importing:
-`inventree/importplan.py` reads existing part/stock information, downloads optional
-images and writes a JSON review/montage projection. It is not an executable plan;
-failed record reads now raise contextual errors, while optional image failures
-retain record data. Do not repurpose this schema for execution state.
+`store.py` owns one SQLite connection/writer. FULL-synchronous transactions commit
+attempt/request intent, output PKs, effects, source attribution and settlement.
+Journal failure poisons the owner and stops new mutations. JSON exports/reports
+are projections, never recovery authority. SQLite schema remains 1. Plan schema 2
+adds typed immutable `settled_after` dependencies; schema-1 serialization/revisions
+remain readable and unchanged. Logical operation IDs retain their v1 construction.
 
-## Implemented observation boundary (Stage 2)
+`executor.py` schedules serially by named usable outputs and separate settled
+barriers. Failed/uncertain/reviewed and irrecoverably blocked branches can settle
+for finalization without becoming successful. Required outputs still gate actual
+consumers. Generic retry remains read-only. Selected stock repair retains original
+IDs, outputs/effects and attempts; unknown uncorrelated creates never become
+payload-matched lots or PO contributions.
 
-`execution/observation.py` owns immutable correlation/events, per-invocation
-sequence allocation, retained in-memory snapshots, a serialized delivery queue
-and cooperative cancellation. `observing(Observation(observer))` opts library
-callers into observations; ordinary library calls remain silent. Operation and
-attempt UUIDs are presentation identities for this invocation, not durable domain
-IDs or stock identities. Source labels are digests of the existing document/line
-keys; they do not expose input paths or facts. Shared document prefetch retains
-document attribution; parameter workers retain their originating line attribution.
-`worker` explicitly captures immutable context at pool submission and gives each
-worker its own attempt. Existing pool sizes/concurrency remain unchanged.
+Every actual SDK send has a durable intent before dispatch and exactly one child
+request identity. `inventree.observed_api` binds the pinned SDK request/startup/
+download paths before construction; `stock_api` avoids wrapping them twice. Fake
+single-request adapters use the same guards. Every child checks journal health,
+owner thread, cancellation and current API endpoint/base target. Saved PK reuse
+also needs target continuity evidence; URL/PK equality does not prove instance
+continuity. Current PO metadata is checked both on checkpoint recovery and before
+new contribution/link consumption.
 
-`inventree/observed_api.py` creates each SDK client before connecting and binds
-copies of the pinned SDK methods with per-client requests/logger globals. SDK
-0.13.5 has no transport injection point; retaining its real bodies avoids a
-second vendored implementation while covering constructor `testServer`, token
-acquisition, CRUD/OPTIONS, reloads, attachment requests and `downloadFile`. Neither
-the SDK class/module nor global requests is patched. Binding and transport state
-have client lifetime; upgrading the supported SDK requires re-auditing this seam.
-Independent PDF/product-image adapters cover external downloads, including assets
-used by stock imports. DigiKey API commands/retry loops remain unmigrated.
+Raw creates accept exactly one trustworthy object or singleton object list,
+validate positive nonboolean PK and identity, and checkpoint before ledger/model/
+parameter work. Malformed/multiple responses retain all trustworthy returned PK
+attribution and require review. Lost create responses without reliable correlation
+remain uncertain. No automatic DELETE/rollback or historical stock recreation
+is introduced. Confirmed upload effects make repair verification-only when remote
+listing is empty; a removed file is not permission to upload a replacement.
 
-`commands/import_progress.py` renders flushed request starts and correlated
-terminals to stderr by default, including non-TTY execution. `write_run` installs
-the observation/logging scope before connection, shows a conditional outline,
-and retains it through post-import `--plan` reads/downloads. Requests expand the
-dispatched/settled counters dynamically; these are not estimated total-work or
-successful-effect counts. Each explicit dispatch gets its own ID. Redirects are
-represented by history count, not independent wire-exchange events. HTTP received,
-HTTP error, exchange unknown, SDK decode outcome and create-model construction
-are distinct observations; none implies durable effect confirmation or replay
-permission. Decode/model events retain the exact originating request ID; create captures
-the POST origin before a constructor can reload with a separate GET. A successful
-POST remains visible if later model construction fails.
+## Immutable evidence and reports
 
-Safe events omit bodies, payloads, credentials, query strings and exception args.
-Inventory labels allow only known route nouns/numeric PKs; external downloads use
-a generic service label. SDK free-form diagnostics are replaced at the bound
-client seam before construction, including info-level token logging. During an
-observed scope, legacy importer/SDK/requests/urllib3 free-form logs are suppressed
-because they may interpolate arbitrary exception bodies or signed URLs. Structured
-events become the safe diagnostic channel. Outside that scope legacy importer
-logs remain available. CLI exceptions expose type and a narrowly allowlisted
-existing plan-read diagnostic, never arbitrary SDK exception args. Caught upload/archive/PDF exceptions are also converted to safe result reasons
-inside observed scopes before CLI report rendering; unobserved library callers
-retain their legacy diagnostic reasons. Library causes and structured Stage 1
-error objects remain unchanged.
+The frozen preview owns source bytes, manifest and logical upload targets before
+hashing/ZIP work executes. Relative sources cannot escape their directory.
+Canonical state roots and marked custom run directories are excluded by identity,
+including nested runs; DB sidecars, generated plans/reports, old provenance and
+report image directories are excluded too. ZIPs use deterministic entries.
 
-Snapshots/events are in-memory only. Observer exceptions increment a delivery
-failure counter and cannot alter request results or trigger replay. Cancellation
-is checked before dispatch; interruption marks the shared observation cancelled,
-but cannot undo or durably classify an in-flight effect. Legacy line/finalization
-abort behavior and coarse completion policy remain. No retry, backoff, dependency
-scheduler, durable blocked state, journal, restart/resume or TUI is implemented
-by the Stage 2 observation layer alone; the opt-in execution additions follow.
+Visible artifact order is settled inventory/enrichment → confirmed-change
+provenance → immutable source archive → target uploads → external outcome report.
+Source rows are explicitly labeled source claims. Confirmed fields come from
+actual persisted effects, including effects on a line whose later work failed;
+uncertain attempts remain separate from confirmed facts. The durable provenance
+format is `invimport-execution-provenance/1`, separate from untouched legacy
+`invimport-provenance/1` files. No existing provenance history is rewritten.
 
-## Implemented execution foundation (Stage 3)
+Artifact receipts persist relative retained filename, SHA-256, size and effect-set
+fingerprint. Upload validates those bytes and remote content; matching filenames
+are not satisfaction evidence. Retained pending bytes survive source deletion and
+no-new-inventory repair. Missing applicable targets are skipped separately from
+failed transfers. No-change runs do not create arbitrary new archives.
 
-The execution package now separates immutable JSON-only models, preparation,
-canonical ownership, per-run SQLite state, serial execution and dispatch guards.
-This is an explicit-handler library foundation, not a durable replacement for
-`import_stock`, and there is no `import-run` CLI yet.
+An explicit inventory repair can append a new artifact revision under the same
+approved operation IDs, frozen manifest and originating target scope. Prior bytes,
+receipts and transfer outcomes remain historical evidence. Per-content transfer
+history prevents replay of old confirmed or uncertain uploads while processing
+new revisions. No uploaded archive is rewritten to include its own upload status.
+The detailed `invimport-execution-report/1` includes operation effects/retry/blocking,
+prepared revisions and transfer events. `project_stock_result` bridges current
+legacy `StockImportResult` and `build_plan` consumers; supplying `run_directory`
+allows its provenance outcome to reference an actually retained local file.
 
-`execution/models.py` defines versioned Plan/OperationSpec/OperationResult,
-logical pre-PK IDs, named prerequisite outputs, typed states/certainty/retry,
-identity-bearing outputs, effects and source attribution. Plan validation rejects
-missing outputs, cycles and contradictory shared-resource inputs. Desired input
-objects own canonical JSON copies; sequence fields own immutable tuples, enum/
-primitive fields validate on construction, and reload rejects unknown nested
-schema fields and duplicate JSON keys. Plan revisions include semantic input/config,
-file hashes, target evidence, decisions and operation scope; stored plans cannot
-silently rebind a changed revision or confirmed output identity.
+Atomic local artifact/report failures stop subsequent mutations. Best-effort
+partial reporting never claims a file was saved when writing failed. Active run
+state and artifacts must remain local/private; automatic retention/deletion and
+portable executable resume exports are not implemented.
 
-`execution/preparation.py:prepare_import` performs bounded read-only discovery
-through an explicit read interface and freezes chosen record identities/reasons,
-source keys, v1 part_of/v2 shared references and supplied file hashes. Its returned
-stock preparation explicitly declares unsupported domain resolution/handlers and
-cannot execute. Stage 4 adds the separate bounded `prepare_stock` integration
-described below; it does not change that generic preparation contract.
-The existing post-import `--plan` projection remains unchanged.
+## Validation and remaining release gates
 
-`execution/ownership.py` discovers one canonical `INVIMPORT_STATE_DIR` (absolute),
-or the runtime platform user state/data directory, independent of cwd and custom
-run directories. Relative XDG_STATE_HOME/LOCALAPPDATA values are rejected, so
-platform configuration cannot create a new authority when cwd changes. `execution/registry.sqlite3` stores target associations, unresolved
-claims, run locations/history and audit dispositions. Reservation commits precede
-run initialization; linking/activation precedes dispatch. No cross-DB atomicity is
-claimed. OS locks exclude same-import/journal writers; process ownership excludes
-simultaneous imports/global ledger recording while retaining nested caller ledgers.
-Missing/corrupt/unknown-schema files, moved registered runs and incompatible claims
-fail closed. An initialized marker detects registry-file deletion. Reviewed alias
-association cannot create a second namespace around existing unresolved claims;
-abandonment retains blocking tombstones. This scope cannot exclude old binaries,
-other hosts/user roots or unregistered endpoint aliases.
+Tests use real SQLite plus a persistent fake remote, fresh subprocess interruption
+and repair, and the actual observed pinned SDK with fake HTTP multipart/media
+boundaries. These establish client behavior, not live uniqueness, exactly-once
+remote effects, target identity or cross-client transaction guarantees.
 
-`execution/store.py` owns one SQLite run writer, version checks and transactions.
-Attempt/request intents commit before sends; result output PKs, certainty, source
-attribution, state and audit events commit together. Interrupted writes become
-uncertain; interrupted reads may retry. Reconciliation preserves confirmed PKs
-and cannot replace their identities. Snapshots read committed state, including
-through canonical `load_run_status` while a writer is active; JSON is an atomic
-portable export, never another authoritative backend.
-
-`execution/executor.py` executes explicit supplied handlers serially in plan order.
-Named usable outputs, rather than group/whole-parent success, gate consumers;
-blocked children reactivate after reconciliation. Unknown writes never requeue
-as creates. Both scheduler and store-start eligibility inspect prior certainty/
-retry permission separately from state, so retry_wait cannot authorize mutation
-replay or bypass reconciliation/review. Retry authorization also checks the actual
-spec is a semantic read and retains saved outputs. Every unknown effect must agree
-with aggregate uncertainty; contradictory persisted results fail closed rather
-than losing unknown effects during requeue. `resume_run` and read-only `retry_operation` are foundation APIs, not
-complete stock resume. Known conflicting target/instance evidence blocks every operation, including
-pending writes with no saved PKs. `execute_plan` requires a current target
-observation; saved PK reuse additionally requires verified instance evidence or an
-explicit continuity review; stock-domain handlers additionally validate each
-model/record identity. URL or PK existence and SDK server_details are not proof.
-
-The mandatory `execution/dispatch.py` guard runs independently of best-effort
-Observation callbacks. Every SDK child send and explicit fake/non-SDK dispatch
-checks cancellation, journal and canonical ownership, commits intent, then records
-outcome. There is another health/cancellation check after request-start rendering.
-An explicit barcode-lookup POST scope represents that semantic read; other POSTs
-remain mutations. Stable journal run/operation/attempt/request IDs bridge Stage 2
-rendering, including nested visual scopes. Renderer errors cannot duplicate work;
-journal errors stop new work. No domain handler is registered by default.
-
-Current-version legacy `import_stock(..., options.write=True)` consults the same
-canonical claims before discovery/mutations and holds exclusion for the whole run.
-Normal return releases its claim; interruption/exception leaves a reservation.
-It remains nondurable and has no supported recovery of that legacy reservation:
-operator review is required. Dry runs/offline validation create no registry.
-
-Run directories/files use user-only permissions where supported; custom new run
-directories must be empty. Each owns a marked retained directory and `artifacts/`.
-Archive enumeration excludes canonical state, marked custom run directories and
-reserved SQLite journal/WAL/SHM names. No automatic deletion/retention is added.
-Full immutable artifact staging/provenance/upload migration remains Stage 5.
-
-## Implemented durable stock subset (Stage 4)
-
-`execution/stock_preparation.py:prepare_stock` resolves validated v1/v2 StockFile
-inputs through complete read-only discovery. It reuses `from_supplier`,
-`part_name`, `ipn_prefix`, `answers_to`, `values_match`, category aliases,
-marketplace parsing and the strict barcode-absence contract. Shared spec/type
-identity produces stable logical Part/parameter/supplier/SKU/order operations;
-each original line retains its stock lot and PO contribution, even for identical
-payloads. Preparation freezes actual chosen PK/identity, create payloads, parameter
-policies and PO reference allocation. The subset permits at most one distinct
-new PO allocation per plan: OPTIONS is not a reservation, so multiple new orders
-require Stage 5 allocation support before any writes. Matching is shared with pre-create
-revalidation. Conflicting shared metadata/currency and existing SKU assignments
-are rejected. Unsupported requested enrichment, invoice/provenance/company media,
-MPN/manufacturer identity and unresolved/missing locations require review before
-execution; full coverage remains Stage 5. Earlier-line `part_of` retains its format
-and depends on usable Part/identity-parameter outputs, not stock/tag/image success.
-
-`stock_api.py` adapts the marked project observed SDK without wrapping its sends
-a second time; custom APIs must implement one request per method. Each actual SDK
-send still passes the Stage 3 mandatory transport guard. Actual client `api_url`
-must agree with the planned/current target. Verified instance continuity or the
-existing revision-bound continuity review remains required; SDK server details
-are not an immutable instance proof.
-
-`stock_handlers.py` owns semantic create/reuse/parameter/stock/barcode/tag/order
-operations. Raw JSON create responses are validated as exactly one object or a
-singleton object list, with positive PK and expected record identity. This path
-does not invoke legacy `_create` or construct/reload SDK models. Trustworthy PK,
-model, identity, effects and source attribution checkpoint immediately, before any
-following child work. Each approved parameter settles independently and never
-overwrites a conflicting nonempty value. Explicit parameter additions to a matched
-Part are a bounded new-mode policy: established spec/type/IPN identity and the
-frozen per-parameter preview authorize only missing approved values. Legacy
-no-update behavior is unchanged. Incomplete spec candidates never establish identity.
-
-`stock_workflow.py` exposes `execute_stock`, `resume_stock` and selected
-`repair_stock` under canonical registry exclusion. Generic mutation replay stays
-forbidden. A stock repair is a new audited attempt under the original operation
-ID, retaining prior results, PKs, confirmed effects and uncertainty history.
-Identity/state reads precede evidence-recorded conditional metadata writes; each
-child checks cancellation/ownership/journal health. Explicit rejected/no-send
-outcomes can proceed after absence/precondition revalidation. Unknown creates
-without trustworthy saved PK/correlation stay uncertain. PO-line and stock lots
-are never matched by payload. No delete or historical quantity/batch/location/
-part restoration is issued. Tags union currently observed unrelated additions on
-owned new stock; GET-plus-PATCH cannot protect an external write racing after GET.
-Divergent PO links and changed/missing saved identities require review. Saved PO
-outputs also revalidate every frozen metadata/currency requirement both during
-repair and before a dependent contribution/link can write.
-
-`stock_evidence.py` freezes one explicitly supplied byte artifact and logical
-stock target in the plan. Pending bytes also stage in retained `artifacts/`.
-Filename matches require downloaded-byte SHA-256 verification; unavailable or
-different bytes require review. Uploaded, verified/already-satisfied, rejected and
-unknown transfers have distinct states/effects/events. Lost uploads can settle by
-verified target/bytes without new inventory writes. A retained confirmed upload
-effect is verification-only even if its attachment later vanishes from listing;
-repair cannot authorize replacement uploads. Full provenance/archive
-migration remains Stage 5. The local `partial-report.json` projects all selected
-lines, usable PKs, failures and named blocked prerequisites. Only confirmed barcode
-operations register stock. Journal-error reporting is best effort and cannot
-repair a failed authority. Completed resume returns committed status without writes.
-
-No new CLI or default rollout is enabled. The unchanged legacy importer and
-`--plan` remain available, and canonical ownership prevents using them to bypass
-an unresolved durable run. The [Stage 4 handover](docs/handovers/import-execution-stage-4.md)
-records supported scope, fault tests, decisions and limits.
-
-## Implemented provenance, outcomes and limitations
-
-`inventree/ledger.py` has process-global active recording state and a lock around
-its event list. It observes selected successful creates/updates and PO links,
-not every effect: barcode/tag/deletion and post-recording finalization are
-incomplete. It is not a durable journal. Stage 3 excludes overlapping recording
-owners and imports, while retaining nested recording on the owning thread. Source attribution is compiled from document rows, results and these events;
-a line exception can bypass its result and all ordinary finalization.
-
-Write runs compile combined provenance in the import folder, then build a
-content-named archive of eligible import-folder files and attach it to orders or
-suppliers; per-record provenance follows. Combined provenance is read/append/
-rewrite. Archive hashing and ZIP construction read source files separately.
-Attachment deduplication is based on complete listings/names and metadata, not
-general verified byte identity. A failed list blocks the upload. The structured
-`AttachmentOutcome` distinguishes uploaded, already_satisfied, failed and unknown;
-`attach_file` still returns True only for a confirmed new upload. Datasheet and
-photo/document count APIs retain new-upload counts. Datasheet backfill, provenance
-and archives consume structured satisfaction; archive/provenance expose unknown
-outcomes. A lost upload is unknown, and a retry cannot assume a historical upload
-is content-verified. No durable evidence retry policy exists yet.
-
-Barcode lookup recognizes only the exact supported HTTP 400 no-match error as
-absence; auth, validation, transient, transport and invalid responses fail closed.
-Ownership responses must contain exactly one recognized model with a positive
-integer PK; malformed mixed-model payloads cannot fall through to absence.
-Localized/changed no-match text needs explicit support rather than guessing.
-Linking reads ownership back even after a successful POST. Confirmed intended
-ownership succeeds; confirmed different stock ownership raises `BarcodeInUse`.
-Only that latter case permits deletion of the duplicate created by the current
-call. Uncertain link/read-back or deletion retains a structured `BarcodeError`
-with known stock PK and does not claim registration success. The importer reuses
-that confirmed conflict owner rather than performing an uncertain second lookup.
-These diagnostics are in memory only; an ambiguous stock create still lacks a
-durable identity. Stage 3's legacy exclusion guard retains a reservation after
-an exception, but does not supply domain recovery.
-Part creation precedes parameter writes: an incomplete specification part can
-fail later rediscovery, whereas an existing type part can skip missing parameters.
-PO contributions are unconditional creates with no durable correlation contract.
-These defects are baseline limitations to fix, not supported recovery behavior.
-
-Normal completion counts created/exists/skipped/review lines; CLI exit 1 is based
-on skipped/review lines and does not represent every selected enrichment failure.
-The store/ownership/executor foundation and Stage 4 bounded stock library are opt-in.
-Legacy stock execution has no authoritative operation state, executable mutation
-preview, resumable domain operations or complete durable partial report yet. Barcode fixture uniqueness is not proof of a live target's atomicity.
-No local client can guarantee exactly-once remote effects after a lost response.
-
-## Agreed target, not implemented
-
-The [design](docs/import-execution-design.md),
-[contracts and matrices](docs/import-execution-contracts.md) and
-[staged plan](docs/import-execution-plan.md) define the remaining integration:
-full stock-domain coverage, provenance/archive staging and CLI release.
-Stage 4 implements the bounded spec/type slice above on typed named outputs,
-serial execution, SQLite ownership and explicit domain repair. Broader input and
-enrichment coverage must pass Stage 5 before default stock execution is enabled.
-
-Required identity outputs gate stock; optional enrichment can fail independently
-but selected incomplete work makes the new-mode result incomplete. Preserve manual
-changes and historical quantity/batch/location/part. Freeze artifact bytes once:
-settled inventory → confirmed-change provenance → immutable archive → uploads →
-external execution outcome. Journals and execution outputs stay outside archive
-inputs. Each stage must update this file and supply a comprehensive tracked
-`docs/handovers/import-execution-stage-N.md`, including decisions, plan adjustments,
-validation and independent-review fixes. See the plan for gates before any claim
-of durable recovery or default rollout.
-
-Future implementation follows CONVENTIONS.md: keep orchestration as named domain
-operations with explicit inputs/options, let classes own coherent per-run state or
-resources, and introduce module/package boundaries only where responsibilities
-justify them. Dependencies flow from commands to reusable workflows to lower-level
-operations; lower-level code must not import commands. Keep behavior tests and
-scenario fixtures near their integration package instead of exposing implementation
-stages as test APIs. These constraints refine organization without changing recovery
-or compatibility contracts.
+Stage 6 owns CLI prepare/execute/status/resume/retry presentation, write approval,
+JSON/exit contracts, operational retention documentation and default rollout after
+review/parity gates. Category config-file persistence needs an explicit supplied
+configuration target/precondition contract before a future CLI promises it.
+DigiKey migration and bounded concurrency remain Stage 7. The library is serial;
+legacy thread pools remain confined to legacy parameter/download workflows.

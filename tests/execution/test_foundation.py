@@ -62,7 +62,7 @@ def test_plan_roundtrip_and_stable_pre_pk_identity():
     assert "71" not in spec.id.split(":")
 
 
-@pytest.mark.parametrize("version", [0, 2, 999])
+@pytest.mark.parametrize("version", [0, 3, 999])
 def test_unknown_plan_schema_refused(version):
     raw = json.loads(plan().dumps())
     raw["schema_version"] = version

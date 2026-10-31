@@ -1,12 +1,17 @@
-"""Supported library entry points for the bounded durable stock slice."""
+"""Opt-in stock preparation, execution, selected repair and report adapters."""
 from __future__ import annotations
 
 import sqlite3
 from contextlib import closing
 from pathlib import Path
 from threading import Event
+from typing import Mapping
 
 from requests import RequestException
+
+from ..config import CategoryConfig, ParameterConfig
+from ..inventree.stockimport import ImportOptions, StockImportResult
+from ..stockfile import StockFile
 
 from .dispatch import guarded
 from .executor import (
@@ -47,7 +52,11 @@ def _operation_report(spec: OperationSpec, row: dict, rows: dict[str, dict]) -> 
     result = row["result"]
     return {"id": spec.id, "state": row["state"],
             "error": result["error"] if result else None,
-            "outputs": result["outputs"] if result else [], "blocked_by": missing}
+            "outputs": result["outputs"] if result else [], "blocked_by": missing,
+            "effects": result["effects"] if result else [],
+            "certainty": result["certainty"] if result else "none",
+            "retry": result["retry"] if result else "never",
+            "settled_after": list(spec.settled_after)}
 
 
 def _line_report(line: str, source: dict, operations: list[OperationSpec], rows: dict[str, dict]) -> dict:
@@ -68,7 +77,10 @@ def partial_report(plan: Plan, snapshot: dict) -> dict:
         for line in spec.attribution.lines:
             by_line[line].append(spec)
     lines = [_line_report(line, source, by_line[line], rows) for line, source in sources.items()]
-    return {"run_id": snapshot["run_id"], "revision": plan.revision, "lines": lines}
+    return {"format": "invimport-execution-report/1", "run_id": snapshot["run_id"],
+            "revision": plan.revision, "lines": lines,
+            "prepared_artifacts": snapshot.get("prepared_artifacts", []),
+            "artifact_transfers": snapshot.get("artifact_transfers", [])}
 
 
 def _report(plan: Plan, snapshot: dict, directory: Path) -> dict:
@@ -162,6 +174,8 @@ def repair_stock(plan: Plan, run_id: str, path: Path, operation_id: str, *, api:
                     else:
                         store.finish(attempt, result)
                 snapshot = execute_serial(store, StockHandlers(api).mapping, cancelled=cancelled)
+                from .stock_finalization import refresh_finalization
+                snapshot = refresh_finalization(store, StockHandlers(api), cancelled=cancelled)
                 if all(row["state"] in {State.SUCCEEDED, State.ALREADY_SATISFIED, State.SKIPPED} for row in snapshot["operations"]):
                     registry.complete(run_id)
         return _report(plan, snapshot, path.parent)
@@ -170,3 +184,25 @@ def repair_stock(plan: Plan, run_id: str, path: Path, operation_id: str, *, api:
         raise
     finally:
         registry.close()
+
+
+def prepare_full_stock(document: StockFile, *, categories: Mapping[str, CategoryConfig],
+                       parameters: Mapping[str, ParameterConfig], target: Target, api: StockAPI,
+                       options: ImportOptions | None = None) -> Plan:
+    """Opt-in full library preparation. All callbacks run before approval.
+
+    Uses the same planner and handlers as the representative compatibility slice.
+    Execution is a separate explicit boundary; ``options.write`` never dispatches
+    writes while preparing. The ordinary CLI retains its legacy default.
+    """
+    from .stock_finalization import with_finalization
+    from .stock_preparation import prepare_stock
+    options = options or ImportOptions()
+    plan = prepare_stock(document, categories=categories, parameters=parameters, target=target, api=api, options=options)
+    return with_finalization(plan, document, archive=options.archive, provenance=options.provenance)
+
+
+def project_stock_result(plan: Plan, snapshot: dict, *, run_directory: Path | None = None) -> StockImportResult:
+    """Adapt detailed state to the established result and --plan input contract."""
+    from .stock_result import project_stock_result as project
+    return project(plan, snapshot, run_directory=run_directory)

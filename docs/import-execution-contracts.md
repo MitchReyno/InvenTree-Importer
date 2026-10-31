@@ -396,3 +396,52 @@ a later listing omits the attachment; selected repair is verification-only, with
 pending bytes/history retained. Preparation rejects more than one distinct new
 PO allocation because a read-only OPTIONS default does not reserve a reference;
 Stage 5 must add a verified policy before expanding that scope.
+
+
+## Implemented Stage 5 plan, artifact and compatibility contracts
+
+- Full opt-in boundary: `execution.stock_workflow.prepare_full_stock` reuses
+  `stock_preparation` and the same domain handlers as bounded `prepare_stock`.
+  Existing CLI/default and legacy entry interfaces remain unchanged.
+- Execution plan schema 2 adds typed immutable `settled_after` operation IDs.
+  Both output and settlement dependencies participate in validation/cycle checks.
+  Settlement permits failed/uncertain/reviewed/blocked branches without turning
+  missing outputs into usable records. Schema-1 load/dump/revision remains stable;
+  new fields in schema 1 are rejected. SQLite storage schema stays 1.
+- Full scopes include maker/MPN/SKU relationships, model-owned parameters,
+  explicit taxonomy/templates/locations, empty notes/links, attachments,
+  primary/stock images, datasheet/full-PDF/extract, invoices and originating-run
+  company logos. Options and callbacks freeze before approval; no execution
+  callback can change record choice. Manual values remain protected.
+- `create_manufacturers`, `create_suppliers` and `create_orders` suppress their
+  unselected creation/relationship scope while permitting stock where applicable.
+  A disabled or failed explicit location cannot become unlocated. Confidence
+  review and partial-skip choices are explicit planned line outcomes.
+- MPN matching is scoped to the selected manufacturer, with explicit-IPN priority
+  and no arbitrary first global relationship. Missing taxonomy/parameter
+  templates and approved location paths have individually checkpointed creates.
+  Category configuration chosen by a callback is explicit API input; this API
+  does not infer a destination for local YAML persistence.
+- Every local artifact has a persisted content receipt (relative filename, size,
+  SHA-256, effect-set fingerprint). Source bytes/manifest/targets freeze before
+  execution. Source containment and execution-root exclusions precede archiving.
+  Retained bytes, not a mutable source path, supply pending repair work.
+- `invimport-execution-provenance/1` records precise confirmed changed fields and
+  uncertain attempts separately from source claims, including failed-line
+  attribution. Existing `invimport-provenance/1` and historical runs are untouched.
+- Order: settled inventory/enrichment, confirmed-change snapshot, immutable ZIP,
+  uploads, external report. Missing target is inapplicable/skipped, not failed.
+  No-op imports generate no arbitrary archive. Filename identity is insufficient.
+- Selected inventory repair can append an immutable artifact revision under the
+  original approved operation IDs/source/target scope. The journal authorizes
+  this transition with a precise effect-set fingerprint and retains prior results,
+  outputs, bytes and transfer receipts. Per-content transfer history remains
+  authoritative for old uncertainty/confirmed sends; a new revision cannot replay
+  an older transfer or overwrite its bytes.
+- Reports use `invimport-execution-report/1`, preserving prepared revisions and
+  transfer events as well as operation state/certainty/effects/retry/blocking.
+  `project_stock_result` returns legacy `StockImportResult` suitable for existing
+  `build_plan`; local provenance paths require an explicit `run_directory` and
+  actual file existence. Report-write failure never means saved success.
+- The one-new-PO allocation restriction remains; expanding it requires a verified
+  target allocator contract. CLI write approval/default rollout remain Stage 6.

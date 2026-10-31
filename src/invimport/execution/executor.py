@@ -148,6 +148,16 @@ def _invoke(spec: OperationSpec, store: RunStore, handlers: Mapping[Kind, Handle
         store.finish(attempt, result)
 
 
+def _dependency_settled(plan: Plan, parent: str, states: Mapping[str, State],
+                        outputs: Mapping[tuple[str, str], Output]) -> bool:
+    if states[parent] in {State.PENDING, State.READY, State.RUNNING, State.RETRY_WAIT}:
+        return False
+    if states[parent] == State.BLOCKED:
+        parent_spec = next(item for item in plan.operations if item.id == parent)
+        return any((ref.operation, ref.name) not in outputs for ref in parent_spec.requires)
+    return True
+
+
 def execute_serial(store: RunStore, handlers: Mapping[Kind, Handler], *,
                    cancelled: Event | None = None) -> dict:
     """Run ready operations once, retaining deterministic plan order.
@@ -165,11 +175,16 @@ def execute_serial(store: RunStore, handlers: Mapping[Kind, Handler], *,
         states, results = store.states(), store.results()
         outputs = {(operation, output.name): output for operation, result in results.items() for output in result.outputs}
         eligible = [op for op in store.plan.operations if op.id not in attempted and execution_eligible(states[op.id], results.get(op.id), mutation=op.mutation)]
-        ready = next((op for op in eligible if all((r.operation, r.name) in outputs for r in op.requires)), None)
+        ready = next((op for op in eligible if all((r.operation, r.name) in outputs for r in op.requires)
+                      and all(_dependency_settled(store.plan, parent, states, outputs) for parent in op.settled_after)), None)
         if ready is None or cancelled.is_set():
+            newly_blocked = False
             for op in eligible:
-                if any((r.operation, r.name) not in outputs for r in op.requires):
+                if states[op.id] != State.BLOCKED and any((r.operation, r.name) not in outputs for r in op.requires):
                     store.block(op.id)
+                    newly_blocked = True
+            if newly_blocked and not cancelled.is_set():
+                continue
             return store.snapshot()
         _invoke(ready, store, handlers, cancelled=cancelled, outputs=outputs)
         attempted.add(ready.id)

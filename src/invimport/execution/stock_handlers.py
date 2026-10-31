@@ -27,14 +27,19 @@ from .stock_preparation import matching_parts, record_identity
 
 ROUTES = {"part.part": "part/", "company.company": "company/", "company.supplierpart": "company/part/",
           "stock.stockitem": "stock/", "order.purchaseorder": "order/po/",
-          "order.purchaseorderlineitem": "order/po-line/", "common.parameter": "parameter/"}
+          "order.purchaseorderlineitem": "order/po-line/", "common.parameter": "parameter/", "company.manufacturerpart": "company/part/manufacturer/",
+          "part.partcategory": "part/category/", "stock.stocklocation": "stock/location/",
+          "common.parametertemplate": "parameter/template/"}
 IDENTITY_FIELDS = {"part.part": ("category", "IPN", "name", "keywords"),
                    "company.company": ("name", "is_supplier"),
                    "company.supplierpart": ("part", "supplier", "SKU"),
                    "stock.stockitem": ("part",),
                    "order.purchaseorder": ("supplier", "supplier_reference"),
                    "order.purchaseorderlineitem": ("order", "part"),
-                   "common.parameter": ("model_type", "model_id", "template", "data")}
+                   "common.parameter": ("model_type", "model_id", "template", "data"),
+                   "company.manufacturerpart": ("part", "manufacturer", "MPN"),
+                   "part.partcategory": ("name", "parent"), "stock.stocklocation": ("name", "parent"),
+                   "common.parametertemplate": ("name",)}
 
 
 def review(code: str, *, unknown: bool = False, effects: tuple[Effect, ...] = ()) -> OperationResult:
@@ -83,6 +88,8 @@ def _inputs(spec: OperationSpec, context: OperationContext, api: StockRequests) 
         if row is None:
             return None
         parent = operations[reference.operation]
+        if parent.kind == Kind.COMPANY and any(row.get(key, False) != value for key, value in parent.desired.values()["payload"].items() if key.startswith("is_")):
+            return None
         if parent.desired.values().get("action") == "order" and not _order_metadata_matches(parent, row):
             return None
         resolved.append((output, row))
@@ -111,6 +118,10 @@ def _create(spec: OperationSpec, context: OperationContext, api: StockRequests, 
         return review("invalid_create_identity", unknown=True, effects=effects + (Effect("create_response", Certainty.UNKNOWN),))
     result = _success(_output(row, model), created=True)
     context.store.checkpoint(context.attempt, result)
+    with context.store.transaction() as connection:
+        context.store._event(connection, "confirmed_mutation_fields", spec.id, context.attempt.id,
+                             model=model, pk=row["pk"], effect_kind="create",
+                             fields={key: value for key, value in payload.items() if row.get(key) == value})
     from ..inventree import ledger
     ledger.created(ROUTES[model], row["pk"], payload)
     # No SDK model construction/reload can precede this checkpoint.
@@ -140,6 +151,8 @@ class StockHandlers:
             return review("dependency_identity_drift", unknown=prior is not None and prior.certainty == Certainty.UNKNOWN)
         desired = spec.desired.values()
         action = desired["action"]
+        if action == "line_disposition":
+            return OperationResult(State.SKIPPED) if desired["outcome"] == "skip" else review(desired["reason"])
         unknown_create = repair and prior is not None and prior.certainty == Certainty.UNKNOWN
         if prior and prior.outputs:
             saved = prior.outputs[0]
@@ -148,12 +161,26 @@ class StockHandlers:
                 return review("saved_record_missing_or_changed", unknown=prior.certainty == Certainty.UNKNOWN)
             if action == "order" and not _order_metadata_matches(spec, saved_row):
                 return review("chosen_order_metadata_drift")
-            if action in {"part", "supplier", "stock", "supplier_part", "order", "order_line", "parameter"}:
+            if action in {"part", "supplier", "stock", "supplier_part", "manufacturer_part", "order", "order_line", "parameter", "taxonomy"}:
                 if action == "parameter":
                     if saved_row.get("data") != desired["value"]:
                         return review("parameter_value_drift")
                 return replace(_success(saved), effects=tuple(effect for effect in prior.effects if effect.certainty == Certainty.CONFIRMED))
-        if action in {"part", "supplier"}:
+        if action in {"asset_stage", "asset_extract", "provenance_snapshot", "evidence_archive", "artifact_upload", "outcome_report"}:
+            from .stock_finalization import run_local_or_final
+            return run_local_or_final(spec, context, api, repair=repair)
+        if action in {"notes", "empty_field"}:
+            from .stock_metadata import ensure_empty_field
+            return ensure_empty_field(spec, context, api, inputs)
+        if action == "manufacturer_part":
+            return self._manufacturer_part(spec, context, api, desired, inputs, repair=unknown_create)
+        if action in {"part", "supplier", "taxonomy"}:
+            desired = {**desired, "payload": dict(desired["payload"])}
+            for output, _ in inputs:
+                if action == "part" and output.model == "part.partcategory":
+                    desired["payload"]["category"] = output.pk
+                elif action == "taxonomy" and output.model == desired["model"]:
+                    desired["payload"]["parent"] = output.pk
             return self._record(spec, context, api, desired, repair=unknown_create)
         if action == "parameter":
             return self._parameter(spec, context, api, desired, inputs, repair=unknown_create)
@@ -195,13 +222,22 @@ class StockHandlers:
         # Revalidate absence; a newly matching record requires a fresh reviewed choice.
         payload = desired["payload"]
         filters = {"IPN": payload["IPN"]} if model == "part.part" else {"name": payload["name"]}
+        if "parent" in payload:
+            filters["parent"] = payload["parent"]
         if model == "part.part":
+            if desired.get("mpn") and desired["identity_kind"] == "mpn":
+                filters_mpn = {"MPN": desired["mpn"]}
+                manufacturer = desired.get("manufacturer_operation")
+                if manufacturer:
+                    filters_mpn["manufacturer"] = context.inputs[(manufacturer, "record")].pk
+                if list_rows(api, "company/part/manufacturer/", params=filters_mpn):
+                    return review("manufacturer_relationship_discovery_changed")
             from ..config import ParameterConfig
             policies = {name: ParameterConfig(**policy) for name, policy in desired["parameter_policies"].items()}
             candidates = matching_parts(api, category_pk=payload["category"], identity_kind=desired["identity_kind"],
-                                        designator=desired["type"], values=desired["parameters"],
+                                        designator=desired["type"], values={name: value for name, value in desired["parameters"].items()},
                                         templates=desired["templates"], parameters=policies)
-            if candidates:
+            if desired["identity_kind"] != "mpn" and candidates:
                 return review("part_discovery_changed")
         if list_rows(api, ROUTES[model], params=filters):
             return review("discovery_changed")
@@ -210,8 +246,11 @@ class StockHandlers:
     def _parameter(self, spec: OperationSpec, context: OperationContext, api: StockRequests,
                    desired: dict, inputs: list[tuple[Output, dict]], *, repair: bool) -> OperationResult:
         part = inputs[0][0]
-        rows = list_rows(api, "parameter/", params={"model_type": "part.part", "model_id": part.pk})
-        rows = [row for row in rows if row.get("template") == desired["template"]]
+        template = desired["template"]
+        if template is None:
+            template = next(output.pk for output, _ in inputs if output.model == "common.parametertemplate")
+        rows = list_rows(api, "parameter/", params={"model_type": part.model, "model_id": part.pk})
+        rows = [row for row in rows if row.get("template") == template]
         if len(rows) > 1:
             return review("duplicate_parameter")
         if rows:
@@ -220,7 +259,7 @@ class StockHandlers:
             return _success(_output(rows[0], "common.parameter"))
         if repair and context.store.results()[spec.id].certainty == Certainty.UNKNOWN:
             return review("uncorrelated_parameter_create", unknown=True)
-        payload = {"model_type": "part.part", "model_id": part.pk, "template": desired["template"], "data": desired["value"]}
+        payload = {"model_type": part.model, "model_id": part.pk, "template": template, "data": desired["value"]}
         return _create(spec, context, api, model="common.parameter", payload=payload)
 
     def _stock(self, spec: OperationSpec, context: OperationContext, api: StockRequests,
@@ -241,6 +280,9 @@ class StockHandlers:
         if repair:
             return review("uncorrelated_stock_create", unknown=True)
         payload = {**desired["payload"], "part": part.pk}
+        location = next((output for output, _ in inputs if output.model == "stock.stocklocation"), None)
+        if location:
+            payload["location"] = location.pk
         supplier_part = next((output for output, row in inputs if output.model == "company.supplierpart"), None)
         if supplier_part:
             payload["supplier_part"] = supplier_part.pk
@@ -257,6 +299,7 @@ class StockHandlers:
             return review("barcode_owner_conflict")
         self._authorize(context, spec, "barcode_absent", stock)
         api.post("barcode/link/", {"barcode": desired["key"], "stockitem": stock.pk})
+        checkpoint_effect(context, stock, "barcode")
         with barcode_lookup_request():
             owner = already_imported(api, desired["key"])
         if owner != stock.pk:
@@ -287,7 +330,9 @@ class StockHandlers:
                 return review("order_link_drift")
             payload = {"purchase_order": order.pk}
         self._authorize(context, spec, "observed_missing_metadata", stock)
-        api.patch(f"stock/{stock.pk}/", payload)
+        response = api.patch(f"stock/{stock.pk}/", payload)
+        fields = {key: value for key, value in payload.items() if isinstance(response, dict) and response.get(key) == value}
+        checkpoint_effect(context, stock, desired["action"], fields=fields)
         observed = _read(api, stock)
         if observed is None or any(observed.get(key) != value for key, value in payload.items()):
             return review("metadata_not_confirmed", unknown=True)
@@ -323,7 +368,10 @@ class StockHandlers:
         if repair:
             return review("uncorrelated_supplier_part_create", unknown=True)
         return _create(spec, context, api, model="company.supplierpart",
-                       payload={"part": part.pk, "supplier": supplier.pk, "SKU": desired["SKU"]})
+                       payload={"part": part.pk, "supplier": supplier.pk, "SKU": desired["SKU"],
+                                **({"manufacturer_part": next(output.pk for output, _ in inputs if output.model == "company.manufacturerpart")}
+                                   if any(output.model == "company.manufacturerpart" for output, _ in inputs) else {}),
+                                **{key: desired[key] for key in ("description", "link") if desired.get(key)}})
 
     def _order(self, spec: OperationSpec, context: OperationContext, api: StockRequests,
                    desired: dict, inputs: list[tuple[Output, dict]], *, repair: bool) -> OperationResult:
@@ -350,3 +398,31 @@ class StockHandlers:
         if next_reference(api) != payload["reference"]:
             return review("order_reference_allocation_changed")
         return _create(spec, context, api, model="order.purchaseorder", payload=payload)
+
+    def _manufacturer_part(self, spec: OperationSpec, context: OperationContext, api: StockRequests,
+                           desired: dict, inputs: list[tuple[Output, dict]], *, repair: bool) -> OperationResult:
+        part = next(output for output, _ in inputs if output.model == "part.part")
+        manufacturer = next(output for output, _ in inputs if output.model == "company.company")
+        baseline = spec.baseline.values()
+        if baseline.get("pk"):
+            output = Output("record", "company.manufacturerpart", baseline["pk"], baseline["identity"])
+            return _success(output) if _read(api, output) else review("chosen_manufacturer_part_drift")
+        if repair:
+            return review("uncorrelated_manufacturer_part_create", unknown=True)
+        rows = list_rows(api, "company/part/manufacturer/",
+                         params={"part": part.pk, "manufacturer": manufacturer.pk, "MPN": desired["MPN"]})
+        if rows:
+            return review("manufacturer_part_discovery_changed")
+        payload = {key: desired[key] for key in ("MPN", "description", "link") if desired.get(key)}
+        return _create(spec, context, api, model="company.manufacturerpart",
+                       payload={**payload, "part": part.pk, "manufacturer": manufacturer.pk})
+
+
+def checkpoint_effect(context: OperationContext, target: Output, kind: str, *, fields: dict | None = None) -> None:
+    """Persist confirmed response attribution before any verification request."""
+    context.store.checkpoint(context.attempt, OperationResult(State.NEEDS_REVIEW, Certainty.CONFIRMED,
+        Retry.RECONCILE, outputs=(target,), effects=(Effect(kind, Certainty.CONFIRMED, target.model, target.pk),)))
+    if fields:
+        with context.store.transaction() as connection:
+            context.store._event(connection, "confirmed_mutation_fields", context.attempt.operation, context.attempt.id,
+                                 model=target.model, pk=target.pk, effect_kind=kind, fields=fields)

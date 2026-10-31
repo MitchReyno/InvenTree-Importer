@@ -189,6 +189,7 @@ class OperationSpec:
     desired: Inputs = field(default_factory=Inputs)
     baseline: Inputs = field(default_factory=Inputs)
     requires: tuple[OutputRef, ...] = ()
+    settled_after: tuple[str, ...] = ()
     provides: tuple[str, ...] = ()
     conflicts: tuple[str, ...] = ()
     attribution: Attribution = field(default_factory=lambda: Attribution(""))
@@ -207,7 +208,7 @@ class OperationSpec:
         if type(self.required) is not bool or type(self.mutation) is not bool:
             raise ValueError("operation permissions must be booleans")
         object.__setattr__(self, "requires", _owned_sequence(self.requires, OutputRef))
-        for name in ("provides", "conflicts"):
+        for name in ("provides", "conflicts", "settled_after"):
             owned = _owned_sequence(getattr(self, name), str)
             for value in owned:
                 _text(value, name=name, required=True)
@@ -289,19 +290,27 @@ class Plan:
             _text(getattr(self, name), name=name, required=True)
         if not isinstance(self.files, Inputs) or not isinstance(self.decisions, Inputs) or not isinstance(self.target, Target):
             raise ValueError("plan requires typed immutable inputs and target")
-        if (type(self.schema_version) is not int or self.schema_version != SCHEMA_VERSION
+        if (type(self.schema_version) is not int or self.schema_version not in {1, 2}
                 or type(self.input_version) is not int or self.input_version not in {1, 2}
                 or type(self.normalization_version) is not int or self.normalization_version != 1):
             raise ValueError("unsupported execution plan schema")
         object.__setattr__(self, "operations", _owned_sequence(self.operations, OperationSpec))
         object.__setattr__(self, "unsupported", _owned_sequence(self.unsupported, str))
 
+    def _serialized(self) -> dict:
+        value = asdict(self)
+        if self.schema_version == 1:
+            for operation in value["operations"]:
+                if operation.pop("settled_after"):
+                    raise ValueError("settled dependencies require plan schema 2")
+        return value
+
     @property
     def revision(self) -> str:
-        return digest(asdict(self))
+        return digest(self._serialized())
 
     def dumps(self) -> str:
-        return canonical(asdict(self))
+        return canonical(self._serialized())
 
     @classmethod
     def loads(cls, text: str) -> Plan:
@@ -310,6 +319,10 @@ class Plan:
         if not isinstance(value["operations"], list):
             raise ValueError("plan operations must be an array")
         for serialized in value.pop("operations"):
+            if value["schema_version"] == 1:
+                if "settled_after" in serialized:
+                    raise ValueError("schema 1 cannot contain settled dependencies")
+                serialized = {**serialized, "settled_after": []}
             raw = _record(serialized, OperationSpec)
             raw["desired"] = Inputs(**_record(raw["desired"], Inputs))
             raw["baseline"] = Inputs(**_record(raw["baseline"], Inputs))
@@ -328,7 +341,7 @@ class Plan:
 
 def validate_plan(plan: Plan) -> None:
     """Validate dependencies separately from visual groups and shared resources."""
-    if (type(plan.schema_version) is not int or plan.schema_version != SCHEMA_VERSION
+    if (type(plan.schema_version) is not int or plan.schema_version not in {1, 2}
             or type(plan.input_version) is not int or plan.input_version not in {1, 2}
             or type(plan.normalization_version) is not int or plan.normalization_version != 1):
         raise ValueError("unsupported execution plan schema")
@@ -342,12 +355,17 @@ def validate_plan(plan: Plan) -> None:
             if resource in resources and resources[resource] != signature:
                 raise ValueError("conflicting shared resource inputs")
             resources[resource] = signature
+        settled = op.settled_after
+        if (plan.schema_version == 1 and bool(settled) or any(not isinstance(key, str) or key not in operations or key == op.id for key in settled)
+                or len(settled) != len(set(settled))):
+            raise ValueError("invalid semantic settled dependencies")
         for ref in op.requires:
             if ref.operation not in operations or ref.name not in operations[ref.operation].provides:
                 raise ValueError("missing prerequisite output")
     remaining = set(operations)
     while remaining:
-        ready = {key for key in remaining if all(r.operation not in remaining for r in operations[key].requires)}
+        ready = {key for key in remaining if all(r.operation not in remaining for r in operations[key].requires)
+                 and all(parent not in remaining for parent in operations[key].settled_after)}
         if not ready:
             raise ValueError("cyclic operation dependencies")
         remaining -= ready

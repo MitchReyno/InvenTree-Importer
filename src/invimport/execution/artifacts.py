@@ -1,4 +1,4 @@
-"""Initial retained-run policy; immutable evidence migration belongs to Stage 5."""
+"""Private run initialization and identity-based evidence exclusions."""
 from __future__ import annotations
 
 from pathlib import Path

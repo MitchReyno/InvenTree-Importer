@@ -4,7 +4,9 @@ Status: maintained implementation plan. Stage 0 establishes contracts; Stage 1
 implements independently reviewed safe reads/errors; Stage 2 implements in-memory
 observations; Stage 3 implements the explicit-handler execution/store foundation
 with independent review approved. Stage 4 implements the bounded durable stock
-reference slice with independent review approved. Stages 5–7 remain unimplemented. Companion documents:
+reference slice with independent review approved. Stage 5 has an opt-in full-domain
+implementation candidate awaiting independent review; Stages 6–7 remain pending.
+Companion documents:
 [design](import-execution-design.md), [contracts](import-execution-contracts.md),
 [architecture](../ARCHITECTURE.md). Baseline main `c22b7a1` includes PR #11
 code-organization guidance and PR #9;
@@ -20,7 +22,7 @@ fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
 | 2 | Complete; independent implementation review approved | [Stage 2 handover](handovers/import-execution-stage-2.md); whole-command dispatch visibility, worker correlation and secret-canary regressions |
 | 3 | Complete; independent foundation review approved | [Stage 3 handover](handovers/import-execution-stage-3.md); real SQLite/restart, canonical claims, serial fake-handler gates |
 | 4 | Complete; independent bounded-slice review approved | [Stage 4 handover](handovers/import-execution-stage-4.md); persistent fake-server fault matrix and actual observed SDK composition |
-| 5 | Pending | Full workflow and immutable artifact gates below |
+| 5 | Implemented; independent full-domain review pending | Full workflow and immutable artifact gates below |
 | 6 | Pending | Compatibility/default rollout gates below |
 | 7 | Pending | DigiKey adaptation and measured concurrency gates below |
 
@@ -474,6 +476,23 @@ bounded library slice for its stacked PR; Stage 5/6 coverage/release gates remai
 
 **Likely files:** stockimport.py, parts.py, companies.py, purchase_orders.py,
 archive.py, provenance.py, datasheets.py, ledger.py, commands/import_stock.py.
+
+**Implemented candidate:** `prepare_full_stock` extends the shared Stage 4 planner
+and handlers; the CLI default is unchanged. It adds maker/MPN/SKU relationships,
+per-model parameters, configured taxonomy/template/location creation, notes,
+media/PDF/invoice/logo work, frozen confidence/partial-skip outcomes, immutable
+artifact revisions and a legacy result bridge. See the
+[Stage 5 handover](handovers/import-execution-stage-5.md) for evidence and limits.
+Plan schema 2 adds typed settled barriers while preserving schema-1 bytes/revisions;
+SQLite schema remains 1. Artifact revisions have effect-set identity separate from
+executable plan revision. Provenance uses a separate versioned durable format,
+preserving legacy files and prior prepared/uploaded revisions.
+
+The single-new-PO allocation restriction remains deliberate. New category choices
+can supply a configured category or explicit `CategoryConfig`; implicit local YAML
+persistence is excluded until a destination/precondition contract is approved.
+Unresolved unsafe identity decisions still require preview review. Complete CLI
+parity/default rollout remains a Stage 6 gate, not a claim of this library candidate.
 
 ### 5A. Complete domain coverage
 

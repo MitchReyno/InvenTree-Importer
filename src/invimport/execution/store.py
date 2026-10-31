@@ -223,6 +223,30 @@ class RunStore:
                         previous=asdict(previous), policy="identity_read_then_conditional_repair_v1")
         return attempt
 
+    def start_finalization_revision(self, operation: str, fingerprint: str) -> Attempt:
+        """Audit a new derived artifact revision; never reset inventory effects.
+
+        The approved operation, frozen source manifest and target scope stay fixed.
+        Existing result/output/effect history survives the new attempt unchanged.
+        """
+        spec = next(op for op in self.plan.operations if op.id == operation)
+        if (self.plan.schema_version != 2 or spec.reconciliation != "stock_v1"
+                or spec.desired.values().get("action") not in {
+                    "provenance_snapshot", "evidence_archive", "artifact_upload", "outcome_report"}
+                or len(fingerprint) != 64 or any(char not in "0123456789abcdef" for char in fingerprint)):
+            raise ValueError("not an approved finalization revision")
+        with self.transaction() as connection:
+            if self.states()[operation] == State.RUNNING:
+                raise ValueError("finalization already running")
+            number = connection.execute("SELECT count(*)+1 FROM attempts WHERE operation=?", (operation,)).fetchone()[0]
+            attempt = Attempt(uuid4().hex, self.run_id, operation, number, True, True)
+            connection.execute("INSERT INTO attempts(id,operation,number,mutation,reconciliation,state) VALUES (?,?,?,?,?,?)",
+                               (attempt.id, operation, number, True, True, "intent"))
+            connection.execute("UPDATE operations SET state=? WHERE id=?", (State.RUNNING, operation))
+            self._event(connection, "finalization_revision_authorized", operation, attempt.id,
+                        fingerprint=fingerprint, policy="immutable_effect_set_revision_v1")
+        return attempt
+
     def finish(self, attempt: Attempt, result: OperationResult) -> None:
         spec = next(op for op in self.plan.operations if op.id == attempt.operation)
         if any(o.name not in spec.provides for o in result.outputs):
@@ -327,7 +351,11 @@ def _snapshot(connection: sqlite3.Connection, *, run_id: str, revision: str) -> 
             "sequence": connection.execute("SELECT coalesce(max(sequence),0) FROM events").fetchone()[0],
             "operations": [{"id": key, "state": state, "result": json.loads(result) if result else None,
                             "attribution": json.loads(source)} for key, state, result, source in connection.execute("SELECT id,state,result,attribution FROM operations ORDER BY rowid")],
-            "artifacts": "artifacts/"}
+            "artifacts": "artifacts/",
+            "prepared_artifacts": [{"operation": operation, **json.loads(payload)} for operation, payload in connection.execute(
+                "SELECT operation,safe_json FROM events WHERE kind='artifact_prepared' ORDER BY sequence")],
+            "artifact_transfers": [{"operation": operation, "event": kind, **json.loads(payload)} for operation, kind, payload in connection.execute(
+                "SELECT operation,kind,safe_json FROM events WHERE kind IN ('evidence_transfer_started','evidence_uploaded','evidence_verified') ORDER BY sequence")] }
 
 
 def load_run_status(run_id: str) -> dict:

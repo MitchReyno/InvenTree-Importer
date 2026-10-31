@@ -11,8 +11,10 @@ journal correlation now bridges the observer when executing a durable attempt.
 Generic `prepare_import` still marks stock resolution unsupported. Stage 4 adds
 a separate genuinely resolved spec/type subset in `prepare_stock` and domain
 handlers with selected evidence-backed repair under the original operation IDs.
-See the Stage 4 handover and architecture for supported fields and rejected scope;
-no whole-import resume, default rollout or import-run CLI is enabled.
+Stage 5 extends that shared planner through `prepare_full_stock`, with per-domain
+enrichment, typed settled barriers and immutable provenance/archive revisions.
+See architecture and the Stage 5 handover for exact scope and evidence. Full
+library execution is opt-in; default rollout and import-run CLI remain Stage 6.
 
 ## Recommendation and scope
 
@@ -524,3 +526,35 @@ a confirmed upload effect cannot authorize replacement when its row disappears;
 and multiple distinct new PO allocations reject before writes because reading
 OPTIONS cannot reserve multiple references. These preserve the original no-drift,
 no-replay contracts while explicitly bounding new-order scope until Stage 5.
+
+
+## Implemented Stage 5 artifact and compatibility boundary
+
+Full preparation freezes callbacks/options, company/MPN decisions, byte manifests
+and logical targets. Execution retains the same shared policy helpers as the
+bounded slice and legacy parameter ownership. Plan schema 2 adds an owned typed
+`OperationSpec.settled_after` tuple, validated for missing references and cycles
+alongside named-output prerequisites. Plan schema 1 still serializes without the
+new field, preserving existing revisions; the SQLite schema is unchanged.
+
+The serial scheduler permits finalization after failed/uncertain/reviewed or
+blocked inventory branches settle. Confirmed effects and uncertain attempts stay
+attributed independently of line completion. Source claims are distinguished from
+confirmed changed fields in `invimport-execution-provenance/1`; legacy provenance
+files retain their format/history. Visible local stage/extract/hash/archive/report
+operations have persisted attempts. Archive bytes never contain active state or
+its own upload outcome.
+
+An explicit repair that changes the inventory effect set may authorize a new
+immutable finalization revision, retaining original operation IDs, manifest,
+target scope, prior bytes/receipts and transfer history. This is an audited domain
+transition, not resetting mutations to READY. No-op resume does not mint arbitrary
+archive revisions. Every retained revision must pass its persisted SHA before
+transfer; confirmed/uncertain transfers remain verification-only for those bytes.
+
+The library exposes current `StockImportResult` projection and versioned detailed
+reports with prepared-artifact and transfer histories. Category callback choices
+may supply explicit configuration but do not implicitly write local config YAML;
+a future CLI must provide a frozen configuration destination/precondition contract.
+More than one distinct new PO allocation still requires a verified allocator
+contract. Neither restriction permits a silent fallback to legacy execution.

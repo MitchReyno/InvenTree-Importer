@@ -117,6 +117,17 @@ class StockServer:
             raise ConnectionError("controlled before application")
         if mode == "rejected":
             raise HTTPError({"status_code": 403, "body": "{}"})
+        if "image" in kwargs["files"]:
+            filename, handle = kwargs["files"]["image"]
+            image = self.seed("image/", {"filename": filename})
+            row = self.get(route)
+            with self.connect() as connection:
+                connection.execute("INSERT INTO bytes VALUES (?,?)", (image["pk"], handle.read()))
+                row["image"] = f"/media/{image['pk']}"
+                connection.execute("UPDATE rows SET body=? WHERE pk=?", (json.dumps(row), row["pk"]))
+            if mode == "lost":
+                raise ConnectionError("controlled applied image response lost")
+            return SimpleNamespace(status_code=200)
         filename, handle = kwargs["files"]["attachment"]
         row = self.seed(route, {**kwargs["data"], "filename": filename})
         row["attachment"] = f"/media/{row['pk']}"

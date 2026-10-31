@@ -60,6 +60,7 @@ from .api import (
     SupplierPart,
     connect,
 )
+from .part_policy import manufacturer_number, part_parameters
 from .matching import (
     candidates,
     match_name,
@@ -910,11 +911,7 @@ def resolve_part(
     # pinning one manufacturer's figures to the shared part would make them
     # look authoritative. Under mpn identity there is one part per MPN, so
     # there is no variation to keep out and the part carries the lot.
-    if category.identity == "spec" and category.key_parameters:
-        part_values = {name: value for name, value in values.items()
-                       if name in category.key_parameters}
-    else:
-        part_values = values
+    part_values = part_parameters(category, values)
 
     # Identity, most specific first. An explicit IPN is an instruction, not a
     # guess; an MPN or a type designator names the part directly; a spec is
@@ -1029,7 +1026,7 @@ def resolve_part(
     # in for one. A part may legitimately have none. A type designator is the
     # number that maker printed on the part, so it stands as the MPN when the
     # line has no other; dropping the manufacturer instead loses a fact.
-    mfr_number = line.mpn or line.type
+    mfr_number = manufacturer_number(mpn=line.mpn, designator=line.type)
     if part.pk != UNRESOLVED_PK and manufacturer is not None and mfr_number:
         step("manufacturer_part")
         existing = list_models(ManufacturerPart, api, part=part.pk, MPN=mfr_number,
