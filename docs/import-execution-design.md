@@ -8,9 +8,11 @@ This document describes intended behavior unless explicitly labeled current.
 Stage 2 supplies in-memory observations; Stage 3 adds typed explicit-handler plans,
 a serial executor, canonical ownership and SQLite state beneath them. Stable
 journal correlation now bridges the observer when executing a durable attempt.
-Stock preparation explicitly marks domain resolution/handlers unsupported pending
-Stage 4 integration; no whole-import resume or import-run CLI is enabled. See the
-Stage 3 handover for the justified preview boundary adjustment.
+Generic `prepare_import` still marks stock resolution unsupported. Stage 4 adds
+a separate genuinely resolved spec/type subset in `prepare_stock` and domain
+handlers with selected evidence-backed repair under the original operation IDs.
+See the Stage 4 handover and architecture for supported fields and rejected scope;
+no whole-import resume, default rollout or import-run CLI is enabled.
 
 ## Recommendation and scope
 
@@ -488,3 +490,30 @@ separate read-only capability check or approved integration environment.
 - [Python sqlite3](https://docs.python.org/3/library/sqlite3.html), one local storage option.
 - [Textual workers](https://textual.textualize.io/guide/workers/), a possible renderer integration.
 - [Temporal event history](https://docs.temporal.io/encyclopedia/event-history), context for the heavier platform alternative.
+
+
+## Stage 4 implementation decisions
+
+The bounded stock library now exercises the representative slice against actual
+SDK/transport entry points and persistent fake server state. Complete spec/type
+matching, shared suppliers/orders, per-template parameters, distinct lot and PO
+contribution identities, known-PK reconciliation, conditional barcode/tag/link
+repair and one explicit byte artifact are implemented. Full enrichment and
+source/provenance/archive migration remain Stage 5; unsupported requested fields
+reject during read-only preparation. Existing locations are mandatory in the
+slice, an intentional new-mode review boundary rather than a silent unlocated lot.
+
+The raw JSON create boundary validates one returned identity and checkpoints it
+without invoking SDK model constructors/reloads. This removes the constructor
+failure window from the new path instead of inheriting legacy first-list-element
+selection. Immediate checkpoints retain confirmed effects as well as outputs
+through interruption. Evidence-backed domain repair records new attempts and
+conditional preconditions, preserving prior uncertainty events under the same
+logical operation ID; the generic read-only retry guard remains unchanged.
+
+Missing parameter additions to matched Parts are explicit selected operations
+after established identity, a narrow new-mode policy adjustment from legacy
+no-update behavior. Conflicting nonempty values are never overwritten. Uncertain
+creates without trustworthy IDs remain unresolved even if payloads look identical.
+The local SQLite authority and read/PATCH repair do not imply exactly-once remote
+creates or atomic preservation of external changes after a metadata read.

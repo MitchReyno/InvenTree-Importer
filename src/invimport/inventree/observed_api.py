@@ -53,5 +53,6 @@ def client(host: str, *, observation: Observation | None = None,
         if name in {"get", "post", "patch", "put"}:
             bound = _decoded(bound, observation)
         setattr(api, name, MethodType(bound, api))
+    api._invimport_guarded = True
     api.__init__(host, **kwargs)
     return api

@@ -1,8 +1,9 @@
 # Import execution contracts
 
-Status: agreed target contracts with Stage 1–3 implemented boundaries recorded
+Status: agreed target contracts with Stage 1–4 implemented boundaries recorded
 below. The future CLI and complete stock-domain execution/recovery remain
-**not implemented**; Stage 3 exposes foundation APIs with explicit handlers.
+**not released**; Stage 3 exposes foundation APIs and Stage 4 adds an opt-in,
+bounded stock library. Full stock coverage and CLI release remain Stage 5/6.
 Current behavior is in [ARCHITECTURE.md](../ARCHITECTURE.md). The
 [plan](import-execution-plan.md) owns stage status and acceptance gates.
 
@@ -341,3 +342,47 @@ Source/stub evidence, compatibility tradeoffs and validation are recorded in the
 The [Stage 3 handover](handovers/import-execution-stage-3.md) records acceptance
 proof and the preparation/domain-integration adjustment. This is readiness for
 Stage 4's representative slice, not a whole-import resume or exactly-once claim.
+
+
+## Stage 4 implemented stock-domain contract
+
+- `prepare_stock` returns executable immutable specs for the declared spec/type
+  subset; unsupported requested fields and missing/unresolved locations reject
+  before writes. It shares legacy normalization/naming/value/type policies and
+  the same matcher for preparation and pre-create revalidation. Existing choices,
+  exact payloads, sources, template policies and PO allocation freeze in the plan.
+- `execute_stock` and `resume_stock` bind the actual API endpoint and current
+  target, use canonical claims, preserve legacy exclusion, and report every
+  selected line. Only confirmed barcode ownership registers a stock lot.
+- Raw API create responses require dict/singleton list, positive PK and expected
+  identity. Multiple/malformed results preserve trustworthy identities as effects
+  and remain uncertain. SDK constructor/reload is deliberately absent from the
+  durable create path; immediate `RunStore.checkpoint` precedes dependent calls.
+- One approved parameter is one operation. Established identity plus explicit
+  frozen scope permits missing additions to matched Parts in the new mode.
+  Nonempty/manual drift needs review; legacy no-update behavior is unchanged.
+- `repair_stock` records domain authorization and read-back evidence under the
+  same operation ID, retains attempts/results/outputs/confirmed effects/history,
+  and conditionally repairs metadata without requeuing original mutations.
+  Generic `authorize_retry` remains semantic-read-only. Unknown uncorrelated
+  Part/stock/supplier/SKU/order/PO-line creates do not replay. A uniquely observed
+  parameter at its intended model/template/value can satisfy read reconciliation;
+  absence after unknown create remains uncertain. An explicit 4xx rejection or
+  settled pre-send failure allows revalidated missing work to proceed.
+- Tags preserve observed unrelated additions only on this import's owned new
+  stock. Divergent PO links and missing/changed record identity require review.
+  Quantity, batch, location and Part are never restored. No cleanup DELETE exists.
+  GET-plus-PATCH does not establish cross-client atomicity.
+- Every original line has its own PO contribution ID, including identical lots.
+  Only a trustworthy saved PK resolves an uncertain PO-line create. Historical
+  stock without contribution ownership cannot acquire inferred new PO lines.
+- `FrozenEvidence`/`with_evidence` retain explicit bytes and one logical target.
+  Filename alone cannot satisfy recovery; downloaded SHA-256 identity is required.
+  Uploaded/verified/rejected/unknown outcomes remain distinct, and pending retries
+  require no new inventory effects. Full provenance/archive staging is Stage 5.
+- Partial reports include confirmed outputs, failures and named blocked outputs.
+  Best-effort reporting after journal failure never authorizes another send.
+  Completed-run resume is committed status retrieval, with no mutation replay.
+
+See the [Stage 4 handover](handovers/import-execution-stage-4.md) for actual
+validation, policy decisions, scope adjustments and pending independent review.

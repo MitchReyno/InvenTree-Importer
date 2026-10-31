@@ -179,6 +179,50 @@ class RunStore:
             self._event(connection, "attempt_intent", operation, attempt.id, mutation=mutation)
         return attempt
 
+    def checkpoint(self, attempt: Attempt, result: OperationResult) -> None:
+        """Commit trustworthy returned identities before any subsequent child call.
+
+        The attempt stays open: a process crash must still reconcile its effect.
+        Settlement later merges these outputs and cannot bind them to another PK.
+        """
+        spec = next(op for op in self.plan.operations if op.id == attempt.operation)
+        if any(output.name not in spec.provides for output in result.outputs):
+            raise ValueError("undeclared checkpoint output")
+        previous = self.results().get(attempt.operation)
+        if previous and any(output.name == old.name and output != old
+                            for output in result.outputs for old in previous.outputs):
+            raise ValueError("checkpoint cannot rebind confirmed identity")
+        with self.transaction() as connection:
+            if connection.execute("SELECT state FROM attempts WHERE id=?", (attempt.id,)).fetchone() != ("intent",):
+                raise ValueError("checkpoint requires an open attempt")
+            connection.execute("UPDATE operations SET result=? WHERE id=?", (canonical(asdict(result)), attempt.operation))
+            self._event(connection, "output_checkpoint", attempt.operation, attempt.id,
+                        result=asdict(result), attribution=asdict(spec.attribution))
+
+    def start_stock_repair(self, operation: str) -> Attempt:
+        """Authorize a bounded stock-domain reconciliation, preserving prior result.
+
+        Only stock_v1 specs participate. The trusted domain handler must read and
+        validate the saved record and conditional preconditions before each write;
+        this is not permission to rerun an original create handler.
+        """
+        spec = next(op for op in self.plan.operations if op.id == operation)
+        previous = self.results().get(operation)
+        if (not spec.mutation or spec.reconciliation != "stock_v1" or previous is None
+                or previous.retry not in {Retry.RECONCILE, Retry.REVIEW}):
+            raise ValueError("operation has no domain repair authorization")
+        with self.transaction() as connection:
+            if self.states()[operation] == State.RUNNING:
+                raise ValueError("operation is already running")
+            number = connection.execute("SELECT count(*)+1 FROM attempts WHERE operation=?", (operation,)).fetchone()[0]
+            attempt = Attempt(uuid4().hex, self.run_id, operation, number, True, True)
+            connection.execute("INSERT INTO attempts(id,operation,number,mutation,reconciliation,state) VALUES (?,?,?,?,?,?)",
+                               (attempt.id, operation, number, True, True, "intent"))
+            connection.execute("UPDATE operations SET state=? WHERE id=?", (State.RUNNING, operation))
+            self._event(connection, "stock_repair_authorized", operation, attempt.id,
+                        previous=asdict(previous), policy="identity_read_then_conditional_repair_v1")
+        return attempt
+
     def finish(self, attempt: Attempt, result: OperationResult) -> None:
         spec = next(op for op in self.plan.operations if op.id == attempt.operation)
         if any(o.name not in spec.provides for o in result.outputs):
@@ -190,7 +234,12 @@ class RunStore:
                 if output.name in old_outputs and old_outputs[output.name] != output:
                     raise ValueError("confirmed output identity cannot be rebound")
                 old_outputs[output.name] = output
-            result = replace(result, outputs=tuple(old_outputs.values()))
+            confirmed_effects = tuple(effect for effect in previous.effects if effect.certainty == Certainty.CONFIRMED)
+            effects = tuple(dict.fromkeys((*confirmed_effects, *result.effects)))
+            certainty = result.certainty
+            if confirmed_effects and certainty == Certainty.NONE:
+                certainty = Certainty.CONFIRMED
+            result = replace(result, outputs=tuple(old_outputs.values()), effects=effects, certainty=certainty)
         with self.transaction() as connection:
             row = connection.execute("SELECT state FROM attempts WHERE id=?", (attempt.id,)).fetchone()
             if row != ("intent",):

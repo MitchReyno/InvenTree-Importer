@@ -1,6 +1,6 @@
 # Import architecture
 
-This describes implemented behavior through Stage 3 (reviewed Stage 0 baseline
+This describes implemented behavior through Stage 4 (reviewed Stage 0 baseline
 `bfaefd1`, main `c22b7a1`, SDK `inventree==0.13.5`). This includes PR #9 fixes
 and PR #11 code-organization conventions; the latter changes guidance, not
 runtime behavior. Future contracts are explicitly separated below. Keep this
@@ -165,7 +165,8 @@ failure counter and cannot alter request results or trigger replay. Cancellation
 is checked before dispatch; interruption marks the shared observation cancelled,
 but cannot undo or durably classify an in-flight effect. Legacy line/finalization
 abort behavior and coarse completion policy remain. No retry, backoff, dependency
-scheduler, durable blocked state, journal, restart/resume or TUI is implemented.
+scheduler, durable blocked state, journal, restart/resume or TUI is implemented
+by the Stage 2 observation layer alone; the opt-in execution additions follow.
 
 ## Implemented execution foundation (Stage 3)
 
@@ -188,8 +189,8 @@ silently rebind a changed revision or confirmed output identity.
 through an explicit read interface and freezes chosen record identities/reasons,
 source keys, v1 part_of/v2 shared references and supplied file hashes. Its returned
 stock preparation explicitly declares unsupported domain resolution/handlers and
-cannot execute. Complete stock mutation preview planning depends on Stage 4's
-actual policy/handler integration; this stage does not simulate a resolved preview.
+cannot execute. Stage 4 adds the separate bounded `prepare_stock` integration
+described below; it does not change that generic preparation contract.
 The existing post-import `--plan` projection remains unchanged.
 
 `execution/ownership.py` discovers one canonical `INVIMPORT_STATE_DIR` (absolute),
@@ -226,7 +227,7 @@ than losing unknown effects during requeue. `resume_run` and read-only `retry_op
 complete stock resume. Known conflicting target/instance evidence blocks every operation, including
 pending writes with no saved PKs. `execute_plan` requires a current target
 observation; saved PK reuse additionally requires verified instance evidence or an
-explicit continuity review; Stage 4 handlers must additionally validate each
+explicit continuity review; stock-domain handlers additionally validate each
 model/record identity. URL or PK existence and SDK server_details are not proof.
 
 The mandatory `execution/dispatch.py` guard runs independently of best-effort
@@ -249,6 +250,69 @@ directories must be empty. Each owns a marked retained directory and `artifacts/
 Archive enumeration excludes canonical state, marked custom run directories and
 reserved SQLite journal/WAL/SHM names. No automatic deletion/retention is added.
 Full immutable artifact staging/provenance/upload migration remains Stage 5.
+
+## Implemented durable stock subset (Stage 4)
+
+`execution/stock_preparation.py:prepare_stock` resolves validated v1/v2 StockFile
+inputs through complete read-only discovery. It reuses `from_supplier`,
+`part_name`, `ipn_prefix`, `answers_to`, `values_match`, category aliases,
+marketplace parsing and the strict barcode-absence contract. Shared spec/type
+identity produces stable logical Part/parameter/supplier/SKU/order operations;
+each original line retains its stock lot and PO contribution, even for identical
+payloads. Preparation freezes actual chosen PK/identity, create payloads, parameter
+policies and PO reference allocation. Matching is shared with pre-create
+revalidation. Conflicting shared metadata/currency and existing SKU assignments
+are rejected. Unsupported requested enrichment, invoice/provenance/company media,
+MPN/manufacturer identity and unresolved/missing locations require review before
+execution; full coverage remains Stage 5. Earlier-line `part_of` retains its format
+and depends on usable Part/identity-parameter outputs, not stock/tag/image success.
+
+`stock_api.py` adapts the marked project observed SDK without wrapping its sends
+a second time; custom APIs must implement one request per method. Each actual SDK
+send still passes the Stage 3 mandatory transport guard. Actual client `api_url`
+must agree with the planned/current target. Verified instance continuity or the
+existing revision-bound continuity review remains required; SDK server details
+are not an immutable instance proof.
+
+`stock_handlers.py` owns semantic create/reuse/parameter/stock/barcode/tag/order
+operations. Raw JSON create responses are validated as exactly one object or a
+singleton object list, with positive PK and expected record identity. This path
+does not invoke legacy `_create` or construct/reload SDK models. Trustworthy PK,
+model, identity, effects and source attribution checkpoint immediately, before any
+following child work. Each approved parameter settles independently and never
+overwrites a conflicting nonempty value. Explicit parameter additions to a matched
+Part are a bounded new-mode policy: established spec/type/IPN identity and the
+frozen per-parameter preview authorize only missing approved values. Legacy
+no-update behavior is unchanged. Incomplete spec candidates never establish identity.
+
+`stock_workflow.py` exposes `execute_stock`, `resume_stock` and selected
+`repair_stock` under canonical registry exclusion. Generic mutation replay stays
+forbidden. A stock repair is a new audited attempt under the original operation
+ID, retaining prior results, PKs, confirmed effects and uncertainty history.
+Identity/state reads precede evidence-recorded conditional metadata writes; each
+child checks cancellation/ownership/journal health. Explicit rejected/no-send
+outcomes can proceed after absence/precondition revalidation. Unknown creates
+without trustworthy saved PK/correlation stay uncertain. PO-line and stock lots
+are never matched by payload. No delete or historical quantity/batch/location/
+part restoration is issued. Tags union currently observed unrelated additions on
+owned new stock; GET-plus-PATCH cannot protect an external write racing after GET.
+Divergent PO links and changed/missing saved identities require review.
+
+`stock_evidence.py` freezes one explicitly supplied byte artifact and logical
+stock target in the plan. Pending bytes also stage in retained `artifacts/`.
+Filename matches require downloaded-byte SHA-256 verification; unavailable or
+different bytes require review. Uploaded, verified/already-satisfied, rejected and
+unknown transfers have distinct states/effects/events. Lost uploads can settle by
+verified target/bytes without new inventory writes. Full provenance/archive
+migration remains Stage 5. The local `partial-report.json` projects all selected
+lines, usable PKs, failures and named blocked prerequisites. Only confirmed barcode
+operations register stock. Journal-error reporting is best effort and cannot
+repair a failed authority. Completed resume returns committed status without writes.
+
+No new CLI or default rollout is enabled. The unchanged legacy importer and
+`--plan` remain available, and canonical ownership prevents using them to bypass
+an unresolved durable run. The [Stage 4 handover](docs/handovers/import-execution-stage-4.md)
+records supported scope, fault tests, decisions and limits.
 
 ## Implemented provenance, outcomes and limitations
 
@@ -293,7 +357,7 @@ These defects are baseline limitations to fix, not supported recovery behavior.
 
 Normal completion counts created/exists/skipped/review lines; CLI exit 1 is based
 on skipped/review lines and does not represent every selected enrichment failure.
-The Stage 3 store/ownership/executor foundation is opt-in for explicit handlers.
+The store/ownership/executor foundation and Stage 4 bounded stock library are opt-in.
 Legacy stock execution has no authoritative operation state, executable mutation
 preview, resumable domain operations or complete durable partial report yet. Barcode fixture uniqueness is not proof of a live target's atomicity.
 No local client can guarantee exactly-once remote effects after a lost response.
@@ -303,10 +367,10 @@ No local client can guarantee exactly-once remote effects after a lost response.
 The [design](docs/import-execution-design.md),
 [contracts and matrices](docs/import-execution-contracts.md) and
 [staged plan](docs/import-execution-plan.md) define the remaining integration:
-stock-domain operation planning/handlers, full evidence staging and CLI release.
-Stage 3 provides typed specs, named outputs, a serial executor and SQLite/ownership
-foundation. Durable stock handlers still need approved scope/write policy,
-identity revalidation and domain reconciliation before enabling inventory work.
+full stock-domain coverage, provenance/archive staging and CLI release.
+Stage 4 implements the bounded spec/type slice above on typed named outputs,
+serial execution, SQLite ownership and explicit domain repair. Broader input and
+enrichment coverage must pass Stage 5 before default stock execution is enabled.
 
 Required identity outputs gate stock; optional enrichment can fail independently
 but selected incomplete work makes the new-mode result incomplete. Preserve manual
