@@ -45,6 +45,72 @@ a focused change into an unrelated rewrite.
   Update the lockfile through the dependency tool when dependencies change;
   document compatibility pins and what would allow their removal.
 
+### Function and method size
+
+- Keep functions and methods short enough that their purpose, branches and
+  effects can be followed without remembering several unrelated stages.
+  Reconsider a growing function when it has deeply nested branches, many
+  temporary variables, or comment headings separating distinct operations.
+  Length is a review signal, not a quota: a declarative schema or table may be
+  clearer kept together than split into arbitrary fragments.
+- Let orchestration read as a sequence of named operations at a consistent
+  level of detail. Keep matching rules, payload construction and attachment
+  handling in focused helpers when they obscure the workflow. Preserve the
+  visible order of validation, writes and recovery when extracting stages.
+- Use guard clauses for invalid or completed cases when they make the main
+  path easier to follow. Avoid introducing nested conditionals merely to keep
+  a single return statement.
+- Give extracted helpers explicit inputs and useful results. Avoid helpers
+  that communicate through many mutated outer variables, or require a large
+  bundle of unrelated state just to perform one small operation. Keep a local
+  helper local when its closure is small and its meaning belongs to one caller.
+- Use keyword-only arguments for options that are easy to confuse. When an
+  interface accumulates arguments, check whether it is doing too much before
+  grouping them into a model; group only values with a shared domain meaning
+  or lifetime, such as an import policy or the caches owned by one run.
+
+### Classes and state
+
+- Use a class when methods share meaningful state, resource ownership or
+  invariants. Make that lifetime clear, especially for caches and per-run
+  state; do not turn a collection of independent functions into a class solely
+  to provide a namespace.
+- Keep methods focused on the state their object owns. If groups of methods
+  use disjoint fields or change for unrelated reasons, consider separate
+  collaborators. Prefer a function for a transformation that needs no object
+  state; avoid growing a single coordinator into the owner of every concern.
+
+### Files and package structure
+
+- Before extending a large file, identify its responsibilities and callers.
+  Keep closely related models and operations together; split at a meaningful
+  boundary when parsing, matching, file handling or reporting have independent
+  contracts and reasons to change. Neither line count nor one-class-per-file
+  rules justify a split on their own.
+- Follow the existing separation between `commands/`, integration packages
+  such as `inventree/` and `digikey/`, and shared input/configuration modules
+  under `src/invimport/`. CLI argument handling, prompts and presentation belong
+  at the command boundary; reusable workflows belong in importable modules.
+  Keep optional hardware or UI dependencies confined to the feature using them.
+- Keep a helper in the narrowest module or package that owns its meaning.
+  Promote it to shared code when actual callers need the same contract, after
+  checking for an existing implementation. Name shared modules by purpose
+  rather than expanding `util.py` with unrelated domain operations.
+- Introduce a subpackage when several cohesive modules benefit from a common
+  boundary, not just to create more directory levels. Keep dependencies flowing
+  from commands to workflows and from workflows to lower-level operations;
+  lower-level code must not import command modules. Keep `__init__.py` focused
+  on an intentional package interface or registration, without eager setup.
+- Put related tests in discoverable locations following the existing layout,
+  such as `tests/inventree/` and `tests/digikey/`. Keep scenario-specific
+  fixtures near their tests and share fixtures only at the scope that needs
+  them. When a test file becomes hard to navigate, group tests by behaviour
+  rather than exposing implementation stages as separate test APIs.
+- Keep reusable application logic under `src/invimport/`; scripts should
+  primarily adapt a standalone invocation or operational task. If script logic
+  gains library callers, place that logic in the package rather than making
+  callers import a script or alter `sys.path`.
+
 ## Types and data models
 
 - Annotate new and substantially changed function interfaces, including return
