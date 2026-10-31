@@ -2,23 +2,25 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from typing import Callable
 
 from ..inventree.collections import list_rows
-from .executor import OperationContext
-from .models import Certainty, Effect, Kind, OperationResult, OperationSpec, Output, Retry, State, digest
+from .executor import ClassifiedFailure, OperationContext
+from .models import Certainty, Effect, ErrorCategory, Kind, OperationResult, OperationSpec, Output, Retry, SafeError, State, digest
 from .digikey_preparation import line_matches, number
 from .stock_api import StockAPI, StockRequests
 from .order_line_policy import OrderLineCapabilityError, order_line_policy
+from .order_policy import OrderDateCapabilityError, creation_date_policy
 from .stock_handlers import StockHandlers
-from .records import create_record, read_record, satisfied_record, review
+from .stock_preparation import PreparationReview
+from .records import IDENTITY_FIELDS, create_record, read_company_role, read_record, record_identity, satisfied_record, review
 
 
 class DigiKeyHandlers:
     def __init__(self, api: StockAPI) -> None:
         self.api = api
-        self.shared = StockHandlers(api)
+        self.shared = StockHandlers(api, before_mutation=self._before_mutation)
 
     @property
     def mapping(self) -> dict[Kind, Callable]:
@@ -33,10 +35,13 @@ class DigiKeyHandlers:
     def _run(self, spec: OperationSpec, context: OperationContext, *, repair: bool) -> OperationResult:
         desired = spec.desired.values()
         action = desired["action"]
+        api = StockRequests(self.api, context, before_mutation=lambda requests: self._before_mutation(requests, context))
+        prior = context.store.results().get(spec.id)
+        failure = self._consumption_failure(api, context)
+        if failure:
+            return review(failure, unknown=bool(prior and prior.certainty == Certainty.UNKNOWN))
         if not action.startswith("dk_"):
             return self.shared.repair(spec, context) if repair else self.shared.run(spec, context)
-        api = StockRequests(self.api, context)
-        prior = context.store.results().get(spec.id)
         operations = {op.id: op for op in context.store.plan.operations}
         inputs = []
         for ref in spec.requires:
@@ -63,6 +68,51 @@ class DigiKeyHandlers:
             return self._receive(spec, context, api, prior, inputs, operations)
         raise ValueError("unsupported DigiKey domain action")
 
+    def _before_mutation(self, api: StockRequests, context: OperationContext) -> None:
+        failure = self._consumption_failure(api, context)
+        if failure:
+            raise ClassifiedFailure(SafeError(ErrorCategory.CONFLICT, failure), retry=Retry.REVIEW)
+
+    def _consumption_failure(self, api: StockRequests, context: OperationContext) -> str | None:
+        operations = context.store.plan.operations
+        original = next(op for op in operations if op.desired.values().get("action") == "dk_order")
+        desired = original.desired.values()
+        supplier = Output("record", "company.company", desired["payload"]["supplier"], desired["supplier_identity"]["identity"])
+        if read_company_role(api, supplier, role="is_supplier") is None:
+            return "digikey_supplier_drift"
+        current = next(op for op in operations if op.id == context.attempt.operation)
+        order = context.inputs.get((original.id, "record"))
+        if order is not None:
+            row = read_record(api, order)
+            if row is None or not self._approved(original, row):
+                return "digikey_order_metadata_drift"
+        if current.desired.values()["action"] in {"dk_issue", "dk_receive"}:
+            order = context.inputs.get((original.id, "record"))
+            if order is None or not self._order_scope(api, context, order.pk):
+                return "digikey_order_contribution_scope_drift"
+        return None
+
+    def _order_scope(self, api: StockRequests, context: OperationContext, order_pk: int) -> bool:
+        """Order-wide effects consume exactly the approved complete line set."""
+        expected = {}
+        for spec in context.store.plan.operations:
+            if spec.desired.values().get("action") != "dk_line":
+                continue
+            output = context.inputs.get((spec.id, "record"))
+            if output is None or output.pk in expected:
+                return False
+            expected[output.pk] = output, spec
+        rows = list_rows(api, "order/po-line/", params={"order": order_pk})
+        if len(rows) != len(expected) or {row.get("pk") for row in rows} != set(expected):
+            return False
+        for row in rows:
+            output, spec = expected[row["pk"]]
+            part = self._line_part(spec, context, api)
+            if (part is None or row.get("part") != part.pk or row.get("order") != order_pk or record_identity(row, IDENTITY_FIELDS[output.model]) != output.identity_digest
+                    or not self._approved(spec, row)):
+                return False
+        return True
+
     @staticmethod
     def _approved(spec: OperationSpec, row: dict) -> bool:
         desired = spec.desired.values()
@@ -75,11 +125,6 @@ class DigiKeyHandlers:
     def _order(self, spec: OperationSpec, context: OperationContext, api: StockRequests, prior: OperationResult | None, *, repair: bool) -> OperationResult:
         desired, before = spec.desired.values(), spec.baseline.values()
         payload = desired["payload"]
-        supplier = desired["supplier_identity"]
-        chosen = Output("record", "company.company", payload["supplier"], supplier["identity"])
-        company = read_record(api, chosen)
-        if company is None or not company.get("is_supplier"):
-            return review("digikey_supplier_drift")
         saved = prior.outputs[0] if prior and prior.outputs else None
         if saved is None and before.get("pk"):
             saved = Output("record", "order.purchaseorder", before["pk"], before["identity"])
@@ -93,6 +138,11 @@ class DigiKeyHandlers:
         rows = list_rows(api, "order/po/", params={"supplier": payload["supplier"]})
         if any(str(row.get("supplier_reference")) == payload["supplier_reference"] or row.get("reference") == payload["reference"] for row in rows):
             return review("digikey_order_discovery_changed")
+        if payload.get("creation_date"):
+            try:
+                creation_date_policy(api.request("order/po/", method="OPTIONS").json())
+            except OrderDateCapabilityError:
+                return review("digikey_order_date_capability_changed")
         return self._create_approved(spec, context, api, model="order.purchaseorder", payload=payload)
 
     def _line(self, spec: OperationSpec, context: OperationContext, api: StockRequests, prior: OperationResult | None, inputs: list[tuple[Output, dict]], *, repair: bool) -> OperationResult:
@@ -193,7 +243,10 @@ class DigiKeyHandlers:
             if row.get("order") != order_output.pk:
                 return review("digikey_receipt_order_drift")
             wanted = line_spec.desired.values()
-            current = Decimal(number(row.get("received", 0) or 0))
+            try:
+                current = Decimal(number(row.get("received", 0) or 0))
+            except PreparationReview:
+                return review("digikey_received_amount_unsupported", unknown=bool(prior and prior.certainty == Certainty.UNKNOWN))
             approved = Decimal(wanted["quantity"])
             baseline = Decimal(line_spec.baseline.values()["received"])
             totals.append((line_output.pk, str(current), str(approved), str(baseline)))
@@ -203,7 +256,12 @@ class DigiKeyHandlers:
                 return review("digikey_partial_or_manual_receipt", unknown=bool(prior and prior.certainty == Certainty.UNKNOWN),
                               effects=prior.effects if prior else ())
             elif approved > current:
-                items.append({"line_item": line_output.pk, "supplier_part": row["part"], "quantity": str(approved - current),
+                # Embedding callers may lower the process Decimal precision.
+                # Supported13+6 digit inputs need no more than19 exact digits.
+                with localcontext() as decimal_context:
+                    decimal_context.prec = 32
+                    remaining = format(approved - current, "f")
+                items.append({"line_item": line_output.pk, "supplier_part": row["part"], "quantity": remaining,
                               "status": 10, "location": desired["location"]})
         # This evidence records observed intent satisfaction, not who created stock.
         with context.store.transaction() as connection:

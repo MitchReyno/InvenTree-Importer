@@ -270,3 +270,32 @@ mutation and must be prepared again. Existing stored runs retain their revision,
 claims, outputs and history: known-output inspection/repair remains supported, but
 a pending old-policy contribution cannot silently acquire new flags/reference or
 be created. No active-run migration, claim clearing or generic replay is supplied.
+
+
+### DigiKey source and current-state checks
+
+The frozen supplier Company must retain its approved identity and supplier role,
+including before shared model creates and selected recovery. Before order-wide
+issue/receipt or reconciliation, the complete current PO contribution set must
+match the approved known line PKs, original references, relationships, quantities
+and prices/currencies. Manual additions or duplicate/substituted rows require
+review; `--partial` does not approve those additions. Do not remove or rewrite
+manually added records merely to obtain completion; preserve the journal and
+review the affected order. Independent source-order claims remain independent.
+
+Numeric JSON input is captured without binary-float conversion. Exact decimal
+strings and library Decimal values are also supported. The bounded DigiKey slice
+accepts at most13 integer and6 fractional digits for quantities/prices/received
+amounts; zero price is valid. Unsupported scale/range, negative or nonfinite values
+require review instead of local rounding. Current vendor/cache readers reject
+numeric JSON that would change decimal value when exported through the preserved
+legacy numeric interface. They cannot reconstruct values already rounded by an
+older program or external tool; retain/reobtain authoritative source when needed.
+
+A supplied `date_entered` uses the order date first, then the sales-order date,
+through the shared date policy. Its historical date is frozen as PO creation_date,
+with advertised writable date capability required. Invalid dates or absent/read-only
+capabilities stop preparation; target overrides/later date drift block consumers.
+With no source date, no date is invented. Old DigiKey plans that omitted a supplied
+date or disagree with exact supported source values require reviewed reprepare
+before execution; active claims/history are not cleared or migrated automatically.

@@ -29,6 +29,7 @@ import requests
 from ..execution.dispatch import semantic_read_request
 from ..execution.observation import active
 from ..execution.transport import ObservedRequests
+from .numbers import lossless_float, reject_nonfinite
 
 log = logging.getLogger(__name__)
 
@@ -242,7 +243,7 @@ def request_json(
         else:
             if resp.status_code == 200:
                 try:
-                    payload = resp.json()
+                    payload = resp.json(parse_float=lossless_float, parse_constant=reject_nonfinite)
                 except ValueError as exc:
                     raise DigiKeyError(f"Invalid JSON response for {target}") from exc
                 if not isinstance(payload, dict):

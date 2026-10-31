@@ -24,7 +24,7 @@ TARGET = Target("https://inventory.example/api/", "fixture", "persistent fixture
 
 def source(*, two=True):
     line = {"source_line_id": "original-1", "digikey_part": "SKU-A", "quantity_ordered": 5,
-            "unit_price": "0.123456789", "manufacturer_part": "MPN"}
+            "unit_price": "0.123456", "manufacturer_part": "MPN"}
     return [{"order_number": "original-order", "sales_orders": [{"sales_order_id": 7001, "currency": "AUD",
              "line_items": [line, {**line, "source_line_id": "original-2"}] if two else [line]}]}]
 
@@ -71,7 +71,7 @@ def test_duplicate_skus_are_distinct_original_contributions_and_one_receipt(scen
     lines = server.get("order/po-line/")
     assert len(lines) == len(server.get("stock/")) == 2
     assert len({line["reference"] for line in lines}) == 2
-    assert {line["purchase_price"] for line in lines} == {"0.123456789"}
+    assert {line["purchase_price"] for line in lines} == {"0.123456"}
     assert {line["purchase_price_currency"] for line in lines} == {"AUD"}
     po = server.get("order/po/")[0]
     assert calls(server, f"order/po/{po['pk']}/receive/") == 1

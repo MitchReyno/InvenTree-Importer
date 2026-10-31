@@ -291,3 +291,167 @@ independent reviewer to its exact committed hash before publication. No independ
 approval or all-release-gates-passed claim is implied by these owner results. The
 one-order, media/parity, advertised-capability, old-plan, local/serial and live-server
 limits above remain. Publication/PR opening/merge were not performed by the owner.
+
+
+## Initial independent rejection and four corrections
+
+Independent review **did not approve** exact initial candidate
+`343bea94199b0f9f8847e38599781dbe74752dee`. The temporary independent report
+`stage7-review.md` records four confirmed findings and adverse reproductions.
+This initial disposition is preserved; no mutable correction or owner test result
+constitutes independent approval. Inherited independent stock/CLI adverse probes
+passed at the initial head (154 actual SDK sends/intents, original unknown archive
+transfer retained across revision2, safe output locks/artifacts, semantic journal
+corruption rejection, Ctrl-C/export precedence and active-writer/SIGINT recovery).
+Those inherited results do not clear these DigiKey findings.
+
+### P1: observable manual contributions widened an order-wide issue
+
+The reviewer inserted an unapproved quantity900/reference manual-unapproved line
+after the approved contribution POST. Initial execution issued the whole expanded
+PO, received the approved5 and returned complete=true. Required-record validation
+alone did not establish the complete current approved source scope.
+
+Correction: guarded complete enumeration before issue, receipt and their observed-
+satisfaction/selected-repair paths requires exactly the approved known output PKs,
+source references, parent/Part identities and financial fields. Duplicate-correlated,
+unexpected or substituted rows require review. The same policy repeats immediately
+before mutation. Manual rows are preserved. Partial-order selection continues to
+approve only its explicit source contributions. Tests cover insertion after prepare,
+line creation and issue, plus extra rows after unknown receipt in a fresh process.
+The original extra-line reproduction now reports incomplete, PO status10 and no
+stock; no order-wide issue occurred. No remote conditional/atomicity is claimed
+against an actor racing after the last observed read.
+
+### P1: supplier Company identity/role stopped being checked after dk_order
+
+The reviewer renamed the supplier and removed is_supplier immediately after PO
+creation. Initial execution still created a line, issued and received stock with
+complete=true. Reusing the same supplier PK on the PO/SupplierPart did not prove
+the Company remained the approved supplier.
+
+Correction: a shared Company-role record policy participates in every DigiKey
+operation/reconciliation and every before-mutation consumption callback, including
+shared Part/manufacturer/SKU/parameter handlers. Current approved PO metadata is
+checked in the same policy. Validation runs before the actual mutation request
+intent and keeps exactly one journal child per actual SDK/fake send. Tests cover
+rename, role removal and deletion after PO creation and after issue; fresh-process
+repair; and drift during an in-progress shared model lookup before its create.
+Earlier confirmed outputs/effects remain. The supplier reproduction's original
+reporter assumed every blocked row had a result and now fails on legitimate
+blocked/None rows; an owner copy changed only this reporting and caught expected
+precision rejection. It reports incomplete, line needs_review, issue/receive
+blocked, no stock, and unchanged invalid Company.
+
+### P2: numeric JSON and Decimal normalization rounded source values
+
+The reviewer's public CLI source literal0.10000000000000001 became0.1 before
+approval and execution; string0.12345678901234567890123456789012345 also rounded
+through Decimal.normalize at default precision28.
+
+Correction: durable JSON decoding retains decimal lexemes as JSON-safe strings.
+Library Decimal source values retain exact text before canonical JSON freezing.
+Context-independent formatting rejects unsupported values instead of normalizing
+with rounding. The declared supported quantity/price/received bound is13 integer
+and6 fractional digits, consistent with the documented PO price slice; zero price
+is supported. Receipt subtraction owns a sufficiently precise local context so an
+embedding caller's lower Decimal precision cannot alter a POST amount. Tests cover
+exact bounds, Decimal/string/numeric literals, negative/nonfinite values, huge
+exponents, zero price and maximum fractional remaining-quantity arithmetic.
+
+Vendor/cache decoding also rejects numeric literals whose decimal value would
+change on legacy numeric export, retaining existing safe numeric interface types.
+Exact string input remains supported; previously rounded external data cannot be
+reconstructed. Test fake decoding accepts parser kwargs so real JSON lexical
+behavior is exercised. The original CLI price probe now has prepare exit1/no plan;
+its old attempt to read a non-existent accepted plan fails as expected. No mutation
+is performed. A dedicated library regression initially exposed Decimal source
+serialization before the amount classifier; copying Decimal values to exact text
+now makes it a controlled preparation review. This intermediate failure was fixed
+and the source/error boundary was rerun.
+
+This tightens a declared supported bound; it does not silently round broader server
+values or alter a saved approval. Old DigiKey plans with unsupported/different exact
+source amounts remain readable but cannot execute or resume by implicit migration.
+Claims, IDs and historical evidence remain untouched.
+
+### P2: accepted historical source date was omitted from PO metadata
+
+The reviewer supplied date_entered2024-05-06T12:30:00. Initial preparation accepted
+it with unsupported=[] but omitted creation_date, unlike the legacy shared as_date
+policy, allowing the target's current-date default to replace historical intent.
+
+Correction: use shared as_date with order-first/sales-fallback precedence. Supplied
+valid dates require advertised writable creation_date date capability; freeze date/
+capability, recheck before create and verify returned/existing/current metadata for
+all consumers. Invalid, unsupported/read-only, overridden and later changed dates
+require review. Absent dates remain omitted. Tests cover precedence, malformed and
+absent values, unsupported/read-only metadata, capability drift, target override,
+after-issue date drift and fresh-process repair. The original date reproduction
+now freezes/stores2024-05-06 and completes with that historical date. Older DigiKey
+plans that omitted a supplied historical date remain readable but are rejected
+before execution; no active-plan semantic migration or claim clearing is provided.
+
+### Correction development evidence and status
+
+- First correction regression selection:43 passed in6.93s, then expanded to47
+  review cases plus three vendor/cache precision cases. Broader DigiKey/capability/
+  API selection:170 passed in19.01s. Counts are historical, not added together.
+- Raw original adverse reporters were run; extra-line/date outcomes corrected as
+  above, supplier reporter required only null-safe reporting, and price reporter
+  now encounters the deliberately absent rejected plan. Dedicated regressions
+  verify the intended new outcomes rather than expecting old success reporters
+  to exit0. No production fallback or skipped acceptance case was introduced.
+- Scanner/control correction run completed43 passed/1856 deselected in42.93s.
+  A subsequent numeric-only owned-context regression does not change shared
+  observation/control/scanner behavior; final full/focused results follow below.
+- A low embedding Decimal precision case was added during owner audit after the
+  first corrected broad run started. Receipt subtraction now owns its precision.
+  That early broad run is developmental evidence; a final full/focused run after
+  this last numeric change is required before the corrected candidate is committed.
+
+All four fixes preserve unknown/confirmed history, original IDs/output PKs, target/
+continuity checks, exact generated-output protection, schema1/2 readability, local
+canonical ownership, immutable stock artifacts/revisions and explicit opt-in scope.
+One-order/model-only/no-media/archive, advertised capabilities, old-plan review,
+serial/local and unverified live-server limits remain. Root assigns the independent
+exact corrected-head recheck after owner validation/commit; no approval is claimed.
+
+
+## Corrected owner checks and exact-head recheck request
+
+All four independent findings above are corrected in the next local candidate;
+independent corrected-head clearance is still required. Final effect/recovery
+runtime results with explicit worktree PYTHONPATH and pinned existing environment:
+
+- `make test`: **1856 passed, 1 existing skip, 43 deselected in170.53s**.
+- Focused execution + actual SDK observation + DigiKey API: **372 passed in138.21s**.
+  This includes48 independent-review regressions and four added API/cache numeric
+  cases, in addition to the initial candidate's coverage.
+- `make test-scanner`: **43 passed, 1856 deselected in42.93s** on the final shared
+  observation/control changes. Only numeric receipt local-context handling and its
+  regression followed that scanner run; scanner/control behavior did not change.
+- Prior corrected broad1855/1skip/43deselected158.65s and focused371/124.10s are
+  developmental evidence before the final embedding-context case, not substitutes
+  for the final1856/372 results.
+- Owned numeric-context/new review/API selection: **82 passed in9.17s** during the
+  final audit. A final import-order/docstring/error-wording-only cleanup follows
+  the broad suites, with targeted regression, Ruff and whitespace recheck. No
+  effect/precondition/identity/arithmetic behavior changed in that cleanup.
+- Required uv Ruff over changed Python and all src passes; complete base-to-head
+  whitespace and clean-status/ancestry checks accompany the committed candidate.
+  All test effects remain fake/persistent local SQLite or observed SDK fake HTTP.
+
+The PR Decisions/Plan adjustments must include the four corrections, the13+6
+source-amount support bound, supplier/exact-set consumption, historical creation_date
+capability and preservation of older plan claims/history without semantic migration.
+All initial release limits and the original four-finding rejection remain preserved.
+Root alone publishes after fresh independent review of the exact corrected hash.
+
+
+Final presentation-only cleanup recheck:82 passed in8.64s; uv Ruff passes and
+complete staged whitespace passes. Corrected owner validation is complete and the
+worktree is committed clean for independent exact-head recheck. Initial343bea9
+rejection is retained above. Root publication remains blocked until that independent
+recheck approves; the stage owner has not pushed, opened a PR, merged or called a
+live account/inventory service.

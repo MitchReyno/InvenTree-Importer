@@ -645,3 +645,15 @@ mutation and must be prepared again. Existing stored runs retain their revision,
 claims, outputs and history: known-output inspection/repair remains supported, but
 a pending old-policy contribution cannot silently acquire new flags/reference or
 be created. No active-run migration, claim clearing or generic replay is supplied.
+
+
+The initial Stage 7 independent review rejected four gaps: observable extra PO
+contributions could widen order-wide issue, Company identity/role was not rechecked
+after PO creation, numeric source could round at JSON/Decimal boundaries, and
+historical source date was omitted. Corrections centralize consumption checks,
+require exact complete contribution sets before order-wide work/reconciliation,
+retain/reject exact supported numeric source instead of rounding, and freeze the
+shared historical date policy behind a writable target capability. Receipt amounts
+use an owned Decimal context. Original rejected evidence and current corrected
+validation remain recorded in the Stage 7 handover; no semantic reset/migration,
+manual record rewrite or live atomicity guarantee follows from these corrections.

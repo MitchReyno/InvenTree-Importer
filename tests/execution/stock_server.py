@@ -113,7 +113,8 @@ class StockServer:
             return SimpleNamespace(status_code=200, json=lambda: {"actions": {"POST": {
                 "reference": {"default": reference, "type": "string", "max_length": 100},
                 "merge_items": {"type": "boolean", "default": True},
-                "auto_pricing": {"type": "boolean", "default": False}}}})
+                "auto_pricing": {"type": "boolean", "default": False},
+                "creation_date": {"type": "date", "read_only": False}}}})
         self._call("post", route)
         mode = self._fault(route)
         if mode == "before":

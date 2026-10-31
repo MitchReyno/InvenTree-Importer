@@ -263,8 +263,8 @@ Existing uncorrelated legacy lines require review, never guessed SKU/quantity
 matching. Known PO/line output checkpoints survive restart. Unknown creates remain
 review-only without a trustworthy saved output, even when a matching reference
 appears. Existing correlated orders can add missing approved contributions after
-a rejected initial create. Prices use finite decimal strings and currency remains
-frozen. Existing quantity/price/relationship/order metadata drift blocks consumers.
+a rejected initial create. Supported amounts use exact decimal strings within13 integer and6 fractional
+digits, and currency remains frozen. Unsupported precision/range requires review. Existing quantity/price/relationship/order metadata drift blocks consumers.
 
 `component_preparation` selects only shared Part/manufacturer/SKU/parameter builders
 from `DomainPreview`; it uses normalized model inputs without creating a StockFile
@@ -317,3 +317,29 @@ mutation and must be prepared again. Existing stored runs retain their revision,
 claims, outputs and history: known-output inspection/repair remains supported, but
 a pending old-policy contribution cannot silently acquire new flags/reference or
 be created. No active-run migration, claim clearing or generic replay is supplied.
+
+
+DigiKey consumer preconditions reread the frozen supplier Company identity/role
+and current approved PO metadata at operation entry and immediately before each
+mutation, including shared model handlers. Order-wide issue/receipt and read-only
+reconciliation also enumerate the complete current contribution set and require
+exact approved known PK/reference/parent/part/financial identities. Unexpected,
+duplicate or substituted rows require review; partial policy never approves
+manual extra contributions. These are guarded observations, not a server-side
+atomic conditional transaction. Known/unknown historical results remain intact.
+
+Durable JSON input retains decimal lexemes as JSON-safe strings. Library Decimal
+inputs retain their exact text; context-independent canonicalization rejects amounts
+outside the declared13 integer/6 fractional digit slice instead of rounding. Receipt
+subtraction owns an explicit sufficiently precise local Decimal context, independent
+of an embedding caller's context. Vendor/cache decoding rejects numeric values
+whose decimal value would change on legacy numeric export; safe existing numeric
+interfaces remain. Previously rounded external data cannot be reconstructed.
+
+Historical order dates use the shared `purchase_orders.as_date` order-first/sales-
+fallback policy. A supplied valid date requires advertised writable creation_date
+support, freezes its capability/date, and is checked on create read-back and every
+consumer. Invalid, unsupported, read-only, overridden or changed dates require
+review. Omitted dates remain omitted. Older DigiKey plans that omit supplied dates
+or disagree with exact supported source amounts stay readable but cannot execute
+under a silent semantic migration. Stock plan compatibility remains as documented.

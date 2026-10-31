@@ -98,3 +98,11 @@ def create_record(spec: OperationSpec, context: OperationContext, api: StockRequ
     ledger.created(ROUTES[model], row["pk"], payload)
     # No SDK model construction/reload can precede this checkpoint.
     return result
+
+
+def read_company_role(api: StockRequests, output: Output, *, role: str) -> dict | None:
+    """Consume only the frozen Company identity while its approved role remains."""
+    if output.model != "company.company":
+        raise ValueError("company role requires a Company output")
+    row = read_record(api, output)
+    return row if row is not None and row.get(role) is True else None

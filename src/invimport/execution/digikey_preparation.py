@@ -7,16 +7,19 @@ one sales order until a server-side PO allocation contract has been established.
 from __future__ import annotations
 
 from dataclasses import asdict
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Mapping
 
 from ..config import CategoryConfig, ParameterConfig
 from ..digikey.identity import order_namespace
+from ..digikey.numbers import freeze_library_source, supported_decimal
 from ..inventree.stockimport import ImportOptions
 from ..inventree.collections import list_rows
+from ..inventree.purchase_orders import as_date
 from .models import Attribution, Inputs, Kind, OperationSpec, OutputRef, Plan, Target, digest, validate_plan
 from .ownership import normalize_endpoint
 from .order_line_policy import line_values_match, order_line_policy
+from .order_policy import OrderDateCapabilityError, creation_date_policy
 from .stock_api import StockAPI
 from .records import IDENTITY_FIELDS
 from .records import record_identity
@@ -24,14 +27,11 @@ from .stock_preparation import PreparationReview, single
 
 
 def number(value: object) -> str:
-    """Canonical finite nonnegative decimal, preserving price precision."""
+    """Canonical supported decimal; reject instead of rounding source values."""
     try:
-        parsed = Decimal(str(value))
-    except (ValueError, InvalidOperation):
-        raise PreparationReview("DigiKey quantity/price must be a finite nonnegative number") from None
-    if not parsed.is_finite() or parsed < 0:
-        raise PreparationReview("DigiKey quantity/price must be a finite nonnegative number")
-    return format(parsed.normalize(), "f")
+        return supported_decimal(value)
+    except ValueError as exc:
+        raise PreparationReview(str(exc)) from exc
 
 
 def baseline(row: dict | None, model: str) -> dict:
@@ -54,6 +54,14 @@ def prepare_digikey(orders: list[dict], *, supplier: int, location: int | None,
     a later changed array cannot be guessed onto existing contributions.
     Partial/manual receipts need explicit remaining-amount approval at prepare.
     """
+    try:
+        normalized = freeze_library_source(orders)
+        products = freeze_library_source(dict(products or {}))
+    except (TypeError, ValueError) as exc:
+        raise PreparationReview("DigiKey source requires JSON values and finite numbers") from exc
+    if not isinstance(normalized, list) or any(not isinstance(order, dict) for order in normalized):
+        raise PreparationReview("DigiKey source must be a complete orders array")
+    orders = normalized
     selected = [(order, sales) for order in orders for sales in order.get("sales_orders", [])]
     if len(selected) != 1:
         raise PreparationReview("durable DigiKey preparation requires exactly one sales order; no selected batch was imported")
@@ -64,7 +72,7 @@ def prepare_digikey(orders: list[dict], *, supplier: int, location: int | None,
     order, sales = selected[0]
     source_id = order_namespace(supplier, sales.get("sales_order_id"))
     company = api.get(f"company/{supplier}/")
-    if not isinstance(company, dict) or not company.get("is_supplier"):
+    if not isinstance(company, dict) or company.get("is_supplier") is not True:
         raise PreparationReview("chosen supplier is missing or no longer a supplier")
     if receive:
         if type(location) is not int or location <= 0:
@@ -153,15 +161,29 @@ def prepare_digikey(orders: list[dict], *, supplier: int, location: int | None,
         if existing and existing.get("order_currency") != currency:
             raise PreparationReview("existing purchase order currency differs from source")
         payload["order_currency"] = currency
+    original_date = order.get("date_entered") or sales.get("date_entered")
+    source_date = as_date(original_date)
+    if original_date and source_date is None:
+        raise PreparationReview("invalid original DigiKey order date")
+    metadata = api.request("order/po/", method="OPTIONS").json() if existing is None or source_date else {}
+    date_policy = None
+    if source_date:
+        try:
+            date_policy = creation_date_policy(metadata)
+        except OrderDateCapabilityError as exc:
+            raise PreparationReview(str(exc)) from exc
+        payload["creation_date"] = source_date
+        if existing and existing.get("creation_date") != source_date:
+            raise PreparationReview("existing purchase order date differs from source")
     if existing:
         payload["reference"] = existing["reference"]
     else:
-        response = api.request("order/po/", method="OPTIONS")
-        offered = response.json().get("actions", {}).get("POST", {}).get("reference", {}).get("default")
+        offered = metadata.get("actions", {}).get("POST", {}).get("reference", {}).get("default")
         if not offered:
             raise PreparationReview("server did not offer a PO reference; allocation is not inferred")
         payload["reference"] = str(offered)
-    po = add("dk_order", source_id, {"payload": payload, "supplier_identity": baseline(company, "company.company")},
+    po = add("dk_order", source_id, {"payload": payload, "date_policy": date_policy,
+                                    "supplier_identity": baseline(company, "company.company")},
              before=baseline(existing, "order.purchaseorder"), lines=tuple(source_lines))
     line_ops = []
     for line_id, desired, matched, part, planned, received in resolved:

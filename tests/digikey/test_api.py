@@ -191,3 +191,24 @@ def test_cancel_during_digikey_backoff_prevents_retry_and_later_work(transport):
     with observing(observation), pytest.raises(InterruptedError):
         api.request_json("https://example.com/read", {})
     assert request.call_count == 1
+
+
+@pytest.mark.parametrize("literal", ["0.10000000000000001", "9999999999999.123456", "NaN"])
+def test_vendor_and_cache_decoding_reject_numeric_export_rounding(transport, tmp_path, literal):
+    from invimport import cache
+    request, _ = transport
+    response = Response({})
+    response.text = '{"UnitPrice":' + literal + '}'
+    request.return_value = response
+    with pytest.raises(api.DigiKeyError, match="Invalid JSON"):
+        api.request_json("https://example.com/orders", {})
+    cache_path = cache.cache_path(tmp_path, "price")
+    cache_path.write_text(response.text)
+    with pytest.raises(ValueError, match="precision|nonfinite"):
+        cache.load(tmp_path, "price")
+
+
+def test_vendor_decimal_export_preserves_existing_supported_numeric_interface(transport):
+    request, _ = transport
+    request.return_value = Response({"UnitPrice": 0.82})
+    assert api.request_json("https://example.com/orders", {}) == {"UnitPrice": 0.82}

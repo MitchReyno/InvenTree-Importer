@@ -15,6 +15,7 @@ import sys
 from uuid import uuid4
 
 from ..config import CONFIG_DIR, load_categories_config, load_parameters_config
+from ..digikey.numbers import load_exact
 from ..execution.executor import ContinuityReview
 from ..execution.models import Plan, Target
 from ..execution.observation import Event, Observation, observing, operation
@@ -145,10 +146,10 @@ def _prepare(args: argparse.Namespace, outputs: GeneratedOutputs) -> dict:
 
 def _prepare_digikey(args: argparse.Namespace, outputs: GeneratedOutputs) -> dict:
     from ..execution.digikey_preparation import prepare_digikey
-    source = json.loads(args.file.read_text(encoding="utf-8"))
+    source = load_exact(args.file.read_text(encoding="utf-8"))
     if not isinstance(source, list):
         raise ValueError("DigiKey source must be the complete flattened orders array")
-    products = json.loads(args.products.read_text(encoding="utf-8")) if args.products else {}
+    products = load_exact(args.products.read_text(encoding="utf-8")) if args.products else {}
     if isinstance(products, list):
         products = {row["SKU"].upper(): row for row in products}
     categories = load_categories_config(args.config) if args.create_parts else {}

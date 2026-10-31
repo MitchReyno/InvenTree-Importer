@@ -723,3 +723,12 @@ mutation and must be prepared again. Existing stored runs retain their revision,
 claims, outputs and history: known-output inspection/repair remains supported, but
 a pending old-policy contribution cannot silently acquire new flags/reference or
 be created. No active-run migration, claim clearing or generic replay is supplied.
+
+
+Stage 7 independent review initially rejected exact343bea9 for four source/current-
+state gaps (complete order contribution scope, supplier Company identity/role,
+exact numeric price/quantity capture and historical order date). The corrected
+candidate adds shared before-mutation consumption checks, exact-set reconciliation,
+bounded exact decimal handling/owned receipt arithmetic, and source-date capability/
+readback validation. Regression and independent recheck outcomes are recorded in
+the handover. Initial rejection is preserved; owner tests do not imply clearance.

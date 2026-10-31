@@ -590,3 +590,27 @@ mutation and must be prepared again. Existing stored runs retain their revision,
 claims, outputs and history: known-output inspection/repair remains supported, but
 a pending old-policy contribution cannot silently acquire new flags/reference or
 be created. No active-run migration, claim clearing or generic replay is supplied.
+
+
+### Stage 7 independent-review corrections
+
+- Frozen supplier Company identity/role and PO metadata are shared consumption
+  preconditions at operation entry and immediately before mutation, including
+  shared component models and observed-satisfaction/reconciliation paths.
+- Issue/receipt consume the exact complete approved contribution set. Enumerated
+  unexpected, duplicate or substituted PK/reference/parent/Part/financial identities
+  require review, even when all expected saved records remain present. No manual
+  rows are deleted/reset and partial policy does not widen the approved set.
+- Durable JSON decimals retain exact JSON-safe text. Library Decimal values are
+  copied exactly. Canonicalization never uses context-rounding normalize; the
+  supported source bound is13 integer/6 fractional digits. Receipt arithmetic owns
+  its precision. Lossy/nonfinite vendor/cache numeric decoding is rejected before
+  export rather than silently changing source value; legacy safe numeric types stay.
+- Shared as_date order-first/sales-fallback historical date policy freezes supplied
+  creation_date plus writable target capability. Invalid/unsupported dates require
+  preparation review; returned/existing/later date disagreement blocks consumers.
+  Absent dates remain absent. Old conflicting DigiKey plans remain readable with
+  history/claims intact, but cannot acquire corrected source intent implicitly.
+- Shared callback validation precedes actual mutation request intent; it does not
+  add a second durable child around an observed SDK send. GET/POST races remain
+  possible without a demonstrated server atomic precondition capability.

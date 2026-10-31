@@ -57,8 +57,10 @@ def _inputs(spec: OperationSpec, context: OperationContext, api: StockRequests) 
 
 class StockHandlers:
     """Own API binding and the explicit original/repair domain policies."""
-    def __init__(self, api: StockAPI) -> None:
+    def __init__(self, api: StockAPI, *,
+                 before_mutation: Callable[[StockRequests, OperationContext], None] | None = None) -> None:
         self.api = api
+        self.before_mutation = before_mutation
 
     @property
     def mapping(self) -> dict[Kind, Callable]:
@@ -71,7 +73,8 @@ class StockHandlers:
         return self._run(spec, context, repair=True)
 
     def _run(self, spec: OperationSpec, context: OperationContext, *, repair: bool) -> OperationResult:
-        api = StockRequests(self.api, context)
+        check = (lambda requests: self.before_mutation(requests, context)) if self.before_mutation else None
+        api = StockRequests(self.api, context, before_mutation=check)
         prior = context.store.results().get(spec.id)
         inputs = _inputs(spec, context, api)
         if inputs is None:
