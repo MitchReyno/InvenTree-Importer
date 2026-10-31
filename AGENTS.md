@@ -1,5 +1,7 @@
 # Project guidance
 
+Read and follow [CONVENTIONS.md](CONVENTIONS.md) when writing or reviewing code.
+
 ## Portable paths
 
 Do not add local absolute file path references to repository files, including

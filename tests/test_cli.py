@@ -7,6 +7,7 @@ import json
 import pytest
 
 from invimport.__main__ import cli, main, program_name
+from invimport.inventree.api import InvenTreeError
 
 
 @pytest.fixture(autouse=True)
@@ -1346,3 +1347,32 @@ def test_mirroring_can_be_switched_on_from_the_environment(
         argparse.Namespace(mirror_datasheets=False)) is expected
     # The flag is on whatever the environment says.
     assert mirror_datasheets(argparse.Namespace(mirror_datasheets=True))
+
+
+@pytest.mark.parametrize("existing_plan", [False, True])
+def test_failed_plan_is_reported_without_publishing_it(
+        existing_plan, inventree, tmp_path, monkeypatch, capsys):
+    _seed_stock_tree(inventree)
+    directory = _stock_config(tmp_path)
+    path = _stock_file(tmp_path, [
+        {"id": "a", "quantity": 25,
+         "category": "Resistors/Through Hole Resistors",
+         "parameters": {"Resistance": "1 kohm"}}])
+    plan = tmp_path / "plan.json"
+    if existing_plan:
+        plan.write_text("previous plan", encoding="utf-8")
+
+    def fail_plan(*args, **kwargs):
+        raise InvenTreeError("plan: could not read stock/")
+
+    monkeypatch.setattr("invimport.commands.import_stock.build_plan", fail_plan)
+    assert cli(["import-stock", "--config", str(directory), "--plan", str(plan),
+                "--yes", str(path)]) == 1
+    output = capsys.readouterr()
+    assert "could not read stock/" in output.err
+    assert "plan written" not in output.out
+    assert inventree.stock_items == []
+    if existing_plan:
+        assert plan.read_text(encoding="utf-8") == "previous plan"
+    else:
+        assert not plan.exists()

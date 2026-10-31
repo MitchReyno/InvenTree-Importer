@@ -9,6 +9,10 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+import requests
+
+from invimport.inventree.api import InvenTreeError
 from invimport.inventree.importplan import build_plan, write_plan
 from invimport.inventree.parts import UNRESOLVED_PK
 from invimport.inventree.stockimport import CREATED, EXISTS, NOTES_KEPT, LineAction
@@ -105,3 +109,74 @@ def test_write_plan_one_or_several(tmp_path):
     two = tmp_path / "two.json"
     write_plan(two, [{"file_id": "a"}, {"file_id": "b"}])
     assert [p["file_id"] for p in json.loads(two.read_text())] == ["a", "b"]
+
+
+@pytest.mark.parametrize("route", ["part/590/", "stock/", "stock/800/"])
+@pytest.mark.parametrize("failure", [requests.HTTPError, requests.Timeout,
+                                    requests.ConnectionError])
+def test_record_read_failure_aborts_plan_with_context(route, failure):
+    api = FakeApi()
+    original = api.get
+    error = failure("unavailable")
+
+    def get(requested, params=None):
+        if requested == route:
+            raise error
+        return original(requested, params)
+
+    api.get = get
+    action = LineAction(id="l01", part=590, stock_item=800)
+    with pytest.raises(InvenTreeError, match=route) as caught:
+        build_plan(api, document(), SimpleNamespace(lines=[action]))
+    assert caught.value.__cause__ is error
+
+
+def test_missing_response_is_not_empty_stock():
+    api = FakeApi()
+    api.get = lambda *args, **kwargs: None
+    with pytest.raises(InvenTreeError, match="no response"):
+        build_plan(api, document(), SimpleNamespace(lines=[LineAction(id="l01", part=590)]))
+
+
+def test_empty_stock_list_is_valid():
+    api = FakeApi()
+    original = api.get
+    api.get = lambda route, params=None: [] if route == "stock/" else original(route, params)
+    plan = build_plan(api, document(), SimpleNamespace(lines=[LineAction(id="l01", part=590)]))
+    assert plan["lines"][0]["existing_part"]["stock"] == []
+
+
+@pytest.mark.parametrize("failure", [requests.HTTPError, OSError])
+def test_optional_image_failure_preserves_record_data(failure, tmp_path, caplog):
+    api = FakeApi()
+
+    def download(*args):
+        raise failure("image unavailable")
+
+    api.downloadFile = download
+    plan = build_plan(api, document(), SimpleNamespace(lines=[LineAction(id="l01", part=590)]),
+                      image_dir=tmp_path / "images")
+    part = plan["lines"][0]["existing_part"]
+    assert part["stock"][0]["quantity"] == 63
+    assert part["image"] == ""
+    assert "could not download image" in caplog.text
+
+
+def test_programming_errors_are_not_swallowed():
+    api = FakeApi()
+
+    def get(*args, **kwargs):
+        raise TypeError("broken adapter")
+
+    api.get = get
+    with pytest.raises(TypeError, match="broken adapter"):
+        build_plan(api, document(), SimpleNamespace(lines=[LineAction(id="l01", part=590)]))
+
+
+def test_refused_image_download_does_not_report_a_nonexistent_file(tmp_path, caplog):
+    api = FakeApi()
+    api.downloadFile = lambda *args: False
+    plan = build_plan(api, document(), SimpleNamespace(lines=[LineAction(id="l01", part=590)]),
+                      image_dir=tmp_path / "images")
+    assert plan["lines"][0]["existing_part"]["image"] == ""
+    assert "could not download image" in caplog.text

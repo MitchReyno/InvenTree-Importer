@@ -20,6 +20,9 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from requests import RequestException
+
+from .api import InvenTreeError
 from .parts import UNRESOLVED_PK
 from .stockimport import NOTES_KEPT, LineAction
 
@@ -51,10 +54,12 @@ class PlanBuilder:
 
     def _get(self, route: str, **params) -> Any:
         try:
-            return self.api.get(route, params=params or None)
-        except Exception as exc:                 # pragma: no cover - logged
-            log.warning("    plan: could not read %s: %s", route, exc)
-            return None
+            response = self.api.get(route, params=params or None)
+        except RequestException as exc:
+            raise InvenTreeError(f"plan: could not read {route}") from exc
+        if response is None:
+            raise InvenTreeError(f"plan: no response from {route}")
+        return response
 
     def _image(self, pk: int, url: str) -> str:
         """Download a part's server image; the path relative to the plan."""
@@ -65,8 +70,10 @@ class PlanBuilder:
         try:
             self.image_dir.mkdir(parents=True, exist_ok=True)
             if not dest.exists():
-                self.api.downloadFile(url, str(dest))
-        except Exception as exc:                 # pragma: no cover - logged
+                downloaded = self.api.downloadFile(url, str(dest))
+                if downloaded is False or not dest.is_file():
+                    raise OSError("download did not produce an image file")
+        except (RequestException, OSError) as exc:
             log.warning("    plan: could not download image of part %s: %s",
                         pk, exc)
             return ""
@@ -136,7 +143,11 @@ class PlanBuilder:
 
 def build_plan(api, document, result, *, image_dir: Path | None = None
                ) -> dict[str, Any]:
-    """The plan for one file's run: one entry per line, in file order."""
+    """Build a plan; failed record reads raise rather than imply empty stock.
+
+    Optional image downloads may fail with a warning. Record-read failures
+    propagate as InvenTreeError, so callers must not publish an incomplete plan.
+    """
     builder = PlanBuilder(api, image_dir)
     return {
         "plan_version": PLAN_VERSION,
