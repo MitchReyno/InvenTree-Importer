@@ -831,7 +831,8 @@ digits, so copy the digits exactly as shown.
 `sealed` or `opened` tag when `packaging` already says it — the importer writes
 tags exactly as given, so a duplicate lands in InvenTree and drifts out of step
 with the packaging field. Tags are for what the packaging field cannot say:
-`NOS`, `surplus`, `used`, `pulled`, `nsn:…`.
+`NOS`, `surplus`, `used`, `pulled`, `nsn:…`, `unidentified`,
+`unknown manufacturer`.
 
 ```json
 "packaging": "Tube, sealed",
@@ -839,6 +840,18 @@ with the packaging field. Tags are for what the packaging field cannot say:
 ```
 
 not `"tags": ["NOS", "new old stock", "sealed tube"]`.
+
+**Tag what is not known.** A line whose part could not be identified — no
+type designator, MPN, NSN or complete spec, so its part is named after its
+markings or looks — is tagged `unidentified`. A line that names no
+`manufacturer_part`, because no maker is printed or established, is tagged
+`unknown manufacturer`; an unidentified line carries both. They are how the
+user finds the stock still to be worked out, so never leave them off, and never
+add them to a line whose part or maker is known.
+
+```json
+"tags": ["NOS", "new old stock", "unidentified", "unknown manufacturer"]
+```
 
 Set them in `defaults` when a whole delivery is NOS. File-wide `tags` merge with
 a line's own rather than replacing them, so per-line labels like `surplus`
