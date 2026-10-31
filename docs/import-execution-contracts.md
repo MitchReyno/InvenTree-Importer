@@ -244,7 +244,8 @@ Source/stub evidence, compatibility tradeoffs and validation are recorded in the
   correlated request_finished for received/error/unknown exchange. Cancellation
   before dispatch emits request_cancelled/not_dispatched. Redirect history is a
   count on the received response, not independently replayable wire requests.
-- SDK decode and create-model outcomes are distinct from HTTP exchange. Received
+- SDK decode and create-model outcomes carry the originating request ID and are
+  distinct from HTTP exchange. Received
   success is not domain-effect confirmation; model failure after POST does not
   erase the HTTP result. Event identity is not a mutation/idempotency key.
 - Existing parameter/prefetch pools explicitly capture immutable source context
@@ -254,8 +255,9 @@ Source/stub evidence, compatibility tradeoffs and validation are recorded in the
   URLs. Inventory routes use an allowlist; query strings are never labels. Unsafe
   legacy free-form logging is suppressed only inside observed imports; bound SDK
   credentials/payload logging is disabled before its constructor. CLI reports safe
-  failure type and established allowlisted plan-read messages. Library exception
-  objects/causes and Stage 1 attachment/barcode contracts remain available.
+  failure type and established allowlisted plan-read messages. Caught upload/archive/PDF exception-result reasons are safe before rendering;
+  outside observed scopes library diagnostic reasons are preserved. Library
+  exception objects/causes and Stage 1 attachment/barcode contracts remain available.
 - `Observation.cancelled` stops new request dispatches; interruption sets it.
   Current requests settle according to their transport result. No durable partial
   report, restart semantics, automatic retry or general independent continuation

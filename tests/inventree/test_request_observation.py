@@ -287,3 +287,80 @@ def test_cancel_from_start_observer_prevents_send_with_correlated_terminal():
     assert start.request == terminal.request
     assert terminal.kind == 'request_finished'
     assert terminal.outcome == 'not_dispatched'
+
+
+def test_actual_logo_upload_error_cannot_leak_through_result_or_cli_report(
+        monkeypatch, tmp_path, capsys, caplog):
+    from invimport.commands.import_stock import report_logos
+    from invimport.inventree import companies
+    from invimport.inventree.api import Company
+
+    observation = Observation()
+
+    class Denied:
+        def patch(self, url, **kwargs):
+            assert 'files' in kwargs and 'image' in kwargs['files']
+            return Response({'detail': 'BODY_CANARY'}, 403)
+
+    path = tmp_path / 'logo.png'
+    path.write_bytes(b'image')
+    with observing(observation):
+        api = client('https://inventory.invalid', observation=observation,
+                     transport=Denied(), connect=False, token='TOKEN_CANARY')
+        api.connected = True
+        api.api_version = 530
+        company = Company(api, data={'pk': 1, 'name': 'Maker', 'image': ''})
+        monkeypatch.setattr(companies, 'list_companies', lambda api: [company])
+        actions = companies.set_logos(
+            api, {'Maker': {'image': str(path)}}, write=True)
+        report_logos(actions)
+    output = capsys.readouterr()
+    combined = output.out + output.err + caplog.text + str(actions) + str(observation.export())
+    assert actions[0].action == companies.FAILED
+    assert 'HTTPError' in actions[0].reason
+    assert 'BODY_CANARY' not in combined
+    assert 'TOKEN_CANARY' not in combined
+    assert 'AUTHORIZATION' not in combined
+    assert any(event.status == 403 for event in observation.snapshot())
+
+
+def test_exception_result_reason_preserves_unobserved_library_diagnostics():
+    from invimport.execution.transport import exception_reason
+
+    error = requests.HTTPError({'body': 'library-body'})
+    assert 'library-body' in exception_reason(error)
+    with observing(Observation()):
+        assert 'library-body' not in exception_reason(error)
+
+
+def test_decode_and_model_events_identify_origin_through_constructor_reload():
+    from inventree.base import InventreeObject
+
+    observation = Observation()
+    transport = Transport(observation)
+
+    class ReloadedModel(InventreeObject):
+        URL = 'part'
+
+        def __init__(self, api, **kwargs):
+            super().__init__(api, **kwargs)
+            self.reload()
+
+    with observing(observation), operation('one attempt'):
+        api = client('https://inventory.invalid', observation=observation,
+                     transport=transport, connect=False, token='token')
+        api.connected = True
+        api.api_version = 530
+        ReloadedModel.create(api, {'name': 'part'})
+        api.get('stock/7')
+    events = observation.snapshot()
+    starts = {event.request: event for event in events if event.kind == 'request_started'}
+    decodes = [event for event in events if event.kind == 'decode_finished']
+    assert len(decodes) == 3
+    assert all(event.request in starts for event in decodes)
+    assert len({event.request for event in decodes}) == 3
+    model = next(event for event in events if event.kind == 'model_finished')
+    assert starts[model.request].label.startswith('POST ')
+    reload_decode = next(event for event in decodes
+                         if starts[event.request].label.startswith('GET inventory /api/part/'))
+    assert reload_decode.request != model.request

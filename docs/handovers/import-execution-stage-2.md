@@ -179,9 +179,52 @@ automatic approval review rejected an action and no live inventory was contacted
 
 ## Independent review
 
-Pending. Root must obtain a separate review before opening the stacked PR. Owner
-will record reviewer findings/fixes and follow-up verification here. Test success
-alone is not independent approval.
+Independent review found one P1 and two P2 issues; all are corrected pending
+reviewer recheck. No PR has been opened; owner tests are not independent approval.
+
+- **P1, caught exception result leak:** a real SDK Company.uploadImage/save/PATCH
+  403 raised an HTTPError dictionary containing response body and Authorization.
+  `set_logos` stored `str(exc)` in LogoAction.reason; report_logos printed it to
+  stdout despite logging suppression. Added scoped `exception_reason`: observed
+  runs store a safe failure type, while unobserved library callers
+  retain legacy detailed reasons. Added a regression through the real SDK upload
+  and CLI report, asserting body/token/header canaries absent from results, logs,
+  stdout/stderr and event export. Audited other exception-to-result paths: archive
+  ZIP and PDF parsing also used raw exception args and now apply the same policy.
+  Stock's remaining str(exc) is a locally generated SupplierPartConflict containing
+  source SKU/part identities, with no caught network exception/body. DigiKey SKU
+  and sales-order catch/result paths are outside import-stock scope; they remain
+  migration work. Existing structured attachment errors already use safe reasons.
+- The first new real-403 regression exposed a fake-transport seam defect: injected
+  HTTP send-only transports did not provide requests.exceptions, turning the SDK
+  HTTPError into AttributeError. The facade now deliberately provides the genuine
+  requests exception namespace and injects only HTTP dispatch methods. Corrected
+  test now proves the actual HTTPError result path. Initial expanded run: 11
+  passed/1 failed; corrected run: 12 passed.
+- **P2, exact origin correlation:** decode/model events previously had only their
+  operation/attempt, insufficient for repeated reads or POST then constructor
+  reload. A call-chain ContextVar carries the request identity set at dispatch;
+  decode events reference that ID, and create saves its POST ID before constructing
+  a model that may reload. The marker is cleared at SDK decode/create entry, so a
+  custom unobserved transport cannot borrow an earlier request ID. A real SDK
+  constructor-reload regression distinguishes the POST model origin, reload GET
+  decode and later same-attempt GET decode as three exact identities. This marker
+  contains no source state; immutable source/attempt context still uses explicit
+  worker capture.
+- **P2, report source:** post-import plan operations previously used empty source.
+  They now retain the same document digest as the imported document. The actual
+  CLI dispatch-time test now imports two documents and proves report request source
+  membership and document/report source-set equality.
+- Focused review-fix SDK/CLI selection: **16 passed, 100 deselected in 0.49s**.
+  Final full normal suite: **1524 passed, 1 skipped, 43 deselected in 35.88s**.
+  Final scanner suite: **43 passed, 1525 deselected in 43.68s**. The final marker
+  reset at create entry and safer per-operation reason wording were checked by
+  the focused selection after those full runs.
+- Final expanded review-fix command adds `tests/inventree/test_companies.py` and
+  `tests/inventree/test_datasheets.py` to the prior final SDK/CLI/Stage 1 selection:
+  **262 passed in 5.95s**. Final new boundary suite: **13 passed in 0.24s**.
+  Changed-Python Ruff (including companies/archive) and `git diff --check` pass.
+  No new skip, live request or inventory write. Reviewer recheck remains pending.
 
 ## Limitations and Stage 3 handoff
 

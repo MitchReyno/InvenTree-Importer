@@ -45,6 +45,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
+from ..execution.transport import exception_reason
 from ..stockfile import StockFile
 from .purchase_orders import AttachmentState, attach_file_outcome, attachments
 
@@ -333,7 +334,7 @@ def archive_import(api, document: StockFile, lines: Iterable[Any], *,
         try:
             path = build_zip(folder, files, Path(scratch) / archive.name)
         except OSError as exc:
-            archive.reason = f"could not zip {folder}: {exc}"
+            archive.reason = f"could not zip {folder}: {exception_reason(exc)}"
             for target in pending:
                 target.outcome = FAILED
             return archive

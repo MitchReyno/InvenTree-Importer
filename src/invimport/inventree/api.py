@@ -16,7 +16,7 @@ import logging
 import os
 import sys
 
-from ..execution.observation import active
+from ..execution.observation import active, mark_request, request_origin
 from . import ledger
 
 log = logging.getLogger(__name__)
@@ -119,7 +119,9 @@ def _create(cls, api, data, **kwargs):
     """Create one object, whether the server answers with it or with a list."""
     cls.checkApiVersion(api)
     payload = {key: value for key, value in data.items() if key != "pk"}
+    mark_request("")
     response = api.post(cls.URL, payload, **kwargs)
+    origin = request_origin()
 
     if isinstance(response, list):
         response = response[0] if response else None
@@ -133,10 +135,11 @@ def _create(cls, api, data, **kwargs):
     except BaseException:
         if observation:
             observation.emit("model_finished", "create response model",
-                             outcome="construction_failed_after_response")
+                             request=origin, outcome="construction_failed_after_response")
         raise
     if observation:
-        observation.emit("model_finished", "create response model", outcome="constructed")
+        observation.emit("model_finished", "create response model",
+                         request=origin, outcome="constructed")
     ledger.created(cls.URL, created.pk, payload)
     return created
 

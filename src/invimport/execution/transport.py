@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 import requests
 
-from .observation import Observation, active
+from .observation import Observation, active, mark_request
 
 
 class QuietSDKLog:
@@ -29,6 +29,8 @@ class ObservedRequests:
         self.transport = transport
 
     def __getattr__(self, name: str):
+        if name == "exceptions":
+            return requests.exceptions
         if name not in {"get", "post", "patch", "put", "delete", "options"}:
             return getattr(self.transport, name)
 
@@ -43,6 +45,7 @@ class ObservedRequests:
                                  outcome="not_dispatched")
                 raise InterruptedError("import cancelled before request dispatch")
             started = monotonic()
+            mark_request(request)
             observation.emit("request_started", label, request=request)
             if observation.cancelled.is_set():
                 observation.emit("request_finished", label, request=request,
@@ -117,3 +120,8 @@ def safe_target(url: str, service: str) -> str:
     if all(segment in nouns or segment.isdecimal() for segment in segments):
         return " /" + "/".join(segments) + "/"
     return " [other target]"
+
+
+def exception_reason(exc: Exception) -> str:
+    """Keep legacy library diagnostics, but never export exception args in a run."""
+    return f"operation failed ({type(exc).__name__})" if active() is not None else str(exc)

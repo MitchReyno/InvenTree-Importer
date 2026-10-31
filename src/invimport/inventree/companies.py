@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ..execution.transport import exception_reason
 from .collections import list_models
 from .. import cache
 from . import ledger
@@ -117,7 +118,7 @@ def set_logos(api, companies: dict[str, dict[str, str]], *,
         except Exception as exc:
             log.warning("    [warn] could not upload a logo for %s: %s",
                         company.name, exc)
-            action.reason = str(exc)
+            action.reason = exception_reason(exc)
             continue
         ledger.note("company", company.pk, ledger.IMAGE_SET,
                     **ledger.file_facts(path))

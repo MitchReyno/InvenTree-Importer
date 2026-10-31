@@ -39,6 +39,7 @@ import requests
 
 from pypdf import PdfReader, PdfWriter
 
+from ..execution.transport import exception_reason
 from ..execution.observation import active, worker
 from ..execution.transport import external_get
 
@@ -257,7 +258,7 @@ def extract_pages(source: Path, pages_text: str, *,
         buffer = io.BytesIO()
         writer.write(buffer)
     except Exception as exc:
-        return None, f"could not read {source.name} as a PDF: {exc}"
+        return None, f"could not read {source.name} as a PDF: {exception_reason(exc)}"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(buffer.getvalue())
     return target, ""

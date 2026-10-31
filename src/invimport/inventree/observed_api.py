@@ -12,7 +12,7 @@ from types import FunctionType, MethodType
 
 from inventree.api import InvenTreeAPI
 
-from ..execution.observation import Observation, active
+from ..execution.observation import Observation, active, mark_request, request_origin
 from ..execution.transport import ObservedRequests, QuietSDKLog, protect_import_logs
 
 
@@ -20,15 +20,17 @@ def _decoded(function, observation: Observation | None):
     @wraps(function)
     def call(*args, **kwargs):
         observer = observation or active()
+        mark_request("")
         try:
             result = function(*args, **kwargs)
         except BaseException:
             if observer:
-                observer.emit("decode_finished", "SDK response", outcome="unavailable")
+                observer.emit("decode_finished", "SDK response",
+                              request=request_origin(), outcome="unavailable")
             raise
         if observer:
-            observer.emit("decode_finished", "SDK response",
-                             outcome="decoded" if result is not None else "no_decoded_result")
+            observer.emit("decode_finished", "SDK response", request=request_origin(),
+                          outcome="decoded" if result is not None else "no_decoded_result")
         return result
     return call
 

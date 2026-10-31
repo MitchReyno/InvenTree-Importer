@@ -149,3 +149,15 @@ def worker(function: Callable, *, label: str, group: str) -> Callable:
         with operation(label, group=group):
             return function(*args, **kwargs)
     return run
+
+
+_request_origin: ContextVar[str] = ContextVar("import_request_origin", default="")
+
+
+def request_origin() -> str:
+    """Most recent child request in this synchronous SDK call chain."""
+    return _request_origin.get()
+
+
+def mark_request(request: str) -> None:
+    _request_origin.set(request)

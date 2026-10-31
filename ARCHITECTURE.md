@@ -143,7 +143,9 @@ successful-effect counts. Each explicit dispatch gets its own ID. Redirects are
 represented by history count, not independent wire-exchange events. HTTP received,
 HTTP error, exchange unknown, SDK decode outcome and create-model construction
 are distinct observations; none implies durable effect confirmation or replay
-permission. A successful POST remains visible if later model construction fails.
+permission. Decode/model events retain the exact originating request ID; create captures
+the POST origin before a constructor can reload with a separate GET. A successful
+POST remains visible if later model construction fails.
 
 Safe events omit bodies, payloads, credentials, query strings and exception args.
 Inventory labels allow only known route nouns/numeric PKs; external downloads use
@@ -153,8 +155,10 @@ observed scope, legacy importer/SDK/requests/urllib3 free-form logs are suppress
 because they may interpolate arbitrary exception bodies or signed URLs. Structured
 events become the safe diagnostic channel. Outside that scope legacy importer
 logs remain available. CLI exceptions expose type and a narrowly allowlisted
-existing plan-read diagnostic, never arbitrary SDK exception args. Library causes
-and structured Stage 1 error objects remain unchanged.
+existing plan-read diagnostic, never arbitrary SDK exception args. Caught upload/archive/PDF exceptions are also converted to safe result reasons
+inside observed scopes before CLI report rendering; unobserved library callers
+retain their legacy diagnostic reasons. Library causes and structured Stage 1
+error objects remain unchanged.
 
 Snapshots/events are in-memory only. Observer exceptions increment a delivery
 failure counter and cannot alter request results or trigger replay. Cancellation

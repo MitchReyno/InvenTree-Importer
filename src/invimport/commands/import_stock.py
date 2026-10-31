@@ -40,6 +40,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from hashlib import sha256
 from typing import Any
 
 from ..execution.observation import Observation, observing, operation
@@ -922,7 +923,8 @@ def _write_run(args: argparse.Namespace, reports: list[Any]) -> int:
         report_logos(result.logos)
         report_provenance(result.provenance, not args.no_provenance)
         if args.plan:
-            with operation("report plan", group="report"):
+            with operation("report plan", group="report",
+                           source=sha256(document.file_id.encode()).hexdigest()[:16]):
                 plans.append(build_plan(
                     api, document, result,
                     image_dir=args.plan.parent / f"{args.plan.stem}-images"))
