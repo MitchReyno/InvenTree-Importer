@@ -379,6 +379,11 @@ does not enable default rollout, media/archive parity or production concurrency.
 
 ## Loopback demonstration boundary
 
+This bounded demo is independently approved at runtime
+`8af4cfc449a99d3f720bd1a8669cab3dbd3ceafd`; both initial review findings are
+cleared. The [handover](docs/handovers/import-execution-demo.md) records exact
+verification and rejected-candidate history.
+
 `commands.demo` provides `demo serve/run/inspect` around reusable
 `demo.workspace`, `demo.server`, `demo.state`, `demo.runner`, `demo.process` and
 `demo.recovery` modules.

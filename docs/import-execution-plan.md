@@ -769,4 +769,9 @@ SDK/CLI stock execution and selected evidence recovery, retaining every producti
 approval/continuity/journal/claim rule. Happy and explicit before-application
 attachment-403 scenarios are in scope; DigiKey and lost-response demos are deferred.
 See [demo guide](import-demo.md) and [owner handover](handovers/import-execution-demo.md).
-Independent review of this follow-on remains required before publication.
+Independent exact-head review approved runtime
+`8af4cfc449a99d3f720bd1a8669cab3dbd3ceafd` after both cancellation/locator and
+fake-schema readiness findings were cleared. Independent14-case demo suite and
+adverse signal/timeout/recovery/schema probes passed; all bounded synthetic/local/
+unknown-effect limits remain. Initial227a840 remains rejected history. A final
+clearance-record commit changes documentation only; root owns publication/CI.

@@ -303,3 +303,48 @@ history. A fresh independent exact-head recheck must approve the next clean loca
 commit before root publishes; this owner verification is not independent clearance.
 The bounded stock/demo, explicit write/continuity, local serial authority, unknown
 create, immutable finalization and no live-capability/exactly-once limits remain.
+
+## Final independent exact-head clearance
+
+**APPROVED for the bounded runnable demo stacked PR at exact runtime hash
+`8af4cfc449a99d3f720bd1a8669cab3dbd3ceafd`.** Both material findings are
+independently cleared; no material unresolved finding remains. Initial
+`227a8409e9c7f3628270281856cd80316d4c2191` remains rejected historical evidence.
+Earlier pending/recheck statements describe their then-current milestones; this
+final disposition supersedes those pending conditions without rewriting history.
+
+Final independent evidence on the approved exact clean runtime:
+
+- Actual wrapper-group and parent-only SIGINT after persisted stock exit130,
+  forward/reap the child and retain reachable original run/revision/history.
+- Missing convenience locators reconstruct with the server stopped while hashes
+  of every canonical SQLite file remain unchanged. New execution remains blocked.
+  Separate reviewed resume/retry reaches the original run, retains original attempts
+  and known first-lot PK, and registers independent pending work without guessing
+  correlation for the original uncertain create or duplicating it.
+- Held HTTP response after one applied StockItem plus a short embedding deadline
+  exercises actual timeout: exit1, child confirmed reaped, original uncertain run
+  reachable, local status sends no HTTP and stock remains exactly1. Production's
+  five-minute bound is unchanged.
+- Missing table/renamed column/unsupported schema/corrupt bytes refuse restart
+  before binding or readiness, with unchanged damaged bytes. A deliberately occupied
+  saved port does not replace the schema-specific error. Original fake schema0 is
+  readable without modifying its bytes or migrating/resetting retained state.
+- Independent committed demo suite: **14 passed in48.13seconds**. Required changed
+  Python Ruff, full base-to-head whitespace, required-main ancestry and exact clean
+  runtime identity: **pass**. Latest main/conventions remain inherited and matching.
+
+Owner normal **1893 passed/1 existing skip/43 deselected in215.88seconds** and
+focused **14 passed in48.56seconds** remain separate owner evidence; the reviewer
+intentionally did not redundantly repeat the normal suite. Scanner/skill checks
+remain inapplicable. No runtime/test/dependency/evidence bytes change in this final
+clearance-record commit, so only whitespace is rechecked.
+
+Approval retains synthetic stock-only scope, generated loopback endpoints, private
+child environment, explicit write/reviewed continuity, one canonical run/workspace,
+conservative unknown effects, immutable finalization revisions and manual owned
+cleanup. It establishes no live capability, arbitrary API compatibility, cross-client
+concurrency, unconditional unknown-create recovery, conditional-update atomicity or
+exactly-once guarantee. Root owns publication and CI verification of the final
+stacked PR against Stage 7. This owner made no push, PR, merge or live request;
+publication authorization here does not authorize merging.
