@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import { onlineManager } from '@tanstack/react-query'
@@ -118,7 +118,7 @@ function deferredRead() {
 function mount(client: ProcessingClient, cache = createServerQueryClient()) {
   const dirty = vi.fn()
   const navigate = vi.fn()
-  render(
+  const view = render(
     <ServerStateProvider scope={scope} client={cache}>
       <ProcessingWorkspace
         batch={batch}
@@ -131,7 +131,7 @@ function mount(client: ProcessingClient, cache = createServerQueryClient()) {
       />
     </ServerStateProvider>,
   )
-  return { cache, dirty, navigate }
+  return { cache, dirty, navigate, rerender: view.rerender }
 }
 
 afterEach(() => {
@@ -312,4 +312,55 @@ test('a paused read blocks cached commands and stays blocked until the resumed r
     await resumed.promise
   })
   await waitFor(() => expect(queue).toBeEnabled())
+})
+
+test('archiving a verified workspace preserves the draft but refuses every mutation', async () => {
+  const user = userEvent.setup()
+  const client = clientFixture()
+  const mounted = mount(client)
+  const quantity = await screen.findByLabelText('Quantity')
+  const selected = screen.getByRole('checkbox', { name: 'Packet A' })
+  await user.click(selected)
+  await user.type(quantity, '51')
+  const queue = screen.getByRole('button', { name: 'Queue new processing attempts' })
+  const cancel = screen.getByRole('button', { name: 'Cancel this attempt' })
+  const answer = screen.getByRole('button', { name: 'Save answer and queue continuation' })
+  await waitFor(() => expect(queue).toBeEnabled())
+  expect(answer).toBeEnabled()
+  expect(cancel).toBeEnabled()
+
+  mounted.rerender(
+    <ServerStateProvider scope={scope} client={mounted.cache}>
+      <ProcessingWorkspace
+        batch={{ ...batch, archived: true }}
+        client={client}
+        view="overview"
+        questionId={questionId}
+        navigate={mounted.navigate}
+        onDirtyChange={mounted.dirty}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+      />
+    </ServerStateProvider>,
+  )
+  expect(queue).toBeDisabled()
+  expect(cancel).toBeDisabled()
+  expect(answer).toBeDisabled()
+  expect(selected).toBeDisabled()
+  expect(quantity).toBeDisabled()
+  expect(quantity).toHaveValue('51')
+  expect(screen.getByText(/Resume it in the batch header/)).toBeInTheDocument()
+  await user.click(queue)
+  await user.click(cancel)
+  await user.click(answer)
+  await act(async () => {
+    fireEvent.submit(screen.getByRole('form', { name: 'Pinned application question' }))
+  })
+  expect(client.start).not.toHaveBeenCalled()
+  expect(client.cancel).not.toHaveBeenCalled()
+  expect(client.answer).not.toHaveBeenCalled()
+  const discard = screen.getByRole('button', { name: 'Discard unsaved answer' })
+  expect(discard).toBeEnabled()
+  await user.click(discard)
+  expect(quantity).toHaveValue('')
+  expect(mounted.dirty).toHaveBeenLastCalledWith(false)
 })

@@ -25,6 +25,7 @@ interface Props {
   currentQuestion: ProcessingQuestionDto | undefined
   currentCaptureRevision: string
   disabled: boolean
+  readOnly?: boolean
   onDirtyChange: (dirty: boolean) => void
   answer: (questionId: string, input: ProcessingAnswerDto, key: string) => Promise<void>
 }
@@ -43,6 +44,7 @@ export function QuestionAnswer({
   currentQuestion,
   currentCaptureRevision,
   disabled,
+  readOnly = false,
   onDirtyChange,
   answer,
 }: Props) {
@@ -91,7 +93,7 @@ export function QuestionAnswer({
   }
 
   async function submit(values: AnswerFields) {
-    if (stale || disabled) {
+    if (stale || disabled || readOnly) {
       return
     }
     clearErrors()
@@ -153,7 +155,7 @@ export function QuestionAnswer({
           preserved; it cannot be applied to another question.
         </Notice>
       )}
-      <Fieldset disabled={formState.isSubmitting}>
+      <Fieldset disabled={formState.isSubmitting || readOnly}>
         <Field>
           <Label htmlFor={`answer-${question.id}`}>
             {question.spec.kind === 'quantity' ? 'Quantity' : 'Clarification'}
@@ -192,20 +194,20 @@ export function QuestionAnswer({
             {error}
           </ErrorNotice>
         )}
-        <Actions>
-          <Button
-            disabled={stale || disabled || formState.isSubmitting || !formState.isDirty}
-            type="submit"
-          >
-            {formState.isSubmitting ? 'Saving answer…' : 'Save answer and queue continuation'}
-          </Button>
-          {formState.isDirty && (
-            <Button type="button" disabled={formState.isSubmitting} onClick={discard}>
-              Discard unsaved answer
-            </Button>
-          )}
-        </Actions>
       </Fieldset>
+      <Actions>
+        <Button
+          disabled={stale || disabled || readOnly || formState.isSubmitting || !formState.isDirty}
+          type="submit"
+        >
+          {formState.isSubmitting ? 'Saving answer…' : 'Save answer and queue continuation'}
+        </Button>
+        {formState.isDirty && (
+          <Button type="button" disabled={formState.isSubmitting} onClick={discard}>
+            Discard unsaved answer
+          </Button>
+        )}
+      </Actions>
       <Small>This human answer updates the saved lot or note and queues a new attempt.</Small>
     </Card>
   )

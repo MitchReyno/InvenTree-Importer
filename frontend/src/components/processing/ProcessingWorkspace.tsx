@@ -112,6 +112,7 @@ export function ProcessingWorkspace({
   function commandReadAvailable() {
     const current = queryClient.getQueryState(queryKey)
     return (
+      !batch.archived &&
       !busy &&
       !waitingForRead &&
       successfulRead.current &&
@@ -194,7 +195,7 @@ export function ProcessingWorkspace({
     .flatMap((job) => job.questions)
     .find((question) => question.id === questionId)
   const unconfigured = snapshot?.runner_status === 'unconfigured'
-  const disabled = busy || offline || waitingForRead
+  const disabled = batch.archived || busy || offline || waitingForRead
   const runnerDisabled = disabled || unconfigured
   return (
     <Workspace>
@@ -209,6 +210,12 @@ export function ProcessingWorkspace({
           </Tab>
         ))}
       </Tabs>
+      {batch.archived && (
+        <Notice role="status">
+          Processing is read-only while this batch is archived. Resume it in the batch header to
+          make changes.
+        </Notice>
+      )}
       {unconfigured && (
         <Notice role="status">
           Processing setup required. The operator must configure a persistent private runner channel
@@ -243,7 +250,10 @@ export function ProcessingWorkspace({
             <Small>
               One research lane per account. A waiting question frees the lane for other lots.
             </Small>
-            <Selection aria-label="Select saved subjects for a new processing attempt">
+            <Selection
+              disabled={batch.archived}
+              aria-label="Select saved subjects for a new processing attempt"
+            >
               {[...batch.lots, ...batch.parts].map((subject) => (
                 <label key={subject.id}>
                   <input
@@ -279,6 +289,7 @@ export function ProcessingWorkspace({
               currentQuestion={currentQuestion}
               currentCaptureRevision={snapshot.capture_revision}
               disabled={runnerDisabled}
+              readOnly={batch.archived}
               answer={answer}
               onDirtyChange={onDirtyChange}
             />
