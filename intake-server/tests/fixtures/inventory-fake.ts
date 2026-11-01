@@ -1,0 +1,60 @@
+import { createServer } from 'node:http'
+import type { Pool } from 'pg'
+import { transaction } from '../../src/db/database.ts'
+
+/** Owned persistent HTTP fake. PG, not a JS map, owns requests, faults and stock.
+ * Restart the listener with the same pool to retain ALL receipts and effects.
+ */
+export async function inventoryFake(pool: Pool, port = 0) {
+  await pool.query(`CREATE TABLE IF NOT EXISTS fake_request (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,method text NOT NULL,path text NOT NULL,body bytea NOT NULL);
+    CREATE TABLE IF NOT EXISTS fake_stock (pk bigint GENERATED ALWAYS AS IDENTITY (START WITH 7101) PRIMARY KEY,request_id bigint NOT NULL REFERENCES fake_request(id),part text NOT NULL,location text,quantity text NOT NULL,barcode text NOT NULL);
+    CREATE TABLE IF NOT EXISTS fake_control (id integer PRIMARY KEY CHECK (id=1),fault text NOT NULL);
+    INSERT INTO fake_control VALUES (1,'none') ON CONFLICT DO NOTHING;`)
+  const server = createServer((request,response) => {
+    void (async () => {
+      const chunks: Buffer[] = []
+      for await (const chunk of request) chunks.push(Buffer.from(chunk))
+      const bytes = Buffer.concat(chunks)
+      const { row,fault,stock } = await transaction(pool,async client => {
+        const row = (await client.query('INSERT INTO fake_request(method,path,body) VALUES ($1,$2,$3) RETURNING id',[request.method,request.url,bytes])).rows[0]
+        const fault = (await client.query('SELECT fault FROM fake_control WHERE id=1')).rows[0].fault
+        let stock
+        if (request.method === 'POST' && request.url === '/api/stock/' && fault !== 'redirect') {
+          const value = JSON.parse(bytes.toString())
+          stock = (await client.query('INSERT INTO fake_stock(request_id,part,location,quantity,barcode) VALUES ($1,$2,$3,$4,$5) RETURNING *',[row.id,value.part,value.location,value.quantity,value.barcode])).rows[0]
+        }
+        return { row,fault,stock }
+      })
+      void row
+      response.setHeader('content-type','application/json')
+      if (request.method === 'GET') {
+        const stockMatch = /^\/api\/stock\/([1-9][0-9]*)\/$/.exec(request.url!)
+        if (stockMatch) {
+          const stored = (await pool.query('SELECT pk,part,location,quantity,barcode FROM fake_stock WHERE pk=$1',[stockMatch[1]])).rows[0]
+          response.statusCode = stored ? 200 : 404
+          response.end(JSON.stringify(stored ?? {})); return
+        }
+        const match = /^\/api\/(part|stock\/location)\/([1-9][0-9]*)\/$/.exec(request.url!)
+        if (!match) { response.writeHead(404).end('{}'); return }
+        response.end(JSON.stringify({ pk: match[2] })); return
+      }
+      if (fault === 'redirect') { response.writeHead(307,{ location: '/forbidden-redirect-sink' }).end(); return }
+      if (fault === 'drop_response') { response.destroy(); return }
+      if (fault === 'hold_response') {
+        while ((await pool.query('SELECT fault FROM fake_control WHERE id=1')).rows[0].fault === 'hold_response' && !response.destroyed) await new Promise(resolve => setTimeout(resolve,25))
+      }
+      response.statusCode = 201
+      response.end(JSON.stringify(fault === 'malformed' ? { pk: stock.pk } : { pk: stock.pk,part: stock.part,location: stock.location,quantity: stock.quantity,barcode: stock.barcode }))
+    })().catch(() => { if (!response.destroyed) response.writeHead(500).end('{}') })
+  })
+  await new Promise<void>(resolve => server.listen(port,'127.0.0.1',resolve))
+  const address = server.address()
+  if (!address || typeof address === 'string') throw new Error('fake_listener_missing')
+  return {
+    origin: `http://127.0.0.1:${address.port}`, port: address.port,
+    async close() { server.closeAllConnections(); await new Promise<void>((resolve,reject) => server.close(error => error ? reject(error) : resolve())) },
+    async fault(value: string) { await pool.query('UPDATE fake_control SET fault=$1 WHERE id=1',[value]) },
+    async records() { return (await pool.query('SELECT method,path,body FROM fake_request ORDER BY id')).rows as { method: string; path: string; body: Buffer }[] },
+    async stocks() { return (await pool.query('SELECT pk,part,location,quantity,barcode FROM fake_stock ORDER BY pk')).rows },
+  }
+}
