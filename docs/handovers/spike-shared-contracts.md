@@ -2,7 +2,7 @@
 
 ## Scope and ownership
 
-This change prepares the shared inputs and provisional messages for the three parallel investigations: subscription runtimes, durable coordination and importer supervision. The implementation was completed directly by the main agent, as requested; no subagent or independent reviewer was used. The branch is `feat/spike-shared-contracts`, based on the merged repository restructure on `interactive-app`. No PR has been opened; independent review remains required before publication under the initiative guidance.
+This change prepares the shared inputs and provisional messages for the three parallel investigations: subscription runtimes, durable coordination and importer supervision. The initial implementation was completed directly by the main agent, as requested; no subagent was used for implementation. The branch is `feat/spike-shared-contracts`, based on the merged repository restructure on `interactive-app`. Subsequent independent review, correction and clean re-review are recorded below. Publication targets `interactive-app`; no merge is authorized.
 
 ## Result and decisions
 
@@ -31,6 +31,14 @@ This change prepares the shared inputs and provisional messages for the three pa
 - `pnpm test`: passed; 2 frontend tests and 1,943 backend tests, with 1 existing skip and 43 scanner/TUI tests deselected. Backend duration was 194.19 seconds. Scanner/TUI behavior is unchanged, so the separately opted-in scanner suite is outside this change.
 - `git diff --cached --check`: passed after classifying the fixture PDF as binary. Changed Markdown links and portable paths were checked; the rendered receipt and packet PNGs were visually reviewed.
 - Before the successful full run, an offline run reported 24 crop-test failures and 1,916 passes because the separate `uv run --with pillow --with numpy` cache was empty. After populating that owned cache, all 24 crop tests passed in isolation and the full suite passed. The earlier sandbox-restricted loopback run was interrupted after its environment limitation was reproduced. Neither failed attempt was treated as coverage or fixed by weakening assertions.
+
+## Independent review correction
+
+A fresh read-only reviewer checked implementation `a4e16686a4c6f563a9dc28aefd94481af5dedf77` against `interactive-app` and found one material portability defect: `core.autocrlf=true` converted the byte-hashed JSON fixtures to CRLF on checkout, invalidating the retained manifest and proposal digests. The reviewer ran the 35 focused tests, 220 additional adversarial schema probes, changed-Python lint, an offline lockfile check and whitespace checks; no other material findings were confirmed. This is reviewer evidence, not a full-suite or provider-runtime rerun.
+
+The correction adds a scoped `text eol=lf` attribute for fixture JSON files. It preserves their committed bytes and existing digests across checkout policies rather than normalizing bytes during integrity validation or changing the protocol. The PDF remains binary. Coordinator validation passed all six checkout-filtered byte/hash probes with `core.autocrlf=true` and `false`, the 35 focused tests and whitespace checks. No fixture contents, message revisions, importer behavior or provider capabilities change.
+
+Independent re-review cleared the corrected two-file working diff on the original implementation HEAD with no material findings. It independently passed the same six probes, three more with `core.eol=crlf`, PNG/PDF byte-preservation checks, scoped attribute checks, 35 focused tests, focused Python lint and whitespace checks. The reviewed diff digest was `8ce363bca8cc93d81144d761347ce04fd5d24467adcab73f556e00ffb4432158`; this clearance record is a subsequent documentation-only update. The full suite and provider runtimes were not rerun for the line-ending-only correction. Spike branches initially based on the original shared commit must inherit this correction before publication; no contract or fixture digest revision is needed.
 
 ## Consumer handover
 
