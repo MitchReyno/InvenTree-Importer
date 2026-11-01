@@ -1,58 +1,93 @@
 # Shared code guidelines
 
-Apply these guidelines to new and changed code across the workspace. Read [ARCHITECTURE.md](ARCHITECTURE.md), then the owning application's [backend guidelines](backend/CODE_GUIDELINES.md) or [frontend guidelines](frontend/CODE_GUIDELINES.md) and architecture. Improve the code you touch proportionately; a focused change does not authorize an unrelated rewrite. Application documents own language/framework details.
+Apply these rules to new and changed code. Read [ARCHITECTURE.md](ARCHITECTURE.md) and the owning application's guidelines: [backend](backend/CODE_GUIDELINES.md), [frontend](frontend/CODE_GUIDELINES.md) or [intake server](intake-server/CODE_GUIDELINES.md).
+
+Improve the code you touch proportionately. A focused task does not authorize an unrelated rewrite; application documents own language/framework details.
 
 ## Plan before implementation
 
-Every implementation agent must write a concise task-specific plan **before implementing anything**, tracked in its owning handover/task record. Read the relevant code/contracts first; record scope/non-goals, affected files/public interfaces, dependencies/ownership, meaningful alternatives and package research/rationale, ordered implementation steps, and independent verification including adverse/negative cases. Update the plan when evidence changes. If this requirement arrives during active work, preserve existing work, record the actual chronology and assess remaining work before the next implementation edit; never pretend a retrospective plan existed earlier. The plan is not an extra human approval gate where autonomous execution is already authorized.
+Write a task-specific plan in the owning handover **before implementing anything**. Read the relevant code/contracts, then record:
 
-Prefer existing repository helpers, framework public APIs and suitable maintained packages over bespoke frameworks. Before adding a dependency, assess the exact required behavior/API guarantees, version/toolchain compatibility, maintenance evidence and dependency/security/licensing cost using authoritative sources or actual versioned public APIs where needed; record what was qualified and what remains unproved. No mandate to add a package for trivial logic, no handwavy library list as research, and no artificial rewrite of already-qualified code. Explain narrow custom policy that packages cannot own, particularly exact bytes, payload-bound idempotency and protected-target authority.
+- Scope, non-goals, affected files and public interfaces.
+- Dependencies, ownership and meaningful alternatives.
+- Package research and rationale.
+- Implementation steps and independent verification, including adverse cases.
+
+Update the plan as evidence changes. If this rule arrives mid-task, preserve existing work and record the actual chronology and remaining plan; never backdate it. Planning adds no human approval gate where autonomous work is already authorized.
+
+Prefer existing helpers, public framework APIs and suitable maintained packages. Before adding a dependency, assess its required guarantees, compatibility, maintenance, licensing/security and dependency cost using authoritative sources or versioned APIs. Record what is proved and what remains untested.
+
+No package is required for trivial logic. Do not substitute a library list for research or rewrite qualified code without a reason. Explain custom policy that packages cannot own, especially exact bytes, payload-bound idempotency and protected-target authority.
 
 ## Readability and responsibility
 
-- Use domain names and explicit control flow so decisions can be understood locally. Include units when ambiguity matters; explain constraints and tradeoffs rather than restating code. Remove stale comments and obsolete callers.
-- Give functions, components and modules coherent responsibilities. Extract a helper when it names meaningful work, isolates effects or removes substantial duplication. Size is a review signal, not a quota; keep cohesive schemas/tables together when splitting obscures the contract.
-- Separate parsing, validation and decisions from filesystem, network and UI effects. Keep orchestration at a consistent level of detail with visible validation, effects and recovery order.
-- Pass dependencies and configuration explicitly. Make state/resource ownership and lifetime clear; avoid mutable global state, circular dependencies, catch-all helpers and imports that start work. Prefer composition and add abstractions only when concrete callers need them.
-- Keep helpers at the narrowest boundary that owns their meaning. Share domain policy through an intentional interface rather than copying it into another application or pulling presentation into lower-level workflows.
+- Use domain names, explicit control flow and units where needed. Explain constraints/tradeoffs; remove stale comments and obsolete callers.
+- Give functions, components and modules coherent responsibilities. Extract meaningful operations or effects, not arbitrary line counts. Keep cohesive schemas/tables together when splitting obscures the contract.
+- Separate parsing, validation and decisions from filesystem, network and UI effects. Keep orchestration at one level of detail, with validation, effects and recovery order visible.
+- Pass dependencies/configuration explicitly. Define state/resource ownership and lifetime; avoid hidden globals, circular dependencies, catch-all helpers and imports that start work.
+- Prefer composition. Add abstractions for concrete callers, and keep helpers at the narrowest owning boundary. Share policy through intentional interfaces rather than copying it or importing presentation into lower layers.
 
 ## Readable TypeScript
 
-- Run the shared formatter on new and changed TypeScript, TSX and supported web files before review (`pnpm format`, then `pnpm format:check`). Use the same project configuration in the editor and hooks. Generated contracts, preserved evidence and immutable migrations keep their owning byte policies. Formatting is the baseline; it cannot choose good names, separate responsibilities or make a dense algorithm understandable.
-- Write one statement and one variable declaration per line. Use braces for branching and loops, including short early exits, so validation, mutation and cleanup remain easy to distinguish. Avoid compressed multi-step callbacks, nested ternaries and several assignments/declarations joined on one line.
-- Name intermediate values when they explain a domain decision or let a reader inspect an asynchronous result. Prefer a query result followed by its named rows/value over nesting awaited queries, indexing, mapping and fallback behavior in one expression. Keep straightforward property access and trivial expressions inline; do not manufacture helpers for every expression.
-- Let orchestration show the ordered operations. Extract a named operation when a callback or function mixes independent validation, persistence, transport and projection responsibilities. Keep transaction, authorization and uncertain-effect ordering visible; a readability edit must preserve those boundaries and be validated as a behavior change if it alters them.
-- Break long argument lists and object/type declarations across lines with the formatter. Put substantial SQL in readable multiline template literals with named results and visibly aligned parameter arrays; avoid compressing a query and several follow-on decisions into a single statement. Do not rewrite immutable migrations or exact request/approval bytes for appearance.
-- Review formatted code for conceptual density as well as line length. A long cohesive schema or transaction can be clearer than arbitrary fragments; extract by responsibility and give helpers explicit inputs/results rather than imposing line quotas or hiding state in closures.
+Run `pnpm format`, then `pnpm format:check` before review. Editor and hooks use the same config; generated contracts, preserved evidence and immutable migrations retain their byte policies. Formatting cannot fix unclear names or mixed responsibilities.
+
+- Write one statement and variable declaration per line. Use braces for branches/loops, including early exits. Avoid compressed callbacks, nested ternaries and joined assignments/declarations.
+- Name intermediate values that explain domain decisions or asynchronous results. Separate query results from row selection, mapping and fallback when combining them obscures behavior. Keep trivial expressions inline.
+- Extract named operations when callbacks/functions mix validation, persistence, transport and projection. Preserve visible transaction, authorization and uncertain-effect ordering; validate altered boundaries as behavior changes.
+- Let the formatter expand argument lists, objects and types. Write substantial SQL as readable multiline templates with named results and parameter arrays easy to compare with placeholders. Never rewrite immutable migrations or exact request/approval bytes for appearance.
+- Review conceptual density after formatting. Extract by responsibility with explicit inputs/results, without line quotas or helpers that hide state in closures.
 
 ## Contracts, effects and failures
 
-- Treat external data as untrusted. Types and casts do not validate runtime input. Validate at boundaries and keep missing, invalid, empty and unavailable values distinct. Document units, output shapes, side effects and important limitations.
-- Report failures at the boundary that owns their response. Preserve causes and known outcomes; do not convert failed lookups or partial work into success. Keep cleanup/resource release deliberate on failure and cancellation.
-- Validate before dependent effects. Preserve stable identities and distinguish planned, attempted and confirmed outcomes. Never blindly replay an unknown write or claim atomicity across local files and remote services.
-- Bound network waits/retries and concurrency. Define resource ownership, cancellation, rate budgets and failure propagation before adding workers. Optimise measured bottlenecks rather than speculative parallelism.
-- Use portable paths from explicit input, configuration or deliberate runtime discovery. Never embed a developer checkout/home/temp path. Preserve caller-cwd meaning and state namespaces unless an explicit migration is part of the change.
-- Never export credentials/secrets or include them in source, fixtures, logs or errors. Keep private source data within approved, access-controlled inputs and outputs; plans, provenance and status may intentionally contain source facts under their documented privacy/retention policy. Do not leak them through public exports or unrelated diagnostics. Use safe identifiers and deliberate channels.
+- Validate untrusted data at boundaries; types/casts do not validate runtime input. Distinguish missing, invalid, empty and unavailable values. Document units, output shapes, effects and limits.
+- Report failures at their owning response boundary. Preserve causes and known outcomes; never turn failed lookups or partial work into success. Release resources deliberately on failure/cancellation.
+- Validate before dependent effects. Retain stable identities and distinguish planned, attempted and confirmed outcomes. Never blindly replay unknown writes or claim atomicity across local and remote effects.
+- Bound waits, retries and concurrency. Define ownership, cancellation, rate budgets and failure propagation before adding workers. Optimise measured bottlenecks.
+- Discover portable paths from explicit input/configuration/runtime context. Preserve caller-cwd meaning and state namespaces unless explicitly migrating them; never embed developer checkout/home/temp paths.
+- Keep secrets out of exports, source, fixtures, logs and errors. Private source facts belong only in approved access-controlled inputs/outputs under their retention policy. Use safe identifiers; do not leak facts through unrelated exports or diagnostics.
 
 ## Testing and tools
 
-- Test observable behavior and meaningful boundary/failure contracts, not copies of the implementation or incidental prose. Add regression tests for behavior changes; documentation-only moves need reference/consistency checks rather than invented runtime tests.
-- Ordinary tests use controlled clocks/data, temporary owned files and fake/local services. Keep hardware/live integration requirements explicit. Do not infer production guarantees from fake evidence or count skipped checks as coverage.
-- Mock external boundaries without mocking away the behavior under test. Exercise real adapters/serialization when their behavior matters, with isolated targets.
-- Follow declared versions, configured lint/typecheck/test commands and lockfiles. Add tools/dependencies only for demonstrated correctness/maintenance benefits; document pins and compatibility limits. Avoid unrelated formatting churn or a second formatter introduced for one change.
-- Run the appropriate application checks and [AGENTS.md](AGENTS.md) requirements. Root pnpm scripts delegate to the applications; app guidelines identify their checks. Report actual results, failures, skips and limits honestly.
-- Use `.cjs` for new standalone Node/JavaScript utility, maintenance, validation and qualification command scripts **outside both application runtime and test code**. The extension unambiguously selects CommonJS regardless of a surrounding `type: module`, runs directly on Node without an application TypeScript build/runtime loader and avoids coupling one-off tooling to application/bundler module setup. This does not make a script dependency-free: declare and pin any packages it uses. This rule explicitly excludes tests/test fixtures (including tests of CJS utilities), runtime/frontend TypeScript, Python/shell scripts and established framework ESM configuration; keep those in their owning conventions. If a utility must consume an application's TypeScript runtime contracts through pinned Node's native type stripping, document that deliberate source boundary; do not introduce a second loader or duplicate the contracts just for the utility.
+- Test observable behavior and meaningful failures, not implementation copies or prose. Add regressions for behavior changes; docs-only edits need reference/consistency checks.
+- Use controlled clocks/data, owned temporary files and fake/local services. Make live/hardware requirements explicit; skips and fake evidence do not prove production guarantees.
+- Mock external boundaries without removing the behavior under test. Exercise real serialization/adapters against isolated targets when their behavior matters.
+- Follow declared versions, lockfiles and configured checks. Add tools only for demonstrated correctness/maintenance benefits; document pins/compatibility and avoid unrelated formatting or competing formatters.
+- Run the owning application checks and [AGENTS.md](AGENTS.md) requirements. Root pnpm commands delegate to applications. Report failures, skips and limits honestly.
+
+### Standalone Node tools
+
+Use `.cjs` for new standalone Node utility, maintenance, validation and qualification commands **outside application runtime and tests**. It selects CommonJS independently of `type: module` and runs directly on Node without an application build/loader.
+
+This rule excludes tests/fixtures (including CJS utility tests), frontend/runtime TypeScript, Python/shell and established framework ESM config. Keep their owning conventions. Declare and pin packages even for standalone tools.
+
+If a utility consumes application TypeScript through pinned Node's native type stripping, document that source boundary. Do not add a second loader or duplicate contracts for the utility.
 
 ## Documentation and review
 
-- Write each Markdown prose paragraph on one source line and rely on editor soft-wrap. Keep list-item prose on one source line too, preserving list nesting. Do not apply a fixed-width prose wrap. Preserve fenced and indented code, tables, YAML frontmatter, raw HTML structures, intentional Markdown hard breaks and other semantic whitespace. Use a Markdown-aware transformation and verify semantics when reflowing existing documents.
+### Make Markdown readable
 
-- Keep shared architecture/guidance at root and application-specific contracts in their own documents. Update active references and moved relative links together; preserve truthful historical evidence instead of rewriting old execution history.
+Lead with the document's purpose and current status. Give each paragraph one connected idea; separate prerequisites, actions, outcomes and exceptions when they need different attention. A paragraph that is hard to scan needs editing, not fixed-width wrapping.
 
-- Keep current behavior separate from future plans. Do not imply an interface, persistence mechanism, permission or guarantee exists before it is implemented and checked. Put investigation histories and validation evidence in handovers.
+Use descriptive headings for distinct topics, lists for parallel rules or ordered steps, and tables for real comparisons. Prefer direct verbs and specific nouns. Remove repeated explanations while keeping the owning rule explicit; retain necessary qualifications rather than burying them in a long sentence.
 
-- Keep mirrored skills and host-adapted agents synchronized as required by AGENTS; use project-relative paths and named skills. No machine-specific configuration.
+For example, replace “Cancel the run; an authorized request may finish, cancellation is not rollback, and inspect retained effects before recovery” with:
 
-- Make focused, reviewable changes. Use Conventional Commits for commits and PR titles (`type(scope): description`) and conventional feature branches (`type/short-kebab-case-description`). The explicitly user-named `interactive-app` initiative trunk is the deliberate branch-name exception.
+> Cancel the run to stop new dispatch. Cancellation does not roll back an already authorized request.
+>
+> Before recovery, inspect the retained effects; an in-flight request may have finished.
 
-- Describe the problem, resulting behavior, decisions/alternatives, plan shifts, validation and material limitations. Obtain independent review before publication when required by the initiative; never treat a passed check as merge permission.
+Use paragraph size as a review signal, not a word quota. Check the rendered reading order and whether headings, lists or tables clarify it. Do not fragment connected prose into one-sentence sections or turn every sentence into a bullet.
+
+### Preserve source and meaning
+
+Write each paragraph/list item on one source line and rely on soft wrap. Preserve list nesting, code blocks, tables, frontmatter, raw HTML, intentional hard breaks and semantic whitespace. Use Markdown-aware tooling and verify meaning after reflow.
+
+Keep shared architecture/guidance at root and application contracts in their owning documents. Audit active links and anchors when moving sections. Preserve historical evidence and the distinction between plans, observed behavior and untested capability; put investigation/validation records in handovers.
+
+Keep mirrored skills/host-adapted agents synchronized per AGENTS. Use relative paths and named skills, never machine-specific config.
+
+### Publish focused changes
+
+Use Conventional Commits (`type(scope): description`) and conventional `type/short-kebab-case-description` branches. The user-named `interactive-app` trunk is the deliberate exception.
+
+Describe the problem, behavior, alternatives, plan changes, validation and limits. Obtain independent review before publication when the initiative requires it; passing tests never grant merge permission.
