@@ -12,6 +12,9 @@ on:
       workflow-sync:
         type: boolean
         required: true
+      intake:
+        type: boolean
+        required: true
 
 jobs:
   backend:
@@ -65,3 +68,60 @@ jobs:
         run: pnpm --filter @invimport/frontend test
       - name: Build
         run: pnpm --filter @invimport/frontend build
+
+  intake:
+    name: Intake contracts and HTTP
+    if: ${{ inputs.intake }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v4
+      - name: Frozen workspace install
+        run: pnpm install --frozen-lockfile
+      - name: Contract generation drift
+        run: pnpm --filter @invimport/contracts check:generated
+      - name: Typecheck contracts
+        run: pnpm --filter @invimport/contracts typecheck
+      - name: Typecheck server
+        run: pnpm --filter @invimport/intake-server typecheck
+      - name: Test contracts
+        run: pnpm --filter @invimport/contracts test
+      - name: Test public HTTP and protected-target boundaries
+        run: pnpm --filter @invimport/intake-server test
+
+  intake-pg:
+    name: Intake PostgreSQL and process
+    if: ${{ inputs.intake }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ci-owned-disposable-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+          --cpus 1 --memory 512m --pids-limit 128
+    env:
+      INTAKE_TEST_ADMIN_URL: postgresql://postgres:ci-owned-disposable-only@127.0.0.1:5432/postgres
+      INTAKE_TEST_ALLOW_CREATE_DATABASE: owned-sandbox
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v4
+      - name: Frozen workspace install
+        run: pnpm install --frozen-lockfile
+      - name: Test reviewed migrations, transactions, grants and exact bytes
+        run: pnpm --filter @invimport/intake-server test:pg
+      - name: Qualify DBOS public API across actual worker crash and version changes
+        run: pnpm --filter @invimport/intake-server test:process

@@ -2,6 +2,12 @@
 
 Apply these guidelines to new and changed code across the workspace. Read [ARCHITECTURE.md](ARCHITECTURE.md), then the owning application's [backend guidelines](backend/CODE_GUIDELINES.md) or [frontend guidelines](frontend/CODE_GUIDELINES.md) and architecture. Improve the code you touch proportionately; a focused change does not authorize an unrelated rewrite. Application documents own language/framework details.
 
+## Plan before implementation
+
+Every implementation agent must write a concise task-specific plan **before implementing anything**, tracked in its owning handover/task record. Read the relevant code/contracts first; record scope/non-goals, affected files/public interfaces, dependencies/ownership, meaningful alternatives and package research/rationale, ordered implementation steps, and independent verification including adverse/negative cases. Update the plan when evidence changes. If this requirement arrives during active work, preserve existing work, record the actual chronology and assess remaining work before the next implementation edit; never pretend a retrospective plan existed earlier. The plan is not an extra human approval gate where autonomous execution is already authorized.
+
+Prefer existing repository helpers, framework public APIs and suitable maintained packages over bespoke frameworks. Before adding a dependency, assess the exact required behavior/API guarantees, version/toolchain compatibility, maintenance evidence and dependency/security/licensing cost using authoritative sources or actual versioned public APIs where needed; record what was qualified and what remains unproved. No mandate to add a package for trivial logic, no handwavy library list as research, and no artificial rewrite of already-qualified code. Explain narrow custom policy that packages cannot own, particularly exact bytes, payload-bound idempotency and protected-target authority.
+
 ## Readability and responsibility
 
 - Use domain names and explicit control flow so decisions can be understood locally. Include units when ambiguity matters; explain constraints and tradeoffs rather than restating code. Remove stale comments and obsolete callers.
@@ -26,13 +32,18 @@ Apply these guidelines to new and changed code across the workspace. Read [ARCHI
 - Mock external boundaries without mocking away the behavior under test. Exercise real adapters/serialization when their behavior matters, with isolated targets.
 - Follow declared versions, configured lint/typecheck/test commands and lockfiles. Add tools/dependencies only for demonstrated correctness/maintenance benefits; document pins and compatibility limits. Avoid unrelated formatting churn or a second formatter introduced for one change.
 - Run the appropriate application checks and [AGENTS.md](AGENTS.md) requirements. Root pnpm scripts delegate to the applications; app guidelines identify their checks. Report actual results, failures, skips and limits honestly.
+- Use `.cjs` for new standalone Node/JavaScript utility, maintenance, validation and qualification command scripts **outside both application runtime and test code**. The extension unambiguously selects CommonJS regardless of a surrounding `type: module`, runs directly on Node without an application TypeScript build/runtime loader and avoids coupling one-off tooling to application/bundler module setup. This does not make a script dependency-free: declare and pin any packages it uses. This rule explicitly excludes tests/test fixtures (including tests of CJS utilities), runtime/frontend TypeScript, Python/shell scripts and established framework ESM configuration; keep those in their owning conventions. If a utility must consume an application's TypeScript runtime contracts through pinned Node's native type stripping, document that deliberate source boundary; do not introduce a second loader or duplicate the contracts just for the utility.
 
 ## Documentation and review
 
 - Write each Markdown prose paragraph on one source line and rely on editor soft-wrap. Keep list-item prose on one source line too, preserving list nesting. Do not apply a fixed-width prose wrap. Preserve fenced and indented code, tables, YAML frontmatter, raw HTML structures, intentional Markdown hard breaks and other semantic whitespace. Use a Markdown-aware transformation and verify semantics when reflowing existing documents.
 
 - Keep shared architecture/guidance at root and application-specific contracts in their own documents. Update active references and moved relative links together; preserve truthful historical evidence instead of rewriting old execution history.
+
 - Keep current behavior separate from future plans. Do not imply an interface, persistence mechanism, permission or guarantee exists before it is implemented and checked. Put investigation histories and validation evidence in handovers.
+
 - Keep mirrored skills and host-adapted agents synchronized as required by AGENTS; use project-relative paths and named skills. No machine-specific configuration.
+
 - Make focused, reviewable changes. Use Conventional Commits for commits and PR titles (`type(scope): description`) and conventional feature branches (`type/short-kebab-case-description`). The explicitly user-named `interactive-app` initiative trunk is the deliberate branch-name exception.
+
 - Describe the problem, resulting behavior, decisions/alternatives, plan shifts, validation and material limitations. Obtain independent review before publication when required by the initiative; never treat a passed check as merge permission.

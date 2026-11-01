@@ -17,7 +17,7 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual({name for name, selected in select_checks(paths).items() if selected}, set(expected))
 
     def test_documentation_does_not_run_application_suites(self):
-        for path in ("README.md", "docs/intake-plan.md", "backend/README.md", "frontend/ARCHITECTURE.md", "spikes/shared/README.md", ".github/scripts/README.md", ".github/workflows/README.md"):
+        for path in ("README.md", "docs/intake-plan.md", "backend/README.md", "frontend/ARCHITECTURE.md", "intake-server/TESTING.md", "contracts/README.md", "spikes/shared/README.md", ".github/scripts/README.md", ".github/workflows/README.md"):
             with self.subTest(path=path):
                 self.assert_checks([path], "markdown")
 
@@ -28,6 +28,14 @@ class SelectionTests(unittest.TestCase):
         for path in ("frontend/src/App.tsx", "frontend/vite.config.ts", "frontend/tsconfig.json", "frontend/eslint.config.js"):
             with self.subTest(path=path):
                 self.assert_checks([path], "frontend")
+
+    def test_intake_contract_dependencies_are_independent_of_python_and_frontend(self):
+        # Frontend has no contracts import yet; server consumes every contracts source/artifact.
+        for path in ("intake-server/src/api/server.ts", "intake-server/package.json", "intake-server/tsconfig.json", "intake-server/migrations/0001_foundation.sql", "intake-server/scripts/dev-services.cjs", "intake-server/tests/support/database.ts", "contracts/package.json", "contracts/tsconfig.json", "contracts/src/index.ts", "contracts/generated/api.d.ts", "contracts/generated/client.ts", "contracts/generated/openapi.json", "contracts/vectors/canonical-v1.json", "contracts/scripts/generate.cjs"):
+            with self.subTest(path=path):
+                self.assert_checks([path], "intake")
+        self.assert_checks(["intake-server-other/foo.ts", "contracts-other/schema.json"])
+        self.assert_checks(["intake-server/src/config.ts", "frontend/src/App.tsx"], "intake", "frontend")
 
     def test_shared_skills_agents_and_resources_need_sync_not_full_tests(self):
         for path in (".agents/skills/crop/reference.png", ".claude/skills/crop/reference.json", ".codex/agents/component-researcher.toml"):
@@ -50,7 +58,7 @@ class SelectionTests(unittest.TestCase):
     def test_manifests_and_tool_configuration(self):
         for path in ("package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", ".node-version"):
             with self.subTest(path=path):
-                self.assert_checks([path], "frontend", "markdown", "workflow_sync")
+                self.assert_checks([path], "frontend", "intake", "markdown", "workflow_sync")
         self.assert_checks(["frontend/package.json"], "frontend", "workflow_sync")
         self.assert_checks([".remarkrc.json", ".gitignore"], "markdown")
 
@@ -152,6 +160,21 @@ class GitComparisonTests(unittest.TestCase):
                     self.assertEqual(set(paths), {spec} if operation == "delete" else {spec, archived})
                     self.assertEqual({name for name, selected in select_checks(paths).items() if selected}, {"backend"})
 
+    def test_contract_move_and_server_deletion_select_actual_consumers(self):
+        self.write("contracts/src/example.ts", "export const example = 'fixture'\n")
+        base = self.commit()
+        (self.root / "frontend").mkdir()
+        self.git("mv", "contracts/src/example.ts", "frontend/example.ts")
+        moved = self.commit()
+        paths = changed_paths("pull_request", self.pr_event(base, moved), self.root)
+        self.assertEqual({name for name, selected in select_checks(paths).items() if selected}, {"frontend", "intake"})
+        self.write("intake-server/migrations/fixture.sql", "SELECT 1;\n")
+        base = self.commit()
+        (self.root / "intake-server/migrations/fixture.sql").unlink()
+        deleted = self.commit()
+        paths = changed_paths("push", self.push_event(base, deleted), self.root)
+        self.assertEqual({name for name, selected in select_checks(paths).items() if selected}, {"intake"})
+
     def test_rename_uses_old_and_new_paths_with_unusual_names(self):
         old = "backend/config/odd\nname.yaml"
         new = "docs/renamed file.md"
@@ -204,7 +227,7 @@ class GitComparisonTests(unittest.TestCase):
             capture_output=True,
         )
         self.assertEqual(output.read_text().splitlines(), [
-            "backend=false", "backend_lint=false", "frontend=true", "markdown=false", "workflow_sync=false",
+            "backend=false", "backend_lint=false", "frontend=true", "markdown=false", "workflow_sync=false", "intake=false",
         ])
 
 

@@ -1,3 +1,7 @@
 packages:
   - frontend
+  - contracts
+  - intake-server
 strictPeerDependencies: true
+allowBuilds:
+  esbuild: true
