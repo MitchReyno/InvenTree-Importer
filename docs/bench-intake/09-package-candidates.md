@@ -10,6 +10,7 @@ Existing React Hook Form, Drizzle, TypeBox/AJV, DBOS, Sharp and the approved Ope
 | --- | --- | --- | --- |
 | T07 research tools | `@modelcontextprotocol/server` | Maintained tool registration, protocol/lifecycle handling and cancellation for a semantic evidence/inventory-read broker. | Provider protocol compatibility, actor/scope authorization, exact input access and a strict read-only operation allowlist. |
 | T07 source fetching | `ipaddr.js` | IPv4/IPv6 parsing, mapped addresses and address-range classification. | DNS pinning/rebinding, redirect policy, byte/time limits and separate protected inventory transport. Address parsing alone is not SSRF protection. |
+| T08 navigation | React Router | Declared nested routes, named parameters and guarded SPA navigation as Processing and review views expand. | Preserve existing hash links and pinned IDs, dirty drafts across Back/Forward, and full-page unload protection. Keep TanStack Query responsible for retained reads; avoid adding a second loading/cache model. |
 | T08 operator tables | TanStack Table | Sorting, filtering, row selection, column state and bulk-review table mechanics without prescribing presentation. | Stable physical-lot IDs, explicit selected/deferred scope, human drafts and server-side authority. Add virtualization only for demonstrated row-volume needs. |
 | T08 rich record pickers | React Aria Components | Combobox/listbox keyboard, focus and selection behavior for asynchronous Part/location/candidate lookup. | Existing styled-components/palette, accessible names, exact observed identities and explicit human selection. Native controls remain suitable for simple fields. |
 | T10 live updates | `@fastify/sse` | SSE framing, heartbeats, lifecycle and backpressure. | Commit-ordered retained events, consistent snapshot cursor, bounded replay, expired-history resets, revocation and polling fallback. |
@@ -17,6 +18,12 @@ Existing React Hook Form, Drizzle, TypeBox/AJV, DBOS, Sharp and the approved Ope
 | T11 sessions/identity | `@fastify/session`; `openid-client` only for a qualified OAuth/OIDC route | Server-side session lifecycle and supported standard identity exchanges. | An actual supported InvenTree protocol, server-side credential references, permission discovery/requalification and no fallback after delegated denial. Do not use the default in-memory session store for deployment. |
 | T12 browser/accessibility | Playwright Test and `@axe-core/playwright` | Repeatable browser interaction, responsive and automated accessibility regressions. | Browser-harness visual/native checks, manual keyboard assessment, original design references and isolated owned fixtures. Automated scans do not establish full accessibility. |
 | T12 edge cases | `fast-check` | Generated cases with reproducible shrinking for exact scalar parsing, crop geometry and domain invariants. | Independent expected properties and literal vectors; real PostgreSQL/process/HTTP fault proof still remains required. |
+
+## Adoption priority
+
+TanStack Table and React Aria offer the clearest next-phase UI simplification. React Router deserves a bounded migration assessment because current navigation repeatedly splits hash strings and updates browser history directly. Its SPA blocker does not handle full document unloads; retain that separate protection and qualify lost-ACK drafts, explicit discard, deep links and browser history before replacing the existing guard.
+
+Virtualization stays conditional on measured row volume. For T09, reuse the existing execution stack rather than adding a workflow package.
 
 ## Native-provider integration
 
@@ -34,6 +41,7 @@ Use existing Node cryptography and qualified byte/canonical helpers rather than 
 
 - [MCP server SDK](https://github.com/modelcontextprotocol/typescript-sdk/tree/main/packages/server).
 - [IP address parsing](https://github.com/whitequark/ipaddr.js).
+- [React Router hash routing](https://reactrouter.com/api/data-routers/createHashRouter) and [navigation blocking](https://reactrouter.com/api/hooks/useBlocker).
 - [TanStack Table](https://tanstack.com/table/latest/docs/overview).
 - [React Aria ComboBox](https://react-aria.adobe.com/ComboBox).
 - [Fastify SSE](https://github.com/fastify/sse).
