@@ -1,13 +1,19 @@
 import { prepareMediaTransaction } from './transaction.ts'
 import type { PoolClient } from 'pg'
-import type { MediaRecipeDto, MediaSnapshotDto } from '@invimport/contracts'
-import { assertMediaInputManifest } from '@invimport/contracts/media'
+import type { CaptureSnapshotDto, MediaRecipeDto, MediaSnapshotDto } from '@invimport/contracts'
+import {
+  assertMediaInputManifest,
+  MEDIA_INPUT_MAX_BYTES,
+  MEDIA_INPUT_MAX_SUBJECTS,
+  MEDIA_INPUT_MAX_VERSIONS,
+} from '@invimport/contracts/media'
 import { strictJson } from '@invimport/contracts/json'
 import { canonicalMedia } from './encoding.ts'
 import { sha256, verifyBytes } from '../db/authority.ts'
 import { captureInTransaction, fail, type CaptureBinding } from '../capture/repository.ts'
 import { lockMediaRevision } from './commands.ts'
 import { mediaSnapshot } from './read.ts'
+import { MediaInputUnavailableError, type MediaInputBlockerCode } from './input-errors.ts'
 
 export interface MediaInputVersion {
   versionId: string
@@ -30,25 +36,124 @@ export interface MediaInputs {
   digest: Buffer
 }
 
-/** Caller takes capture subject locks before this seam, then processing/run locks afterward. */
+export type MediaSubjectScope = readonly string[]
+
+// Bound repeated closure projection independently of each retained manifest's limits.
+const MAX_MEDIA_INPUT_SCOPES = 100
+
+function validatedScopes(
+  snapshot: CaptureSnapshotDto,
+  subjectScopes: readonly MediaSubjectScope[],
+) {
+  if (subjectScopes.length > MAX_MEDIA_INPUT_SCOPES) {
+    throw new MediaInputUnavailableError('capacity')
+  }
+  const available = new Set([...snapshot.parts, ...snapshot.lots].map((subject) => subject.id))
+  return subjectScopes.map((subjectIds) => {
+    const selected = [...new Set(subjectIds)].sort()
+    if (selected.some((subjectId) => !available.has(subjectId))) {
+      fail('not_found', 404)
+    }
+    return selected
+  })
+}
+
+export type MediaInputScopeResult =
+  { kind: 'ready'; inputs: MediaInputs } | { kind: 'blocked'; code: MediaInputBlockerCode }
+
+async function readScopedMediaSnapshot(
+  client: PoolClient,
+  binding: CaptureBinding,
+  batchId: string,
+  subjectScopes: readonly MediaSubjectScope[],
+) {
+  await prepareMediaTransaction(client)
+  const capture = await captureInTransaction(client, binding, batchId)
+  const selectedScopes = validatedScopes(capture.snapshot, subjectScopes)
+  const snapshot = await mediaSnapshot(client, binding, batchId)
+  return { selectedScopes, snapshot }
+}
+
+/** Caller owns a consistent read transaction; this seam acquires no domain locks. */
+export async function readMediaInputScopes(
+  client: PoolClient,
+  binding: CaptureBinding,
+  batchId: string,
+  subjectScopes: readonly MediaSubjectScope[],
+): Promise<readonly MediaInputs[]> {
+  const { selectedScopes, snapshot } = await readScopedMediaSnapshot(
+    client,
+    binding,
+    batchId,
+    subjectScopes,
+  )
+  return Object.freeze(selectedScopes.map((subjects) => scopeMediaInputs(snapshot, subjects)))
+}
+
+/** Known blockers belong to their closure; unexpected failures never become successful absence. */
+export async function readMediaInputScopeResults(
+  client: PoolClient,
+  binding: CaptureBinding,
+  batchId: string,
+  subjectScopes: readonly MediaSubjectScope[],
+): Promise<readonly MediaInputScopeResult[]> {
+  const { selectedScopes, snapshot } = await readScopedMediaSnapshot(
+    client,
+    binding,
+    batchId,
+    subjectScopes,
+  )
+  return Object.freeze(
+    selectedScopes.map((subjects): MediaInputScopeResult => {
+      try {
+        return { kind: 'ready', inputs: scopeMediaInputs(snapshot, subjects) }
+      } catch (error) {
+        if (!(error instanceof MediaInputUnavailableError)) {
+          throw error
+        }
+        return {
+          kind: 'blocked',
+          code: error.reason === 'not_ready' ? 'media_not_ready' : 'media_input_capacity',
+        }
+      }
+    }),
+  )
+}
+
+export async function readMediaInputs(
+  client: PoolClient,
+  binding: CaptureBinding,
+  batchId: string,
+  subjectIds: MediaSubjectScope,
+): Promise<MediaInputs> {
+  const scopes = await readMediaInputScopes(client, binding, batchId, [subjectIds])
+  return scopes[0]
+}
+
+/** Caller takes capture subject locks first; every scope shares one media exclusion/snapshot. */
+export async function resolveMediaInputScopes(
+  client: PoolClient,
+  binding: CaptureBinding,
+  batchId: string,
+  subjectScopes: readonly MediaSubjectScope[],
+): Promise<readonly MediaInputs[]> {
+  await prepareMediaTransaction(client)
+  const capture = await captureInTransaction(client, binding, batchId, true)
+  const selectedScopes = validatedScopes(capture.snapshot, subjectScopes)
+  await lockMediaRevision(client, batchId)
+  const snapshot = await mediaSnapshot(client, binding, batchId)
+  return Object.freeze(selectedScopes.map((subjects) => scopeMediaInputs(snapshot, subjects)))
+}
+
+/** Compatible single-scope resolver; pin-capable consumers use lockMediaInputs instead. */
 export async function resolveMediaInputs(
   client: PoolClient,
   binding: CaptureBinding,
   batchId: string,
-  subjectIds: readonly string[],
+  subjectIds: MediaSubjectScope,
 ): Promise<MediaInputs> {
-  await prepareMediaTransaction(client)
-  const capture = await captureInTransaction(client, binding, batchId, true)
-  const selectedSubjects = [...new Set(subjectIds)].sort()
-  const availableSubjects = new Set(
-    [...capture.snapshot.parts, ...capture.snapshot.lots].map((subject) => subject.id),
-  )
-  if (selectedSubjects.some((subjectId) => !availableSubjects.has(subjectId))) {
-    fail('not_found', 404)
-  }
-  await lockMediaRevision(client, batchId)
-  const snapshot = await mediaSnapshot(client, binding, batchId)
-  return scopeMediaInputs(snapshot, selectedSubjects)
+  const scopes = await resolveMediaInputScopes(client, binding, batchId, [subjectIds])
+  return scopes[0]
 }
 
 /** Pure selected closure over an already authorized, validated media snapshot. */
@@ -57,6 +162,9 @@ export function scopeMediaInputs(
   subjectIds: readonly string[],
 ): MediaInputs {
   const selectedSubjects = [...new Set(subjectIds)].sort()
+  if (selectedSubjects.length > MEDIA_INPUT_MAX_SUBJECTS) {
+    throw new MediaInputUnavailableError('capacity')
+  }
   const selectedAttachments = snapshot.attachments.filter((attachment) =>
     selectedSubjects.includes(attachment.subject_id),
   )
@@ -77,7 +185,7 @@ export function scopeMediaInputs(
       const original = version.kind === 'original'
       if (selected || original) {
         if (version.state !== 'ready') {
-          fail('media_not_ready', 409)
+          throw new MediaInputUnavailableError('not_ready')
         }
         versions.push({
           versionId: version.id,
@@ -90,6 +198,9 @@ export function scopeMediaInputs(
         })
       }
     }
+  }
+  if (versions.length > MEDIA_INPUT_MAX_VERSIONS) {
+    throw new MediaInputUnavailableError('capacity')
   }
   versions.sort((left, right) => left.versionId.localeCompare(right.versionId))
   const bytes = Buffer.from(
@@ -108,6 +219,9 @@ export function scopeMediaInputs(
       versions,
     }),
   )
+  if (bytes.length > MEDIA_INPUT_MAX_BYTES) {
+    throw new MediaInputUnavailableError('capacity')
+  }
   return {
     batchId: snapshot.batch_id,
     subjectIds: selectedSubjects,

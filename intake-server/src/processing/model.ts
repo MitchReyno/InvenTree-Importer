@@ -1,0 +1,200 @@
+import { canonical, strictJson } from '@invimport/contracts/json'
+import {
+  validate,
+  type CaptureSnapshotDto,
+  type ProcessingInputDto,
+  type ProcessingInputV1Dto,
+  type ProcessingInputV2Dto,
+  type ProcessingCommandDto,
+  type ProcessingQuestionSpecDto,
+  type ProcessingProposalDto,
+} from '@invimport/contracts'
+import {
+  instructionVersion,
+  instructionDigest,
+  toolProfileVersion,
+  mediaInstructionVersion,
+  mediaInstructionDigest,
+} from './policy.ts'
+import { decodeMediaInputs } from '../media/inputs.ts'
+import { sha256, verifyBytes } from '../db/authority.ts'
+
+export const handlerVersion = 'processing/1'
+
+export const profileId = 'synthetic-research/1'
+
+export const mediaHandlerVersion = 'processing/2'
+
+export const mediaProfileId = 'synthetic-research/2'
+
+export const stageOrder = ['reading', 'identifying', 'research', 'images', 'inventory'] as const
+
+export type Stage = (typeof stageOrder)[number]
+
+export class ProcessingError extends Error {
+  constructor(
+    public readonly code: string,
+    public readonly statusCode = 409,
+  ) {
+    super(code)
+  }
+}
+
+export function fail(code: string, status = 409): never {
+  throw new ProcessingError(code, status)
+}
+
+export function sealed(value: unknown) {
+  const bytes = Buffer.from(canonical(value))
+  return { bytes, digest: sha256(bytes) }
+}
+
+export function unseal(bytes: Buffer, digest: Buffer): unknown {
+  verifyBytes(bytes, digest)
+  const value: unknown = strictJson(bytes.toString('utf8'))
+  if (canonical(value) !== bytes.toString('utf8')) {
+    fail('noncanonical_retained_input')
+  }
+  return value
+}
+
+function captureInputFields(
+  snapshot: CaptureSnapshotDto,
+  subjectId: string,
+  stage: Stage,
+  dependencies: string[],
+  answerId: string | null,
+) {
+  const lot = snapshot.lots.find((item) => item.id === subjectId)
+  const part = snapshot.parts.find((item) => item.id === subjectId)
+  if (!lot && !part) {
+    fail('subject_not_found', 404)
+  }
+  const linkedPart = lot ? snapshot.parts.find((item) => item.id === lot.part_subject_id) : part
+  const notes = snapshot.notes.filter(
+    (note) =>
+      note.subject_id === null ||
+      note.subject_id === subjectId ||
+      note.subject_id === linkedPart?.id,
+  )
+  return {
+    batch_id: snapshot.id,
+    source_id: snapshot.source_id,
+    capture_revision: snapshot.revision,
+    subject_id: subjectId,
+    stage,
+    dependencies,
+    answer_id: answerId,
+    defaults: snapshot.defaults,
+    subject: (lot ?? part)!,
+    linked_part: linkedPart ?? null,
+    notes,
+    observations: snapshot.observations,
+  }
+}
+
+/** Legacy constructor preserves the original /1 fields and exact empty-media semantics. */
+export function inputManifest(
+  snapshot: CaptureSnapshotDto,
+  subjectId: string,
+  stage: Stage,
+  dependencies: string[],
+  answerId: string | null,
+): ProcessingInputV1Dto {
+  const fields = captureInputFields(snapshot, subjectId, stage, dependencies, answerId)
+  if (!fields.notes.length) {
+    fail('retained_manual_evidence_required', 422)
+  }
+
+  return {
+    ...fields,
+    schema_version: 'bench-intake-input/1',
+    profile_id: profileId,
+    instruction_version: instructionVersion,
+    instruction_sha256: instructionDigest,
+    tool_profile_version: toolProfileVersion,
+    media: [],
+  }
+}
+
+export interface RetainedMediaDescriptor {
+  manifest: string
+  sha256: string
+}
+
+/** A lot consumes its linked Part's evidence as well as its own. */
+export function processingSubjectScope(snapshot: CaptureSnapshotDto, subjectId: string): string[] {
+  const lot = snapshot.lots.find((subject) => subject.id === subjectId)
+  const part = snapshot.parts.find((subject) => subject.id === subjectId)
+  if (!lot && !part) {
+    fail('subject_not_found', 404)
+  }
+
+  const subjectIds = new Set([subjectId])
+  if (lot?.part_subject_id) {
+    subjectIds.add(lot.part_subject_id)
+  }
+
+  return [...subjectIds].sort()
+}
+
+/** No clock, stream cursor or browser value contributes authority to an input. */
+export function mediaInputManifest(
+  snapshot: CaptureSnapshotDto,
+  subjectId: string,
+  stage: Stage,
+  dependencies: string[],
+  answerId: string | null,
+  media: RetainedMediaDescriptor,
+): ProcessingInputV2Dto {
+  const fields = captureInputFields(snapshot, subjectId, stage, dependencies, answerId)
+  const decodedMedia = decodeMediaInputs(
+    Buffer.from(media.manifest, 'utf8'),
+    Buffer.from(media.sha256, 'hex'),
+  )
+  const expectedSubjectIds = processingSubjectScope(snapshot, subjectId)
+  const subjectScopeMatches = canonical(decodedMedia.subjectIds) === canonical(expectedSubjectIds)
+  if (decodedMedia.batchId !== snapshot.id || !subjectScopeMatches) {
+    fail('processing_media_binding_invalid')
+  }
+
+  const meaningfulNote = fields.notes.some((note) => note.text.trim().length > 0)
+  if (!meaningfulNote && decodedMedia.versions.length === 0) {
+    fail('retained_evidence_required', 422)
+  }
+
+  return {
+    ...fields,
+    schema_version: 'bench-intake-input/2',
+    profile_id: mediaProfileId,
+    instruction_version: mediaInstructionVersion,
+    instruction_sha256: mediaInstructionDigest,
+    tool_profile_version: toolProfileVersion,
+    media: { ...media },
+  }
+}
+
+/** Integrity and runtime shape checks are separate, both required at each retained-data boundary. */
+export function decodeProcessingInput(bytes: Buffer, digest: Buffer): ProcessingInputDto {
+  const value = unseal(bytes, digest)
+  validate('ProcessingInput', value)
+  return value as ProcessingInputDto
+}
+
+export function decodeProcessingCommand(bytes: Buffer, digest: Buffer): ProcessingCommandDto {
+  const value = unseal(bytes, digest)
+  validate('ProcessingCommand', value)
+  return value as ProcessingCommandDto
+}
+
+export function decodeQuestionSpec(bytes: Buffer, digest: Buffer): ProcessingQuestionSpecDto {
+  const value = unseal(bytes, digest)
+  validate('ProcessingQuestionSpec', value)
+  return value as ProcessingQuestionSpecDto
+}
+
+export function decodeProposal(bytes: Buffer, digest: Buffer): ProcessingProposalDto {
+  const value = unseal(bytes, digest)
+  validate('ProcessingProposal', value)
+  return value as ProcessingProposalDto
+}

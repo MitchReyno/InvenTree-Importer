@@ -4,6 +4,8 @@ import { database } from './db/database.ts'
 import type { Pool } from 'pg'
 import { readMediaStoreIdentity } from './media/store-identity.ts'
 import { registerCapture } from './capture/routes.ts'
+import { lockCaptureForEdit } from './capture/repository.ts'
+import { registerProcessing } from './processing/routes.ts'
 import { BlobStore } from './media/blob-store.ts'
 import { registerMediaRoutes } from './media/routes.ts'
 import { captureRead } from './capture/read.ts'
@@ -54,6 +56,15 @@ if (db) {
       )
     : undefined
   await registerCapture(server, db.pool, config, read)
+  registerProcessing(
+    server,
+    db.pool,
+    {
+      ...config,
+      channelSecret: process.env.INTAKE_PROCESSING_CHANNEL_SECRET ?? '',
+    },
+    lockCaptureForEdit,
+  )
   if (mediaStore) {
     registerMediaRoutes(server, db.pool, config, mediaStore)
   }

@@ -165,14 +165,16 @@ ORDER BY observed_at,id`,
   return result as CaptureSnapshotDto
 }
 
-async function retainRevision(c: PoolClient, b: Batch, payload: unknown) {
+async function retainRevision(c: PoolClient, b: Batch, payload: unknown, publish = true) {
   const bytes = Buffer.from(canonical(payload))
   await c.query(
     `INSERT INTO capture_revision(batch_id,revision,actor_id,command_bytes,command_digest)
 VALUES($1,$2,$3,$4,$5)`,
     [b.id, b.revision, b.actor_id, bytes, sha256(bytes)],
   )
-  await appendEvent(c, b.stream_id, 'capture_changed', { batch_id: b.id, revision: b.revision })
+  if (publish) {
+    await appendEvent(c, b.stream_id, 'capture_changed', { batch_id: b.id, revision: b.revision })
+  }
 }
 
 async function note(c: PoolClient, b: Batch, subject: string | null, text: string) {
@@ -209,6 +211,247 @@ export async function captureInTransaction(
     sourceId: retained.source_id,
     originalSourceKey: retained.source_id,
     streamId: retained.stream_id,
+  }
+}
+
+async function lockCaptureSubjectHeads(client: PoolClient, batchId: string): Promise<Subject[]> {
+  const result = await client.query<Subject>(
+    'SELECT id,label,revision,kind FROM capture_subject WHERE batch_id=$1 ORDER BY id FOR UPDATE',
+    [batchId],
+  )
+  return result.rows
+}
+
+/** Lock live capture facts before media or job locks without opening an edit/publication lifecycle. */
+export async function lockCaptureForInputs(
+  client: PoolClient,
+  config: CaptureBinding,
+  batchId: string,
+  expectedRevision?: string,
+) {
+  const capture = await captureInTransaction(client, config, batchId, true)
+  if (capture.snapshot.archived) {
+    fail('batch_archived', 409)
+  }
+  if (expectedRevision !== undefined && capture.snapshot.revision !== expectedRevision) {
+    fail('revision_conflict', 412)
+  }
+  await lockCaptureSubjectHeads(client, batchId)
+  return capture
+}
+
+/** Archived work may settle its exact held lane; this seam grants no capture edit capability. */
+export async function lockCaptureForInputSettlement(
+  client: PoolClient,
+  config: CaptureBinding,
+  batchId: string,
+) {
+  const capture = await captureInTransaction(client, config, batchId, true)
+  await lockCaptureSubjectHeads(client, batchId)
+  return capture
+}
+
+async function applyLockedCaptureEdit(
+  c: PoolClient,
+  b: Batch,
+  subjects: Subject[],
+  input: CaptureEditDto,
+) {
+  const id = b.id
+  const change = input.change
+  if (b.archived && !(change.kind === 'batch' && change.archived === false)) {
+    fail('batch_archived', 409)
+  }
+
+  const subject = (subjectId: string, kind?: Subject['kind']) =>
+    subjects.find((s) => s.id === subjectId && (!kind || s.kind === kind)) ??
+    fail('subject_not_found', 404)
+
+  const checkPart = (partId: string | null) => {
+    if (partId !== null) {
+      subject(partId, 'part')
+    }
+  }
+
+  const nextRevision = (BigInt(b.revision) + 1n).toString()
+
+  const select = async (subjectId: string | null, field: string, value: Selection | undefined) => {
+    if (value === undefined) {
+      return
+    } // Omission is not unset, unknown, clear or inherit.
+    if (subjectId === null && value.mode === 'inherit') {
+      fail('default_cannot_inherit')
+    }
+    let observation: string | null = null
+    if (value.mode === 'set' && field !== 'quantity') {
+      if (typeof value.value !== 'object' || value.value === null) {
+        fail('invalid_reference')
+      }
+      const ref = value.value
+      if (
+        ref.model !== (field === 'choice' ? 'part' : 'location') ||
+        ref.target_context_id !== b.target_context_id
+      ) {
+        fail('invalid_reference')
+      }
+      const found = await c.query(
+        `SELECT 1
+FROM capture_observation
+WHERE batch_id=$1 AND id=$2 AND target_id=$3 AND target_context_id=$4 AND model=$5 AND pk=$6`,
+        [id, ref.observation_id, b.target_id, ref.target_context_id, ref.model, ref.pk],
+      )
+      if (!found.rowCount) {
+        fail('invalid_reference')
+      }
+      observation = ref.observation_id
+    }
+    await c.query(
+      `INSERT INTO capture_selection(id,batch_id,subject_id,field,version,value,observation_id,actor_id)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [randomUUID(), id, subjectId, field, nextRevision, value, observation, b.actor_id],
+    )
+  }
+
+  switch (change.kind) {
+    case 'batch':
+      await c.query(
+        'UPDATE capture_batch SET title=COALESCE($2,title),archived=COALESCE($3,archived) WHERE id=$1',
+        [id, change.title, change.archived],
+      )
+      break
+    case 'add_part':
+    case 'add_lot': {
+      if (subjects.length >= 100) {
+        fail('capture_capacity', 409)
+      }
+      const sid = randomUUID()
+      const kind = change.kind === 'add_part' ? 'part' : 'lot'
+      await c.query('INSERT INTO capture_subject(batch_id,id,kind,label) VALUES($1,$2,$3,$4)', [
+        id,
+        sid,
+        kind,
+        change.label,
+      ])
+      if (change.kind === 'add_part') {
+        await c.query('INSERT INTO capture_part(batch_id,id) VALUES($1,$2)', [id, sid])
+      } else {
+        checkPart(change.part_subject_id)
+        await c.query(
+          `INSERT INTO capture_lot(batch_id,id,source_id,contribution_key,part_subject_id)
+VALUES($1,$2,$3,$4,$5)`,
+          [id, sid, b.source_id, randomUUID(), change.part_subject_id],
+        )
+        await note(c, b, sid, change.note)
+      }
+      break
+    }
+    case 'lot':
+      subject(change.id, 'lot')
+      if (change.part_subject_id !== undefined) {
+        checkPart(change.part_subject_id)
+        await c.query('UPDATE capture_lot SET part_subject_id=$2 WHERE id=$1', [
+          change.id,
+          change.part_subject_id,
+        ])
+      }
+      await select(change.id, 'quantity', change.quantity)
+      await select(change.id, 'location', change.location)
+      await c.query(
+        'UPDATE capture_subject SET label=COALESCE($2,label),revision=revision+1 WHERE id=$1',
+        [change.id, change.label],
+      )
+      break
+    case 'part':
+      subject(change.id, 'part')
+      await select(change.id, 'choice', change.choice)
+      await c.query(
+        'UPDATE capture_subject SET label=COALESCE($2,label),revision=revision+1 WHERE id=$1',
+        [change.id, change.label],
+      )
+      break
+    case 'defaults':
+      await select(null, 'quantity', change.quantity)
+      await select(null, 'location', change.location)
+      break
+    case 'note':
+      if (change.subject_id !== null) {
+        subject(change.subject_id)
+      }
+      await note(c, b, change.subject_id, change.text)
+      break
+  }
+  b.revision = nextRevision
+  await c.query('UPDATE capture_batch SET revision=$2,updated_at=now() WHERE id=$1', [
+    id,
+    b.revision,
+  ])
+  await retainRevision(c, b, input, false)
+}
+
+export interface LockedCaptureEdit {
+  /** Internal pre-publication facts. Use readPublished for a public response cursor. */
+  snapshot: CaptureSnapshotDto
+  streamId: string
+  apply(input: CaptureEditDto): Promise<CaptureSnapshotDto>
+  publish(): Promise<void>
+  readPublished(): Promise<CaptureSnapshotDto>
+}
+
+/** Acquire all capture locks before a consumer locks processing jobs, attempts or questions. */
+export async function lockCaptureForEdit(
+  client: PoolClient,
+  config: CaptureBinding,
+  batchId: string,
+  expectedRevision: string,
+): Promise<LockedCaptureEdit> {
+  const retained = await batch(client, config, batchId, true)
+  if (retained.revision !== expectedRevision) {
+    fail('revision_conflict', 412)
+  }
+  const subjects = await lockCaptureSubjectHeads(client, batchId)
+  const initialSnapshot = await snapshot(client, config, batchId)
+  let phase: 'locked' | 'applied' | 'published' = 'locked'
+  const publicationId = randomUUID()
+
+  return {
+    snapshot: initialSnapshot,
+    streamId: retained.stream_id,
+
+    async apply(input) {
+      if (phase !== 'locked') {
+        fail('capture_edit_already_applied')
+      }
+      validate('CaptureEdit', input)
+      if (input.expected_revision !== expectedRevision) {
+        fail('revision_conflict', 412)
+      }
+      await applyLockedCaptureEdit(client, retained, subjects, input)
+      await client.query('INSERT INTO capture_edit_publication VALUES($1,$2)', [
+        publicationId,
+        batchId,
+      ])
+      phase = 'applied'
+      return snapshot(client, config, batchId)
+    },
+
+    async publish() {
+      if (phase !== 'applied') {
+        fail('capture_edit_publication_order')
+      }
+      await appendEvent(client, retained.stream_id, 'capture_changed', {
+        batch_id: batchId,
+        revision: retained.revision,
+      })
+      await client.query('DELETE FROM capture_edit_publication WHERE id=$1', [publicationId])
+      phase = 'published'
+    },
+
+    async readPublished() {
+      if (phase !== 'published') {
+        fail('capture_edit_publication_required')
+      }
+      return snapshot(client, config, batchId)
+    },
   }
 }
 
@@ -282,146 +525,10 @@ VALUES($1,$2,$3,$4,$5,$6,$7)`,
     },
     async edit(id: string, key: string, input: CaptureEditDto) {
       return command('capture_edit', id, key, input, async (c) => {
-        const b = await batch(c, config, id, true)
-        if (b.revision !== input.expected_revision) {
-          fail('revision_conflict', 412)
-        }
-        const change = input.change
-        if (b.archived && !(change.kind === 'batch' && change.archived === false)) {
-          fail('batch_archived', 409)
-        }
-        const subjectsResult = await c.query<Subject>(
-          'SELECT id,label,revision,kind FROM capture_subject WHERE batch_id=$1 ORDER BY id FOR UPDATE',
-          [id],
-        )
-        const subjects = subjectsResult.rows
-
-        const subject = (subjectId: string, kind?: Subject['kind']) =>
-          subjects.find((s) => s.id === subjectId && (!kind || s.kind === kind)) ??
-          fail('subject_not_found', 404)
-
-        const checkPart = (partId: string | null) => {
-          if (partId !== null) {
-            subject(partId, 'part')
-          }
-        }
-
-        const nextRevision = (BigInt(b.revision) + 1n).toString()
-
-        const select = async (
-          subjectId: string | null,
-          field: string,
-          value: Selection | undefined,
-        ) => {
-          if (value === undefined) {
-            return
-          } // Omission is not unset, unknown, clear or inherit.
-          if (subjectId === null && value.mode === 'inherit') {
-            fail('default_cannot_inherit')
-          }
-          let observation: string | null = null
-          if (value.mode === 'set' && field !== 'quantity') {
-            if (typeof value.value !== 'object' || value.value === null) {
-              fail('invalid_reference')
-            }
-            const ref = value.value
-            if (
-              ref.model !== (field === 'choice' ? 'part' : 'location') ||
-              ref.target_context_id !== b.target_context_id
-            ) {
-              fail('invalid_reference')
-            }
-            const found = await c.query(
-              `SELECT 1
-FROM capture_observation
-WHERE batch_id=$1 AND id=$2 AND target_id=$3 AND target_context_id=$4 AND model=$5 AND pk=$6`,
-              [id, ref.observation_id, b.target_id, ref.target_context_id, ref.model, ref.pk],
-            )
-            if (!found.rowCount) {
-              fail('invalid_reference')
-            }
-            observation = ref.observation_id
-          }
-          await c.query(
-            `INSERT INTO capture_selection(id,batch_id,subject_id,field,version,value,observation_id,actor_id)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
-            [randomUUID(), id, subjectId, field, nextRevision, value, observation, b.actor_id],
-          )
-        }
-
-        switch (change.kind) {
-          case 'batch':
-            await c.query(
-              'UPDATE capture_batch SET title=COALESCE($2,title),archived=COALESCE($3,archived) WHERE id=$1',
-              [id, change.title, change.archived],
-            )
-            break
-          case 'add_part':
-          case 'add_lot': {
-            if (subjects.length >= 100) {
-              fail('capture_capacity', 409)
-            }
-            const sid = randomUUID()
-            const kind = change.kind === 'add_part' ? 'part' : 'lot'
-            await c.query(
-              'INSERT INTO capture_subject(batch_id,id,kind,label) VALUES($1,$2,$3,$4)',
-              [id, sid, kind, change.label],
-            )
-            if (change.kind === 'add_part') {
-              await c.query('INSERT INTO capture_part(batch_id,id) VALUES($1,$2)', [id, sid])
-            } else {
-              checkPart(change.part_subject_id)
-              await c.query(
-                `INSERT INTO capture_lot(batch_id,id,source_id,contribution_key,part_subject_id)
-VALUES($1,$2,$3,$4,$5)`,
-                [id, sid, b.source_id, randomUUID(), change.part_subject_id],
-              )
-              await note(c, b, sid, change.note)
-            }
-            break
-          }
-          case 'lot':
-            subject(change.id, 'lot')
-            if (change.part_subject_id !== undefined) {
-              checkPart(change.part_subject_id)
-              await c.query('UPDATE capture_lot SET part_subject_id=$2 WHERE id=$1', [
-                change.id,
-                change.part_subject_id,
-              ])
-            }
-            await select(change.id, 'quantity', change.quantity)
-            await select(change.id, 'location', change.location)
-            await c.query(
-              'UPDATE capture_subject SET label=COALESCE($2,label),revision=revision+1 WHERE id=$1',
-              [change.id, change.label],
-            )
-            break
-          case 'part':
-            subject(change.id, 'part')
-            await select(change.id, 'choice', change.choice)
-            await c.query(
-              'UPDATE capture_subject SET label=COALESCE($2,label),revision=revision+1 WHERE id=$1',
-              [change.id, change.label],
-            )
-            break
-          case 'defaults':
-            await select(null, 'quantity', change.quantity)
-            await select(null, 'location', change.location)
-            break
-          case 'note':
-            if (change.subject_id !== null) {
-              subject(change.subject_id)
-            }
-            await note(c, b, change.subject_id, change.text)
-            break
-        }
-        b.revision = nextRevision
-        await c.query('UPDATE capture_batch SET revision=$2,updated_at=now() WHERE id=$1', [
-          id,
-          b.revision,
-        ])
-        await retainRevision(c, b, input)
-        return snapshot(c, config, id)
+        const locked = await lockCaptureForEdit(c, config, id, input.expected_revision)
+        await locked.apply(input)
+        await locked.publish()
+        return locked.readPublished()
       })
     },
     async observe(id: string, key: string, observation: CaptureObservationDto) {

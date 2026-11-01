@@ -15,6 +15,7 @@ export function CaptureWorkspace({
   edit,
   observe,
   onStage,
+  onProcessing,
   onDirtyChange,
 }: CaptureWorkspaceProps) {
   const [selected, select] = useState(() => location.hash.split('/')[1] || 'defaults')
@@ -68,7 +69,14 @@ export function CaptureWorkspace({
 
   return (
     <>
-      <CaptureHeader batch={batch} busy={busy} dirty={dirty} edit={edit} onStage={onStage} />
+      <CaptureHeader
+        batch={batch}
+        busy={busy}
+        dirty={dirty}
+        edit={edit}
+        onStage={onStage}
+        onProcessing={onProcessing}
+      />
       {batch.archived && (
         <Notice role="status">
           Archived, not deleted. History and original contributions are retained. Resume to edit.

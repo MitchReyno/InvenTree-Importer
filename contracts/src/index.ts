@@ -4,9 +4,11 @@ import { Id, Revision, CursorSequence, Digest, PositivePk, Quantity } from './sc
 import { captureSchemas } from './capture.ts'
 import { manualSchemas } from './manual.ts'
 import { mediaSchemas } from './media.ts'
+import { processingSchemas } from './processing.ts'
 export * from './scalars.ts'
 export * from './capture.ts'
 export * from './manual.ts'
+export * from './processing.ts'
 export * from './media.ts'
 
 const object = <T extends TProperties>(properties: T) =>
@@ -136,6 +138,7 @@ export const schemas = {
   Health,
   ...captureSchemas,
   ...manualSchemas,
+  ...processingSchemas,
   ...mediaSchemas,
 }
 export type BootstrapDto = Static<typeof Bootstrap>

@@ -16,5 +16,6 @@ export type CaptureWorkspaceProps = {
   edit: (change: CaptureEditDto['change']) => Promise<void>
   observe: (model: 'part' | 'location', pk: string) => Promise<CaptureObservationDto | null>
   onDirtyChange?: (dirty: boolean) => void
+  onProcessing?: () => void
   onStage?: (stage: 'capture' | 'review' | 'approve' | 'results') => void
 }

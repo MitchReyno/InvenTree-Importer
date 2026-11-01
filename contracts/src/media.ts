@@ -197,6 +197,10 @@ export function assertMediaOutputHeader(value: unknown): asserts value is MediaO
   }
 }
 
+export const MEDIA_INPUT_MAX_SUBJECTS = 100
+export const MEDIA_INPUT_MAX_VERSIONS = 64
+export const MEDIA_INPUT_MAX_BYTES = 256 * 1024
+
 const MediaInputVersion = object({
   versionId: Id,
   evidenceId: Id,
@@ -206,10 +210,10 @@ const MediaInputVersion = object({
   mediaType: MediaVersion.properties.media_type,
   recipe: Type.Union([MediaRecipe, Type.Null()]),
 })
-const MediaInputManifest = object({
+export const MediaInputManifest = object({
   version: Type.Literal('media-inputs/1'),
   batchId: Id,
-  subjectIds: Type.Array(Id, { maxItems: 100, uniqueItems: true }),
+  subjectIds: Type.Array(Id, { maxItems: MEDIA_INPUT_MAX_SUBJECTS, uniqueItems: true }),
   attachments: MediaSnapshot.properties.attachments,
   evidence: Type.Array(
     object({
@@ -219,7 +223,7 @@ const MediaInputManifest = object({
     }),
     { maxItems: 200 },
   ),
-  versions: Type.Array(MediaInputVersion, { maxItems: 64 }),
+  versions: Type.Array(MediaInputVersion, { maxItems: MEDIA_INPUT_MAX_VERSIONS }),
 })
 export type MediaInputManifestDto = Static<typeof MediaInputManifest>
 

@@ -1,6 +1,6 @@
 import { ErrorNotice } from '../ui/primitives'
 import { Button, Paragraph, Summary } from '../ui/primitives'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { IntakeRequestError } from '@invimport/contracts/client'
@@ -14,12 +14,15 @@ import type { MediaClient } from '../../media/types'
 import { CaptureWorkspace } from '../capture/CaptureWorkspace'
 import styled from 'styled-components'
 import type { ManualClient, ManualStage } from '../../manual/types'
+import type { ProcessingClient } from '../../processing/types'
+import { ProcessingStage } from '../processing/ProcessingStage'
 import { ManualWorkspace } from '../review/ManualWorkspace'
 
 export function Batch({
   id,
   client,
   manual,
+  processing,
   media,
   route,
   onDirtyChange,
@@ -27,17 +30,25 @@ export function Batch({
   id: string
   client: Client
   manual: ManualClient
+  processing?: ProcessingClient
   media?: MediaClient
   route: string
   onDirtyChange: (dirty: boolean) => void
 }) {
   const segment = route.split('/')[1]
+  const processingSelected = segment === 'processing' && processing !== undefined
   const stage: ManualStage =
     segment === 'review' || segment === 'approve' || segment === 'results' ? segment : 'capture'
 
   function navigate(value: ManualStage, resourceId?: string) {
     location.hash = value === 'capture' ? id : `${id}/${value}${resourceId ? `/${resourceId}` : ''}`
   }
+
+  function openProcessing() {
+    location.hash = `${id}/processing/overview`
+  }
+
+  const onProcessing = processing ? openProcessing : undefined
 
   const scope = useServerScope()
   const queryClient = useQueryClient()
@@ -151,6 +162,54 @@ export function Batch({
     (readUnavailable ? 'Batch unavailable. Check connection and server-side target binding.' : '')
   const readOrCommandBusy = busy || captureQuery.isFetching
 
+  let content: ReactNode
+  if (batch && processingSelected) {
+    content = (
+      <ProcessingStage
+        key={`${batch.id}:${batch.revision}:${reset}`}
+        batch={batch}
+        client={processing}
+        route={route}
+        disabled={readOrCommandBusy || readUnavailable}
+        edit={edit}
+        navigate={navigate}
+        reload={reloadSavedValues}
+        onDirtyChange={onDirtyChange}
+      />
+    )
+  } else if (batch && stage !== 'capture') {
+    content = (
+      <ManualWorkspace
+        key={`${batch.id}:${batch.revision}:${reset}`}
+        batch={batch}
+        client={manual}
+        stage={stage}
+        runId={stage === 'results' ? route.split('/')[2] : undefined}
+        preparationId={stage === 'approve' ? route.split('/')[2] : undefined}
+        edit={edit}
+        navigate={navigate}
+        reload={reloadSavedValues}
+        onProcessing={onProcessing}
+      />
+    )
+  } else if (batch) {
+    content = (
+      <CaptureWorkspace
+        key={`${batch.id}:${batch.revision}:${reset}`}
+        batch={batch}
+        media={media}
+        busy={readOrCommandBusy || readUnavailable}
+        edit={edit}
+        observe={observe}
+        onStage={navigate}
+        onProcessing={onProcessing}
+        onDirtyChange={onDirtyChange}
+      />
+    )
+  } else {
+    content = !visibleError && <Paragraph role="status">Resuming saved batch…</Paragraph>
+  }
+
   return (
     <>
       {visibleError && (
@@ -188,32 +247,7 @@ export function Batch({
           </Button>
         </ErrorNotice>
       )}
-      {batch && stage !== 'capture' ? (
-        <ManualWorkspace
-          key={`${batch.id}:${batch.revision}:${reset}`}
-          batch={batch}
-          client={manual}
-          stage={stage}
-          runId={stage === 'results' ? route.split('/')[2] : undefined}
-          preparationId={stage === 'approve' ? route.split('/')[2] : undefined}
-          edit={edit}
-          navigate={navigate}
-          reload={reloadSavedValues}
-        />
-      ) : batch ? (
-        <CaptureWorkspace
-          key={`${batch.id}:${batch.revision}:${reset}`}
-          batch={batch}
-          media={media}
-          busy={readOrCommandBusy || readUnavailable}
-          edit={edit}
-          observe={observe}
-          onStage={navigate}
-          onDirtyChange={onDirtyChange}
-        />
-      ) : (
-        !visibleError && <Paragraph role="status">Resuming saved batch…</Paragraph>
-      )}
+      {content}
     </>
   )
 }

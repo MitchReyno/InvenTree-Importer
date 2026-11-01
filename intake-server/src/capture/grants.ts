@@ -10,6 +10,13 @@ export async function grantCaptureRead(pool: Pool, role: string): Promise<void> 
     capture_lot,capture_note,capture_observation,capture_selection,capture_revision TO ${role}`)
 }
 
+/** Row-lock capability only; immutable subject identity rejects updates and selections stay denied. */
+export async function grantCaptureInputLocks(pool: Pool, role: string): Promise<void> {
+  await grantCaptureRead(pool, role)
+  await pool.query(`GRANT UPDATE(revision) ON capture_batch TO ${role};
+    GRANT UPDATE(id) ON capture_subject TO ${role}`)
+}
+
 /** Trusted setup seam, deliberately separate from shared foundation/executor grants. */
 export async function grantCapture(pool: Pool, role: string) {
   await grantCaptureRead(pool, role)
@@ -17,5 +24,7 @@ export async function grantCapture(pool: Pool, role: string) {
   await pool.query(`GRANT INSERT ON capture_source,capture_batch,capture_subject,capture_part,capture_lot,capture_note,capture_observation,capture_selection,capture_revision TO ${role};
     GRANT UPDATE(title,revision,archived,updated_at) ON capture_batch TO ${role};
     GRANT UPDATE(label,revision) ON capture_subject TO ${role};
-    GRANT UPDATE(part_subject_id) ON capture_lot TO ${role};`)
+    GRANT UPDATE(part_subject_id) ON capture_lot TO ${role};
+    GRANT INSERT,DELETE ON capture_edit_publication TO ${role};
+    GRANT SELECT(id) ON capture_edit_publication TO ${role};`)
 }

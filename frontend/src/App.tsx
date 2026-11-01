@@ -1,7 +1,13 @@
 import { Button, PageTitle, Panel, Paragraph, Notice } from './components/ui/primitives'
 import { useMemo, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { captureClient, intakeClient, manualClient, mediaClient } from '@invimport/contracts/client'
+import {
+  captureClient,
+  intakeClient,
+  manualClient,
+  mediaClient,
+  processingClient,
+} from '@invimport/contracts/client'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { serverScopeIdentity } from './queries/scope'
 import { Batches } from './components/batches/Batches'
@@ -36,6 +42,11 @@ export default function App() {
   )
   const manual = useMemo(
     () => (bootstrap?.csrf_token ? manualClient(location.origin, bootstrap.csrf_token) : null),
+    [bootstrap],
+  )
+  const processing = useMemo(
+    () =>
+      bootstrap?.csrf_token ? processingClient(location.origin, bootstrap.csrf_token) : undefined,
     [bootstrap],
   )
   const media = useMemo(
@@ -75,6 +86,7 @@ export default function App() {
         id={route.split('/')[0]}
         client={client}
         manual={manual}
+        processing={processing}
         media={media}
         route={route}
         onDirtyChange={onDirtyChange}
@@ -87,11 +99,12 @@ export default function App() {
     <AppShell>
       <GlobalStyle />
       <Masthead />
+
       <DevelopmentBanner>
         {bootstrap?.banner ?? 'Connecting to local application…'}
       </DevelopmentBanner>
       <ServerStateProvider key={scope ? serverScopeIdentity(scope) : 'setup'} scope={scope}>
-        {manual && <ActivityIndicator client={manual} />}
+        {manual && <ActivityIndicator client={manual} processing={processing} />}
         {bootstrapUnavailable && bootstrap && (
           <Notice role="alert">
             Application connection unavailable. Showing the last development context; retained views
@@ -107,8 +120,8 @@ export default function App() {
         <Main>{content}</Main>
       </ServerStateProvider>
       <Footer>
-        Saved in the application database, not this browser. Exact manual approvals can queue the
-        separately supervised owned fake. Real inventory writes, uploads and research remain
+        Saved in the application database. Exact manual approvals can queue the separately
+        supervised owned fake. Actual provider research and real inventory mutation remain
         unavailable.
       </Footer>
     </AppShell>

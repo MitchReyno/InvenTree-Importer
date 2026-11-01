@@ -450,6 +450,375 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/processing-activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ProcessingActivity */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProcessingActivity"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/processing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ProcessingSnapshot */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProcessingSnapshot"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProcessingStart"];
+                };
+            };
+            responses: {
+                /** @description ProcessingReceipt */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProcessingReceipt"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/processing/{jobId}/cancellation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    jobId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProcessingCancellation"];
+                };
+            };
+            responses: {
+                /** @description ProcessingReceipt */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProcessingReceipt"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/questions/{questionId}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    questionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ProcessingAnswer"];
+                };
+            };
+            responses: {
+                /** @description ProcessingAnswerReceipt */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProcessingAnswerReceipt"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/batches/{batchId}/media": {
         parameters: {
             query?: never;
@@ -2463,6 +2832,1318 @@ export interface components {
             }[];
             truncated: boolean;
         };
+        ProcessingInputV1: {
+            /** @constant */
+            schema_version: "bench-intake-input/1";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            subject_id: string;
+            stage: "reading" | "identifying" | "research" | "images" | "inventory";
+            dependencies: string[];
+            answer_id: string | null;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            subject: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                contribution_key: string;
+                part_subject_id: string | null;
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            } | {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            };
+            linked_part: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            } | null;
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location";
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            /** @constant */
+            profile_id: "synthetic-research/1";
+            /** @constant */
+            instruction_version: "restricted-synthetic/1";
+            instruction_sha256: string;
+            /** @constant */
+            tool_profile_version: "restricted-no-tools/1";
+            media: string[];
+        };
+        ProcessingInputV2: {
+            /** @constant */
+            schema_version: "bench-intake-input/2";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            subject_id: string;
+            stage: "reading" | "identifying" | "research" | "images" | "inventory";
+            dependencies: string[];
+            answer_id: string | null;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            subject: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                contribution_key: string;
+                part_subject_id: string | null;
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            } | {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            };
+            linked_part: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            } | null;
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location";
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            /** @constant */
+            profile_id: "synthetic-research/2";
+            /** @constant */
+            instruction_version: "restricted-synthetic/2";
+            instruction_sha256: string;
+            /** @constant */
+            tool_profile_version: "restricted-no-tools/1";
+            media: {
+                manifest: string;
+                sha256: string;
+            };
+        };
+        ProcessingCommandV1: {
+            /** @constant */
+            schema_version: "bench-intake-processing-command/1";
+            job_id: string;
+            attempt_id: string;
+            input_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/1";
+            /** @constant */
+            handler_version: "processing/1";
+            command_id: string;
+        };
+        ProcessingCommandV2: {
+            /** @constant */
+            schema_version: "bench-intake-processing-command/2";
+            job_id: string;
+            attempt_id: string;
+            input_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/2";
+            /** @constant */
+            handler_version: "processing/2";
+            command_id: string;
+        };
+        ProcessingProposalV1: {
+            subject_id: string;
+            summary: string;
+            source_note_ids: string[];
+        };
+        ProcessingProposalV2: {
+            /** @constant */
+            schema_version: "bench-intake-proposal/2";
+            subject_id: string;
+            summary: string;
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+        };
+        ProcessingSource: {
+            /** @constant */
+            kind: "note";
+            note_id: string;
+            text_sha256: string;
+        } | {
+            /** @constant */
+            kind: "media_version";
+            evidence_id: string;
+            version_id: string;
+            sha256: string;
+        };
+        ProcessingEnvelopeV1: {
+            /** @constant */
+            schema_version: "bench-intake-runner/1";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/1";
+            /** @constant */
+            handler_version: "processing/1";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "proposal";
+            payload: {
+                subject_id: string;
+                summary: string;
+                source_note_ids: string[];
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/1";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/1";
+            /** @constant */
+            handler_version: "processing/1";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "question";
+            payload: {
+                kind: "quantity" | "clarification";
+                subject_id: string;
+                prompt: string;
+                reason: string;
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/1";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/1";
+            /** @constant */
+            handler_version: "processing/1";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "terminal";
+            payload: {
+                state: "ready" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "interrupted";
+            };
+        };
+        ProcessingEnvelopeV2: {
+            /** @constant */
+            schema_version: "bench-intake-runner/2";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/2";
+            /** @constant */
+            handler_version: "processing/2";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "proposal";
+            payload: {
+                /** @constant */
+                schema_version: "bench-intake-proposal/2";
+                subject_id: string;
+                summary: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/2";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/2";
+            /** @constant */
+            handler_version: "processing/2";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "question";
+            payload: {
+                kind: "quantity" | "clarification";
+                subject_id: string;
+                prompt: string;
+                reason: string;
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/2";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/2";
+            /** @constant */
+            handler_version: "processing/2";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "terminal";
+            payload: {
+                state: "ready" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "interrupted";
+            };
+        };
+        ProcessingBlocker: "media_not_ready" | "media_input_capacity" | "worker_version_conflict";
+        ProcessingInput: {
+            /** @constant */
+            schema_version: "bench-intake-input/1";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            subject_id: string;
+            stage: "reading" | "identifying" | "research" | "images" | "inventory";
+            dependencies: string[];
+            answer_id: string | null;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            subject: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                contribution_key: string;
+                part_subject_id: string | null;
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            } | {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            };
+            linked_part: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            } | null;
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location";
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            /** @constant */
+            profile_id: "synthetic-research/1";
+            /** @constant */
+            instruction_version: "restricted-synthetic/1";
+            instruction_sha256: string;
+            /** @constant */
+            tool_profile_version: "restricted-no-tools/1";
+            media: string[];
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-input/2";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            subject_id: string;
+            stage: "reading" | "identifying" | "research" | "images" | "inventory";
+            dependencies: string[];
+            answer_id: string | null;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            subject: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                contribution_key: string;
+                part_subject_id: string | null;
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            } | {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            };
+            linked_part: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            } | null;
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location";
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            /** @constant */
+            profile_id: "synthetic-research/2";
+            /** @constant */
+            instruction_version: "restricted-synthetic/2";
+            instruction_sha256: string;
+            /** @constant */
+            tool_profile_version: "restricted-no-tools/1";
+            media: {
+                manifest: string;
+                sha256: string;
+            };
+        };
+        ProcessingCommand: {
+            /** @constant */
+            schema_version: "bench-intake-processing-command/1";
+            job_id: string;
+            attempt_id: string;
+            input_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/1";
+            /** @constant */
+            handler_version: "processing/1";
+            command_id: string;
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-processing-command/2";
+            job_id: string;
+            attempt_id: string;
+            input_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/2";
+            /** @constant */
+            handler_version: "processing/2";
+            command_id: string;
+        };
+        ProcessingActivity: {
+            jobs: {
+                batch_id: string;
+                job_id: string;
+                attempt_id: string;
+                state: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
+                input_current: boolean;
+                occupies_lane: boolean;
+                blocked_code?: "media_not_ready" | "media_input_capacity" | "worker_version_conflict";
+            }[];
+            lane_occupied: boolean;
+            truncated: boolean;
+        };
+        ProcessingStage: "reading" | "identifying" | "research" | "images" | "inventory";
+        ProcessingState: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
+        ProcessingStart: {
+            /** @constant */
+            schema_version: "bench-intake-processing/1";
+            /** Format: int64 */
+            expected_capture_revision: string;
+            subject_ids: string[];
+            stages: ("reading" | "identifying" | "research" | "images" | "inventory")[];
+        };
+        ProcessingCancellation: {
+            /** Format: int64 */
+            expected_revision: string;
+            attempt_id: string;
+        };
+        ProcessingQuestionValue: {
+            /** @constant */
+            kind: "quantity";
+            value: string;
+            basis: "counted" | "estimated";
+        } | {
+            /** @constant */
+            kind: "clarification";
+            text: string;
+        };
+        ProcessingAnswer: {
+            /** @constant */
+            schema_version: "bench-intake-answer/1";
+            /** Format: int64 */
+            expected_question_revision: string;
+            /** Format: int64 */
+            expected_capture_revision: string;
+            attempt_id: string;
+            input_sha256: string;
+            value: {
+                /** @constant */
+                kind: "quantity";
+                value: string;
+                basis: "counted" | "estimated";
+            } | {
+                /** @constant */
+                kind: "clarification";
+                text: string;
+            };
+        };
+        ProcessingQuestionSpec: {
+            kind: "quantity" | "clarification";
+            subject_id: string;
+            prompt: string;
+            reason: string;
+        };
+        ProcessingProposal: {
+            subject_id: string;
+            summary: string;
+            source_note_ids: string[];
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-proposal/2";
+            subject_id: string;
+            summary: string;
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+        };
+        ProcessingEnvelope: ({
+            /** @constant */
+            schema_version: "bench-intake-runner/1";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/1";
+            /** @constant */
+            handler_version: "processing/1";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "proposal";
+            payload: {
+                subject_id: string;
+                summary: string;
+                source_note_ids: string[];
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/1";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/1";
+            /** @constant */
+            handler_version: "processing/1";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "question";
+            payload: {
+                kind: "quantity" | "clarification";
+                subject_id: string;
+                prompt: string;
+                reason: string;
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/1";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/1";
+            /** @constant */
+            handler_version: "processing/1";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "terminal";
+            payload: {
+                state: "ready" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "interrupted";
+            };
+        }) | ({
+            /** @constant */
+            schema_version: "bench-intake-runner/2";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/2";
+            /** @constant */
+            handler_version: "processing/2";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "proposal";
+            payload: {
+                /** @constant */
+                schema_version: "bench-intake-proposal/2";
+                subject_id: string;
+                summary: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/2";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/2";
+            /** @constant */
+            handler_version: "processing/2";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "question";
+            payload: {
+                kind: "quantity" | "clarification";
+                subject_id: string;
+                prompt: string;
+                reason: string;
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/2";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "synthetic-research/2";
+            /** @constant */
+            handler_version: "processing/2";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "terminal";
+            payload: {
+                state: "ready" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "interrupted";
+            };
+        });
+        ProcessingQuestion: {
+            id: string;
+            job_id: string;
+            attempt_id: string;
+            input_sha256: string;
+            /** Format: int64 */
+            revision: string;
+            state: "open" | "answered" | "superseded";
+            spec: {
+                kind: "quantity" | "clarification";
+                subject_id: string;
+                prompt: string;
+                reason: string;
+            };
+        };
+        ProcessingJob: {
+            id: string;
+            subject_id: string;
+            stage: "reading" | "identifying" | "research" | "images" | "inventory";
+            /** Format: int64 */
+            revision: string;
+            state: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
+            attempt_id: string;
+            input_sha256: string;
+            /** Format: int64 */
+            attempt_number: string;
+            /** @constant */
+            qualification: "fixture_only";
+            can_cancel?: boolean;
+            blocked_code?: "media_not_ready" | "media_input_capacity" | "worker_version_conflict";
+            proposals: {
+                id: string;
+                message_id: string;
+                value: {
+                    subject_id: string;
+                    summary: string;
+                    source_note_ids: string[];
+                } | {
+                    /** @constant */
+                    schema_version: "bench-intake-proposal/2";
+                    subject_id: string;
+                    summary: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                };
+            }[];
+            questions: {
+                id: string;
+                job_id: string;
+                attempt_id: string;
+                input_sha256: string;
+                /** Format: int64 */
+                revision: string;
+                state: "open" | "answered" | "superseded";
+                spec: {
+                    kind: "quantity" | "clarification";
+                    subject_id: string;
+                    prompt: string;
+                    reason: string;
+                };
+            }[];
+        };
+        ProcessingSnapshot: {
+            runner_status: "unconfigured" | "fixture_only";
+            batch_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            jobs: {
+                id: string;
+                subject_id: string;
+                stage: "reading" | "identifying" | "research" | "images" | "inventory";
+                /** Format: int64 */
+                revision: string;
+                state: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
+                attempt_id: string;
+                input_sha256: string;
+                /** Format: int64 */
+                attempt_number: string;
+                /** @constant */
+                qualification: "fixture_only";
+                can_cancel?: boolean;
+                blocked_code?: "media_not_ready" | "media_input_capacity" | "worker_version_conflict";
+                proposals: {
+                    id: string;
+                    message_id: string;
+                    value: {
+                        subject_id: string;
+                        summary: string;
+                        source_note_ids: string[];
+                    } | {
+                        /** @constant */
+                        schema_version: "bench-intake-proposal/2";
+                        subject_id: string;
+                        summary: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    };
+                }[];
+                questions: {
+                    id: string;
+                    job_id: string;
+                    attempt_id: string;
+                    input_sha256: string;
+                    /** Format: int64 */
+                    revision: string;
+                    state: "open" | "answered" | "superseded";
+                    spec: {
+                        kind: "quantity" | "clarification";
+                        subject_id: string;
+                        prompt: string;
+                        reason: string;
+                    };
+                }[];
+            }[];
+            cursor: {
+                stream_id: string;
+                /** Format: int64 */
+                sequence: string;
+            };
+        };
+        ProcessingReceipt: {
+            batch_id: string;
+            job_ids: string[];
+            attempt_ids: string[];
+        };
+        ProcessingAnswerReceipt: {
+            answer_id: string;
+            question_id: string;
+            attempt_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            command_id: string;
+        };
         MediaRecipe: {
             /** @constant */
             version: "documentary-crop/1";
@@ -2824,6 +4505,33 @@ export type ManualRecoveryCommand = components['schemas']['ManualRecoveryCommand
 export type ManualRun = components['schemas']['ManualRun']
 export type ManualWorkspace = components['schemas']['ManualWorkspace']
 export type ManualActivity = components['schemas']['ManualActivity']
+export type ProcessingInputV1 = components['schemas']['ProcessingInputV1']
+export type ProcessingInputV2 = components['schemas']['ProcessingInputV2']
+export type ProcessingCommandV1 = components['schemas']['ProcessingCommandV1']
+export type ProcessingCommandV2 = components['schemas']['ProcessingCommandV2']
+export type ProcessingProposalV1 = components['schemas']['ProcessingProposalV1']
+export type ProcessingProposalV2 = components['schemas']['ProcessingProposalV2']
+export type ProcessingSource = components['schemas']['ProcessingSource']
+export type ProcessingEnvelopeV1 = components['schemas']['ProcessingEnvelopeV1']
+export type ProcessingEnvelopeV2 = components['schemas']['ProcessingEnvelopeV2']
+export type ProcessingBlocker = components['schemas']['ProcessingBlocker']
+export type ProcessingInput = components['schemas']['ProcessingInput']
+export type ProcessingCommand = components['schemas']['ProcessingCommand']
+export type ProcessingActivity = components['schemas']['ProcessingActivity']
+export type ProcessingStage = components['schemas']['ProcessingStage']
+export type ProcessingState = components['schemas']['ProcessingState']
+export type ProcessingStart = components['schemas']['ProcessingStart']
+export type ProcessingCancellation = components['schemas']['ProcessingCancellation']
+export type ProcessingQuestionValue = components['schemas']['ProcessingQuestionValue']
+export type ProcessingAnswer = components['schemas']['ProcessingAnswer']
+export type ProcessingQuestionSpec = components['schemas']['ProcessingQuestionSpec']
+export type ProcessingProposal = components['schemas']['ProcessingProposal']
+export type ProcessingEnvelope = components['schemas']['ProcessingEnvelope']
+export type ProcessingQuestion = components['schemas']['ProcessingQuestion']
+export type ProcessingJob = components['schemas']['ProcessingJob']
+export type ProcessingSnapshot = components['schemas']['ProcessingSnapshot']
+export type ProcessingReceipt = components['schemas']['ProcessingReceipt']
+export type ProcessingAnswerReceipt = components['schemas']['ProcessingAnswerReceipt']
 export type MediaRecipe = components['schemas']['MediaRecipe']
 export type MediaVersion = components['schemas']['MediaVersion']
 export type MediaSnapshot = components['schemas']['MediaSnapshot']

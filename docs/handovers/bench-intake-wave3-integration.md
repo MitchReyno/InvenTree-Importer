@@ -1,5 +1,7 @@
 # Wave 3 — shared integration record
 
+Current checkpoint: media #53 is merged; ready Processing PR #54 at `a70d55e` targets `interactive-app`. Corrected qualification passed 86 frontend, 26 contract, 58 server, 64 PG and 25 process cases, with unchanged backend 2,038 passes. Native desktop/phone and exact unknown-answer retry passed. Fresh independent review found a predecessor-currency defect, corrected at `843adada`; independent reproduction/native rechecks passed. Final documentation-head verification and exact-head hosted CI remain merge gates. Tests use deterministic stubs; no actual provider or protected inventory capability is claimed.
+
 ## Prospective plan
 
 Recorded before coordinator changes to shared code. T04 merged as PR #46 at `10bd6c85c81d02a0a5970b002c79f55f9d41fe87`, after independent server and UI clearance of `88d3d34f674d9334e68f875f2f6833320f964394` and six selected CI passes. Three unrelated checks skipped. The first manual journey is qualified against the owned fake only.
@@ -151,3 +153,113 @@ Validate the architecture reconciliation with focused Markdown/format/link check
 The root summary now describes optional retained uploads, the private database/root binding and additive fake media execution. The frontend summary removes its obsolete no-upload claim and records native-close reconciliation. Owning architecture links remain repository-relative; original design references are unchanged. Focused Markdown and whitespace checks passed.
 
 The attachment-width correction is committed as `3c26827`: a bounded existing styled Select plus a wrapping accessible selected-identity description preserves full UUID commands and card/option correlation. Its meaningful identity/command regression failed before the markup change; all 66 frontend tests, application types, lint/readability/format and focused Markdown checks pass. Final native width/identity review and selected exact-head hosted CI remain pending. Storage and server runtime are unchanged from the independently cleared `e6d109aa`; execution reviewer confirmed the intervening native-close delta at `64389a2`.
+
+
+## T06 actual-media integration plan
+
+The coordinator begins from clean Processing checkpoint `1923d5a` and actual T05 squash merge `43419402a06f669ac69a9e59e255ae887aab9fee`. PR #53 merged only after final head `172a826` had material review clearance and all eight selected CI checks passing. Its own temporary preview/database/tab were disposed; the shared PostgreSQL service and retained Capture preview remain available.
+
+Resolve this normal trunk merge without discarding either feature. Preserve optional media plus Processing App/Batch/main wiring, both route/schema/client registrations and the current Masthead. Reconcile historical documentation and keep the latest stub-only provider restriction. Regenerate public artifacts from the combined sources rather than choosing a generated side. Use frozen install, generated drift, types and focused frontend/server checks before committing the merge.
+
+Then add the coordinator-owned media seams described in the T06 owner's prospective plan: authorized read-only scoped descriptors on the existing snapshot transaction; genuine per-scope bulk handles after a complete sorted digest union; read-only retained command-binding/pin verification; and a public sorted capture-lock seam where needed. Preserve existing single-scope handle behavior, transaction-lifetime sentinels, exact command binding and missing-binding refusal. Keep routine queries on the checked-out client; do not create a second media authority or permit a runner to manufacture pins. Record exact signatures before consumer edits.
+
+The T06 owner retains Processing modules/contracts/components/tests and additive compatibility migration ownership. The coordinator retains shared exports, generation, main/App/Batch, owning media/capture seams, grants and integration evidence. Consumers begin only after the actual merge checkpoint and agreed APIs. Serialize real-PG/process/browser allocations; deterministic stubs only, with no protected inventory request or actual model/provider usage.
+
+
+### Actual-media merge validation
+
+Both media and Processing registrations, generated clients, App/Batch routes and the current Masthead are preserved. The generator rebuilt all four public artifacts from the combined schemas; no generated side was selected wholesale. The add/add client handover retains both historical checkpoints with descriptive headings. The latest stub-only usage restriction and later-package shortlist remain in the maintained plan.
+
+At this combined tree, frozen install reused all 27 added packages without downloads. All application types and generated drift checks passed; 78 frontend, 26 contract and 51 server tests passed with zero skips in those tiers. Readability, full Prettier, focused Markdown and whitespace checks passed. Production build passed with the visible 845.39 KB / 262.11 KB gzip application advisory and unchanged lazy scene. This is the actual merged-media checkpoint, not completion of Processing media provenance or retention-pin integration. No PG/Docker/browser/model/provider or protected inventory test was run during this merge validation.
+
+
+Staged whitespace inspection excludes the three immutable PDF fixtures: their cross-reference rows contain required trailing spaces. Their bytes match actual trunk exactly; no PDF or preserved reference was reformatted. The changed source and documentation pass whitespace inspection.
+
+
+### Coordinator-owned input API signatures
+
+The actual-media merge is committed cleanly as `d647938`. Before implementation, the coordinator and T06 owner agreed these caller-transaction interfaces:
+
+- `readMediaInputs(client, binding, batchId, subjectIds)` and bulk `readMediaInputScopes(..., subjectScopes)` authorize and materialize the same repeatable-read snapshot without domain locks.
+- `lockMediaInputScopes(client, binding, batchId, subjectScopes)` returns genuine immutable handles in scope order after one authorized capture/media snapshot and the complete sorted digest union. Each scope retains its own lifetime sentinel and exact manifest; `lockMediaInputs` remains the compatible single-scope wrapper. Bulk work is bounded at 100 scopes; each published manifest keeps its existing 100-subject, 64-version and 256-KiB byte limits.
+- `readCommandMediaInputs(client, binding, batchId, commandId)` verifies authorized immutable binding bytes/digest and the complete retained pin set, including exact-empty bindings. It neither locks nor creates missing pins.
+- `lockCaptureForInputs(client, binding, batchId, expectedRevision?)` locks a live authorized capture batch and sorted subjects before media; the existing edit/apply/publication lifecycle is preserved.
+- `MediaInputUnavailableError` distinguishes expected `not_ready` and `capacity` conditions while retaining the existing HTTP error vocabulary. Other authority/infrastructure faults propagate. Export the existing media manifest schema and named limits without changing its interpreted shape or retained bytes.
+- A narrow `processing-reader` media grant and owning `grantCaptureInputLocks` grant permit descriptor/binding reads and required row locks, but no media pins/uploads/decoding/approval/apply or human selection edits.
+
+New tests exercise actual PostgreSQL read-only snapshots, individual and bulk capacity, sorted union exclusion, per-scope exact pins, savepoint/transaction lifetime, wrong identity and missing/corrupt bindings. Preserve the existing eight media retention cases. Use a serialized owned test namespace; no model/provider call, protected target or credential copy. The T06 owner writes its separate Processing consumers and freezes schema changes before coordinator generation.
+
+
+### Consumer-driven API refinements
+
+Before the remaining API edits, consumer inspection identified two necessary refinements. A single pending closure must not hide unaffected jobs, so `readMediaInputScopeResults` will share one authorized snapshot but return independent ready/known-blocker results; unexpected faults still propagate. Runner settlement must lock archived batches to retain authenticated terminal output and release the exact held lane, so `lockCaptureForInputSettlement` will provide archived-inclusive locks while new-work `lockCaptureForInputs` retains live/revision refusal. The existing edit lifecycle remains unchanged.
+
+A separate fresh test owner owns only the new scope/grant PG tests and its handover. Root retains runtime/API ownership; the Processing owner retains its consumers and additive migration. No PostgreSQL window starts before the current migration is frozen and the coordinator allocates it.
+
+
+### Owning input API qualification
+
+The compatible single-scope path passed all eight existing media-retention cases with explicit immutable decoder image `99b15169`. The new owning-interface suite passed all seven actual-PG cases, including read-only snapshot isolation, independent blockers, exact 32/33/empty pins across a 65-version union, byte capacity below individual count limits, retained corruption refusal and narrow reader/archived-settlement grants. Its [handover](bench-intake-T06-media-input-checks.md) distinguishes metadata-only facts from content/decoder qualification.
+
+A deliberately reversed global digest loop failed the expected lower-lock assertion. Exact source SHA-256 `305cc67725eb5df1626c379c0bd51899a756c5fae80762f6661be4e55d5efb0e` was restored in a `finally` block; the selected restored case passed. Test-only checkpoint `763a463` preserves the new suite and its evidence without claiming a separately releasable feature. Root API lint/types and the combined working-tree checks passed.
+
+Processing separately observed six PG and three deterministic child-process passes, then found and corrected an inherited first-read search-path gap during source inspection. Its updated seven-PG/three-process requalification is pending at this coordinator checkpoint. The final current-image build, normal suite, native combined UI and independent PR review remain feature gates. No actual model/provider usage or protected inventory request occurred.
+
+
+## Final T06 qualification plan
+
+Before final qualification, the coordinator updates root/server/frontend architecture summaries to the implemented durable coordinator, typed media authority and truthful lane settlement. Keep native-provider inference, production identity and real inventory mutation explicitly unqualified. No package or runtime expansion is part of this documentation step.
+
+Freeze the combined checkpoint, build current decoder/probe images through the exact maintained CI step and record immutable IDs. Run the maintained normal suite, complete PG/process tiers with explicit images and no decoder skips, types/generation/lint/format/build. Use only the owned PostgreSQL service and serialized test windows. Older image99 evidence remains supporting protocol evidence, not a claim that the current source image was tested.
+
+Then prepare an isolated synthetic combined browser fixture and inspect desktop/narrow Processing routes, pinned question/draft/unknown-answer behavior, archive/discard, media blockers/provenance and independent activity. Use browser-harness with recordings off; preserve old Capture4310. Complete the tracked handover, publish a ready nonstacked PR to interactive-app and obtain fresh independent exact-head domain/native reviews before the authorized selected-CI-green merge. No actual model/provider test or protected inventory request is permitted.
+
+
+For complete local tiers, extend the existing fixed-suite owned-PG runner with all-PG/all-process modes and the explicit synthetic Processing browser entrypoint. Keep its narrow environment and existing private state validation; do not duplicate secret parsing or invoke shared development-role provisioning/migration. Forward only the explicit decoder/probe image IDs needed by containment checks.
+
+
+### Current normal and image qualification
+
+The maintained full normal suite passed: 80 frontend, 26 contracts, 55 server and 2,038 backend cases. The backend retained four known skips and 43 scanner/TUI exclusions; Node tiers had no skips. The exact CI image step passed from production source checkpoint `f4d6137`, retaining decoder `sha256:877516742f7b760d12937fdaebe7086edc1b9e227c875bc68b9b24fa910c10cb` and probe `sha256:2d13d4364b84e22bdeb7aee36ebafc6fc15d80a5111aeecc9fac5c1466f61c70`. Current-image complete PG/process and actual browser checks remain pending.
+
+The explicit synthetic preview helper is source-ready with preserved test defaults, initialized-store-only media routes, read-only inventory activity and no apply/provider transport. Occupied default port 4350 refuses before database creation; no implicit duplicate preview is started. Its new source is not imported by application startup or normal tests. The fixed owned-PG helper supplies the narrow environment for whole tiers and preview launch.
+
+
+### Complete current-image qualification and review handoff
+
+At `1023162`, final Node checks passed 86 frontend, 26 contract and 58 server tests, plus application types, generated drift, readability/frontend lint, format and production build. The unchanged backend passed 2,038 with four known skips and 43 scanner/TUI exclusions in the preceding maintained normal run. Build advisories remain visible at 848.56 KB / 262.91 KB gzip; lazy scene remains 570.37 KB.
+
+The first complete PG attempt failed 54/55 with an unidentified fixture HTTP socket close during observed host sleep. Its log remains preserved; a bounded exact reproduction passed in 823 ms, without proving the original phase. Test-only corrections add no-retry request/body diagnostics and initialization cleanup with exact allocation receipts/sentinel preservation. No application authority changed for that diagnosis. Separately, the fresh form owner reproduced five uncertain-answer failures and committed frozen original-payload/key receipt retry at `04e5671`; stale first sends and read/archive gates remain refused.
+
+The complete rerun under process-scoped sleep prevention passed **56/56 PG and 25/25 process**, with zero skips, using both current immutable images. Decoder/resource cases observed enforced limits, kernel OOM, bounded wall termination/output and exact cleanup. The [qualification receipt](../bench-intake/evidence/T06/qualification.json) preserves image IDs, source checkpoints, counts and honest remaining gates.
+
+Mitch clicked Chrome Allow and the original waiting browser connection resumed. Author browser-harness checks passed on the isolated synthetic preview: desktop 1440 px and phone 390 px, no page overflow or out-of-bounds form controls, exact quantity draft preserved across polling/resizing and guarded navigation. The hidden tab's native scroll timed out; activating only the owned task tab and retrying the same wheel operation worked. Recordings stayed off.
+
+The coordinator interrupted only the synthetic answer's HTTP 200 response after commit. Polling advanced the attempt while the original answer fields remained frozen. Native explicit retry sent the identical body and nonempty idempotency key and received HTTP 200. The guard cleared; Capture showed revision 7, Packet A at exact 19.000001 and separate Packet B still 23, with two physical lots and one shared Part. This is author proof, not independent review. No model/provider or inventory transport/apply runner exists. Fresh independent domain/native clearance and selected exact-head CI still gate merge.
+
+
+### Independent review checkpoint
+
+Ready PR #54 was published directly to `interactive-app` before fresh independent reviews. The media/capture reviewer cleared scoped owning APIs, grants, bulk reservations, lifetime/pins and caller integration at `a70d55e`, independently passing eight offline model/provenance cases. Full PG/process evidence was inspected, not independently rerun.
+
+The coordination reviewer reproduced a material predecessor-currency defect with isolated PostgreSQL: complete Reading, claim dependent Research, then replace Reading alone without changing capture/media. The old Research output was incorrectly accepted and displayed current. The input comparison reused its own old dependency IDs, so it did not establish that predecessors remained selected and ready. A fresh owner is correcting owning currency checks and adverse coverage; physical held lanes must remain until exact terminal/reap. The PR is not cleared.
+
+The independent native reviewer is still exercising the existing synthetic preview. An initially static queued display was traced to hidden-tab polling; visible polling showed the expected Reading question. No dispatch defect was established from that observation. Browser and PostgreSQL leases remain separate, and no duplicate service was started.
+
+
+### Corrected complete qualification
+
+The fresh owner committed `843adada` after six initial new regressions failed against the original source. Eight named real-PG cases pass, covering selected transitive predecessor authority, stale nonterminal physical occupancy, historical display, stale-answer refusal, malformed edge bindings and a healthy downstream human-answer continuation. Root and independent reviewer agreed that immutable accepted historical predecessor inputs are verified without reinterpreting them against capture values deliberately changed by an accepted downstream answer; the fresh root input still requires current capture/media.
+
+At this corrected source the coordinator reran the complete tiers: **64/64 PG and 25/25 process**, zero failures/skips, using the unchanged current immutable images. Frontend 86, contracts 26 and server 58 plus types, generated drift, readability/frontend lint, full formatting and production build passed again. The unchanged backend's preceding 2,038 passes remain applicable. Bundle advisories stay unsuppressed. Independent reproduction and a fresh-runtime bounded native recheck remain pending at this checkpoint.
+
+Independent native review at `a70d55e` separately passed 20 focused component tests and actual desktop/phone validation, exact large-decimal draft, read-failure guard, post-commit lost-ack exact retry, and archive/resume. The initial preview was then disposed by its exact verified listener child; cleanup returned success and removed only its own metadata. Retained Capture stayed untouched. This earlier browser proof is not represented as a corrected-server-runtime recheck.
+
+
+### Final scoped independent clearance
+
+All three review scopes cleared `843adada`. The coordination reviewer independently passed the original replacement reproduction and all eight named new scenarios with exact cleanup. The media/capture reviewer verified unchanged owning APIs/grants/pin creation and no caller regression from same-client read-only dependency verification.
+
+The native reviewer used one fresh corrected-runtime fixture: B completed five stages, A's exact 41.000001 answer produced a ready continuation, six jobs were ready, and Capture retained A/B as separate physical lots with B unchanged at 23. Desktop/390 px phone bounds passed. The prior invalid-input/lost-ACK/archive suite remains applicable to unchanged frontend assets; it was not needlessly repeated.
+
+A full reload was required after replacing the same-origin fixture to acquire its fresh CSRF bootstrap; the initial 403 refusal remains documented. Current queue UI always requests all stages, so Reading-only ancestor replacement remains PG/HTTP evidence and finer queue scope is explicitly assigned to T08. No browser-only claim substitutes for that test. Final documentation-head verification and selected exact-head hosted CI still gate merge.

@@ -49,6 +49,7 @@ The readability fix/check commands cover shared runtime TypeScript; `pnpm test:r
 
 Generated contracts, exact vectors, preserved fixtures, immutable migrations and design references are excluded from this source-style check. Their owning validation still applies. The check does not infer functions returned by factories such as `useCallback`, inspect object-method spacing or decide whether a function has too many responsibilities: reviewers must check those explicitly. A green formatter/linter is necessary, not sufficient.
 
+
 ### Patterns to avoid
 
 - **Positional or indirect API types**, such as `Parameters<typeof answerQuestion>[6]`. Use a named domain type such as `ProcessingAnswerDto`, so a reader can understand the argument without counting another function's parameters.

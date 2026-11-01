@@ -95,6 +95,9 @@ test('refresh URL resumes server batch and a 412 preserves local inputs while sh
   const sent: unknown[] = []
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const path = new URL(String(input)).pathname
+    if (path.endsWith('/processing-activity')) {
+      return response({ jobs: [], lane_occupied: false, truncated: false })
+    }
     if (path.endsWith('/activity')) {
       return response({ runs: [], truncated: false })
     }
@@ -181,6 +184,9 @@ test('inbox resumes retained capture, filters archives and creates a batch with 
   }
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const path = new URL(String(input)).pathname
+    if (path.endsWith('/processing-activity')) {
+      return response({ jobs: [], lane_occupied: false, truncated: false })
+    }
     if (path.endsWith('/activity')) {
       return response({ runs: [], truncated: false })
     }
@@ -243,6 +249,9 @@ function navigationServer(conflict = false) {
   let saved = fixture
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const path = new URL(String(input)).pathname
+    if (path.endsWith('/processing-activity')) {
+      return response({ jobs: [], lane_occupied: false, truncated: false })
+    }
     if (path.endsWith('/bootstrap')) {
       return response({
         mode: 'development-key',
@@ -549,6 +558,9 @@ test('an unavailable bootstrap refresh within the same scope preserves the mount
   let bootstrapAvailable = true
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     const path = new URL(String(input)).pathname
+    if (path.endsWith('/processing-activity')) {
+      return response({ jobs: [], lane_occupied: false, truncated: false })
+    }
     if (path.endsWith('/bootstrap')) {
       if (!bootstrapAvailable) {
         throw new Error('owned_bootstrap_unavailable')

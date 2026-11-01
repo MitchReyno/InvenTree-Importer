@@ -4,12 +4,14 @@ import { Id } from '@invimport/contracts'
 import { canonicalMedia } from './encoding.ts'
 import { blobLockCoordinates, lockBlob } from './blob-store.ts'
 import {
-  resolveMediaInputs,
+  resolveMediaInputScopes,
   decodeMediaInputs,
   type MediaInputVersion,
   type MediaInputs,
+  type MediaSubjectScope,
 } from './inputs.ts'
 import type { CaptureBinding } from '../capture/repository.ts'
+import { mediaPinSet } from './command-inputs.ts'
 
 const lockedHandle = Symbol('locked-media-inputs')
 
@@ -90,16 +92,6 @@ async function requireHandleLifetime(
   }
 }
 
-function pinSet(inputs: MediaInputs) {
-  return inputs.versions
-    .map((version) => ({
-      version_id: version.versionId,
-      blob_digest: version.digest,
-      batch_id: inputs.batchId,
-    }))
-    .sort((left, right) => left.version_id.localeCompare(right.version_id))
-}
-
 async function pinCapturedCommand(
   client: PoolClient,
   binding: CaptureBinding,
@@ -156,7 +148,7 @@ async function pinCapturedCommand(
     [commandId],
   )
   if (original) {
-    if (canonicalMedia(existing.rows) !== canonicalMedia(pinSet(inputs))) {
+    if (canonicalMedia(existing.rows) !== canonicalMedia(mediaPinSet(inputs))) {
       throw new Error('media_command_pin_scope_changed')
     }
     return
@@ -179,23 +171,12 @@ function freezeDescriptor(value: unknown): void {
   }
 }
 
-/** Call before processing lane/job/question locks; only the captured live transaction can pin. */
-export async function lockMediaInputs(
+async function capturedHandle(
   client: PoolClient,
-  binding: CaptureBinding,
-  batchId: string,
-  subjectIds: readonly string[],
+  retainedBinding: CaptureBinding,
+  identity: TransactionIdentity,
+  captured: MediaInputs,
 ): Promise<LockedMediaInputs> {
-  const identity = await transactionIdentity(client)
-  if (!sameTransaction(identity, await transactionIdentity(client))) {
-    throw new Error('media_inputs_require_transaction')
-  }
-  const retainedBinding = Object.freeze({ ...binding })
-  const resolved = await resolveMediaInputs(client, retainedBinding, batchId, subjectIds)
-  const captured = decodeMediaInputs(Buffer.from(resolved.bytes), Buffer.from(resolved.digest))
-  for (const digest of [...new Set(captured.versions.map((version) => version.digest))].sort()) {
-    await lockBlob(client, digest)
-  }
   const lifetime = await retainHandleLifetime(client)
   // Exposed descriptors are copies; mutation cannot change the private captured pin set.
   const descriptors = structuredClone(captured.versions)
@@ -216,4 +197,44 @@ export async function lockMediaInputs(
       await pinCapturedCommand(client, retainedBinding, commandId, captured)
     },
   })
+}
+
+/** Call before job/question locks; all digests are held before any per-scope capability is returned. */
+export async function lockMediaInputScopes(
+  client: PoolClient,
+  binding: CaptureBinding,
+  batchId: string,
+  subjectScopes: readonly MediaSubjectScope[],
+): Promise<readonly LockedMediaInputs[]> {
+  const retainedBinding = Object.freeze({ ...binding })
+  const identity = await transactionIdentity(client)
+  if (!sameTransaction(identity, await transactionIdentity(client))) {
+    throw new Error('media_inputs_require_transaction')
+  }
+  const resolved = await resolveMediaInputScopes(client, retainedBinding, batchId, subjectScopes)
+  const capturedScopes = resolved.map((inputs) =>
+    decodeMediaInputs(Buffer.from(inputs.bytes), Buffer.from(inputs.digest)),
+  )
+  const digests = new Set(
+    capturedScopes.flatMap((inputs) => inputs.versions.map((version) => version.digest)),
+  )
+  for (const digest of [...digests].sort()) {
+    await lockBlob(client, digest)
+  }
+  const handles: LockedMediaInputs[] = []
+  for (const inputs of capturedScopes) {
+    handles.push(await capturedHandle(client, retainedBinding, identity, inputs))
+  }
+  return Object.freeze(handles)
+}
+
+/** Compatible single-scope entry point; only the captured live transaction can pin. */
+export async function lockMediaInputs(
+  client: PoolClient,
+  binding: CaptureBinding,
+  batchId: string,
+  subjectIds: MediaSubjectScope,
+): Promise<LockedMediaInputs> {
+  const handles = await lockMediaInputScopes(client, binding, batchId, [subjectIds])
+  return handles[0]
 }
