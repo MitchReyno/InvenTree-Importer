@@ -49,7 +49,8 @@ requires the parent's independent exact-commit review; no merge is authorized.
 - Update active root docs/commands, mirrored skill supporting scripts and both
   agent hosts together; retain exact mirrored copies rather than symlinks.
 
-Official references checked: [pnpm installation](https://pnpm.io/installation),
+Official references checked: [Node release support](https://nodejs.org/en/about/previous-releases),
+[pnpm installation](https://pnpm.io/installation),
 [Vite guide](https://vite.dev/guide/), [React versions](https://react.dev/versions),
 [pnpm CI action](https://github.com/pnpm/action-setup/tree/v4) and published package
 metadata from the official npm registry. These verify tool availability/constraints,
@@ -60,7 +61,7 @@ not production behavior or importer integration.
 Commands below are run from repository root unless noted. uv/pnpm caches and tool
 installation are task-owned temporary directories, never user import directories.
 
-Passed before initial review candidate:
+Passed owner validation:
 
 - Fresh `uv sync --project backend --locked --extra scanner`: Python 3.12.11,
   unchanged uv lock, relocated editable package.
@@ -76,15 +77,24 @@ Passed before initial review candidate:
   config/env identity and explicit-relative cache I/O.
 - `make test-scanner`: 43 passed, 1908 deselected, 43.87 seconds.
 - `uv build --project backend --wheel`: built the unchanged package identity;
-  wheel installed in a fresh separate environment. External wheel smoke ongoing.
+  wheel installed in a fresh separate environment; external wheel discovery and
+  explicit environment/CLI help smoke pass.
 - `git diff --check`: pass.
+- Final `make test`: 1907 passed, 1 existing skip, 43 scanner deselected in
+  207.06 seconds; frontend 2 passed in 912 milliseconds. All previously missed
+  skill/script checks run again; relocation introduces no new skip.
+- Root `pnpm backend --help` delegation and actual `pnpm dev` loopback HTTP smoke
+  pass; owned Vite process stopped afterward. The first dev smoke expected the
+  wrong HTML title; correcting the assertion to the actual scaffold title passed.
+- CI YAML parsed and push branches asserted as main plus interative-app; pull
+  request trigger retained.
 
 The first normal run exposed a relocated test-fixture lookup error: logo/crop/skill
 checks inferred the shared root from CONFIG_DIR.parent, which is now backend.
 That produced 18 missing-script errors and 49 unintended skips (1840 passed,
-50 skipped, 43 deselected, 203.98 seconds). Correct those tests to use the shared
-repository fixture root; no product workflow is bypassed. Focused correction checks pass all 67 logo/crop/skill tests; the corrected normal
-suite is rerun below. A first mechanical import rewrite briefly caused a collection
+50 skipped, 43 deselected, 203.98 seconds). The correction uses the shared repository fixture root; no product workflow is
+bypassed. Focused correction checks pass all 67 logo/crop/skill tests; the final
+normal result above restores all intended coverage. A first mechanical import rewrite briefly caused a collection
 error in the skill test; retaining its config-loader import fixed it before rerun.
 
 Actual happy and partial demos pass prepare/preview/execute/status/completed
@@ -94,8 +104,7 @@ and PKs unchanged. Each has one Part, two stock lots, one PO, two contributions.
 Poisoned inherited proxy/target settings are ignored by the private child.
 Installed-wheel external-cwd discovery and CLI help pass in a fresh environment.
 
-Pending: corrected normal suite, final complete check summary and independent
-review. The initial standalone wheel assertion incorrectly expected site-packages
+The initial standalone wheel assertion incorrectly expected site-packages
 in the fallback config directory; the historical fallback is the interpreter lib
 parent. This was a validation expectation error, not a runtime change.
 
@@ -112,9 +121,42 @@ initiative trunk; pull-request CI remains target-independent.
 
 ## Review, shifts and limits
 
-Independent review pending. Its findings, corrections and exact accepted hash will
-be recorded here before publication. No release claim is made for the scaffold's
-future backend integration. Fake demo evidence establishes loopback behavior only;
+An independent reviewer approved runtime/implementation commit
+`208609273595f5f2a21239dd23ef8cae6c1d6e08` with no unresolved material findings.
+The review inspected the rename/content diff, all changed consumption boundaries,
+unchanged execution/state modules, mirrored workflows, CI and active guidance.
+The initial fixture-root failure and initiative-trunk CI correction were cleared.
+
+Independent validation (separate from owner totals):
+
+- Paths/env/cache/config/workflow sync: 122 passed, 1 existing skip; corrected
+  logo/crop/skill checks: 67 passed, zero skips; configured Ruff/diff-check pass.
+- Synthetic root/backend/external I/O proves actual env/config/product-cache
+  consumption and explicit-relative cache isolation, plus direct uv cwd behavior.
+  Actual scanner default/explicit pending exports target the expected directories.
+- A fresh wheel contains all 97 current Python module bytes exactly, excludes
+  checkout-only files, ignores unrelated workspace defaults, and runs the real CLI
+  vocabulary with explicit caller-relative config.
+- The fresh installed wheel runs the actual loopback partial demo, persistent
+  server restart, original-ID evidence repair and completed resume; all inventory
+  record contents/PKs remain unchanged. Poisoned inherited proxy/target is ignored.
+- Frontend typecheck/lint/2 tests/build pass. A separately copied workspace performs
+  a frozen offline install with 197 reused packages and zero downloads.
+
+Reviewer environment failures are retained as evidence: the first script-test
+invocation hit the sandbox's home uv-cache denial (24 failures, 43 passes); using
+the populated task cache gives all 67 passes. Its first wheel-demo bind was denied
+by the loopback sandbox, leaving an owned incomplete fake workspace; a new owned
+workspace under scoped permission passes. No live service was contacted. These
+failed environment attempts are not counted as successful source coverage.
+The reviewer did not repeat the complete normal/scanner suites; targeted independent
+I/O, distribution, scanner-export and demo checks supplement the owner's full runs.
+
+This final successor contains documentation only: final evidence, review disposition
+and a maintained-plan command selecting configured Ruff. It requires a brief exact
+successor-delta review before publication. No merge is authorized.
+
+No release claim is made for the scaffold's future backend integration. Fake demo evidence establishes loopback behavior only;
 production capabilities, durable execution rollout limits and real inventory
 approval rules stay as documented in the existing operator/execution docs.
 
