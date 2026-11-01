@@ -1,5 +1,7 @@
 # Wave 3 — shared integration record
 
+Current checkpoint: media #53 is merged; Processing `4df0e074` implements the combined V2 coordinator. Focused PG7/process3 and owning scope7/retention8 checks pass. Final normal/current-image/browser checks and independent ready-PR review remain pending. Tests use deterministic stubs; no actual provider or protected inventory capability is claimed.
+
 ## Prospective plan
 
 Recorded before coordinator changes to shared code. T04 merged as PR #46 at `10bd6c85c81d02a0a5970b002c79f55f9d41fe87`, after independent server and UI clearance of `88d3d34f674d9334e68f875f2f6833320f964394` and six selected CI passes. Three unrelated checks skipped. The first manual journey is qualified against the owned fake only.
@@ -202,3 +204,12 @@ The compatible single-scope path passed all eight existing media-retention cases
 A deliberately reversed global digest loop failed the expected lower-lock assertion. Exact source SHA-256 `305cc67725eb5df1626c379c0bd51899a756c5fae80762f6661be4e55d5efb0e` was restored in a `finally` block; the selected restored case passed. Test-only checkpoint `763a463` preserves the new suite and its evidence without claiming a separately releasable feature. Root API lint/types and the combined working-tree checks passed.
 
 Processing separately observed six PG and three deterministic child-process passes, then found and corrected an inherited first-read search-path gap during source inspection. Its updated seven-PG/three-process requalification is pending at this coordinator checkpoint. The final current-image build, normal suite, native combined UI and independent PR review remain feature gates. No actual model/provider usage or protected inventory request occurred.
+
+
+## Final T06 qualification plan
+
+Before final qualification, the coordinator updates root/server/frontend architecture summaries to the implemented durable coordinator, typed media authority and truthful lane settlement. Keep native-provider inference, production identity and real inventory mutation explicitly unqualified. No package or runtime expansion is part of this documentation step.
+
+Freeze the combined checkpoint, build current decoder/probe images through the exact maintained CI step and record immutable IDs. Run the maintained normal suite, complete PG/process tiers with explicit images and no decoder skips, types/generation/lint/format/build. Use only the owned PostgreSQL service and serialized test windows. Older image99 evidence remains supporting protocol evidence, not a claim that the current source image was tested.
+
+Then prepare an isolated synthetic combined browser fixture and inspect desktop/narrow Processing routes, pinned question/draft/unknown-answer behavior, archive/discard, media blockers/provenance and independent activity. Use browser-harness with recordings off; preserve old Capture4310. Complete the tracked handover, publish a ready nonstacked PR to interactive-app and obtain fresh independent exact-head domain/native reviews before the authorized selected-CI-green merge. No actual model/provider test or protected inventory request is permitted.
