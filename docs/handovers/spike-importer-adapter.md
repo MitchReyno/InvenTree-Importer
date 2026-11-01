@@ -1,15 +1,15 @@
 # Stage 1C — importer adapter engineering handover
 
-Task: establish the approved importer/application boundary against the shared two-lot fixture, without weakening canonical ownership, effect certainty or selected approval. Repository: MitchReyno/InvenTree-Importer. Tickets: none. Decisions owner: Mitch; coordinator owns shared contracts and publication. Snapshot: 2026-11-01 04:58 UTC. Refresh the exact local branch/HEAD and all preserved worktrees using `bash spikes/importer-adapter/state.sh` before reviewing or continuing.
+Task: establish the approved importer/application boundary against the shared two-lot fixture, without weakening canonical ownership, effect certainty or selected approval. Repository: MitchReyno/InvenTree-Importer. Tickets: none. Decisions owner: Mitch; coordinator owns shared contracts and publication. Snapshot: 2026-11-01 05:10 UTC. Refresh the exact local branch/HEAD and all preserved worktrees using `bash spikes/importer-adapter/state.sh` before reviewing or continuing.
 
 ## 1. Where things stand
 
 | Item | State |
 | --- | --- |
 | Baseline | Shared commit `a4e16686a4c6f563a9dc28aefd94481af5dedf77`, after merged Stage 0; initiative integration trunk is `interactive-app`. |
-| Owner branch | `feat/spike-importer-adapter`; implementation candidate, awaiting fresh independent review. Use the live-state script for exact HEAD. |
-| Publication | No push, PR, merge, deployment or live inventory write by this owner. Coordinator must obtain a fresh review, owner fixes and a clean re-review before publishing. |
-| Other work | Parallel provider/coordinator owners and every existing worktree/data set preserved. Shared schemas, fixtures, root docs and manifests/locks are unchanged. |
+| Owner branch | `feat/spike-importer-adapter`; implementation `def8069d472b905c3d43092510789a2d249fe389` independently cleared with no material findings, as reported by the coordinator. Shared correction merged; integrated exact HEAD awaits final reviewer clearance. Use the live-state script for exact HEAD. |
+| Publication | No push, PR, deployment, integration-trunk merge or live inventory write by this owner. Only the specifically authorized shared-contract branch merge was performed. Coordinator must obtain final clearance of the integrated exact HEAD before publishing. |
+| Other work | Parallel provider/coordinator owners and every existing worktree/data set preserved. No owner edits to shared files; the authorized merge inherits only the coordinator's shared handover and scoped fixture line-ending attribute correction. Shared schema/fixture bytes, root docs and manifests/locks remain unchanged. |
 | Background work | Final normal suite finished successfully; no background validation remains running. Results and retained evidence are below. |
 
 This is the tracked handover specifically requested by the user, rather than an external portable pack. Paths in repository documents remain repository-relative under project policy; the receiving prompt supplies the absolute checkout path outside repository files. No separate provider/runtime or Django service implementation is implied.
@@ -92,6 +92,16 @@ Retained local evidence: `.amp/in/artifacts/adapter-final-focused.log`, `adapter
 - The cancellation test originally relied on a delayed HTTP response. It now holds an accepted response behind a bounded event gate, observes explicit child cancellation receipt, then releases that same response; this makes the in-flight cancellation boundary deterministic without weakening the assertions.
 - Initial Ruff found one unused test import; removed. No failed assertion was weakened to manufacture success.
 
+### Independent review and authorized shared integration
+
+The coordinator reported fresh independent clearance of implementation `def8069d472b905c3d43092510789a2d249fe389` with no material findings on 2026-11-01. Reviewer evidence, not owner rerun claims: adapter plus four damaged-schema cases **15 passed in27.78s**; inherited execution selection **217 passed in82.31s**; Ruff and whitespace passed. Independent actual probes removed remotely created stock after an unknown acknowledgement, then verified supported repair did not recreate it and later lot B remained blocked; endpoint/nonce drift, missing journal and shared Part identity drift also held. These probes supplement the committed regressions; their separate reviewer artifacts are not copied into this checkout or claimed as committed tests.
+
+The reviewer's first combined run encountered one inherited demo-shutdown failure: SIGINT produced exit130 where the test expected0. All four affected demo tests passed on rerun. This initial failure is not counted as a clean combined pass or hidden by the rerun. The coordinator classified it as a separate inherited flake and will suggest a separate fix; this owner made no runtime/test changes for it. No production shutdown guarantee follows from the rerun.
+
+Per the coordinator's explicit instruction, `git merge --no-edit feat/spike-shared-contracts` integrated exact shared HEAD `20a46a1b46a5011fd89f96b375908561c7cefaa5`. Merge commit `098ae45e694a718b57e41c86be5ccdda252866ef` has parents `def8069d472b905c3d43092510789a2d249fe389` and that shared HEAD, with no conflicts. It inherits only `spikes/shared/.gitattributes` (LF preservation for byte-hashed JSON fixtures) and `docs/handovers/spike-shared-contracts.md` (shared review evidence). The adapter/engine runtime, fixture bytes, schemas and dependency declarations are unchanged; no new approval binding or state namespace was introduced. Existing synthetic workspaces and all earlier artifacts were preserved. Initial independent clearance covers the premerge implementation, not automatic clearance of this integrated/documented exact HEAD.
+
+Postmerge owner checks: `backend/.venv/bin/python -m pytest backend/tests/spikes/test_importer_adapter.py backend/tests/spikes/test_shared_contracts.py backend/tests/execution --basetemp .amp/in/artifacts/adapter-integrated-workspaces-098ae45 -q` completed successfully with **394 passing cases**, no skips or failures. The configured quiet output suppresses the summary; a separate collect-only invocation confirmed the394-case selection. This includes the11 adapter cases,35 shared conformance cases and348 inherited execution cases. Log: `.amp/in/artifacts/adapter-integrated-checks-098ae45.log`; new persistent workspaces: `.amp/in/artifacts/adapter-integrated-workspaces-098ae45/`. These destinations were new and no earlier evidence was cleared. Focused Ruff over the public adoption/ownership code, spike tests and adapter sources passed, as did base-to-HEAD whitespace checks. Full normal/frontend/scanner/demo suites were not rerun for this line-ending/documentation-only integration; the earlier full owner suite and separately attributed reviewer results remain historical evidence rather than a new integrated full-suite claim.
+
 ## 6. Plan adjustments, limitations and unmet criteria
 
 - This is an importer integration spike, not an application delivery. Real Django/PG approval commit/outbox, enqueue-ack loss, provider waiting jobs, authenticated humans, application revisions/cursors, SSE, production credentials, retention and coherent backup/restore are not implemented or claimed. Stage 1B and subsequent application work own those gates.
@@ -106,10 +116,10 @@ Retained local evidence: `.amp/in/artifacts/adapter-final-focused.log`, `adapter
 
 ## 7. Next steps and review process
 
-1. Refresh local state and review the base-to-HEAD change using the code-review skill; gate: preserve all worktrees/local data and do not publish.
-2. Independently inspect the public adoption seam, target/config/source/build approval binding, questions, cancellation, IPC/backpressure and real fault assertions. Re-run focused actual-SDK cases and inherited ownership/store/executor protections. Treat reservation/missing authority and unknown writes as hard review gates.
-3. Return every blocking finding to this owner. Owner makes scoped fixes with regression tests and updates this handover; obtain a fresh clean re-review of the corrected exact HEAD before coordinator publication.
-4. Coordinator reconciles Stage 1A/1B/1C contracts and decides production interfaces. Initiative PR base is `interactive-app`; this owner does not push/open PRs/merge.
+1. Refresh local state and inspect the authorized shared merge plus this documentation update relative to independently cleared `def8069d472b905c3d43092510789a2d249fe389`; gate: preserve all worktrees/local data and do not publish.
+2. Obtain final independent clearance of the integrated exact HEAD. The earlier implementation review found no material issues; do not infer final integrated clearance from owner checks. Treat reservation/missing authority, unknown writes and byte-bound fixture identity as hard review gates.
+3. Return any new blocking finding to this owner. Make only scoped fixes with regression evidence and updated handover, then obtain clean re-review of the corrected exact HEAD. The inherited demo SIGINT flake remains coordinator-owned separate follow-up, not an invitation to modify runtime here.
+4. Coordinator reconciles Stage 1A/1B/1C contracts and decides production interfaces. Initiative PR base is `interactive-app`; this owner does not push/open PRs or merge into the integration trunk.
 
 ## 8. Skills to use
 
@@ -135,7 +145,8 @@ If these skills are unavailable, perform the same read-only code review, state r
 
 | Item | Owner | Gates |
 | --- | --- | --- |
-| Exact independent-review clearance | Coordinator/fresh reviewer, then implementation owner | PR publication; owner checks do not clear this gate. |
+| Final integrated exact-HEAD clearance | Coordinator/fresh reviewer, then implementation owner for any findings | PR publication; initial implementation clearance and owner integration checks do not clear this gate. |
+| Inherited demo SIGINT exit-status flake | Coordinator, separate follow-up | Honest CI reliability tracking; no runtime fix is included here. |
 | Production adoption/approval/cursor and deployment choices | Mitch/coordinator after all spikes | Stage 1D and application implementation. |
 | Live-target compatibility and separately approved pilot | Mitch | Any real inventory write; none authorized here. |
 
@@ -148,4 +159,4 @@ If these skills are unavailable, perform the same read-only code review, state r
 
 ### Receiving-agent kickoff
 
-Continue Stage 1C in the existing adapter worktree. First read this entire tracked handover and run `bash spikes/importer-adapter/state.sh`. Independently review the exact implementation HEAD against shared commit `a4e16686a4c6f563a9dc28aefd94481af5dedf77`, especially canonical adoption, immutable selected scope, unknown effects and reservation-without-journal handling. Use reviewing-code for review and handover for transfer. Preserve all existing worktrees/local state. Do not push, open a PR, merge, launch other agents or call live inventory. Report findings to the coordinator; the owner must fix them and a clean fresh re-review must precede publication.
+Continue Stage 1C in the existing adapter worktree. First read this entire tracked handover and run `bash spikes/importer-adapter/state.sh`. Implementation `def8069d472b905c3d43092510789a2d249fe389` was independently cleared; review the authorized shared-contract merge and owner handover update for final integrated exact-HEAD clearance. Preserve canonical adoption, immutable selected scope, unknown-effect and reservation-without-journal safeguards. Use reviewing-code for review and handover for transfer. Preserve all existing worktrees/local state. Do not push, open a PR, merge, launch other agents or call live inventory. Report findings to the coordinator; any owner fixes need clean re-review before publication. Keep the inherited demo SIGINT flake as a separate coordinator follow-up.
