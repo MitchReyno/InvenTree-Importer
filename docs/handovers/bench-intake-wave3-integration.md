@@ -213,3 +213,13 @@ Before final qualification, the coordinator updates root/server/frontend archite
 Freeze the combined checkpoint, build current decoder/probe images through the exact maintained CI step and record immutable IDs. Run the maintained normal suite, complete PG/process tiers with explicit images and no decoder skips, types/generation/lint/format/build. Use only the owned PostgreSQL service and serialized test windows. Older image99 evidence remains supporting protocol evidence, not a claim that the current source image was tested.
 
 Then prepare an isolated synthetic combined browser fixture and inspect desktop/narrow Processing routes, pinned question/draft/unknown-answer behavior, archive/discard, media blockers/provenance and independent activity. Use browser-harness with recordings off; preserve old Capture4310. Complete the tracked handover, publish a ready nonstacked PR to interactive-app and obtain fresh independent exact-head domain/native reviews before the authorized selected-CI-green merge. No actual model/provider test or protected inventory request is permitted.
+
+
+For complete local tiers, extend the existing fixed-suite owned-PG runner with all-PG/all-process modes and the explicit synthetic Processing browser entrypoint. Keep its narrow environment and existing private state validation; do not duplicate secret parsing or invoke shared development-role provisioning/migration. Forward only the explicit decoder/probe image IDs needed by containment checks.
+
+
+### Current normal and image qualification
+
+The maintained full normal suite passed: 80 frontend, 26 contracts, 55 server and 2,038 backend cases. The backend retained four known skips and 43 scanner/TUI exclusions; Node tiers had no skips. The exact CI image step passed from production source checkpoint `f4d6137`, retaining decoder `sha256:877516742f7b760d12937fdaebe7086edc1b9e227c875bc68b9b24fa910c10cb` and probe `sha256:2d13d4364b84e22bdeb7aee36ebafc6fc15d80a5111aeecc9fac5c1466f61c70`. Current-image complete PG/process and actual browser checks remain pending.
+
+The explicit synthetic preview helper is source-ready with preserved test defaults, initialized-store-only media routes, read-only inventory activity and no apply/provider transport. Occupied default port 4350 refuses before database creation; no implicit duplicate preview is started. Its new source is not imported by application startup or normal tests. The fixed owned-PG helper supplies the narrow environment for whole tiers and preview launch.

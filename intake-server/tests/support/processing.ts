@@ -1,3 +1,11 @@
+import fastifyStatic from '@fastify/static'
+import { access } from 'node:fs/promises'
+import { join } from 'node:path'
+import { schemas } from '@invimport/contracts'
+import { registerMediaRoutes } from '../../src/media/routes.ts'
+import { grantMedia } from '../../src/media/grants.ts'
+import type { BlobStore } from '../../src/media/blob-store.ts'
+import { manualRepository } from '../../src/review/repository.ts'
 import { randomUUID } from 'node:crypto'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { createServer } from '../../src/api/server.ts'
@@ -10,8 +18,15 @@ import { grantCapture } from '../../src/capture/grants.ts'
 import { database } from '../../src/db/database.ts'
 import { isolatedDatabase, seedAuthority } from './database.ts'
 
+export interface ProcessingWebOptions {
+  port?: number
+  assets?: string
+  mediaStore?: BlobStore
+  readOnlyInventoryActivity?: boolean
+}
+
 /** Owned synthetic roles and manual evidence only; no target/provider transport is constructed. */
-export async function processingFixture() {
+export async function processingFixture(options: { autoStart?: boolean } = {}) {
   const db = await isolatedDatabase()
   const identity = await seedAuthority(db.pool)
   const runtimeRoles: string[] = []
@@ -57,11 +72,32 @@ export async function processingFixture() {
   let app: ReturnType<typeof createServer> | undefined
   let csrfToken = ''
 
-  async function start() {
-    app = createServer(config)
+  async function start(web: ProcessingWebOptions = {}) {
+    if (app) {
+      throw new Error('processing_fixture_already_started')
+    }
+    if (web.assets) {
+      await access(join(web.assets, 'index.html'))
+    }
+    if (web.mediaStore) {
+      await grantMedia(db.pool, api.name, 'api')
+    }
+    app = createServer(config, { mediaEnabled: web.mediaStore !== undefined })
     registerCapture(app, api.pool, config)
     registerProcessing(app, api.pool, config, lockCaptureForEdit)
-    config.origin = await app.listen({ host: '127.0.0.1', port: 0 })
+    if (web.mediaStore) {
+      registerMediaRoutes(app, api.pool, config, web.mediaStore)
+    }
+    if (web.readOnlyInventoryActivity) {
+      const inventory = manualRepository(db.pool, config)
+      app.get('/api/v1/activity', { schema: { response: { 200: schemas.ManualActivity } } }, () =>
+        inventory.activity(),
+      )
+    }
+    if (web.assets) {
+      await app.register(fastifyStatic, { root: web.assets, index: 'index.html', dotfiles: 'deny' })
+    }
+    config.origin = await app.listen({ host: '127.0.0.1', port: web.port ?? 0 })
     const bootstrap = await fetch(`${config.origin}/api/v1/bootstrap`)
     csrfToken = (await bootstrap.json()).csrf_token
   }
@@ -90,7 +126,9 @@ export async function processingFixture() {
       title: 'Synthetic manual processing',
       note: 'Keep the two physical packets separate.',
     })
-    if (created.status !== 201) throw new Error('processing_fixture_capture_failed')
+    if (created.status !== 201) {
+      throw new Error('processing_fixture_capture_failed')
+    }
     let batch = created.value as CaptureSnapshotDto
 
     async function edit(change: CaptureEditDto['change']) {
@@ -98,8 +136,9 @@ export async function processingFixture() {
         expected_revision: batch.revision,
         change,
       })
-      if (response.status !== 200)
+      if (response.status !== 200) {
         throw new Error(`processing_fixture_edit_failed:${response.status}`)
+      }
       batch = response.value
     }
 
@@ -128,7 +167,9 @@ export async function processingFixture() {
     }
   }
 
-  await start()
+  if (options.autoStart !== false) {
+    await start()
+  }
   return {
     db,
     identity,
@@ -142,7 +183,9 @@ export async function processingFixture() {
     seedCapture,
     async dispose() {
       await stop()
-      for (const connection of connections) await connection.close()
+      for (const connection of connections) {
+        await connection.close()
+      }
       for (const name of runtimeRoles.reverse()) {
         await db.pool.query(`DROP OWNED BY ${name} CASCADE`)
         await db.pool.query(`DROP ROLE ${name}`)

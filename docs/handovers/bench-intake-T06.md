@@ -233,3 +233,33 @@ Post-check inspection found inherited pool reads before the transaction search-p
 A max-one-connection runner fixture installs a hostile temporary `command` table. The negative control returns its forged command ID, while the actual fenced claim returns the exact retained public attempt. After this fix the selected PG tier passed 7/7 and all 3 deterministic child cases passed again, without skips. A final strengthened stale-output test additionally proved that another old terminal cannot clear a newer running lane or regress its current job; its affected PG file passed 3/3.
 
 The exclusive PG/Docker window is released and fixture disposal completed. Root API/test checkpoints are `e7084a4` and `763a463`; the coordinator delegated staging of the two regenerated contract artifacts with the owned Processing checkpoint. No unrelated root paths are included. Final host-loopback normal checks, actual browser checks and independent review still remain.
+
+## Prospective synthetic browser fixture
+
+Prepare `tests/fixtures/processing-browser.ts` as an explicit long-lived qualification entrypoint. It will serve the actual combined `frontend/dist` from the same loopback origin as Capture, Processing and optional media routes. Reuse the existing Processing fixture's isolated DB/roles, public HTTP commands, restricted runner interface and owning media upload/decoder APIs; do not add application startup behavior or a provider/inventory transport.
+
+Extend the existing fixture helper only to defer initial startup, choose a loopback port, serve built assets and register media once a private store exists. The combined activity indicator may use the public manual repository's read-only activity projection; expose no manual write/apply routes or runner. Existing tests retain their default startup behavior.
+
+The fixture will seed two distinct lots linked to a Part, explicit synthetic manual notes and exact quantities. One bounded decoder call may create ready evidence. Public Processing start/claim/message authority creates an initial typed question and descriptor-bound proposal. A serialized fixture-only polling loop may complete later UI starts/answers using the same restricted deterministic adapter and exact staged note/version sources. It must not fake actual media inspection or provider inference.
+
+Probe allocated port 4350 before startup and refuse an occupied listener. Never fall back implicitly to another port; reuse the recorded fixture or obtain an explicit alternate coordinator allocation. Write a safe artifact containing only the browser URL, batch ID and question ID. Signals stop scheduling, await in-flight deterministic work, close the owned listener and dispose only its own random DB/roles/private store. Preserve the existing PG service and 4310 preview.
+
+This follow-up is source-only until coordinator allocation. No PG, Docker, listener, browser or model/provider action is authorized by this preparation. Proposed launch uses the narrow `processing-browser` mapping in the maintained owned-PG helper and an explicit immutable decoder image; cleanup sends SIGINT to that foreground fixture and waits for its disposal. Browser work uses browser-harness with recordings off, never CUA.
+
+### Browser fixture source checkpoint
+
+The source-only entrypoint and narrow helper options are written; intake-server typechecking passes. Existing helper startup defaults remain unchanged. The new entrypoint creates Capture through its public repository, initializes the private store, serves the actual build, uploads/decodes one labelled synthetic original and creates initial Processing state through public start/dispatch/claim/message authority. A serial deterministic DBOS adapter handles later browser starts and answers without a provider or inventory transport.
+
+The fixture exposes only the existing read-only inventory activity projection for the combined shell. No manual write routes or inventory apply worker are registered. Additional browser uploads do not trigger automatic decoder work; the fixture performs only its one explicit initial decode.
+
+After coordinator allocation and setting the current immutable `INTAKE_MEDIA_DECODER_IMAGE`, launch from the repository root in an owned foreground PTY. The maintained helper injects private owned-PG credentials and a narrow environment without copying host credentials:
+
+```sh
+node intake-server/scripts/run-media-pg.cjs '' processing-browser
+```
+
+The default port is 4350 and an occupied listener fails before creating the fixture database. An alternate port requires explicit coordinator allocation; no implicit ephemeral preview is created. Metadata is written with exclusive creation to `.amp/in/artifacts/T06-preview.json`, containing only URL, batch ID and question ID. Follow the reported URL. Send Ctrl+C in that same PTY and wait for cleanup; do not stop PG or another preview. The fixture removes its metadata only when the bytes still match its own receipt.
+
+No listener, PG namespace, decoder, browser or actual model/provider was started for this source checkpoint. Runtime startup, native browser behavior and signal cleanup remain unqualified until the coordinator's allocated run. No staging or commit was performed.
+
+The coordinator requested braced readable helper branches and collision refusal before launch. Both source fixes are applied; no service or browser was started for them.
