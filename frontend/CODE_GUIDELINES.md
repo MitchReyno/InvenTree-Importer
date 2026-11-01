@@ -61,3 +61,9 @@ Update owning architecture/README with behavior changes and distinguish implemen
 - [React rules: components and hooks must be pure](https://react.dev/reference/rules/components-and-hooks-must-be-pure)
 - [React: you might not need an Effect](https://react.dev/learn/you-might-not-need-an-effect)
 - [TypeScript handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
+
+## Explicit readability checks
+
+Apply the shared [patterns to avoid](../CODE_GUIDELINES.md#patterns-to-avoid) to component, hook and client code. Use named prop/domain types; separate data normalization from rendering; make asynchronous and error states explicit rather than hiding them in nested expressions.
+
+Leave blank lines between functions and handlers. `pnpm lint:frontend` includes the shared readability rules; run `pnpm lint:readability` and `pnpm test:readability` for the cross-application check and its fixtures. Extract a meaningful component, hook or operation when responsibilities diverge; do not split solely to meet a line quota.

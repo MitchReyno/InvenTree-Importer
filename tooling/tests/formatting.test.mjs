@@ -26,7 +26,10 @@ function fixture(t) {
     '.prettierignore',
     '.pre-commit-config.yaml',
     '.remarkrc.json',
+    'eslint.config.mjs',
+    'tooling/eslint/readability.mjs',
   ]) {
+    mkdirSync(dirname(join(cwd, file)), { recursive: true })
     cpSync(join(root, file), join(cwd, file))
   }
   // Reuse installed tools, never install shared hooks or change the source worktree's index.
@@ -191,4 +194,26 @@ test('large-file exception admits only the preserved original table screenshot',
   git('add', '--', adjacent)
   const output = hook('check-added-large-files', 1)
   assert.ok(output.includes(adjacent), 'adjacent large reference must still be rejected')
+})
+
+test('shared readability hook rejects missing separation without rewriting or staging source', (t) => {
+  const { write, read, git, hook } = fixture(t)
+  const source = 'frontend/src/probe.ts'
+  const condensed = 'export function first() {}\nexport function second() {}\n'
+  write(source, condensed)
+  write('intake-server/src/probe.ts', 'export const value = 1\n')
+  write('contracts/src/probe.ts', 'export const value = 1\n')
+  const preserved = 'export const exactProtocol = {\n'
+  write('intake-server/src/fixtures/protocol.ts', preserved)
+  write('contracts/src/generated/protocol.ts', preserved)
+  git('add', source)
+  const output = hook('eslint-readability', 1)
+  assert.ok(output.includes('padding-line-between-statements'))
+  assert.equal(read(source), condensed)
+  assert.equal(git('show', ':' + source), condensed)
+  write(source, 'export function first() {}\n\nexport function second() {}\n')
+  git('add', source)
+  hook('eslint-readability')
+  assert.equal(read('intake-server/src/fixtures/protocol.ts'), preserved)
+  assert.equal(read('contracts/src/generated/protocol.ts'), preserved)
 })

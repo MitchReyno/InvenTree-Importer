@@ -48,6 +48,13 @@ def select_checks(paths: list[str] | None) -> dict[str, bool]:
             not markdown and path.startswith(("frontend/", "contracts/"))
         ) or path in WORKSPACE_INPUTS:
             selected["frontend"] = True
+        # Shared readability configuration is consumed by both application checks.
+        if not markdown and (
+            path == "eslint.config.mjs"
+            or path.startswith(("tooling/eslint/", "tooling/tests/readability"))
+        ):
+            selected["frontend"] = True
+            selected["intake"] = True
         # Both browser and server consume contracts; intake-server stays independent of Python.
         if (
             not markdown and path.startswith(("intake-server/", "contracts/"))
