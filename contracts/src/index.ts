@@ -1,23 +1,12 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Ajv2020 } from 'ajv/dist/2020.js'
+import { Id, Revision, CursorSequence, Digest, PositivePk, Quantity } from './scalars.ts'
+import { captureSchemas } from './capture.ts'
+export * from './scalars.ts'
+export * from './capture.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
-// Unlike $, this assertion cannot accept a trailing newline.
-const end = '(?![\\s\\S])'
-export const Id = Type.String({
-  pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}' + end,
-})
-export const Revision = Type.String({ pattern: '^[1-9][0-9]{0,18}' + end, format: 'int64' })
-export const CursorSequence = Type.String({
-  pattern: '^(0|[1-9][0-9]{0,18})' + end,
-  format: 'int64',
-})
-export const Digest = Type.String({ pattern: '^[0-9a-f]{64}' + end })
-export const PositivePk = Type.String({ pattern: '^[1-9][0-9]{0,18}' + end, format: 'int64' })
-export const Quantity = Type.String({
-  pattern: '^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?' + end,
-})
 const Label = Type.String({ minLength: 1, maxLength: 256 })
 const Selection = Type.Union([
   object({ mode: Type.Literal('inherit') }),
@@ -137,6 +126,7 @@ export const schemas = {
   ErrorDto,
   Bootstrap,
   Health,
+  ...captureSchemas,
 }
 export type BootstrapDto = Static<typeof Bootstrap>
 

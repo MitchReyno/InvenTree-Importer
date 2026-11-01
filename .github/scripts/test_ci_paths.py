@@ -14,64 +14,149 @@ from ci_paths import CHECKS, changed_paths, select_checks
 
 class SelectionTests(unittest.TestCase):
     def assert_checks(self, paths, *expected):
-        self.assertEqual({name for name, selected in select_checks(paths).items() if selected}, set(expected))
+        self.assertEqual(
+            {name for name, selected in select_checks(paths).items() if selected},
+            set(expected),
+        )
 
     def test_documentation_does_not_run_application_suites(self):
-        for path in ("README.md", "docs/intake-plan.md", "backend/README.md", "frontend/ARCHITECTURE.md", "intake-server/TESTING.md", "contracts/README.md", "spikes/shared/README.md", ".github/scripts/README.md", ".github/workflows/README.md"):
+        for path in (
+            "README.md",
+            "docs/intake-plan.md",
+            "backend/README.md",
+            "frontend/ARCHITECTURE.md",
+            "intake-server/TESTING.md",
+            "contracts/README.md",
+            "spikes/shared/README.md",
+            ".github/scripts/README.md",
+            ".github/workflows/README.md",
+        ):
             with self.subTest(path=path):
                 self.assert_checks([path], "markdown")
 
     def test_backend_and_frontend_are_asymmetric(self):
-        for path in ("backend/src/invimport/cli.py", "backend/tests/test_config.py", "backend/config/units.yaml", "backend/uv.lock", "backend/.python-version", "backend/pyproject.toml", "spikes/shared/schemas/message.schema.json"):
+        for path in (
+            "backend/src/invimport/cli.py",
+            "backend/tests/test_config.py",
+            "backend/config/units.yaml",
+            "backend/uv.lock",
+            "backend/.python-version",
+            "backend/pyproject.toml",
+            "spikes/shared/schemas/message.schema.json",
+        ):
             with self.subTest(path=path):
                 self.assert_checks([path], "backend", "backend_lint")
-        for path in ("frontend/src/App.tsx", "frontend/vite.config.ts", "frontend/tsconfig.json", "frontend/eslint.config.js"):
+        for path in (
+            "frontend/src/App.tsx",
+            "frontend/vite.config.ts",
+            "frontend/tsconfig.json",
+            "frontend/eslint.config.js",
+        ):
             with self.subTest(path=path):
                 self.assert_checks([path], "frontend")
 
-    def test_intake_contract_dependencies_are_independent_of_python_and_frontend(self):
-        # Frontend has no contracts import yet; server consumes every contracts source/artifact.
-        for path in ("intake-server/src/api/server.ts", "intake-server/package.json", "intake-server/tsconfig.json", "intake-server/migrations/0001_foundation.sql", "intake-server/scripts/dev-services.cjs", "intake-server/tests/support/database.ts", "contracts/package.json", "contracts/tsconfig.json", "contracts/src/index.ts", "contracts/generated/api.d.ts", "contracts/generated/client.ts", "contracts/generated/openapi.json", "contracts/vectors/canonical-v1.json", "contracts/scripts/generate.cjs"):
+    def test_intake_and_browser_select_actual_contract_consumers_not_python(self):
+        for path in (
+            "intake-server/src/api/server.ts",
+            "intake-server/package.json",
+            "intake-server/tsconfig.json",
+            "intake-server/migrations/0001_foundation.sql",
+            "intake-server/scripts/dev-services.cjs",
+            "intake-server/tests/support/database.ts",
+        ):
             with self.subTest(path=path):
                 self.assert_checks([path], "intake")
-        self.assert_checks(["intake-server-other/foo.ts", "contracts-other/schema.json"])
-        self.assert_checks(["intake-server/src/config.ts", "frontend/src/App.tsx"], "intake", "frontend")
+        for path in (
+            "contracts/package.json",
+            "contracts/tsconfig.json",
+            "contracts/src/index.ts",
+            "contracts/generated/api.d.ts",
+            "contracts/generated/client.ts",
+            "contracts/generated/openapi.json",
+            "contracts/vectors/canonical-v1.json",
+            "contracts/scripts/generate.cjs",
+        ):
+            with self.subTest(path=path):
+                self.assert_checks([path], "intake", "frontend")
+        self.assert_checks(
+            ["intake-server-other/foo.ts", "contracts-other/schema.json"]
+        )
+        self.assert_checks(
+            ["intake-server/src/config.ts", "frontend/src/App.tsx"],
+            "intake",
+            "frontend",
+        )
 
     def test_shared_skills_agents_and_resources_need_sync_not_full_tests(self):
-        for path in (".agents/skills/crop/reference.png", ".claude/skills/crop/reference.json", ".codex/agents/component-researcher.toml"):
+        for path in (
+            ".agents/skills/crop/reference.png",
+            ".claude/skills/crop/reference.json",
+            ".codex/agents/component-researcher.toml",
+        ):
             with self.subTest(path=path):
                 self.assert_checks([path], "workflow_sync")
-        self.assert_checks([".claude/agents/component-researcher.md"], "workflow_sync", "markdown")
-        self.assert_checks([".agents/skills/crop/SKILL.md"], "workflow_sync", "markdown")
+        self.assert_checks(
+            [".claude/agents/component-researcher.md"], "workflow_sync", "markdown"
+        )
+        self.assert_checks(
+            [".agents/skills/crop/SKILL.md"], "workflow_sync", "markdown"
+        )
 
     def test_either_skill_python_mirror_selects_behavioral_backend_tests(self):
         for root in (".agents/skills", ".claude/skills"):
-            for script in ("component-photo-crops/scripts/crop.py", "company-logos/scripts/scan_logo.py"):
+            for script in (
+                "component-photo-crops/scripts/crop.py",
+                "company-logos/scripts/scan_logo.py",
+            ):
                 with self.subTest(root=root, script=script):
                     # Each mirror alone must select the consumers, not only a paired change.
-                    self.assert_checks([f"{root}/{script}"], "backend", "backend_lint", "workflow_sync")
+                    self.assert_checks(
+                        [f"{root}/{script}"], "backend", "backend_lint", "workflow_sync"
+                    )
 
     def test_api_spec_is_a_backend_test_input_not_ordinary_documentation(self):
         self.assert_checks(["docs/InvenTree API.yaml"], "backend")
         self.assert_checks(["docs/unrelated.yaml"])
 
     def test_manifests_and_tool_configuration(self):
-        for path in ("package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", ".node-version"):
+        for path in (
+            "package.json",
+            "pnpm-lock.yaml",
+            "pnpm-workspace.yaml",
+            ".node-version",
+        ):
             with self.subTest(path=path):
-                self.assert_checks([path], "frontend", "intake", "markdown", "workflow_sync")
+                self.assert_checks(
+                    [path], "frontend", "intake", "markdown", "workflow_sync"
+                )
         self.assert_checks(["frontend/package.json"], "frontend", "workflow_sync")
         self.assert_checks([".remarkrc.json", ".gitignore"], "markdown")
 
     def test_ci_changes_validate_all_jobs(self):
-        for path in (".github/workflows/ci.yml", ".github/workflows/test.yml", ".github/workflows/lint.yml", ".github/scripts/ci_paths.py", ".github/scripts/test_ci_paths.py"):
+        for path in (
+            ".github/workflows/ci.yml",
+            ".github/workflows/test.yml",
+            ".github/workflows/lint.yml",
+            ".github/scripts/ci_paths.py",
+            ".github/scripts/test_ci_paths.py",
+        ):
             with self.subTest(path=path):
                 self.assert_checks([path], *CHECKS)
 
     def test_empty_unrelated_mixed_and_unavailable(self):
         self.assert_checks([])
-        self.assert_checks(["LICENSE", ".github/ISSUE_TEMPLATE/bug.yml", "frontend-other/file.ts"])
-        self.assert_checks(["frontend/src/App.tsx", "docs/design.md"], "frontend", "markdown")
-        self.assert_checks(["backend/config/units.yaml", "frontend/src/App.tsx"], "backend", "backend_lint", "frontend")
+        self.assert_checks(
+            ["LICENSE", ".github/ISSUE_TEMPLATE/bug.yml", "frontend-other/file.ts"]
+        )
+        self.assert_checks(
+            ["frontend/src/App.tsx", "docs/design.md"], "frontend", "markdown"
+        )
+        self.assert_checks(
+            ["backend/config/units.yaml", "frontend/src/App.tsx"],
+            "backend",
+            "backend_lint",
+            "frontend",
+        )
         self.assert_checks(None, *CHECKS)
 
 
@@ -87,7 +172,9 @@ class GitComparisonTests(unittest.TestCase):
         self.initial = self.commit()
 
     def git(self, *args):
-        return subprocess.run(["git", *args], cwd=self.root, check=True, capture_output=True, text=True).stdout.strip()
+        return subprocess.run(
+            ["git", *args], cwd=self.root, check=True, capture_output=True, text=True
+        ).stdout.strip()
 
     def write(self, name, body):
         path = self.root / name
@@ -117,8 +204,10 @@ class GitComparisonTests(unittest.TestCase):
         self.assertTrue(select_checks(paths)["frontend"])
         self.assertFalse(select_checks(paths)["backend"])
         # Pushes compare actual endpoints, not the PR merge base.
-        self.assertEqual(set(changed_paths("push", self.push_event(base, head), self.root)),
-                         {"backend/src/base_only.py", "frontend/src/App.tsx"})
+        self.assertEqual(
+            set(changed_paths("push", self.push_event(base, head), self.root)),
+            {"backend/src/base_only.py", "frontend/src/App.tsx"},
+        )
 
     def test_push_spans_all_commits_and_detects_deletions(self):
         self.write("backend/config/units.yaml", "units: []\n")
@@ -135,7 +224,9 @@ class GitComparisonTests(unittest.TestCase):
             self.write(f"docs/file-{index}.md", "documentation\n")
         self.write("frontend/src/App.tsx", "last relevant path\n")
         head = self.commit()
-        paths = changed_paths("pull_request", self.pr_event(self.initial, head), self.root)
+        paths = changed_paths(
+            "pull_request", self.pr_event(self.initial, head), self.root
+        )
         self.assertEqual(len(paths), 351)
         self.assertTrue(select_checks(paths)["frontend"])
         self.assertFalse(select_checks(paths)["backend"])
@@ -157,8 +248,18 @@ class GitComparisonTests(unittest.TestCase):
                     ("pull_request", self.pr_event(base, head)),
                 ):
                     paths = changed_paths(event_name, event, self.root)
-                    self.assertEqual(set(paths), {spec} if operation == "delete" else {spec, archived})
-                    self.assertEqual({name for name, selected in select_checks(paths).items() if selected}, {"backend"})
+                    self.assertEqual(
+                        set(paths),
+                        {spec} if operation == "delete" else {spec, archived},
+                    )
+                    self.assertEqual(
+                        {
+                            name
+                            for name, selected in select_checks(paths).items()
+                            if selected
+                        },
+                        {"backend"},
+                    )
 
     def test_contract_move_and_server_deletion_select_actual_consumers(self):
         self.write("contracts/src/example.ts", "export const example = 'fixture'\n")
@@ -167,13 +268,19 @@ class GitComparisonTests(unittest.TestCase):
         self.git("mv", "contracts/src/example.ts", "frontend/example.ts")
         moved = self.commit()
         paths = changed_paths("pull_request", self.pr_event(base, moved), self.root)
-        self.assertEqual({name for name, selected in select_checks(paths).items() if selected}, {"frontend", "intake"})
+        self.assertEqual(
+            {name for name, selected in select_checks(paths).items() if selected},
+            {"frontend", "intake"},
+        )
         self.write("intake-server/migrations/fixture.sql", "SELECT 1;\n")
         base = self.commit()
         (self.root / "intake-server/migrations/fixture.sql").unlink()
         deleted = self.commit()
         paths = changed_paths("push", self.push_event(base, deleted), self.root)
-        self.assertEqual({name for name, selected in select_checks(paths).items() if selected}, {"intake"})
+        self.assertEqual(
+            {name for name, selected in select_checks(paths).items() if selected},
+            {"intake"},
+        )
 
     def test_rename_uses_old_and_new_paths_with_unusual_names(self):
         old = "backend/config/odd\nname.yaml"
@@ -198,16 +305,33 @@ class GitComparisonTests(unittest.TestCase):
         self.assertFalse(select_checks(paths)["backend"])
 
     def test_no_changes_new_branch_missing_history_and_missing_merge_base(self):
-        self.assertEqual(changed_paths("push", self.push_event(self.initial, self.initial), self.root), [])
+        self.assertEqual(
+            changed_paths(
+                "push", self.push_event(self.initial, self.initial), self.root
+            ),
+            [],
+        )
         with redirect_stdout(io.StringIO()):
-            self.assertIsNone(changed_paths("push", self.push_event("0" * 40, self.initial), self.root))
-            self.assertIsNone(changed_paths("push", self.push_event("a" * 40, self.initial), self.root))
+            self.assertIsNone(
+                changed_paths(
+                    "push", self.push_event("0" * 40, self.initial), self.root
+                )
+            )
+            self.assertIsNone(
+                changed_paths(
+                    "push", self.push_event("a" * 40, self.initial), self.root
+                )
+            )
         self.git("checkout", "--orphan", "unrelated")
         self.git("rm", "-rf", ".")
         self.write("other.txt", "unrelated history\n")
         head = self.commit()
         with redirect_stdout(io.StringIO()):
-            self.assertIsNone(changed_paths("pull_request", self.pr_event(self.initial, head), self.root))
+            self.assertIsNone(
+                changed_paths(
+                    "pull_request", self.pr_event(self.initial, head), self.root
+                )
+            )
 
     def test_invalid_event_or_revision_fails_instead_of_skipping(self):
         with self.assertRaises(ValueError):
@@ -219,16 +343,33 @@ class GitComparisonTests(unittest.TestCase):
         self.write("frontend/src/App.tsx", "change\n")
         head = self.commit()
         event = self.root / "event.json"
-        event.write_text(json.dumps(self.pr_event(self.initial, head)), encoding="utf-8")
+        event.write_text(
+            json.dumps(self.pr_event(self.initial, head)), encoding="utf-8"
+        )
         output = self.root / "outputs"
         subprocess.run(
-            ["python3", str(Path(__file__).with_name("ci_paths.py"))], cwd=self.root, check=True,
-            env=os.environ | {"GITHUB_EVENT_PATH": str(event), "GITHUB_EVENT_NAME": "pull_request", "GITHUB_OUTPUT": str(output)},
+            ["python3", str(Path(__file__).with_name("ci_paths.py"))],
+            cwd=self.root,
+            check=True,
+            env=os.environ
+            | {
+                "GITHUB_EVENT_PATH": str(event),
+                "GITHUB_EVENT_NAME": "pull_request",
+                "GITHUB_OUTPUT": str(output),
+            },
             capture_output=True,
         )
-        self.assertEqual(output.read_text().splitlines(), [
-            "backend=false", "backend_lint=false", "frontend=true", "markdown=false", "workflow_sync=false", "intake=false",
-        ])
+        self.assertEqual(
+            output.read_text().splitlines(),
+            [
+                "backend=false",
+                "backend_lint=false",
+                "frontend=true",
+                "markdown=false",
+                "workflow_sync=false",
+                "intake=false",
+            ],
+        )
 
 
 if __name__ == "__main__":

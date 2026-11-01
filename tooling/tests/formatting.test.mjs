@@ -58,6 +58,26 @@ function fixture(t) {
   return { cwd, run, write, read, git, hook }
 }
 
+test('frontend styled templates format without changing generator template bytes', (t) => {
+  const { run, write, read } = fixture(t)
+  const template = 'color:red;padding:0  2px;'
+  write(
+    'frontend/src/Probe.tsx',
+    "import styled from 'styled-components'\nexport const Probe = styled.div`" + template + '`\n',
+  )
+  write(
+    'contracts/scripts/probe.cjs',
+    'const style = css`' + template + '`\nmodule.exports = style\n',
+  )
+  run('pnpm', ['format'])
+  assert.match(read('frontend/src/Probe.tsx'), /color: red;\n\s+padding: 0 2px;/)
+  assert.ok(read('contracts/scripts/probe.cjs').includes('`' + template + '`'))
+  const formatted = read('frontend/src/Probe.tsx')
+  run('pnpm', ['format:check'])
+  run('pnpm', ['format'])
+  assert.equal(read('frontend/src/Probe.tsx'), formatted)
+})
+
 test('code CLI formats supported languages, is idempotent, and preserves excluded bytes', (t) => {
   const { run, write, read } = fixture(t)
   const code = {

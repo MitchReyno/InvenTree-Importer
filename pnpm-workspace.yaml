@@ -5,3 +5,6 @@ packages:
 strictPeerDependencies: true
 allowBuilds:
   esbuild: true
+overrides:
+  '@fastify/static>glob': 14.0.2
+  'glob@14.0.2>minimatch': 11.0.1

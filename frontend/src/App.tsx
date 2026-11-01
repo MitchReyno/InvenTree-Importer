@@ -1,98 +1,134 @@
-import { useState } from 'react'
-
-type SelectedFile = { id: string; file: File }
-
-function fileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  return `${(bytes / 1024).toFixed(1)} KB`
-}
+import { Button, PageTitle, Panel, Paragraph } from './components/ui/primitives'
+import { useEffect, useState, type ReactNode } from 'react'
+import { captureClient, intakeClient } from '@invimport/contracts/client'
+import type { BootstrapDto } from '@invimport/contracts'
+import { Batches } from './components/batches/Batches'
+import { Batch } from './components/batches/Batch'
+import { GlobalStyle } from './components/GlobalStyle'
+import styled from 'styled-components'
 
 export default function App() {
-  const [files, setFiles] = useState<SelectedFile[]>([])
-
+  const [bootstrap, setBootstrap] = useState<BootstrapDto | null>(null)
+  const [error, setError] = useState('')
+  const [route, setRoute] = useState(location.hash.slice(1))
+  useEffect(() => {
+    let active = true
+    void intakeClient(location.origin)
+      .bootstrap()
+      .then((value) => {
+        if (active) {
+          setBootstrap(value)
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setError('Application unavailable. Check the local API and retry.')
+        }
+      })
+    const change = () => setRoute(location.hash.slice(1))
+    addEventListener('hashchange', change)
+    return () => {
+      active = false
+      removeEventListener('hashchange', change)
+    }
+  }, [])
+  const client = bootstrap?.csrf_token ? captureClient(location.origin, bootstrap.csrf_token) : null
+  let content: ReactNode
+  if (error) {
+    content = (
+      <div role="alert">
+        {error} <Button onClick={() => location.reload()}>Retry connection</Button>
+      </div>
+    )
+  } else if (!bootstrap) {
+    content = <Paragraph role="status">Loading…</Paragraph>
+  } else if (!client) {
+    content = (
+      <Panel>
+        <PageTitle>Local setup required</PageTitle>
+        <Paragraph>
+          Configure the server-side development key reference and capture database. No browser
+          credential entry is supported.
+        </Paragraph>
+        <Paragraph>
+          Final identity and complete permission qualification are deferred to T11.
+        </Paragraph>
+      </Panel>
+    )
+  } else if (route) {
+    content = <Batch key={route.split('/')[0]} id={route.split('/')[0]} client={client} />
+  } else {
+    content = <Batches client={client} />
+  }
   return (
-    <div className="app-shell">
-      <header className="masthead">
-        <a className="brand" href="/">
-          InvenTree <span>Importer</span>
-        </a>
-        <span className="scaffold-badge">Intake scaffold</span>
-      </header>
-      <main>
-        <p className="eyebrow">Start with your source</p>
-        <h1>A place for the paperwork.</h1>
-        <p className="intro">Gather component lists, receipts and photos for review.</p>
-        <section className="intake-card" aria-labelledby="intake-title">
-          <div className="card-heading">
-            <div>
-              <h2 id="intake-title">Source files</h2>
-              <p>Preview file names and sizes in this tab.</p>
-            </div>
-            <label className="choose-button">
-              Choose files
-              <input
-                aria-label="Choose source files"
-                type="file"
-                multiple
-                accept=".json,.yaml,.yml,.csv,.pdf,.png,.jpg,.jpeg"
-                onChange={(event) => {
-                  const selected = Array.from(event.currentTarget.files ?? []).map((file) => ({
-                    id: crypto.randomUUID(),
-                    file,
-                  }))
-                  setFiles((current) => [...current, ...selected])
-                  event.currentTarget.value = ''
-                }}
-              />
-            </label>
-          </div>
-          {files.length === 0 ? (
-            <div className="empty-state">
-              <span aria-hidden="true" className="paper-icon">
-                ↥
-              </span>
-              <h3>Your source files go here</h3>
-              <p>Choose a parts list, receipt or component photo to begin.</p>
-            </div>
-          ) : (
-            <ul className="file-list" aria-label="Selected source files">
-              {files.map(({ id, file }) => (
-                <li key={id}>
-                  <div>
-                    <strong>{file.name}</strong>
-                    <span>{fileSize(file.size)}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="remove-button"
-                    aria-label={`Remove ${file.name}`}
-                    onClick={() => setFiles((current) => current.filter((item) => item.id !== id))}
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="selection-footer">
-            <p role="status">
-              {files.length} {files.length === 1 ? 'file' : 'files'} selected
-            </p>
-            {files.length > 0 && (
-              <button type="button" className="text-button" onClick={() => setFiles([])}>
-                Clear selection
-              </button>
-            )}
-          </div>
-        </section>
-        <aside className="scope-note">
-          <strong>Local preview · scaffold</strong>
-          <p>Files stay in this tab. Upload, parsing and inventory actions are not connected.</p>
-        </aside>
-      </main>
-      <footer>
-        InvenTree Importer <span>Source → review → inventory</span>
-      </footer>
-    </div>
+    <AppShell>
+      <GlobalStyle />
+      <Masthead>
+        <Brand>
+          Bench <span>Intake</span>
+        </Brand>
+        <span>Manual capture</span>
+      </Masthead>
+      <DevelopmentBanner>
+        {bootstrap?.banner ?? 'Connecting to local application…'}
+      </DevelopmentBanner>
+      <Main>{content}</Main>
+      <Footer>
+        Saved in the application database, not this browser. No uploads, research, approval or
+        inventory writes.
+      </Footer>
+    </AppShell>
   )
 }
+
+const AppShell = styled.div`
+  max-width: 1600px;
+  padding: 0 24px;
+  margin: auto;
+  @media (max-width: 700px) {
+    padding: 0 12px;
+  }
+`
+const Masthead = styled.header`
+  min-height: 60px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid #d5dce5;
+  @media (max-width: 700px) {
+    min-height: 56px;
+    font-size: 12px;
+  }
+`
+const Brand = styled.strong`
+  font-size: 22px;
+  font-weight: 750;
+  text-decoration: none;
+  color: #233349;
+  span {
+    font-weight: 450;
+  }
+  @media (max-width: 700px) {
+    font-size: 20px;
+  }
+`
+const DevelopmentBanner = styled.p`
+  padding: 8px 12px;
+  color: #644813;
+  background: #fff3d8;
+  border: 1px solid #e7d09c;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+`
+const Main = styled.main`
+  margin: 18px auto;
+`
+const Footer = styled.footer`
+  padding: 24px 0;
+  border-top: 1px solid #d5dce5;
+  font-size: 12px;
+  color: #526179;
+  line-height: 1.6;
+`

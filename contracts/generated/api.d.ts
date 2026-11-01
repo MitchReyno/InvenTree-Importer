@@ -137,3 +137,426 @@ export interface Health {
   status: "ok";
   api_version: "bench-intake-app/1";
 }
+
+export interface CaptureRef {
+  observation_id: string;
+  target_context_id: string;
+  model: "part" | "location";
+  pk: string;
+}
+
+export type CaptureQuantity =
+  | {
+      mode: "unset";
+    }
+  | {
+      mode: "unknown";
+    }
+  | {
+      mode: "clear";
+    }
+  | {
+      mode: "set";
+      value: string;
+    }
+  | {
+      mode: "inherit";
+    };
+
+export type CaptureLocation =
+  | {
+      mode: "unset";
+    }
+  | {
+      mode: "unknown";
+    }
+  | {
+      mode: "clear";
+    }
+  | {
+      mode: "set";
+      value: {
+        observation_id: string;
+        target_context_id: string;
+        model: "part" | "location";
+        pk: string;
+      };
+    }
+  | {
+      mode: "inherit";
+    };
+
+export type CapturePartChoice =
+  | {
+      mode: "unset";
+    }
+  | {
+      mode: "unknown";
+    }
+  | {
+      mode: "clear";
+    }
+  | {
+      mode: "set";
+      value: {
+        observation_id: string;
+        target_context_id: string;
+        model: "part" | "location";
+        pk: string;
+      };
+    };
+
+export interface CaptureDefaults {
+  quantity:
+    | {
+        mode: "unset";
+      }
+    | {
+        mode: "unknown";
+      }
+    | {
+        mode: "clear";
+      }
+    | {
+        mode: "set";
+        value: string;
+      }
+    | {
+        mode: "inherit";
+      };
+  location:
+    | {
+        mode: "unset";
+      }
+    | {
+        mode: "unknown";
+      }
+    | {
+        mode: "clear";
+      }
+    | {
+        mode: "set";
+        value: {
+          observation_id: string;
+          target_context_id: string;
+          model: "part" | "location";
+          pk: string;
+        };
+      }
+    | {
+        mode: "inherit";
+      };
+}
+
+export interface CaptureEdit {
+  expected_revision: string;
+  change:
+    | {
+        kind: "batch";
+        title?: string;
+        archived?: boolean;
+      }
+    | {
+        kind: "defaults";
+        quantity?:
+          | {
+              mode: "unset";
+            }
+          | {
+              mode: "unknown";
+            }
+          | {
+              mode: "clear";
+            }
+          | {
+              mode: "set";
+              value: string;
+            }
+          | {
+              mode: "inherit";
+            };
+        location?:
+          | {
+              mode: "unset";
+            }
+          | {
+              mode: "unknown";
+            }
+          | {
+              mode: "clear";
+            }
+          | {
+              mode: "set";
+              value: {
+                observation_id: string;
+                target_context_id: string;
+                model: "part" | "location";
+                pk: string;
+              };
+            }
+          | {
+              mode: "inherit";
+            };
+      }
+    | {
+        kind: "add_part";
+        label: string;
+      }
+    | {
+        kind: "add_lot";
+        label: string;
+        note: string;
+        part_subject_id: string | null;
+      }
+    | {
+        kind: "lot";
+        id: string;
+        label?: string;
+        part_subject_id?: string | null;
+        quantity?:
+          | {
+              mode: "unset";
+            }
+          | {
+              mode: "unknown";
+            }
+          | {
+              mode: "clear";
+            }
+          | {
+              mode: "set";
+              value: string;
+            }
+          | {
+              mode: "inherit";
+            };
+        location?:
+          | {
+              mode: "unset";
+            }
+          | {
+              mode: "unknown";
+            }
+          | {
+              mode: "clear";
+            }
+          | {
+              mode: "set";
+              value: {
+                observation_id: string;
+                target_context_id: string;
+                model: "part" | "location";
+                pk: string;
+              };
+            }
+          | {
+              mode: "inherit";
+            };
+      }
+    | {
+        kind: "part";
+        id: string;
+        label?: string;
+        choice?:
+          | {
+              mode: "unset";
+            }
+          | {
+              mode: "unknown";
+            }
+          | {
+              mode: "clear";
+            }
+          | {
+              mode: "set";
+              value: {
+                observation_id: string;
+                target_context_id: string;
+                model: "part" | "location";
+                pk: string;
+              };
+            };
+      }
+    | {
+        kind: "note";
+        subject_id: string | null;
+        text: string;
+      };
+}
+
+export interface CaptureObserve {
+  model: "part" | "location";
+  pk: string;
+}
+
+export interface CaptureObservation {
+  id: string;
+  model: "part" | "location";
+  pk: string;
+  target_context_id: string;
+  label: string;
+  observed_at: string;
+}
+
+export interface CaptureSummary {
+  id: string;
+  source_id: string;
+  title: string;
+  revision: string;
+  archived: boolean;
+  updated_at: string;
+}
+
+export interface CaptureList {
+  batches: {
+    id: string;
+    source_id: string;
+    title: string;
+    revision: string;
+    archived: boolean;
+    updated_at: string;
+  }[];
+  truncated: boolean;
+}
+
+export interface CaptureSnapshot {
+  id: string;
+  source_id: string;
+  title: string;
+  revision: string;
+  archived: boolean;
+  updated_at: string;
+  actor_id: string;
+  target_context_id: string;
+  defaults: {
+    quantity:
+      | {
+          mode: "unset";
+        }
+      | {
+          mode: "unknown";
+        }
+      | {
+          mode: "clear";
+        }
+      | {
+          mode: "set";
+          value: string;
+        }
+      | {
+          mode: "inherit";
+        };
+    location:
+      | {
+          mode: "unset";
+        }
+      | {
+          mode: "unknown";
+        }
+      | {
+          mode: "clear";
+        }
+      | {
+          mode: "set";
+          value: {
+            observation_id: string;
+            target_context_id: string;
+            model: "part" | "location";
+            pk: string;
+          };
+        }
+      | {
+          mode: "inherit";
+        };
+  };
+  parts: {
+    id: string;
+    label: string;
+    revision: string;
+    choice:
+      | {
+          mode: "unset";
+        }
+      | {
+          mode: "unknown";
+        }
+      | {
+          mode: "clear";
+        }
+      | {
+          mode: "set";
+          value: {
+            observation_id: string;
+            target_context_id: string;
+            model: "part" | "location";
+            pk: string;
+          };
+        };
+  }[];
+  lots: {
+    id: string;
+    label: string;
+    revision: string;
+    contribution_key: string;
+    part_subject_id: string | null;
+    quantity:
+      | {
+          mode: "unset";
+        }
+      | {
+          mode: "unknown";
+        }
+      | {
+          mode: "clear";
+        }
+      | {
+          mode: "set";
+          value: string;
+        }
+      | {
+          mode: "inherit";
+        };
+    location:
+      | {
+          mode: "unset";
+        }
+      | {
+          mode: "unknown";
+        }
+      | {
+          mode: "clear";
+        }
+      | {
+          mode: "set";
+          value: {
+            observation_id: string;
+            target_context_id: string;
+            model: "part" | "location";
+            pk: string;
+          };
+        }
+      | {
+          mode: "inherit";
+        };
+  }[];
+  notes: {
+    id: string;
+    subject_id: string | null;
+    text: string;
+    actor_id: string;
+    created_at: string;
+    producer: "human";
+  }[];
+  observations: {
+    id: string;
+    model: "part" | "location";
+    pk: string;
+    target_context_id: string;
+    label: string;
+    observed_at: string;
+  }[];
+  cursor: {
+    stream_id: string;
+    sequence: string;
+  };
+}

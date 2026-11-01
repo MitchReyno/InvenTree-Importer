@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@dbos-inc/dbos-sdk": "5.4.0",
+    "@fastify/static": "10.1.8",
     "@invimport/contracts": "workspace:*",
     "drizzle-orm": "0.45.4",
     "fastify": "5.12.7",

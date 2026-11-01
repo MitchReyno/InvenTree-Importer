@@ -19,7 +19,11 @@ Always available: activity + questions | target/runner status | settings/help
 
 Use persistent URLs for batch, stage, selected lot, source page and approval round; returning from another device restores server-saved work, not local timer state. Global activity shows queued/running/waiting tasks across batches and links to the relevant item. Connection status distinguishes browser→application, application→target and runner→provider. “Connected” is not one green dot claiming all three.
 
-## Layout exploration
+## Primary original reference and layout exploration
+
+Inspect the [original interactive HTML prototype](reference/bench-intake.html) and direct screenshots of [Inbox](reference/01-inbox.png), [Capture](reference/03-capture.png), [Review](reference/02-review.png), [phone frame](reference/10-phone.png) and [actual mobile viewport](reference/11-mobile-viewport.png) before changing layout. The [reference index](reference/README.md) preserves all fifteen original screenshots, provenance, dependencies and historical limitations. These originals are the primary visual/interaction reference; the generated board below is secondary and derivative. Current wireframes/contracts override obsolete prototype behavior and simulations.
+
+During T02, Mitch explicitly approved the implementation's current light/neutral palette and blue accents, while requiring layout/UX continuity with the original. Preserve that palette; borrow the compact workspace hierarchy, retained evidence beside shared details, lot selection and narrow list → focused item flow. Do not switch to dark just to resemble screenshots, or introduce inactive capabilities as functional controls. Broader theme support remains a later product concern, not a reason to redesign this slice.
 
 ![Three exploratory review layouts](assets/review-layouts.png)
 
@@ -162,13 +166,13 @@ Target WCAG 2.2 AA: keyboard navigation, visible focus, semantic headings/tabs/f
 
 ## Settings and operator experience
 
-| Setting | User behavior / invalidation |
-| --- | --- |
-| Target/identity/access | Server-private delegated credentials, current user/requirements status and safe missing capabilities; no browser token field or privileged-account bypass. Read-only qualification; target changes invalidate preparations and cannot rebind active runs |
-| Category/parameter mappings and units | Versioned configuration; show affected fields/reviews; new preparation required |
-| Provider/runner/tool instructions | Capabilities and observed/tested status; changes start new attempts, not rewrite old results |
-| Defaults | Future/inherited draft values only; reviewed/approved history preserved |
-| Storage/retention | Usage, backup health, pinned recovery data, explicit archive/delete semantics |
-| Diagnostics | Outbox conflicts, incompatible versions, stalled processes, missing blobs, restore gate; supported actions, not raw SQL repair |
+| Setting                               | User behavior / invalidation                                                                                                                                                                                                                             |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Target/identity/access                | Server-private delegated credentials, current user/requirements status and safe missing capabilities; no browser token field or privileged-account bypass. Read-only qualification; target changes invalidate preparations and cannot rebind active runs |
+| Category/parameter mappings and units | Versioned configuration; show affected fields/reviews; new preparation required                                                                                                                                                                          |
+| Provider/runner/tool instructions     | Capabilities and observed/tested status; changes start new attempts, not rewrite old results                                                                                                                                                             |
+| Defaults                              | Future/inherited draft values only; reviewed/approved history preserved                                                                                                                                                                                  |
+| Storage/retention                     | Usage, backup health, pinned recovery data, explicit archive/delete semantics                                                                                                                                                                            |
+| Diagnostics                           | Outbox conflicts, incompatible versions, stalled processes, missing blobs, restore gate; supported actions, not raw SQL repair                                                                                                                           |
 
 Prototype/history pitfalls become tests: originals survive preview disposal; shared-image edits invalidate all affected reviews; old rounds are not overwritten; no localStorage success timer; keyboard/theme/device controls do not collide with app CSS; true mobile layout is tested, not a scaled desktop frame.
