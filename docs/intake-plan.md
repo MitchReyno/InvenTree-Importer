@@ -4,7 +4,7 @@ Status: proposed on 2026-11-01 after the independently reviewed Stage 1 investig
 
 ## Delivery and publication
 
-Use `interactive-app` as the initiative trunk. Shared contracts are PR #22; dependent spike PRs use `feat/spike-shared-contracts` until it lands, then update their bases to the initiative trunk and validate the resulting diffs. Do not merge automatically. Keep unrelated tooling PR #25 independent. A reconciliation/documentation PR can depend on the shared layer without importing spike runtimes or pretending those branches already landed.
+Use `interactive-app` as the initiative trunk and `feat/spike-shared-contracts` as the spike consolidation branch, per Mitch's superseding decision on 2026-11-01. Shared contracts landed in PR #22; runtime #23, coordination #26, importer adapter #24 and reconciliation #27 have since merged into the consolidation branch. Keep remaining spike follow-ups based there rather than retargeting them individually to the initiative trunk. Draft PR #29 proposes the combined branch for `interactive-app`; combined validation and fresh independent integration review precede any separately authorized merge. Do not merge automatically. Unrelated tooling PRs #25 and #28 remain separate from spike acceptance.
 
 Each owner supplies a comprehensive tracked engineering handover covering decisions, alternatives, changed acceptance criteria, verification and limitations. Fresh independent review precedes PR publication; fixes need clean re-review. Preserve all worktrees, evidence and local data. Tests, review clearance and publication are distinct from acceptance of all product gates or permission to deploy.
 
