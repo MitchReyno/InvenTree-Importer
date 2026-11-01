@@ -263,3 +263,39 @@ The default port is 4350 and an occupied listener fails before creating the fixt
 No listener, PG namespace, decoder, browser or actual model/provider was started for this source checkpoint. Runtime startup, native browser behavior and signal cleanup remain unqualified until the coordinator's allocated run. No staging or commit was performed.
 
 The coordinator requested braced readable helper branches and collision refusal before launch. Both source fixes are applied; no service or browser was started for them.
+
+## Prospective failed full-tier HTTP diagnosis
+
+The complete current-image PG tier reported 54/55 passing. The missing-V2-binding case failed with `fetch failed` / `UND_ERR_SOCKET` after roughly 1,072 seconds; an unrelated passing executor case also took roughly 917 seconds. The error is a loopback HTTP failure, while the missing-binding assertion calls the runner directly over PG. Its exact HTTP phase cannot be recovered from the original log because the fixture request helper adds neither a timeout nor phase diagnostics.
+
+A first exact reproduction, without code changes and with a 30-second outer bound, passed in 823 ms. The coordinator separately observed host sleep from 20:46:34 UTC to 21:00:21 UTC, overlapping the long case interval. Suspension is concrete contributing evidence, not proof that the original failure is cleared or that every duration anomaly has the same cause.
+
+Plan a test-harness-only change: factor bounded fixture JSON requests into a focused test-support helper. Preserve the original cause and report method, safe relative route and request-versus-response-body phase. Never include bodies, CSRF values, private URLs or credentials. Abort a stalled request after a named timeout and never retry, including uncertain POSTs. Application routes, retained bindings, idempotency and runner authority remain unchanged.
+
+Use controlled loopback socket-close and body-stall cases to prove attribution, timeout and exactly one POST. Then rerun the seven Processing PG cases and three deterministic process cases serially on the current immutable decoder image under the coordinator allocation. Dispose only owned listeners, namespaces and children; do not restart shared PG or infer anything about actual providers/inventory. Coordinate the index before any staging or commit.
+
+### Bounded HTTP diagnostic results
+
+The helper now aborts fixture JSON requests after a named 10-second bound, preserving the original cause and reporting safe method/relative path plus `request` or `response_body` phase. It never retries. Three controlled loopback cases passed: socket closure yields the request phase with exactly one POST; a partial-body stall aborts in the body phase; HTTP 409 remains an observable refusal with one POST. No headers, payloads, private origins or credentials are added to the diagnostic message.
+
+After this test-only change, Processing PG passed 7/7 in 12.6 seconds, including the previously failing case in 631 ms. Actual deterministic worker cases passed 3/3 in 23.0 seconds. Both used current decoder image `sha256:877516742f7b760d12937fdaebe7086edc1b9e227c875bc68b9b24fa910c10cb` and a process-scoped `caffeinate -i` assertion that ended with the child. No global power setting changed. All selected fixture disposal paths completed and the exclusive service window is released.
+
+Application routes, Processing/media authority and retry policy are unchanged. The original complete-tier failure is not relabelled green: the exact failed HTTP phase remains unknown, and final complete-tier qualification is coordinator-owned. The observed host suspension overlaps the anomalous interval; it is contributing evidence rather than a proven sole cause.
+
+Inspection also found that an initial bootstrap/start failure occurs before the disposable fixture object returns, so the caller cannot run its usual `finally` cleanup. That separate startup-failure cleanup gap was reported to the coordinator; this diagnostic checkpoint does not claim to fix it. No staging or commit occurred before index coordination.
+
+### Prospective initialization-failure cleanup guard
+
+The coordinator approved fixing the pre-return lifetime gap before checkpointing. Move cleanup into one idempotent private disposal path shared by successful callers and failed initialization. Enclose identity/role setup and automatic web/bootstrap startup in that guard. Preserve the original initialization error; if cleanup also fails, retain the original as the reported aggregate cause. Never broaden cleanup beyond resources recorded by this fixture.
+
+Add test-only allocation receipts with exact DB/role identifiers and the owned listener origin, never credentials. A PG regression will force an early role-allocation failure and a real bootstrap socket close, then query only each failed allocation's recorded identities and confirm its listener closed. A separate successful fixture must remain present and available. Place this regression under `tests/pg`; normal diagnostic tests remain loopback-only. No production routes, grants or authority are changed. Rerun the new and affected Processing PG cases with bounded execution and scoped idle-sleep prevention before releasing the window.
+
+### Initialization guard qualification
+
+The pre-return guard is implemented in test support only. A single idempotent cleanup path closes the owned listener/connections, drops only recorded roles and disposes the owned database. Initialization encloses identity/role setup and automatic startup; successful callers reuse that same disposal function. The original initialization error is rethrown unchanged when cleanup succeeds, and retained as cause if cleanup also fails.
+
+The new PG regression passed both controlled failures: an exception immediately after the first role allocation, and a real bootstrap response socket close. Exact receipts proved each failed allocation's database/roles were gone and its listener was closed, while a separately allocated live sentinel retained its DB/roles and answered health requests. No prefix scan, guessed orphan names or broad cleanup was used.
+
+After the guard, the startup regression plus affected Processing PG tier passed 8/8 with zero skips in 11.94 seconds on current image `87751674…`, under process-scoped idle-sleep prevention. All finalizers completed and the service window is released. The three deterministic process cases passed immediately before the equivalent cleanup extraction; the coordinator explicitly did not require another process run solely for that extraction.
+
+The original full-tier socket failure and uncertainty about its request phase remain recorded above. This checkpoint improves diagnostic bounds and resource lifetime; it does not assert a production authority defect or silently retry an uncertain write. Final complete-tier qualification remains coordinator-owned.
