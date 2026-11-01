@@ -136,3 +136,28 @@ The independent server-state owner retains App, Batch, legacy ManualWorkspace an
 The React Hook Form conversion passed all five focused question tests and application typechecks. Added observations cover synchronous dirty notification, TypeBox rejection without a send, a replaced question prop retaining its original mounted context, exact large decimal strings and frozen fields during a pending submission. The existing lost-acknowledgement test still adopts the same payload/key. The form uses library field/error/submission state; no polling reset or numeric coercion was added.
 
 Processing routes now classify the actual merged `CommandPayloadConflict` type. Maintained readability rules were applied to owned runtime files and the extracted capture seam; the initial check also caught two missing function-declaration spacings in the new tests, which were fixed with the same maintained rule. API client integration will follow a normal merge of the actual PR #50 trunk before the coordinator changes its shared registrations.
+
+### Ordinary Processing reads
+
+Before the next owned read-model edits, apply the approved Drizzle direction to ordinary Processing queries on the existing checked-out PostgreSQL connection. New owning schema/read modules describe selected columns only; reviewed SQL migration 0006 still owns constraints, deferred checks and immutability. Keep explicit locking and atomic transition SQL where its ordering is clearer.
+
+Build named question/proposal projections with complete producer-seal verification rather than nested projections over untyped rows. The initial activity-freshness interpretation was refined by coordinator review below: current-input freshness and occupied runner lanes must remain separate facts. Add a public activity regression and re-run the focused PostgreSQL/process cases under a new allocation. No shared schema, package, generator or unpublished media/TanStack interface is changed by this work.
+
+### Activity freshness and occupied lanes
+
+Coordinator review identified an essential distinction before qualification: a logically stale input does not mean its worker has stopped or its account lane has been released. Activity retains a held attempt's recorded state and includes `attempt_id`, `input_current` and `occupies_lane`; `lane_occupied` remains a safe aggregate even when the held command belongs to another configured target/context. Scoped held entries are prioritized before truncation.
+
+The logical workspace can mark stale input superseded while activity still reports the observed running attempt with `input_current=false` and `occupies_lane=true`. Only terminal settlement or an explicitly reaped/interrupted child releases that occupancy. The process regression edits human quantity while the actual synthetic child is paused and alive, checks its public activity and retained lane, then reaps/interrupts it and verifies the released lane and fresh attempt preserve the human value.
+
+
+### Resumed qualification results
+
+After the actual PR #49 and #50 merges, all application typechecks and five React Hook Form question tests passed. Maintained readability checks passed after fixing the two test declaration spacings with the owning rule.
+
+The first resumed PostgreSQL window passed the three focused public HTTP/PG and two actual DBOS child-process tests, including the previously unqualified adapter-input channel-capability separation. The next window repeated all five successfully after typed ordinary reads and the clarified activity semantics. Both windows used isolated synthetic namespaces, cleaned their own databases/roles/children and released the shared PostgreSQL allocation.
+
+Activity now retains a held lane first with its exact attempt identity and recorded state. `input_current=false` describes stale dependencies; it does not claim that the worker terminated. `occupies_lane` and `lane_occupied` describe reserved capacity pending settlement, not proof of native provider liveness. The physically paused-child regression confirms the lane remains visible after a human edit and disappears only after the owned child is reaped and explicitly interrupted. The fresh attempt retains human quantity `31`.
+
+The current Activity DTO is frozen for coordinator registration/client generation. Media descriptors/pins, server-state query integration, combined global activity UI and actual browser checks still require their actual merged prerequisites. No ready PR or independent clearance is claimed.
+
+The complete current frontend suite passed 18 tests after the form adaptation and error-description wiring. The owning read-model checkpoint also passes server typecheck, four offline model/seal cases, maintained readability and Markdown checks. These checks do not replace pending generated-client, media/query-cache integration, browser evidence or fresh independent review at the eventual ready PR head.

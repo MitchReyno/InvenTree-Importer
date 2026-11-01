@@ -118,12 +118,52 @@ test(
         async () => fixture.output,
         (output) => output.includes(`SYNTHETIC_CLAIMED:${originalAttempt}`),
       )
+      await capture.edit({
+        kind: 'lot',
+        id: capture.packetB.id,
+        quantity: { mode: 'set', value: '31' },
+      })
+      assert.equal(fixture.workerAlive, true, 'the synthetic runner is physically alive and paused')
+      const active = await fixture.http('/processing-activity')
+      assert.equal(active.status, 200)
+      assert.equal(active.value.lane_occupied, true)
+      assert.deepEqual(active.value.jobs, [
+        {
+          batch_id: capture.batch.id,
+          job_id: first.value.job_ids[0],
+          attempt_id: originalAttempt,
+          state: 'running',
+          input_current: false,
+          occupies_lane: true,
+        },
+      ])
+      const logical = await fixture.http(`/batches/${capture.batch.id}/processing`)
+      assert.equal(
+        logical.value.jobs[0].state,
+        'superseded',
+        'logical freshness does not settle a physical runner',
+      )
+      const lane = await fixture.db.pool.query(
+        'SELECT attempt_id FROM processing_lane WHERE actor_id=$1',
+        [fixture.identity.actor],
+      )
+      assert.deepEqual(lane.rows, [{ attempt_id: originalAttempt }])
+
       await fixture.stopWorker('SIGKILL')
+      assert.equal(fixture.workerAlive, false)
       // The original child has been reaped before declaring its ephemeral callback interrupted.
       await interruptProcessing(fixture.runner.pool, fixture.config, originalAttempt)
       await fixture.startWorker()
       const oldState = await fixture.http(`/batches/${capture.batch.id}/processing`)
-      assert.equal(oldState.value.jobs[0].state, 'interrupted')
+      assert.equal(oldState.value.jobs[0].state, 'superseded')
+      const interrupted = await fixture.db.pool.query(
+        'SELECT state FROM processing_attempt WHERE id=$1',
+        [originalAttempt],
+      )
+      assert.deepEqual(interrupted.rows, [{ state: 'interrupted' }])
+      const released = await fixture.http('/processing-activity')
+      assert.equal(released.value.lane_occupied, false)
+      assert.deepEqual(released.value.jobs, [])
       assert.equal(
         (
           await fixture.db.pool.query(
@@ -135,7 +175,7 @@ test(
       )
       const replacement = await fixture.http(
         `/batches/${capture.batch.id}/processing`,
-        start,
+        { ...start, expected_capture_revision: capture.batch.revision },
         randomUUID(),
       )
       assert.equal(replacement.status, 202)
@@ -145,6 +185,11 @@ test(
           (await fixture.http(`/batches/${capture.batch.id}/processing`))
             .value as ProcessingSnapshotDto,
         (snapshot) => snapshot.jobs[0].state === 'ready',
+      )
+      const saved = await fixture.http(`/batches/${capture.batch.id}`)
+      assert.deepEqual(
+        saved.value.lots.find((lot: { id: string }) => lot.id === capture.packetB.id).quantity,
+        { mode: 'set', value: '31' },
       )
       await fixture.stopWorker()
       scheduler = await DBOSClient.create({

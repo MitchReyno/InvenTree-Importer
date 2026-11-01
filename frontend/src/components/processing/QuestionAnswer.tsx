@@ -66,6 +66,7 @@ export function QuestionAnswer({
     currentQuestion.input_sha256 !== question.input_sha256 ||
     currentCaptureRevision !== captureRevision
   const error = formState.errors.value?.message ?? formState.errors.root?.command?.message
+  const errorId = `answer-error-${question.id}`
 
   function reportDirty(event: FormEvent<HTMLFormElement>) {
     const target = event.target
@@ -163,6 +164,7 @@ export function QuestionAnswer({
               inputMode="decimal"
               required
               aria-invalid={Boolean(formState.errors.value)}
+              aria-describedby={error ? errorId : undefined}
               {...register('value')}
             />
           ) : (
@@ -171,6 +173,7 @@ export function QuestionAnswer({
               maxLength={2048}
               required
               aria-invalid={Boolean(formState.errors.value)}
+              aria-describedby={error ? errorId : undefined}
               {...register('value')}
             />
           )}
@@ -184,7 +187,11 @@ export function QuestionAnswer({
             </Select>
           </Field>
         )}
-        {error && <ErrorNotice role="alert">{error}</ErrorNotice>}
+        {error && (
+          <ErrorNotice id={errorId} role="alert">
+            {error}
+          </ErrorNotice>
+        )}
         <Actions>
           <Button
             disabled={stale || disabled || formState.isSubmitting || !formState.isDirty}

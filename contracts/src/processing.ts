@@ -168,7 +168,18 @@ export const ProcessingAnswerReceipt = object({
   command_id: Id,
 })
 export const ProcessingActivity = object({
-  jobs: Type.Array(object({ batch_id: Id, job_id: Id, state: ProcessingState }), { maxItems: 100 }),
+  jobs: Type.Array(
+    object({
+      batch_id: Id,
+      job_id: Id,
+      attempt_id: Id,
+      state: ProcessingState,
+      input_current: Type.Boolean(),
+      occupies_lane: Type.Boolean(),
+    }),
+    { maxItems: 100 },
+  ),
+  lane_occupied: Type.Boolean(),
   truncated: Type.Boolean(),
 })
 export const processingSchemas = {

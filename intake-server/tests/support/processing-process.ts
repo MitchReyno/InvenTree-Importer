@@ -85,6 +85,9 @@ export async function processingProcess() {
     ...fixture,
     startWorker,
     stopWorker,
+    get workerAlive() {
+      return Boolean(child && child.exitCode === null && child.signalCode === null)
+    },
     get output() {
       return output
     },

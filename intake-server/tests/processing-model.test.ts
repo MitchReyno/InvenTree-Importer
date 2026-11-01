@@ -101,15 +101,15 @@ test('a valid spec hash alone cannot change the displayed question from its seal
   })
   const original = sealed(spec)
   const row = {
-    attempt_id: attemptId,
-    job_id: jobId,
-    command_id: commandId,
-    manifest_digest: Buffer.from('a'.repeat(64), 'hex'),
-    envelope_bytes: message.bytes,
-    envelope_digest: message.digest,
+    attemptId: attemptId,
+    jobId: jobId,
+    commandId: commandId,
+    manifestDigest: Buffer.from('a'.repeat(64), 'hex'),
+    envelopeBytes: message.bytes,
+    envelopeDigest: message.digest,
     disposition: 'accepted',
-    spec_bytes: original.bytes,
-    spec_digest: original.digest,
+    specBytes: original.bytes,
+    specDigest: original.digest,
   }
   assert.deepEqual(retainedQuestionSpec(row, subjectId), spec)
 
@@ -117,13 +117,13 @@ test('a valid spec hash alone cannot change the displayed question from its seal
   assert.throws(
     () =>
       retainedQuestionSpec(
-        { ...row, spec_bytes: misleading.bytes, spec_digest: misleading.digest },
+        { ...row, specBytes: misleading.bytes, specDigest: misleading.digest },
         subjectId,
       ),
     /retained_question_binding_invalid/,
   )
   assert.throws(
-    () => retainedQuestionSpec({ ...row, command_id: randomUUID() }, subjectId),
+    () => retainedQuestionSpec({ ...row, commandId: randomUUID() }, subjectId),
     /retained_message_binding_invalid/,
   )
 })

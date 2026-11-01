@@ -8,3 +8,5 @@ export const MAX_JOBS_PER_BATCH = 100
 export const MAX_JOB_RESULTS = 100
 
 export const MIN_CHANNEL_SECRET_BYTES = 32
+
+export const MAX_ACTIVITY_BATCHES = 100

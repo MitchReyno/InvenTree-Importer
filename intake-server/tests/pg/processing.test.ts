@@ -311,14 +311,45 @@ test('authenticated stale output, wrong binding, cancellation and interrupted at
         } as ProcessingEnvelopeDto),
       /runner_subject_mismatch/,
     )
+    const activeBeforeEdit = await fixture.http('/processing-activity')
+    assert.equal(activeBeforeEdit.status, 200)
+    assert.ok(
+      activeBeforeEdit.value.jobs.some(
+        (job: { job_id: string }) => job.job_id === command.payload.job_id,
+      ),
+    )
     await capture.edit({
       kind: 'lot',
       id: capture.packetA.id,
       quantity: { mode: 'set', value: '31' },
     })
+    const activeAfterEdit = await fixture.http('/processing-activity')
+    assert.equal(activeAfterEdit.status, 200)
+    assert.equal(activeAfterEdit.value.lane_occupied, true)
+    const staleRunning = activeAfterEdit.value.jobs.find(
+      (job: { attempt_id: string }) => job.attempt_id === command.payload.attempt_id,
+    )
+    assert.deepEqual(staleRunning, {
+      batch_id: capture.batch.id,
+      job_id: command.payload.job_id,
+      attempt_id: command.payload.attempt_id,
+      state: 'running',
+      input_current: false,
+      occupies_lane: true,
+    })
+    assert.equal((await read(fixture, capture.batch.id)).jobs[0].state, 'superseded')
+
     assert.equal(
       await acceptEnvelope(fixture.runner.pool, fixture.config, command.channelToken, proposal),
       'stale',
+    )
+    const settledActivity = await fixture.http('/processing-activity')
+    assert.equal(settledActivity.value.lane_occupied, false)
+    assert.equal(
+      settledActivity.value.jobs.some(
+        (job: { attempt_id: string }) => job.attempt_id === command.payload.attempt_id,
+      ),
+      false,
     )
     assert.equal(
       (await fixture.db.pool.query('SELECT disposition FROM processing_message')).rows[0]
