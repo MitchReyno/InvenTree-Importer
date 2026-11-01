@@ -25,6 +25,33 @@ export const ManualEffect = object({
   contribution_key: Id,
   barcode: text,
 })
+export const ManualMediaEvidence = object({
+  version_id: Id,
+  evidence_id: Id,
+  blob_sha256: Digest,
+  byte_size: Type.String({ pattern: '^[1-9][0-9]{0,7}$' }),
+  media_type: Type.Union([
+    Type.Literal('image/jpeg'),
+    Type.Literal('image/png'),
+    Type.Literal('application/pdf'),
+  ]),
+  kind: Type.Union([Type.Literal('original'), Type.Literal('derived')]),
+  original_version_id: Id,
+  original_sha256: Digest,
+  recipe_sha256: Type.Union([Digest, Type.Null()]),
+})
+export const ManualAttachment = object({
+  ...ManualMediaEvidence.properties,
+  artifact_key: Id,
+  lot_id: Id,
+  lot_label: text,
+  evidence_label: text,
+  destination: Type.Literal('stock_attachment'),
+})
+const capability = Type.Union([
+  Type.Literal('owned-fake-stock/1'),
+  Type.Literal('owned-fake-media/1'),
+])
 export const ManualPreview = object({
   id: Id,
   batch_id: Id,
@@ -33,7 +60,10 @@ export const ManualPreview = object({
   plan_sha256: Digest,
   review_fingerprint: Digest,
   target_revision: Revision,
-  capability: Type.Literal('owned-fake-stock/1'),
+  capability,
+  attachments: Type.Optional(Type.Array(ManualAttachment, { maxItems: 10 })),
+  evidence: Type.Optional(Type.Array(ManualMediaEvidence, { maxItems: 64 })),
+  media_inputs_sha256: Type.Optional(Digest),
   effects: Type.Array(ManualEffect, { minItems: 1, maxItems: 10 }),
 })
 export const ManualPreparationResult = Type.Union([
@@ -46,10 +76,10 @@ export const ManualPreparationResult = Type.Union([
 export const ManualReviewResult = object({ reviewed_subject_ids: Type.Array(Id), cursor })
 export const ManualAccepted = object({ run_id: Id, approval_id: Id, preparation_id: Id })
 export const ManualRunCommand = object({ expected_run_revision: Revision })
-export const ManualRecoveryCommand = object({
-  expected_run_revision: Revision,
-  operation_keys: selected,
-})
+export const ManualRecoveryCommand = Type.Union([
+  object({ expected_run_revision: Revision, operation_keys: selected }),
+  object({ expected_run_revision: Revision, attachment_keys: selected }),
+])
 export const ManualRun = object({
   run_id: Id,
   approval_id: Id,
@@ -80,6 +110,37 @@ export const ManualRun = object({
       Type.Literal(value),
     ),
   ),
+  attachments: Type.Optional(
+    Type.Array(
+      object({
+        artifact_key: Id,
+        lot_id: Id,
+        lot_label: text,
+        version_id: Id,
+        blob_sha256: Digest,
+        byte_size: Type.String({ pattern: '^[1-9][0-9]{0,7}$' }),
+        kind: Type.Union([Type.Literal('original'), Type.Literal('derived')]),
+        certainty: Type.Union([
+          Type.Literal('none'),
+          Type.Literal('unknown'),
+          Type.Literal('confirmed'),
+        ]),
+        remote_pk: Type.Union([PositivePk, Type.Null()]),
+        verification: Type.Union([
+          Type.Literal('matches'),
+          Type.Literal('missing_or_changed'),
+          Type.Literal('unavailable'),
+          Type.Null(),
+        ]),
+        recovery_action: Type.Union([
+          Type.Literal('repair_attachment'),
+          Type.Literal('verify_attachment'),
+          Type.Null(),
+        ]),
+      }),
+      { maxItems: 10 },
+    ),
+  ),
   operations: Type.Array(
     object({
       operation_key: Id,
@@ -99,7 +160,7 @@ export const ManualWorkspace = object({
   batch_id: Id,
   revision: Revision,
   supported: Type.Boolean(),
-  capability: Type.Union([Type.Literal('owned-fake-stock/1'), Type.Null()]),
+  capability: Type.Union([capability, Type.Null()]),
   lots: Type.Array(
     object({ lot_id: Id, reviewed: Type.Boolean(), issues: Type.Array(ManualIssue) }),
   ),
@@ -117,6 +178,8 @@ export const manualSchemas = {
   ManualIssue,
   ManualEffect,
   ManualPreview,
+  ManualAttachment,
+  ManualMediaEvidence,
   ManualPreparationResult,
   ManualReviewResult,
   ManualAccepted,
@@ -135,3 +198,9 @@ export type ManualPreviewDto = Static<typeof ManualPreview>
 export type ManualPreparationResultDto = Static<typeof ManualPreparationResult>
 export type ManualRunDto = Static<typeof ManualRun>
 export type ManualWorkspaceDto = Static<typeof ManualWorkspace>
+
+export type ManualAttachmentDto = Static<typeof ManualAttachment>
+export type ManualMediaEvidenceDto = Static<typeof ManualMediaEvidence>
+export type ManualAcceptedDto = Static<typeof ManualAccepted>
+export type ManualReviewResultDto = Static<typeof ManualReviewResult>
+export type ManualActivityDto = Static<typeof ManualActivity>

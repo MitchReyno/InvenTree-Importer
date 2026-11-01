@@ -819,6 +819,354 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{batchId}/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    batchId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description MediaSnapshot */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MediaSnapshot"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{batchId}/media/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    batchId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MediaEdit"];
+                };
+            };
+            responses: {
+                /** @description MediaSnapshot */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MediaSnapshot"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{batchId}/media/originals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    "x-intake-media-revision": string;
+                    /** @description Percent-encoded UTF-8 label, decoded and validated by the server. */
+                    "x-intake-media-label": string;
+                };
+                path: {
+                    batchId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/octet-stream": Blob;
+                };
+            };
+            responses: {
+                /** @description MediaReceipt */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MediaReceipt"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{batchId}/media/versions/{resourceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+                resourceId: string;
+            };
+            cookie?: never;
+        };
+        /** @description Private forced download; use a browser resource URL. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    batchId: string;
+                    resourceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Private forced download; use a browser resource URL. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/octet-stream": Blob;
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{batchId}/media/previews/{resourceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+                resourceId: string;
+            };
+            cookie?: never;
+        };
+        /** @description Private image preview; use a browser resource URL. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    batchId: string;
+                    resourceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Private image preview; use a browser resource URL. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "image/png": Blob;
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/activity": {
         parameters: {
             query?: never;
@@ -1678,6 +2026,7 @@ export interface components {
             target_context_id: string;
             /** @constant */
             mutation_enabled: false;
+            media_enabled?: boolean;
             /** @constant */
             permission_gate: "deferred_T11";
             csrf_token: string | null;
@@ -2152,8 +2501,36 @@ export interface components {
             review_fingerprint: string;
             /** Format: int64 */
             target_revision: string;
-            /** @constant */
-            capability: "owned-fake-stock/1";
+            capability: "owned-fake-stock/1" | "owned-fake-media/1";
+            attachments?: {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                /** @constant */
+                destination: "stock_attachment";
+            }[];
+            evidence?: {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+            }[];
+            media_inputs_sha256?: string;
             effects: {
                 lot_id: string;
                 lot_label: string;
@@ -2167,6 +2544,34 @@ export interface components {
                 barcode: string;
             }[];
         };
+        ManualAttachment: {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            /** @constant */
+            destination: "stock_attachment";
+        };
+        ManualMediaEvidence: {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+        };
         ManualPreparationResult: {
             /** @constant */
             status: "prepared";
@@ -2179,8 +2584,36 @@ export interface components {
                 review_fingerprint: string;
                 /** Format: int64 */
                 target_revision: string;
-                /** @constant */
-                capability: "owned-fake-stock/1";
+                capability: "owned-fake-stock/1" | "owned-fake-media/1";
+                attachments?: {
+                    version_id: string;
+                    evidence_id: string;
+                    blob_sha256: string;
+                    byte_size: string;
+                    media_type: "image/jpeg" | "image/png" | "application/pdf";
+                    kind: "original" | "derived";
+                    original_version_id: string;
+                    original_sha256: string;
+                    recipe_sha256: string | null;
+                    artifact_key: string;
+                    lot_id: string;
+                    lot_label: string;
+                    evidence_label: string;
+                    /** @constant */
+                    destination: "stock_attachment";
+                }[];
+                evidence?: {
+                    version_id: string;
+                    evidence_id: string;
+                    blob_sha256: string;
+                    byte_size: string;
+                    media_type: "image/jpeg" | "image/png" | "application/pdf";
+                    kind: "original" | "derived";
+                    original_version_id: string;
+                    original_sha256: string;
+                    recipe_sha256: string | null;
+                }[];
+                media_inputs_sha256?: string;
                 effects: {
                     lot_id: string;
                     lot_label: string;
@@ -2225,6 +2658,10 @@ export interface components {
             /** Format: int64 */
             expected_run_revision: string;
             operation_keys: string[];
+        } | {
+            /** Format: int64 */
+            expected_run_revision: string;
+            attachment_keys: string[];
         };
         ManualRun: {
             run_id: string;
@@ -2241,6 +2678,19 @@ export interface components {
             attributed_stock_ids: string[];
             cancellation_requested: boolean;
             dispatch_state: "not_requested" | "queued" | "running" | "finished" | "interrupted";
+            attachments?: {
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                version_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                kind: "original" | "derived";
+                certainty: "none" | "unknown" | "confirmed";
+                remote_pk: string | null;
+                verification: "matches" | "missing_or_changed" | "unavailable" | null;
+                recovery_action: "repair_attachment" | "verify_attachment" | null;
+            }[];
             operations: {
                 operation_key: string;
                 lot_id: string;
@@ -2261,7 +2711,7 @@ export interface components {
             /** Format: int64 */
             revision: string;
             supported: boolean;
-            capability: "owned-fake-stock/1" | null;
+            capability: ("owned-fake-stock/1" | "owned-fake-media/1") | null;
             lots: {
                 lot_id: string;
                 reviewed: boolean;
@@ -2287,6 +2737,19 @@ export interface components {
                 attributed_stock_ids: string[];
                 cancellation_requested: boolean;
                 dispatch_state: "not_requested" | "queued" | "running" | "finished" | "interrupted";
+                attachments?: {
+                    artifact_key: string;
+                    lot_id: string;
+                    lot_label: string;
+                    version_id: string;
+                    blob_sha256: string;
+                    byte_size: string;
+                    kind: "original" | "derived";
+                    certainty: "none" | "unknown" | "confirmed";
+                    remote_pk: string | null;
+                    verification: "matches" | "missing_or_changed" | "unavailable" | null;
+                    recovery_action: "repair_attachment" | "verify_attachment" | null;
+                }[];
                 operations: {
                     operation_key: string;
                     lot_id: string;
@@ -2311,8 +2774,36 @@ export interface components {
                 review_fingerprint: string;
                 /** Format: int64 */
                 target_revision: string;
-                /** @constant */
-                capability: "owned-fake-stock/1";
+                capability: "owned-fake-stock/1" | "owned-fake-media/1";
+                attachments?: {
+                    version_id: string;
+                    evidence_id: string;
+                    blob_sha256: string;
+                    byte_size: string;
+                    media_type: "image/jpeg" | "image/png" | "application/pdf";
+                    kind: "original" | "derived";
+                    original_version_id: string;
+                    original_sha256: string;
+                    recipe_sha256: string | null;
+                    artifact_key: string;
+                    lot_id: string;
+                    lot_label: string;
+                    evidence_label: string;
+                    /** @constant */
+                    destination: "stock_attachment";
+                }[];
+                evidence?: {
+                    version_id: string;
+                    evidence_id: string;
+                    blob_sha256: string;
+                    byte_size: string;
+                    media_type: "image/jpeg" | "image/png" | "application/pdf";
+                    kind: "original" | "derived";
+                    original_version_id: string;
+                    original_sha256: string;
+                    recipe_sha256: string | null;
+                }[];
+                media_inputs_sha256?: string;
                 effects: {
                     lot_id: string;
                     lot_label: string;
@@ -2776,6 +3267,320 @@ export interface components {
             capture_revision: string;
             command_id: string;
         };
+        MediaRecipe: {
+            /** @constant */
+            version: "documentary-crop/1";
+            source_version_id: string;
+            source_digest: string;
+            page: number;
+            source_width: number;
+            source_height: number;
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+            quarter_turns: number;
+        } | {
+            /** @constant */
+            version: "documentary-rotated-region/1";
+            source_version_id: string;
+            source_digest: string;
+            page: number;
+            source_width: number;
+            source_height: number;
+            center_x_micro: string;
+            center_y_micro: string;
+            width_micro: string;
+            height_micro: string;
+            rotation_millidegrees: number;
+            output_width: number;
+            output_height: number;
+            aspect_ratio: {
+                width: number;
+                height: number;
+            } | null;
+        };
+        MediaVersion: {
+            id: string;
+            evidence_id: string;
+            kind: "original" | "derived";
+            digest: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf" | "application/octet-stream";
+            state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
+            decoder_build: string | null;
+            recipe: ({
+                /** @constant */
+                version: "documentary-crop/1";
+                source_version_id: string;
+                source_digest: string;
+                page: number;
+                source_width: number;
+                source_height: number;
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+                quarter_turns: number;
+            } | {
+                /** @constant */
+                version: "documentary-rotated-region/1";
+                source_version_id: string;
+                source_digest: string;
+                page: number;
+                source_width: number;
+                source_height: number;
+                center_x_micro: string;
+                center_y_micro: string;
+                width_micro: string;
+                height_micro: string;
+                rotation_millidegrees: number;
+                output_width: number;
+                output_height: number;
+                aspect_ratio: {
+                    width: number;
+                    height: number;
+                } | null;
+            }) | null;
+            pages: {
+                page: number;
+                width: number;
+                height: number;
+                preview_id: string;
+            }[];
+        };
+        MediaSnapshot: {
+            batch_id: string;
+            /** Format: int64 */
+            revision: string;
+            evidence: {
+                id: string;
+                label: string;
+                group_id: string | null;
+                linked_subject_ids: string[];
+                versions: {
+                    id: string;
+                    evidence_id: string;
+                    kind: "original" | "derived";
+                    digest: string;
+                    byte_size: string;
+                    media_type: "image/jpeg" | "image/png" | "application/pdf" | "application/octet-stream";
+                    state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
+                    decoder_build: string | null;
+                    recipe: ({
+                        /** @constant */
+                        version: "documentary-crop/1";
+                        source_version_id: string;
+                        source_digest: string;
+                        page: number;
+                        source_width: number;
+                        source_height: number;
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                        quarter_turns: number;
+                    } | {
+                        /** @constant */
+                        version: "documentary-rotated-region/1";
+                        source_version_id: string;
+                        source_digest: string;
+                        page: number;
+                        source_width: number;
+                        source_height: number;
+                        center_x_micro: string;
+                        center_y_micro: string;
+                        width_micro: string;
+                        height_micro: string;
+                        rotation_millidegrees: number;
+                        output_width: number;
+                        output_height: number;
+                        aspect_ratio: {
+                            width: number;
+                            height: number;
+                        } | null;
+                    }) | null;
+                    pages: {
+                        page: number;
+                        width: number;
+                        height: number;
+                        preview_id: string;
+                    }[];
+                }[];
+            }[];
+            attachments: {
+                id: string;
+                subject_id: string;
+                mode: "selected" | "declined" | "unset";
+                version_id: string | null;
+                /** @constant */
+                destination: "lot_attachment";
+            }[];
+            groups: {
+                id: string;
+                label: string;
+            }[];
+            derivations: {
+                id: string;
+                evidence_id: string;
+                recipe: {
+                    /** @constant */
+                    version: "documentary-crop/1";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    source_width: number;
+                    source_height: number;
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                    quarter_turns: number;
+                } | {
+                    /** @constant */
+                    version: "documentary-rotated-region/1";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    source_width: number;
+                    source_height: number;
+                    center_x_micro: string;
+                    center_y_micro: string;
+                    width_micro: string;
+                    height_micro: string;
+                    rotation_millidegrees: number;
+                    output_width: number;
+                    output_height: number;
+                    aspect_ratio: {
+                        width: number;
+                        height: number;
+                    } | null;
+                };
+                state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
+                version_id: string | null;
+            }[];
+        };
+        MediaReceipt: {
+            /** @constant */
+            status: "retained";
+            batch_id: string;
+            evidence_id: string;
+            version: {
+                id: string;
+                evidence_id: string;
+                kind: "original" | "derived";
+                digest: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf" | "application/octet-stream";
+                state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
+                decoder_build: string | null;
+                recipe: ({
+                    /** @constant */
+                    version: "documentary-crop/1";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    source_width: number;
+                    source_height: number;
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                    quarter_turns: number;
+                } | {
+                    /** @constant */
+                    version: "documentary-rotated-region/1";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    source_width: number;
+                    source_height: number;
+                    center_x_micro: string;
+                    center_y_micro: string;
+                    width_micro: string;
+                    height_micro: string;
+                    rotation_millidegrees: number;
+                    output_width: number;
+                    output_height: number;
+                    aspect_ratio: {
+                        width: number;
+                        height: number;
+                    } | null;
+                }) | null;
+                pages: {
+                    page: number;
+                    width: number;
+                    height: number;
+                    preview_id: string;
+                }[];
+            };
+        };
+        MediaEdit: {
+            /** Format: int64 */
+            expected_revision: string;
+            change: {
+                /** @constant */
+                kind: "group";
+                label: string;
+            } | {
+                /** @constant */
+                kind: "move";
+                evidence_id: string;
+                group_id: string | null;
+            } | {
+                /** @constant */
+                kind: "link";
+                evidence_id: string;
+                subject_id: string;
+                linked: boolean;
+            } | {
+                /** @constant */
+                kind: "derive";
+                evidence_id: string;
+                derivation_id?: string;
+                recipe: {
+                    /** @constant */
+                    version: "documentary-crop/1";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    source_width: number;
+                    source_height: number;
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                    quarter_turns: number;
+                } | {
+                    /** @constant */
+                    version: "documentary-rotated-region/1";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    source_width: number;
+                    source_height: number;
+                    center_x_micro: string;
+                    center_y_micro: string;
+                    width_micro: string;
+                    height_micro: string;
+                    rotation_millidegrees: number;
+                    output_width: number;
+                    output_height: number;
+                    aspect_ratio: {
+                        width: number;
+                        height: number;
+                    } | null;
+                };
+            } | {
+                /** @constant */
+                kind: "select_attachment";
+                subject_id: string;
+                mode: "selected" | "declined" | "unset";
+                version_id: string | null;
+                /** @constant */
+                destination: "lot_attachment";
+            };
+        };
     };
     responses: never;
     parameters: never;
@@ -2813,6 +3618,8 @@ export type ManualScope = components['schemas']['ManualScope']
 export type ManualIssue = components['schemas']['ManualIssue']
 export type ManualEffect = components['schemas']['ManualEffect']
 export type ManualPreview = components['schemas']['ManualPreview']
+export type ManualAttachment = components['schemas']['ManualAttachment']
+export type ManualMediaEvidence = components['schemas']['ManualMediaEvidence']
 export type ManualPreparationResult = components['schemas']['ManualPreparationResult']
 export type ManualReviewResult = components['schemas']['ManualReviewResult']
 export type ManualAccepted = components['schemas']['ManualAccepted']
@@ -2838,3 +3645,8 @@ export type ProcessingJob = components['schemas']['ProcessingJob']
 export type ProcessingSnapshot = components['schemas']['ProcessingSnapshot']
 export type ProcessingReceipt = components['schemas']['ProcessingReceipt']
 export type ProcessingAnswerReceipt = components['schemas']['ProcessingAnswerReceipt']
+export type MediaRecipe = components['schemas']['MediaRecipe']
+export type MediaVersion = components['schemas']['MediaVersion']
+export type MediaSnapshot = components['schemas']['MediaSnapshot']
+export type MediaReceipt = components['schemas']['MediaReceipt']
+export type MediaEdit = components['schemas']['MediaEdit']

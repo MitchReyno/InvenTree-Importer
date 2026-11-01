@@ -2,7 +2,15 @@ import { randomUUID } from 'node:crypto'
 import type { PoolClient, Pool } from 'pg'
 import { canonical } from '@invimport/contracts/json'
 import { sha256, verifyBytes } from '../db/authority.ts'
-import { decodePlan, stockBytes, type StockPlan, id } from './plan.ts'
+import { stockBytes, id } from './plan.ts'
+import { decodeExecutablePlan, type ExecutablePlan } from './media-plan.ts'
+import { attachmentStates, type AttachmentState } from './attachment-state.ts'
+import {
+  lockApprovedMedia,
+  retainApprovedMediaPins,
+  requireApprovedMediaPins,
+} from '../media/execution-pins.ts'
+import { retainAttachmentIndex, requireAttachmentIndex } from './attachment-index.ts'
 
 export interface Reservation {
   approvalId: string
@@ -18,7 +26,7 @@ export interface RunAuthority {
   approvalId: string
   commandId: string
   actorId: string
-  plan: StockPlan
+  plan: ExecutablePlan
   planDigest: string
 }
 
@@ -49,7 +57,7 @@ export async function retainOriginalSource(
   }
 }
 
-export async function checkDeployment(client: Pick<PoolClient, 'query'>, plan: StockPlan) {
+export async function checkDeployment(client: Pick<PoolClient, 'query'>, plan: ExecutablePlan) {
   const result = await client.query(
     `SELECT d.*, t.current_context_id,t.profile FROM executor_deployment d JOIN target t ON t.id=d.target_id WHERE d.id=$1`,
     [plan.deploymentId],
@@ -81,7 +89,7 @@ export async function reserveApprovedStock(
   for (const key of ['approvalId', 'preparationId', 'runId', 'commandId', 'actorId'] as const) {
     id(input[key])
   }
-  const plan = decodePlan(input.bytes, input.digest)
+  const plan = decodeExecutablePlan(input.bytes, input.digest)
   await client.query('SELECT id FROM target WHERE id=$1 FOR UPDATE', [plan.targetId])
   await checkDeployment(client, plan)
   const source = await client.query(
@@ -136,6 +144,10 @@ export async function reserveApprovedStock(
   if (history.rowCount) {
     throw new Error('original_contribution_already_approved')
   }
+  const mediaBatchId =
+    plan.version === 'bench-media-plan/1'
+      ? await lockApprovedMedia(client, input.actorId, plan)
+      : null
   await client.query('INSERT INTO executor_approval VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [
     input.approvalId,
     input.preparationId,
@@ -188,6 +200,13 @@ export async function reserveApprovedStock(
       sha256(bytes),
     ])
   }
+  if (plan.version === 'bench-media-plan/1') {
+    await retainAttachmentIndex(client, input.runId, plan)
+    if (!mediaBatchId) {
+      throw new Error('media_source_authority_missing')
+    }
+    await retainApprovedMediaPins(client, input.approvalId, mediaBatchId, plan)
+  }
   await client.query(
     'UPDATE executor_guard SET active_run=$3 WHERE target_id=$1 AND original_key=$2',
     [plan.targetId, plan.originalSourceKey, input.runId],
@@ -210,7 +229,7 @@ export async function loadRun(
   if (!row) {
     throw new Error('run_authority_missing')
   }
-  const plan = decodePlan(row.plan_bytes, row.plan_digest)
+  const plan = decodeExecutablePlan(row.plan_bytes, row.plan_digest)
   await checkDeployment(client, plan)
   verifyBytes(row.payload_bytes, row.payload_digest)
   const expected = Buffer.from(
@@ -253,6 +272,10 @@ export async function loadRun(
     if (!stored.request_bytes.equals(stockBytes(operation))) {
       throw new Error('operation_bytes_mismatch')
     }
+  }
+  await requireAttachmentIndex(client, runId, plan)
+  if (plan.version === 'bench-media-plan/1') {
+    await requireApprovedMediaPins(client, row.id, plan)
   }
   return {
     runId,
@@ -348,6 +371,7 @@ export interface StockSnapshot {
   confirmedStockIds: string[]
   attributedStockIds: string[]
   cancellationRequested: boolean
+  attachments: AttachmentState[]
   operations: {
     operationKey: string
     certainty: 'confirmed' | 'unknown' | 'none'
@@ -382,6 +406,7 @@ export async function snapshot(
       remotePk: confirmed?.remote_pk ?? rows.find((value) => value.remote_pk)?.remote_pk ?? null,
     }
   })
+  const attachments = await attachmentStates(client, runId, authority.plan, operations)
   const cancelled = (await client.query('SELECT 1 FROM executor_cancel WHERE run_id=$1', [runId]))
     .rowCount
   const hasRequests = (
@@ -390,9 +415,10 @@ export async function snapshot(
   return {
     runId,
     cancellationRequested: Boolean(cancelled),
-    state: operations.some((value) => value.certainty === 'unknown')
+    attachments,
+    state: [...operations, ...attachments].some((value) => value.certainty === 'unknown')
       ? 'recovery_required'
-      : operations.every((value) => value.certainty === 'confirmed')
+      : [...operations, ...attachments].every((value) => value.certainty === 'confirmed')
         ? 'settled_complete'
         : cancelled || hasRequests
           ? 'settled_incomplete'

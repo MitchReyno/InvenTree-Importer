@@ -14,9 +14,19 @@ Verify generated drift, compile-only positive/adverse body and path cases, runti
 
 Implemented the shared `client-runtime.ts` extraction while preserving the public legacy facades. The generator now declares every path placeholder, refuses missing/unbounded JSON policies and unsupported representations, and omits only explicitly marked GET browser resources whose sole 200 representation is recognized binary. The isolated generator uses the official TypeScript AST Blob transform; the application compiler and dependencies are unchanged. Runtime JSON request/response/ErrorDto validation, CSRF, deadlines, redirect refusal and injected URL/RequestInit transport remain in the existing middleware.
 
+### Processing client checkpoint
+
 Added `processingClient.read/start/cancel/answer/activity` with the implemented paths and frozen DTOs from c39cdee. Start/answer use 45 seconds; reads, cancellation and Activity use 10 seconds. Activity requires exact attempt identity and current-input/lane flags. No media schema or sibling-only import was introduced.
 
 Verification: contracts **19 passed** (12 legacy, five processing and two generator-policy tests), all application typechecks, generated drift, frontend **18 passed**, frontend/full readability lint, targeted Prettier, Markdown and build passed. The actual ephemeral Node HTTP start test received one exact payload/key and returned a 202 receipt. Compile-only checks require every job/question path identity. Runtime adverse cases reject numeric revisions, exponent quantities, private fields and incomplete Activity, retain typed 409/412 errors and send no mutation retry. Build reports the existing chunk-size warning. Initial test execution was blocked by sandbox tsx IPC socket denial; the authorized local test run passed.
+
+### Media client checkpoint
+
+Added `mediaClient.snapshot/edit/upload` and generated all implemented media paths. Upload supplies raw Blob through the public bodySerializer hook, preserves exact revision and percent-encoded UTF-8 label, and rejects empty/oversized Blob sources and invalid metadata before transport. Downloads and previews remain native resource URLs, with explicit OpenAPI binary representations and no JSON-client runtime policy. Generation waited for the media owner’s frozen rotated-recipe/optional derivation-id and manual-recovery union signal; no DTO was edited by this owner.
+
+Verification: contracts **19 passed** (12 legacy, five media and two generator-policy tests), all application typechecks, generated drift, frontend **15 passed**, frontend lint, owned-client readability, targeted Prettier, Markdown and build passed. The actual ephemeral Node HTTP upload test received one literal six-byte binary payload, exact revision/UTF-8 headers and a JSON receipt. Compile-only checks prove Blob input and required resource IDs and reject text bodies/numeric revisions. Build reports the existing chunk-size warning.
+
+The first typecheck exposed required OpenAPI header parameters passed only as top-level headers; corrected the upload facade and compile fixture to supply typed params.header, then all types passed. Initial test execution was blocked by sandbox tsx IPC socket denial; the authorized local test run passed. Full T05 readability initially reported two spacing errors in the other owner’s active decoder-runner.ts (lines 56/78), reported to that owner; no unrelated file was changed to fix it.
 
 Owned paths are `contracts/scripts/generate.cjs`, the four existing generated artifacts, `contracts/src/client.ts`, `client-policy.ts`, new `client-runtime.ts`, the feature-specific client and tests, `contracts/tests/client-policy-generation.test.ts`, `tooling/openapi-generator/index.cjs`, and this handover. No manifests, DTO modules, backend routes, runtime configuration, UI, credentials or inventory transport were changed. No PostgreSQL, provider or protected-target request was used.
 

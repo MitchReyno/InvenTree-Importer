@@ -97,7 +97,13 @@ export function registerManual(
       repository.run(parameter(request)),
     )
     for (const action of ['start', 'cancel', 'recover'] as const) {
-      scope.post<{ Body: { expected_run_revision: string; operation_keys?: string[] } }>(
+      scope.post<{
+        Body: {
+          expected_run_revision: string
+          operation_keys?: string[]
+          attachment_keys?: string[]
+        }
+      }>(
         `/api/v1/runs/:id/${action}`,
         {
           schema: {

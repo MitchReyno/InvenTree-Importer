@@ -8,6 +8,7 @@ import {
   stockDeployment,
   type StockDeployment,
 } from '../execution/source.ts'
+import { mediaDeployment, type MediaDeployment } from '../execution/media-source.ts'
 import type { StockPlan } from '../execution/plan.ts'
 import { verifyBytes } from '../db/authority.ts'
 import { issue, type ManualMaterial } from './model.ts'
@@ -15,8 +16,9 @@ import { issue, type ManualMaterial } from './model.ts'
 export interface ManualConfig extends DevConfig {
   deploymentId?: string
   readOrigin?: string
+  mediaEnabled?: boolean
 }
-export type DeploymentBinding = StockDeployment
+export type DeploymentBinding = StockDeployment | MediaDeployment
 
 export async function deploymentBinding(
   client: PoolClient,
@@ -25,12 +27,17 @@ export async function deploymentBinding(
   if (!config.deploymentId || !config.readOrigin) {
     return null
   }
-  return stockDeployment(client, {
+  const input = {
     deploymentId: config.deploymentId,
     targetId: config.targetId,
     contextId: config.targetContextId,
     origin: config.readOrigin,
-  })
+  }
+  const stock = await stockDeployment(client, input)
+  if (stock) {
+    return stock
+  }
+  return mediaDeployment(client, input)
 }
 
 export async function lockedCapture(client: PoolClient, config: ManualConfig, batchId: string) {
@@ -126,7 +133,7 @@ export function requireReviews(material: ManualMaterial, reviews: ReviewBinding[
 }
 
 export function stockPlan(
-  binding: DeploymentBinding,
+  binding: StockDeployment,
   sourceId: string,
   originalSourceKey: string,
   material: ManualMaterial,

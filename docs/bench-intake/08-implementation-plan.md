@@ -224,3 +224,6 @@ Use Moveable for a crop-frame interaction that supports rotation by dragging out
 React Image Crop was initially approved for rectangle interaction, then superseded by this more specific requirement before its UI adoption. Do not retain an unused second crop package. Verify the actual selected Moveable release with the project's React/TypeScript versions rather than inferring compatibility from absent peer metadata.
 
 Arbitrary-angle frame rotation needs an explicit versioned media recipe and reproducible coordinate/output semantics. Preserve documentary-crop/1 and already retained recipe/approval bytes; do not silently reinterpret their quarter-turn behaviour. The media owner proposes the additive recipe and supplies preview/output, aspect-lock, pointer/keyboard, bounds and adverse-case evidence.
+
+
+The [later-phase package shortlist](09-package-candidates.md) records researched candidates requested by Mitch. It does not authorize blanket installation or replace each owner's exact-version compatibility and acceptance assessment.

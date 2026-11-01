@@ -11,6 +11,7 @@ export interface WorkerInput {
   claimToken: string
   runId: string
   profile: TargetProfile
+  mediaBlobRoot?: string
   recoveryIds: string[]
 }
 export type SupervisorInput = Omit<WorkerInput, 'claimToken' | 'recoveryIds'> & {

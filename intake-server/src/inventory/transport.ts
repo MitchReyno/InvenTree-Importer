@@ -1,4 +1,6 @@
-import { PositivePk } from '@invimport/contracts'
+import { createHash } from 'node:crypto'
+import { MEDIA_SOURCE_MAX_BYTES } from '@invimport/contracts/media'
+import { Digest, Id, PositivePk } from '@invimport/contracts'
 import { request as httpRequest } from 'node:http'
 import { request as httpsRequest } from 'node:https'
 import { Readable } from 'node:stream'
@@ -12,6 +14,7 @@ export interface TargetProfile extends TargetBinding {
   origin: string
   protectedOrigins: readonly string[]
   credential: string
+  attachmentCapability?: 'owned-fake-media/1'
 }
 type ReadOperation = { kind: 'get_part' | 'get_location' | 'get_stock'; pk: string }
 
@@ -50,7 +53,7 @@ const singleSend: typeof fetch = async (input, init) => {
     !(input instanceof URL) ||
     !init ||
     !['GET', 'POST'].includes(init.method ?? '') ||
-    (init.body !== undefined && typeof init.body !== 'string')
+    (init.body !== undefined && typeof init.body !== 'string' && !(init.body instanceof Uint8Array))
   ) {
     throw new Error('inventory_transport_call_refused')
   }
@@ -100,19 +103,50 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
     }
   }
 
-  async function request(path: string, method: 'GET' | 'POST', body?: string): Promise<Response> {
+  async function request(
+    path: string,
+    method: 'GET' | 'POST',
+    body?: string | Uint8Array<ArrayBuffer>,
+    headers: Record<string, string> = {},
+  ): Promise<Response> {
     const response = await send(new URL(path, destination), {
       method,
       body,
       redirect: 'manual',
       signal: AbortSignal.timeout(5000),
-      headers: { authorization: `Token ${profile.credential}`, 'content-type': 'application/json' },
+      headers: {
+        authorization: `Token ${profile.credential}`,
+        'content-type': 'application/json',
+        ...headers,
+      },
     })
     if (response.status >= 300 && response.status < 400) {
       await response.body?.cancel()
       throw new Error('target_redirect_refused')
     }
     return response
+  }
+
+  function requireOwnedMutationTarget() {
+    const literalLoopback =
+      destination.protocol === 'http:' && ['127.0.0.1', '[::1]'].includes(destination.hostname)
+    const protectedDestination = protectedHosts.includes(host(destination))
+    if (
+      profile.kind !== 'owned-disposable' ||
+      !profile.protectedOrigins.length ||
+      !literalLoopback ||
+      protectedDestination
+    ) {
+      throw new Error('mutation_target_refused')
+    }
+  }
+
+  function requireOwnedMedia(binding: TargetBinding) {
+    assertBinding(binding)
+    requireOwnedMutationTarget()
+    if (profile.attachmentCapability !== 'owned-fake-media/1') {
+      throw new Error('attachment_capability_refused')
+    }
   }
 
   return Object.freeze({
@@ -134,18 +168,74 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
     },
     async sendStock(binding: TargetBinding, retainedRequestBytes: string) {
       assertBinding(binding)
-      // Literal loopback only: no DNS rebinding/aliases, proxy, LAN, public target or redirects.
-      // Protected loopback aliases block the whole host, not only a spelling or port.
-      if (
-        profile.kind !== 'owned-disposable' ||
-        !profile.protectedOrigins.length ||
-        destination.protocol !== 'http:' ||
-        !['127.0.0.1', '[::1]'].includes(destination.hostname) ||
-        protectedHosts.includes(host(destination))
-      ) {
-        throw new Error('mutation_target_refused')
-      }
+      requireOwnedMutationTarget()
       return request('/api/stock/', 'POST', retainedRequestBytes)
     },
+
+    async sendAttachment(binding: TargetBinding, metadata: AttachmentWire, bytes: Buffer) {
+      requireOwnedMedia(binding)
+      checkedAttachmentWire(metadata, bytes)
+      return request('/api/stock/attachment/', 'POST', new Uint8Array(bytes), {
+        'content-type': 'application/octet-stream',
+        'x-bench-artifact': metadata.artifactKey,
+        'x-bench-stock': metadata.stockPk,
+        'x-bench-sha256': metadata.digest,
+        'x-bench-byte-size': metadata.byteSize,
+        'x-bench-media-type': metadata.mediaType,
+      })
+    },
+
+    async readAttachment(binding: TargetBinding, operation: AttachmentRead) {
+      requireOwnedMedia(binding)
+      if (operation.kind === 'lookup_attachment') {
+        if (!new RegExp(Id.pattern!).test(operation.artifactKey)) {
+          throw new Error('attachment_read_refused')
+        }
+        return request(`/api/stock/attachment/artifact/${operation.artifactKey}/`, 'GET')
+      }
+      if (
+        !new RegExp(PositivePk.pattern!).test(operation.pk) ||
+        BigInt(operation.pk) > 9223372036854775807n
+      ) {
+        throw new Error('attachment_read_refused')
+      }
+      const suffix = operation.kind === 'download_attachment' ? 'download/' : ''
+      if (!['get_attachment', 'download_attachment'].includes(operation.kind)) {
+        throw new Error('attachment_read_refused')
+      }
+      return request(`/api/stock/attachment/${operation.pk}/${suffix}`, 'GET')
+    },
   })
+}
+
+export interface AttachmentWire {
+  artifactKey: string
+  stockPk: string
+  digest: string
+  byteSize: string
+  mediaType: 'image/jpeg' | 'image/png' | 'application/pdf'
+}
+
+export type AttachmentRead =
+  | { kind: 'lookup_attachment'; artifactKey: string }
+  | { kind: 'get_attachment' | 'download_attachment'; pk: string }
+
+function checkedAttachmentWire(metadata: AttachmentWire, bytes: Buffer) {
+  const validIdentity =
+    new RegExp(Id.pattern!).test(metadata.artifactKey) &&
+    new RegExp(PositivePk.pattern!).test(metadata.stockPk) &&
+    BigInt(metadata.stockPk) <= 9223372036854775807n
+  const validBytes =
+    bytes.length > 0 &&
+    bytes.length <= MEDIA_SOURCE_MAX_BYTES &&
+    metadata.byteSize === String(bytes.length) &&
+    new RegExp(Digest.pattern!).test(metadata.digest) &&
+    createHash('sha256').update(bytes).digest('hex') === metadata.digest
+  if (
+    !validIdentity ||
+    !validBytes ||
+    !['image/jpeg', 'image/png', 'application/pdf'].includes(metadata.mediaType)
+  ) {
+    throw new Error('attachment_request_refused')
+  }
 }

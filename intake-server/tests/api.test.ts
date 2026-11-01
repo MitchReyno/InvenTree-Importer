@@ -200,6 +200,7 @@ test('bootstrap stable attribution, safe missing-key state, redaction, Host/Orig
     const response = await app.inject({ url: '/api/v1/bootstrap', headers })
     assert.equal(response.statusCode, 200)
     assert.equal(response.json().status, 'configured')
+    assert.equal(response.json().media_enabled, false)
     assert.equal(response.json().actor_id, thirdId)
     assert.equal(response.json().target_id, secondId)
     assert.equal(response.json().target_context_id, id)

@@ -1,6 +1,7 @@
 import styled from 'styled-components'
 import type { ManualRunDto } from '@invimport/contracts'
 import { Heading, Panel, Paragraph, Link } from '../ui/primitives'
+import type { RunRecoverySelection } from '../../manual/types'
 import { RunResult } from './RunResult'
 
 interface Props {
@@ -8,7 +9,11 @@ interface Props {
   runs: ManualRunDto[]
   focusedRunId?: string
   busy: boolean
-  command: (run: ManualRunDto, action: 'start' | 'cancel' | 'recover', keys?: string[]) => void
+  command: (
+    run: ManualRunDto,
+    action: 'start' | 'cancel' | 'recover',
+    selection?: RunRecoverySelection,
+  ) => void
 }
 
 export function ResultsWorkspace({ batchId, runs, focusedRunId, busy, command }: Props) {

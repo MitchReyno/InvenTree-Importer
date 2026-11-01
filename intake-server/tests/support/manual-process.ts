@@ -32,8 +32,8 @@ export async function freePort() {
   await new Promise<void>((resolve) => server.close(() => resolve()))
   return address.port
 }
-export async function manualProcess(port?: number) {
-  const fixture = await manualFixture()
+export async function manualProcess(port?: number, options: { media?: boolean } = {}) {
+  const fixture = await manualFixture(options)
   await fixture.stop()
   fixture.config.origin = `http://127.0.0.1:${port ?? (await freePort())}`
   let web: ChildProcess | undefined
@@ -61,6 +61,9 @@ export async function manualProcess(port?: number) {
         INTAKE_DEV_API_KEY: 'owned-fake-token',
         INTAKE_READ_ORIGIN: fixture.fake.origin,
         INTAKE_DEPLOYMENT_ID: fixture.runnerConfig.deploymentId,
+        ...(fixture.runnerConfig.mediaBlobRoot
+          ? { INTAKE_BLOB_ROOT: fixture.runnerConfig.mediaBlobRoot }
+          : {}),
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     })

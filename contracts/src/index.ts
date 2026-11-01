@@ -3,11 +3,13 @@ import { Ajv2020 } from 'ajv/dist/2020.js'
 import { Id, Revision, CursorSequence, Digest, PositivePk, Quantity } from './scalars.ts'
 import { captureSchemas } from './capture.ts'
 import { manualSchemas } from './manual.ts'
+import { mediaSchemas } from './media.ts'
 import { processingSchemas } from './processing.ts'
 export * from './scalars.ts'
 export * from './capture.ts'
 export * from './manual.ts'
 export * from './processing.ts'
+export * from './media.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -113,6 +115,7 @@ export const Bootstrap = object({
   target_id: Id,
   target_context_id: Id,
   mutation_enabled: Type.Literal(false),
+  media_enabled: Type.Optional(Type.Boolean()),
   permission_gate: Type.Literal('deferred_T11'),
   csrf_token: Type.Union([Digest, Type.Null()]),
 })
@@ -136,6 +139,7 @@ export const schemas = {
   ...captureSchemas,
   ...manualSchemas,
   ...processingSchemas,
+  ...mediaSchemas,
 }
 export type BootstrapDto = Static<typeof Bootstrap>
 export type ApprovalDto = Static<typeof Approval>

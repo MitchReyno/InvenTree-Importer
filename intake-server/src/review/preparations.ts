@@ -13,19 +13,22 @@ import { idempotent, appendEvent, sha256, verifyBytes } from '../db/authority.ts
 import { fail } from '../capture/repository.ts'
 import type { CaptureRead } from '../capture/routes.ts'
 import { loadRun, reserveApprovedStock } from '../execution/authority.ts'
-import { encodePlan } from '../execution/plan.ts'
-import { materialize, issue, type ManualMaterial } from './model.ts'
+import { encodeExecutablePlan } from '../execution/media-plan.ts'
+import { mediaPreview } from './media-preview.ts'
+import { retainPreparationMedia } from './media-preparation.ts'
+import { preparedPlan } from './media-plan.ts'
+import { issue, type ManualMaterial } from './model.ts'
 import {
   lockedCapture,
   deploymentBinding,
   historyIssues,
   currentReviews,
   requireReviews,
-  stockPlan,
   type ManualConfig,
   type DeploymentBinding,
   type ReviewBinding,
 } from './authority.ts'
+import { materializeWithMedia } from './media-material.ts'
 import { retainedPreparation } from './runs.ts'
 
 function scope(config: ManualConfig, action: string, batchId: string, key: string) {
@@ -51,7 +54,12 @@ async function checkedSelection(
   if (capture.snapshot.revision !== input.expected_batch_revision) {
     fail('revision_conflict', 412)
   }
-  const material = materialize(capture.snapshot, input.selected_lot_ids)
+  const material = await materializeWithMedia(
+    client,
+    config,
+    capture.snapshot,
+    input.selected_lot_ids,
+  )
   const binding = await deploymentBinding(client, config)
   const issues = [...material.issues]
   if (!binding) {
@@ -59,6 +67,14 @@ async function checkedSelection(
       issue(
         'unsupported_capability',
         'Stock execution is available only for a separately configured owned fake target.',
+      ),
+    )
+  }
+  if (material.mediaInputs?.size && binding?.capability !== 'owned-fake-media/1') {
+    issues.push(
+      issue(
+        'unsupported_media_capability',
+        'This retained media scope needs the separately qualified owned fake media capability.',
       ),
     )
   }
@@ -308,7 +324,12 @@ export async function prepareSelection(
   const readIssues = await observePreparation(pool, read, retained)
   return transaction(pool, async (client) => {
     const capture = await lockedCapture(client, config, batchId)
-    const material = materialize(capture.snapshot, retained.material.selected)
+    const material = await materializeWithMedia(
+      client,
+      config,
+      capture.snapshot,
+      retained.material.selected,
+    )
     const binding = await deploymentBinding(client, config)
     const reviews = await currentReviews(client, batchId, material)
     const issues = [...readIssues, ...material.issues]
@@ -332,9 +353,19 @@ export async function prepareSelection(
       response = { status: 'blocked', issues }
     } else {
       requireReviews(material, reviews)
-      const plan = stockPlan(binding!, capture.sourceId, capture.originalSourceKey, material)
-      const encoded = encodePlan(plan)
+      const plan = preparedPlan(binding!, capture.sourceId, capture.originalSourceKey, material)
+      const encoded = encodeExecutablePlan(plan)
       const preparationId = randomUUID()
+      const evidenceLabels = new Map<string, string>()
+      if (plan.version === 'bench-media-plan/1' && plan.attachments.length) {
+        const labels = await client.query<{ id: string; label: string }>(
+          'SELECT id,label FROM media_evidence WHERE batch_id=$1 AND id=ANY($2::uuid[])',
+          [batchId, plan.attachments.map((attachment) => attachment.evidenceId)],
+        )
+        for (const evidence of labels.rows) {
+          evidenceLabels.set(evidence.id, evidence.label)
+        }
+      }
       const preview: ManualPreviewDto = {
         id: preparationId,
         batch_id: batchId,
@@ -346,8 +377,9 @@ export async function prepareSelection(
         plan_sha256: encoded.digest.toString('hex'),
         review_fingerprint: sha256(retained.reviewBytes).toString('hex'),
         target_revision: binding!.targetRevision,
-        capability: 'owned-fake-stock/1',
+        capability: plan.capability,
         effects: material.effects,
+        ...mediaPreview(plan, capture.snapshot, evidenceLabels),
       }
       validate('ManualPreview', preview)
       await client.query(
@@ -368,6 +400,9 @@ export async function prepareSelection(
           Buffer.from(canonical(preview)),
         ],
       )
+      if (plan.version === 'bench-media-plan/1') {
+        await retainPreparationMedia(client, batchId, preparationId, config.actorId, material)
+      }
       for (const review of reviews) {
         await client.query('INSERT INTO manual_preparation_review VALUES($1,$2,$3,$4)', [
           batchId,
@@ -464,7 +499,12 @@ export async function approvePreparation(
             preparation_id: preview.id,
           }
         }
-        const material = materialize(capture.snapshot, preview.selected_lot_ids)
+        const material = await materializeWithMedia(
+          client,
+          config,
+          capture.snapshot,
+          preview.selected_lot_ids,
+        )
         const binding = await deploymentBinding(client, config)
         const reviews = await currentReviews(client, preview.batch_id, material)
         const problems = [
@@ -483,8 +523,8 @@ export async function approvePreparation(
           fail('stale_preparation', 409)
         }
         requireReviews(material, reviews)
-        const currentPlan = encodePlan(
-          stockPlan(binding, capture.sourceId, capture.originalSourceKey, material),
+        const currentPlan = encodeExecutablePlan(
+          preparedPlan(binding, capture.sourceId, capture.originalSourceKey, material),
         )
         if (!currentPlan.bytes.equals(preparation.row.plan_bytes)) {
           fail('stale_preparation', 409)

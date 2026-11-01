@@ -39,3 +39,18 @@ The transport uses core Node HTTP with no proxy discovery, pooling, retry or red
 ## Reproducible checks
 
 From the repository root, pinned `pnpm test:intake`, `pnpm db:intake test`, `pnpm db:intake test:process`, `pnpm typecheck` and `pnpm contracts:check` exercise the public module seams, PG constraints/permissions, real TCP COMMIT-ACK loss, actual killed/surviving processes and owned HTTP. Follow the service ledger before running database tiers. `tests/fixtures/inventory-fake.ts` persists wire requests, stock and fault controls in owned PG, retains them across listener restart and does not stand in for production persistence. Independent literal request bodies/counts/PKs distinguish duplicate creation from a merely successful status. These are real PG/process/HTTP with a deliberately controlled inventory fake, not real InvenTree or a T04 end-to-end browser flow.
+
+## Additive retained attachment children
+
+`media-plan.ts` adds `bench-media-plan/1` and `owned-fake-media/1` without reinterpreting
+stock-v1 bytes. Its supporting evidence and explicit attachment destinations are sealed
+and pinned inside original approval reservation. No current media pointer can reconstruct
+missing approved scope. Before any stock request, apply checks every supporting blob.
+
+`attachment-apply.ts` and its journal/state/recovery helpers use the same physical supervisor,
+external witness and source guard as stock. Each attachment read/write has its own committed
+intent. Confirmation requires exact downloaded bytes and stock/artifact identity. A lost ACK
+is unknown until explicit supported verification. A positive no-effect receipt permits only
+selected original-run attachment repair; the stock loop is skipped. Historical confirmation
+survives later removal and never grants replacement authority. The qualified protocol is an
+owned persistent fake, not an InvenTree API compatibility claim.
