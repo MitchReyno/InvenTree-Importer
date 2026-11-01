@@ -1,6 +1,6 @@
 # T06 — durable processing and application questions
 
-Current checkpoint: V2 retained-media integration is implemented. Focused qualification passes 7 PG/public-HTTP cases and 3 actual deterministic worker cases, with zero skips. Final normal host-loopback checks, browser qualification and independent review remain outstanding. No ready PR or actual provider capability is claimed.
+Current checkpoint: V2 retained-media integration and uncertain-answer receipt retry are implemented. Final Node suites pass 86 frontend/26 contracts/58 server cases; complete current-image PG56/process25 pass without skips. Backend2038 passed with known skips/exclusions. Native browser qualification and independent ready-PR review remain pending; no actual provider capability is claimed.
 
 ## Prospective implementation plan
 
@@ -299,3 +299,13 @@ The new PG regression passed both controlled failures: an exception immediately 
 After the guard, the startup regression plus affected Processing PG tier passed 8/8 with zero skips in 11.94 seconds on current image `87751674…`, under process-scoped idle-sleep prevention. All finalizers completed and the service window is released. The three deterministic process cases passed immediately before the equivalent cleanup extraction; the coordinator explicitly did not require another process run solely for that extraction.
 
 The original full-tier socket failure and uncertainty about its request phase remain recorded above. This checkpoint improves diagnostic bounds and resource lifetime; it does not assert a production authority defect or silently retry an uncertain write. Final complete-tier qualification remains coordinator-owned.
+
+
+## Coordinator whole-feature qualification
+
+The [shared integration record](bench-intake-wave3-integration.md#complete-current-image-qualification-and-review-handoff) and [portable receipt](../bench-intake/evidence/T06/qualification.json) record final complete counts, image/source identities, the preserved earlier socket failure and the remaining native/independent-review gates. The [question retry correction](bench-intake-T06-question-retry.md) records the fresh owner's five failing-before cases and exact frozen delivery behavior. All application model/provider usage remains prohibited pending explicit later authorization.
+
+
+### Author native qualification
+
+After Mitch granted Chrome's local debugging connection, browser-harness verified the synthetic desktop/phone Processing form, preserved exact drafts and blocked dirty navigation. Dropping only an HTTP 200 answer acknowledgement reproduced a saved-but-unconfirmed answer; native explicit retry reused its identical payload/key and adopted the retained receipt. Capture readback showed revision 7, Packet A at 19.000001 and separate Packet B unchanged at 23. Recordings remained off; no model or real inventory calls occurred. This author check does not replace fresh independent native review. The [qualification receipt](../bench-intake/evidence/T06/qualification.json) records the bounded observations.
