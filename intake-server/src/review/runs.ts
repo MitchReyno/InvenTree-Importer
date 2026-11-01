@@ -9,7 +9,9 @@ import {
 import { canonical, strictJson } from '@invimport/contracts/json'
 import { verifyBytes } from '../db/authority.ts'
 import { fail } from '../capture/repository.ts'
-import { decodePlan } from '../execution/plan.ts'
+import { decodeExecutablePlan } from '../execution/media-plan.ts'
+import { requirePreparationMedia } from './media-preparation.ts'
+import { evidencePreview } from './media-preview.ts'
 import { snapshot } from '../execution/authority.ts'
 import type { ManualConfig } from './authority.ts'
 import type { ReviewBinding } from './authority.ts'
@@ -43,7 +45,7 @@ export async function retainedPreparation(
   if (!row) {
     fail('not_found', 404)
   }
-  const plan = decodePlan(row.plan_bytes, row.plan_digest)
+  const plan = decodeExecutablePlan(row.plan_bytes, row.plan_digest)
   if (plan.targetId !== config.targetId || plan.contextId !== config.targetContextId) {
     fail('not_found', 404)
   }
@@ -69,6 +71,44 @@ export async function retainedPreparation(
     fail('retained_preparation_corrupt', 409)
   }
   const checked = response.preparation
+  if (checked.capability !== plan.capability) {
+    fail('retained_preparation_corrupt', 409)
+  }
+  if (plan.version === 'bench-media-plan/1') {
+    const evidence = plan.evidence.map(evidencePreview)
+    if (
+      checked.media_inputs_sha256 !== plan.mediaInputsDigest ||
+      canonical(checked.evidence) !== canonical(evidence) ||
+      !checked.attachments ||
+      checked.attachments.length !== plan.attachments.length
+    ) {
+      fail('retained_preparation_corrupt', 409)
+    }
+    const labels = await client.query<{ id: string; label: string }>(
+      'SELECT id,label FROM media_evidence WHERE batch_id=$1 AND id=ANY($2::uuid[])',
+      [row.batch_id, plan.attachments.map((attachment) => attachment.evidenceId)],
+    )
+    const evidenceLabels = new Map(labels.rows.map((evidence) => [evidence.id, evidence.label]))
+    for (const attachment of plan.attachments) {
+      const shown = checked.attachments.find(
+        (candidate) => candidate.artifact_key === attachment.artifactKey,
+      )
+      const lot = checked.effects.find((effect) => effect.lot_id === attachment.stockOperationKey)
+      const expected = {
+        ...evidencePreview(attachment),
+        artifact_key: attachment.artifactKey,
+        lot_id: attachment.stockOperationKey,
+        lot_label: lot?.lot_label,
+        evidence_label: evidenceLabels.get(attachment.evidenceId),
+        destination: attachment.destination,
+      }
+      if (!shown || !lot || canonical(shown) !== canonical(expected)) {
+        fail('retained_preparation_corrupt', 409)
+      }
+    }
+  } else if (checked.attachments || checked.evidence || checked.media_inputs_sha256) {
+    fail('retained_preparation_corrupt', 409)
+  }
   if (
     checked.id !== row.id ||
     checked.batch_id !== row.batch_id ||
@@ -153,6 +193,13 @@ export async function retainedPreparation(
   ) {
     fail('retained_preparation_corrupt', 409)
   }
+  await requirePreparationMedia(
+    client,
+    row.batch_id,
+    row.id,
+    plan,
+    reviews.map((review) => review.subjectId),
+  )
   const commandResult = await client.query(
     'SELECT * FROM manual_prepare_command WHERE id=$1 AND batch_id=$2 AND actor_id=$3',
     [row.prepare_command_id, row.batch_id, config.actorId],

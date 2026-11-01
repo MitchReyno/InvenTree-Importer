@@ -1,6 +1,7 @@
 import type { CaptureSnapshotDto, ManualEffectDto, ManualIssueDto } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
 import { sha256 } from '../db/authority.ts'
+import type { MediaInputs } from '../media/inputs.ts'
 import { contributionBarcode } from '../execution/plan.ts'
 
 export interface SubjectDependency {
@@ -15,6 +16,7 @@ export interface ManualMaterial {
   issues: ManualIssueDto[]
   bytes: Buffer
   digest: Buffer
+  mediaInputs?: ReadonlyMap<string, MediaInputs>
 }
 export function issue(
   code: string,
@@ -26,7 +28,11 @@ export function issue(
 }
 
 /** Exact selected dependency closure: explicit overrides exclude irrelevant default changes. */
-export function materialize(snapshot: CaptureSnapshotDto, selectedIds: string[]): ManualMaterial {
+export function materialize(
+  snapshot: CaptureSnapshotDto,
+  selectedIds: string[],
+  mediaDigests: ReadonlyMap<string, string> = new Map(),
+): ManualMaterial {
   const selected = [...selectedIds].sort()
   const issues: ManualIssueDto[] = []
   const effects: ManualEffectDto[] = []
@@ -74,7 +80,8 @@ export function materialize(snapshot: CaptureSnapshotDto, selectedIds: string[])
     )
     if (part) {
       retain(part.id, {
-        version: 'manual-part-review/1',
+        version: mediaDigests.has(part.id) ? 'manual-part-review/2' : 'manual-part-review/1',
+        ...(mediaDigests.has(part.id) ? { mediaDigest: mediaDigests.get(part.id) } : {}),
         batchId: snapshot.id,
         title: snapshot.title,
         targetContextId: snapshot.target_context_id,
@@ -85,7 +92,8 @@ export function materialize(snapshot: CaptureSnapshotDto, selectedIds: string[])
       })
     }
     retain(lotId, {
-      version: 'manual-lot-review/1',
+      version: mediaDigests.has(lotId) ? 'manual-lot-review/2' : 'manual-lot-review/1',
+      ...(mediaDigests.has(lotId) ? { mediaDigest: mediaDigests.get(lotId) } : {}),
       batchId: snapshot.id,
       title: snapshot.title,
       sourceId: snapshot.source_id,
@@ -151,7 +159,7 @@ export function materialize(snapshot: CaptureSnapshotDto, selectedIds: string[])
   )
   const bytes = Buffer.from(
     canonical({
-      version: 'manual-selection/1',
+      version: mediaDigests.size ? 'manual-selection/2' : 'manual-selection/1',
       batchId: snapshot.id,
       sourceId: snapshot.source_id,
       selected,

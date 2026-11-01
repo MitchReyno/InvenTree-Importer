@@ -1,7 +1,10 @@
 import { strictJson } from '@invimport/contracts/json'
 import { pk, type StockOperation } from './plan.ts'
 
-export async function inventoryBody(response: Response): Promise<Buffer> {
+export async function inventoryBody(response: Response, maxBytes = 65536): Promise<Buffer> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 0 || maxBytes > 20 * 1024 * 1024 + 8192) {
+    throw new Error('inventory_body_policy_invalid')
+  }
   const reader = response.body?.getReader()
   if (!reader) {
     return Buffer.alloc(0)
@@ -23,7 +26,7 @@ export async function inventoryBody(response: Response): Promise<Buffer> {
         break
       }
       length += next.value.byteLength
-      if (length > 65536) {
+      if (length > maxBytes) {
         throw new Error('inventory_body_limit')
       }
       chunks.push(next.value)

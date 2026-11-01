@@ -6,7 +6,8 @@ import { canonical } from '@invimport/contracts/json'
 import { stockSourceHistory } from '../execution/source.ts'
 import type { CaptureRead } from '../capture/routes.ts'
 import { deploymentBinding, currentReviews, type ManualConfig } from './authority.ts'
-import { materialize, issue } from './model.ts'
+import { issue } from './model.ts'
+import { materializeWithMedia } from './media-material.ts'
 import { manualRunSnapshot, retainedPreparation } from './runs.ts'
 import { markReviewed, prepareSelection, approvePreparation } from './preparations.ts'
 import { runCommand } from './commands.ts'
@@ -56,9 +57,12 @@ export function manualRepository(pool: Pool, config: ManualConfig, read?: Captur
         await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
         const capture = await captureInTransaction(client, config, batchId)
         const binding = await deploymentBinding(client, config)
-        const allMaterial = materialize(
+        const allMaterial = await materializeWithMedia(
+          client,
+          config,
           capture.snapshot,
           capture.snapshot.lots.map((value) => value.id),
+          false,
         )
         const source = {
           targetId: config.targetId,
@@ -76,7 +80,13 @@ export function manualRepository(pool: Pool, config: ManualConfig, read?: Captur
         const blockingRunId = history.activeRunId ?? blockingRun?.runId
         const lots: ManualWorkspaceDto['lots'] = []
         for (const lot of capture.snapshot.lots) {
-          const material = materialize(capture.snapshot, [lot.id])
+          const material = await materializeWithMedia(
+            client,
+            config,
+            capture.snapshot,
+            [lot.id],
+            false,
+          )
           const issues = [...material.issues]
           if (!binding) {
             issues.push(
@@ -133,7 +143,13 @@ export function manualRepository(pool: Pool, config: ManualConfig, read?: Captur
         const preparations: ManualPreviewDto[] = []
         for (const row of preparationsResult.rows.slice(0, 20)) {
           const retained = await retainedPreparation(client, config, row.id)
-          const material = materialize(capture.snapshot, retained.preview.selected_lot_ids)
+          const material = await materializeWithMedia(
+            client,
+            config,
+            capture.snapshot,
+            retained.preview.selected_lot_ids,
+            false,
+          )
           const reviews = await currentReviews(client, batchId, material)
           const previouslyApproved = material.effects.some((value) =>
             history.contributions.some(
@@ -156,7 +172,7 @@ export function manualRepository(pool: Pool, config: ManualConfig, read?: Captur
           batch_id: batchId,
           revision: capture.snapshot.revision,
           supported: Boolean(binding),
-          capability: binding ? 'owned-fake-stock/1' : null,
+          capability: binding?.capability ?? null,
           lots,
           runs,
           preparations,
