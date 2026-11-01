@@ -1,6 +1,6 @@
 # Wave 3 — shared integration record
 
-Current checkpoint: media #53 is merged; Processing `4df0e074` implements the combined V2 coordinator. Focused PG7/process3 and owning scope7/retention8 checks pass. Final normal/current-image/browser checks and independent ready-PR review remain pending. Tests use deterministic stubs; no actual provider or protected inventory capability is claimed.
+Current checkpoint: media #53 is merged; ready Processing PR #54 at `a70d55e` targets `interactive-app`. Corrected qualification passed 86 frontend, 26 contract, 58 server, 64 PG and 25 process cases, with unchanged backend 2,038 passes. Native desktop/phone and exact unknown-answer retry passed. Fresh independent review found a predecessor-currency defect, corrected at `843adada`; independent reproduction/native rechecks passed. Final documentation-head verification and exact-head hosted CI remain merge gates. Tests use deterministic stubs; no actual provider or protected inventory capability is claimed.
 
 ## Prospective plan
 
@@ -236,3 +236,30 @@ The complete rerun under process-scoped sleep prevention passed **56/56 PG and 2
 Mitch clicked Chrome Allow and the original waiting browser connection resumed. Author browser-harness checks passed on the isolated synthetic preview: desktop 1440 px and phone 390 px, no page overflow or out-of-bounds form controls, exact quantity draft preserved across polling/resizing and guarded navigation. The hidden tab's native scroll timed out; activating only the owned task tab and retrying the same wheel operation worked. Recordings stayed off.
 
 The coordinator interrupted only the synthetic answer's HTTP 200 response after commit. Polling advanced the attempt while the original answer fields remained frozen. Native explicit retry sent the identical body and nonempty idempotency key and received HTTP 200. The guard cleared; Capture showed revision 7, Packet A at exact 19.000001 and separate Packet B still 23, with two physical lots and one shared Part. This is author proof, not independent review. No model/provider or inventory transport/apply runner exists. Fresh independent domain/native clearance and selected exact-head CI still gate merge.
+
+
+### Independent review checkpoint
+
+Ready PR #54 was published directly to `interactive-app` before fresh independent reviews. The media/capture reviewer cleared scoped owning APIs, grants, bulk reservations, lifetime/pins and caller integration at `a70d55e`, independently passing eight offline model/provenance cases. Full PG/process evidence was inspected, not independently rerun.
+
+The coordination reviewer reproduced a material predecessor-currency defect with isolated PostgreSQL: complete Reading, claim dependent Research, then replace Reading alone without changing capture/media. The old Research output was incorrectly accepted and displayed current. The input comparison reused its own old dependency IDs, so it did not establish that predecessors remained selected and ready. A fresh owner is correcting owning currency checks and adverse coverage; physical held lanes must remain until exact terminal/reap. The PR is not cleared.
+
+The independent native reviewer is still exercising the existing synthetic preview. An initially static queued display was traced to hidden-tab polling; visible polling showed the expected Reading question. No dispatch defect was established from that observation. Browser and PostgreSQL leases remain separate, and no duplicate service was started.
+
+
+### Corrected complete qualification
+
+The fresh owner committed `843adada` after six initial new regressions failed against the original source. Eight named real-PG cases pass, covering selected transitive predecessor authority, stale nonterminal physical occupancy, historical display, stale-answer refusal, malformed edge bindings and a healthy downstream human-answer continuation. Root and independent reviewer agreed that immutable accepted historical predecessor inputs are verified without reinterpreting them against capture values deliberately changed by an accepted downstream answer; the fresh root input still requires current capture/media.
+
+At this corrected source the coordinator reran the complete tiers: **64/64 PG and 25/25 process**, zero failures/skips, using the unchanged current immutable images. Frontend 86, contracts 26 and server 58 plus types, generated drift, readability/frontend lint, full formatting and production build passed again. The unchanged backend's preceding 2,038 passes remain applicable. Bundle advisories stay unsuppressed. Independent reproduction and a fresh-runtime bounded native recheck remain pending at this checkpoint.
+
+Independent native review at `a70d55e` separately passed 20 focused component tests and actual desktop/phone validation, exact large-decimal draft, read-failure guard, post-commit lost-ack exact retry, and archive/resume. The initial preview was then disposed by its exact verified listener child; cleanup returned success and removed only its own metadata. Retained Capture stayed untouched. This earlier browser proof is not represented as a corrected-server-runtime recheck.
+
+
+### Final scoped independent clearance
+
+All three review scopes cleared `843adada`. The coordination reviewer independently passed the original replacement reproduction and all eight named new scenarios with exact cleanup. The media/capture reviewer verified unchanged owning APIs/grants/pin creation and no caller regression from same-client read-only dependency verification.
+
+The native reviewer used one fresh corrected-runtime fixture: B completed five stages, A's exact 41.000001 answer produced a ready continuation, six jobs were ready, and Capture retained A/B as separate physical lots with B unchanged at 23. Desktop/390 px phone bounds passed. The prior invalid-input/lost-ACK/archive suite remains applicable to unchanged frontend assets; it was not needlessly repeated.
+
+A full reload was required after replacing the same-origin fixture to acquire its fresh CSRF bootstrap; the initial 403 refusal remains documented. Current queue UI always requests all stages, so Reading-only ancestor replacement remains PG/HTTP evidence and finer queue scope is explicitly assigned to T08. No browser-only claim substitutes for that test. Final documentation-head verification and selected exact-head hosted CI still gate merge.

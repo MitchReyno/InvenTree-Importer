@@ -1,6 +1,6 @@
 # T06 — durable processing and application questions
 
-Current checkpoint: V2 retained-media integration and uncertain-answer receipt retry are implemented. Final Node suites pass 86 frontend/26 contracts/58 server cases; complete current-image PG56/process25 pass without skips. Backend2038 passed with known skips/exclusions. Native browser qualification and independent ready-PR review remain pending; no actual provider capability is claimed.
+Current checkpoint: ready PR #54 includes V2 retained-media coordination, uncertain-answer receipt retry and the independently reviewed predecessor-currency correction at `843adada`. Complete corrected checks pass 86 frontend, 26 contracts, 58 server, 64 PG and 25 process cases without Node/PG/process skips. Unchanged backend passed 2,038 with known skips/exclusions. Media/capture, coordination/domain and frontend/native reviews cleared the corrected source. Final documentation-head verification and selected exact-head hosted CI remain pending. No actual provider capability is claimed.
 
 ## Prospective implementation plan
 
@@ -309,3 +309,19 @@ The [shared integration record](bench-intake-wave3-integration.md#complete-curre
 ### Author native qualification
 
 After Mitch granted Chrome's local debugging connection, browser-harness verified the synthetic desktop/phone Processing form, preserved exact drafts and blocked dirty navigation. Dropping only an HTTP 200 answer acknowledgement reproduced a saved-but-unconfirmed answer; native explicit retry reused its identical payload/key and adopted the retained receipt. Capture readback showed revision 7, Packet A at 19.000001 and separate Packet B unchanged at 23. Recordings remained off; no model or real inventory calls occurred. This author check does not replace fresh independent native review. The [qualification receipt](../bench-intake/evidence/T06/qualification.json) records the bounded observations.
+
+
+### Dependency review correction and complete rerun
+
+Fresh independent review of ready PR #54 reproduced accepted output after a selected predecessor was replaced. The [correction handover](bench-intake-T06-dependency-currency.md) records the prospective plan, six failing original regressions, eight passing corrected scenarios and the agreed distinction between accepted historical predecessor inputs and the new consumer's latest capture/media currency.
+
+Correction `843adada` verifies exact retained dependency edges and transitive selected consistent predecessor identities through immutable owning authority. Current queued dependencies remain queued without being ready to dispatch; replacement/cancellation invalidates descendants. Stale nonterminal output cannot release its physical lane. Explicit human answers can create fresh downstream inputs retaining the exact selected ready historical predecessor.
+
+The coordinator's complete corrected rerun passed 64/64 PostgreSQL and 25/25 process cases with zero skips/failures, using the same qualified immutable images. Frontend 86, contracts 26 and server 58 plus types, generation, lint/readability, format and build passed again. The independent reviewer separately reran the original failing reproduction and all eight named dependency cases successfully. Media/capture scope clearance also extends to this corrected source. These are deterministic fixture proofs; actual inference and real inventory mutation remain unqualified.
+
+
+### Final independent native integration
+
+A single fresh synthetic preview from `843adada` passed independent native integration after full code qualification and domain clearance. Packet B progressed through all five stages while A waited. Native answer 41.000001 created A's ready reading continuation and fresh proposal; all five B jobs remained ready. Capture retained two physical lots sharing one Part, A exactly 41.000001 and B unchanged at 23. Desktop and 390 px phone bounds passed.
+
+Replacing a fixture under the same origin required a full page reload: a hash-only transition initially retained the old fixture's CSRF bootstrap and safely received 403. Fresh bootstrap resolved it; that refusal is not success evidence. The UI currently queues all five stages regardless of subview; finer queue scope is a named T08 limitation. Native Reading-only replacement was not claimed; independent PG/HTTP regressions cover that adverse case. Recordings stayed off, fault controls were restored and no model or inventory calls occurred.
