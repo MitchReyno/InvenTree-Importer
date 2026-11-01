@@ -10,72 +10,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
-          cache-dependency-glob: backend/uv.lock
-      - name: Install Python project
-        run: uv sync --locked
-      - name: Test Python (includes shared workflow sync)
-        run: uv run pytest
-
-  frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-      - uses: pnpm/action-setup@v4
-      - name: Frozen workspace install
-        run: pnpm install --frozen-lockfile
-      - name: Typecheck
-        run: pnpm typecheck
-      - name: Test
-        run: pnpm test:frontend
-      - name: Build
-        run: pnpm build
+  test:
+    name: Test
+    uses: ./.github/workflows/test.yml
 
   lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
-          cache-dependency-glob: backend/uv.lock
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-      - uses: pnpm/action-setup@v4
-      - name: Install Python project
-        run: uv sync --project backend --locked
-      - name: Frozen workspace install
-        run: pnpm install --frozen-lockfile
-      - name: Lint Python and shared skill scripts
-        run: pnpm lint:backend
-      - name: Lint frontend
-        if: ${{ !cancelled() }}
-        run: pnpm lint:frontend
-      - name: Lint Markdown
-        if: ${{ !cancelled() }}
-        run: pnpm lint:markdown
+    name: Lint
+    uses: ./.github/workflows/lint.yml
 
   ci:
     name: CI
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [test]
     if: ${{ always() }}
     steps:
       - name: Require all blocking jobs to succeed
         env:
-          BACKEND_RESULT: ${{ needs.backend.result }}
-          FRONTEND_RESULT: ${{ needs.frontend.result }}
-        run: test "$BACKEND_RESULT" = success && test "$FRONTEND_RESULT" = success
+          TEST_RESULT: ${{ needs.test.result }}
+        run: test "$TEST_RESULT" = success
