@@ -135,3 +135,19 @@ Mitch's newest restriction is committed in both maintained plans: provider integ
 PR #52 merged independently into trunk as `28f56be`. Root integrated it normally into T05 (`2822c97`) and T06 (`6f4eb77`), preserving the new Masthead component and both feature branches. Dependency conflicts retained Moveable plus Three and all pinned lock entries. Frozen host installs passed; no original references changed.
 
 Post-merge frontend suites passed 61 tests in T05 and 62 in T06. Pinned-toolchain builds passed with the upstream lazy scene retained. T05 types, generated drift, full lint and format passed. Its exact CI image step rebuilt both images, retained both manifests after probe cleanup, and the new images passed all 13 decoder/resource cases with zero skips. Earlier full PG/process/backend checks cover unchanged runtime source; the ready PR still needs fresh independent reviews and selected hosted CI.
+
+
+### Final T05 architecture reconciliation plan
+
+Before merging, the coordinator will update the root and frontend architecture summaries: their older manual-slice paragraphs still say uploads are unavailable and only the stock fake profile is qualified, contradicting the implemented T05 sections. Keep owning module detail in its current architecture, preserve the original references and distinguish optional retained media from unimplemented provider inference and final identity. No runtime or package change belongs to this documentation correction.
+
+The ready PR has independently cleared storage and execution at corrected runtime heads. Current completed hosted qualification is 41 PostgreSQL and 22 process tests, with zero skips; all eight selected checks passed at `e6d109aa`. Native review additionally found repeated Escape could force dialog closure without releasing React's dirty guard. Focused correction `64389a2` passed four discriminating regressions and all 66 frontend tests; the independent native reviewer then passed fresh/prepared dismissal and byte-identical uncertain retry. A separate narrow attachment-select overflow is being corrected before final native clearance.
+
+Validate the architecture reconciliation with focused Markdown/format/link checks and inspect the final changed files. Final exact-head reviews and selected hosted CI remain merge gates. No model/provider usage, protected inventory request or new service is part of this work.
+
+
+### Architecture reconciliation result
+
+The root summary now describes optional retained uploads, the private database/root binding and additive fake media execution. The frontend summary removes its obsolete no-upload claim and records native-close reconciliation. Owning architecture links remain repository-relative; original design references are unchanged. Focused Markdown and whitespace checks passed.
+
+The attachment-width correction is committed as `3c26827`: a bounded existing styled Select plus a wrapping accessible selected-identity description preserves full UUID commands and card/option correlation. Its meaningful identity/command regression failed before the markup change; all 66 frontend tests, application types, lint/readability/format and focused Markdown checks pass. Final native width/identity review and selected exact-head hosted CI remain pending. Storage and server runtime are unchanged from the independently cleared `e6d109aa`; execution reviewer confirmed the intervening native-close delta at `64389a2`.
