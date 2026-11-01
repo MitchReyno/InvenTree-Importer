@@ -16,7 +16,7 @@ export async function grantExecutor(
   `)
   const media = await pool.query("SELECT to_regclass('public.executor_attachment') AS relation")
   if (media.rows[0].relation) {
-    await pool.query(`GRANT SELECT ON executor_attachment,executor_attachment_recovery,
+    await pool.query(`GRANT SELECT ON media_store_identity,executor_attachment,executor_attachment_recovery,
       executor_attachment_intent,executor_attachment_result,executor_attachment_effect,
       executor_attachment_verification,media_approval_pin,media_version,media_blob TO ${role}`)
     if (purpose === 'approval') {

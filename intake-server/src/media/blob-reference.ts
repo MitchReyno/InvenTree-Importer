@@ -1,3 +1,7 @@
+import { prepareMediaTransaction } from './transaction.ts'
+import { eq } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { mediaBlobs } from './schema.ts'
 import type { PoolClient } from 'pg'
 import type { RetainedBlob } from './blob-store.ts'
 
@@ -15,21 +19,26 @@ export function inspectMediaType(bytes: Buffer) {
 }
 
 export async function retainBlob(client: PoolClient, blob: RetainedBlob) {
-  await client.query(
-    'INSERT INTO media_blob(digest,byte_size) VALUES($1,$2) ON CONFLICT DO NOTHING',
-    [Buffer.from(blob.digest, 'hex'), blob.size],
+  await prepareMediaTransaction(client)
+  const db = queryDatabase(client)
+  const digest = Buffer.from(blob.digest, 'hex')
+  await executeDatabaseQuery(
+    db.insert(mediaBlobs).values({ digest, byteSize: blob.size }).onConflictDoNothing(),
   )
-  const result = await client.query<{ byte_size: string }>(
-    'SELECT byte_size FROM media_blob WHERE digest=$1',
-    [Buffer.from(blob.digest, 'hex')],
+  const rows = await executeDatabaseQuery(
+    db
+      .select({ byteSize: mediaBlobs.byteSize })
+      .from(mediaBlobs)
+      .where(eq(mediaBlobs.digest, digest)),
   )
-  if (result.rows[0]?.byte_size !== blob.size) {
+  if (rows[0]?.byteSize !== blob.size) {
     throw new Error('blob_metadata_conflict')
   }
 }
 
 /** Positive references, not an increment/decrement refcount. Caller holds digest GC lock. */
 export async function blobReferenced(client: PoolClient, digest: string): Promise<boolean> {
+  await prepareMediaTransaction(client)
   const result = await client.query<{ referenced: boolean }>(
     `SELECT EXISTS(SELECT 1 FROM media_version WHERE blob_digest=$1)
          OR EXISTS(SELECT 1 FROM media_preview WHERE blob_digest=$1)

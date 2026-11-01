@@ -1,363 +1,289 @@
-# T05 — retained evidence and selected media
+# T05 — retained media and explicit attachments
 
-Status: implementation in progress. The prospective owner plan was recorded before code. Base: merged T04
-`10bd6c85c81d02a0a5970b002c79f55f9d41fe87`. This document records intended
-work; its acceptance list is not a claim that the checks already pass.
+## Current status
 
-## Scope and authority
+Implementation is complete enough for final qualification; it is **not yet independently
+cleared**. Follow the approved [implementation plan](../bench-intake/08-implementation-plan.md)
+and preserve the coordinator-owned [integration record](bench-intake-wave3-integration.md).
 
-Implement bounded private photo/PDF retention, explicit receipts, same-batch
-subject links and evidence groups, authorized previews/downloads, deterministic
-crop/rotation versions, and explicit original/derived attachment selections.
-Integrate attachments with exact preparation, approval, original-run execution
-and selected repair on a qualified owned fake. The real inventory target is
-strictly read-only and unsupported for mutation. No provider, taxonomy, purchase
-order, primary-image replacement, or automatic inference is included.
+Actual merged query/form/readability/OpenAPI/server-state work is integrated. T06
+remains a separate owner and must consume these seams only after actual T05 merge.
+No T05 PR has been declared ready. Final combined checks, resource qualification
+and fresh independent reviews remain submission gates.
 
-Preserve the existing stock-v1 decoder, approved bytes, journal and recovery
-behavior. Attachments need an additive plan/build/capability version with explicit
-operation dependencies. Unknown attachment acknowledgments require retained
-identity plus exact content/domain verification. A confirmed file subsequently
-removed never becomes replacement permission. A filename match proves nothing.
+## Hard boundaries
 
-The original HTML and fifteen direct screenshots govern layout and interaction;
-keep all sixteen originals unchanged. Keep the current light/neutral/blue palette.
-Each runtime component belongs in its own TSX file under components and uses
-styled-components. Reuse the application navigation guard and URL-pinned
-preparation identities. All effects shown for approval remain fully sealed.
+- The original repository's real InvenTree configuration is strictly read-only.
+  No real inventory request, credential copy or mutation probe occurred in T05.
+- No actual agent/LLM/provider testing or usage while the user is away. Any later
+  live-model test requires explicit new user authorization; use fixtures/stubs.
+- Inventory writes are supported only by the explicit owned-fake media profile.
+  Actual InvenTree compatibility, production identity/access and remote hosting
+  are unqualified. No taxonomy, purchase-order or primary-image replacement.
+- Preserve other worktrees, original staged/unstaged work and owned services.
+  Reuse allocated PostgreSQL; never fault/restart shared services or migrate a
+  shared development DB. Fixtures use random databases, roles and private roots.
+- Use github-pr-tools for PR operations, handover for transfers and browser-harness
+  for visual checks. Recordings stay off. No stacked PR or pr-review-loop.
 
-## Ownership and integration
+## Implemented boundaries
 
-Own new media modules, migration 0005, media contracts, components and relevant
-review/execution changes. The coordinator owns shared exports/code generation,
-package manifests/lockfiles, main/App/Batch, CaptureHeader, ActivityIndicator,
-central implementation plan and shared integration record. Propose existing
-capture repository/grant changes before editing. T06 runs separately; never import
-its unmerged branch. The coordinator integrates shared files in this worktree.
+| Area              | Implementation and authority                                               |
+| ----------------- | -------------------------------------------------------------------------- |
+| Contracts         | `contracts/src/media.ts`, `media-geometry.ts`, additive manual media DTOs  |
+| Private bytes     | `media/blob-store.ts`, `store-binding.ts`, `store-identity.ts`             |
+| Capture/edit/read | Media repository, typed schema/projections, content routes                 |
+| Decoding          | Explicit worker, bounded Docker runner, maintained raster/PDF libraries    |
+| Processing seam   | Opaque transaction-bound input handle and immutable command pins           |
+| Approval          | Sealed supporting evidence, exact attachment destination and approval pins |
+| Execution         | Additive media plan and immutable attachment journal under original run    |
+| Browser           | Separate styled-components TSX files, RHF forms and scoped retained reads  |
 
-The [wave integration record](bench-intake-wave3-integration.md) is coordinator
-owned and must be preserved. No process or PostgreSQL tier starts without its
-service allocation. Reuse the existing bounded PostgreSQL container with isolated
-random databases/roles. Preserve previews and every other checkout's changes.
+All paths above are under `intake-server/src` unless another root is named.
+The coordinator owns manifests/lock, generated contracts, CI, main/App/Batch and
+shared plan/guidance integration. T05 owns the media/domain files and this handover.
 
-## Package and process assessment
+### Retention and root identity
 
-Public npm metadata was queried directly before choosing pins. Proposed exact
-server dependencies: sharp 0.35.5 (Apache-2.0, about 0.96 MB JS plus native
-libvips/platform packages), pdfjs-dist 6.4.299 (Apache-2.0, about 35 MB), and
-@napi-rs/canvas 1.1.0 (MIT, native platform package). libvips has its own LGPL
-licensing and bundled-code notices; package license labels do not cover every
-native dependency. Preserve locked transitive packages and notices in the decoder
-image. The dependency footprint is accepted only for implemented decoding;
-metadata is not a security audit or clean-host reproduction proof.
+Uploads are raw bounded octet streams, at most `MEDIA_SOURCE_MAX_BYTES` (20 MiB).
+Receipts mean committed ownership plus durable original bytes; readability and
+preview preparation are separate. Logical evidence has opaque IDs, groups and
+subject links. Original bytes and derived versions remain immutable.
 
-Alternatives: browser-only decoding cannot establish server content or hard
-resource limits; shell ImageMagick/Poppler adds a separate unpinned operational
-toolchain; pure PDF text libraries cannot supply actual raster page previews.
-Using an octet-stream route with a strict byte limit avoids a multipart dependency
-and base64 expansion. Originals are always authorized downloads, never inline
-untrusted documents. Only generated raster PNG previews may be inline.
+A private root binds to the DB's immutable `media_store_identity` UUID.
+`BlobStore.initialize(root, storeId)` validates an exact private no-follow marker.
+It refuses mismatched identities and nonempty unmarked roots, without adoption,
+rebind or deletion. Startup reads identity through the existing DB pool; absent
+DB/default root discovery is forbidden. A copied UUID is the same restored
+logical authority, not automatic fork or backup qualification.
 
-Node heap limits do not bound native decoder memory. Proposed supported decoder
-boundary is an explicit isolated container with network disabled, read-only root,
-bounded tmpfs, memory/CPU/PIDs and wall time. The coordinator approved this local Linux container boundary after the initial
-assessment. Actual compatibility, image pins and resource tests remain to prove;
-native-child mode cannot claim hard native-memory isolation.
-No decoder child or worker starts implicitly from imports/migrations/web startup.
+Publication uses exclusive staging, file sync, atomic no-overwrite linking and
+directory sync. Existing bytes are adopted only after exact hash/content checks.
+Publication and collection share digest transaction locks. Collection requires an
+explicit candidate, a cutoff at least 24 hours old and a positive reference check;
+there is no scan, refcount decrement, unpin or retained-history deletion.
 
-References: [sharp constructor](https://sharp.pixelplumbing.com/api-constructor/),
-[sharp image operations](https://sharp.pixelplumbing.com/api-operation/),
-[PDF.js](https://github.com/mozilla/pdf.js),
-[canvas](https://github.com/Brooooooklyn/canvas).
+`media:decode` processes one explicitly configured unclaimed command.
+`media:gc` considers one explicitly configured digest/cutoff. Neither discovers an
+environment file, starts at web import, or acquires inventory/provider credentials.
+GC's role has only schema usage and SELECT on identity/version/preview/approval-pin/
+command-pin tables. It reads identity and collects through the same checked-out
+transaction client.
 
-## Intended boundaries and implementation order
+### Decoder and recipes
 
-1. Define strict media DTOs and exact recipe/version semantics; send coordinator
-   the exports/routes/props and pins before shared integration.
-2. Add private content-addressed store. Stage in owned directories with no-follow
-   checks, hash server bytes, sync file, publish atomically and sync directory.
-   Hold digest-level exclusion across publication and database receipt. GC takes
-   the same exclusion, checks positive references/pins and only removes old
-   positively unreferenced blobs. Crash-created orphans never imply retention.
-3. Add additive SQL with same-batch composite foreign keys, immutable versions,
-   restricted grants, approval pins and explicit current selections. Authorize
-   actor/batch/object for every read or command; hashes are not capabilities.
-4. Add bounded decoder protocol and real JPEG/PDF fixtures. Normalize EXIF
-   orientation, then crop integer source pixels, then rotate quarter turns and
-   encode fixed PNG bytes. Retain source hash, page, coordinates, decoder/build
-   and encoder settings with every immutable output. No unsupported document
-   silently becomes ready; retain honest encrypted/malformed/unsupported states.
-5. Add capture evidence browser, groups/links, focused crop controls and receipt
-   states using authoritative layout. Browser coordinate conversions are explicit
-   and independently checked against source pixels.
-6. Add selected destinations to a new exact preparation version, pin originals
-   and derivatives atomically with approval, and execute qualified fake attachment
-   effects with separate committed request intents and original-run recovery.
-7. Exercise the real fake journey, restart, eligible attachment repair and later
-   lot round; prove stock count does not increase during attachment repair.
-8. Complete the checked results and limitations here, ready PR to interactive-app
-   through github-pr-tools, then return exact head/checks to the coordinator.
+The normal decoder supports actual JPEG/PNG raster data and PDF pages. EXIF
+orientation is normalized before source coordinates. Raster output is sRGB,
+white-flattened PNG with pinned encoder settings. Only generated PNG previews are
+inline; originals are authorized downloads. Unsupported/encrypted/malformed/limit
+states do not imply ready output. Observed infrastructure failures retain an
+interrupted result; claims are not retry leases and are never auto-reclaimed.
 
-## Acceptance and adverse tests to record
+Configured limits: 20 MiB source/output, 30 PDF pages, 24 million pixels per page,
+48 million total/intermediate pixels, 32 MiB total output, 25-second inner deadline,
+30-second outer deadline and bounded five-second cleanup. Linux containers have
+512 MiB memory with equal memory+swap, one CPU, 32 PIDs, 64 MiB noexec/nosuid tmpfs,
+read-only root, nonroot user, dropped capabilities, no-new-privileges and no network.
+The runner refuses implicit image pulls and explicitly reaps its named child.
 
-- Actual file/HTTP/PostgreSQL boundaries; independent literal hashes/pixels/counts.
-- Interruption before publication/receipt, restart and publication-versus-GC race.
-- Traversal, symlink, wrong actor/batch/object, oversize/page/pixel/time/memory
-  failures, encrypted/malformed/unsupported bytes and decoder interruption.
-- Immutable outputs, asymmetric EXIF/crop/rotation coordinates, exact source hash,
-  recipe/destination binding, selected and supporting evidence approval pins.
-- Lost attachment acknowledgment, trustworthy identity in malformed responses,
-  wrong domain/content, confirmed-then-removed file, cancellation and selected
-  original-run repair without another stock POST. Unknown same-source effects
-  continue blocking later work; no broad retry or filename attribution.
-- A negative control must fail for a plausible disabled boundary, then restore
-  original code and rerun the discriminating check.
-- Desktop, true narrow and nondefault state visual inspection with browser-harness
-  recordings off; committed small inspected screenshots and safe receipts.
-- Frozen dependencies/generation, types/lint/build/format, relevant PG/process
-  fault tiers and normal suite. Do not claim real-target compatibility, full backup
-  or power-loss durability from owned fixtures.
+`documentary-crop/1` retains its integer crop-first/quarter-turn behavior.
+The additive `documentary-rotated-region/1` uses source-edge coordinates in integer
+millionths of a pixel and clockwise millidegrees. It samples the rotating selection
+upright while the displayed source stays fixed. All four corners must remain inside
+source edges. Output dimensions round to nearest integer, halves upward, minimum
+one. Aspect locking binds a rational width/height hint with fixed-point tolerance.
 
-## Decisions and observations during implementation
+Sharp affine uses pinned libvips bicubic sampling and explicit source/output pixel
+centers. Default affine bounds use nearest-away-from-zero rounding. Intermediate
+allocation is checked before rasterization. References: [Sharp affine](https://sharp.pixelplumbing.com/api-operation/#affine),
+[libvips affine](https://github.com/libvips/libvips/blob/v8.18.7/libvips/resample/affine.c),
+[bounds](https://github.com/libvips/libvips/blob/v8.18.7/libvips/resample/transform.c)
+and [rounding](https://github.com/libvips/libvips/blob/v8.18.7/libvips/include/vips/util.h).
 
-The coordinator approved the bounded local Linux Docker decoder and the additive
-v2 stock-plus-attachment plan boundary. The existing stock-v1 decoder and approved
-bytes remain unchanged. Attachment children must stay under the same original
-approval/run/source guard/supervisor; no mutable side-plan may extend an old
-approval.
+### Transactions and typed queries
 
-The first actual crop test caught the shared canonical encoder's deliberate
-refusal of numeric scalars. Media coordinates use bounded integer pixels. Added
-`media-json/1` encoding and retained its exact JSON strings inside the existing
-semantic-idempotency envelope; this does not modify stock/foundation canonical
-bytes. The decoder protocol uses a bounded JSON header plus raw bytes, avoiding
-base64 overhead and the API JSON parser's smaller input ceiling. Protocol
-construction now precedes spawning the container, so an encoding failure cannot
-leave an idle decoder behind.
+Order remains capture batch/sorted subjects → shared media exclusion → sorted blob
+digests → processing/run authority → streams. Preceding target/source domains remain
+where required by execution. GC takes digest locks only and never moves backward.
 
-Initial file checks passed three cases. Actual isolated image/PDF checks passed
-five authored cases across current runs: literal PNG crop/rotation pixels and
-repeated exact bytes; JPEG EXIF orientation; PDF raster dimensions/colours;
-unsupported/malformed input; and a password-protected synthetic PDF. These are
-local Linux arm64 observations, not cross-platform qualification. The encrypted
-fixture was generated once using the existing pinned pypdf 6.21.0 development
-environment with a fixture-only password and RC4-128; no Python runtime is used by
-the application or decoder. AES fixture generation initially lacked the optional
-cryptography dependency; no dependency was added for that test-data task.
+T05 corrected a missing shared media advisory lock in ordinary edits. A row lock
+alone did not serialize with decoder publication. This is a material concurrency
+fix, not a mechanical query rewrite.
 
-Current tested decoder image:
-`sha256:597bcd2449837adfcb87c05e3f71c328a5f3170f3e28ba81400e6b2bed062aa4`.
-Base is Node 24.22.2 bookworm-slim manifest
-`sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c`.
-The explicit source/manifests/lock allowlist produced a roughly 283 KB context;
-102 production packages were installed from the frozen workspace lock. The image
-must be rebuilt and rechecked after subsequent decoder-source changes.
+Routine reads, projections, validation and inserts use Drizzle through the original
+client, with `executeDatabaseQuery` preserving pg errors. Reviewed SQL owns DDL and
+constraints. Decimal bigint strings retain existing exact DTO/command bytes.
+A media-owned transaction-local fence sets `pg_catalog, public, pg_temp` before
+initial authorization/reads. The shared foundation transaction body is unchanged.
 
-Runtime jobs use no network/mounts, read-only root, non-root UID, no capabilities,
-no-new-privileges, one CPU, 512 MiB memory and equal memory+swap, 32 PIDs and a
-64 MiB noexec/nosuid tmpfs. Internal coreutils timeout kills the Node job after
-25 seconds; the host bounds CLI wait to 30 seconds and cleanup wait to five.
-Docker-daemon unavailability cannot be treated as proof that a process exited;
-an interrupted durable claim remains unavailable for automatic retry.
+Intentional explicit SQL remains for atomic `SKIP LOCKED` claiming, advisory/row
+locks and lock introspection, atomic revision increments, positive GC reference
+checks, immutable command/approval pin authority and trusted grants. Startup's tiny
+identity read is explicitly public-qualified because supported Drizzle APIs reject
+`pgSchema('public')`. Immutable pin reads are public-qualified even when called
+through a pool outside a media transaction.
 
-Refined lock order: capture batch/sorted subjects, shared media-revision advisory
-lock, sorted blob digests, processing/run authority, stream. GC takes digest locks
-and positive-reference reads only; it never subsequently locks a batch. Media
-publishers can take the advisory lock without mutable capture privileges. Decoder
-command claim locking needs PostgreSQL UPDATE privilege on the immutable command
-ID column; the immutable trigger still rejects actual updates. Role tests remain
-required before claiming this boundary verified.
+### Opaque processing seam
 
-## Prospective form and dependency audit follow-up
+`lockMediaInputs(client, binding, batchId, subjectIds)` resolves authorized scope and
+locks every sorted digest before processing lane/job/question locks. Its frozen
+handle exposes `manifest`, `manifestDigest`, copied frozen version descriptors and
+`pinCommand(commandId)`. Pinning takes no earlier batch/digest lock; it validates
+backend/transaction identity, held locks, command owner/context and exact captured
+manifest. The caller cannot expand scope or use the handle after transaction change
+or rollback to a savepoint preceding its locks. Empty scopes also retain bindings.
 
-The coordinator's separate forms work adopts pinned React Hook Form and is being
-reviewed independently. After it actually merges, adapt MediaCropDialog and the
-substantive evidence-group form to that maintained form state. Preserve source
-coordinates, selected File bytes, original media revision/idempotency keys,
-synchronous global dirty reporting and immutable selection/pin policy. Do not
-infer that a form library grants approval or resolves ambiguous acknowledgments.
+### Preparation and attachment execution
 
-At the user's request, the owner identified three remaining bespoke mechanisms
-for assessment; none was installed or rewritten from that audit:
+Existing stock-v1 decoder/encoded plan behavior remains unchanged. Additive
+`bench-media-plan/1`, build `bench-media/1`, requires `owned-fake-media/1`.
+Preparation seals exact supporting versions/hashes/provenance and explicit selected
+original/derived attachments to each new stock destination. Old responses omit new
+optional fields. Approval retains exact pins; missing authority is never rebuilt
+from current selections. All approved media bytes are verified before any stock POST.
 
-- [execa](https://github.com/sindresorhus/execa) could simplify decoder subprocess
-  lifecycle and bounded streams. Docker containment, explicit container cleanup,
-  private environment and interrupted-command authority remain application policy.
-- [file-type](https://github.com/sindresorhus/file-type) could replace custom magic
-  signatures. Detection is advisory, not validity/security or permission proof;
-  the current three signatures may be too small to justify its dependency cost.
-- [canonicalize](https://github.com/erdtman/canonicalize) could own JSON key sorting
-  and quoting. Safe integer validation and exact media-json/1 vectors must remain
-  explicit, and stock-v1 canonical bytes may never change.
+Attachments are immutable children of the original approval/run. Every target read
+or write has a committed intent, and creates receive an external witness. An error
+status is not retry permission: no-effect receipts must bind artifact, destination
+and bytes. Unknown ACKs permit explicit read-only identity/content reconciliation.
+Confirmation requires the downloaded hash, size and stock/artifact domain together.
+A confirmed file later removed remains a historical effect and cannot be replaced.
+Selected attachment repair skips the stock loop and creates no extra stock record.
 
-Compatibility, licensing/dependency cost and actual byte/behavior parity remain
-research work for those candidates. Existing package adoption is not a reason to
-add another dependency without a concrete simplification.
+### Browser state
 
-## Attachment v2 implementation checkpoint
+Runtime components each have their own TSX file and use the approved light/neutral/
+blue palette. Original HTML/direct screenshots govern layout; all sixteen original
+reference files remain unchanged. The crop editor follows the original left editor /
+right result hierarchy, stacking at narrow widths.
 
-Before executor edits, the additive design is: `bench-media-plan/1` with
-`bench-media/1` build and `owned-fake-media/1` capability. Preserve stock-v1 code
-and bytes; dispatch versions through a new named decoder. V2 retains the same
-stock operations and separate immutable attachment children keyed by the retained
-human selection ID, with exact version/blob/size/type/original/recipe-digest and
-stock-operation destination dependency.
+Moveable owns overlay gestures only, including offset corner rotation hit areas.
+The source image is never CSS-rotated. Exact ratio normalization corrects CSS layout
+rounding; server recipe bounds remain authoritative. The native dialog portals to
+`document.body`, so hiding Capture's context column cannot hide an open modal.
 
-The owned fake will expose an explicit attachment contract distinct from actual
-InvenTree compatibility. Every create/read/verification receives a retained intent.
-A qualified no-effect receipt must bind artifact, stock destination and content;
-an error status alone is not retry permission. Known output IDs are checkpointed
-before subsequent content verification. Unknown acknowledgments permit explicit
-read-only artifact/domain/content reconciliation, never filename attribution.
-Confirmed-then-removed files remain historical effects and cannot be replaced.
+RHF owns frame/aspect and group forms. File bytes, expected revision, request key
+and derivation identity remain domain-owned. Optional `derivation_id` permits exact
+receipt correlation and returns typed 409 on collision. An uncertain crop freezes
+editing and retries the same request. Explicitly starting another crop captures a
+new current revision/key/ID. Output requires both the exact ID and exact recipe.
 
-Attachment settlement contributes to the existing run/source guard and external
-witness checks. The existing physical supervisor remains the only writer. Selected
-repair uses the original run and retained child, preserves confirmed stock and
-must demonstrate no additional stock POST. The next PG/process tier will qualify
-this new boundary after shared service allocation; current media retention tests
-do not prove these future executor behaviors.
+TanStack Query coordinates scoped retained observations directly. Failed, paused or
+not-yet-fetched-after-mount reads cannot authorize changes from warm cache. Polling
+cannot reset pending file/group/crop input. Capture and media dirtiness are separate;
+each blocks incompatible edits/navigation without enabling an unchanged Save.
 
-## Prospective maintained crop interaction
+## Package decisions and cost
 
-User approved react-image-crop 11.1.2; the coordinator installed its exact pin.
-The installed ISC license, React >=16.13.1 peer and absence of runtime dependencies
-were checked alongside the tagged README/types. Use its maintained touch/keyboard
-rectangle UI, with explicit conversion to normalized integer source pixels.
+| Package               | Pin     | License / actual role                                   |
+| --------------------- | ------- | ------------------------------------------------------- |
+| sharp                 | 0.35.5  | Apache-2.0; maintained native raster/affine operations  |
+| pdfjs-dist            | 6.4.299 | Apache-2.0; actual PDF rendering, shipped local assets  |
+| @napi-rs/canvas       | 1.1.0   | MIT; native PDF raster surface                          |
+| react-moveable        | 0.56.0  | MIT; overlay gestures, no declared React peer guarantee |
+| react-hook-form       | 7.91.0  | MIT; actual field/form coordination                     |
+| @tanstack/react-query | 5.105.1 | MIT; scoped observation cache, no command authority     |
+| drizzle-orm           | 0.45.4  | Apache-2.0; existing typed query dependency             |
 
-Actual `src/addons/browserCrop.ts` inspection found its rotation helper rotates
-around the full image before cropping and does not swap output dimensions. That
-is incompatible with this task's crop-first quarter-turn recipe. Do not pass
-quarter turns to that helper. Keep simple left/right 90-degree controls; show a
-crop-first local preview only if it matches independent saved-pixel checks. The
-retained Sharp result remains authoritative, and EXIF normalization occurs before
-the library receives its source preview.
+Native libvips and bundled dependencies have their own licenses/notices; package
+labels are not a complete native-license or security audit. Sharp adds native
+platform packages; PDF.js is about 35 MB unpacked. Moveable is about 4.62 MB unpacked
+with thirteen direct dependencies; twenty packages were resolved on adoption.
+The explicit Linux production install currently contains 104 packages. The final
+frontend build reports about 822 KB raw / 256 KB gzip with the unsuppressed chunk
+advisory. These costs are accepted for implemented behavior, not hidden promises.
 
-## Superseding rotated-selection request
+React-image-crop was investigated but never adopted; its helper rotated the image
+before cropping, contrary to the selected UX. The provisional dependency was removed.
+Execa 10.2.1 was assessed from tagged official [termination](https://github.com/sindresorhus/execa/blob/v10.2.1/docs/termination.md)
+and [output](https://github.com/sindresorhus/execa/blob/v10.2.1/docs/output.md) APIs.
+Its twelve runtime dependencies would remove little of the required named-container
+cleanup/binary policy. Coordinator accepted retaining `node:child_process`.
 
-User subsequently selected Moveable and requires the **crop rectangle itself to
-rotate while the base image remains fixed**, with rotation hit areas offset just
-outside corners and a lockable aspect ratio. The earlier react-image-crop
-assessment is preserved as chronology; it is no longer the selected UI package.
-No react-image-crop UI code was adopted.
+## Observed verification
 
-Proposed exact pin is react-moveable 0.56.0, MIT. Public registry metadata identifies
-source revision `7722addf758da09480808f1e03c5b9e3061f855b`; the exact tarball's
-license and type declarations were inspected. It has thirteen direct dependencies
-and about 4.62 MB unpacked contents. It declares no React peer guarantee: actual
-React 19.3.1/TypeScript 6 browser qualification is required. Its declared controls
-include corner rotation positions, around-control rotation, padding, ratio locking
-and custom rotation targets. Validate the required gesture in the actual browser
-before assuming these APIs satisfy it.
+- Contracts: 21 passed, including exact legacy recipe acceptance and rotated bounds.
+- Frontend: 36 passed, including scoped warm-cache failures, new crop intent revisions,
+  cross-panel draft guards and the narrow portaled dialog regression.
+- Media PG: 6/6 restored controls, including HTTP lost receipt/restart, role faults,
+  per-output pixels, publication-vs-GC, opaque handle ownership/order, temp shadows,
+  and actual SELECT-only single-candidate GC CLI behavior.
+- Attachment PG/physical child: 2/2 after query/fence changes. Repair keeps one stock
+  POST; lost ACK/wrong destination/same-length corrupt bytes never authorize retry.
+  Confirmed deletion permits inspection only. No real target is involved.
+- Actual decoder: 9/9 on Linux arm64, including EXIF JPEG, real/encrypted/bounded PDF,
+  photographic input/output above 262 KB, literal legacy/new quarter-angle pixels,
+  independent non-square 37-degree inverse sampling and repeated exact PNG bytes.
+- Root independently observed original-DB bind/reopen and swapped-DB startup refusal
+  across three actual main launches. Final combined startup rerun remains a gate.
 
-Before changing contracts, the owner proposed an additive
-`documentary-rotated-region/1` recipe. It retains normalized source identity/page
-and dimensions, exact fixed-point source rectangle center/width/height, clockwise
-millidegree angle, explicit output dimensions and an optional aspect-lock hint.
-All four selected corners must remain inside the source. Output extracts the
-rotated source rectangle into an upright image; it does not rotate the base UI
-image or reinterpret the existing crop-first quarter-turn recipe.
+Production image: `sha256:9c0ee883543576d689830057a6e31cb60c753b4de3e9c6a5443747f2f852d8ab`.
+The 355.95 KB allowlisted context excludes credentials, tests/probes and personal state.
+Dedicated resource cases passed 4/4 with an explicitly selected test-only probe.
+The runtime inspector observed cgroup memory/swap/CPU/PID limits, no addressed external
+network interface or route, no host bind mounts, dropped capabilities and a read-only
+root. Native allocation produced a Docker kernel OOM event plus exit 137. The actual
+wall timeout was approximately 25 seconds; oversized binary output was bounded and
+the exact container was reaped. These are observed local Linux arm64 boundaries.
 
-The coordinator received the concrete geometry/interface proposal. Decoder
-interpolation, pixel-center and rounding policy still need an experiment and
-independent asymmetric vectors before implementation acceptance. Retain exact
-prepared bytes. A separate output panel must identify the current recipe and show
-its matching server-prepared result; a provisional canvas must not masquerade as
-retained output.
+Probe image: `sha256:3e4aeb0726258c70b82970b0eb6aa2486ffa8e00ade893111c7bd0b6f54c8210`.
+It extends the exact production image with two allowlisted test-only files. A retained
+content-addressed production tag prevents temporary probe-alias removal from deleting
+the production manifest; the builder verifies its original image ID after cleanup.
 
-## Rotated-region sampling decision before contract changes
+Negative controls deliberately disabled download hash validation, the shared media
+lock, the read search-path fence and the decoder read-only-root flag. Each strengthened
+regression failed at its
+intended assertion; exact owned source bytes were restored before passing controls.
+The first hash mutant still left certainty unknown because an independent reducer
+checked the retained digest; the added journal assertion then detected its false
+positive receipt. This proves those discriminators, not exhaustive concurrency.
 
-The new recipe uses normalized source **edge** coordinates in integer millionths
-of a pixel. Angles are clockwise millidegrees in `[0,359999]`. Width and height
-are positive; output dimensions are nearest integer (half upwards), minimum one.
-Every rotated selection corner must remain inside the normalized source edges.
-Aspect locking is an explicit width/height ratio hint and does not rotate the image.
+## Browser evidence and limits
 
-Sampling uses Sharp 0.35.5's maintained affine operation with libvips 8.18.7
-bicubic interpolation. Source and output pixel centers are integers; the edge
-coordinate center therefore subtracts one half. The inverse mapping from each
-output pixel is the selected center plus the clockwise-rotated displacement from
-the output center, scaled by physical selection width/output width and height/output
-height. Quarter-angle sine/cosine values are exact. Libvips's default affine canvas
-bounds use nearest-away-from-zero rounding, which is accounted for explicitly.
-The transformed intermediate is separately bounded to 48 million pixels before
-native allocation, as well as the existing per-output pixel and byte limits.
+Browser-harness used the real production build/API/PG/decoder with recordings off.
+Actual pointer resize and outside-corner rotation kept the source fixed. Displayed
+preview/download SHA-256 both equal
+`fd95d4bc3e642b3a9497f62950d2f41d3c6973130fd2ca233a22b13a2f39ac12`
+(111867 bytes), matching the retained exact recipe/version. At 390 CSS pixels the
+portaled dialog stayed visible with no horizontal overflow and its output loaded.
 
-Primary references: [Sharp affine](https://sharp.pixelplumbing.com/api-operation/#affine),
-[libvips affine implementation](https://github.com/libvips/libvips/blob/v8.18.7/libvips/resample/affine.c),
-[transform bounds](https://github.com/libvips/libvips/blob/v8.18.7/libvips/resample/transform.c),
-and [rounding definition](https://github.com/libvips/libvips/blob/v8.18.7/libvips/include/vips/util.h).
-A native scratch experiment on a 64×48 asymmetric gradient at 37 degrees, with a
-20×12 output, matched independently calculated inverse coordinates within one
-8-bit channel level across every pixel. This is algorithm evidence, not browser
-or container qualification; those checks remain required.
+Inspected [desktop](../bench-intake/evidence/T05/crop-desktop.png),
+[phone selection](../bench-intake/evidence/T05/crop-phone-selection.png),
+[phone output](../bench-intake/evidence/T05/crop-phone-output.png),
+[exact receipt](../bench-intake/evidence/T05/retained-crop-receipt.json),
+[narrow receipt](../bench-intake/evidence/T05/narrow-layout-receipt.json) and
+[independent target summary](../bench-intake/evidence/T05/target-summary.json)
+are portable synthetic evidence. The target summary has zero inventory POSTs and
+zero approvals. The allocated preview was stopped/cleaned and only its own tab closed.
 
-## Shared merge and first attachment journey checkpoint
+Native dropdown automation did not commit aspect selection. The controlled select
+change was therefore used before real pointer resize. **Actual native aspect-control
+selection still requires the fresh UI reviewer**; do not claim that control cleared.
+These checks are not a full accessibility audit or production-device certification.
 
-Actual merged readability/OpenAPI trunk is integrated through `9e08fe8`. Shared
-upload limit is now `MEDIA_SOURCE_MAX_BYTES`; retained upload and decoder source
-limits consume it. Capture editor dirtiness and media pending state are separate:
-media input freezes Capture editing, Capture input freezes media edits, and both
-block navigation. Two interaction regressions passed, including failed file retry
-with exactly the same bytes, request key and original revision across rerender.
+## Final gates and commands
 
-The first two actual PG/HTTP/physical-child media journeys passed against the
-owned fake. Positive no-effect repair kept one original approval, one stock POST
-and two attachment attempts, with exact retained bytes and stock destination.
-A lost attachment ACK stayed unknown through wrong destination and changed bytes;
-explicit content verification completed without a second POST. Removing a confirmed
-attachment retained historical confirmation and only permitted read-only inspection.
-All isolated test databases/roles/private roots/listeners/children were cleaned.
-These focused cases do not qualify all interruption, resource or restore boundaries.
+1. Confirm builder output-file seams and mandatory CI image selection.
+2. Run final root normal/frozen/generation/type/lint/build/format and relevant PG/process
+   tiers against the stable source; record actual counts and any skips.
+3. Obtain fresh independent domain/safety and native UI reviews. Fix findings, update
+   this status, then follow the approved ready-PR/merge protocol to `interactive-app`.
 
-## Current in-progress checkpoint after attachment and crop integration
+Relevant commands from repository root:
 
-This remains unfinished T05 work, not a review-ready qualification claim.
+```sh
+node intake-server/scripts/build-media-image.cjs
+node intake-server/scripts/build-media-probe.cjs
+node intake-server/scripts/run-media-pg.cjs '' retention
+node intake-server/scripts/run-media-pg.cjs '' executor
+node intake-server/scripts/run-media-pg.cjs '' startup
+pnpm media:decode
+pnpm media:gc
+```
 
-- Manual recovery now has separate strict stock `operation_keys` and attachment
-  `attachment_keys` request branches. Attachment results and prepared effects are
-  visible in their own components. Old stock-only output omits new media fields.
-- Apply validates all approved media bytes before stock dispatch. Attachment writes
-  and reads have separate committed intents, external witnesses and content/domain
-  verification. Physical apply still uses the original supervisor and run.
-- Moveable 0.56.0 controls only the crop overlay. RHF owns frame/aspect and group
-  forms. The crop dialog follows the original editor-left/result-right hierarchy.
-  A retained derivation ID plus exact recipe gates its output; no latest fallback.
-- Optional `derivation_id` is backward compatible. Collision returns typed 409;
-  uncertain UI retries retain original ID, key, recipe and expected revision.
-- New decoder input/output structural validation uses interpreted TypeBox. The
-  current decoder input change still needs a final rebuilt-image regression run.
-- Contracts: 21 passed. Frontend: 17 passed before the final fields-component
-  extraction; targeted types pass afterward. Maintained readability passed before
-  that extraction and must be repeated at submission.
-
-Tested rotated decoder image is
-`sha256:19e60044e7cd6ac3a2e66402b45d71657c0d6c6029bb7f45b3440cdf982a4419`.
-Its 336 KB explicit build context excluded credentials and personal state. All
-then-current eight decoder cases passed, including photographic raw transport,
-37-degree independent inverse pixel geometry and exact repeated bytes. A new
-literal quarter-angle rotated-region case is authored but not run yet.
-
-The owned attachment fake now flips a byte without changing length. The earlier
-passing changed-content case used shorter bytes and therefore proved size refusal;
-the strengthened hash-specific negative and a deliberate hash-check mutant remain
-pending. No real inventory target has been contacted.
-
-The real 4340 media browser fixture is authored, but has not started. It uses a
-new disposable DB/private blob root and explicit decoder loop, with no apply
-runner. It awaits the coordinator's App/Batch wiring after actual PR51 integration.
-The retained 4310 namespace is untouched.
-
-Execa 10.2.1 was assessed from its exact tagged MIT package and official
-[termination](https://github.com/sindresorhus/execa/blob/v10.2.1/docs/termination.md)
-and [output](https://github.com/sindresorhus/execa/blob/v10.2.1/docs/output.md)
-documentation. It requires Node >=22 and adds twelve direct runtime dependencies.
-It would remove only a small completion wrapper here: explicit named-container
-cleanup, binary ceilings, private environment and safe failure policy remain
-application responsibilities. The coordinator accepted retaining `node:child_process`.
-
-The coordinator has approved durable DB↔blob-root identity binding rather than
-relying on single-DB provisioning as an undocumented assumption. That migration,
-marker API and swapped-root startup qualification are the next bounded change;
-the coordinator owns production startup integration. No shared root was used or
-collected by any fixture.
+The builders/workers/tests require their documented explicit image/DB/root settings.
+No command loads the original `.env`. Tests never migrate a live shared intake DB.
+Remaining limits: Linux arm64 qualified here; other platforms and CI runs need their
+own evidence. No full backup/restore, power-loss or concurrent restored-fork guarantee
+is inferred from these fixtures. No actual provider/model invocation is authorized.

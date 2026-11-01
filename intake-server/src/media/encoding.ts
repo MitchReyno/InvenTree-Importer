@@ -1,3 +1,4 @@
+import { prepareMediaTransaction } from './transaction.ts'
 import type { PoolClient } from 'pg'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import { idempotent, type CommandScope } from '../db/authority.ts'
@@ -30,6 +31,7 @@ export async function idempotentMedia(
   input: unknown,
   work: () => Promise<unknown>,
 ): Promise<unknown> {
+  await prepareMediaTransaction(client)
   const retained = await idempotent(
     client,
     scope,

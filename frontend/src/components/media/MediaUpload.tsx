@@ -28,10 +28,18 @@ export function MediaUpload({ disabled, revision, upload, refresh, onDirtyChange
       setReceipt(retained)
       setPending(null)
       onDirtyChange(false)
-      await refresh()
     } catch {
       setError(
         'Retention was not confirmed. Refresh saved evidence before deciding whether to resubmit. The selected file and request key are preserved here.',
+      )
+      setBusy(false)
+      return
+    }
+    try {
+      await refresh()
+    } catch {
+      setError(
+        'The original is retained, but saved evidence could not be refreshed. Keep the receipt and retry the read.',
       )
     } finally {
       setBusy(false)

@@ -1,4 +1,11 @@
 -- Additive retained evidence authority. Runtime history is append-only.
+CREATE TABLE media_store_identity (
+  singleton boolean PRIMARY KEY CHECK(singleton),
+  store_id uuid NOT NULL UNIQUE DEFAULT gen_random_uuid()
+);
+INSERT INTO media_store_identity(singleton) VALUES(true);
+CREATE TRIGGER media_store_identity_immutable BEFORE UPDATE OR DELETE ON media_store_identity
+  FOR EACH ROW EXECUTE FUNCTION reject_authority_change();
 CREATE TABLE media_batch (
   batch_id uuid PRIMARY KEY REFERENCES capture_batch(id),
   revision bigint NOT NULL DEFAULT 1 CHECK(revision>0)

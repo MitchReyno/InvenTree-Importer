@@ -1,12 +1,13 @@
+import { bindMediaStore } from './store-binding.ts'
 import { MEDIA_SOURCE_MAX_BYTES } from '@invimport/contracts/media'
 import { constants } from 'node:fs'
 import { link, lstat, mkdir, open, realpath, unlink } from 'node:fs/promises'
 import { createHash, randomUUID } from 'node:crypto'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import type { PoolClient } from 'pg'
 
 export const MAX_UPLOAD_BYTES = MEDIA_SOURCE_MAX_BYTES
-const MIN_GC_AGE_MS = 24 * 60 * 60 * 1000
+export const MIN_GC_AGE_MS = 24 * 60 * 60 * 1000
 const DIGEST = /^[a-f0-9]{64}$/
 
 export interface RetainedBlob {
@@ -15,7 +16,7 @@ export interface RetainedBlob {
 }
 
 function checkedDigest(digest: string) {
-  if (!DIGEST.test(digest)) {
+  if (digest.length !== 64 || !DIGEST.test(digest)) {
     throw new Error('invalid_blob_digest')
   }
   return digest
@@ -72,12 +73,15 @@ async function privateDirectory(path: string) {
 export class BlobStore {
   private constructor(private readonly root: string) {}
 
-  static async initialize(configuredRoot: string) {
+  static async initialize(configuredRoot: string, storeId: string) {
     const root = resolve(configuredRoot)
     await privateDirectory(root)
     if ((await realpath(root)) !== root) {
       throw new Error('symlink_blob_root')
     }
+    await syncDirectory(dirname(root))
+    await bindMediaStore(root, storeId)
+    await syncDirectory(root)
     await privateDirectory(join(root, 'staging'))
     await privateDirectory(join(root, 'objects'))
     await syncDirectory(root)

@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { render } from '../../test/render'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import type { MediaEditDto, MediaSnapshotDto, MediaVersionDto } from '@invimport/contracts'
@@ -65,6 +66,7 @@ test('uncertain crop ACK locks editing and retries exact key, ID, recipe and ori
     pageNumber: 1,
     revision: '5',
     snapshot,
+    readUnavailable: false,
     save,
     close: vi.fn(),
     onDirtyChange: vi.fn(),
@@ -95,6 +97,7 @@ test('prepared output is shown only for this submitted derivation ID and exact r
     pageNumber: 1,
     revision: '5',
     snapshot,
+    readUnavailable: false,
     save,
     close: vi.fn(),
     onDirtyChange: vi.fn(),
@@ -146,4 +149,56 @@ test('prepared output is shown only for this submitted derivation ID and exact r
     screen.queryByAltText('Retained output for this exact rotated crop'),
   ).not.toBeInTheDocument()
   expect(screen.getByRole('alert')).toHaveTextContent('does not match')
+})
+
+test('explicit new crop captures the current read revision with a new identity after a successful preparation', async () => {
+  const user = userEvent.setup()
+  const save = vi.fn(async (_input: MediaEditDto, _key: string) => undefined)
+  const props = {
+    batchId: snapshot.batch_id,
+    version,
+    pageNumber: 1,
+    revision: '5',
+    snapshot,
+    readUnavailable: false,
+    save,
+    close: vi.fn(),
+    onDirtyChange: vi.fn(),
+  }
+  const view = render(<MediaCropDialog {...props} />)
+  await user.click(screen.getByRole('button', { name: 'Prepare new version' }))
+  const first = save.mock.calls[0]
+  view.rerender(<MediaCropDialog {...props} snapshot={{ ...snapshot, revision: '9' }} />)
+  await user.click(screen.getByRole('button', { name: 'Edit another crop' }))
+  await user.click(screen.getByRole('button', { name: 'Prepare new version' }))
+  expect(save.mock.calls[1][0].expected_revision).toBe('9')
+  expect(save.mock.calls[1][1]).not.toBe(first[1])
+  const earlier = first[0].change
+  const later = save.mock.calls[1][0].change
+  if (earlier.kind !== 'derive' || later.kind !== 'derive') {
+    throw new Error('expected derivation commands')
+  }
+  expect(later.derivation_id).not.toBe(earlier.derivation_id)
+  expect(first[0].expected_revision).toBe('5')
+})
+
+test('crop modal stays accessible when its Capture context becomes hidden at a narrow viewport', () => {
+  render(
+    <div hidden>
+      <MediaCropDialog
+        batchId={snapshot.batch_id}
+        version={version}
+        pageNumber={1}
+        revision="5"
+        snapshot={snapshot}
+        readUnavailable={false}
+        save={vi.fn(async () => undefined)}
+        close={vi.fn()}
+        onDirtyChange={vi.fn()}
+      />
+    </div>,
+  )
+  const dialog = screen.getByRole('dialog', { name: 'Prepare documentary crop' })
+  expect(dialog.parentElement).toBe(document.body)
+  expect(screen.getByRole('button', { name: 'Prepare new version' })).toBeEnabled()
 })

@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
@@ -24,6 +25,7 @@ interface Props {
   pageNumber: number
   revision: string
   snapshot: MediaSnapshotDto
+  readUnavailable: boolean
   save: (input: MediaEditDto, key: string) => Promise<void>
   close: () => void
   onDirtyChange: (dirty: boolean) => void
@@ -35,6 +37,7 @@ export function MediaCropDialog({
   pageNumber,
   revision,
   snapshot,
+  readUnavailable,
   save,
   close,
   onDirtyChange,
@@ -42,6 +45,7 @@ export function MediaCropDialog({
   const page = version.pages.find((item) => item.page === pageNumber)!
   const dialog = useRef<HTMLDialogElement>(null)
   const intent = useRef<CropIntent | null>(null)
+  const draftRevision = useRef(revision)
   const [submitted, setSubmitted] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -84,7 +88,7 @@ export function MediaCropDialog({
         derivationId,
         recipe: currentRecipe,
         input: {
-          expected_revision: revision,
+          expected_revision: draftRevision.current,
           change: {
             kind: 'derive',
             evidence_id: version.evidence_id,
@@ -125,7 +129,7 @@ export function MediaCropDialog({
       ? output.pages[0]
       : null
 
-  return (
+  return createPortal(
     <Dialog ref={dialog} aria-labelledby="crop-title" onCancel={(event) => event.preventDefault()}>
       <Heading id="crop-title">Prepare documentary crop</Heading>
       <Paragraph>
@@ -143,8 +147,8 @@ export function MediaCropDialog({
                 sourceWidth={page.width}
                 sourceHeight={page.height}
                 frame={field.value}
-                aspectLocked={aspect !== 'free'}
-                disabled={locked || busy}
+                aspect={aspect}
+                disabled={locked || busy || readUnavailable}
                 change={field.onChange}
               />
             )}
@@ -155,11 +159,17 @@ export function MediaCropDialog({
               setValue={setValue}
               width={frame.width}
               aspect={aspect}
-              disabled={locked || busy}
+              disabled={locked || busy || readUnavailable}
             />
             {!currentRecipe && (
               <Paragraph role="alert">
                 Keep a positive crop with all four rotated corners inside the source image.
+              </Paragraph>
+            )}
+            {readUnavailable && (
+              <Paragraph role="alert">
+                Current saved media is unavailable. The crop request is preserved and preparation is
+                blocked.
               </Paragraph>
             )}
             {error && <Paragraph role="alert">{error}</Paragraph>}
@@ -168,7 +178,7 @@ export function MediaCropDialog({
                 {submitted ? 'Close prepared crop' : 'Discard and close'}
               </Button>
               {!submitted && (
-                <Button disabled={busy || !currentRecipe}>
+                <Button disabled={busy || readUnavailable || !currentRecipe}>
                   {busy
                     ? 'Retaining crop request…'
                     : locked
@@ -179,8 +189,10 @@ export function MediaCropDialog({
               {submitted && (
                 <Button
                   type="button"
+                  disabled={readUnavailable}
                   onClick={() => {
                     intent.current = null
+                    draftRevision.current = snapshot.revision
                     setSubmitted(false)
                   }}
                 >
@@ -215,7 +227,8 @@ export function MediaCropDialog({
           </Small>
         </Output>
       </CropBody>
-    </Dialog>
+    </Dialog>,
+    document.body,
   )
 }
 

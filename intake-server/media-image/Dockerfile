@@ -6,7 +6,7 @@ COPY contracts/package.json contracts/package.json
 COPY intake-server/package.json intake-server/package.json
 COPY frontend/package.json frontend/package.json
 COPY tooling/openapi-generator/package.json tooling/openapi-generator/package.json
-RUN pnpm --filter @invimport/intake-server... install --frozen-lockfile --prod
+RUN pnpm --filter @invimport/intake-server --filter @invimport/contracts install --frozen-lockfile --prod
 COPY contracts/src contracts/src
 COPY intake-server/src/media intake-server/src/media
 USER 1000:1000

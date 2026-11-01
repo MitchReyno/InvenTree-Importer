@@ -1,34 +1,39 @@
+import { prepareMediaTransaction } from './transaction.ts'
 import type { Pool } from 'pg'
-import { fail, type CaptureBinding } from '../capture/repository.ts'
+import { and, eq } from 'drizzle-orm'
+import { captureInTransaction, fail, type CaptureBinding } from '../capture/repository.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
+import { mediaPreviews, mediaVersions } from './schema.ts'
 import type { BlobStore } from './blob-store.ts'
 
 /** Object authorization precedes every private-byte read; hashes are never capabilities. */
 export function mediaContent(pool: Pool, binding: CaptureBinding, store: BlobStore) {
   async function lookup(batchId: string, resourceId: string, kind: 'version' | 'preview') {
-    const authorizedValues = [
-      resourceId,
-      batchId,
-      binding.actorId,
-      binding.targetId,
-      binding.targetContextId,
-    ]
-    const versionSql = `
-      SELECT v.blob_digest
-      FROM media_version v JOIN capture_batch b ON b.id=v.batch_id
-      WHERE v.id=$1 AND v.batch_id=$2 AND b.actor_id=$3
-        AND b.target_id=$4 AND b.target_context_id=$5`
-    const previewSql = `
-      SELECT p.blob_digest
-      FROM media_preview p JOIN capture_batch b ON b.id=p.batch_id
-      WHERE p.id=$1 AND p.batch_id=$2 AND b.actor_id=$3
-        AND b.target_id=$4 AND b.target_context_id=$5`
-    const sql = kind === 'version' ? versionSql : previewSql
-    const result = await pool.query<{ blob_digest: Buffer }>(sql, authorizedValues)
-    const authorized = result.rows[0]
-    if (!authorized) {
-      fail('not_found', 404)
-    }
-    return store.read(authorized.blob_digest.toString('hex'))
+    const digest = await transaction(pool, async (client) => {
+      await prepareMediaTransaction(client)
+      await captureInTransaction(client, binding, batchId)
+      const db = queryDatabase(client)
+      const rows =
+        kind === 'version'
+          ? await executeDatabaseQuery(
+              db
+                .select({ digest: mediaVersions.blobDigest })
+                .from(mediaVersions)
+                .where(and(eq(mediaVersions.id, resourceId), eq(mediaVersions.batchId, batchId))),
+            )
+          : await executeDatabaseQuery(
+              db
+                .select({ digest: mediaPreviews.blobDigest })
+                .from(mediaPreviews)
+                .where(and(eq(mediaPreviews.id, resourceId), eq(mediaPreviews.batchId, batchId))),
+            )
+      if (!rows.length) {
+        fail('not_found', 404)
+      }
+      return rows[0].digest.toString('hex')
+    })
+    // Immutable retained version/preview references keep this exact blob ineligible for GC.
+    return store.read(digest)
   }
 
   return {

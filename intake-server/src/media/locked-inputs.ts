@@ -85,14 +85,14 @@ async function pinCapturedCommand(
     [commandId],
   )
   const command = await client.query(
-    `SELECT 1 FROM command WHERE id=$1 AND actor_id=$2 AND target_id=$3 AND target_context_id=$4`,
+    `SELECT 1 FROM public.command WHERE id=$1 AND actor_id=$2 AND target_id=$3 AND target_context_id=$4`,
     [commandId, binding.actorId, binding.targetId, binding.targetContextId],
   )
   if (!command.rowCount) {
     throw new Error('media_pin_owner_binding_invalid')
   }
   const existingBinding = await client.query<{ manifest_bytes: Buffer; manifest_digest: Buffer }>(
-    'SELECT manifest_bytes,manifest_digest FROM media_command_binding WHERE command_id=$1',
+    'SELECT manifest_bytes,manifest_digest FROM public.media_command_binding WHERE command_id=$1',
     [commandId],
   )
   const original = existingBinding.rows[0]
@@ -103,7 +103,7 @@ async function pinCapturedCommand(
     }
   } else {
     await client.query(
-      `INSERT INTO media_command_binding(command_id,batch_id,actor_id,target_id,target_context_id,manifest_bytes,manifest_digest)
+      `INSERT INTO public.media_command_binding(command_id,batch_id,actor_id,target_id,target_context_id,manifest_bytes,manifest_digest)
        VALUES($1,$2,$3,$4,$5,$6,$7)`,
       [
         commandId,
@@ -121,7 +121,7 @@ async function pinCapturedCommand(
     blob_digest: string
     batch_id: string
   }>(
-    `SELECT version_id,encode(blob_digest,'hex') AS blob_digest,batch_id FROM media_command_pin
+    `SELECT version_id,encode(blob_digest,'hex') AS blob_digest,batch_id FROM public.media_command_pin
      WHERE command_id=$1 ORDER BY version_id`,
     [commandId],
   )
@@ -133,7 +133,7 @@ async function pinCapturedCommand(
   }
   for (const version of inputs.versions) {
     await client.query(
-      `INSERT INTO media_command_pin(command_id,batch_id,version_id,blob_digest)
+      `INSERT INTO public.media_command_pin(command_id,batch_id,version_id,blob_digest)
        VALUES($1,$2,$3,$4)`,
       [commandId, inputs.batchId, version.versionId, Buffer.from(version.digest, 'hex')],
     )

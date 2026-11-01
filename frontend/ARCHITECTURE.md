@@ -30,6 +30,26 @@ Cache data is an observation, never edit or command authority. Capture retains i
 
 `ServerState.test.tsx` verifies scope isolation and late prior responses. App/manual component tests cover deduplication, periodic recovery, paused reads, accepted revisions, retained drafts, pinned preparation identity and lost acknowledgement. The [server-state handover](../docs/handovers/bench-intake-server-state.md) records actual browser evidence and package qualification.
 
+## Retained media and crop state
+
+Bootstrap exposes optional media capability only for an initialized, explicitly configured
+private store. App supplies the generated media client only when that capability is true.
+Media components keep original bytes, request keys/revisions and crop identities outside the
+observation cache. Failed, paused or unfetched-this-mount reads disable new media commands
+without resetting pending input. Capture and media dirtiness remain separate.
+
+RHF coordinates group and frame/aspect forms. Moveable controls only the crop overlay;
+the normalized source image stays fixed. Exact rational source dimensions correct CSS
+rounding before server validation. Prepared output is gated by the submitted derivation ID
+and exact recipe. An uncertain request retains its identity; explicit new-crop selection
+creates a new intent using the current successfully read revision.
+
+The crop dialog portals to the document body so responsive hiding of Capture context
+cannot hide an open modal. Desktop follows the original crop editor/result hierarchy;
+narrow screens stack them. Existing reference bytes and the light/neutral/blue palette
+remain unchanged. Prepared approval and results show exact attachment identity, source
+provenance and destination; they never choose a current/latest replacement implicitly.
+
 ## Tooling and application ownership
 
 Frontend dependencies and scripts live in `package.json` here. Root pnpm owns the workspace/control point and single lockfile; `.node-version` and root `packageManager` pin the toolchain. React/Vite/TypeScript/styled-components/plugin versions are pinned in the frontend manifest; Python dependencies stay entirely in backend.
@@ -40,4 +60,4 @@ From repository root, `pnpm dev`, `pnpm typecheck`, `pnpm lint:frontend`, `pnpm 
 
 ## Future work — not implemented
 
-Upload/media retention, automated processing, provider inference, broader effects/shared metadata and final InvenTree authentication/access qualification remain future work, not hidden features. Manual execution is qualified only against an owned persistent fake; no actual InvenTree mutation profile is supported. Existing capture source/contribution identities, immutable human notes and exact selection histories are the future integration seam; do not replace them with a disposable browser draft or copy historical prototype timers/localStorage. Capture and review use reviewed public contracts and owning repository seams, not sibling SQL internals. Normal remote/phone deployment is not enabled by changing the loopback bind.
+Automated processing, provider inference, broader effects/shared metadata and final InvenTree authentication/access qualification remain future work, not hidden features. Manual execution is qualified only against an owned persistent fake; no actual InvenTree mutation profile is supported. Existing capture source/contribution identities, immutable human notes and exact selection histories are the future integration seam; do not replace them with a disposable browser draft or copy historical prototype timers/localStorage. Capture and review use reviewed public contracts and owning repository seams, not sibling SQL internals. Normal remote/phone deployment is not enabled by changing the loopback bind.

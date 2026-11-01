@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
 import { validate, type MediaReceiptDto } from '@invimport/contracts'
 import { appendEvent, sha256 } from '../db/authority.ts'
-import { transaction } from '../db/database.ts'
+import { executeDatabaseQuery, transaction, queryDatabase } from '../db/database.ts'
 import { type CaptureBinding } from '../capture/repository.ts'
 import { idempotentMedia } from './encoding.ts'
+import { mediaEvidence, mediaVersions, mediaDecodeCommands } from './schema.ts'
 import { BlobStore } from './blob-store.ts'
 import { mediaSnapshot } from './read.ts'
 import { inspectMediaType, retainBlob } from './blob-reference.ts'
@@ -49,25 +50,33 @@ export function mediaRepository(pool: Pool, binding: CaptureBinding, store: Blob
             const evidenceId = randomUUID()
             const versionId = randomUUID()
             const mediaType = inspectMediaType(bytes)
-            await client.query(
-              'INSERT INTO media_evidence(id,batch_id,label,actor_id) VALUES($1,$2,$3,$4)',
-              [evidenceId, batchId, label, binding.actorId],
+            const db = queryDatabase(client)
+            await executeDatabaseQuery(
+              db.insert(mediaEvidence).values({
+                id: evidenceId,
+                batchId,
+                label,
+                actorId: binding.actorId,
+              }),
             )
-            await client.query(
-              `INSERT INTO media_version(id,batch_id,evidence_id,kind,blob_digest,media_type,actor_id)
-          VALUES($1,$2,$3,'original',$4,$5,$6)`,
-              [
-                versionId,
+            await executeDatabaseQuery(
+              db.insert(mediaVersions).values({
+                id: versionId,
                 batchId,
                 evidenceId,
-                Buffer.from(blob.digest, 'hex'),
+                kind: 'original',
+                blobDigest: Buffer.from(blob.digest, 'hex'),
                 mediaType,
-                binding.actorId,
-              ],
+                actorId: binding.actorId,
+              }),
             )
-            await client.query(
-              'INSERT INTO media_decode_command(id,batch_id,version_id,build) VALUES($1,$2,$3,$4)',
-              [randomUUID(), batchId, versionId, DECODER_BUILD],
+            await executeDatabaseQuery(
+              db.insert(mediaDecodeCommands).values({
+                id: randomUUID(),
+                batchId,
+                versionId,
+                build: DECODER_BUILD,
+              }),
             )
             await advanceMediaRevision(client, batchId)
             const receipt: MediaReceiptDto = {

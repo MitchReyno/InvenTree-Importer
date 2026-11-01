@@ -1,3 +1,4 @@
+import { readMediaStoreIdentity } from '../../src/media/store-identity.ts'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
@@ -14,6 +15,7 @@ import { createServer } from '../../src/api/server.ts'
 import { registerCapture } from '../../src/capture/routes.ts'
 import { registerMediaRoutes } from '../../src/media/routes.ts'
 import { blobReferenced, retainBlob } from '../../src/media/blob-reference.ts'
+import { lockMediaBatch, lockMediaRevision } from '../../src/media/commands.ts'
 import { BlobStore } from '../../src/media/blob-store.ts'
 import { grantMedia } from '../../src/media/grants.ts'
 import { grantFoundation } from '../../src/operations/grants.ts'
@@ -23,6 +25,7 @@ import { captureRepository } from '../../src/capture/repository.ts'
 import { lockMediaInputs } from '../../src/media/locked-inputs.ts'
 import { canonical } from '@invimport/contracts/json'
 import { sha256 } from '../../src/db/authority.ts'
+import { mediaSnapshot } from '../../src/media/read.ts'
 import { mediaRepository } from '../../src/media/repository.ts'
 import { processMediaCommand } from '../../src/media/worker.ts'
 import { editMedia } from '../../src/media/edit.ts'
@@ -50,7 +53,7 @@ test('retained originals cross actual HTTP/PG/files/restart boundaries with no f
   const db = await isolatedDatabase()
   const identity = await seedAuthority(db.pool)
   const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-media-pg-')))
-  const store = await BlobStore.initialize(root)
+  const store = await BlobStore.initialize(root, await readMediaStoreIdentity(db.pool))
   const role = `intake_media_${randomUUID().replaceAll('-', '')}`
   const password = randomUUID()
   await db.pool.query(
@@ -138,6 +141,40 @@ test('retained originals cross actual HTTP/PG/files/restart boundaries with no f
       'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
     )
     assert.equal(receipt.version.media_type, 'application/octet-stream')
+    const shadowClient = await runtime.pool.connect()
+    try {
+      await shadowClient.query('BEGIN')
+      await shadowClient.query('CREATE TEMP TABLE capture_batch (LIKE public.capture_batch)')
+      await shadowClient.query(
+        'INSERT INTO pg_temp.capture_batch SELECT * FROM public.capture_batch',
+      )
+      await shadowClient.query('UPDATE pg_temp.capture_batch SET actor_id=$1', [randomUUID()])
+      await shadowClient.query('CREATE TEMP TABLE media_evidence (LIKE public.media_evidence)')
+      await shadowClient.query(
+        'INSERT INTO pg_temp.media_evidence SELECT * FROM public.media_evidence',
+      )
+      await shadowClient.query(
+        "UPDATE pg_temp.media_evidence SET label='Forged temporary evidence'",
+      )
+      await shadowClient.query('SET LOCAL search_path = pg_temp, public')
+      const transactionBefore = await shadowClient.query<{ id: string }>(
+        'SELECT pg_catalog.pg_current_xact_id()::text AS id',
+      )
+      const trusted = await mediaSnapshot(shadowClient, config, batch.id)
+      assert.equal(trusted.evidence[0].label, 'Packet <private>.jpg')
+      const transactionAfter = await shadowClient.query<{ id: string }>(
+        'SELECT pg_catalog.pg_current_xact_id()::text AS id',
+      )
+      assert.equal(transactionAfter.rows[0].id, transactionBefore.rows[0].id)
+      const path = await shadowClient.query<{ path: string }>(
+        "SELECT pg_catalog.current_setting('search_path') AS path",
+      )
+      assert.equal(path.rows[0].path, 'pg_catalog, public, pg_temp')
+    } finally {
+      await shadowClient.query('ROLLBACK')
+      shadowClient.release()
+    }
+
     assert.deepEqual(await store.read(receipt.version.digest), original)
 
     const replay = await upload(batch.id, '1', key, original)
@@ -198,7 +235,7 @@ test(
     const db = await isolatedDatabase()
     const identity = await seedAuthority(db.pool)
     const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-media-decoder-pg-')))
-    const store = await BlobStore.initialize(root)
+    const store = await BlobStore.initialize(root, await readMediaStoreIdentity(db.pool))
     const binding = {
       actorId: identity.actor,
       targetId: identity.target,
@@ -269,6 +306,27 @@ test(
         .raw()
         .toBuffer()
       assert.deepEqual([...pixels], [255, 0, 255, 0, 255, 0, 255, 255, 0, 0, 0, 255])
+      const interruptedReceipt = receiptValue(
+        await repository.upload(
+          batch.id,
+          randomUUID(),
+          snapshot.revision,
+          'Interrupted original',
+          original,
+        ),
+      )
+      assert.equal(
+        await processMediaCommand(runtime.pool, store, binding, 'sha256:' + '0'.repeat(64)),
+        true,
+      )
+      const interruptedSnapshot = await repository.snapshot(batch.id)
+      const interrupted = interruptedSnapshot.evidence
+        .flatMap((item) => item.versions)
+        .find((item) => item.id === interruptedReceipt.version.id)!
+      assert.equal(interrupted.state, 'interrupted')
+      assert.deepEqual(interrupted.pages, [])
+      assert.equal(await processMediaCommand(runtime.pool, store, binding, image), false)
+      assert.deepEqual(await store.read(interrupted.digest), original)
       await assert.rejects(runtime.pool.query('UPDATE capture_batch SET revision=revision+1'))
       await assert.rejects(runtime.pool.query('INSERT INTO command SELECT * FROM command LIMIT 1'))
       await assert.rejects(runtime.pool.query('UPDATE media_decode_command SET id=id'))
@@ -295,7 +353,7 @@ test('digest publication excludes GC until committed references are visible; rol
     targetContextId: identity.context,
   }
   const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-media-gc-')))
-  const store = await BlobStore.initialize(root)
+  const store = await BlobStore.initialize(root, await readMediaStoreIdentity(db.pool))
   const publisher = await db.pool.connect()
   const collector = await db.pool.connect()
   let collection: Promise<boolean> | null = null
@@ -400,7 +458,7 @@ test(
       targetContextId: identity.context,
     }
     const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-media-handle-')))
-    const store = await BlobStore.initialize(root)
+    const store = await BlobStore.initialize(root, await readMediaStoreIdentity(db.pool))
     const caller = await db.pool.connect()
     const collector = await db.pool.connect()
     let collection: Promise<boolean> | null = null
@@ -545,3 +603,196 @@ test(
     }
   },
 )
+
+test('media edits wait on shared revision exclusion before publishing any blob', async () => {
+  const db = await isolatedDatabase()
+  const identity = await seedAuthority(db.pool)
+  const binding = {
+    actorId: identity.actor,
+    targetId: identity.target,
+    targetContextId: identity.context,
+  }
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-media-order-')))
+  const store = await BlobStore.initialize(root, await readMediaStoreIdentity(db.pool))
+  const publisher = await db.pool.connect()
+  const editor = await db.pool.connect()
+  let waiting: Promise<unknown> | null = null
+  try {
+    const batch = captureValue(
+      await captureRepository(db.pool, binding).create(randomUUID(), {
+        title: 'Media ordering',
+        note: '',
+      }),
+    )
+    await publisher.query('BEGIN')
+    await lockMediaRevision(publisher, batch.id)
+    await editor.query('BEGIN')
+    const backend = await editor.query<{ pid: number }>('SELECT pg_backend_pid() AS pid')
+    let acquired = false
+    waiting = lockMediaBatch(editor, binding, batch.id, '1').then(() => {
+      acquired = true
+    })
+    void waiting.catch(() => undefined)
+    let blockedAtMedia = false
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const state = await db.pool.query<{ wait_event: string | null; query: string }>(
+        'SELECT wait_event,query FROM pg_stat_activity WHERE pid=$1',
+        [backend.rows[0].pid],
+      )
+      const observed = state.rows[0]
+      if (observed.wait_event === 'advisory' && observed.query.includes('bench-media-batch/1:')) {
+        blockedAtMedia = true
+        break
+      }
+      if (acquired) {
+        break
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+    assert.equal(
+      blockedAtMedia,
+      true,
+      'An ordinary media edit must wait for the decoder/media exclusion',
+    )
+    assert.equal(acquired, false)
+    const files = await db.pool.query('SELECT count(*)::int AS count FROM media_blob')
+    assert.equal(files.rows[0].count, 0)
+    await publisher.query('COMMIT')
+    await waiting
+    const blob = await store.publish(editor, Buffer.from('abc'))
+    assert.equal(blob.digest, 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
+    await editor.query('ROLLBACK')
+  } finally {
+    await publisher.query('ROLLBACK').catch(() => undefined)
+    if (waiting) {
+      await waiting.catch(() => undefined)
+    }
+    await editor.query('ROLLBACK').catch(() => undefined)
+    publisher.release()
+    editor.release()
+    await db.dispose()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('SELECT-only GC CLI collects one aged orphan and preserves retained bytes and history', async () => {
+  const { execFile } = await import('node:child_process')
+  const { promisify } = await import('node:util')
+  const { Pool } = await import('pg')
+  const run = promisify(execFile)
+  const db = await isolatedDatabase()
+  const identity = await seedAuthority(db.pool)
+  const binding = {
+    actorId: identity.actor,
+    targetId: identity.target,
+    targetContextId: identity.context,
+  }
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-media-gc-cli-')))
+  const store = await BlobStore.initialize(root, await readMediaStoreIdentity(db.pool))
+  const role = `intake_gc_${randomUUID().replaceAll('-', '')}`
+  const password = randomUUID()
+  await db.pool.query(
+    `CREATE ROLE ${role} LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE CONNECTION LIMIT 2`,
+  )
+  await grantMedia(db.pool, role, 'gc')
+  const url = new URL(db.url)
+  url.username = role
+  url.password = password
+  const restricted = new Pool({ connectionString: url.toString(), max: 1 })
+  try {
+    const batch = captureValue(
+      await captureRepository(db.pool, binding).create(randomUUID(), {
+        title: 'GC candidates',
+        note: '',
+      }),
+    )
+    const receipt = receiptValue(
+      await mediaRepository(db.pool, binding, store).upload(
+        batch.id,
+        randomUUID(),
+        '1',
+        'Retained original',
+        Buffer.from('abc'),
+      ),
+    )
+    const client = await db.pool.connect()
+    let orphan
+    try {
+      await client.query('BEGIN')
+      orphan = await store.publish(client, Buffer.from('bounded orphan'))
+      await client.query('ROLLBACK')
+    } finally {
+      client.release()
+    }
+    const aged = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
+    const cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+    for (const digest of [receipt.version.digest, orphan.digest]) {
+      await utimes(join(root, 'objects', digest.slice(0, 2), digest), aged, aged)
+    }
+    async function collect(digest: string) {
+      const result = await run(process.execPath, ['--import', 'tsx', 'src/media/gc-main.ts'], {
+        cwd: new URL('../../', import.meta.url),
+        timeout: 5000,
+        maxBuffer: 8192,
+        env: {
+          PATH: process.env.PATH,
+          INTAKE_DATABASE_URL: url.toString(),
+          INTAKE_BLOB_ROOT: root,
+          INTAKE_MEDIA_GC_DIGEST: digest,
+          INTAKE_MEDIA_GC_BEFORE: cutoff,
+        },
+      })
+      assert.equal(result.stderr, '')
+      return JSON.parse(result.stdout)
+    }
+    assert.deepEqual(await collect(receipt.version.digest), {
+      digest: receipt.version.digest,
+      cutoff,
+      collected: false,
+    })
+    assert.deepEqual(await collect(orphan.digest), {
+      digest: orphan.digest,
+      cutoff,
+      collected: true,
+    })
+    assert.deepEqual(await collect(orphan.digest), {
+      digest: orphan.digest,
+      cutoff,
+      collected: false,
+    })
+    assert.deepEqual(await store.read(receipt.version.digest), Buffer.from('abc'))
+    await assert.rejects(store.read(orphan.digest))
+    assert.equal(
+      (await db.pool.query('SELECT count(*)::int AS count FROM media_version')).rows[0].count,
+      1,
+    )
+    const grants = await db.pool.query<{ table_name: string; privilege_type: string }>(
+      `SELECT table_name,privilege_type FROM information_schema.role_table_grants
+       WHERE grantee=$1 AND table_schema='public' ORDER BY table_name,privilege_type`,
+      [role],
+    )
+    assert.deepEqual(
+      grants.rows,
+      [
+        'media_approval_pin',
+        'media_command_pin',
+        'media_preview',
+        'media_store_identity',
+        'media_version',
+      ].map((table_name) => ({ table_name, privilege_type: 'SELECT' })),
+    )
+    await assert.rejects(
+      restricted.query('UPDATE public.media_store_identity SET store_id=store_id'),
+      { code: '42501' },
+    )
+    await assert.rejects(restricted.query('SELECT * FROM public.capture_batch'), { code: '42501' })
+    await assert.rejects(restricted.query('SELECT * FROM public.command'), { code: '42501' })
+    await assert.rejects(restricted.query('DELETE FROM public.media_version'), { code: '42501' })
+  } finally {
+    await restricted.end()
+    await db.pool.query(`DROP OWNED BY ${role}`)
+    await db.pool.query(`DROP ROLE ${role}`)
+    await db.dispose()
+    await rm(root, { recursive: true, force: true })
+  }
+})

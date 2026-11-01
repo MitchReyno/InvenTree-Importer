@@ -1,9 +1,12 @@
+import { prepareMediaTransaction } from './transaction.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
-import { validate, type MediaRecipeDto } from '@invimport/contracts'
+import type { MediaRecipeDto } from '@invimport/contracts'
+import { assertMediaRecipe } from '@invimport/contracts/media'
+import { mediaDecodeClaims, mediaDecodeResults, mediaPreviews, mediaVersions } from './schema.ts'
 import { strictJson } from '@invimport/contracts/json'
 import { appendEvent, sha256, verifyBytes } from '../db/authority.ts'
-import { transaction } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
 import { captureInTransaction, type CaptureBinding } from '../capture/repository.ts'
 import { BlobStore, lockBlob } from './blob-store.ts'
 import { lockMediaRevision } from './commands.ts'
@@ -26,6 +29,7 @@ interface MediaCommand {
 
 async function claimCommand(pool: Pool, binding: CaptureBinding): Promise<MediaCommand | null> {
   return transaction(pool, async (client) => {
+    await prepareMediaTransaction(client)
     const commands = await client.query<MediaCommand>(
       `SELECT c.id,c.batch_id,c.version_id,c.derivation_id,
               v.evidence_id,v.blob_digest,v.actor_id,d.recipe_bytes,d.recipe_digest
@@ -42,10 +46,12 @@ async function claimCommand(pool: Pool, binding: CaptureBinding): Promise<MediaC
     if (!command) {
       return null
     }
-    await client.query('INSERT INTO media_decode_claim(command_id,owner_id) VALUES($1,$2)', [
-      command.id,
-      randomUUID(),
-    ])
+    await executeDatabaseQuery(
+      queryDatabase(client).insert(mediaDecodeClaims).values({
+        commandId: command.id,
+        ownerId: randomUUID(),
+      }),
+    )
     return command
   })
 }
@@ -62,8 +68,8 @@ function retainedRecipe(command: MediaCommand): MediaRecipeDto | undefined {
   }
   verifyBytes(command.recipe_bytes, command.recipe_digest)
   const recipe = strictJson(command.recipe_bytes.toString('utf8'))
-  validate('MediaRecipe', recipe)
-  return recipe as MediaRecipeDto
+  assertMediaRecipe(recipe)
+  return recipe
 }
 
 async function publishDerivedVersion(
@@ -80,20 +86,21 @@ async function publishDerivedVersion(
   }
   const blob = await store.publish(client, decoded.pages[0].bytes)
   await retainBlob(client, blob)
-  await client.query(
-    `INSERT INTO media_version(id,batch_id,evidence_id,kind,blob_digest,media_type,
-                               source_version_id,recipe_bytes,recipe_digest,actor_id)
-     VALUES($1,$2,$3,'derived',$4,'image/png',$5,$6,$7,$8)`,
-    [
-      command.derivation_id,
-      command.batch_id,
-      command.evidence_id,
-      Buffer.from(blob.digest, 'hex'),
-      command.version_id,
-      command.recipe_bytes,
-      command.recipe_digest,
-      command.actor_id,
-    ],
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .insert(mediaVersions)
+      .values({
+        id: command.derivation_id,
+        batchId: command.batch_id,
+        evidenceId: command.evidence_id,
+        kind: 'derived',
+        blobDigest: Buffer.from(blob.digest, 'hex'),
+        mediaType: 'image/png',
+        sourceVersionId: command.version_id,
+        recipeBytes: command.recipe_bytes,
+        recipeDigest: command.recipe_digest,
+        actorId: command.actor_id,
+      }),
   )
   return command.derivation_id
 }
@@ -104,9 +111,10 @@ async function publishDecoded(
   binding: CaptureBinding,
   command: MediaCommand,
   image: string,
-  decoded: DecodedMedia,
+  decoded: DecodedMedia | { state: 'interrupted'; toolchain: string; pages: [] },
 ) {
   return transaction(pool, async (client) => {
+    await prepareMediaTransaction(client)
     const capture = await captureInTransaction(client, binding, command.batch_id)
     await lockMediaRevision(client, command.batch_id)
     const digests = decoded.pages.map((page) => sha256(page.bytes).toString('hex'))
@@ -114,29 +122,33 @@ async function publishDecoded(
       await lockBlob(client, digest)
     }
     // Ready and every output are committed together after all durable publications.
-    await client.query(
-      `INSERT INTO media_decode_result(command_id,state,decoder_build)
-       VALUES($1,$2,$3)`,
-      [command.id, decoded.state, `${DECODER_BUILD};${MEDIA_TOOLCHAIN};${image}`],
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .insert(mediaDecodeResults)
+        .values({
+          commandId: command.id,
+          state: decoded.state,
+          decoderBuild: `${DECODER_BUILD};${MEDIA_TOOLCHAIN};${image}`,
+        }),
     )
     if (decoded.state === 'ready') {
       const versionId = await publishDerivedVersion(client, store, command, decoded)
       for (const page of decoded.pages) {
         const blob = await store.publish(client, page.bytes)
         await retainBlob(client, blob)
-        await client.query(
-          `INSERT INTO media_preview(id,batch_id,version_id,command_id,page,width,height,blob_digest)
-           VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
-          [
-            randomUUID(),
-            command.batch_id,
-            versionId,
-            command.id,
-            page.page,
-            page.width,
-            page.height,
-            Buffer.from(blob.digest, 'hex'),
-          ],
+        await executeDatabaseQuery(
+          queryDatabase(client)
+            .insert(mediaPreviews)
+            .values({
+              id: randomUUID(),
+              batchId: command.batch_id,
+              versionId,
+              commandId: command.id,
+              page: page.page,
+              width: page.width,
+              height: page.height,
+              blobDigest: Buffer.from(blob.digest, 'hex'),
+            }),
         )
       }
     }
@@ -159,14 +171,19 @@ export async function processMediaCommand(
   if (!command) {
     return false
   }
-  const bytes = await store.read(command.blob_digest.toString('hex'))
-  const recipe = retainedRecipe(command)
-  const decoded = await decodeIsolated(image, {
-    version: 'media-decode/1',
-    digest: command.blob_digest.toString('hex'),
-    bytes,
-    recipe,
-  })
+  let decoded: DecodedMedia | { state: 'interrupted'; toolchain: string; pages: [] }
+  try {
+    const bytes = await store.read(command.blob_digest.toString('hex'))
+    decoded = await decodeIsolated(image, {
+      version: 'media-decode/1',
+      digest: command.blob_digest.toString('hex'),
+      bytes,
+      recipe: retainedRecipe(command),
+    })
+  } catch {
+    // Unknown infrastructure/library failures do not claim the source is malformed.
+    decoded = { state: 'interrupted', toolchain: MEDIA_TOOLCHAIN, pages: [] }
+  }
   await publishDecoded(pool, store, binding, command, image, decoded)
   return true
 }

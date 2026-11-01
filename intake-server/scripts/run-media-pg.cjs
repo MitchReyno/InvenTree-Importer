@@ -33,6 +33,7 @@ async function main() {
     retention: 'tests/pg/media.test.ts',
     executor: 'tests/pg/media-executor.test.ts',
     browser: 'tests/fixtures/media-browser.ts',
+    startup: 'tests/pg/media-startup-authority.test.ts',
   }
   if (!Object.hasOwn(suites, suite)) {
     throw new Error('unknown_media_pg_suite')
@@ -49,7 +50,7 @@ async function main() {
           ...testOptions,
           suites[suite],
         ]
-  const child = spawn(process.execPath, arguments, {
+  const child = spawn(process.execPath, childArguments, {
     cwd: resolve(__dirname, '..'),
     env: environment,
     stdio: 'inherit',

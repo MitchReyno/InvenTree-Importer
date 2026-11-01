@@ -1,6 +1,6 @@
 import type { Pool } from 'pg'
 
-const tables = `media_batch,media_blob,media_group,media_evidence,media_version,media_decode_command,
+const tables = `media_store_identity,media_batch,media_blob,media_group,media_evidence,media_version,media_decode_command,
 media_derivation,media_decode_claim,media_decode_result,media_preview,media_group_selection,
 media_subject_link,media_attachment_selection,media_approval_pin,media_command_binding,media_command_pin`
 
@@ -8,10 +8,15 @@ media_subject_link,media_attachment_selection,media_approval_pin,media_command_b
 export async function grantMedia(
   pool: Pool,
   role: string,
-  purpose: 'api' | 'decoder' | 'apply' | 'processing',
+  purpose: 'api' | 'decoder' | 'apply' | 'processing' | 'gc',
 ) {
   if (!/^intake_[a-z0-9_]{1,55}$/.test(role)) {
     throw new Error('invalid_runtime_role')
+  }
+  if (purpose === 'gc') {
+    await pool.query(`GRANT USAGE ON SCHEMA public TO ${role};
+      GRANT SELECT ON media_store_identity,media_version,media_preview,media_approval_pin,media_command_pin TO ${role}`)
+    return
   }
   await pool.query(`GRANT SELECT ON ${tables} TO ${role}`)
   if (purpose === 'api') {

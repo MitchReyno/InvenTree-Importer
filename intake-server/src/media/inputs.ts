@@ -1,3 +1,4 @@
+import { prepareMediaTransaction } from './transaction.ts'
 import type { PoolClient } from 'pg'
 import type { MediaRecipeDto, MediaSnapshotDto } from '@invimport/contracts'
 import { assertMediaInputManifest } from '@invimport/contracts/media'
@@ -36,6 +37,7 @@ export async function resolveMediaInputs(
   batchId: string,
   subjectIds: readonly string[],
 ): Promise<MediaInputs> {
+  await prepareMediaTransaction(client)
   const capture = await captureInTransaction(client, binding, batchId, true)
   const selectedSubjects = [...new Set(subjectIds)].sort()
   const availableSubjects = new Set(

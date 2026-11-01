@@ -1,3 +1,4 @@
+import { readMediaStoreIdentity } from '../../src/media/store-identity.ts'
 import { realpath } from 'node:fs/promises'
 import { BlobStore } from '../../src/media/blob-store.ts'
 import { grantMedia } from '../../src/media/grants.ts'
@@ -37,7 +38,7 @@ export async function manualFixture(options: { media?: boolean } = {}) {
   const build = options.media ? MEDIA_EXECUTOR_BUILD : EXECUTOR_BUILD
   const capability = options.media ? MEDIA_CAPABILITY : CAPABILITY
   const blobRoot = join(root, 'blobs')
-  const store = options.media ? await BlobStore.initialize(blobRoot) : undefined
+  const store = options.media ? await BlobStore.initialize(blobRoot, await readMediaStoreIdentity(db.pool)) : undefined
   const roles: string[] = []
   const connections: ReturnType<typeof database>[] = []
   let fake = await inventoryFake(db.pool, 0, true, options.media)

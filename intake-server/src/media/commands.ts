@@ -1,3 +1,7 @@
+import { prepareMediaTransaction } from './transaction.ts'
+import { count, eq } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { mediaBatches, mediaEvidence } from './schema.ts'
 import type { PoolClient } from 'pg'
 import { captureInTransaction, fail, type CaptureBinding } from '../capture/repository.ts'
 
@@ -16,13 +20,15 @@ export async function lockMediaBatch(
   batchId: string,
   expectedRevision: string,
 ) {
+  await prepareMediaTransaction(client)
   const capture = await captureInTransaction(client, binding, batchId, true)
   if (capture.snapshot.archived) {
     fail('batch_archived', 409)
   }
-  await client.query('INSERT INTO media_batch(batch_id) VALUES($1) ON CONFLICT DO NOTHING', [
-    batchId,
-  ])
+  await lockMediaRevision(client, batchId)
+  await executeDatabaseQuery(
+    queryDatabase(client).insert(mediaBatches).values({ batchId }).onConflictDoNothing(),
+  )
   const current = await client.query<{ revision: string }>(
     'SELECT revision FROM media_batch WHERE batch_id=$1 FOR UPDATE',
     [batchId],
@@ -38,11 +44,13 @@ export async function advanceMediaRevision(client: PoolClient, batchId: string) 
 }
 
 export async function requireUploadCapacity(client: PoolClient, batchId: string) {
-  const count = await client.query<{ count: string }>(
-    'SELECT count(*) FROM media_evidence WHERE batch_id=$1',
-    [batchId],
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ count: count() })
+      .from(mediaEvidence)
+      .where(eq(mediaEvidence.batchId, batchId)),
   )
-  if (BigInt(count.rows[0].count) >= 200n) {
+  if (rows[0].count >= 200) {
     fail('media_capacity', 409)
   }
 }

@@ -187,6 +187,10 @@ test('lost attachment ACK stays unknown until explicit hash-and-destination veri
     await fixture.fake.fault('attachment_changed_content')
     const corrupt = await requestRecovery(fixture, runId)
     assert.equal(corrupt.attachments[0].certainty, 'unknown')
+    const verification = await fixture.db.pool.query<{ outcome: string; verified_digest: Buffer | null }>(
+      'SELECT outcome,verified_digest FROM executor_attachment_verification WHERE run_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1', [runId],
+    )
+    assert.deepEqual(verification.rows, [{ outcome: 'missing_or_changed', verified_digest: null }])
     await fixture.fake.fault('none')
     const verified = await requestRecovery(fixture, runId)
     assert.equal(verified.state, 'settled_complete')

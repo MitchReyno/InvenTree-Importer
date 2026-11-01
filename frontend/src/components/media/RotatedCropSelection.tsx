@@ -1,14 +1,14 @@
 import Moveable from 'react-moveable'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import type { CropFrame } from '../../media/crop-model'
+import { cropAspect, type CropAspect, type CropFrame } from '../../media/crop-model'
 
 interface Props {
   source: string
   sourceWidth: number
   sourceHeight: number
   frame: CropFrame
-  aspectLocked: boolean
+  aspect: CropAspect
   disabled: boolean
   change: (frame: CropFrame) => void
 }
@@ -19,7 +19,7 @@ export function RotatedCropSelection({
   sourceWidth,
   sourceHeight,
   frame,
-  aspectLocked,
+  aspect,
   disabled,
   change,
 }: Props) {
@@ -28,6 +28,7 @@ export function RotatedCropSelection({
   const moveable = useRef<Moveable>(null)
   const [surfaceWidth, setSurfaceWidth] = useState(0)
   const scale = surfaceWidth / sourceWidth
+  const ratio = cropAspect(aspect)
 
   useEffect(() => {
     const element = surface.current
@@ -50,11 +51,11 @@ export function RotatedCropSelection({
     degrees: number,
   ): CropFrame {
     return {
-      centerX: (translation[0] + width / 2) / scale,
-      centerY: (translation[1] + height / 2) / scale,
-      width: width / scale,
-      height: height / scale,
-      degrees,
+      centerX: Math.round(((translation[0] + width / 2) / scale) * 1000000) / 1000000,
+      centerY: Math.round(((translation[1] + height / 2) / scale) * 1000000) / 1000000,
+      width: Math.round((width / scale) * 1000000) / 1000000,
+      height: Math.round((height / scale) * 1000000) / 1000000,
+      degrees: Math.round(degrees * 1000) / 1000,
     }
   }
 
@@ -87,20 +88,27 @@ export function RotatedCropSelection({
           rotateAroundControls
           controlPadding={24}
           renderDirections={['nw', 'ne', 'sw', 'se']}
-          keepRatio={aspectLocked}
+          keepRatio={ratio !== null}
           throttleDrag={0}
           throttleResize={0}
           throttleRotate={0.001}
           onDrag={(event) =>
             change(translatedFrame(event.beforeTranslate, width, height, frame.degrees))
           }
-          onResize={(event) =>
+          onResize={(event) => {
+            // CSS layout rounds dimensions; the retained source ratio remains exact.
+            const resizedHeight = ratio ? (event.width * ratio.height) / ratio.width : event.height
             change(
-              translatedFrame(event.drag.beforeTranslate, event.width, event.height, frame.degrees),
+              translatedFrame(
+                event.drag.beforeTranslate,
+                event.width,
+                resizedHeight,
+                frame.degrees,
+              ),
             )
-          }
+          }}
           onRotate={(event) =>
-            change(translatedFrame(event.drag.beforeTranslate, width, height, event.beforeRotate))
+            change({ ...frame, degrees: Math.round(event.beforeRotate * 1000) / 1000 })
           }
         />
       )}
@@ -111,7 +119,8 @@ export function RotatedCropSelection({
 const SourceSurface = styled.div<{ $ratio: number }>`
   position: relative;
   aspect-ratio: ${(props) => props.$ratio};
-  margin: 36px;
+  width: min(calc(100% - 72px), 680px, calc((100dvh - 340px) * ${(props) => props.$ratio}));
+  margin: 36px auto;
   touch-action: none;
   background: #edf1f6;
 `

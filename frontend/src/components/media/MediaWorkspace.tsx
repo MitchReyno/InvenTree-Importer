@@ -1,10 +1,8 @@
+import { useQuery } from '@tanstack/react-query'
+import { serverQueryKey, useServerScope } from '../../queries/scope'
+import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type {
-  CaptureSnapshotDto,
-  MediaEditDto,
-  MediaSnapshotDto,
-  MediaVersionDto,
-} from '@invimport/contracts'
+import type { CaptureSnapshotDto, MediaEditDto, MediaVersionDto } from '@invimport/contracts'
 import { Button, Heading, Paragraph, Small } from '../ui/primitives'
 import type { MediaClient } from '../../media/types'
 import { MediaUpload } from './MediaUpload'
@@ -21,7 +19,16 @@ interface Props {
 }
 
 export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDirtyChange }: Props) {
-  const [snapshot, setSnapshot] = useState<MediaSnapshotDto | null>(null)
+  const scope = useServerScope()
+  const mediaQuery = useQuery({
+    queryKey: serverQueryKey(scope, 'media', batch.id),
+    queryFn: () => client.snapshot(batch.id),
+    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+  })
+  const snapshot = mediaQuery.data
+  const readUnavailable =
+    mediaQuery.isError || mediaQuery.fetchStatus === 'paused' || !mediaQuery.isFetchedAfterMount
+  const { refetch } = mediaQuery
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [uploadDirty, setUploadDirty] = useState(false)
@@ -83,42 +90,23 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
   useEffect(() => () => onDirtyChange(false), [onDirtyChange])
 
   const refresh = useCallback(async () => {
-    setSnapshot(await client.snapshot(batch.id))
-  }, [client, batch.id])
-
-  useEffect(() => {
-    let active = true
-
-    async function poll() {
-      try {
-        const current = await client.snapshot(batch.id)
-        if (active) {
-          setSnapshot(current)
-        }
-      } catch {
-        if (active) {
-          setError(
-            'Saved media is unavailable. Retained receipts remain valid; refresh when the service returns.',
-          )
-        }
-      }
+    const result = await refetch({ throwOnError: true })
+    if (!result.data) {
+      throw new Error('media_snapshot_missing')
     }
-
-    void poll()
-    const interval = setInterval(() => void poll(), 3000)
-    return () => {
-      active = false
-      clearInterval(interval)
-    }
-  }, [batch.id, client])
+  }, [refetch])
 
   async function submitEdit(input: MediaEditDto, key: string) {
+    if (readUnavailable || disabled) {
+      throw new Error('current_media_read_required')
+    }
     dirtyFlags.current.command = true
     onDirtyChange(true)
     setBusy(true)
     setError('')
     try {
-      setSnapshot(await client.edit(batch.id, input, key))
+      await client.edit(batch.id, input, key)
+      await refresh()
     } catch (failure) {
       setError(
         'Media change was not confirmed. Refresh saved evidence before deciding whether to submit again.',
@@ -145,7 +133,7 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
 
   const subject = batch.lots.find((lot) => lot.id === selectedSubject)
   const selection = snapshot?.attachments.find((item) => item.subject_id === selectedSubject)
-  const frozen = disabled || busy || !snapshot
+  const frozen = disabled || busy || !snapshot || readUnavailable
 
   return (
     <section aria-labelledby="retained-evidence-title">
@@ -153,6 +141,12 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
       <Paragraph>
         Evidence can support several lots or shared Parts. Grouping does not create stock.
       </Paragraph>
+      {readUnavailable && (
+        <Paragraph role="alert">
+          Current saved media could not be confirmed. File and crop inputs are preserved;
+          preparation and media changes remain blocked until a fresh read succeeds.
+        </Paragraph>
+      )}
       {error && <Paragraph role="alert">{error}</Paragraph>}
       <Button
         disabled={busy}
@@ -163,7 +157,7 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
       {snapshot && (
         <>
           <MediaUpload
-            disabled={disabled || busy}
+            disabled={frozen}
             revision={snapshot.revision}
             onDirtyChange={reportUploadDirty}
             refresh={refresh}
@@ -248,6 +242,7 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
           pageNumber={crop.page}
           revision={crop.revision}
           snapshot={snapshot}
+          readUnavailable={readUnavailable || disabled}
           onDirtyChange={reportCropDirty}
           close={() => {
             reportCropDirty(false)

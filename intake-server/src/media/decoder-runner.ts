@@ -11,7 +11,7 @@ import {
 /** Requires an operator-built immutable image, never a browser-selected image/command. */
 export async function decodeIsolated(image: string, input: DecodeInput): Promise<DecodedMedia> {
   checkedInput(input)
-  if (!/^sha256:[a-f0-9]{64}$/.test(image)) {
+  if (image.length !== 71 || !/^sha256:[a-f0-9]{64}$/.test(image)) {
     throw new Error('immutable_decoder_image_required')
   }
   const protocolBytes = JSON.stringify({
@@ -27,6 +27,7 @@ export async function decodeIsolated(image: string, input: DecodeInput): Promise
       '--name',
       name,
       '--rm',
+      '--pull=never',
       '--interactive',
       '--network=none',
       '--read-only',
@@ -53,8 +54,13 @@ export async function decodeIsolated(image: string, input: DecodeInput): Promise
   const chunks: Buffer[] = []
   let exceeded = false
   let cleanup: Promise<void> | null = null
+  let discarded = false
 
   const discard = () => {
+    if (discarded) {
+      return
+    }
+    discarded = true
     child.kill('SIGKILL')
     // Killing the CLI does not prove its container died. Explicitly remove the named child.
     const cleanupProcess = spawn('docker', ['rm', '--force', name], {
@@ -94,10 +100,11 @@ export async function decodeIsolated(image: string, input: DecodeInput): Promise
     child.once('error', reject)
     child.once('close', resolve)
   }).finally(() => clearTimeout(timer))
-  if (cleanup) {
-    await cleanup
-  }
-  if (code !== 0 || exceeded) {
+  if (code !== 0 || exceeded || discarded) {
+    discard()
+    if (cleanup) {
+      await cleanup
+    }
     throw new Error('decoder_interrupted')
   }
   return parseDecoderOutput(Buffer.concat(chunks))
