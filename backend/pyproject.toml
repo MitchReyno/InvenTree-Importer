@@ -39,6 +39,7 @@ invimport = "invimport.__main__:cli"
 
 [dependency-groups]
 dev = [
+    "jsonschema>=4.26,<5",
     "pillow>=13.0.0",
     "pre-commit>=4.7.0",
     "pytest>=9.1.1",

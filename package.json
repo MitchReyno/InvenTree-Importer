@@ -23,7 +23,8 @@
     "demo": "uv run --project backend invimport demo",
     "test:scanner": "uv run --directory backend --extra scanner pytest -m tui",
     "test:all": "uv run --directory backend --extra scanner pytest -m \"\" && pnpm run test:frontend",
-    "workflow-sync": "uv run --directory backend pytest tests/test_project_workflow_sync.py"
+    "workflow-sync": "uv run --directory backend pytest tests/test_project_workflow_sync.py",
+    "spikes:check": "uv run --directory backend pytest tests/spikes/test_shared_contracts.py"
   },
   "devDependencies": {
     "remark-cli": "12.0.1",

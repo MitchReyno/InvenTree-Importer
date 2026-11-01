@@ -25,6 +25,10 @@ Root `package.json` delegates development/build/check commands; frontend owns it
 
 Root `.env`, `.local_imports/`, `.cache/`, `.temp/` and backups retain their existing meaning; relocation does not migrate or delete them. Explicit relative arguments remain caller-cwd-relative. Omitted managed cache/scanner-export defaults from backend cwd share root local data. Platform execution/scanner state and an explicit `INVIMPORT_STATE_DIR` keep their existing namespace. Backend source location anchors default environment/config discovery; it does not search an unrelated cwd repository. Frontend Vite configuration neither loads root `.env` nor proxies to inventory. See the layout guide for exact rules and wheel limits.
 
+## Provisional integration spikes
+
+The [shared spike fixture and message contract](spikes/shared/README.md) provides versioned JSON Schema and original synthetic evidence for independent provider, coordinator and importer-adapter investigations. It is repository-only investigation material, checked offline by `pnpm spikes:check` and the backend's normal suite. It does not add production endpoints, a coordinator, provider authentication or inventory-write authority, and it does not change the packaged importer or frontend runtime. Domain revisions, attempt correlation and intended consumer acceptance rules are explicit; their transactional enforcement remains part of the individual spikes.
+
 ## Documentation and change ownership
 
 Maintain this file as the cross-application map and responsibility contract. Keep application internals in their corresponding `ARCHITECTURE.md` and language/ framework rules in their `CODE_GUIDELINES.md`; root [CODE_GUIDELINES.md](CODE_GUIDELINES.md) owns shared engineering rules. When a boundary changes, update its owning document and any callers/operator guidance in the same change. Root README and AGENTS are entry points into this map.
