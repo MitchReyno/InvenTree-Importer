@@ -10,6 +10,7 @@ import {
 } from 'drizzle-orm/pg-core'
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' })
+
 // Reviewed SQL owns constraints/cycles/triggers. These declarations supply exact driver row types.
 export const commands = pgTable('command', {
   id: uuid().primaryKey(),
@@ -24,6 +25,7 @@ export const commands = pgTable('command', {
   payloadDigest: bytea('payload_digest').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
 })
+
 export const outbox = pgTable('outbox', {
   commandId: uuid('command_id').primaryKey(),
   availableAt: timestamp('available_at', { withTimezone: true }).notNull(),
@@ -31,11 +33,27 @@ export const outbox = pgTable('outbox', {
   ackedAt: timestamp('acked_at', { withTimezone: true }),
   conflictCode: text('conflict_code'),
 })
+
+export const idempotencyRecords = pgTable(
+  'idempotency_record',
+  {
+    actorId: uuid('actor_id').notNull(),
+    action: text().notNull(),
+    resourceKey: text('resource_key').notNull(),
+    key: text().notNull(),
+    semanticBytes: bytea('semantic_bytes').notNull(),
+    semanticDigest: bytea('semantic_digest').notNull(),
+    responseBytes: bytea('response_bytes').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.actorId, table.action, table.resourceKey, table.key] })],
+)
+
 export const streams = pgTable('ui_stream', {
   id: uuid().primaryKey(),
   streamKey: text('stream_key').notNull(),
   head: bigint({ mode: 'bigint' }).notNull(),
 })
+
 export const events = pgTable(
   'ui_event',
   {
@@ -46,4 +64,5 @@ export const events = pgTable(
   },
   (table) => [primaryKey({ columns: [table.streamId, table.sequence] })],
 )
+
 export type CommandRow = typeof commands.$inferSelect

@@ -2,8 +2,14 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
-import { transaction } from '../../src/db/database.ts'
-import { appendEvent, idempotent, sha256, verifyBytes } from '../../src/db/authority.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '../../src/db/database.ts'
+import {
+  appendEvent,
+  CommandPayloadConflict,
+  idempotent,
+  sha256,
+  verifyBytes,
+} from '../../src/db/authority.ts'
 import { migrate } from '../../src/operations/migrate.ts'
 import { streams } from '../../src/db/schema.ts'
 import { grantFoundation } from '../../src/operations/grants.ts'
@@ -136,7 +142,10 @@ test('real PG semantic idempotency is concurrent, atomic, exact and persistent; 
     assert.deepEqual((await db.pool.query('SELECT id FROM fixture_business')).rows, [
       { id: 'retained' },
     ])
-    await assert.rejects(apply({ a: '2', b: '2' }), /payload_conflict/)
+    await assert.rejects(apply({ a: '2', b: '2' }), {
+      constructor: CommandPayloadConflict,
+      message: 'payload_conflict',
+    })
     await assert.rejects(
       transaction(db.pool, (c) =>
         idempotent(c, { ...scope, key: 'rollback' }, { a: '3' }, async () => {
@@ -229,6 +238,98 @@ test('real PG numeric(19,6) fidelity after boundary validation and retained UTF-
     const row = (await db.pool.query('SELECT value,digest FROM fixture_bytes')).rows[0]
     assert(row.value.equals(bytes))
     verifyBytes(row.value, row.digest)
+  } finally {
+    await db.dispose()
+  }
+})
+
+test('typed queries preserve borrowed-client rollback, exact bigint and driver failures', async () => {
+  const db = await isolatedDatabase()
+  try {
+    const streamId = randomUUID()
+    await assert.rejects(
+      transaction(db.pool, async (client) => {
+        await queryDatabase(client).insert(streams).values({
+          id: streamId,
+          streamKey: 'borrowed-connection',
+          head: 9007199254740997n,
+        })
+        const visible = await client.query('SELECT head FROM ui_stream WHERE id=$1', [streamId])
+        assert.deepEqual(visible.rows, [{ head: '9007199254740997' }])
+        throw new Error('controlled_rollback')
+      }),
+      /controlled_rollback/,
+    )
+    const rolledBack = await db.pool.query('SELECT head FROM ui_stream WHERE id=$1', [streamId])
+    assert.deepEqual(rolledBack.rows, [])
+
+    await transaction(db.pool, async (client) => {
+      await queryDatabase(client).insert(streams).values({
+        id: streamId,
+        streamKey: 'retained-connection',
+        head: 0n,
+      })
+    })
+    await assert.rejects(
+      transaction(db.pool, (client) =>
+        executeDatabaseQuery(
+          queryDatabase(client).insert(streams).values({
+            id: streamId,
+            streamKey: 'duplicate-must-fail',
+            head: 0n,
+          }),
+        ),
+      ),
+      { code: '23505', constraint: 'ui_stream_pkey' },
+    )
+  } finally {
+    await db.dispose()
+  }
+})
+
+test('typed idempotency queries retain every scope field and exact immutable bytes', async () => {
+  const db = await isolatedDatabase()
+  try {
+    const firstAuthority = await seedAuthority(db.pool)
+    const secondAuthority = await seedAuthority(db.pool)
+    const scope = {
+      actorId: firstAuthority.actor,
+      action: 'retain-source',
+      resourceKey: 'source-A',
+      key: 'operator-key',
+    }
+    const replayScope = { ...scope }
+    const independentScopes = [
+      scope,
+      { ...scope, actorId: secondAuthority.actor },
+      { ...scope, action: 'retain-note' },
+      { ...scope, resourceKey: 'source-B' },
+      { ...scope, key: 'another-key' },
+    ]
+    for (const [index, independentScope] of independentScopes.entries()) {
+      const result = await transaction(db.pool, (client) =>
+        idempotent(client, independentScope, { label: 'µΩ' }, async () => {
+          // Domain work cannot redirect the identity that was already locked and inspected.
+          independentScope.key = 'changed-during-work'
+          return { saved: String(index) }
+        }),
+      )
+      assert.deepEqual(result, { saved: String(index) })
+    }
+    const replay = await transaction(db.pool, (client) =>
+      idempotent(client, replayScope, { label: 'µΩ' }, async () => {
+        throw new Error('replay_must_not_execute')
+      }),
+    )
+    assert.deepEqual(replay, { saved: '0' })
+    const retained = await db.pool.query(
+      'SELECT semantic_bytes, response_bytes FROM idempotency_record ORDER BY response_bytes',
+    )
+    assert.equal(retained.rows.length, 5)
+    for (const [index, row] of retained.rows.entries()) {
+      assert.equal(row.semantic_bytes.toString('utf8'), '{"label":"µΩ"}')
+      assert.equal(row.response_bytes.toString('utf8'), `{"saved":"${index}"}`)
+    }
   } finally {
     await db.dispose()
   }
