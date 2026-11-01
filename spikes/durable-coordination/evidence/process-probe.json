@@ -1,0 +1,140 @@
+{
+  "result": "passed",
+  "synthetic_provider": true,
+  "kill_commit_returncode": -9,
+  "kill_enqueue_returncode": -9,
+  "checks": [
+    "migrations_do_not_start_dbos",
+    "app_rollback_atomicity",
+    "commit_before_enqueue_sigkill",
+    "enqueue_before_ack_sigkill",
+    "stable_id_redelivery",
+    "payload_version_conflict",
+    "sequence_conflict",
+    "serial_lane_released_for_second_intake",
+    "immutable_answer_continuation",
+    "stale_answer_result_rejection",
+    "worker_sigkill_after_app_result_before_dbos_checkpoint",
+    "incompatible_queued_and_pending_versions_fenced",
+    "compatible_version_drain",
+    "terminal_outcome_acceptance",
+    "corrupt_output_rejected_without_publication",
+    "actual_dbos_workflow_id_ownership"
+  ],
+  "rolled_back_terminal_controls": [
+    "waiting_for_login",
+    "waiting_for_capacity",
+    "interrupted",
+    "failed"
+  ],
+  "dbos_workflows": [
+    {
+      "id": "intake-1add8f2a7b4d796b46478061a456a81697df2217c09c9f1a089268fcfa3e4bce",
+      "status": "SUCCESS",
+      "version": "coordination-v1",
+      "recoveries": 2
+    },
+    {
+      "id": "intake-1d2753aa406f5fe0279d58305611035ac8dab1f9d1c1128957ceb85a25e08e21",
+      "status": "SUCCESS",
+      "version": "coordination-v1",
+      "recoveries": 1
+    },
+    {
+      "id": "intake-7d89be61a55dd11f324a0bf39846710746edc887d6f75f6a66a1440283b707ae",
+      "status": "SUCCESS",
+      "version": "coordination-v1",
+      "recoveries": 1
+    },
+    {
+      "id": "intake-c15abec3c9ce407ff8b4e43d290125df76ba4b1d8b60911d44a55f712f0ab6b0",
+      "status": "SUCCESS",
+      "version": "coordination-v1",
+      "recoveries": 2
+    },
+    {
+      "id": "intake-ea987e908e455a4a4bd203ec5e0c0ea4e19126691c6f5e225642aa704aaa3147",
+      "status": "SUCCESS",
+      "version": "coordination-v1",
+      "recoveries": 1
+    },
+    {
+      "id": "unowned-workflow-control",
+      "status": "ERROR",
+      "version": "coordination-v1",
+      "recoveries": 1
+    }
+  ],
+  "jobs": [
+    {
+      "id": "batch-second-intake:second-intake",
+      "batch_id": "batch-second-intake",
+      "job_id": "second-intake",
+      "current_attempt": "intake-1d2753aa406f5fe0279d58305611035ac8dab1f9d1c1128957ceb85a25e08e21",
+      "input_revision": "b6dec9b48d28b894486aa87d1522619483b11a885be030dc9a67ff35b02a64a4",
+      "state": "succeeded"
+    },
+    {
+      "id": "batch-two-lots:research-resistor",
+      "batch_id": "batch-two-lots",
+      "job_id": "research-resistor",
+      "current_attempt": "intake-7d89be61a55dd11f324a0bf39846710746edc887d6f75f6a66a1440283b707ae",
+      "input_revision": "9e63fac0e64b98ae3c8b799d69edbefa9cd86b413786a5b58060ddac3acc9dcf",
+      "state": "succeeded"
+    },
+    {
+      "id": "batch-two-lots:worker-restart",
+      "batch_id": "batch-two-lots",
+      "job_id": "worker-restart",
+      "current_attempt": "intake-c15abec3c9ce407ff8b4e43d290125df76ba4b1d8b60911d44a55f712f0ab6b0",
+      "input_revision": "9e63fac0e64b98ae3c8b799d69edbefa9cd86b413786a5b58060ddac3acc9dcf",
+      "state": "succeeded"
+    },
+    {
+      "id": "batch-two-lots:old-version-queued",
+      "batch_id": "batch-two-lots",
+      "job_id": "old-version-queued",
+      "current_attempt": "intake-1add8f2a7b4d796b46478061a456a81697df2217c09c9f1a089268fcfa3e4bce",
+      "input_revision": "9e63fac0e64b98ae3c8b799d69edbefa9cd86b413786a5b58060ddac3acc9dcf",
+      "state": "succeeded"
+    }
+  ],
+  "intent_count": 5,
+  "question_count": 1,
+  "outbox": [
+    {
+      "intent_id": "intake-ea987e908e455a4a4bd203ec5e0c0ea4e19126691c6f5e225642aa704aaa3147",
+      "acknowledged": true,
+      "deliveries": 1
+    },
+    {
+      "intent_id": "intake-1d2753aa406f5fe0279d58305611035ac8dab1f9d1c1128957ceb85a25e08e21",
+      "acknowledged": true,
+      "deliveries": 1
+    },
+    {
+      "intent_id": "intake-7d89be61a55dd11f324a0bf39846710746edc887d6f75f6a66a1440283b707ae",
+      "acknowledged": true,
+      "deliveries": 1
+    },
+    {
+      "intent_id": "intake-c15abec3c9ce407ff8b4e43d290125df76ba4b1d8b60911d44a55f712f0ab6b0",
+      "acknowledged": true,
+      "deliveries": 1
+    },
+    {
+      "intent_id": "intake-1add8f2a7b4d796b46478061a456a81697df2217c09c9f1a089268fcfa3e4bce",
+      "acknowledged": true,
+      "deliveries": 1
+    }
+  ],
+  "versions": {
+    "dbos": "2.10.0",
+    "django": "5.2.8",
+    "psycopg": "3.2.12",
+    "sqlalchemy": "2.1.6"
+  },
+  "observed_at_utc": "2026-11-01T04:57:38.255679+00:00",
+  "python": "3.12.3",
+  "postgres": "initdb (PostgreSQL) 17.11 (Postgres.app)"
+}
