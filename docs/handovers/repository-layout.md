@@ -107,7 +107,8 @@ feature branch stays `refactor/backend-frontend-layout`; its PR now targets
 `interative-app`, not main. The trunk starts at the existing main base after a
 remote existence check. This is a branch/review destination change, not a merge
 or a change to the agreed implementation scope. Future initiative PRs use this
-trunk. No existing branch is overwritten.
+trunk. No existing branch is overwritten. Push CI covers both main and the
+initiative trunk; pull-request CI remains target-independent.
 
 ## Review, shifts and limits
 

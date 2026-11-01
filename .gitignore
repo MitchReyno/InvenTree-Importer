@@ -28,7 +28,7 @@ __pycache__
 # Local docs
 docs/.local
 
-# Database dumps taken by scripts/wipe-inventory.py
+# Database dumps taken by backend/scripts/wipe-inventory.py
 backups/
 
 # Local import files: one folder per import, holding the file and its

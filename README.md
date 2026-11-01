@@ -1314,7 +1314,7 @@ make test                     # everything but the scanner TUI tests
 make test-scanner             # just the scanner TUI tests
 make test-all                 # everything, TUI included
 uv run --project backend pytest backend/tests/digikey   # one package's suite
-uv run --project backend pytest -k cache        # by name
+uv run --project backend pytest backend/tests -k cache        # by name
 ```
 
 `backend/tests/` mirrors the package, so the tests for `invimport.digikey.orders` are in
