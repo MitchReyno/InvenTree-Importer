@@ -1,16 +1,28 @@
 import { Notice, HeadingRow, Caption } from '../ui/primitives'
 import { Button, Heading, Panel, Paragraph } from '../ui/primitives'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import styled from 'styled-components'
 import { CaptureHeader } from './CaptureHeader'
 import { CaptureQueue } from './CaptureQueue'
 import { EvidencePanel } from './EvidencePanel'
 import { CaptureEditor } from './CaptureEditor'
-export function CaptureWorkspace({ batch, busy, edit, observe, onStage }: CaptureWorkspaceProps) {
+export function CaptureWorkspace({
+  batch,
+  busy,
+  edit,
+  observe,
+  onStage,
+  onDirtyChange,
+}: CaptureWorkspaceProps) {
   const [selected, select] = useState(() => location.hash.split('/')[1] || 'defaults')
   const [focused, setFocused] = useState(() => Boolean(location.hash.split('/')[1]))
   const [dirty, setDirty] = useState(false)
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+  function reportDirty(value: boolean) {
+    setDirty(value)
+    onDirtyChange?.(value)
+  }
   function setSelected(value: string) {
     select(value)
     setFocused(true)
@@ -99,7 +111,7 @@ export function CaptureWorkspace({ batch, busy, edit, observe, onStage }: Captur
             selected={selected}
             frozen={frozen}
             dirty={dirty}
-            onDirty={setDirty}
+            onDirty={reportDirty}
             edit={edit}
             observe={observe}
           />

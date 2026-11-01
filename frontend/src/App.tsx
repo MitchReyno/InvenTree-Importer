@@ -1,4 +1,4 @@
-import { Button, PageTitle, Panel, Paragraph } from './components/ui/primitives'
+import { Button, PageTitle, Panel, Paragraph, Notice } from './components/ui/primitives'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { captureClient, intakeClient, manualClient } from '@invimport/contracts/client'
 import type { BootstrapDto } from '@invimport/contracts'
@@ -7,11 +7,12 @@ import { Batch } from './components/batches/Batch'
 import { GlobalStyle } from './components/GlobalStyle'
 import styled from 'styled-components'
 import { ActivityIndicator } from './components/ui/ActivityIndicator'
+import { useNavigationGuard } from './navigation/useNavigationGuard'
 
 export default function App() {
   const [bootstrap, setBootstrap] = useState<BootstrapDto | null>(null)
   const [error, setError] = useState('')
-  const [route, setRoute] = useState(location.hash.slice(1))
+  const { route, navigationBlocked, onDirtyChange } = useNavigationGuard()
   useEffect(() => {
     let active = true
     void intakeClient(location.origin)
@@ -26,11 +27,8 @@ export default function App() {
           setError('Application unavailable. Check the local API and retry.')
         }
       })
-    const change = () => setRoute(location.hash.slice(1))
-    addEventListener('hashchange', change)
     return () => {
       active = false
-      removeEventListener('hashchange', change)
     }
   }, [])
   const client = useMemo(
@@ -71,10 +69,11 @@ export default function App() {
         client={client}
         manual={manual}
         route={route}
+        onDirtyChange={onDirtyChange}
       />
     )
   } else {
-    content = <Batches client={client} />
+    content = <Batches client={client} onDirtyChange={onDirtyChange} />
   }
   return (
     <AppShell>
@@ -89,6 +88,12 @@ export default function App() {
         {bootstrap?.banner ?? 'Connecting to local application…'}
       </DevelopmentBanner>
       {manual && <ActivityIndicator client={manual} />}
+      {navigationBlocked && (
+        <Notice role="alert">
+          Your unsaved input is preserved. Save this form or discard its unsaved input before
+          navigating, then choose the destination again.
+        </Notice>
+      )}
       <Main>{content}</Main>
       <Footer>
         Saved in the application database, not this browser. Exact manual approvals can queue the

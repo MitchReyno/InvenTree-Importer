@@ -3,7 +3,7 @@ import {
   validate,
   Id,
   Digest,
-  type ManualPreviewDto,
+  type ManualPreparationResultDto,
   type ManualRunDto,
 } from '@invimport/contracts'
 import { canonical, strictJson } from '@invimport/contracts/json'
@@ -49,9 +49,26 @@ export async function retainedPreparation(
   }
   verifyBytes(row.review_bytes, row.review_digest)
   verifyBytes(row.dependency_bytes, row.dependency_digest)
-  const preview: unknown = strictJson(row.preview_bytes.toString('utf8'))
-  validate('ManualPreview', preview)
-  const checked = preview as ManualPreviewDto
+  const outcomeResult = await client.query(
+    'SELECT command_id,response_bytes,response_digest FROM manual_prepare_outcome WHERE command_id=$1',
+    [row.prepare_command_id],
+  )
+  const outcome = outcomeResult.rows[0]
+  if (!outcome || outcome.command_id !== row.prepare_command_id) {
+    fail('retained_preparation_corrupt', 409)
+  }
+  verifyBytes(outcome.response_bytes, outcome.response_digest)
+  const sealed: unknown = strictJson(outcome.response_bytes.toString('utf8'))
+  validate('ManualPreparationResult', sealed)
+  const response = sealed as ManualPreparationResultDto
+  if (
+    response.status !== 'prepared' ||
+    canonical(response) !== outcome.response_bytes.toString('utf8') ||
+    canonical(response.preparation) !== row.preview_bytes.toString('utf8')
+  ) {
+    fail('retained_preparation_corrupt', 409)
+  }
+  const checked = response.preparation
   if (
     checked.id !== row.id ||
     checked.batch_id !== row.batch_id ||

@@ -186,3 +186,41 @@ The repository-wide Markdown formatter rewrote unrelated historical tables. Thos
 The final boundary audit removed manual-module SQL reads of executor deployment/approval/run internals. Deployment lookup, verified plan digest and delivery-role provisioning now belong to public executor seams; manual dispatch selects only its own retained preparation/run bindings plus shared command/outbox. The affected full types, fast41, PG27 and process9 checks passed again after this change. Delivery receives no target/source/run mutation grants.
 
 Changed-file commit hooks passed after explicitly staging their first Markdown rewrite; no automatic staging occurred. The pinned Python selector suite passed18/18. Full normal backend tests were not repeated after the later TypeScript-only seam/readability changes; affected TypeScript/PG/process checks were repeated.
+
+## Independent review fix — app-wide dirty navigation
+
+### Prospective bounded plan
+
+The independent UI reviewer found P2 data loss at head `fc25f1d`: the app-wide activity link bypassed Capture’s local dirty guard, unmounted an unsaved editor and silently discarded its text. Hash/back navigation had the same application-boundary gap. The reviewer’s separate batch/unqueued approval and all preview inventory history must remain intact.
+
+Lift only navigation protection to a small owning React hook: Capture reports its dirty state synchronously through Batch to App, while retaining its existing editor/input instance. Guard same-document internal links and hash/history navigation at App’s route acceptance boundary. A rejected attempt must retain the editor and its exact URL, with clear save/discard guidance. Explicit successful save or discard releases the guard; no automatic draft submission, framework, inventory command or server change is needed.
+
+Add regressions through App’s visible UI for the global activity link and direct hash/browser-history transitions, including exact unsaved text preservation and navigation after discard/save. Then run complete affected frontend tests/types/lint/build, generated drift/format and changed-file Markdown/hooks checks. Coordinate any preview refresh with the server reviewer; source/test edits do not restart services. Push an updated ready PR46 head for the same independent UI reviewer and an unchanged-server exact-head scope stamp.
+
+### Additional prospective review-fix scope
+
+The same independent review found two more P2s at the same head. A fresh Approve view followed `workspace.preparations[0]` on every poll, silently substituting another scope. Separately, privileged modification of an unchecked preview label could be displayed and approved despite unchanged plan/review/dependency bytes. Both are material exact-preview defects.
+
+Pin the displayed preparation identity in the Approve URL and explicit selection state. Polls may update availability but cannot select another preparation; an unavailable/stale pinned identity disables approval and explains the required explicit choice. Add polling reorder/removal tests and explicit-choice coverage.
+
+For complete retained preview integrity, reuse the already retained `manual_prepare_outcome.response_bytes` and SHA-256: verify that sealed prepared outcome and compare its full canonical preview bytes with the indexed preparation preview before either workspace display or approval. This covers every display field, including lot labels and excluded IDs, without changing an already applied migration or inventing another mutable truth store. Add actual PG privileged-corruption regressions for both workspace and approval, proving zero executor reservation/POST. Run the affected full PG/process tiers serially after the now-released reviewer window. Preserve every review fixture and the owner’s two historical POSTs.
+
+The coordinator also identified the new-batch title/note as meaningful unsaved human input exposed to the global link. Extend the same synchronous guard to nonempty new-batch fields; transient archive filters and selection checkboxes are not protected facts. Add a representative create-form regression before publishing the review-fix head.
+
+### Implemented fixes and observed verification
+
+The app-owned `useNavigationGuard` now receives synchronous dirty callbacks from Capture and nonempty new-batch title/note forms. Same-document activity/resume links, hash changes and history traversal cannot unmount those forms while dirty. The protected URL/input instance remains, with explicit save/discard guidance; blocked history destinations remain retryable after save/discard. Native unload uses the browser’s ordinary unsaved-input protection. Filters and transient selected-scope checkboxes remain unguarded.
+
+Approve now navigates to `#<batch>/approve/<preparation>` after preparation or initial choice. Polling looks up only that identity, retaining the displayed original when it becomes stale and disabling approval; a reload of a missing pinned ID shows unavailable with no fallback. The prepared selector remains available even when only one explicit replacement exists.
+
+`retainedPreparation` now verifies the existing sealed prepare-outcome digest, canonical encoding and runtime schema, then byte-compares the complete preview and checks exact command/batch/preparation identity. This binds labels and excluded IDs as well as existing plan scalars. No migration, capability, grant or worker ownership protocol changed.
+
+Fresh checks pass: frontend **11/11**, fast contracts3/server41, real PG **28/28** and process **9/9**, zero PG/process skips; complete types, frontend ESLint, generated drift, build and formatting pass. The added PG case independently corrupts labels, excluded IDs, missing outcome, digest and noncanonical outcome. Both workspace and approval reject before any executor reservation/run or stock POST. The added frontend cases cover exact editor-instance preservation through global link/hash/Back, navigation after confirmed save or explicit conflict discard, nonempty create-form facts versus transient filters, and preparation poll ordering/removal/reload with explicit replacement.
+
+Actual browser checks on 4330 preserved the reviewer’s temporary unsaved Review B input through both the global activity link and real Back traversal. Explicit discard restored saved `Review B`; the activity link then reached its original unqueued run. A nonempty new-batch title/note also survived the global link and were explicitly discarded without creating a batch. Evidence: [dirty Capture](../bench-intake/evidence/T04/dirty-activity-preserved.png), [dirty new batch](../bench-intake/evidence/T04/dirty-new-batch-preserved.png).
+
+The reviewer’s old A preparation URL remained unavailable/disabled while B was available, never showing B as its replacement, across polling. Explicit navigation to B’s preparation URL displayed B23 and survived reload. [Pinned unavailable evidence](../bench-intake/evidence/T04/pinned-preparation-unavailable.png) records the actual browser state; selector change behavior is additionally exercised by the component regression. Native-dropdown keyboard automation did not commit a selection in this browser check, so it is not claimed as browser selector proof.
+
+The [post-fix independent receipts](../bench-intake/evidence/T04/review-fix-receipts.json) still show exactly the owner’s two historical stock POSTs and only stock7102. Reviewer batch `87c2e067-1cda-45cb-9e87-1ba28180ab39` and its approval/run `81378710-0646-4de4-ad9a-faed5c9e1560` remain unqueued, with saved Review B restored. Reviewer batch `678165f3-c296-41b4-9ce2-d0aac7751f7f` retains its preparation history; no new approval was submitted.
+
+The preserved preview now has parent95975, web25934 and runner96120 on 4330/fake62282 in the same DB namespace. Browser target remains `9F9B65DA8837C2E2125ED1D31577ACA2`, 1440 px, no dirty input, second reviewer batch Approve pinned to B preparation `891b0299-5c2c-4bb1-be67-ead0d756720a`. The updated head requires both same independent reviewers to recheck their material fixes before coordinator merge.

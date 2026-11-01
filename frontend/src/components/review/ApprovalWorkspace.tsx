@@ -18,6 +18,7 @@ interface Props {
   batch: CaptureSnapshotDto
   preparations: ManualPreviewDto[]
   preview: ManualPreviewDto | null
+  pinnedPreparationId?: string
   busy: boolean
   choose: (preview: ManualPreviewDto) => void
   approve: () => void
@@ -27,6 +28,7 @@ export function ApprovalWorkspace({
   batch,
   preparations,
   preview,
+  pinnedPreparationId,
   busy,
   choose,
   approve,
@@ -44,7 +46,7 @@ export function ApprovalWorkspace({
           Approval covers the exact frozen effects. Editing selected dependencies requires a new
           review and preparation.
         </Caption>
-        {preparations.length > 1 && (
+        {preparations.length > 0 && (
           <Label>
             Prepared selection
             <Select
@@ -153,10 +155,11 @@ export function ApprovalWorkspace({
             </details>
           </>
         )}
-        {preview && !current && (
+        {pinnedPreparationId && !current && (
           <Notice>
-            This preparation is stale or already approved. Inspect Results or review current values;
-            it cannot create a new approval here.
+            The pinned preparation is unavailable, stale or already approved. No other plan has been
+            substituted. Inspect Results, return to Review or explicitly choose another prepared
+            selection.
           </Notice>
         )}
         <ApproveFoot>

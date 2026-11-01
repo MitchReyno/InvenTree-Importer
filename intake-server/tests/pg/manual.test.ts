@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
 import type { ManualPreviewDto, ManualRunDto } from '@invimport/contracts'
+import { canonical } from '@invimport/contracts/json'
 import { manualFixture } from '../support/manual.ts'
 import { executeManualDispatch } from '../../src/review/runner.ts'
 
@@ -742,6 +743,83 @@ test('0004 upgrades retained native capture identity unchanged and rejects every
       }
     } finally {
       await db.dispose()
+    }
+  }
+})
+
+test('the sealed preparation outcome rejects changed display labels, excluded scope and missing/corrupt outcome before display or approval', async () => {
+  for (const damage of [
+    'lot_label',
+    'remaining_lot_ids',
+    'missing_outcome',
+    'outcome_digest',
+    'noncanonical_outcome',
+  ]) {
+    const fixture = await manualFixture()
+    try {
+      const capture = await fixture.seedCapture()
+      const prepared = await reviewedPreparation(
+        fixture,
+        capture.batch.id,
+        capture.batch.revision,
+        capture.a.id,
+      )
+      if (damage === 'lot_label' || damage === 'remaining_lot_ids') {
+        const corrupted = structuredClone(prepared)
+        if (damage === 'lot_label') {
+          corrupted.effects[0].lot_label = 'Packet B'
+        } else {
+          corrupted.remaining_lot_ids = []
+        }
+        await fixture.db.pool.query('ALTER TABLE manual_preparation DISABLE TRIGGER USER')
+        await fixture.db.pool.query('UPDATE manual_preparation SET preview_bytes=$2 WHERE id=$1', [
+          prepared.id,
+          Buffer.from(canonical(corrupted)),
+        ])
+        await fixture.db.pool.query('ALTER TABLE manual_preparation ENABLE TRIGGER USER')
+      } else {
+        await fixture.db.pool.query('ALTER TABLE manual_prepare_outcome DISABLE TRIGGER USER')
+        if (damage === 'missing_outcome') {
+          await fixture.db.pool.query('DELETE FROM manual_prepare_outcome')
+        } else if (damage === 'outcome_digest') {
+          await fixture.db.pool.query('UPDATE manual_prepare_outcome SET response_digest=$1', [
+            Buffer.alloc(32),
+          ])
+        } else {
+          const bytes = Buffer.from(
+            JSON.stringify({ status: 'prepared', preparation: prepared }, null, 2),
+          )
+          await fixture.db.pool.query(
+            'UPDATE manual_prepare_outcome SET response_bytes=$1,response_digest=sha256($1)',
+            [bytes],
+          )
+        }
+        await fixture.db.pool.query('ALTER TABLE manual_prepare_outcome ENABLE TRIGGER USER')
+      }
+      const workspace = await fixture.http(`/batches/${capture.batch.id}/manual`)
+      assert.equal(workspace.status, 409, damage)
+      assert.equal(
+        (await fixture.http(`/preparations/${prepared.id}/approvals`, approval(prepared))).status,
+        409,
+        damage,
+      )
+      assert.equal(
+        (await fixture.db.pool.query('SELECT count(*)::int AS n FROM executor_approval')).rows[0].n,
+        0,
+        damage,
+      )
+      assert.equal(
+        (await fixture.db.pool.query('SELECT count(*)::int AS n FROM executor_run')).rows[0].n,
+        0,
+        damage,
+      )
+      assert.equal(
+        (await fixture.fake.records()).filter((value) => value.method === 'POST').length,
+        0,
+        damage,
+      )
+    } finally {
+      await fixture.dispose()
     }
   }
 })

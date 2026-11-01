@@ -14,12 +14,35 @@ import {
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Client } from '../../capture/client'
 import styled from 'styled-components'
-export function Batches({ client }: { client: Client }) {
+export function Batches({
+  client,
+  onDirtyChange,
+}: {
+  client: Client
+  onDirtyChange: (dirty: boolean) => void
+}) {
   const [batches, setBatches] = useState<Awaited<ReturnType<Client['list']>> | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [archived, setArchived] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [title, setTitle] = useState('')
+  const [note, setNote] = useState('')
+  useEffect(() => () => onDirtyChange(false), [onDirtyChange])
+  function changeDraft(field: 'title' | 'note', value: string) {
+    if (field === 'title') {
+      setTitle(value)
+    } else {
+      setNote(value)
+    }
+    onDirtyChange(Boolean((field === 'title' ? value : title) || (field === 'note' ? value : note)))
+  }
+  function discardDraft() {
+    setTitle('')
+    setNote('')
+    setCreating(false)
+    onDirtyChange(false)
+  }
   const createIntent = useRef({ payload: '', key: crypto.randomUUID() })
   useEffect(() => {
     let active = true
@@ -54,6 +77,7 @@ export function Batches({ client }: { client: Client }) {
     setError('')
     try {
       const batch = await client.create(input, createIntent.current.key)
+      onDirtyChange(false)
       location.hash = batch.id
     } catch {
       setError(
@@ -87,17 +111,33 @@ export function Batches({ client }: { client: Client }) {
           >
             <Label>
               Batch title
-              <Input name="title" required maxLength={256} placeholder="Bench bag · November" />
+              <Input
+                name="title"
+                required
+                maxLength={256}
+                placeholder="Bench bag · November"
+                value={title}
+                disabled={busy}
+                onChange={(event) => changeDraft('title', event.target.value)}
+              />
             </Label>
             <Label>
               Human note
               <TextArea
                 name="note"
+                value={note}
+                disabled={busy}
+                onChange={(event) => changeDraft('note', event.target.value)}
                 maxLength={8192}
                 placeholder="Where these components came from; observations, not inferred facts"
               />
             </Label>
             <Button disabled={busy}>Create retained batch</Button>
+            {(title || note) && (
+              <Button type="button" disabled={busy} onClick={discardDraft}>
+                Discard new batch input
+              </Button>
+            )}
           </Form>
         </Panel>
       )}

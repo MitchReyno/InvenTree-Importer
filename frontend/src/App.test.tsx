@@ -47,7 +47,7 @@ const response = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } })
 afterEach(() => {
   vi.restoreAllMocks()
-  location.hash = ''
+  history.replaceState(null, '', location.pathname + location.search)
 })
 
 test('no-photo capture shows human provenance, exact values and distinct lot identity; edits emit string scalars', async () => {
@@ -220,4 +220,164 @@ test('inbox resumes retained capture, filters archives and creates a batch with 
   expect(sent).toEqual([
     { title: 'New manually counted bag', note: 'Counted at the bench, not inferred.' },
   ])
+})
+
+const activityRunId = 'a0000000-0000-4000-8000-00000000000a'
+const activityDestination = `${batchId}/results/${activityRunId}`
+function navigationServer(conflict = false) {
+  let saved = fixture
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+    const path = new URL(String(input)).pathname
+    if (path.endsWith('/bootstrap')) {
+      return response({
+        mode: 'development-key',
+        banner: 'Single-operator development mode — not a verified human session',
+        status: 'configured',
+        actor_id: fixture.actor_id,
+        target_id: activityRunId,
+        target_context_id: fixture.target_context_id,
+        mutation_enabled: false,
+        permission_gate: 'deferred_T11',
+        csrf_token: 'a'.repeat(64),
+      })
+    }
+    if (path.endsWith('/activity')) {
+      return response({
+        runs: [{ batch_id: batchId, run_id: activityRunId, state: 'queued' }],
+        truncated: false,
+      })
+    }
+    if (path.endsWith('/batches')) {
+      return response({
+        batches: [
+          {
+            id: batchId,
+            source_id: fixture.source_id,
+            title: fixture.title,
+            revision: fixture.revision,
+            archived: false,
+            updated_at: fixture.updated_at,
+          },
+        ],
+        truncated: false,
+      })
+    }
+    if (path.endsWith('/manual')) {
+      return response({
+        batch_id: batchId,
+        revision: saved.revision,
+        supported: true,
+        capability: 'owned-fake-stock/1',
+        lots: [{ lot_id: lotId, reviewed: false, issues: [] }],
+        runs: [],
+        preparations: [],
+        preparations_truncated: false,
+        cursor: saved.cursor,
+      })
+    }
+    if (path.endsWith('/edits')) {
+      const body = JSON.parse(String(init?.body))
+      saved = {
+        ...fixture,
+        title: conflict ? 'Another saved title' : body.change.title,
+        revision: '9007199254740994',
+      }
+      if (conflict) {
+        return response(
+          {
+            code: 'revision_conflict',
+            message: 'Conflict',
+            recovery: 'refresh',
+            correlation_id: 'test',
+          },
+          412,
+        )
+      }
+    }
+    return response(saved)
+  })
+}
+
+test('app-wide activity navigation preserves the dirty editor instance; explicit discard releases navigation', async () => {
+  history.replaceState(null, '', `#${batchId}/batch`)
+  navigationServer(true)
+  const user = userEvent.setup()
+  const view = render(<App />)
+  const title = await screen.findByLabelText('Title')
+  await user.clear(title)
+  await user.type(title, 'UNSAVED activity regression')
+  await user.click(await screen.findByRole('link', { name: 'Open original run' }))
+  expect(await screen.findByText(/Your unsaved input is preserved/)).toBeVisible()
+  expect(screen.getByLabelText('Title')).toBe(title)
+  expect(title).toHaveValue('UNSAVED activity regression')
+  expect(location.hash).toBe(`#${batchId}/batch`)
+  expect(screen.queryByRole('heading', { name: 'Retained results' })).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Save human changes' }))
+  await screen.findByText(/Another client saved first/)
+  expect(title).toHaveValue('UNSAVED activity regression')
+  await user.click(
+    screen.getByRole('button', { name: 'Discard local edits and load saved values' }),
+  )
+  await waitFor(() => expect(screen.getByLabelText('Title')).toHaveValue('Another saved title'))
+  expect(screen.queryByText(/Your unsaved input is preserved/)).not.toBeInTheDocument()
+  await user.click(screen.getByRole('link', { name: 'Open original run' }))
+  await screen.findByRole('heading', { name: 'Retained results' })
+  expect(location.hash).toBe(`#${activityDestination}`)
+  view.unmount()
+})
+
+test('hash and browser Back cannot discard dirty input; confirmed save permits retrying the history destination', async () => {
+  history.replaceState(null, '', `#${activityDestination}`)
+  history.pushState(null, '', `#${batchId}/batch`)
+  navigationServer()
+  const user = userEvent.setup()
+  const view = render(<App />)
+  const title = await screen.findByLabelText('Title')
+  await user.clear(title)
+  await user.type(title, 'UNSAVED history regression')
+  const unload = new Event('beforeunload', { cancelable: true })
+  expect(window.dispatchEvent(unload)).toBe(false)
+  location.hash = activityDestination
+  await screen.findByText(/Your unsaved input is preserved/)
+  expect(location.hash).toBe(`#${batchId}/batch`)
+  expect(screen.getByLabelText('Title')).toBe(title)
+  history.back()
+  await waitFor(() => expect(location.hash).toBe(`#${batchId}/batch`))
+  expect(title).toHaveValue('UNSAVED history regression')
+  expect(screen.queryByRole('heading', { name: 'Retained results' })).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Save human changes' }))
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Save human changes' })).toBeDisabled(),
+  )
+  expect(screen.queryByText(/Your unsaved input is preserved/)).not.toBeInTheDocument()
+  expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(true)
+  history.back()
+  await screen.findByRole('heading', { name: 'Retained results' })
+  expect(location.hash).toBe(`#${activityDestination}`)
+  view.unmount()
+})
+
+test('nonempty new-batch title and note survive global navigation; filters alone do not lock navigation', async () => {
+  navigationServer()
+  const user = userEvent.setup()
+  const view = render(<App />)
+  await screen.findByRole('link', { name: 'Resume capture →' })
+  await user.click(screen.getByRole('checkbox', { name: 'Show archived' }))
+  expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(true)
+  await user.click(screen.getByRole('button', { name: 'New batch' }))
+  const title = screen.getByLabelText('Batch title')
+  const note = screen.getByLabelText('Human note')
+  await user.type(title, 'UNSAVED new batch')
+  await user.type(note, 'Human facts must survive the activity link.')
+  await user.click(screen.getByRole('link', { name: 'Open original run' }))
+  expect(await screen.findByText(/Your unsaved input is preserved/)).toBeVisible()
+  expect(screen.getByLabelText('Batch title')).toBe(title)
+  expect(title).toHaveValue('UNSAVED new batch')
+  expect(note).toHaveValue('Human facts must survive the activity link.')
+  expect(location.hash).toBe('')
+  await user.click(screen.getByRole('button', { name: 'Discard new batch input' }))
+  expect(screen.queryByText(/Your unsaved input is preserved/)).not.toBeInTheDocument()
+  await user.click(screen.getByRole('link', { name: 'Open original run' }))
+  await screen.findByRole('heading', { name: 'Retained results' })
+  view.unmount()
 })

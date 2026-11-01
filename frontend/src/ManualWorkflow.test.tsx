@@ -265,8 +265,8 @@ test('manual review and approval keep exact A-only scope, scalar text and server
     expect(screen.getByRole('button', { name: 'Prepare exact selected effects' })).toBeEnabled(),
   )
   await user.click(screen.getByRole('button', { name: 'Prepare exact selected effects' }))
-  await waitFor(() => expect(navigate).toHaveBeenCalledWith('approve'))
-  view.rerender(<ManualWorkspace {...props} stage="approve" />)
+  await waitFor(() => expect(navigate).toHaveBeenCalledWith('approve', prep))
+  view.rerender(<ManualWorkspace {...props} stage="approve" preparationId={prep} />)
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeEnabled(),
   )
@@ -339,4 +339,86 @@ test('unknown results retain uncertainty without create retry and app-wide activ
     `#${batchId}/results/${runId}`,
   )
   expect(command).not.toHaveBeenCalled()
+})
+
+test('Approve pins the requested preparation through poll ordering/removal and requires explicit replacement choice', async () => {
+  const client = fakeClient()
+  const laterId = 'a0000000-0000-4000-8000-000000000002'
+  const later: ManualPreviewDto = {
+    ...preview,
+    id: laterId,
+    selected_lot_ids: [b],
+    remaining_lot_ids: [a],
+    effects: [
+      {
+        ...preview.effects[0],
+        lot_id: b,
+        lot_label: 'Packet B',
+        quantity: '23',
+        location_id: null,
+        location_label: 'No location',
+        contribution_key: batch.lots[1].contribution_key,
+        barcode: `bi1:${source}:${batch.lots[1].contribution_key}`,
+      },
+    ],
+  }
+  let preparations = [preview]
+  vi.mocked(client.workspace).mockImplementation(async () =>
+    checked<Awaited<ReturnType<ManualClient['workspace']>>>('ManualWorkspace', {
+      batch_id: batchId,
+      revision: batch.revision,
+      supported: true,
+      capability: 'owned-fake-stock/1',
+      lots: [
+        { lot_id: a, reviewed: true, issues: [] },
+        { lot_id: b, reviewed: true, issues: [] },
+      ],
+      runs: [],
+      preparations,
+      preparations_truncated: false,
+      cursor: batch.cursor,
+    }),
+  )
+  const navigate = vi.fn()
+  const props = {
+    batch,
+    client,
+    edit: vi.fn(async () => undefined),
+    navigate,
+    reload: vi.fn(async () => undefined),
+  }
+  const user = userEvent.setup()
+  const view = render(<ManualWorkspace {...props} stage="approve" preparationId={prep} />)
+  await screen.findByText('0.000001 × Packet A')
+  preparations = [later, preview]
+  await waitFor(
+    () => expect(screen.getByRole('option', { name: 'Packet B' })).toBeInTheDocument(),
+    { timeout: 4000 },
+  )
+  expect(screen.getByText('0.000001 × Packet A')).toBeVisible()
+  expect(screen.queryByText('23 × Packet B')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeEnabled()
+  expect(navigate).not.toHaveBeenCalled()
+  preparations = [later]
+  await waitFor(
+    () => expect(screen.getByText(/The pinned preparation is unavailable/)).toBeVisible(),
+    { timeout: 4000 },
+  )
+  expect(screen.getByText('0.000001 × Packet A')).toBeVisible()
+  expect(screen.queryByText('23 × Packet B')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeDisabled()
+  await user.selectOptions(screen.getByLabelText('Prepared selection'), laterId)
+  expect(navigate).toHaveBeenCalledWith('approve', laterId)
+  view.rerender(<ManualWorkspace {...props} stage="approve" preparationId={laterId} />)
+  expect(await screen.findByText('23 × Packet B')).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' }))
+  expect(client.approve).toHaveBeenCalledWith(
+    expect.objectContaining({ preparation_id: laterId, selected_lot_ids: [b] }),
+    expect.any(String),
+  )
+  view.unmount()
+  render(<ManualWorkspace {...props} stage="approve" preparationId={prep} />)
+  await screen.findByText(/The pinned preparation is unavailable/)
+  expect(screen.queryByText('23 × Packet B')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Approve 0 lots for the owned fake' })).toBeDisabled()
 })

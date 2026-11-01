@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type {
   CaptureSnapshotDto,
   CaptureEditDto,
@@ -19,8 +19,9 @@ interface Props {
   client: ManualClient
   stage: Exclude<ManualStage, 'capture'>
   runId?: string
+  preparationId?: string
   edit: (change: CaptureEditDto['change']) => Promise<void>
-  navigate: (stage: ManualStage, runId?: string) => void
+  navigate: (stage: ManualStage, resourceId?: string) => void
   reload: () => Promise<void>
 }
 function commandMessage(error: unknown) {
@@ -43,10 +44,20 @@ function commandMessage(error: unknown) {
   }
   return 'The command outcome is not confirmed. Refresh retained results before deciding what to do next.'
 }
-export function ManualWorkspace({ batch, client, stage, runId, edit, navigate, reload }: Props) {
+export function ManualWorkspace({
+  batch,
+  client,
+  stage,
+  runId,
+  preparationId,
+  edit,
+  navigate,
+  reload,
+}: Props) {
   const [workspace, setWorkspace] = useState<ManualWorkspaceDto | null>(null)
   const [selected, setSelected] = useState<string[]>([])
-  const [preview, setPreview] = useState<ManualPreviewDto | null>(null)
+  const [lastPreview, setLastPreview] = useState<ManualPreviewDto | null>(null)
+  const initialChoiceMade = useRef(false)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [connectionLost, setConnectionLost] = useState(false)
@@ -106,7 +117,33 @@ export function ManualWorkspace({ batch, client, stage, runId, edit, navigate, r
       clearTimeout(timer)
     }
   }, [batch.id, client])
-  const displayedPreview = preview ?? workspace?.preparations[0] ?? null
+  useEffect(() => {
+    if (!workspace || stage !== 'approve') {
+      return
+    }
+    if (preparationId) {
+      initialChoiceMade.current = true
+      const matching = workspace.preparations.find((value) => value.id === preparationId)
+      if (matching && matching !== lastPreview) {
+        setLastPreview(matching)
+      }
+    } else if (!initialChoiceMade.current) {
+      initialChoiceMade.current = true
+      const first = workspace.preparations[0]
+      if (first) {
+        setLastPreview(first)
+        navigate('approve', first.id)
+      }
+    }
+  }, [workspace, stage, preparationId, lastPreview, navigate])
+  const displayedPreview = preparationId
+    ? (workspace?.preparations.find((value) => value.id === preparationId) ??
+      (lastPreview?.id === preparationId ? lastPreview : null))
+    : null
+  function choosePreparation(value: ManualPreviewDto) {
+    setLastPreview(value)
+    navigate('approve', value.id)
+  }
   const stale = workspace ? workspace.revision !== batch.revision : true
   async function perform(label: string, work: () => Promise<void>) {
     setBusy(label)
@@ -154,8 +191,8 @@ export function ManualWorkspace({ batch, client, stage, runId, edit, navigate, r
         setError(result.issues.map((value) => value.message).join(' '))
         return
       }
-      setPreview(result.preparation)
-      navigate('approve')
+      setLastPreview(result.preparation)
+      navigate('approve', result.preparation.id)
     })
   }
   function approve() {
@@ -174,7 +211,7 @@ export function ManualWorkspace({ batch, client, stage, runId, edit, navigate, r
         },
         crypto.randomUUID(),
       )
-      setPreview(null)
+      setLastPreview(null)
       navigate('results', accepted.run_id)
     })
   }
@@ -220,7 +257,8 @@ export function ManualWorkspace({ batch, client, stage, runId, edit, navigate, r
         preparations={workspace.preparations}
         preview={displayedPreview}
         busy={disabled}
-        choose={setPreview}
+        choose={choosePreparation}
+        pinnedPreparationId={preparationId}
         approve={approve}
         review={() => navigate('review')}
       />
@@ -244,7 +282,9 @@ export function ManualWorkspace({ batch, client, stage, runId, edit, navigate, r
         dirty={false}
         edit={edit}
         stage={stage}
-        onStage={(value) => navigate(value)}
+        onStage={(value) =>
+          navigate(value, value === 'approve' ? (preparationId ?? lastPreview?.id) : undefined)
+        }
       />
       <Small>
         Manual workflow · owned fake only. Processing, uploads and research remain unavailable.

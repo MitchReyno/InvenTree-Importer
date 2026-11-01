@@ -17,17 +17,19 @@ export function Batch({
   client,
   manual,
   route,
+  onDirtyChange,
 }: {
   id: string
   client: Client
   manual: ManualClient
   route: string
+  onDirtyChange: (dirty: boolean) => void
 }) {
   const segment = route.split('/')[1]
   const stage: ManualStage =
     segment === 'review' || segment === 'approve' || segment === 'results' ? segment : 'capture'
-  function navigate(value: ManualStage, runId?: string) {
-    location.hash = value === 'capture' ? id : `${id}/${value}${runId ? `/${runId}` : ''}`
+  function navigate(value: ManualStage, resourceId?: string) {
+    location.hash = value === 'capture' ? id : `${id}/${value}${resourceId ? `/${resourceId}` : ''}`
   }
   const [batch, setBatch] = useState<CaptureSnapshotDto | null>(null)
   const [error, setError] = useState('')
@@ -162,7 +164,8 @@ export function Batch({
           batch={batch}
           client={manual}
           stage={stage}
-          runId={route.split('/')[2]}
+          runId={stage === 'results' ? route.split('/')[2] : undefined}
+          preparationId={stage === 'approve' ? route.split('/')[2] : undefined}
           edit={edit}
           navigate={navigate}
           reload={reloadSavedValues}
@@ -175,6 +178,7 @@ export function Batch({
           edit={edit}
           observe={observe}
           onStage={navigate}
+          onDirtyChange={onDirtyChange}
         />
       ) : (
         !error && <Paragraph role="status">Resuming saved batch…</Paragraph>
