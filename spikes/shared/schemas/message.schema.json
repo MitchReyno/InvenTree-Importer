@@ -1,0 +1,417 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bench-intake:spike-message:1",
+  "title": "Provisional shared spike messages v1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/event"
+    },
+    {
+      "$ref": "#/$defs/question"
+    },
+    {
+      "$ref": "#/$defs/answer"
+    },
+    {
+      "$ref": "#/$defs/result"
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+      "not": {
+        "pattern": "[\\r\\n]"
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "not": {
+        "pattern": "[\\r\\n]"
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 240,
+          "pattern": "^[A-Za-z0-9_-][A-Za-z0-9_. -]*(/[A-Za-z0-9_-][A-Za-z0-9_. -]*)*$",
+          "not": {
+            "pattern": "[\\r\\n]"
+          }
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "media_type": {
+          "enum": [
+            "application/json",
+            "application/pdf",
+            "image/png",
+            "text/plain"
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "media_type"
+      ],
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "protocol_version": {
+          "const": "bench-intake-spike/1"
+        },
+        "batch_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "job_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "attempt_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "input_revision": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "batch_id",
+        "job_id",
+        "attempt_id",
+        "input_revision"
+      ]
+    },
+    "request": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/context"
+        }
+      ],
+      "properties": {
+        "type": {
+          "const": "job.request"
+        },
+        "stage": {
+          "enum": [
+            "reading",
+            "identifying",
+            "research",
+            "images",
+            "inventory",
+            "prepare"
+          ]
+        },
+        "provider": {
+          "enum": [
+            "fixture",
+            "claude",
+            "codex"
+          ]
+        },
+        "input_ref": {
+          "$ref": "#/$defs/artifact",
+          "properties": {
+            "media_type": {
+              "const": "application/json"
+            }
+          }
+        },
+        "allowed_capabilities": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "read_evidence",
+              "search_inventory",
+              "fetch_sources",
+              "write_artifacts",
+              "submit_proposals"
+            ]
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "type",
+        "stage",
+        "provider",
+        "input_ref",
+        "allowed_capabilities"
+      ],
+      "unevaluatedProperties": false
+    },
+    "event": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/context"
+        }
+      ],
+      "properties": {
+        "type": {
+          "const": "job.event"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "event": {
+          "enum": [
+            "started",
+            "progress"
+          ]
+        },
+        "code": {
+          "$ref": "#/$defs/identifier"
+        },
+        "scope_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identifier"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "type",
+        "sequence",
+        "event",
+        "code"
+      ],
+      "unevaluatedProperties": false
+    },
+    "question": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/context"
+        }
+      ],
+      "properties": {
+        "type": {
+          "const": "job.question"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "question_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "question_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "enum": [
+            "quantity_confirmation",
+            "part_match",
+            "evidence_clarification"
+          ]
+        },
+        "scope_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identifier"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      },
+      "required": [
+        "type",
+        "sequence",
+        "question_id",
+        "question_revision",
+        "kind",
+        "scope_ids",
+        "prompt"
+      ],
+      "unevaluatedProperties": false
+    },
+    "answer": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/context"
+        }
+      ],
+      "properties": {
+        "type": {
+          "const": "job.answer"
+        },
+        "question_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "question_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "actor_id": {
+          "$ref": "#/$defs/identifier"
+        }
+      },
+      "required": [
+        "type",
+        "question_id",
+        "question_revision",
+        "value",
+        "actor_id"
+      ],
+      "unevaluatedProperties": false
+    },
+    "result": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/context"
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "succeeded"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "output_ref"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "question_ids"
+                  ]
+                },
+                {
+                  "required": [
+                    "reason_code"
+                  ]
+                }
+              ]
+            }
+          },
+          "else": {
+            "not": {
+              "required": [
+                "output_ref"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "waiting_for_user"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "question_ids"
+            ],
+            "not": {
+              "required": [
+                "reason_code"
+              ]
+            }
+          },
+          "else": {
+            "not": {
+              "required": [
+                "question_ids"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "waiting_for_login",
+                  "waiting_for_capacity",
+                  "failed",
+                  "interrupted"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "reason_code"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "type": {
+          "const": "job.result"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "waiting_for_user",
+            "waiting_for_login",
+            "waiting_for_capacity",
+            "failed",
+            "interrupted"
+          ]
+        },
+        "output_ref": {
+          "$ref": "#/$defs/artifact",
+          "properties": {
+            "media_type": {
+              "const": "application/json"
+            }
+          }
+        },
+        "question_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identifier"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "reason_code": {
+          "$ref": "#/$defs/identifier"
+        }
+      },
+      "required": [
+        "type",
+        "sequence",
+        "status"
+      ],
+      "unevaluatedProperties": false
+    }
+  }
+}

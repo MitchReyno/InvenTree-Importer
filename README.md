@@ -39,6 +39,7 @@ pnpm demo --help           # synthetic loopback demonstration commands
 pnpm workflow-sync        # mirrored skill/agent consistency
 pnpm test:scanner         # scanner extra and scanner/TUI suite
 pnpm test:all              # both normal/scanner and frontend suites
+pnpm spikes:check          # offline shared intake-spike contract and fixtures
 ```
 
 Root scripts also expose per-app checks. These commands delegate to existing application boundaries; they do not start a backend web service or connect the scaffold to inventory. The [backend guide](backend/README.md) documents explicit import approvals and limits.
