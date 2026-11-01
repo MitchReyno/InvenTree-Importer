@@ -4,7 +4,7 @@ Status: Stage 1–5 library boundaries are independently reviewed. Stage 6 adds
 an opt-in durable full-stock CLI with local status and audited recovery/disposition;
 its corrected implementation has independent exact-head approval. The legacy CLI
 default remains gated.
-Current behavior is in [ARCHITECTURE.md](../ARCHITECTURE.md). The
+Current behavior is in [backend architecture](../backend/ARCHITECTURE.md). The
 [plan](import-execution-plan.md) owns stage status and acceptance gates.
 
 ## Decisions and rationale
@@ -20,7 +20,7 @@ Current behavior is in [ARCHITECTURE.md](../ARCHITECTURE.md). The
 | Selected metadata/evidence failures yield incomplete exit 1 | Optional work may not gate inventory, but requesting it implies an accountable result. Disabled/inapplicable work is not failure. |
 | Preserve manual/historical fields | Resume repairs approved pending work, not inventory correction. Missing approved parameters can be added; changed nonempty values or PO links need review. Tags merge observed additions, with an explicit external GET/PATCH race limit. |
 | Immutable artifacts, external execution report | Frozen bytes/targets can be retried without new inventory effects. Recording upload outcome inside the same archive would change the artifact being uploaded. |
-| Small execution package, synchronous handlers | Proposed `src/invimport/execution/` separates models, planning, store, executor and observation by responsibility as needed. No workflow DSL, generic plugin engine, async rewrite or second importer policy implementation. Follow CONVENTIONS.md: classes own coherent state/resources, orchestration calls focused named operations with explicit inputs/options, and dependencies flow commands → workflows → lower-level operations. Create modules/packages only for demonstrated cohesive responsibilities. |
+| Small execution package, synchronous handlers | Proposed `src/invimport/execution/` separates models, planning, store, executor and observation by responsibility as needed. No workflow DSL, generic plugin engine, async rewrite or second importer policy implementation. Follow the shared `CODE_GUIDELINES.md` and `backend/CODE_GUIDELINES.md`: classes own coherent state/resources, orchestration calls focused named operations with explicit inputs/options, and dependencies flow commands → workflows → lower-level operations. Create modules/packages only for demonstrated cohesive responsibilities. |
 
 ## Concrete CLI/library contracts
 

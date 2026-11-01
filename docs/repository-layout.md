@@ -30,16 +30,16 @@ pnpm lint                    # backend and frontend
 pnpm test                    # backend normal suite and frontend
 pnpm backend --help          # unchanged invimport CLI
 pnpm demo --help             # loopback fake service demo
-make workflow-sync
-make test-scanner            # installs scanner extra, runs scanner/TUI tests
-make test-all
+pnpm workflow-sync
+pnpm test:scanner            # installs scanner extra, runs scanner/TUI tests
+pnpm test:all
 ```
 
 `uv sync --project backend` creates `backend/.venv`. Do not move or reuse an old
 root `.venv`; it can remain untracked while uv creates the new environment.
 `cd backend && uv run invimport ...` also works. Tests from root should use
 `uv run --project backend pytest backend/tests`; selecting a uv project does not
-change the subprocess working directory. Root `make` targets select the proper
+change the subprocess working directory. Root pnpm scripts select the proper
 Python cwd and config automatically. An editable CLI install is
 `uv tool install --editable ./backend`; its package name and command stay the same.
 The root has a single pnpm lockfile and the frontend owns its dependencies/scripts.
@@ -77,5 +77,6 @@ config/env fallback remains package-relative as before; supply explicit
 unrelated nearby workspace. Distribution of default config remains an existing
 limitation, not a new packaging feature of this relocation.
 
-See [ARCHITECTURE.md](../ARCHITECTURE.md) for execution boundaries and
+See the [shared architecture](../ARCHITECTURE.md) and
+[backend architecture](../backend/ARCHITECTURE.md) for application/execution boundaries and
 [the handover](handovers/repository-layout.md) for checks and decisions.

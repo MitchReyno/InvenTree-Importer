@@ -1,6 +1,7 @@
-# Coding conventions
+# Backend code guidelines
 
-Use these conventions when writing or reviewing Python code. They describe the
+Read the [shared code guidelines](../CODE_GUIDELINES.md) and
+[backend architecture](ARCHITECTURE.md) alongside these Python guidelines. They describe the
 desired direction for new and changed code, independently of the current module
 layout. Apply them proportionately: improve the code you touch without turning
 a focused change into an unrelated rewrite.
@@ -212,7 +213,7 @@ a focused change into an unrelated rewrite.
 - Give tests descriptive names and keep setup small enough to understand the
   scenario. Parameterise related cases when this clarifies their differences.
 - Run the checks appropriate to the change and the required project checks in
-  `AGENTS.md`. Report what ran and any failures; do not claim coverage from
+  [root `AGENTS.md`](../AGENTS.md). Report what ran and any failures; do not claim coverage from
   tests that were skipped or could not run.
 
 ## Documentation, tooling and review

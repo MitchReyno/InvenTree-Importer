@@ -11,7 +11,7 @@ a bounded DigiKey opt-in and measured serial-execution decision with independent
 exact-head review approved.
 Companion documents:
 [design](import-execution-design.md), [contracts](import-execution-contracts.md),
-[architecture](../ARCHITECTURE.md). Baseline main `c22b7a1` includes PR #11
+[architecture](../backend/ARCHITECTURE.md). Baseline main `c22b7a1` includes PR #11
 code-organization guidance and PR #9;
 preserve its DigiKey request-error, configuration-replacement and report-plan-read
 fixes. Installed SDK audited in Stage 0: `inventree==0.13.5`.
@@ -33,7 +33,7 @@ Deliver all stages as sequential stacked PRs. Each stage has a separate owner
 and independent review before its PR opens. Keep this plan flexible: record
 justified scope/contract changes, acceptance evidence and remaining work instead
 of treating illustrative module names or an obsolete plan as requirements.
-Each stage updates ARCHITECTURE.md, this status table and a comprehensive tracked
+Each stage updates `backend/ARCHITECTURE.md`, this status table and a comprehensive tracked
 `docs/handovers/import-execution-stage-N.md` before review. Handovers record work,
 commands, findings, decisions/rationale/tradeoffs, plan adjustments, changed
 contracts, validations (including failures/skips), review fixes, limitations and
@@ -59,7 +59,7 @@ Stage 7: DigiKey adaptation and measured concurrency (separate decisions)
 ```
 
 Source paths below are ownership/responsibility suggestions, not a requirement to
-create every named module. Follow CONVENTIONS.md, including its merged PR #11
+create every named module. Follow the shared `CODE_GUIDELINES.md` and `backend/CODE_GUIDELINES.md`, including its merged PR #11
 organization guidance: focused named orchestration, explicit inputs/options,
 coherent class-owned state, meaningful module/package boundaries, dependencies
 from commands to workflows to lower-level operations, and behavior-grouped tests.
@@ -97,7 +97,7 @@ new workflow frameworks or speculative generic plugin APIs.
 **Work:**
 
 - Review current main including merged PR #9, preserve its fixes, and identify which focused
-  safety fixes remain necessary. Read AGENTS.md and CONVENTIONS.md.
+  safety fixes remain necessary. Read AGENTS.md, shared CODE_GUIDELINES.md and backend/CODE_GUIDELINES.md.
 - Inventory API call sites, SDK startup/reload/download paths, existing callbacks,
   effects, caches, file mutations and flags. Record data ownership, identity keys,
   reconciliation evidence and error behavior for each domain operation family.
@@ -619,10 +619,10 @@ supported single-process concurrency model. Cross-host safety is not claimed.
   InvenTreeStub/transport fixtures and isolate all files, credentials and journals.
 - For resume guarantees, restart a fresh executor/process against persistent fake
   server state; an in-memory retry in one context is insufficient evidence.
-- Run focused tests during development, `make test` for normal required coverage,
-  `make lint-backend` (configured Ruff for backend and shared skills), and `git diff --check` before each PR.
+- Run focused tests during development, `pnpm test` for normal required coverage,
+  `pnpm lint:backend` (configured Ruff for backend and shared skills), and `git diff --check` before each PR.
 - If skills/agents change, mirror shared copies and run workflow-sync tests.
-  If scanner/TUI behavior changes, run `make test-scanner` (or `make test-all`).
+  If scanner/TUI behavior changes, run `pnpm test:scanner` (or `pnpm test:all`).
 - Record skipped/unavailable integration checks honestly. Mocks do not establish
   live server uniqueness, transaction atomicity or behavior beyond fixture contracts.
 - Each PR explains concrete trigger/before/after, compatibility, fault scenarios,

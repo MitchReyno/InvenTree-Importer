@@ -273,7 +273,7 @@ def test_the_worked_example_includes_a_datasheet_and_an_image(example):
 # Same argument as the skill: an example someone copies has to work. These are
 # the two blocks under `### import-stock`.
 # --------------------------------------------------------------------------
-README = REPO_ROOT / "README.md"
+README = REPO_ROOT / "backend" / "README.md"
 
 readme_only = pytest.mark.skipif(not README.exists(), reason="no README")
 

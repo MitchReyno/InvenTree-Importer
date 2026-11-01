@@ -1,7 +1,7 @@
 # Planned, observable and resumable imports — design
 
 Status: agreed target design; implementation is staged and incomplete. See
-[architecture](../ARCHITECTURE.md) for implemented behavior, the
+[architecture](../backend/ARCHITECTURE.md) for implemented behavior, the
 [maintained plan](import-execution-plan.md) for gates/status and
 [contracts](import-execution-contracts.md) for concrete Stage 0 decisions.
 This document describes intended behavior unless explicitly labeled current.

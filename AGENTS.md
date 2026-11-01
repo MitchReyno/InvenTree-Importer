@@ -1,11 +1,17 @@
 # Project guidance
 
-Read and follow [CONVENTIONS.md](CONVENTIONS.md) when writing or reviewing code.
-Read [ARCHITECTURE.md](ARCHITECTURE.md) for implemented boundaries and limitations.
-Keep it current when changing import execution. Follow the maintained
-[execution plan](docs/import-execution-plan.md); each stage records decisions,
-plan adjustments, validation and review fixes in a comprehensive tracked
-`docs/handovers/import-execution-stage-N.md` before independent review.
+Read and follow [CODE_GUIDELINES.md](CODE_GUIDELINES.md) for shared engineering
+rules and [ARCHITECTURE.md](ARCHITECTURE.md) for application ownership. For work in
+an application, also read its README, architecture and guidelines:
+[backend](backend/README.md), [backend architecture](backend/ARCHITECTURE.md),
+[backend guidelines](backend/CODE_GUIDELINES.md);
+[frontend](frontend/README.md), [frontend architecture](frontend/ARCHITECTURE.md),
+[frontend guidelines](frontend/CODE_GUIDELINES.md).
+Keep the owning architecture and active references current when boundaries change.
+Backend execution work follows the maintained [plan](docs/import-execution-plan.md)
+and records decisions, adjustments, validation and review fixes in a comprehensive
+tracked handover before independent review. Shared/root work records its handover
+under `docs/handovers/` too.
 
 ## Portable paths
 
@@ -44,14 +50,14 @@ and description while adapting skill loading and tool references to each host.
 
 ## Testing
 
-- Run `make test` for the normal suite. It excludes the slow scanner/TUI tests.
+- Run `pnpm test` for the normal suite. It excludes the slow scanner/TUI tests.
 - After changing skills or agents, run
-  `uv run --project backend pytest backend/tests/test_project_workflow_sync.py`. These checks compare all
+  `pnpm workflow-sync`. These checks compare all
   skill files and agent counterparts, allowing only the explicitly reviewed
   Codex adaptations in the test.
-- Run `make test-scanner` when changing scanner/TUI behavior; it installs the
-  scanner extra and runs the TUI tests. Use `make test-all` to run both suites.
-- Run `make lint-backend` (or `uv run --project backend ruff check --config
+- Run `pnpm test:scanner` when changing scanner/TUI behavior; it installs the
+  scanner extra and runs the TUI tests. Use `pnpm test:all` to run both suites.
+- Run `pnpm lint:backend` (or `uv run --project backend ruff check --config
   backend/pyproject.toml backend`) on changed Python files. Add or update regression tests
   for behavior changes, and report the checks run and any failures.
 
@@ -60,7 +66,7 @@ and description while adapting skill loading and tool references to each host.
 The Python project is under `backend/` and remains uv-managed. The React/TypeScript
 intake scaffold is under `frontend/`, managed through the root pnpm workspace.
 Shared docs, skills and agents stay at repository root. From root use
-`uv run --project backend invimport ...` or `pnpm backend ...`; root `make`/pnpm
+`uv run --project backend invimport ...` or `pnpm backend ...`; root pnpm
 checks delegate to the correct project. Use the pinned Node LTS in `.node-version`
 and package manager in root `package.json`. Run frontend typecheck, lint, tests
 and build after frontend changes.
@@ -74,8 +80,8 @@ as part of layout/tooling work. See `docs/repository-layout.md`.
 
 ## Initiative branch
 
-The user-named `interative-app` branch is the integration trunk for this initiative.
-Target the restructuring PR and subsequent initiative PRs to `interative-app`,
+The user-named `interactive-app` branch is the integration trunk for this initiative.
+Target the restructuring PR and subsequent initiative PRs to `interactive-app`,
 which starts at the reviewed main base. Keep work on separate conventional
 feature branches and obtain independent review before opening a PR. Do not merge
 initiative work into main as part of this change.

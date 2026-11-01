@@ -121,7 +121,7 @@ def test_the_readme_lists_every_public_name():
     import re
     from pathlib import Path
 
-    readme = Path(__file__).resolve().parents[2] / "README.md"
+    readme = Path(__file__).resolve().parents[1] / "README.md"
     if not readme.exists():                      # pragma: no cover
         pytest.skip("no README")
     text = readme.read_text(encoding="utf-8")

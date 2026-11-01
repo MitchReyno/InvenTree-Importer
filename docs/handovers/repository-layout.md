@@ -7,8 +7,10 @@ into `backend/`, adds a root pnpm workspace and an explicitly incomplete
 React/TypeScript/Vite intake scaffold in `frontend/`. It starts from main commit
 `db9fd4180ab43edddf4119f5311ad673711c382e`. It does not change the import package
 name, CLI, execution contracts or implement a new backend/workflow engine.
-Shared docs, guidance, agent definitions, skills and CI remain at root. Historical
-stage handovers/evidence are retained as historical command/path records.
+Shared architecture/guidelines/README map the repository at root; corresponding
+application documents own backend and frontend details. Agent definitions, skills
+and CI remain at root. Historical stage handovers/evidence retain the filenames
+and commands used at the time.
 
 Work occurs in an isolated worktree, without moving user .env, caches, local
 imports, existing virtual environments or platform execution/scanner journals.
@@ -22,8 +24,8 @@ requires the parent's independent exact-commit review; no merge is authorized.
   Recreating `backend/.venv` is safer than moving an environment with embedded
   paths. Python dependencies and CLI/package identity remain unchanged.
 - Root pnpm owns command delegation and a single lockfile; frontend owns its
-  dependencies/scripts. Make exposes normal backend/frontend checks and explicit
-  scanner/workflow-sync targets. CI has separate Python and frontend jobs with
+  dependencies/scripts. The first publication used Make for backend checks; the
+  later user-requested pnpm-only adjustment below removes that intermediate runner. CI has separate Python and frontend jobs with
   explicit project/cwd/config selection.
 - Source-location discovery recognizes the exact known backend source layout,
   workspace markers and historical flat fallback. It does not search arbitrary
@@ -56,7 +58,7 @@ Official references checked: [Node release support](https://nodejs.org/en/about/
 metadata from the official npm registry. These verify tool availability/constraints,
 not production behavior or importer integration.
 
-## Validation record
+## First publication validation (before the documentation/pnpm adjustments)
 
 Commands below are run from repository root unless noted. uv/pnpm caches and tool
 installation are task-owned temporary directories, never user import directories.
@@ -119,7 +121,7 @@ or a change to the agreed implementation scope. Future initiative PRs use this
 trunk. No existing branch is overwritten. Push CI covers both main and the
 initiative trunk; pull-request CI remains target-independent.
 
-## Review, shifts and limits
+## First publication review and limits
 
 An independent reviewer approved runtime/implementation commit
 `208609273595f5f2a21239dd23ef8cae6c1d6e08` with no unresolved material findings.
@@ -152,9 +154,9 @@ failed environment attempts are not counted as successful source coverage.
 The reviewer did not repeat the complete normal/scanner suites; targeted independent
 I/O, distribution, scanner-export and demo checks supplement the owner's full runs.
 
-This final successor contains documentation only: final evidence, review disposition
-and a maintained-plan command selecting configured Ruff. It requires a brief exact
-successor-delta review before publication. No merge is authorized.
+The first publication successor `71ca6b4c1a9b14c1a94de3316ba0ffdc0e7333a2`
+contained documentation only and received independent exact-delta approval before
+PR #21 opened. The later user-requested adjustments below require a new review. No merge is authorized.
 
 No release claim is made for the scaffold's future backend integration. Fake demo evidence establishes loopback behavior only;
 production capabilities, durable execution rollout limits and real inventory
@@ -163,3 +165,74 @@ approval rules stay as documented in the existing operator/execution docs.
 Operator instructions and path semantics are in
 [repository-layout.md](../repository-layout.md); the maintained architecture remains
 [ARCHITECTURE.md](../../ARCHITECTURE.md). Existing root data needs no migration.
+
+
+## Post-publication user adjustments on the same PR
+
+The user requested three related documentation changes: rename root
+`CONVENTIONS.md` to `CODE_GUIDELINES.md`, separate shared vs application architecture/
+coding guidance, and split README ownership the same way. Root README is now a
+concise initiative/workspace entry point; root architecture owns the cross-app map,
+and root guidelines own cross-language engineering rules. Each application has
+README, ARCHITECTURE and CODE_GUIDELINES documents linked from the root.
+
+The complete prior implemented import-architecture body is preserved in
+`backend/ARCHITECTURE.md`; only its relative documentation links are rebased.
+Its normalized SHA-256 is
+`670d2fadd5ee08dc8fcdfff48ca23ec39256eec3b66c4455403cb8e6e4cbea66`.
+The existing Python guidance moves into backend guidelines, including the merged
+code-organization rules. The backend README retains useful CLI/library/schema,
+configuration/import/scanner/demo and operational material. Its examples explicitly
+run from repository root so moving the document cannot silently rebase source,
+config, scripts or output arguments. Frontend documents describe actual local-only
+scaffold behavior, framework rules and explicitly unimplemented future work.
+Maintained execution docs now link directly to backend architecture; historical
+stage records keep their truthful old filenames. No compatibility stub document
+or duplicate root copy of the import internals is introduced.
+
+Next, the user asked to remove redundant Make delegation. Root `package.json` is
+now the single task entry point. Backend check scripts invoke uv directly with
+`--directory backend` to retain test/lint cwd/config; `pnpm backend` and `pnpm demo`
+keep the caller-facing root cwd through `--project backend`. Scanner keeps its
+extra and marker; `test:all` selects all Python tests then frontend tests. Aliases
+resolve to actual root/frontend scripts without cycles. Existing README validation
+tests follow the backend document rather than weakening their example/API checks.
+The workflow-sync suite also checks the public command surface and alias graph.
+
+The initial trunk name was supplied as `interative-app`; the user corrected it
+to `interactive-app`. A remote check established the corrected name was absent.
+GitHub's branch-rename API preserved the exact base commit and automatically
+retargeted the existing PR #21. Local owned trunk/tracking, active guidance/CI and
+PR metadata use the corrected name. No unrelated branch, main commit or feature
+history is overwritten; the old spelling above is explicitly historical evidence.
+
+### Final adjustment checks and review
+
+Passed final entry-point checks before the new review candidate:
+
+- `pnpm workflow-sync`: 7 passed, including exact skill copies/agent adaptations
+  and the public script/alias graph; no skill/agent reference needed an asymmetric
+  edit. Full active-reference audit finds no obsolete guideline filename, Make
+  command or misspelt trunk outside explicit historical evidence/removal assertions.
+- `pnpm test:scanner`: 43 passed, 1909 deselected in 41.55 seconds; scanner extra
+  and marker selected by the replacement uv command.
+- `pnpm lint`, `pnpm typecheck`, `pnpm build` and root frozen installation: pass;
+  configured backend plus both shared skill trees still run through Ruff.
+- Root and backend cwd `pnpm backend --help` pass. Actual pnpm forwarding with a
+  recording uv boundary preserves a synthetic filename containing spaces and root
+  CLI cwd from both invocation directories. Actual backend-cwd
+  `pnpm test:backend tests/test_paths.py -k fresh` passes 3 tests (4 deselected),
+  proving forwarded pytest selection/quoted marker and backend test cwd.
+- Local link/anchor audit checks 134 references across 17 active documents;
+  all destinations/anchors exist. Complete moved import architecture body equals
+  the previous version after only relative-link rebasing (hash above). Shared
+  guidelines retain general rules while full Python rules remain in backend.
+- Corrected main/interactive-app CI push and PR events parse/assert correctly;
+  `git diff --check` passes. Trunk rename/PR base confirmed on the remote.
+
+Pending: final new-entry-point `pnpm test` and fresh independent exact-commit
+clearance. Earlier Make commands above are historical checks actually run before
+Make removal; they are not relabeled as pnpm evidence. No new live or model/vendor
+calls are authorized. New frontend guidelines were checked against the linked
+primary React purity/effect and TypeScript handbook references. No repository-wide
+Markdown reflow or unrelated runtime change is part of these adjustments.

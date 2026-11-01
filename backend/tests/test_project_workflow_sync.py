@@ -5,6 +5,8 @@ adaptations below; changing either version's workflow must update its counterpar
 """
 
 from pathlib import Path
+import json
+import re
 import tomllib
 
 import pytest
@@ -128,3 +130,28 @@ def test_codex_agent_matches_claude_workflow(name):
     assert codex["developer_instructions"].strip() == codex_instructions(body)
     assert ".agents/skills/" not in codex["developer_instructions"]
     assert ".claude/skills/" not in codex["developer_instructions"]
+
+
+def test_root_workspace_command_surface_has_no_dangling_aliases_or_cycles():
+    """Root scripts are the public task entry point; all delegates must resolve."""
+    scripts = json.loads((ROOT / "package.json").read_text())["scripts"]
+    frontend = json.loads((ROOT / "frontend/package.json").read_text())["scripts"]
+    assert {"dev", "build", "typecheck", "lint", "test", "backend", "demo",
+            "lint:backend", "lint:frontend", "test:backend", "test:frontend",
+            "test:scanner", "test:all", "workflow-sync"} <= scripts.keys()
+    edges = {}
+    for name, command in scripts.items():
+        assert not re.search(r"(?:^|[;&]\s*)make(?:\s|$)", command), name
+        edges[name] = re.findall(r"pnpm run ([\w:-]+)", command)
+        assert set(edges[name]) <= scripts.keys(), name
+        for target in re.findall(r"pnpm --filter @invimport/frontend ([\w:-]+)", command):
+            assert target in frontend, (name, target)
+
+    def visit(name, active):
+        assert name not in active, f"recursive script: {name}"
+        for child in edges[name]:
+            visit(child, active | {name})
+
+    for name in scripts:
+        visit(name, set())
+    assert not (ROOT / "Makefile").exists()
