@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import { Id } from '@invimport/contracts'
 import { canonicalMedia } from './encoding.ts'
@@ -56,6 +57,35 @@ async function requireHeldDigests(client: PoolClient, inputs: MediaInputs) {
     ],
   )
   if (BigInt(result.rows[0].held) !== BigInt(expected.length)) {
+    throw new Error('media_input_lock_lost')
+  }
+}
+
+/** A per-handle transaction lock is released by rollback before acquisition, including empty scopes. */
+async function retainHandleLifetime(client: PoolClient) {
+  const key = createHash('sha256')
+    .update(`bench-media-input-handle/1:${randomUUID()}`)
+    .digest()
+    .readBigInt64BE()
+  await client.query('SELECT pg_catalog.pg_advisory_xact_lock($1::bigint)', [key.toString()])
+  const unsignedKey = BigInt.asUintN(64, key)
+  return {
+    classId: (unsignedKey >> 32n).toString(),
+    objectId: (unsignedKey & 0xffffffffn).toString(),
+  }
+}
+
+async function requireHandleLifetime(
+  client: PoolClient,
+  coordinate: { classId: string; objectId: string },
+) {
+  const held = await client.query(
+    `SELECT 1 FROM pg_catalog.pg_locks
+     WHERE locktype='advisory' AND pid=pg_catalog.pg_backend_pid() AND granted
+       AND classid=$1::oid AND objid=$2::oid AND objsubid=1`,
+    [coordinate.classId, coordinate.objectId],
+  )
+  if (held.rowCount !== 1) {
     throw new Error('media_input_lock_lost')
   }
 }
@@ -166,6 +196,7 @@ export async function lockMediaInputs(
   for (const digest of [...new Set(captured.versions.map((version) => version.digest))].sort()) {
     await lockBlob(client, digest)
   }
+  const lifetime = await retainHandleLifetime(client)
   // Exposed descriptors are copies; mutation cannot change the private captured pin set.
   const descriptors = structuredClone(captured.versions)
   for (const descriptor of descriptors) {
@@ -180,6 +211,7 @@ export async function lockMediaInputs(
       if (!sameTransaction(identity, await transactionIdentity(client))) {
         throw new Error('media_input_transaction_changed')
       }
+      await requireHandleLifetime(client, lifetime)
       await requireHeldDigests(client, captured)
       await pinCapturedCommand(client, retainedBinding, commandId, captured)
     },

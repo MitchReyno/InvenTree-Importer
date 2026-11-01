@@ -1,8 +1,14 @@
-import { requireMediaRecipeBounds } from '@invimport/contracts/media'
+import { requireMediaRecipeBounds, MediaEvidence, MediaSnapshot } from '@invimport/contracts/media'
 import { and, count, eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
-import { validate, type CaptureSnapshotDto, type MediaEditDto } from '@invimport/contracts'
+import {
+  validate,
+  type CaptureSnapshotDto,
+  type MediaEditDto,
+  type MediaEvidenceDto,
+  type MediaSnapshotDto,
+} from '@invimport/contracts'
 import { canonicalMedia, idempotentMedia } from './encoding.ts'
 import { appendEvent, sha256 } from '../db/authority.ts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
@@ -109,6 +115,28 @@ async function linkEvidence(
   )
 }
 
+/** Completed versions consume one slot; only explicit non-publishing outcomes release a reservation. */
+function reservedVersionCount(evidence: MediaEvidenceDto, snapshot: MediaSnapshotDto) {
+  const publishedVersions = new Set(evidence.versions.map((version) => version.id))
+  const nonPublishingOutcomes = new Set([
+    'unsupported',
+    'encrypted',
+    'malformed',
+    'limit_exceeded',
+    'interrupted',
+  ])
+  const pending = snapshot.derivations.filter((derivation) => {
+    if (derivation.evidence_id !== evidence.id) {
+      return false
+    }
+    if (derivation.version_id && publishedVersions.has(derivation.version_id)) {
+      return false
+    }
+    return !nonPublishingOutcomes.has(derivation.state)
+  })
+  return evidence.versions.length + pending.length
+}
+
 async function requestDerivation(
   client: PoolClient,
   binding: CaptureBinding,
@@ -138,7 +166,10 @@ async function requestDerivation(
   } catch {
     fail('invalid_recipe_source', 409)
   }
-  if (snapshot.derivations.length >= 200 || evidence!.versions.length >= 100) {
+  if (
+    snapshot.derivations.length >= MediaSnapshot.properties.derivations.maxItems! ||
+    reservedVersionCount(evidence!, snapshot) >= MediaEvidence.properties.versions.maxItems!
+  ) {
     fail('media_capacity', 409)
   }
   const derivationId = change.derivation_id ?? randomUUID()

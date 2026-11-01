@@ -2,14 +2,46 @@
 
 ## Current status
 
-Implementation and combined local qualification are complete; it is **not yet independently
-cleared**. Follow the approved [implementation plan](../bench-intake/08-implementation-plan.md)
+Implementation is on ready PR #53 and is **not independently cleared**. Fresh review
+found the capacity, handle-lifetime and attachment-choice issues recorded below; fixes
+require re-review at their exact corrected head. Follow the approved [implementation plan](../bench-intake/08-implementation-plan.md)
 and preserve the coordinator-owned [integration record](bench-intake-wave3-integration.md).
 
 Actual merged query/form/readability/OpenAPI/server-state work is integrated. T06
 remains a separate owner and must consume these seams only after actual T05 merge.
-A ready PR may now be published for fresh independent review. Hosted CI and independent
-domain/safety/native UI clearance remain merge gates.
+Hosted CI and independent domain/safety/native UI clearance remain merge gates.
+
+## Fresh review corrections
+
+The storage review of `0a005f45` found two material issues. Completed-version counting
+ignored queued derivations, allowing publication beyond the schema's 100-version
+limit. Admission now reserves completed versions plus every same-evidence derivation
+without a published version, unless an explicit terminal non-publishing result exists.
+It runs under the existing capture/media exclusion and takes limits from the maintained
+DTO schemas. Produced versions count once; missing or ambiguous publication stays
+reserved. The immutable batch derivation-history cap and existing bytes remain intact.
+
+The empty-input handle could survive rollback before its acquisition because it had
+no digest locks to check. Every handle now acquires a unique transaction-advisory
+lifetime sentinel after resolving capture/media and sorted digest exclusions. Pinning
+checks that original sentinel without reacquiring earlier locks. Rolling back before
+acquisition invalidates the handle, even if a newer handle reacquires the same batch
+locks; rolling back a later savepoint preserves it. No public API or lock order changed.
+
+Independent discriminator controls removed each new guard separately. Both regressions
+failed at their intended refusal assertion, then exact source restoration passed all
+8 retention PG cases without skips. The capacity test seeds bounded immutable history,
+then uses real original/derivation decoders: 99 published versions admit one pending
+reservation, reject the next request, and finish with 100 and a valid snapshot. An
+explicit interrupted attempt releases capacity; published derivations are not double
+counted. The empty-scope regression runs without requiring a decoder image.
+
+Fresh UI inspection also found indistinguishable crop attachment choices. A shared
+label helper now identifies evidence and versions with snapshot-unique compact ID
+prefixes, extending colliding prefixes. Options and visible card labels use the same
+identifiers; full ID values and selection/retry intents are preserved. The regression
+covers duplicate filenames and same-dimension crops with colliding initial prefixes.
+Native selection and independent review of these corrected labels remain gates.
 
 ## Hard boundaries
 
@@ -205,7 +237,7 @@ cleanup/binary policy. Coordinator accepted retaining `node:child_process`.
 - Contracts: 21 passed, including exact legacy recipe acceptance and rotated bounds.
 - Frontend: 61 passed after the merged masthead integration, including scoped warm-cache failures, new crop intent revisions,
   cross-panel draft guards and the narrow portaled dialog regression.
-- Media PG: 6/6 restored controls, including HTTP lost receipt/restart, role faults,
+- Media PG: 8/8 restored controls after capacity and handle-lifetime corrections, including HTTP lost receipt/restart, role faults,
   per-output pixels, publication-vs-GC, opaque handle ownership/order, temp shadows,
   and actual SELECT-only single-candidate GC CLI behavior.
 - Attachment PG/physical child: 2/2 after query/fence changes. Repair keeps one stock

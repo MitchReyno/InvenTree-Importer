@@ -1,3 +1,4 @@
+import { mediaIdentityLabels } from '../../media/identity-labels'
 import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
@@ -133,6 +134,7 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
 
   const subject = batch.lots.find((lot) => lot.id === selectedSubject)
   const selection = snapshot?.attachments.find((item) => item.subject_id === selectedSubject)
+  const identityLabels = mediaIdentityLabels(snapshot?.evidence ?? [])
   const frozen = disabled || busy || !snapshot || readUnavailable
 
   return (
@@ -190,7 +192,7 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
                     .filter((version) => version.state === 'ready')
                     .map((version) => (
                       <option key={version.id} value={version.id}>
-                        {evidence.label} · {version.kind}
+                        {identityLabels.versions.get(version.id)}
                       </option>
                     )),
                 )}
@@ -210,6 +212,7 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
           {snapshot.evidence.map((evidence) => (
             <div key={evidence.id}>
               <MediaEvidenceCard
+                labels={identityLabels}
                 key={evidence.id}
                 batchId={batch.id}
                 evidence={evidence}

@@ -124,3 +124,81 @@ test('failed retained polling preserves pending original and its exact upload in
   expect(original[1]).toBe('1')
   expect(original[3]).toBe(file)
 })
+
+test('attachment options distinguish colliding identities and match visible retained version labels', async () => {
+  const lotId = '90000000-0000-4000-8000-000000000009'
+  const populated: MediaSnapshotDto = {
+    ...snapshot,
+    evidence: ['11111111-1000-4000-8000-000000000001', '11111111-2000-4000-8000-000000000002'].map(
+      (id, evidenceIndex) => ({
+        id,
+        label: 'photo.png',
+        group_id: null,
+        linked_subject_ids: [],
+        versions: [1, 2].map((versionIndex) => ({
+          id: `22222222-${evidenceIndex}${versionIndex}00-4000-8000-000000000001`,
+          evidence_id: id,
+          kind: 'derived' as const,
+          digest: 'a'.repeat(64),
+          byte_size: '123',
+          media_type: 'image/png' as const,
+          state: 'ready' as const,
+          decoder_build: 'fixture/1',
+          recipe: null,
+          pages: [
+            {
+              page: 1,
+              width: 48,
+              height: 36,
+              preview_id: `33333333-${evidenceIndex}${versionIndex}00-4000-8000-000000000001`,
+            },
+          ],
+        })),
+      }),
+    ),
+  }
+  const populatedBatch: CaptureSnapshotDto = {
+    ...batch,
+    lots: [
+      {
+        id: lotId,
+        label: 'Chosen lot',
+        revision: '1',
+        contribution_key: '80000000-0000-4000-8000-000000000008',
+        part_subject_id: null,
+        quantity: { mode: 'unknown' },
+        location: { mode: 'clear' },
+      },
+    ],
+  }
+  render(
+    <ServerStateProvider scope={fixtureScope} client={createServerQueryClient()}>
+      <MediaWorkspace
+        batch={populatedBatch}
+        client={client(vi.fn(async () => populated))}
+        disabled={false}
+        selectedSubject={lotId}
+        onDirtyChange={vi.fn()}
+      />
+    </ServerStateProvider>,
+  )
+  const select = await screen.findByRole('combobox', { name: 'Attachment for Chosen lot' })
+  await waitFor(() => expect(select).toBeEnabled())
+  const options = Array.from(select.querySelectorAll('option')).filter(
+    (option) => option.value !== 'unset' && option.value !== 'declined',
+  )
+  expect(options).toHaveLength(4)
+  expect(new Set(options.map((option) => option.textContent)).size).toBe(4)
+  expect(options.map((option) => option.value)).toEqual(
+    populated.evidence.flatMap((evidence) => evidence.versions.map((version) => version.id)),
+  )
+  for (const option of options) {
+    const visibleVersion = screen.getAllByText(
+      (text, element) =>
+        element?.tagName === 'SMALL' && text.startsWith(`${option.textContent} · ready`),
+    )
+    expect(visibleVersion).toHaveLength(1)
+    expect(option.textContent).toContain('photo.png · evidence 11111111')
+    expect(option.textContent).toContain(' · crop 22222222')
+  }
+})

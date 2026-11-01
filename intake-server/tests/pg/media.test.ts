@@ -24,6 +24,7 @@ import { grantCaptureRead } from '../../src/capture/grants.ts'
 import { captureRepository } from '../../src/capture/repository.ts'
 import { lockMediaInputs } from '../../src/media/locked-inputs.ts'
 import { canonical } from '@invimport/contracts/json'
+import { canonicalMedia } from '../../src/media/encoding.ts'
 import { sha256 } from '../../src/db/authority.ts'
 import { mediaSnapshot } from '../../src/media/read.ts'
 import { mediaRepository } from '../../src/media/repository.ts'
@@ -796,3 +797,191 @@ test('SELECT-only GC CLI collects one aged orphan and preserves retained bytes a
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('empty media handles reject rollback before acquisition but survive later savepoint rollback', async () => {
+  const db = await isolatedDatabase()
+  const identity = await seedAuthority(db.pool)
+  const binding = {
+    actorId: identity.actor,
+    targetId: identity.target,
+    targetContextId: identity.context,
+  }
+  const caller = await db.pool.connect()
+  try {
+    const batch = captureValue(
+      await captureRepository(db.pool, binding).create(randomUUID(), {
+        title: 'Empty scope',
+        note: '',
+      }),
+    )
+    async function insertCommand() {
+      const id = randomUUID()
+      const payload = Buffer.from('{}')
+      await caller.query(
+        `INSERT INTO command(id,actor_id,target_id,target_context_id,kind,handler_version,workflow_id,queue_name,payload_bytes,payload_digest)
+         VALUES($1,$2,$3,$4,'process','empty-scope-fixture/1',$5,'empty-scope-fixture',$6,$7)`,
+        [
+          id,
+          identity.actor,
+          identity.target,
+          identity.context,
+          `empty:${id}`,
+          payload,
+          sha256(payload),
+        ],
+      )
+      return id
+    }
+
+    await caller.query('BEGIN')
+    await caller.query('SAVEPOINT before_handle')
+    const discarded = await lockMediaInputs(caller, binding, batch.id, [])
+    assert.equal(discarded.versions.length, 0)
+    await caller.query('ROLLBACK TO SAVEPOINT before_handle')
+    // Reacquiring the same batch/media locks must not revive the old handle.
+    const current = await lockMediaInputs(caller, binding, batch.id, [])
+    const commandId = await insertCommand()
+    await assert.rejects(discarded.pinCommand(commandId), /media_input_lock_lost/)
+    assert.equal(
+      (await caller.query('SELECT count(*) FROM media_command_binding')).rows[0].count,
+      '0',
+    )
+    await caller.query('SAVEPOINT after_handle')
+    await caller.query('ROLLBACK TO SAVEPOINT after_handle')
+    await current.pinCommand(commandId)
+    await current.pinCommand(commandId)
+    assert.equal(
+      (await caller.query('SELECT count(*) FROM media_command_binding')).rows[0].count,
+      '1',
+    )
+    assert.equal((await caller.query('SELECT count(*) FROM media_command_pin')).rows[0].count, '0')
+    await caller.query('COMMIT')
+  } finally {
+    await caller.query('ROLLBACK').catch(() => undefined)
+    caller.release()
+    await db.dispose()
+  }
+})
+
+test(
+  'derivation admission reserves queued capacity and publishes at most the schema version limit',
+  { skip: process.env.INTAKE_MEDIA_DECODER_IMAGE ? false : 'Explicit decoder image required' },
+  async () => {
+    const db = await isolatedDatabase()
+    const identity = await seedAuthority(db.pool)
+    const binding = {
+      actorId: identity.actor,
+      targetId: identity.target,
+      targetContextId: identity.context,
+    }
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-media-capacity-')))
+    try {
+      const store = await BlobStore.initialize(root, await readMediaStoreIdentity(db.pool))
+      const batch = captureValue(
+        await captureRepository(db.pool, binding).create(randomUUID(), {
+          title: 'Capacity',
+          note: '',
+        }),
+      )
+      const repository = mediaRepository(db.pool, binding, store)
+      const png = await sharp(Buffer.from([40, 50, 60]), {
+        raw: { width: 1, height: 1, channels: 3 },
+      })
+        .png()
+        .toBuffer()
+      const receipt = receiptValue(
+        await repository.upload(batch.id, randomUUID(), '1', 'Capacity source', png),
+      )
+      await processMediaCommand(db.pool, store, binding, process.env.INTAKE_MEDIA_DECODER_IMAGE!)
+      const recipe = {
+        version: 'documentary-crop/1' as const,
+        source_version_id: receipt.version.id,
+        source_digest: receipt.version.digest,
+        page: 1,
+        source_width: 1,
+        source_height: 1,
+        x: 0,
+        y: 0,
+        width: 1,
+        height: 1,
+        quarter_turns: 0,
+      }
+      const recipeBytes = Buffer.from(canonicalMedia(recipe))
+      async function seedCompleted(state: 'ready' | 'interrupted') {
+        const versionId = randomUUID()
+        const commandId = randomUUID()
+        await db.pool.query(
+          `INSERT INTO media_derivation(id,batch_id,evidence_id,source_version_id,recipe_bytes,recipe_digest,actor_id)
+           VALUES($1,$2,$3,$4,$5,$6,$7)`,
+          [
+            versionId,
+            batch.id,
+            receipt.evidence_id,
+            receipt.version.id,
+            recipeBytes,
+            sha256(recipeBytes),
+            identity.actor,
+          ],
+        )
+        await db.pool.query(
+          `INSERT INTO media_decode_command(id,batch_id,version_id,derivation_id,build)
+           VALUES($1,$2,$3,$4,'bench-media-decoder/1')`,
+          [commandId, batch.id, receipt.version.id, versionId],
+        )
+        await db.pool.query('INSERT INTO media_decode_claim(command_id,owner_id) VALUES($1,$2)', [
+          commandId,
+          randomUUID(),
+        ])
+        await db.pool.query(
+          `INSERT INTO media_decode_result(command_id,state,decoder_build) VALUES($1,$2,'capacity-fixture/1')`,
+          [commandId, state],
+        )
+        if (state === 'ready') {
+          await db.pool.query(
+            `INSERT INTO media_version(id,batch_id,evidence_id,kind,blob_digest,media_type,source_version_id,recipe_bytes,recipe_digest,actor_id)
+             VALUES($1,$2,$3,'derived',$4,'image/png',$5,$6,$7,$8)`,
+            [
+              versionId,
+              batch.id,
+              receipt.evidence_id,
+              Buffer.from(receipt.version.digest, 'hex'),
+              receipt.version.id,
+              recipeBytes,
+              sha256(recipeBytes),
+              identity.actor,
+            ],
+          )
+        }
+      }
+      // Seed bounded completed history; the final two publications use actual decoder bytes.
+      for (let index = 0; index < 97; index++) {
+        await seedCompleted('ready')
+      }
+      await seedCompleted('interrupted')
+      async function derive(revision: string) {
+        return editMedia(db.pool, binding, batch.id, randomUUID(), {
+          expected_revision: revision,
+          change: { kind: 'derive', evidence_id: receipt.evidence_id, recipe },
+        })
+      }
+      await derive('2')
+      await processMediaCommand(db.pool, store, binding, process.env.INTAKE_MEDIA_DECODER_IMAGE!)
+      assert.equal(
+        snapshotValue(await repository.snapshot(batch.id)).evidence[0].versions.length,
+        99,
+      )
+      // Published derivations count once; the failed immutable attempt releases its reservation.
+      await derive('3')
+      await assert.rejects(derive('4'), /media_capacity/)
+      await processMediaCommand(db.pool, store, binding, process.env.INTAKE_MEDIA_DECODER_IMAGE!)
+      const retained = snapshotValue(await repository.snapshot(batch.id))
+      assert.equal(retained.evidence[0].versions.length, 100)
+      assert.equal(retained.derivations.filter((item) => item.state === 'queued').length, 0)
+      assert.equal(retained.derivations.filter((item) => item.state === 'interrupted').length, 1)
+      await assert.rejects(derive('4'), /media_capacity/)
+    } finally {
+      await db.dispose()
+      await rm(root, { recursive: true, force: true })
+    }
+  },
+)

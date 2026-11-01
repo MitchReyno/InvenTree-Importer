@@ -1,24 +1,25 @@
+import type { MediaIdentityLabels } from '../../media/identity-labels'
 import styled from 'styled-components'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
 import { Button, Paragraph, Small, Subheading } from '../ui/primitives'
 import { mediaResource } from '../../media/types'
 
 interface Props {
+  labels: MediaIdentityLabels
   batchId: string
   evidence: MediaEvidenceDto
   disabled: boolean
   onCrop: (version: MediaVersionDto, page: number) => void
 }
 
-export function MediaEvidenceCard({ batchId, evidence, disabled, onCrop }: Props) {
+export function MediaEvidenceCard({ batchId, evidence, disabled, onCrop, labels }: Props) {
   return (
     <Card>
-      <Subheading>{evidence.label}</Subheading>
+      <Subheading>{labels.evidence.get(evidence.id)}</Subheading>
       {evidence.versions.map((version) => (
         <Version key={version.id}>
           <Small>
-            {version.kind === 'original' ? 'Unchanged original' : 'Documentary crop'} ·{' '}
-            {version.state.replaceAll('_', ' ')}
+            {labels.versions.get(version.id)} · {version.state.replaceAll('_', ' ')}
           </Small>
           {version.pages.map((page) => (
             <figure key={page.page}>
