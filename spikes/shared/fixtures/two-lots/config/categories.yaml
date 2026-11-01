@@ -1,0 +1,6 @@
+Demo Resistors:
+  identity: spec
+  ipn_prefix: DEMO
+  key_parameters: [Resistance, Tolerance]
+  parameters: [Resistance, Tolerance]
+  name: "DEMO resistor {Resistance} ohm {Tolerance} percent"
