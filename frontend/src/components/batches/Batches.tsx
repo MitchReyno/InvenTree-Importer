@@ -1,17 +1,7 @@
 import { HeadingRow, Eyebrow, Intro, Caption, CheckboxLabel } from '../ui/primitives'
-import {
-  Button,
-  Form,
-  Heading,
-  Input,
-  Label,
-  Link,
-  PageTitle,
-  Panel,
-  Paragraph,
-  TextArea,
-} from '../ui/primitives'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Button, Heading, Input, Link, PageTitle, Panel, Paragraph } from '../ui/primitives'
+import { useEffect, useState } from 'react'
+import { NewBatchForm } from './NewBatchForm'
 import type { Client } from '../../capture/client'
 import styled from 'styled-components'
 export function Batches({
@@ -23,27 +13,10 @@ export function Batches({
 }) {
   const [batches, setBatches] = useState<Awaited<ReturnType<Client['list']>> | null>(null)
   const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
   const [archived, setArchived] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [title, setTitle] = useState('')
-  const [note, setNote] = useState('')
   useEffect(() => () => onDirtyChange(false), [onDirtyChange])
-  function changeDraft(field: 'title' | 'note', value: string) {
-    if (field === 'title') {
-      setTitle(value)
-    } else {
-      setNote(value)
-    }
-    onDirtyChange(Boolean((field === 'title' ? value : title) || (field === 'note' ? value : note)))
-  }
-  function discardDraft() {
-    setTitle('')
-    setNote('')
-    setCreating(false)
-    onDirtyChange(false)
-  }
-  const createIntent = useRef({ payload: '', key: crypto.randomUUID() })
+
   useEffect(() => {
     let active = true
     void client
@@ -65,28 +38,6 @@ export function Batches({
   const recent = batches?.batches.find((b) => !b.archived)
   const others =
     batches?.batches.filter((b) => (archived || !b.archived) && b.id !== recent?.id) ?? []
-  async function createBatch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const data = new FormData(event.currentTarget)
-    const input = { title: String(data.get('title')), note: String(data.get('note')) }
-    const payload = JSON.stringify(input)
-    if (createIntent.current.payload !== payload) {
-      createIntent.current = { payload, key: crypto.randomUUID() }
-    }
-    setBusy(true)
-    setError('')
-    try {
-      const batch = await client.create(input, createIntent.current.key)
-      onDirtyChange(false)
-      location.hash = batch.id
-    } catch {
-      setError(
-        'Save could not be confirmed. Check the batch list before creating again; do not assume failure means nothing was saved.',
-      )
-    } finally {
-      setBusy(false)
-    }
-  }
   return (
     <>
       <HeadingRow>
@@ -104,41 +55,11 @@ export function Batches({
       {(creating || batches?.batches.length === 0) && (
         <Panel aria-labelledby="new-batch">
           <Heading id="new-batch">New batch</Heading>
-          <Form
-            onSubmit={(event) => {
-              void createBatch(event)
-            }}
-          >
-            <Label>
-              Batch title
-              <Input
-                name="title"
-                required
-                maxLength={256}
-                placeholder="Bench bag · November"
-                value={title}
-                disabled={busy}
-                onChange={(event) => changeDraft('title', event.target.value)}
-              />
-            </Label>
-            <Label>
-              Human note
-              <TextArea
-                name="note"
-                value={note}
-                disabled={busy}
-                onChange={(event) => changeDraft('note', event.target.value)}
-                maxLength={8192}
-                placeholder="Where these components came from; observations, not inferred facts"
-              />
-            </Label>
-            <Button disabled={busy}>Create retained batch</Button>
-            {(title || note) && (
-              <Button type="button" disabled={busy} onClick={discardDraft}>
-                Discard new batch input
-              </Button>
-            )}
-          </Form>
+          <NewBatchForm
+            client={client}
+            onDirtyChange={onDirtyChange}
+            onDiscard={() => setCreating(false)}
+          />
         </Panel>
       )}
       {recent && (
