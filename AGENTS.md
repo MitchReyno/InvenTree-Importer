@@ -71,3 +71,11 @@ arguments always retain caller-cwd meaning. Importer config defaults to
 `backend/config/`. Platform execution/scanner state and explicit state overrides
 retain their existing identity. Do not migrate, delete or reseed real local data
 as part of layout/tooling work. See `docs/repository-layout.md`.
+
+## Initiative branch
+
+The user-named `interative-app` branch is the integration trunk for this initiative.
+Target the restructuring PR and subsequent initiative PRs to `interative-app`,
+which starts at the reviewed main base. Keep work on separate conventional
+feature branches and obtain independent review before opening a PR. Do not merge
+initiative work into main as part of this change.

@@ -2,7 +2,7 @@
 
 ## Scope and base
 
-This standalone change relocates the existing uv-managed Python project intact
+This initiative change relocates the existing uv-managed Python project intact
 into `backend/`, adds a root pnpm workspace and an explicitly incomplete
 React/TypeScript/Vite intake scaffold in `frontend/`. It starts from main commit
 `db9fd4180ab43edddf4119f5311ad673711c382e`. It does not change the import package
@@ -84,6 +84,16 @@ restart/retry demo inspection, installed-wheel CLI smoke, final complete check
 summary. The initial standalone wheel assertion incorrectly expected site-packages
 in the fallback config directory; the historical fallback is the interpreter lib
 parent. This was a validation expectation error, not a runtime change.
+
+## Initiative branch adjustment
+
+After the initial local review candidate, the user explicitly requested the
+initiative trunk named `interative-app` (spelling preserved). The restructuring
+feature branch stays `refactor/backend-frontend-layout`; its PR now targets
+`interative-app`, not main. The trunk starts at the existing main base after a
+remote existence check. This is a branch/review destination change, not a merge
+or a change to the agreed implementation scope. Future initiative PRs use this
+trunk. No existing branch is overwritten.
 
 ## Review, shifts and limits
 

@@ -1420,3 +1420,11 @@ then follow the [loopback demo guide](docs/import-demo.md) in a second terminal.
 It uses the real CLI/SDK and a persistent fake HTTP server to show plan hierarchy,
 request progress, partial evidence outcomes and targeted recovery without any
 real inventory or vendor credentials.
+
+## Initiative branch
+
+The user-named `interative-app` branch is the integration trunk for this initiative.
+Target the restructuring PR and subsequent initiative PRs to `interative-app`,
+which starts at the reviewed main base. Keep work on separate conventional
+feature branches and obtain independent review before opening a PR. Do not merge
+initiative work into main as part of this change.
