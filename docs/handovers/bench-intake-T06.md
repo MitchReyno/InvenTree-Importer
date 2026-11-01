@@ -161,3 +161,17 @@ Activity now retains a held lane first with its exact attempt identity and recor
 The current Activity DTO is frozen for coordinator registration/client generation. Media descriptors/pins, server-state query integration, combined global activity UI and actual browser checks still require their actual merged prerequisites. No ready PR or independent clearance is claimed.
 
 The complete current frontend suite passed 18 tests after the form adaptation and error-description wiring. The owning read-model checkpoint also passes server typecheck, four offline model/seal cases, maintained readability and Markdown checks. These checks do not replace pending generated-client, media/query-cache integration, browser evidence or fresh independent review at the eventual ready PR head.
+
+## Processing query-cache adaptation
+
+After the coordinator merged actual PR #51 into this worktree, T06 owns only ProcessingWorkspace and its focused tests for this step. Use the merged ServerScope, serverQueryKey and retained poll interval. The coordinator retains App, Batch, header and combined activity integration; media remains gated on its actual merge.
+
+Replace the local timer and copied server snapshot with useQuery data. A mounted editor requires its own successful read before any start, cancellation or answer command; a warm cache, failed read or paused read cannot supply command authority. Preserve the first exact question/context, RHF drafts and stable uncertain-command payload/key. Refetch after commands without classifying a confirmed save as an unknown outcome merely because the follow-up read fails. Test warm cache, read failure/pause/recovery, pinned drafts and uncertain retry identity without PostgreSQL or a new preview.
+
+### Scoped Processing read results
+
+ProcessingWorkspace now consumes useQuery data under the server-scoped `processing`/batch key and the shared retained poll interval. It has no local poll timer or copied server snapshot. A successful read by the mounted workspace is required in addition to the query's mounted-fetch status; manual warm-cache writes cannot authorize commands. Current query errors/paused reads block start, cancellation and answers. Refetching never substitutes another question or clears a dirty RHF form.
+
+Eight focused component cases passed: three workspace query/cache tests and the five existing question-form tests. They cover warm-cache writes, failure/recovery, paused/resumed reads, exact pinned draft preservation, stale-question replacement refusal and an uncertain start reusing its original payload/key. One initial assertion was corrected to wait for the query observer's visible stale-state update; the resulting observable refusal passes. Frontend typecheck passed.
+
+The coordinator can render the unchanged ProcessingWorkspace props within the existing scoped ServerStateProvider. No App, Batch, header, global activity, package, provider, service or media implementation was changed during this step. PostgreSQL was not used; its current allocation remains with the media owner. Whole-feature browser and media integration qualification remain pending.

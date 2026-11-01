@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { serverQueryKey, useServerScope } from '../../queries/scope'
+import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
 import type {
   CaptureSnapshotDto,
   ProcessingAnswerDto,
@@ -44,43 +47,47 @@ export function ProcessingWorkspace({
   onDirtyChange,
   onSaved,
 }: Props) {
-  const [snapshot, setSnapshot] = useState<ProcessingSnapshotDto | null>(null)
+  const scope = useServerScope()
+  const queryKey = serverQueryKey(scope, 'processing', batch.id)
+  const scopeIdentity = JSON.stringify(queryKey)
+  const mountedContext = useRef(scopeIdentity).current
+  // Query-cache writes can count as fetched data; only this mounted read can verify commands.
+  const successfulRead = useRef(false)
+  const queryClient = useQueryClient()
+  const snapshotQuery = useQuery({
+    queryKey,
+    queryFn: async () => {
+      try {
+        const snapshot = await client.read(batch.id)
+        if (scopeIdentity === mountedContext) {
+          successfulRead.current = true
+        }
+        return snapshot
+      } catch (error) {
+        successfulRead.current = false
+        throw error
+      }
+    },
+    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+  })
+  const snapshot = snapshotQuery.data
+  const offline = snapshotQuery.isError || snapshotQuery.fetchStatus === 'paused'
+  const waitingForRead =
+    !successfulRead.current ||
+    !snapshotQuery.isFetchedAfterMount ||
+    !snapshotQuery.isSuccess ||
+    scopeIdentity !== mountedContext
   const [pinned, setPinned] = useState<PinnedQuestion | null>(null)
-  const [offline, setOffline] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const startSubmission = useRef<{ fingerprint: string; key: string } | null>(null)
   useEffect(() => {
-    let active = true
-    let timer: ReturnType<typeof setTimeout>
-
-    async function poll() {
-      try {
-        const value = await client.read(batch.id)
-        if (active) {
-          setSnapshot(value)
-          setOffline(false)
-        }
-      } catch {
-        if (active) {
-          setOffline(true)
-        }
-      } finally {
-        if (active) {
-          timer = setTimeout(() => {
-            void poll()
-          }, 2000)
-        }
-      }
+    if (snapshotQuery.fetchStatus === 'paused') {
+      successfulRead.current = false
     }
+  }, [snapshotQuery.fetchStatus])
 
-    void poll()
-    return () => {
-      active = false
-      clearTimeout(timer)
-    }
-  }, [batch.id, client])
   useEffect(() => {
     if (!questionId) {
       setPinned(null)
@@ -98,29 +105,53 @@ export function ProcessingWorkspace({
     }
   }, [questionId, snapshot, pinned])
 
+  function commandReadAvailable() {
+    const current = queryClient.getQueryState(queryKey)
+    return (
+      !busy &&
+      !waitingForRead &&
+      successfulRead.current &&
+      current?.status === 'success' &&
+      current.fetchStatus !== 'paused'
+    )
+  }
+
+  async function refresh() {
+    const result = await snapshotQuery.refetch({ throwOnError: true })
+    if (!result.data) {
+      throw new Error('processing_snapshot_missing')
+    }
+  }
+
   async function perform(work: () => Promise<unknown>) {
+    if (!commandReadAvailable()) {
+      throw new Error('processing_fresh_read_required')
+    }
     setBusy(true)
     setError('')
+    let commandFailed = false
     try {
       await work()
     } catch {
+      commandFailed = true
       setError(
         'Command not confirmed. Inspect retained status before deciding whether to submit another command.',
       )
-      setBusy(false)
-      throw new Error('processing_command_not_confirmed')
     }
 
     try {
-      setSnapshot(await client.read(batch.id))
-      setOffline(false)
+      await refresh()
     } catch {
-      setOffline(true)
-      setError(
-        'The command was saved, but current status is unavailable. Refresh retained status before further commands.',
-      )
+      const message = commandFailed
+        ? 'Command not confirmed and current status is unavailable. Your input and original delivery identity are kept.'
+        : 'The command was saved, but current status is unavailable. Refresh retained status before further commands.'
+      setError(message)
     } finally {
       setBusy(false)
+    }
+
+    if (commandFailed) {
+      throw new Error('processing_command_not_confirmed')
     }
   }
 
@@ -159,7 +190,7 @@ export function ProcessingWorkspace({
     .flatMap((job) => job.questions)
     .find((question) => question.id === questionId)
   const unconfigured = snapshot?.runner_status === 'unconfigured'
-  const disabled = busy || offline
+  const disabled = busy || offline || waitingForRead
   const runnerDisabled = disabled || unconfigured
   return (
     <Workspace>
@@ -190,6 +221,11 @@ export function ProcessingWorkspace({
         </ErrorNotice>
       )}
       {error && <ErrorNotice role="alert">{error}</ErrorNotice>}
+      {waitingForRead && snapshot && !offline && (
+        <Notice role="status">
+          Verifying current processing state. Cached results cannot authorize commands.
+        </Notice>
+      )}
       {!snapshot ? (
         <Paragraph role="status">Reading retained processing state…</Paragraph>
       ) : (
