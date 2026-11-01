@@ -2,6 +2,8 @@
 
 Status: **design only, not implemented**. Prepared 2026-11-01 following Mitch's request for a new TypeScript backend data model. This is a separate proposal, not a migration or a declaration that the Python backend has been replaced. The earlier Python solution design remains unchanged in its own worktree. No database, runtime, credential, inventory or provider is changed by these documents.
 
+**Implementation scheduling:** the [incremental application plan](../bench-intake/08-implementation-plan.md) records Mitch's later instruction to defer login and use a restricted server-side development API key while building the product. That explicit temporary actor/credential mode supersedes early session/delegated-access prerequisites for development only; it does not remove this model's final identity/complete-permission gate, exact approval, ownership or uncertainty contracts. The design/spike PRs are now merged into `interactive-app`; historical dependency-state prose below is not the current PR base. Implementation awaits plan approval.
+
 ## Recommendation
 
 Use **one PostgreSQL database for application records and the new TypeScript executor's durable journal**, plus private immutable blob storage. Separate product editing, research proposals, human approval and execution by authority, even though they share a database. Use relational identity/constraints for things that must agree, and small versioned JSON documents for heterogeneous facts and frozen specifications. Do not mirror all of InvenTree or build a general-purpose workflow/event-sourcing platform.

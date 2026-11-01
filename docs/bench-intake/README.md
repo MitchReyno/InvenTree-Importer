@@ -2,6 +2,10 @@
 
 Status: **proposed, not implemented**. Prepared on 2026-11-01. At Mitch's request, this is a duplicate of the earlier whole-application design, reconciled for a new TypeScript backend and executor. The original Python proposal remains unchanged on `docs/bench-intake-solution-design`. This personal self-hosted product is not a commercial hosted service. Publication of this design is authorized; implementation, provider inference, migrations and live inventory writes are not.
 
+**Current delivery entrypoint:** [chapter 8's implementation plan](08-implementation-plan.md) records the latest proposed task sequence and owner/review/merge workflow, awaiting Mitch's approval. Designs/spikes are now consolidated into `interactive-app`; do not use the deleted spike branch as a PR base. Early development uses the explicitly restricted server-side API-key mode, deferring final InvenTree login/access qualification rather than deleting that end-state requirement. Older publication/dependency prose below is historical.
+
+**Protected inventory:** Mitch explicitly prohibits all writes to the real InvenTree server identified by the referenced `.env`. Read-only calls are allowed; all mutation tests use owned fakes or separately designated disposable targets. Older pilot descriptions do not override this prohibition. Existing signed-in local Codex/Claude Code may be used through supported routes without credential copying.
+
 ## Read the design
 
 Read the summary here, then the chapters below. Diagrams and wireframes show proposed responsibilities and behavior, not running services. The current application remains the [browser-local scaffold and Python importer](../../ARCHITECTURE.md).
@@ -15,6 +19,7 @@ Read the summary here, then the chapters below. Diagrams and wireframes show pro
 | [5. User experience](05-experience.md) | What does each screen do on desktop and phone, including failure states? |
 | [6. Security and operations](06-operations.md) | How do we authenticate, deploy, observe, upgrade, back up and restore it? |
 | [7. Reuse, scope and delivery](07-delivery.md) | What do we retain as evidence, rebuild narrowly, prove first and deliver in increments? |
+| [8. Incremental implementation plan](08-implementation-plan.md) | Which sizeable task PRs come first, what depends on what, and how do owners/reviewers work in parallel? |
 
 ## The proposal in one page
 

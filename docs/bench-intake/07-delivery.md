@@ -2,6 +2,8 @@
 
 [Design index](README.md) · Documentation-only TypeScript proposal, duplicated from the preserved Python design at Mitch's request. Design PR publication is authorized, not production implementation.
 
+**Scheduling update:** [chapter 8](08-implementation-plan.md) supersedes the coarse increments and old dependency/publication workflow below with substantial non-stacked task PRs into `interactive-app`, ready-PR-before-local-review and deferred application login using restricted development-key mode. It awaits Mitch's approval before implementation. The spike/design consolidation is merged and its old dependency branch deleted. Retain this chapter's supported scope, product traceability and fault matrix as acceptance requirements; initial login scenarios apply when final identity lands, not as blockers for the manual development slice.
+
 ## Narrow rebuild, not full legacy parity
 
 Implement the new TypeScript backend and executor for the supported application slice, with the [data-model proposal](../typescript-data-model/README.md) as schema/transaction authority. Keep the durable Python engine/tests unchanged as behavioral references and adversarial scenarios, not runtime dependencies or automatic proof of a port. Do not copy fixture-specific spike models/runners wholesale into production, invent a general scheduler or recreate all historical CLI features. Scope reduction saves time; source identity, approval and uncertainty are not optional simplifications.
