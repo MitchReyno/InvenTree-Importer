@@ -5,6 +5,7 @@ import { readFile, writeFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { executorFixture, STOCK_WIRE, BARCODE } from '../support/executor.ts'
 import { transaction } from '../../src/db/database.ts'
+import { sha256 } from '../../src/db/authority.ts'
 import { cancelRun, selectRecovery, snapshot, loadRun, retainOriginalSource } from '../../src/execution/authority.ts'
 import { encodePlan, contributionBarcode } from '../../src/execution/plan.ts'
 import { startApply } from '../../src/execution/supervisor.ts'
@@ -137,6 +138,42 @@ test('selected known-output verification retains matching/consumed/deleted recei
     assert.equal((await f.fake.records()).filter(row => row.path === '/api/stock/7101/').length,3)
     assert.deepEqual(await f.fake.stocks(),[])
   } finally { await f.dispose() }
+})
+
+test('known-output verification rejects unresolved, unknown and conflicting create history before any GET', async () => {
+  type Attempt = { certainty: 'confirmed' | 'unknown' | 'none' | null; outcome: 'response' | 'proven_not_sent' | null; pk: string | null }
+  const confirmed: Attempt = { certainty: 'confirmed',outcome: 'response',pk: '7101' }
+  const noEffect: Attempt = { certainty: 'none',outcome: 'proven_not_sent',pk: null }
+  // Trusted retained-history fixtures exercise conservative rejection, including
+  // inconsistent checkpoints that normal apply must never produce.
+  const histories: { name: string; attempts: Attempt[] }[] = [
+    { name: 'no create output',attempts: [] },
+    { name: 'missing result and effect',attempts: [{ certainty: null,outcome: null,pk: null },confirmed] },
+    { name: 'missing effect',attempts: [{ certainty: null,outcome: 'proven_not_sent',pk: null },confirmed] },
+    { name: 'missing no-effect result',attempts: [{ ...noEffect,outcome: null },confirmed] },
+    { name: 'unknown attributed create',attempts: [{ certainty: 'unknown',outcome: 'response',pk: '7100' },confirmed] },
+    { name: 'none without positive no-dispatch proof',attempts: [{ ...noEffect,outcome: 'response' },confirmed] },
+    { name: 'none with attributed PK',attempts: [{ ...noEffect,pk: '7100' },confirmed] },
+    { name: 'confirmed without result',attempts: [{ ...confirmed,outcome: null }] },
+    { name: 'duplicate confirmed output',attempts: [confirmed,confirmed] },
+    { name: 'conflicting confirmed output',attempts: [confirmed,{ ...confirmed,pk: '7102' }] },
+    { name: 'create after confirmed output',attempts: [confirmed,noEffect] },
+  ]
+  for (const history of histories) {
+    const f = await executorFixture()
+    try {
+      const run = await f.reserve()
+      for (const [index,attempt] of history.attempts.entries()) {
+        const intentId = randomUUID(), bytes = Buffer.from(STOCK_WIRE)
+        await f.db.pool.query(`INSERT INTO executor_intent(id,run_id,operation_key,attempt,kind,request_bytes,request_digest) VALUES ($1,$2,$3,$4,'create_stock',$5,$6)`,[intentId,run.runId,f.plan.operations[0].operationKey,index+1,bytes,sha256(bytes)])
+        if (attempt.outcome) await f.db.pool.query('INSERT INTO executor_result(intent_id,outcome,status) VALUES ($1,$2,$3)',[intentId,attempt.outcome,attempt.outcome === 'response' ? 201 : null])
+        if (attempt.certainty) await f.db.pool.query('INSERT INTO executor_effect VALUES ($1,$2,$3,$4,$5)',[intentId,run.runId,f.plan.operations[0].operationKey,attempt.certainty,attempt.pk])
+      }
+      await assert.rejects(verifyKnownStock(f.db.pool,f.profile,{ runId: run.runId,operationKey: f.plan.operations[0].operationKey,actorId: f.authority.actor }),/known_output_required/,history.name)
+      assert.equal((await f.fake.records()).length,0,history.name)
+      assert.equal((await f.db.pool.query("SELECT count(*) FROM executor_intent WHERE kind='get_stock'")).rows[0].count,'0',history.name)
+    } finally { await f.dispose() }
+  }
 })
 
 test('intent-only is unknown; known local pre-dispatch refusal is no-effect with selected recovery only', async () => {

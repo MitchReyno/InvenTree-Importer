@@ -17,6 +17,7 @@ import { executeRun } from '../../src/execution/apply.ts'
 import { WriterConnection } from '../../src/execution/ownership.ts'
 import { startApply } from '../../src/execution/supervisor.ts'
 import { deliverStockCommand } from '../../src/execution/delivery.ts'
+import { verifyKnownStock } from '../../src/execution/verification.ts'
 
 async function until<T>(read: () => Promise<T>, predicate: (value: T) => boolean) {
   const deadline = Date.now()+10000
@@ -136,6 +137,21 @@ test('original physical child survives dedicated PG connection loss; host exclus
     const recovery = await transaction(f.db.pool,client => selectRecovery(client,run.runId,f.plan.operations[0].operationKey,f.authority.actor))
     const restarted = await startApply({ databaseUrl: f.db.url,gateRoot: f.root,runId: run.runId,profile: f.profile,recoveryIds: [recovery] })
     assert.deepEqual((await restarted.completed).confirmedStockIds,['7101'])
+    const input = { runId: run.runId,operationKey: f.plan.operations[0].operationKey,actorId: f.authority.actor }
+    const attempts = (await f.db.pool.query(`SELECT i.attempt,r.outcome,e.certainty,e.remote_pk FROM executor_intent i JOIN executor_result r ON r.intent_id=i.id JOIN executor_effect e ON e.intent_id=i.id WHERE i.kind='create_stock' ORDER BY i.attempt`)).rows
+    assert.deepEqual(attempts,[{ attempt: 1,outcome: 'proven_not_sent',certainty: 'none',remote_pk: null },{ attempt: 2,outcome: 'response',certainty: 'confirmed',remote_pk: '7101' }])
+    const matching = await verifyKnownStock(f.db.pool,f.profile,input)
+    assert.equal(matching.remotePk,'7101')
+    assert.equal(matching.outcome,'matches')
+    await f.db.pool.query("UPDATE fake_stock SET quantity='0' WHERE pk=7101")
+    assert.equal((await verifyKnownStock(f.db.pool,f.profile,input)).outcome,'missing_or_changed')
+    await f.db.pool.query('DELETE FROM fake_stock WHERE pk=7101')
+    assert.equal((await verifyKnownStock(f.db.pool,f.profile,input)).outcome,'missing_or_changed')
+    assert.deepEqual((await f.apply(run.runId)).confirmedStockIds,['7101'])
+    await assert.rejects(f.reserve(f.reservation()),/original_contribution_already_approved/)
+    assert.deepEqual((await f.db.pool.query(`SELECT v.effect_intent_id,e.remote_pk,v.outcome FROM executor_verification v JOIN executor_effect e ON e.intent_id=v.effect_intent_id JOIN executor_intent i ON i.id=v.intent_id ORDER BY i.attempt`)).rows.map(row => [row.remote_pk,row.outcome]),[['7101','matches'],['7101','missing_or_changed'],['7101','missing_or_changed']])
+    assert.equal((await f.fake.records()).filter(row => row.path === '/api/stock/7101/').length,3)
+    assert.deepEqual(await f.fake.stocks(),[])
     assert.equal((await f.fake.records()).filter(row => row.method === 'POST').length,1)
   } finally {
     if (child) { await reap(child); await claim.releaseAfterReap() }
