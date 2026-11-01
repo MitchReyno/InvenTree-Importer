@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict'
 
-const { mkdtemp, cp, mkdir, readFile, rm } = require('node:fs/promises')
+const { mkdtemp, cp, mkdir, readFile, rm, writeFile } = require('node:fs/promises')
 const { spawn } = require('node:child_process')
 const { tmpdir } = require('node:os')
 const { join, resolve } = require('node:path')
@@ -19,7 +19,18 @@ const allowed = [
   'tooling/openapi-generator/package.json',
 ]
 
-async function build(context) {
+function requestedOutputFile() {
+  const cliArguments = process.argv.slice(2)
+  if (cliArguments.length === 0) {
+    return undefined
+  }
+  if (cliArguments.length !== 2 || cliArguments[0] !== '--output-file' || !cliArguments[1].trim()) {
+    throw new Error('expected_optional_output_file')
+  }
+  return cliArguments[1]
+}
+
+async function build(context, outputFile) {
   const imageFile = join(context, 'image-id')
   const child = spawn(
     'docker',
@@ -37,10 +48,14 @@ async function build(context) {
   if (!/^sha256:[a-f0-9]{64}$/.test(image)) {
     throw new Error('invalid_decoder_image_identity')
   }
+  if (outputFile) {
+    await writeFile(outputFile, `${image}\n`, { flag: 'wx', mode: 0o600 })
+  }
   process.stdout.write(`Decoder image: ${image}\n`)
 }
 
 async function main() {
+  const outputFile = requestedOutputFile()
   const context = await mkdtemp(join(tmpdir(), 'intake-media-build-'))
   try {
     for (const relative of allowed) {
@@ -49,7 +64,7 @@ async function main() {
       await cp(join(repository, relative), destination, { recursive: true })
     }
     await cp(join(repository, 'intake-server/media-image/Dockerfile'), join(context, 'Dockerfile'))
-    await build(context)
+    await build(context, outputFile)
   } finally {
     await rm(context, { recursive: true, force: true })
   }

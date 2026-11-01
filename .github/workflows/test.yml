@@ -96,7 +96,7 @@ jobs:
     name: Intake PostgreSQL and process
     if: ${{ inputs.intake }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:17
@@ -121,6 +121,18 @@ jobs:
       - uses: pnpm/action-setup@v4
       - name: Frozen workspace install
         run: pnpm install --frozen-lockfile
+      - name: Build bounded decoder and isolated resource probe images
+        run: |
+          mkdir -p .temp/ci-media
+          node intake-server/scripts/build-media-image.cjs --output-file .temp/ci-media/decoder-image
+          IFS= read -r INTAKE_MEDIA_DECODER_IMAGE < .temp/ci-media/decoder-image
+          export INTAKE_MEDIA_DECODER_IMAGE
+          node intake-server/scripts/build-media-probe.cjs --output-file .temp/ci-media/probe-image
+          IFS= read -r INTAKE_MEDIA_PROBE_IMAGE < .temp/ci-media/probe-image
+          {
+            printf 'INTAKE_MEDIA_DECODER_IMAGE=%s\n' "$INTAKE_MEDIA_DECODER_IMAGE"
+            printf 'INTAKE_MEDIA_PROBE_IMAGE=%s\n' "$INTAKE_MEDIA_PROBE_IMAGE"
+          } >> "$GITHUB_ENV"
       - name: Test reviewed migrations, transactions, grants and exact bytes
         run: pnpm --filter @invimport/intake-server test:pg
       - name: Qualify DBOS public API across actual worker crash and version changes

@@ -2,14 +2,14 @@
 
 ## Current status
 
-Implementation is complete enough for final qualification; it is **not yet independently
+Implementation and combined local qualification are complete; it is **not yet independently
 cleared**. Follow the approved [implementation plan](../bench-intake/08-implementation-plan.md)
 and preserve the coordinator-owned [integration record](bench-intake-wave3-integration.md).
 
 Actual merged query/form/readability/OpenAPI/server-state work is integrated. T06
 remains a separate owner and must consume these seams only after actual T05 merge.
-No T05 PR has been declared ready. Final combined checks, resource qualification
-and fresh independent reviews remain submission gates.
+A ready PR may now be published for fresh independent review. Hosted CI and independent
+domain/safety/native UI clearance remain merge gates.
 
 ## Hard boundaries
 
@@ -215,7 +215,7 @@ cleanup/binary policy. Coordinator accepted retaining `node:child_process`.
   photographic input/output above 262 KB, literal legacy/new quarter-angle pixels,
   independent non-square 37-degree inverse sampling and repeated exact PNG bytes.
 - Root independently observed original-DB bind/reopen and swapped-DB startup refusal
-  across three actual main launches. Final combined startup rerun remains a gate.
+  across three actual main launches. The final complete PG tier repeated this case successfully.
 
 Production image: `sha256:9c0ee883543576d689830057a6e31cb60c753b4de3e9c6a5443747f2f852d8ab`.
 The 355.95 KB allowlisted context excludes credentials, tests/probes and personal state.
@@ -262,13 +262,30 @@ change was therefore used before real pointer resize. **Actual native aspect-con
 selection still requires the fresh UI reviewer**; do not claim that control cleared.
 These checks are not a full accessibility audit or production-device certification.
 
-## Final gates and commands
+## Combined coordinator verification and remaining gates
 
-1. Confirm builder output-file seams and mandatory CI image selection.
-2. Run final root normal/frozen/generation/type/lint/build/format and relevant PG/process
-   tiers against the stable source; record actual counts and any skips.
-3. Obtain fresh independent domain/safety and native UI reviews. Fix findings, update
-   this status, then follow the approved ready-PR/merge protocol to `interactive-app`.
+The coordinator ran the maintained root `pnpm test`: 36 frontend tests, 21 contract tests,
+47 server tests and 2,038 backend tests passed. Backend retained four known skips and 43 scanner/TUI
+exclusions. The complete PG tier passed 39/39 and the process tier 22/22, with both
+explicit images and zero skips. This includes actual startup, legacy stock, media,
+attachments, DBOS/process interruption and all four resource probes.
+
+Frozen install, contract generation drift, all application types, production build,
+full lint and Prettier checks passed. Initial unused mock parameters and four test
+formatting issues were fixed in test-only checkpoint `9783462`; six focused tests and
+types/lint passed afterward. No runtime source changed during that cleanup.
+
+The exact new CI build step was executed locally. Both builders wrote private
+exclusive image-ID files, Actions-style environment export selected both images,
+and the production image remained inspectable after probe alias cleanup. See the
+[CI build receipt](../bench-intake/evidence/T05/ci-build.json). All 21 maintained CI
+path-selector tests passed. Hosted CI still needs its own run; local execution does
+not establish hosted platform compatibility.
+
+Publish ready directly to `interactive-app`, then obtain fresh independent
+storage/decoder, execution/approval and native UI reviews. Actual native aspect-control
+selection is still explicitly required. Material findings need fixes and exact-head
+re-review before the authorized selected-CI-green merge.
 
 Relevant commands from repository root:
 
@@ -278,8 +295,8 @@ node intake-server/scripts/build-media-probe.cjs
 node intake-server/scripts/run-media-pg.cjs '' retention
 node intake-server/scripts/run-media-pg.cjs '' executor
 node intake-server/scripts/run-media-pg.cjs '' startup
-pnpm media:decode
-pnpm media:gc
+pnpm --filter @invimport/intake-server media:decode
+pnpm --filter @invimport/intake-server media:gc
 ```
 
 The builders/workers/tests require their documented explicit image/DB/root settings.

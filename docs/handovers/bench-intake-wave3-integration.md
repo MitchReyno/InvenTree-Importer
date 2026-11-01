@@ -115,3 +115,16 @@ Root main reuses one database pool to read the immutable media store UUID before
 The owner strengthened attachment corruption to a one-byte change of unchanged length. An intentionally disabled download hash check produced a false positive journal receipt and failed the new assertion; the independent settlement reducer still refused completion. The exact source was restored, then both original controls passed. This demonstrates two distinct defenses without claiming the earlier shorter-content test proved hashing.
 
 The scoped package assessment is committed as `ce063c0`. React Router is an additional T08 candidate, alongside the earlier table and accessibility primitives; none of these future candidates has been installed. Package choice remains conditional on concrete phase requirements and exact-release qualification.
+
+
+### T05 final local qualification
+
+Stable media checkpoint `11d6bae` and test-only cleanup `9783462` passed the combined coordinator gates:
+
+- Normal suite: 36 frontend, 21 contract, 47 server and 2,038 backend tests passed. The backend retained four known skips and 43 scanner/TUI exclusions.
+- Complete owned PG: 39/39 passed. Process tier: 22/22 passed. Both exact images were selected, with zero skips and no remaining owned test windows.
+- Frozen install, generated drift, application types, full lint, format and production build passed. The build advisory remains 821.82 KB raw / 255.59 KB gzip.
+
+CI now builds both production and test-only probe images before PG/process tests. The exact step passed locally using private exclusive output files and Actions-style environment export. Probe alias cleanup preserves the production manifest through a content-addressed tag and verifies its original ID. Hosted CI remains pending until PR publication; 21 path-selector tests passed. No actual LLM/provider calls or real inventory requests were made.
+
+Mitch's newest restriction is committed in both maintained plans: provider integration tests use stubs until explicit later live-usage authorization. Earlier permission to exercise signed-in native providers does not override it. Processing's current shared UI checkpoint `aae8672` plus question/archive fixes `f930db4` pass all 37 frontend tests; actual T05 media integration and whole-feature review remain pending there.
