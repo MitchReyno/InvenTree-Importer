@@ -2,10 +2,21 @@ name: Test
 
 on:
   workflow_call:
+    inputs:
+      backend:
+        type: boolean
+        required: true
+      frontend:
+        type: boolean
+        required: true
+      workflow-sync:
+        type: boolean
+        required: true
 
 jobs:
   backend:
     name: Backend
+    if: ${{ inputs.backend }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -21,8 +32,24 @@ jobs:
       - name: Test Python (includes shared workflow sync)
         run: uv run pytest
 
+  workflow-sync:
+    name: Shared workflow sync
+    if: ${{ inputs.workflow-sync && !inputs.backend }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install Python project
+        run: uv sync --project backend --locked
+      - name: Check skills, agents and workspace commands only
+        run: uv run --directory backend pytest tests/test_project_workflow_sync.py
+
   frontend:
     name: Frontend
+    if: ${{ inputs.frontend }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,8 +60,8 @@ jobs:
       - name: Frozen workspace install
         run: pnpm install --frozen-lockfile
       - name: Typecheck
-        run: pnpm typecheck
+        run: pnpm --filter @invimport/frontend typecheck
       - name: Test
-        run: pnpm test:frontend
+        run: pnpm --filter @invimport/frontend test
       - name: Build
-        run: pnpm build
+        run: pnpm --filter @invimport/frontend build
