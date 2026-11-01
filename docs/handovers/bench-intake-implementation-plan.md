@@ -1,0 +1,41 @@
+# Bench Intake incremental implementation plan handover
+
+## State and authority
+
+Snapshot: 2026-11-01. Decision owner: Mitch Reynolds. This is a documentation-only plan PR targeting `interactive-app`, based on merged trunk `1c4c4cb3482edef3b170fbc95fa8fd06434fe9ca`. Read [the implementation plan](../bench-intake/08-implementation-plan.md) in full, then its linked design/model authorities. Implementation remains paused until Mitch approves the plan; publishing it does not authorize inference, infrastructure changes or live inventory writes. No implementation owner has been launched for these tasks.
+
+Mitch reports all spike/design work merged and the spike branch deleted. Live refresh confirmed #29 and #36 merged and only `interactive-app` remains as the remote initiative dependency. #35 and #33 are included through consolidation. Historical handovers retain their then-current dependency claims; this plan explicitly supersedes those claims rather than rewriting historical evidence. Refresh branches/PRs before resuming.
+
+## Decisions and alternatives
+
+1. **Mitch, latest request:** substantial fresh-owner task PRs, no stacks, five concurrent task owners maximum, ready PR before fresh local review, owner addresses material findings, nit-only review counts green with tracked next-task nits, merge green/approved task PRs to `interactive-app` after plan approval. This supersedes the earlier review-before-publication/no-auto-merge workflow for implementation tasks, not GitHub protections or plan approval.
+2. **Mitch, latest request:** defer application auth/login and use the existing root `.env` API key for development. The plan introduces explicit restricted single-operator key mode with stable attribution and server-only configuration; the final InvenTree identity/complete-permission contract remains T11. No secrets were inspected/copied to create this plan. Do not confuse application auth deferral with provider entitlement gates.
+3. **Planning choice:** deliver T04 manual browser-to-fake stock execution first, existing-Part reuse only, with full initial safety. T05 media and T06 coordination then run independently; T07 provider, T08 richer review and T09 broader effects follow merged prerequisites. T10 operations, T11 identity and T12 qualification converge. T13 parity is optional and cannot delay the first release.
+4. **Rejected alternatives:** implementing every logical-model table before a feature, requiring AI/login before manual usability, Python subprocess fallback, unsafe happy-path executor followed by later hardening, speculative stacked branches and one-endpoint PRs. Narrower supported effects preserve eventual architecture without those shortcuts.
+5. **Unchanged end-state boundaries:** exact approved bytes, original identity/cumulative contribution history, stable source guards/host exclusion, conservative unknown writes and original-run recovery, externally disabled restores, API-only inventory, separate app database/role, no silent migration/coexistence with Python writers. Owned fake evidence does not qualify live compatibility or provider support.
+6. **Mitch, subsequent clarification:** Docker is available and authorized for local development, but avoid unnecessary duplicates. T01 owns a reuse-first service ledger/workflow with per-task databases/state, resource budgets and coordinated destructive tests; no one-stack-per-owner default. This planning work started no containers. The shell did not find `docker` on its default PATH, but the installed Docker application client worked and its read-only container listing was empty. Rediscover the client/context and inventory before use; do not assume that snapshot remains current or install a second engine.
+
+## Files and ownership
+
+This branch owns chapter 8, the design-index/delivery links and scheduling notices, the model's explicit development-mode scheduling notice and this tracked handover. It changes no runtime code, schema, secrets, skill, inventory, private evidence or preserved Python design. Discover the isolated `docs/bench-intake-implementation-plan` worktree with `git worktree list`; preserve other worktrees/untracked content. Root shared guidance is `AGENTS.md`, `CODE_GUIDELINES.md` and `ARCHITECTURE.md` on this trunk, not the old-layout main checkout.
+
+The coordinator supplies each future owner exact file/migration ownership and acceptance from chapter 8. Shared contracts/lockfile/CI/navigation need a designated integrator. Every owner supplies its own tracked engineering handover and actual acceptance evidence. The coordinator facilitates interface decisions, records them once and informs consumers; it must not duplicate an active owner's edits.
+
+## Validation and review
+
+Local checks passed: configured Markdown lint on all five changed/new documents; 51 local file/heading links; balanced fences; portable paths; 13 distinct task rows with acyclic, preceding dependencies; whitespace checks. The table, DAG and wave descriptions were also read for consistent prerequisites and bounded provider-block behavior. No runtime suites were run for documentation-only changes; no runtime/database/provider/inventory acceptance is claimed. The plan itself follows the requested ready-PR-then-fresh-local-review sequence and remains awaiting user approval rather than being automatically merged. Independent review is pending publication; record its outcome before final reporting.
+
+## Next steps and gates
+
+1. Validate these documents, publish the ready plan PR to `interactive-app` and subscribe to CI/comments; obtain a fresh independent plan review and correct material findings. Do not start implementation owners in parallel with awaiting plan approval.
+2. Wait for Mitch's plan approval; the plan PR's publication/CI/review are not that approval. If changes are requested, update the owning chapters/sequence and review consequential changes.
+3. After approval, use the task table/merge protocol to start T01, then eligible fresh owners. Track exact heads, evidence, findings and nit successors; no more than five active task owners. Observe live GitHub protections before merging.
+4. Qualify provider routes before inference; record blocked/fixture/observed separately. No blocked provider can prevent manual/media/effect work with satisfied prerequisites. Before any live mutation, separately obtain explicit selected-write permission after T12's read-only qualification.
+
+## Gotchas, skills and open decisions
+
+Old documents mention the deleted shared-contract branch and early auth qualification. Chapter 8's explicit scheduling notices govern; do not reintroduce a dependency on stale refs. Existing examples include username/password settings, so future T01 must qualify the actual key variable names without displaying secret values or silently inventing a credential. Tests must not autoload the real `.env`.
+
+Use **github-pr-tools** for PR operations, **handover** for transfers, official **openai-docs** tools for Codex research and **browser-harness** for actual browser checks. Use **pr-review-loop** only when requested. Do not use stacked-PR tooling for the new task flow. Repository Markdown uses one physical line per prose paragraph and portable paths. Local Markdown plugin resolution may require providing the locked tooling in this worktree without changing dependency declarations.
+
+Open human decision now: Mitch's approval of this plan gates all implementation. Later decisions: any supported-route/library change that changes product scope, unresolved permission introspection, retention/release choices and explicit target/effects for the live pilot. No elapsed-time or native-provider-parity promise has been made.
