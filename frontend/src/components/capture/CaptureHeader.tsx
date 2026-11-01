@@ -8,6 +8,7 @@ type Props = Pick<CaptureWorkspaceProps, 'batch' | 'busy' | 'edit' | 'onStage'> 
   dirty: boolean
   stage?: ManualStage
 }
+
 export function CaptureHeader({ batch, busy, dirty, edit, onStage, stage = 'capture' }: Props) {
   return (
     <BatchHeader>

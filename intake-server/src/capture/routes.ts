@@ -12,6 +12,7 @@ import type { DevConfig } from '../config.ts'
 import { CaptureError, captureRepository, fail } from './repository.ts'
 
 export type CaptureRead = (operation: CaptureObserveDto) => Promise<{ label: string }>
+
 const resourceId = (request: FastifyRequest) => {
   const id = (request.params as { id: string }).id
   if (!new RegExp(Id.pattern!).test(id)) {
@@ -19,6 +20,7 @@ const resourceId = (request: FastifyRequest) => {
   }
   return id
 }
+
 const commandKey = (request: FastifyRequest) => {
   const key = request.headers['idempotency-key']
   if (typeof key !== 'string' || !new RegExp(Id.pattern!).test(key)) {

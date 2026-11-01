@@ -14,6 +14,7 @@ function parameter(request: FastifyRequest) {
   }
   return id
 }
+
 function key(request: FastifyRequest) {
   const value = request.headers['idempotency-key']
   if (typeof value !== 'string' || !new RegExp(Id.pattern!).test(value)) {
@@ -21,6 +22,7 @@ function key(request: FastifyRequest) {
   }
   return value
 }
+
 const safeCodes = new Set([
   'payload_conflict',
   'source_reserved',
@@ -33,6 +35,7 @@ const safeCodes = new Set([
   'run_authority_missing',
   'command_authority_mismatch',
 ])
+
 export function registerManual(
   app: FastifyInstance,
   pool: Pool,

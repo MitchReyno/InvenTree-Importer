@@ -5,6 +5,7 @@ import { NewBatchForm } from './NewBatchForm'
 import type { BatchCreate } from '../../../../contracts/generated/api.d.ts'
 import type { Client } from '../../capture/client'
 import styled from 'styled-components'
+
 export function Batches({
   client,
   onDirtyChange,
@@ -39,6 +40,7 @@ export function Batches({
       active = false
     }
   }, [client])
+
   function createBatch(input: BatchCreate) {
     const payload = JSON.stringify(input)
     if (createIntent.current.payload !== payload) {
