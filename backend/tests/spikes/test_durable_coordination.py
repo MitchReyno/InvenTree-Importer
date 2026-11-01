@@ -46,6 +46,30 @@ def test_durable_coordination_validates_shared_transcript_and_input_bytes():
     assert messages[0]["input_revision"] != messages[5]["input_revision"]
 
 
+@pytest.mark.parametrize("template,attempt", [(0, "attempt-3"), (0, "attempt-2"), (5, "attempt-1")])
+def test_durable_coordination_rejects_unsupported_attempt_input(template, attempt):
+    request = boundary.transcript()[template]
+    request["attempt_id"] = attempt
+    boundary.message(boundary.canonical(request))  # Valid wire shape is not executable support.
+    with pytest.raises(ValueError, match="Unsupported synthetic"):
+        boundary.request_input(request)
+
+
+@pytest.mark.parametrize("fault", ["missing", "nonfinal", "multiple"])
+def test_durable_coordination_requires_single_final_transcript_result(monkeypatch, fault):
+    messages = boundary.transcript()
+    request = messages[0]
+    if fault == "missing":
+        messages.pop(3)
+    elif fault == "nonfinal":
+        messages[2], messages[3] = messages[3], messages[2]
+    else:
+        messages.insert(3, dict(messages[3]))
+    monkeypatch.setattr(boundary, "transcript", lambda: messages)
+    with pytest.raises(ValueError, match="final terminal result"):
+        boundary.request_input(request)
+
+
 @pytest.mark.parametrize("field,value", [("provider", "unknown"), ("protocol_version", "v2")])
 def test_durable_coordination_rejects_unknown_wire_values(field, value):
     request = copy.deepcopy(boundary.transcript()[0])
@@ -96,7 +120,11 @@ def test_durable_coordination_real_process_fault_matrix(tmp_path):
     report = json.loads((tmp_path / "cluster/evidence.json").read_text())
     assert report["result"] == "passed"
     assert report["kill_commit_returncode"] == report["kill_enqueue_returncode"] == -9
-    expected_error = [row for row in report["dbos_workflows"] if row["id"] == "unowned-workflow-control"]
-    commands = [row for row in report["dbos_workflows"] if row["id"] != "unowned-workflow-control"]
-    assert len(expected_error) == 1 and expected_error[0]["status"] == "ERROR"
-    assert len(commands) == 5 and all(row["status"] == "SUCCESS" for row in commands)
+    adverse_ids = {row["id"] for row in report["runtime_conflicts"]} | {"unowned-workflow-control"}
+    expected_errors = [row for row in report["dbos_workflows"] if row["id"] in adverse_ids]
+    commands = [row for row in report["dbos_workflows"] if row["id"] not in adverse_ids]
+    assert len(expected_errors) == 4 and all(row["status"] == "ERROR" for row in expected_errors)
+    assert len(commands) == 6 and all(row["status"] == "SUCCESS" for row in commands)
+    assert len(report["rejected_before_commit"]) == 3
+    assert all(not row["acknowledged"] and row["conflict"] == "runtime_metadata_conflict"
+               for row in report["outbox"] if row["intent_id"] in adverse_ids)

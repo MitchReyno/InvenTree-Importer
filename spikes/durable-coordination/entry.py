@@ -42,6 +42,7 @@ def main() -> None:
         from django.db import transaction
 
         client = DBOSClient(system_database_url=system_url())
+        conflicts = []
         try:
             # Delivery only, not an independent lease scheduler. Concurrent dispatchers serialize
             # outbox rows; a killed delivery rolls back its ACK and repeats the same workflow ID.
@@ -50,12 +51,34 @@ def main() -> None:
                     row = Outbox.objects.select_for_update().get(pk=identifier)
                     if row.acknowledged:
                         continue
+                    if row.conflict:
+                        conflicts.append(identifier)
+                        print(f"CONFLICT {identifier} {row.conflict}", flush=True)
+                        continue
                     intent = Intent.objects.get(pk=identifier)
                     if intent.payload_digest != payload_digest(intent.payload, intent.app_version):
                         raise ValueError("Corrupted outbox payload")
-                    client.enqueue({"workflow_name": WORKFLOW, "queue_name": QUEUE,
-                                    "workflow_id": identifier, "app_version": intent.app_version},
-                                   identifier, intent.payload_digest)
+                    handle = client.enqueue({"workflow_name": WORKFLOW, "queue_name": QUEUE,
+                                             "workflow_id": identifier, "app_version": intent.app_version},
+                                            identifier, intent.payload_digest)
+                    # Enqueue may adopt a preexisting ID without comparing arguments/version.
+                    # Inspect the committed row AFTER enqueue, including a concurrent first writer.
+                    status = handle.get_status()
+                    inputs = status.input or {}
+                    if (status.app_version != intent.app_version or status.name != WORKFLOW
+                            or status.queue_name != QUEUE or status.class_name is not None
+                            or status.config_name is not None
+                            or tuple(inputs.get("args", ())) != (identifier, intent.payload_digest)
+                            or inputs.get("kwargs") != {}):
+                        row.conflict = "runtime_metadata_conflict"
+                        row.save(update_fields=["conflict"])
+                        job = Job.objects.select_for_update().get(pk=intent.job_id)
+                        if job.current_attempt == identifier:
+                            job.state = "dispatch_conflict"
+                            job.save(update_fields=["state"])
+                        conflicts.append(identifier)
+                        print(f"CONFLICT {identifier} {row.conflict}", flush=True)
+                        continue
                     print(f"ENQUEUED {identifier}", flush=True)
                     if args.kill_at == "enqueue-before-ack":
                         os.kill(os.getpid(), signal.SIGKILL)
@@ -64,6 +87,8 @@ def main() -> None:
                     row.save()
         finally:
             client.destroy()
+        if conflicts:
+            raise SystemExit("Dispatch conflicts require explicit review; no ACK or runtime rebinding")
     else:
         print(json.dumps({"jobs": list(Job.objects.values()),
                           "outbox": list(Outbox.objects.values())}, sort_keys=True))

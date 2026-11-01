@@ -14,7 +14,10 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timezone
+from inspect import unwrap
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from coordination.boundary import FIXTURE, canonical, decode, sha, transcript
 
@@ -37,13 +40,15 @@ class Processes:
         self.worker = None
         self.logs = []
 
-    def cli(self, *args: str, killed: bool = False) -> subprocess.CompletedProcess:
+    def cli(self, *args: str, killed: bool = False, failed: bool = False) -> subprocess.CompletedProcess:
         result = subprocess.run(
             [sys.executable, str(HERE / "entry.py"), *args], env=self.env,
             text=True, capture_output=True, timeout=30,
         )
         if killed:
             assert result.returncode == -9, result.stderr
+        elif failed:
+            assert result.returncode == 1, result.stdout + result.stderr
         elif result.returncode:
             raise RuntimeError(result.stdout + result.stderr)
         return result
@@ -113,6 +118,35 @@ def exercise(processes: Processes) -> dict:
     with connection.cursor() as cursor:
         cursor.execute("SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'dbos')")
         assert cursor.fetchone()[0] is False
+
+    # Schema-valid but unimplemented synthetic journeys must not commit stranded app work.
+    rejected_before_commit = []
+    for index, (template, attempt) in enumerate(((0, "attempt-3"), (0, "attempt-2"), (5, "attempt-1"))):
+        unsupported = copy.deepcopy(messages[template])
+        unsupported.update(job_id=f"unsupported-{index}", attempt_id=attempt)
+        path = processes.state / f"unsupported-{index}.json"
+        path.write_bytes(canonical(unsupported))
+        result = processes.cli("submit", "--request", str(path), failed=True)
+        assert "Unsupported synthetic" in result.stderr
+        assert not Intent.objects.exists() and not Job.objects.exists() and not Outbox.objects.exists()
+        rejected_before_commit.append({"attempt": attempt, "input_revision": unsupported["input_revision"],
+                                       "returncode": result.returncode, "committed_rows": 0})
+
+    # Focused guard injection, NOT runtime durability evidence: a broken emission loop
+    # cannot return success even if submission validation had passed. All DB rows roll back.
+    from coordination import runtime
+
+    with transaction.atomic():
+        guard_request = dict(messages[5], job_id="missing-terminal-guard")
+        guard_id = submit(canonical(guard_request))
+        with (patch.object(runtime, "DBOS", SimpleNamespace(application_version=VERSION)),
+              patch.object(runtime, "synthetic_emissions", return_value=[]),
+              patch.object(runtime, "close_old_connections")):  # Preserve the enclosing rollback transaction.
+            rejected(lambda: unwrap(runtime.synthetic_runner)(guard_id, Intent.objects.get(pk=guard_id).payload_digest),
+                     "runner completion without persisted terminal result")
+        assert not Emission.objects.filter(intent_id=guard_id).exists()
+        assert Job.objects.get(pk=f"{request['batch_id']}:missing-terminal-guard").state == "queued"
+        transaction.set_rollback(True)
 
     processes.start()
     killed_commit = processes.cli("submit", "--kill-at", "commit-before-enqueue", killed=True)
@@ -256,6 +290,74 @@ def exercise(processes: Processes) -> dict:
         assert Emission.objects.filter(intent_id=continuation).count() == 3
     finally:
         client.destroy()
+
+    # Exact review reproduction: correct workflow ID + intent ID + digest, but v2 metadata.
+    # Also reject a conflict before execution and changed digest under the correct version.
+    processes.stop()
+    runtime_conflicts = []
+
+    def conflicting_dispatch(identifier: str) -> None:
+        result = processes.cli("dispatch", failed=True)
+        assert f"CONFLICT {identifier} runtime_metadata_conflict" in result.stdout
+        row = Outbox.objects.get(pk=identifier)
+        assert not row.acknowledged and row.deliveries == 0
+        assert row.conflict == "runtime_metadata_conflict"
+        assert Job.objects.get(pk=row.intent.job_id).state == "dispatch_conflict"
+
+    client = DBOSClient(system_database_url=system_url())
+    try:
+        for label, version, changed_digest, dispatch_first in (
+            ("wrong-version-after-execution", "coordination-v2", False, False),
+            ("wrong-version-before-execution", "coordination-v2", False, True),
+            ("wrong-digest-before-execution", VERSION, True, True),
+        ):
+            adverse_request = copy.deepcopy(messages[5])
+            adverse_request["job_id"] = label
+            identifier = submit(canonical(adverse_request))
+            intent = Intent.objects.get(pk=identifier)
+            digest = "0" * 64 if changed_digest else intent.payload_digest
+            client.enqueue({"workflow_name": WORKFLOW, "queue_name": QUEUE,
+                            "workflow_id": identifier, "app_version": version}, identifier, digest)
+
+            if dispatch_first:
+                conflicting_dispatch(identifier)
+                assert dbos_status(identifier, "ENQUEUED")
+            processes.start(version)
+            wait_for(lambda identifier=identifier: dbos_status(identifier, "ERROR"), label)
+            log = processes.logs[-1].read_text()
+            expected = "Worker payload binding mismatch" if changed_digest else "Executing DBOS application version"
+            assert expected in log
+            assert Emission.objects.filter(intent_id=identifier).count() == 0
+            assert Intent.objects.get(pk=identifier).app_version == VERSION
+            if not dispatch_first:
+                assert Job.objects.get(pk=intent.job_id).state == "queued"
+            conflicting_dispatch(identifier)
+            processes.stop()
+            # Redelivery/compatible restart cannot silently relabel or reset the bad runtime row.
+            processes.start()
+            conflicting_dispatch(identifier)
+            assert dbos_status(identifier, "ERROR")
+            assert client.retrieve_workflow(identifier).get_status().app_version == version
+            assert not Emission.objects.filter(intent_id=identifier).exists()
+            processes.stop()
+            runtime_conflicts.append({"id": identifier, "case": label, "runtime_version": version,
+                                      "intent_version": VERSION, "status": "ERROR", "emissions": 0,
+                                      "disposition": "runtime_metadata_conflict", "acknowledged": False})
+    finally:
+        client.destroy()
+
+    # Quarantined conflicts must not stop a later ordinary command on the same lane.
+    healthy_request = copy.deepcopy(messages[5])
+    healthy_request["job_id"] = "healthy-after-conflicts"
+    healthy = submit(canonical(healthy_request))
+    processes.start()
+    processes.cli("dispatch", failed=True)  # Reports conflicts, but delivers unrelated work.
+    wait_for(lambda: dbos_status(healthy, "SUCCESS"), "healthy command after quarantined conflicts")
+    assert Job.objects.get(pk=f"{request['batch_id']}:healthy-after-conflicts").state == "succeeded"
+    assert Emission.objects.filter(intent_id=healthy).count() == 3
+    assert Outbox.objects.filter(acknowledged=True).count() == 6
+    assert Outbox.objects.filter(acknowledged=False, conflict="runtime_metadata_conflict").count() == 3
+    assert not Outbox.objects.filter(acknowledged=False, conflict="").exists()
     return {
         "result": "passed", "synthetic_provider": True,
         "kill_commit_returncode": killed_commit.returncode,
@@ -267,7 +369,12 @@ def exercise(processes: Processes) -> dict:
                    "stale_answer_result_rejection", "worker_sigkill_after_app_result_before_dbos_checkpoint",
                    "incompatible_queued_and_pending_versions_fenced", "compatible_version_drain",
                    "terminal_outcome_acceptance", "corrupt_output_rejected_without_publication",
-                   "actual_dbos_workflow_id_ownership"],
+                   "actual_dbos_workflow_id_ownership", "unsupported_attempt_input_rejected_before_commit",
+                   "local_fault_injected_missing_terminal_guard_rolled_back",
+                   "actual_executing_application_version_binding", "persisted_runtime_metadata_conflict",
+                   "conflicts_survive_redelivery_and_compatible_restart", "healthy_command_after_conflicts"],
+        "rejected_before_commit": rejected_before_commit,
+        "runtime_conflicts": runtime_conflicts,
         "rolled_back_terminal_controls": accepted_outcomes,
         "dbos_workflows": dbos_rows(), "jobs": list(Job.objects.values()),
         "intent_count": Intent.objects.count(), "question_count": Question.objects.count(),

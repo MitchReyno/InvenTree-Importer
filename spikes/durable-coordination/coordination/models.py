@@ -26,6 +26,7 @@ class Outbox(models.Model):
     intent = models.OneToOneField(Intent, on_delete=models.PROTECT, primary_key=True)
     acknowledged = models.BooleanField(default=False)
     deliveries = models.PositiveIntegerField(default=0)
+    conflict = models.CharField(max_length=64, default="")
 
 
 class Emission(models.Model):

@@ -6,8 +6,8 @@ import time
 from dbos import DBOS, Queue
 from django.db import close_old_connections
 
-from .boundary import canonical, request_input, sha, transcript
-from .models import Intent
+from .boundary import canonical, request_input, sha, synthetic_emissions
+from .models import Emission, Intent
 from .settings import bundle_path
 from .store import QUEUE, WORKFLOW, accept, payload_digest
 
@@ -16,6 +16,8 @@ from .store import QUEUE, WORKFLOW, accept, payload_digest
 def synthetic_runner(identifier: str, digest: str) -> str:
     close_old_connections()
     intent = Intent.objects.get(pk=identifier)
+    if DBOS.application_version != intent.app_version:
+        raise ValueError("Executing DBOS application version does not own the intent")
     if digest != intent.payload_digest or digest != payload_digest(intent.payload, intent.app_version):
         raise ValueError("Worker payload binding mismatch")
     bundle = bundle_path()
@@ -26,14 +28,13 @@ def synthetic_runner(identifier: str, digest: str) -> str:
     if os.environ.get("COORDINATION_PAUSE_WORKFLOW") == identifier:
         print(f"RUNNER_PAUSED {identifier}", flush=True)
         time.sleep(120)
-    for emitted in transcript():
-        if (emitted.get("attempt_id") != intent.attempt_id
-                or emitted["type"] not in ("job.event", "job.question", "job.result")):
-            continue
+    for emitted in synthetic_emissions(intent.payload, raw):
         emitted.update({k: intent.payload[k] for k in (
             "batch_id", "job_id", "attempt_id", "input_revision",
         )})
         accept(identifier, canonical(emitted), bundle=bundle)
+    if not Emission.objects.filter(intent=intent, payload__type="job.result").exists():
+        raise ValueError("Synthetic runner finished without a persisted terminal result")
     if os.environ.get("COORDINATION_PAUSE_AFTER_RESULT") == identifier:
         print(f"RUNNER_RESULT_PAUSED {identifier}", flush=True)
         time.sleep(120)
@@ -45,6 +46,10 @@ def synthetic_runner(identifier: str, digest: str) -> str:
 def command(identifier: str, digest: str) -> str:
     if DBOS.workflow_id != identifier:
         raise ValueError("DBOS workflow does not own the application intent")
+    # Check outside the step too: a recovered/cached step must not bypass version ownership.
+    close_old_connections()
+    if DBOS.application_version != Intent.objects.get(pk=identifier).app_version:
+        raise ValueError("Executing DBOS application version does not own the intent")
     return synthetic_runner(identifier, digest)
 
 

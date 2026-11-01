@@ -92,8 +92,32 @@ def request_input(request: dict, bundle: Path = FIXTURE) -> bytes:
         raise ValueError("Input batch mismatch")
     for ref in manifest["evidence"]:
         artifact(bundle, ref)
+    synthetic_emissions(request, raw)
     return raw
 
 
 def transcript() -> list[dict]:
     return [message(line) for line in (FIXTURE / "messages.jsonl").read_bytes().splitlines()]
+
+
+def synthetic_emissions(request: dict, raw: bytes) -> list[dict]:
+    """Only the two authored attempt/input journeys are executable by this runner.
+
+    A different batch may reuse the fixture scenario, but not change its domain inputs.
+    Reject unsupported journeys at submission, before any durable application writes.
+    """
+    messages = transcript()
+    template = next((item for item in messages if item["type"] == "job.request"
+                     and item["attempt_id"] == request["attempt_id"]), None)
+    if template is None or request["stage"] != template["stage"]:
+        raise ValueError("Unsupported synthetic attempt/stage")
+    expected = decode(artifact(FIXTURE, template["input_ref"]))
+    expected["batch_id"] = request["batch_id"]
+    if decode(raw) != expected:
+        raise ValueError("Unsupported synthetic attempt/input combination")
+    emissions = [item for item in messages if item["attempt_id"] == request["attempt_id"]
+                 and item["type"] in ("job.event", "job.question", "job.result")]
+    if (not emissions or emissions[-1]["type"] != "job.result"
+            or sum(item["type"] == "job.result" for item in emissions) != 1):
+        raise ValueError("Synthetic transcript requires one final terminal result")
+    return emissions
