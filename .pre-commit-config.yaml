@@ -1,0 +1,29 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # v6.0.0
+    hooks:
+      - id: check-merge-conflict
+        args: [--assume-in-merge]
+      - id: check-json
+      - id: check-toml
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-added-large-files
+  - repo: local
+    hooks:
+      - id: ruff
+        name: Ruff (changed Python files)
+        entry: uv run --project backend ruff check --config backend/pyproject.toml
+        language: system
+        types: [python]
+      - id: eslint
+        name: ESLint (frontend)
+        entry: pnpm lint:frontend
+        language: system
+        files: ^frontend/.*\.[cm]?[jt]sx?$
+        pass_filenames: false
+      - id: remark
+        name: remark (format and lint changed Markdown)
+        entry: pnpm exec remark --frail --output --
+        language: system
+        types: [markdown]

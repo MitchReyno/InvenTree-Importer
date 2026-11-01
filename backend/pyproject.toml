@@ -41,6 +41,7 @@ invimport = "invimport.__main__:cli"
 dev = [
     "jsonschema>=4.26,<5",
     "pillow>=13.0.0",
+    "pre-commit>=4.7.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.17.0",
