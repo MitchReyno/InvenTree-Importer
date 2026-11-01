@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { serverQueryKey, useServerScope } from '../../queries/scope'
+import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
 import type {
   CaptureSnapshotDto,
   CaptureEditDto,
   ManualPreviewDto,
   ManualRunDto,
-  ManualWorkspaceDto,
 } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type { ManualClient, ManualStage } from '../../manual/types'
@@ -13,6 +15,8 @@ import { Button, ErrorNotice, Notice, Paragraph, Small, Heading } from '../ui/pr
 import { ReviewWorkspace } from './ReviewWorkspace'
 import { ApprovalWorkspace } from './ApprovalWorkspace'
 import { ResultsWorkspace } from '../results/ResultsWorkspace'
+
+const MAX_SELECTED_LOTS = 10
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -56,21 +60,39 @@ export function ManualWorkspace({
   navigate,
   reload,
 }: Props) {
-  const [workspace, setWorkspace] = useState<ManualWorkspaceDto | null>(null)
+  const scope = useServerScope()
+  const workspaceQuery = useQuery({
+    queryKey: serverQueryKey(scope, 'manual', batch.id),
+    queryFn: () => client.workspace(batch.id),
+    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+  })
+  const workspace = workspaceQuery.data
+  const connectionLost = workspaceQuery.isError || workspaceQuery.fetchStatus === 'paused'
+  const waitingForFirstRead = !workspaceQuery.isFetchedAfterMount
   const [selected, setSelected] = useState<string[]>([])
   const [lastPreview, setLastPreview] = useState<ManualPreviewDto | null>(null)
   const initialChoiceMade = useRef(false)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
-  const [connectionLost, setConnectionLost] = useState(false)
 
   async function refresh() {
-    const value = await client.workspace(batch.id)
-    setWorkspace(value)
-    setConnectionLost(false)
+    const result = await workspaceQuery.refetch({ throwOnError: true })
+    if (!result.data) {
+      throw new Error('manual_snapshot_missing')
+    }
+
+    return result.data
+  }
+
+  useEffect(() => {
+    if (!workspace) {
+      return
+    }
+
+    // A retained approval removes a row from a transient review selection, not from history.
     setSelected((previous) =>
       previous.filter((id) =>
-        value.lots.some(
+        workspace.lots.some(
           (lot) =>
             lot.lot_id === id &&
             !lot.issues.some(
@@ -79,50 +101,8 @@ export function ManualWorkspace({
         ),
       ),
     )
-    return value
-  }
+  }, [workspace])
 
-  useEffect(() => {
-    let active = true
-    let timer: ReturnType<typeof setTimeout>
-
-    async function poll() {
-      try {
-        const value = await client.workspace(batch.id)
-        if (active) {
-          setWorkspace(value)
-          setConnectionLost(false)
-          setSelected((previous) =>
-            previous.filter((id) =>
-              value.lots.some(
-                (lot) =>
-                  lot.lot_id === id &&
-                  !lot.issues.some(
-                    (problem) => problem.code === 'original_contribution_already_approved',
-                  ),
-              ),
-            ),
-          )
-        }
-      } catch {
-        if (active) {
-          setConnectionLost(true)
-        }
-      } finally {
-        if (active) {
-          timer = setTimeout(() => {
-            void poll()
-          }, 2000)
-        }
-      }
-    }
-
-    void poll()
-    return () => {
-      active = false
-      clearTimeout(timer)
-    }
-  }, [batch.id, client])
   useEffect(() => {
     if (!workspace || stage !== 'approve') {
       return
@@ -159,27 +139,31 @@ export function ManualWorkspace({
     setError('')
     try {
       await work()
-      await refresh()
     } catch (error) {
       setError(commandMessage(error))
-      try {
-        await refresh()
-      } catch {
-        setConnectionLost(true)
-      }
+    }
+
+    try {
+      await refresh()
+    } catch {
+      // A failed status read must not relabel a confirmed command as an unknown command.
+      // The query retains its last snapshot and reports the unavailable read separately.
     } finally {
       setBusy('')
     }
   }
 
   function toggle(id: string) {
-    setSelected((previous) =>
-      previous.includes(id)
-        ? previous.filter((value) => value !== id)
-        : previous.length < 10
-          ? [...previous, id]
-          : previous,
-    )
+    setSelected((previous) => {
+      if (previous.includes(id)) {
+        return previous.filter((value) => value !== id)
+      }
+      if (previous.length >= MAX_SELECTED_LOTS) {
+        return previous
+      }
+
+      return [...previous, id]
+    })
   }
 
   function review() {
@@ -248,7 +232,7 @@ export function ManualWorkspace({
     })
   }
 
-  const disabled = Boolean(busy) || connectionLost
+  const disabled = Boolean(busy) || connectionLost || waitingForFirstRead
   let content: ReactNode
   if (!workspace) {
     content = <Paragraph role="status">Reading retained manual workflow…</Paragraph>
@@ -293,7 +277,7 @@ export function ManualWorkspace({
     <>
       <CaptureHeader
         batch={batch}
-        busy={Boolean(busy)}
+        busy={disabled}
         dirty={false}
         edit={edit}
         stage={stage}
@@ -305,11 +289,13 @@ export function ManualWorkspace({
         Manual workflow · owned fake only. Processing, uploads and research remain unavailable.
       </Small>
       <Heading>
-        {stage === 'review'
-          ? 'Review selected lots'
-          : stage === 'approve'
-            ? 'Approve exact effects'
-            : 'Retained results'}
+        {
+          {
+            review: 'Review selected lots',
+            approve: 'Approve exact effects',
+            results: 'Retained results',
+          }[stage]
+        }
       </Heading>
       {workspace?.preparations_truncated && (
         <Notice>
@@ -318,19 +304,22 @@ export function ManualWorkspace({
         </Notice>
       )}
       {busy && <Notice role="status">{busy}</Notice>}
-      {connectionLost && (
-        <ErrorNotice role="alert">
-          Status unavailable. Showing the last retained snapshot; commands are disabled until the
-          application can verify current state.
-        </ErrorNotice>
+      {workspace && waitingForFirstRead && !connectionLost && (
+        <Notice role="status">Verifying current retained state; commands are disabled.</Notice>
       )}
-      {error && (
+      {(connectionLost || error) && (
         <ErrorNotice role="alert">
-          <Paragraph>{error}</Paragraph>
+          {connectionLost && (
+            <Paragraph>
+              Status unavailable. Showing the last retained snapshot; commands are disabled until
+              the application can verify current state.
+            </Paragraph>
+          )}
+          {error && <Paragraph>{error}</Paragraph>}
           <Button
             disabled={Boolean(busy)}
             onClick={() => {
-              void refresh().catch(() => setConnectionLost(true))
+              void refresh().catch(() => undefined)
             }}
           >
             Refresh retained state

@@ -1,4 +1,11 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { focusManager, onlineManager } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
+import { ServerStateProvider } from './components/query/ServerStateProvider'
+import { createServerQueryClient } from './queries/client'
+import { serverQueryKey } from './queries/scope'
+import { fixtureScope } from './test/render'
+import { render } from './test/render'
+import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import {
@@ -240,6 +247,8 @@ function fakeClient(revision = batch.revision) {
 afterEach(() => {
   location.hash = ''
   vi.restoreAllMocks()
+  onlineManager.setOnline(true)
+  focusManager.setFocused(true)
 })
 
 test('manual review and approval keep exact A-only scope, scalar text and server digest while leaving B outside', async () => {
@@ -424,4 +433,223 @@ test('Approve pins the requested preparation through poll ordering/removal and r
   await screen.findByText(/The pinned preparation is unavailable/)
   expect(screen.queryByText('23 × Packet B')).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Approve 0 lots for the owned fake' })).toBeDisabled()
+})
+
+test('two activity observers share the same in-flight scoped read', async () => {
+  const client = fakeClient()
+  let finish: (() => void) | undefined
+  const wait = new Promise<void>((resolve) => {
+    finish = resolve
+  })
+  vi.mocked(client.activity).mockImplementation(async () => {
+    await wait
+    return { runs: [], truncated: false }
+  })
+  const view = render(
+    <>
+      <ActivityIndicator client={client} />
+      <ActivityIndicator client={client} />
+    </>,
+  )
+  await waitFor(() => expect(client.activity).toHaveBeenCalledTimes(1))
+  const complete = finish
+  if (!complete) {
+    throw new Error('activity_fixture_not_started')
+  }
+  await act(async () => {
+    complete()
+  })
+  await waitFor(() =>
+    expect(
+      screen
+        .getAllByLabelText('Application activity')
+        .every((element) => element.textContent?.includes('0 running')),
+    ).toBe(true),
+  )
+  view.unmount()
+})
+
+test(
+  'poll failure retains the selected review and disables commands until a later verified read',
+  { timeout: 10000 },
+  async () => {
+    const client = fakeClient()
+    const retained = await client.workspace(batchId)
+    let available = true
+    vi.mocked(client.workspace).mockImplementation(async () => {
+      if (!available) {
+        throw new Error('owned_read_unavailable')
+      }
+      return retained
+    })
+    vi.mocked(client.workspace).mockClear()
+    const user = userEvent.setup()
+    render(
+      <ManualWorkspace
+        batch={batch}
+        client={client}
+        stage="review"
+        edit={vi.fn(async () => undefined)}
+        navigate={vi.fn()}
+        reload={vi.fn(async () => undefined)}
+      />,
+    )
+    await screen.findByRole('checkbox', { name: 'Select Packet A' })
+    await user.click(screen.getByRole('checkbox', { name: 'Select Packet A' }))
+    expect(screen.getByRole('button', { name: 'Mark selected reviewed' })).toBeEnabled()
+    available = false
+    await screen.findByText(/Showing the last retained snapshot/, {}, { timeout: 4000 })
+    expect(screen.getByRole('checkbox', { name: 'Select Packet A' })).toBeChecked()
+    expect(screen.getByRole('button', { name: 'Mark selected reviewed' })).toBeDisabled()
+    expect(client.workspace).toHaveBeenCalledTimes(2)
+
+    await act(async () => {
+      focusManager.setFocused(false)
+      focusManager.setFocused(true)
+      onlineManager.setOnline(false)
+      onlineManager.setOnline(true)
+    })
+    expect(client.workspace).toHaveBeenCalledTimes(2)
+    expect(client.review).not.toHaveBeenCalled()
+    available = true
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: 'Mark selected reviewed' })).toBeEnabled(),
+      { timeout: 4000 },
+    )
+    expect(screen.getByRole('checkbox', { name: 'Select Packet A' })).toBeChecked()
+    expect(client.review).not.toHaveBeenCalled()
+  },
+)
+
+test('a paused offline read retains cached review but cannot authorize a command', async () => {
+  const client = fakeClient()
+  const cache = createServerQueryClient()
+  cache.setDefaultOptions({
+    queries: { ...cache.getDefaultOptions().queries, networkMode: 'online' },
+  })
+  const user = userEvent.setup()
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerStateProvider scope={fixtureScope} client={cache}>
+        {children}
+      </ServerStateProvider>
+    )
+  }
+
+  render(
+    <ManualWorkspace
+      batch={batch}
+      client={client}
+      stage="review"
+      edit={vi.fn(async () => undefined)}
+      navigate={vi.fn()}
+      reload={vi.fn(async () => undefined)}
+    />,
+    { wrapper: Wrapper },
+  )
+  await screen.findByRole('checkbox', { name: 'Select Packet A' })
+  await user.click(screen.getByRole('checkbox', { name: 'Select Packet A' }))
+  await act(async () => {
+    onlineManager.setOnline(false)
+    void cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'manual', batchId) })
+  })
+  await screen.findByText(/Showing the last retained snapshot/)
+  expect(screen.getByRole('checkbox', { name: 'Select Packet A' })).toBeChecked()
+  expect(screen.getByRole('button', { name: 'Mark selected reviewed' })).toBeDisabled()
+  expect(client.workspace).toHaveBeenCalledTimes(1)
+  expect(client.review).not.toHaveBeenCalled()
+  await act(async () => {
+    onlineManager.setOnline(true)
+  })
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Mark selected reviewed' })).toBeEnabled(),
+  )
+  expect(client.workspace).toHaveBeenCalledTimes(2)
+  expect(client.review).not.toHaveBeenCalled()
+})
+
+test('a failed status refresh does not relabel a confirmed review command as uncertain', async () => {
+  const client = fakeClient()
+  const snapshot = await client.workspace(batchId)
+  let statusAvailable = true
+  vi.mocked(client.workspace).mockImplementation(async () => {
+    if (!statusAvailable) {
+      throw new Error('owned_status_read_unavailable')
+    }
+    return snapshot
+  })
+  vi.mocked(client.review).mockImplementation(async () => {
+    statusAvailable = false
+    return { reviewed_subject_ids: [a, partId], cursor: batch.cursor }
+  })
+  const user = userEvent.setup()
+  render(
+    <ManualWorkspace
+      batch={batch}
+      client={client}
+      stage="review"
+      edit={vi.fn(async () => undefined)}
+      navigate={vi.fn()}
+      reload={vi.fn(async () => undefined)}
+    />,
+  )
+  await screen.findByRole('checkbox', { name: 'Select Packet A' })
+  await user.click(screen.getByRole('checkbox', { name: 'Select Packet A' }))
+  await user.click(screen.getByRole('button', { name: 'Mark selected reviewed' }))
+  await screen.findByText(/Showing the last retained snapshot/)
+  expect(client.review).toHaveBeenCalledOnce()
+  expect(screen.getByRole('button', { name: 'Mark selected reviewed' })).toBeDisabled()
+  expect(screen.queryByText(/command outcome is not confirmed/i)).not.toBeInTheDocument()
+})
+
+test('a cached preparation remains visible but cannot be approved before the mounted read is verified', async () => {
+  const client = fakeClient()
+  const cache = createServerQueryClient()
+  const snapshot: ManualWorkspaceDto = {
+    ...(await client.workspace(batchId)),
+    preparations: [preview],
+  }
+  cache.setQueryData(serverQueryKey(fixtureScope, 'manual', batchId), snapshot)
+  let finish: ((value: ManualWorkspaceDto) => void) | undefined
+  const mountedRead = new Promise<ManualWorkspaceDto>((resolve) => {
+    finish = resolve
+  })
+  vi.mocked(client.workspace).mockReturnValue(mountedRead)
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerStateProvider scope={fixtureScope} client={cache}>
+        {children}
+      </ServerStateProvider>
+    )
+  }
+
+  render(
+    <ManualWorkspace
+      batch={batch}
+      client={client}
+      stage="approve"
+      preparationId={prep}
+      edit={vi.fn(async () => undefined)}
+      navigate={vi.fn()}
+      reload={vi.fn(async () => undefined)}
+    />,
+    { wrapper: Wrapper },
+  )
+  await screen.findByText('0.000001 × Packet A')
+  expect(screen.getByText(/Verifying current retained state/)).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeDisabled()
+  expect(client.approve).not.toHaveBeenCalled()
+  const complete = finish
+  if (!complete) {
+    throw new Error('mounted_read_fixture_not_started')
+  }
+  await act(async () => {
+    complete(snapshot)
+  })
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeEnabled(),
+  )
+  expect(client.approve).not.toHaveBeenCalled()
 })
