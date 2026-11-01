@@ -158,3 +158,17 @@ test('partial staging is preserved and malformed code fails the actual hook', (t
   git('add', 'broken.tsx')
   hook('prettier', 1)
 })
+
+test('large-file exception admits only the preserved original table screenshot', (t) => {
+  const { write, git, hook } = fixture(t)
+  const original = 'docs/bench-intake/reference/07-table.png'
+  const adjacent = 'docs/bench-intake/reference/08-table.png'
+  const content = 'x'.repeat(512_001)
+  write(original, content)
+  git('add', '--', original)
+  hook('check-added-large-files')
+  write(adjacent, content)
+  git('add', '--', adjacent)
+  const output = hook('check-added-large-files', 1)
+  assert.ok(output.includes(adjacent), 'adjacent large reference must still be rejected')
+})

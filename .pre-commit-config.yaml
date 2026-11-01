@@ -9,6 +9,8 @@ repos:
       - id: check-yaml
         args: [--allow-multiple-documents]
       - id: check-added-large-files
+        # User-required byte-preserved original design reference exceeds 500 KiB.
+        exclude: ^docs/bench-intake/reference/07-table\.png$
   - repo: local
     hooks:
       - id: prettier

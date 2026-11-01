@@ -3,7 +3,9 @@ import { pk, type StockOperation } from './plan.ts'
 
 export async function inventoryBody(response: Response): Promise<Buffer> {
   const reader = response.body?.getReader()
-  if (!reader) return Buffer.alloc(0)
+  if (!reader) {
+    return Buffer.alloc(0)
+  }
   const chunks: Uint8Array[] = []
   let length = 0
   let timedOut = false
@@ -14,10 +16,16 @@ export async function inventoryBody(response: Response): Promise<Buffer> {
   try {
     for (;;) {
       const next = await reader.read()
-      if (timedOut) throw new Error('inventory_body_timeout')
-      if (next.done) break
+      if (timedOut) {
+        throw new Error('inventory_body_timeout')
+      }
+      if (next.done) {
+        break
+      }
       length += next.value.byteLength
-      if (length > 65536) throw new Error('inventory_body_limit')
+      if (length > 65536) {
+        throw new Error('inventory_body_limit')
+      }
       chunks.push(next.value)
     }
     return Buffer.concat(chunks)
@@ -28,8 +36,9 @@ export async function inventoryBody(response: Response): Promise<Buffer> {
 }
 export function responseObject(bytes: Buffer): Record<string, unknown> {
   const value = strictJson(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
-  if (!value || typeof value !== 'object' || Array.isArray(value))
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('inventory_response_invalid')
+  }
   return value as Record<string, unknown>
 }
 export function responsePk(value: unknown): string {

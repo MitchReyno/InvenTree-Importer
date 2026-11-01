@@ -31,20 +31,23 @@ function record(value: unknown, keys: string[]): asserts value is Record<string,
     typeof value !== 'object' ||
     Array.isArray(value) ||
     Object.keys(value).sort().join(',') !== keys.sort().join(',')
-  )
+  ) {
     throw new Error('invalid_stock_plan')
+  }
 }
 export function id(value: unknown): asserts value is string {
-  if (typeof value !== 'string' || !new RegExp(Id.pattern!).test(value))
+  if (typeof value !== 'string' || !new RegExp(Id.pattern!).test(value)) {
     throw new Error('invalid_executor_id')
+  }
 }
 export function pk(value: unknown): asserts value is string {
   if (
     typeof value !== 'string' ||
     !new RegExp(PositivePk.pattern!).test(value) ||
     BigInt(value) > 9223372036854775807n
-  )
+  ) {
     throw new Error('invalid_stock_pk')
+  }
 }
 /** v1 freezes the ORIGINAL keys, never a run ID or generated replacement source. */
 export function contributionBarcode(originalSourceKey: string, contributionKey: string): string {
@@ -86,8 +89,9 @@ export function decodePlan(bytes: Buffer, digest: Buffer): StockPlan {
     typeof value.continuity !== 'string' ||
     !value.continuity ||
     value.continuity.length > 256
-  )
+  ) {
     throw new Error('unsupported_stock_plan')
+  }
   for (const key of [
     'deploymentId',
     'targetId',
@@ -95,12 +99,18 @@ export function decodePlan(bytes: Buffer, digest: Buffer): StockPlan {
     'epoch',
     'sourceId',
     'originalSourceKey',
-  ])
+  ]) {
     id(value[key])
-  if (!Array.isArray(value.operations) || !value.operations.length || value.operations.length > 100)
+  }
+  if (
+    !Array.isArray(value.operations) ||
+    !value.operations.length ||
+    value.operations.length > 100
+  ) {
     throw new Error('invalid_stock_scope')
-  const operations = new Set(),
-    contributions = new Set()
+  }
+  const operations = new Set()
+  const contributions = new Set()
   for (const operation of value.operations) {
     record(operation, [
       'operationKey',
@@ -113,24 +123,28 @@ export function decodePlan(bytes: Buffer, digest: Buffer): StockPlan {
     id(operation.operationKey)
     id(operation.contributionKey)
     pk(operation.part)
-    if (operation.location !== null) pk(operation.location)
+    if (operation.location !== null) {
+      pk(operation.location)
+    }
     if (
       typeof operation.quantity !== 'string' ||
       !new RegExp(Quantity.pattern!).test(operation.quantity) ||
       operation.barcode !==
         contributionBarcode(value.originalSourceKey as string, operation.contributionKey)
-    )
+    ) {
       throw new Error('invalid_stock_values')
-    if (operations.has(operation.operationKey) || contributions.has(operation.contributionKey))
+    }
+    if (operations.has(operation.operationKey) || contributions.has(operation.contributionKey)) {
       throw new Error('duplicate_stock_scope')
+    }
     operations.add(operation.operationKey)
     contributions.add(operation.contributionKey)
   }
   return value as unknown as StockPlan
 }
 export function encodePlan(plan: StockPlan): { bytes: Buffer; digest: Buffer } {
-  const bytes = Buffer.from(canonical(plan)),
-    digest = sha256(bytes)
+  const bytes = Buffer.from(canonical(plan))
+  const digest = sha256(bytes)
   decodePlan(bytes, digest)
   return { bytes, digest }
 }
