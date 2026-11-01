@@ -71,6 +71,8 @@ rewrite. Application documents own language/framework details.
 
 ## Documentation and review
 
+- Write each Markdown prose paragraph on one source line and rely on editor soft-wrap. Keep list-item prose on one source line too, preserving list nesting. Do not apply a fixed-width prose wrap. Preserve fenced and indented code, tables, YAML frontmatter, raw HTML structures, intentional Markdown hard breaks and other semantic whitespace. Use a Markdown-aware transformation and verify semantics when reflowing existing documents.
+
 - Keep shared architecture/guidance at root and application-specific contracts in
   their own documents. Update active references and moved relative links together;
   preserve truthful historical evidence instead of rewriting old execution history.

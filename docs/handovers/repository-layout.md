@@ -178,7 +178,7 @@ README, ARCHITECTURE and CODE_GUIDELINES documents linked from the root.
 
 The complete prior implemented import-architecture body is preserved in
 `backend/ARCHITECTURE.md`; only its relative documentation links are rebased.
-Its normalized SHA-256 is
+Before the later prose reflow, its relative-link-adjusted body SHA-256 was
 `670d2fadd5ee08dc8fcdfff48ca23ec39256eec3b66c4455403cb8e6e4cbea66`.
 The existing Python guidance moves into backend guidelines, including the merged
 code-organization rules. The backend README retains useful CLI/library/schema,
@@ -224,8 +224,8 @@ Passed final entry-point checks before the new review candidate:
   `pnpm test:backend tests/test_paths.py -k fresh` passes 3 tests (4 deselected),
   proving forwarded pytest selection/quoted marker and backend test cwd.
 - Local link/anchor audit checks 134 references across 17 active documents;
-  all destinations/anchors exist. Complete moved import architecture body equals
-  the previous version after only relative-link rebasing (hash above). Shared
+  all destinations/anchors exist. Before prose reflow, the complete moved import architecture body equaled
+  the previous version after only relative-link rebasing (historical hash above). Shared
   guidelines retain general rules while full Python rules remain in backend.
 - Corrected main/interactive-app CI push and PR events parse/assert correctly;
   `git diff --check` passes. Trunk rename/PR base confirmed on the remote.
@@ -248,3 +248,12 @@ plan/provenance/status exports. Removed the blank and explicitly separated secre
 These are documentation-only fixes; pnpm commands, test assertions and application
 runtime remain those validated above. Subsequent whitespace checks use the full
 base-to-head range, not only the working-tree delta.
+
+
+## Explicit Markdown soft-wrap adjustment
+
+The user subsequently explicitly requested removing hard wrapping across tracked repository Markdown and making editor soft-wrap the rule. This supersedes the earlier instruction to avoid a separate reflow. The shared guidelines now require one source line per prose paragraph/list item while preserving nesting and Markdown semantics; app guidelines inherit this shared rule. The previous architecture body hash records the verified pre-reflow move, not a byte-identity claim about the final formatted file.
+
+The reflow uses a task-local pinned Markdown parser rather than a new repository formatter dependency. Only tracked Markdown files are eligible, including both real skill copies and historical handovers; untracked worktrees, local import data and generated files are excluded. Only paragraph soft breaks are joined. Fenced/indented code, tables, YAML frontmatter, raw HTML structures and intentional hard breaks remain protected. Compare before/after normalized token trees, ignoring prose soft line breaks alone, before accepting any transformed file. Historical claims and commands retain their meaning.
+
+The reflow is committed separately from the prior functional/documentation corrections. Final formatting evidence, workflow sync, links and full base-to-head whitespace checks are recorded after it completes; no application/runtime behavior changes follow the passed pnpm suites.
