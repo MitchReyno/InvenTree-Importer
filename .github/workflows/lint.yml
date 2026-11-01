@@ -2,10 +2,21 @@ name: Lint
 
 on:
   workflow_call:
+    inputs:
+      backend:
+        type: boolean
+        required: true
+      frontend:
+        type: boolean
+        required: true
+      markdown:
+        type: boolean
+        required: true
 
 jobs:
   backend:
     name: Backend
+    if: ${{ inputs.backend }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,10 +27,11 @@ jobs:
       - name: Install Python project
         run: uv sync --project backend --locked
       - name: Lint Python and shared skill scripts
-        run: uv run --directory backend ruff check --config pyproject.toml . ../.agents/skills ../.claude/skills
+        run: uv run --directory backend ruff check --config pyproject.toml . ../.agents/skills ../.claude/skills ../.github/scripts
 
   frontend:
     name: Frontend
+    if: ${{ inputs.frontend }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,10 +42,11 @@ jobs:
       - name: Frozen workspace install
         run: pnpm install --frozen-lockfile
       - name: Lint frontend
-        run: pnpm lint:frontend
+        run: pnpm --filter @invimport/frontend lint
 
   markdown:
     name: Markdown
+    if: ${{ inputs.markdown }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

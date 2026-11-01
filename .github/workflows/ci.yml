@@ -9,22 +9,44 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
+  changes:
+    name: Changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.paths.outputs.backend }}
+      backend-lint: ${{ steps.paths.outputs.backend_lint }}
+      frontend: ${{ steps.paths.outputs.frontend }}
+      markdown: ${{ steps.paths.outputs.markdown }}
+      workflow-sync: ${{ steps.paths.outputs.workflow_sync }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test path selection
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
+      - name: Select checks
+        id: paths
+        run: python3 .github/scripts/ci_paths.py
+
   test:
     name: Test
+    needs: changes
     uses: ./.github/workflows/test.yml
+    with:
+      backend: ${{ needs.changes.outputs.backend == 'true' }}
+      frontend: ${{ needs.changes.outputs.frontend == 'true' }}
+      workflow-sync: ${{ needs.changes.outputs.workflow-sync == 'true' }}
 
   lint:
     name: Lint
+    needs: changes
     uses: ./.github/workflows/lint.yml
-
-  ci:
-    name: CI
-    runs-on: ubuntu-latest
-    needs: [test]
-    if: ${{ always() }}
-    steps:
-      - name: Require all blocking jobs to succeed
-        env:
-          TEST_RESULT: ${{ needs.test.result }}
-        run: test "$TEST_RESULT" = success
+    with:
+      backend: ${{ needs.changes.outputs.backend-lint == 'true' }}
+      frontend: ${{ needs.changes.outputs.frontend == 'true' }}
+      markdown: ${{ needs.changes.outputs.markdown == 'true' }}
