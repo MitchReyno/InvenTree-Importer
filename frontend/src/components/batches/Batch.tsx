@@ -10,6 +10,7 @@ import type {
   CaptureObservationDto,
 } from '@invimport/contracts'
 import type { Client } from '../../capture/client'
+import type { MediaClient } from '../../media/types'
 import { CaptureWorkspace } from '../capture/CaptureWorkspace'
 import styled from 'styled-components'
 import type { ManualClient, ManualStage } from '../../manual/types'
@@ -19,12 +20,14 @@ export function Batch({
   id,
   client,
   manual,
+  media,
   route,
   onDirtyChange,
 }: {
   id: string
   client: Client
   manual: ManualClient
+  media?: MediaClient
   route: string
   onDirtyChange: (dirty: boolean) => void
 }) {
@@ -201,6 +204,7 @@ export function Batch({
         <CaptureWorkspace
           key={`${batch.id}:${batch.revision}:${reset}`}
           batch={batch}
+          media={media}
           busy={readOrCommandBusy || readUnavailable}
           edit={edit}
           observe={observe}

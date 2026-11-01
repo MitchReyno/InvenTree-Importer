@@ -13,6 +13,7 @@
     "migrate": "tsx src/operations/migrate-main.ts",
     "db:dev": "node scripts/dev-services.cjs",
     "apply:manual": "tsx src/review/runner-main.ts",
+    "media:decode": "tsx src/media/worker-main.ts",
     "preview:manual": "tsx tests/fixtures/manual-browser.ts"
   },
   "dependencies": {
