@@ -1,0 +1,43 @@
+{
+  "result": "observed",
+  "p1": {
+    "runtime_status": "SUCCESS",
+    "runtime_version": "coordination-v2",
+    "intent_version": "coordination-v1",
+    "emissions": 3,
+    "application_state": "succeeded",
+    "acknowledged": true,
+    "conflict": null,
+    "dispatch": {
+      "returncode": 0,
+      "stdout": "ENQUEUED intake-aa44020511d6d147110497dfef5cc82a997f339452a310b85a7114a725b4e778\n",
+      "stderr": ""
+    }
+  },
+  "p2": {
+    "accepted": true,
+    "committed_job_intent_outbox": [
+      1,
+      1,
+      1
+    ],
+    "dispatch": {
+      "returncode": 0,
+      "stdout": "ENQUEUED intake-3bf9672917c9a1bd52220b9896468ba3084ac4d1a444231180b328e375f097af\n",
+      "stderr": ""
+    },
+    "runtime_status": "SUCCESS",
+    "application_state": "queued",
+    "emissions": 0,
+    "acknowledged": true
+  },
+  "versions": {
+    "dbos": "2.10.0",
+    "django": "5.2.8",
+    "psycopg": "3.2.12",
+    "sqlalchemy": "2.1.6"
+  },
+  "observed_at_utc": "2026-11-01T05:15:52.036127+00:00",
+  "python": "3.12.3",
+  "postgres": "initdb (PostgreSQL) 17.11 (Postgres.app)"
+}
