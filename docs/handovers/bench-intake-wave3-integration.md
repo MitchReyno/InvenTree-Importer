@@ -128,3 +128,10 @@ Stable media checkpoint `11d6bae` and test-only cleanup `9783462` passed the com
 CI now builds both production and test-only probe images before PG/process tests. The exact step passed locally using private exclusive output files and Actions-style environment export. Probe alias cleanup preserves the production manifest through a content-addressed tag and verifies its original ID. Hosted CI remains pending until PR publication; 21 path-selector tests passed. No actual LLM/provider calls or real inventory requests were made.
 
 Mitch's newest restriction is committed in both maintained plans: provider integration tests use stubs until explicit later live-usage authorization. Earlier permission to exercise signed-in native providers does not override it. Processing's current shared UI checkpoint `aae8672` plus question/archive fixes `f930db4` pass all 37 frontend tests; actual T05 media integration and whole-feature review remain pending there.
+
+
+### Parallel masthead integration
+
+PR #52 merged independently into trunk as `28f56be`. Root integrated it normally into T05 (`2822c97`) and T06 (`6f4eb77`), preserving the new Masthead component and both feature branches. Dependency conflicts retained Moveable plus Three and all pinned lock entries. Frozen host installs passed; no original references changed.
+
+Post-merge frontend suites passed 61 tests in T05 and 62 in T06. Pinned-toolchain builds passed with the upstream lazy scene retained. T05 types, generated drift, full lint and format passed. Its exact CI image step rebuilt both images, retained both manifests after probe cleanup, and the new images passed all 13 decoder/resource cases with zero skips. Earlier full PG/process/backend checks cover unchanged runtime source; the ready PR still needs fresh independent reviews and selected hosted CI.

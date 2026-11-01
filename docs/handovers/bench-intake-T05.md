@@ -203,7 +203,7 @@ cleanup/binary policy. Coordinator accepted retaining `node:child_process`.
 ## Observed verification
 
 - Contracts: 21 passed, including exact legacy recipe acceptance and rotated bounds.
-- Frontend: 36 passed, including scoped warm-cache failures, new crop intent revisions,
+- Frontend: 61 passed after the merged masthead integration, including scoped warm-cache failures, new crop intent revisions,
   cross-panel draft guards and the narrow portaled dialog regression.
 - Media PG: 6/6 restored controls, including HTTP lost receipt/restart, role faults,
   per-output pixels, publication-vs-GC, opaque handle ownership/order, temp shadows,
@@ -217,7 +217,7 @@ cleanup/binary policy. Coordinator accepted retaining `node:child_process`.
 - Root independently observed original-DB bind/reopen and swapped-DB startup refusal
   across three actual main launches. The final complete PG tier repeated this case successfully.
 
-Production image: `sha256:9c0ee883543576d689830057a6e31cb60c753b4de3e9c6a5443747f2f852d8ab`.
+Current production image: `sha256:65a5eacfd48c4ab6b93f4975b747739f874423de79277590c9c1d378ef5fc7be`.
 The 355.95 KB allowlisted context excludes credentials, tests/probes and personal state.
 Dedicated resource cases passed 4/4 with an explicitly selected test-only probe.
 The runtime inspector observed cgroup memory/swap/CPU/PID limits, no addressed external
@@ -226,7 +226,7 @@ root. Native allocation produced a Docker kernel OOM event plus exit 137. The ac
 wall timeout was approximately 25 seconds; oversized binary output was bounded and
 the exact container was reaped. These are observed local Linux arm64 boundaries.
 
-Probe image: `sha256:3e4aeb0726258c70b82970b0eb6aa2486ffa8e00ade893111c7bd0b6f54c8210`.
+Current probe image: `sha256:ef4b3f6d709907de5b6efe0da2f7d34bc8b55b52a92ad4f35bb5dec964c2d186`.
 It extends the exact production image with two allowlisted test-only files. A retained
 content-addressed production tag prevents temporary probe-alias removal from deleting
 the production manifest; the builder verifies its original image ID after cleanup.
@@ -281,6 +281,15 @@ and the production image remained inspectable after probe alias cleanup. See the
 [CI build receipt](../bench-intake/evidence/T05/ci-build.json). All 21 maintained CI
 path-selector tests passed. Hosted CI still needs its own run; local execution does
 not establish hosted platform compatibility.
+
+The later parallel masthead merge (#52, `28f56be`) is preserved through actual merge
+`2822c97`. Its manifest/lock changes required a fresh image build. Both current
+images passed all nine decoder and four resource cases with zero skips. The final
+frontend suite passed 61 tests; types, build, generation, lint and format passed on
+Node24/pnpm12. Current chunks are 825.58 KB application / 570.37 KB lazy scene, with
+unsuppressed advisories. Prior full PG/process/backend proof above covers unchanged
+runtime source; hosted CI will repeat those tiers at the published head. See the
+[post-trunk receipt](../bench-intake/evidence/T05/post-trunk-qualification.json).
 
 Publish ready directly to `interactive-app`, then obtain fresh independent
 storage/decoder, execution/approval and native UI reviews. Actual native aspect-control
