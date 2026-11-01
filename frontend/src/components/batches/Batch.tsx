@@ -12,6 +12,7 @@ import { CaptureWorkspace } from '../capture/CaptureWorkspace'
 import styled from 'styled-components'
 import type { ManualClient, ManualStage } from '../../manual/types'
 import { ManualWorkspace } from '../review/ManualWorkspace'
+
 export function Batch({
   id,
   client,
@@ -28,9 +29,11 @@ export function Batch({
   const segment = route.split('/')[1]
   const stage: ManualStage =
     segment === 'review' || segment === 'approve' || segment === 'results' ? segment : 'capture'
+
   function navigate(value: ManualStage, resourceId?: string) {
     location.hash = value === 'capture' ? id : `${id}/${value}${resourceId ? `/${resourceId}` : ''}`
   }
+
   const [batch, setBatch] = useState<CaptureSnapshotDto | null>(null)
   const [error, setError] = useState('')
   const [current, setCurrent] = useState<CaptureSnapshotDto | null>(null)
@@ -54,6 +57,7 @@ export function Batch({
       active = false
     }
   }, [id, client])
+
   async function edit(change: CaptureEditDto['change']) {
     if (!batch) {
       return
@@ -84,6 +88,7 @@ export function Batch({
       setBusy(false)
     }
   }
+
   async function observe(
     model: 'part' | 'location',
     pk: string,
@@ -110,6 +115,7 @@ export function Batch({
       setBusy(false)
     }
   }
+
   async function reloadSavedValues() {
     try {
       const value = await client.read(id)
@@ -121,6 +127,7 @@ export function Batch({
       setError('Saved values still unavailable. Local inputs remain unchanged.')
     }
   }
+
   return (
     <>
       {error && (

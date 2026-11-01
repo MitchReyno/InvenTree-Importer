@@ -24,6 +24,7 @@ export function ReferenceField({
 }: ReferenceFieldProps) {
   const [pk, setPk] = useState('')
   const observations = batch.observations.filter((o) => o.model === model)
+
   function choose(o: CaptureObservationDto) {
     onChange({
       mode: 'set',
@@ -35,6 +36,7 @@ export function ReferenceField({
       },
     })
   }
+
   return (
     <Field>
       <Label>

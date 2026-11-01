@@ -34,6 +34,12 @@ repos:
         language: system
         files: ^frontend/.*\.[cm]?[jt]sx?$
         pass_filenames: false
+      - id: eslint-readability
+        name: ESLint (shared TypeScript readability)
+        entry: pnpm lint:readability
+        language: system
+        files: ^(?:(?:frontend/src|intake-server/src|contracts/src)/.*\.tsx?$|eslint\.config\.mjs$|tooling/eslint/)
+        pass_filenames: false
       - id: remark
         name: remark (format and lint changed Markdown)
         entry: pnpm exec remark --frail --output --

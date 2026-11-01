@@ -63,6 +63,7 @@ async function readConfig(): Promise<ManualRunnerConfig> {
   }
   return value
 }
+
 async function main() {
   const config = await readConfig()
   const db = database(config.runnerDatabaseUrl)
@@ -113,6 +114,7 @@ async function main() {
     await db.close()
   }
 }
+
 main().catch(() => {
   process.stderr.write(
     'Manual runner stopped; inspect retained original-run authority before recovery.\n',

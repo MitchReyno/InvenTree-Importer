@@ -15,6 +15,7 @@ interface Props {
   review: () => void
   prepare: () => void
 }
+
 export function ReviewWorkspace({
   batch,
   workspace,
@@ -50,10 +51,12 @@ export function ReviewWorkspace({
     selected.length > 0 &&
     selectedStatus.length === selected.length &&
     selectedStatus.every((value) => value.reviewed)
+
   function inspect(id: string) {
     setFocused(id)
     history.replaceState(null, '', `#${batch.id}/review/${id}`)
   }
+
   const notes = batch.notes.filter(
     (value) =>
       value.subject_id === null || value.subject_id === lot?.id || value.subject_id === part?.id,
@@ -183,6 +186,7 @@ export function ReviewWorkspace({
     </>
   )
 }
+
 const ScopeBar = styled.div`
   display: flex;
   align-items: center;

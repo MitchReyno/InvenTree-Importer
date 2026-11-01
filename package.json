@@ -14,7 +14,7 @@
     "contracts:generate": "pnpm --filter @invimport/contracts generate",
     "contracts:check": "pnpm --filter @invimport/contracts check:generated",
     "db:intake": "pnpm --filter @invimport/intake-server db:dev",
-    "lint": "pnpm run lint:frontend && pnpm run lint:backend && pnpm run lint:markdown",
+    "lint": "pnpm run lint:readability && pnpm run lint:frontend && pnpm run lint:backend && pnpm run lint:markdown",
     "lint:frontend": "pnpm --filter @invimport/frontend lint",
     "lint:backend": "uv run --directory backend ruff check --config pyproject.toml . ../.agents/skills ../.claude/skills",
     "lint:markdown": "remark . --ignore-path .gitignore --ignore-pattern '.claude/worktrees/**' --ignore-pattern '.amp/**' --frail --no-stdout",
@@ -37,13 +37,19 @@
     "test:scanner": "uv run --directory backend --extra scanner pytest -m tui",
     "test:all": "uv run --directory backend --extra scanner pytest -m \"\" && pnpm run test:frontend && pnpm run test:intake",
     "workflow-sync": "uv run --directory backend pytest tests/test_project_workflow_sync.py",
-    "spikes:check": "uv run --directory backend pytest tests/spikes/test_shared_contracts.py"
+    "spikes:check": "uv run --directory backend pytest tests/spikes/test_shared_contracts.py",
+    "lint:readability": "eslint --config eslint.config.mjs frontend/src intake-server/src contracts/src --max-warnings 0",
+    "test:readability": "node --test tooling/tests/readability.test.mjs",
+    "format:readability": "eslint --config eslint.config.mjs frontend/src intake-server/src contracts/src --fix --max-warnings 0"
   },
   "devDependencies": {
+    "@stylistic/eslint-plugin": "5.10.0",
+    "eslint": "10.14.0",
     "prettier": "3.9.10",
     "remark-cli": "12.0.1",
     "remark-frontmatter": "5.0.0",
     "remark-gfm": "4.0.1",
-    "remark-preset-lint-recommended": "7.0.1"
+    "remark-preset-lint-recommended": "7.0.1",
+    "typescript-eslint": "8.72.1"
   }
 }

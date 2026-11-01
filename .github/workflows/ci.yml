@@ -52,3 +52,4 @@ jobs:
       backend: ${{ needs.changes.outputs.backend-lint == 'true' }}
       frontend: ${{ needs.changes.outputs.frontend == 'true' }}
       markdown: ${{ needs.changes.outputs.markdown == 'true' }}
+      intake: ${{ needs.changes.outputs.intake == 'true' }}

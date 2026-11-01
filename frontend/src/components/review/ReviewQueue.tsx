@@ -12,6 +12,7 @@ interface Props {
   toggle: (id: string) => void
   inspect: (id: string) => void
 }
+
 export function ReviewQueue({ batch, workspace, selected, focused, busy, toggle, inspect }: Props) {
   return (
     <Panel aria-label="Physical lot review queue">
@@ -58,6 +59,7 @@ export function ReviewQueue({ batch, workspace, selected, focused, busy, toggle,
     </Panel>
   )
 }
+
 const QueueRow = styled.div<{ $focused: boolean }>`
   padding: 12px;
   margin-top: 10px;

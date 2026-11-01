@@ -42,9 +42,11 @@ export async function transaction<T>(
 ): Promise<T> {
   const client = await pool.connect()
   let broken = false
+
   const onError = () => {
     broken = true
   }
+
   client.on('error', onError)
   try {
     await client.query('BEGIN')
