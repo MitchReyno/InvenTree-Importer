@@ -1,6 +1,6 @@
 # Bench Intake server
 
-The T01 foundation now supports T02 retained manual capture: batches, separate lots/shared Part proposals, immutable human notes, exact selections, defaults/overrides and revision-aware edits. It is **not** approval or an inventory executor. See [implemented architecture](ARCHITECTURE.md), [testing guidelines and tiers](TESTING.md), [shared contracts](../contracts/README.md), [T01 evidence](../docs/handovers/bench-intake-T01.md) and [T02 handover](../docs/handovers/bench-intake-T02.md). Python remains disconnected; built React assets use the same-origin capture API.
+The T01 foundation now supports T02 retained manual capture: batches, separate lots/shared Part proposals, immutable human notes, exact selections, defaults/overrides and revision-aware edits. Capture has no browser approval/apply route. The separately merged [executor module](src/execution/ARCHITECTURE.md) is qualified only against its owned fake; T04 browser integration remains future work. See [code guidelines](CODE_GUIDELINES.md), [implemented architecture](ARCHITECTURE.md), [testing guidelines and tiers](TESTING.md), [shared contracts](../contracts/README.md), [T01 evidence](../docs/handovers/bench-intake-T01.md) and [T02 handover](../docs/handovers/bench-intake-T02.md). Python remains disconnected; built React assets use the same-origin capture API.
 
 ## Run and check
 
@@ -41,7 +41,7 @@ Inspected before creation on 2026-11-01: no containers, no Compose projects, loo
 
 | Resource              | Allocation and observed state                                                                                                                                                                            |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Owner / consumers     | T01 service; T02 reuses only randomized test databases/restricted roles and an owned browser fixture. Coordinator owns other allocations; no persistent T02 feature DB allocated                          |
+| Owner / consumers     | T01 service; T02 reuses only randomized test databases/restricted roles and an owned browser fixture. Coordinator owns other allocations; no persistent T02 feature DB allocated                         |
 | Container / volume    | `bench-intake-dev-pg` / `bench-intake-dev-pg-data`, label `bench-intake.owner=T01`; no Compose project                                                                                                   |
 | Image / actual server | Existing `postgres:17`, image ID `b9982e1879d4`; PostgreSQL 17.10 Debian observed via `postgres --version`                                                                                               |
 | Loopback / namespace  | `127.0.0.1:55432` → 5432; `intake_dev`; isolated random `intake_test_*` databases                                                                                                                        |
@@ -49,7 +49,7 @@ Inspected before creation on 2026-11-01: no containers, no Compose projects, loo
 | Budgets               | 0.5 CPU, 256 MiB, 128 PIDs, 40 server connections, 32 MiB shared buffers; ordinary app pool max 4, DBOS qualification pool 3 + client 2                                                                  |
 | State                 | Fresh generated local-only passwords in `${HOME}/.local/state/bench-intake/postgres.json`, directory 0700/file 0600; override with `INTAKE_DEV_STATE`, preserving caller-cwd-relative meaning            |
 | Restart / cleanup     | Restart policy `no`; no automatic stop/delete/prune command. Reuse the owned service; serialize destructive PG fault/restart experiments through the coordinator                                         |
-| Web / test HTTP       | T02 capture web reserves 4310; one generated-client test briefly reserves loopback 4319; controlled read fixtures use ephemeral loopback ports and release them                                           |
+| Web / test HTTP       | T02 capture web reserves 4310; one generated-client test briefly reserves loopback 4319; controlled read fixtures use ephemeral loopback ports and release them                                          |
 
 `db:intake` discovers Docker on PATH, through `DOCKER_BIN`, or by macOS bundle-ID discovery. It inventories containers/Compose before actions, verifies ownership, image, loopback port, volume and budgets before reusing its service and refuses to start another PG if a different PostgreSQL container already exists. That refusal means request a compatible allocation, not stop/delete the other service. Malformed, symlinked or non-private state is refused, never silently regenerated. Additional task databases/roles require coordinator allocation; do not share mutable fixtures or kill the service while another owner consumes it. Keep the volume and private state for subsequent worktrees.
 

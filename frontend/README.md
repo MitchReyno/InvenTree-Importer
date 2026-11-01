@@ -1,6 +1,6 @@
 # Bench Intake manual capture
 
-React + TypeScript + Vite, managed by the root pnpm workspace. Manual batches, human notes, distinct lots/shared Part proposals and exact selections are retained through the same-origin intake API/PostgreSQL. Refresh resumes saved work. Capture cannot upload, infer, approve, apply or mutate inventory. Read-only existing Part/location observations require an explicitly configured fixed server target, never browser credentials.
+React + TypeScript + Vite with styled-components, managed by the root pnpm workspace. Manual batches, human notes, distinct lots/shared Part proposals and exact selections are retained through the same-origin intake API/PostgreSQL. Refresh resumes saved work. Capture cannot upload, infer, approve, apply or mutate inventory. Read-only existing Part/location observations require an explicitly configured fixed server target, never browser credentials.
 
 Read the [root README](../README.md), [shared architecture](../ARCHITECTURE.md), [frontend architecture](ARCHITECTURE.md), [shared guidelines](../CODE_GUIDELINES.md) and [frontend guidelines](CODE_GUIDELINES.md) for responsibilities and change policy.
 

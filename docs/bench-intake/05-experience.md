@@ -166,13 +166,13 @@ Target WCAG 2.2 AA: keyboard navigation, visible focus, semantic headings/tabs/f
 
 ## Settings and operator experience
 
-| Setting | User behavior / invalidation |
-| --- | --- |
-| Target/identity/access | Server-private delegated credentials, current user/requirements status and safe missing capabilities; no browser token field or privileged-account bypass. Read-only qualification; target changes invalidate preparations and cannot rebind active runs |
-| Category/parameter mappings and units | Versioned configuration; show affected fields/reviews; new preparation required |
-| Provider/runner/tool instructions | Capabilities and observed/tested status; changes start new attempts, not rewrite old results |
-| Defaults | Future/inherited draft values only; reviewed/approved history preserved |
-| Storage/retention | Usage, backup health, pinned recovery data, explicit archive/delete semantics |
-| Diagnostics | Outbox conflicts, incompatible versions, stalled processes, missing blobs, restore gate; supported actions, not raw SQL repair |
+| Setting                               | User behavior / invalidation                                                                                                                                                                                                                             |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Target/identity/access                | Server-private delegated credentials, current user/requirements status and safe missing capabilities; no browser token field or privileged-account bypass. Read-only qualification; target changes invalidate preparations and cannot rebind active runs |
+| Category/parameter mappings and units | Versioned configuration; show affected fields/reviews; new preparation required                                                                                                                                                                          |
+| Provider/runner/tool instructions     | Capabilities and observed/tested status; changes start new attempts, not rewrite old results                                                                                                                                                             |
+| Defaults                              | Future/inherited draft values only; reviewed/approved history preserved                                                                                                                                                                                  |
+| Storage/retention                     | Usage, backup health, pinned recovery data, explicit archive/delete semantics                                                                                                                                                                            |
+| Diagnostics                           | Outbox conflicts, incompatible versions, stalled processes, missing blobs, restore gate; supported actions, not raw SQL repair                                                                                                                           |
 
 Prototype/history pitfalls become tests: originals survive preview disposal; shared-image edits invalidate all affected reviews; old rounds are not overwritten; no localStorage success timer; keyboard/theme/device controls do not collide with app CSS; true mobile layout is tested, not a scaled desktop frame.

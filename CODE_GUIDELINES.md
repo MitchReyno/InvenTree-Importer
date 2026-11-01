@@ -16,6 +16,15 @@ Prefer existing repository helpers, framework public APIs and suitable maintaine
 - Pass dependencies and configuration explicitly. Make state/resource ownership and lifetime clear; avoid mutable global state, circular dependencies, catch-all helpers and imports that start work. Prefer composition and add abstractions only when concrete callers need them.
 - Keep helpers at the narrowest boundary that owns their meaning. Share domain policy through an intentional interface rather than copying it into another application or pulling presentation into lower-level workflows.
 
+## Readable TypeScript
+
+- Run the shared formatter on new and changed TypeScript, TSX and supported web files before review (`pnpm format`, then `pnpm format:check`). Use the same project configuration in the editor and hooks. Generated contracts, preserved evidence and immutable migrations keep their owning byte policies. Formatting is the baseline; it cannot choose good names, separate responsibilities or make a dense algorithm understandable.
+- Write one statement and one variable declaration per line. Use braces for branching and loops, including short early exits, so validation, mutation and cleanup remain easy to distinguish. Avoid compressed multi-step callbacks, nested ternaries and several assignments/declarations joined on one line.
+- Name intermediate values when they explain a domain decision or let a reader inspect an asynchronous result. Prefer a query result followed by its named rows/value over nesting awaited queries, indexing, mapping and fallback behavior in one expression. Keep straightforward property access and trivial expressions inline; do not manufacture helpers for every expression.
+- Let orchestration show the ordered operations. Extract a named operation when a callback or function mixes independent validation, persistence, transport and projection responsibilities. Keep transaction, authorization and uncertain-effect ordering visible; a readability edit must preserve those boundaries and be validated as a behavior change if it alters them.
+- Break long argument lists and object/type declarations across lines with the formatter. Put substantial SQL in readable multiline template literals with named results and visibly aligned parameter arrays; avoid compressing a query and several follow-on decisions into a single statement. Do not rewrite immutable migrations or exact request/approval bytes for appearance.
+- Review formatted code for conceptual density as well as line length. A long cohesive schema or transaction can be clearer than arbitrary fragments; extract by responsibility and give helpers explicit inputs/results rather than imposing line quotas or hiding state in closures.
+
 ## Contracts, effects and failures
 
 - Treat external data as untrusted. Types and casts do not validate runtime input. Validate at boundaries and keep missing, invalid, empty and unavailable values distinct. Document units, output shapes, side effects and important limitations.

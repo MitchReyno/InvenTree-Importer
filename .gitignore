@@ -18,7 +18,9 @@ orders.json
 __pycache__
 
 # IDE settings
-.vscode
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 .idea
 .cursor
 

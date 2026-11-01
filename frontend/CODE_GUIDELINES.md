@@ -10,6 +10,13 @@ Follow the [shared guidelines](../CODE_GUIDELINES.md) and [frontend architecture
 - Keep user-triggered effects in event handlers when appropriate. Rendering must be pure; do not start requests, write files or mutate external state during render. Use an effect only to synchronize with an external system, with cleanup and cancellation where needed. Do not use effects to maintain redundant state.
 - Keep transient UI IDs distinct from domain/source/inventory identity. Do not promote the scaffold's selected File list into an approved executable import.
 
+## Readable rendering and interactions
+
+- Format JSX so each control, its props and nested content can be scanned independently. Do not keep an entire queue, form or panel on a hand-compressed line. Use a named props type when a component's inline parameter type obscures its state and callback contract.
+- Keep simple render expressions and single-action handlers inline. Give multi-step or asynchronous handlers meaningful names; make pending state, validation, awaited work, conflict/error handling and cleanup readable in order. Avoid squeezing multiple state updates into an inline JSX callback.
+- Derive named values for complex selection/status text instead of nested ternaries or repeated lookups inside markup. Extract a queue, context panel or editor when it clarifies a real rendering/state responsibility, preserving explicit save/conflict behavior and shared state ownership. Do not introduce wrapper components solely to shorten a file.
+- Follow the shared one-statement/declaration-per-line and explicit-branch rules. Run `pnpm format` before the frontend checks; inspect the formatted result because a formatter does not separate coupled component responsibilities.
+
 ## TypeScript and external data
 
 - Keep strict TypeScript checking. Prefer precise named types and narrow unknown external values through validation. Avoid broad any/casts/non-null assertions that bypass an unresolved input contract; document necessary narrow exceptions.

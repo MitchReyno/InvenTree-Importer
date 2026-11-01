@@ -12,23 +12,23 @@ The HTML intentionally remains unchanged, including historical localStorage, tim
 
 ## Direct screenshot index
 
-| Original file | Historical state |
-| --- | --- |
-| [01-inbox.png](01-inbox.png) | Batches, continue card and compact retained list |
-| [02-review.png](02-review.png) | Queue, evidence and focused details workspace |
-| [03-capture.png](03-capture.png) | Capture notes/evidence and inherited shared details |
-| [04-processing.png](04-processing.png) | Processing overview |
-| [05-images.png](05-images.png) | Image outputs |
-| [06-crop-editor.png](06-crop-editor.png) | Crop editor |
-| [07-table.png](07-table.png) | Alternate table after keyboard activation |
-| [08-approval.png](08-approval.png) | Approval scope |
-| [09-results.png](09-results.png) | First subset's simulated results |
-| [10-phone.png](10-phone.png) | Prototype phone frame, not actual device proof |
+| Original file                                    | Historical state                                     |
+| ------------------------------------------------ | ---------------------------------------------------- |
+| [01-inbox.png](01-inbox.png)                     | Batches, continue card and compact retained list     |
+| [02-review.png](02-review.png)                   | Queue, evidence and focused details workspace        |
+| [03-capture.png](03-capture.png)                 | Capture notes/evidence and inherited shared details  |
+| [04-processing.png](04-processing.png)           | Processing overview                                  |
+| [05-images.png](05-images.png)                   | Image outputs                                        |
+| [06-crop-editor.png](06-crop-editor.png)         | Crop editor                                          |
+| [07-table.png](07-table.png)                     | Alternate table after keyboard activation            |
+| [08-approval.png](08-approval.png)               | Approval scope                                       |
+| [09-results.png](09-results.png)                 | First subset's simulated results                     |
+| [10-phone.png](10-phone.png)                     | Prototype phone frame, not actual device proof       |
 | [11-mobile-viewport.png](11-mobile-viewport.png) | Historical actual mobile viewport and scaling defect |
-| [12-partial-failure.png](12-partial-failure.png) | Simulated attachment failure |
-| [13-recovered.png](13-recovered.png) | Simulated targeted recovery |
-| [14-second-import.png](14-second-import.png) | Simulated later approval round |
-| [15-compare.png](15-compare.png) | Existing-Part candidate comparison |
+| [12-partial-failure.png](12-partial-failure.png) | Simulated attachment failure                         |
+| [13-recovered.png](13-recovered.png)             | Simulated targeted recovery                          |
+| [14-second-import.png](14-second-import.png)     | Simulated later approval round                       |
+| [15-compare.png](15-compare.png)                 | Existing-Part candidate comparison                   |
 
 ## Integrity and provenance
 
