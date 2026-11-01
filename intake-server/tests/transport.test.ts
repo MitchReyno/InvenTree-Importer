@@ -3,6 +3,48 @@ import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { inventoryTransport, type TargetProfile } from '../src/inventory/transport.ts'
 
+test('protected loopback spellings deny before transport across ports; nearby non-loopbacks remain distinct', async t => {
+  let transportCalls = 0, requests = 0
+  const endpoint = createServer((_req, res) => { requests++; res.end('{}') })
+  await new Promise<void>(resolve => endpoint.listen(0, '127.0.0.1', resolve))
+  const address = endpoint.address()
+  assert(address && typeof address !== 'string')
+  const otherPort = address.port === 65535 ? 65534 : address.port + 1
+  const binding = { targetId: 'alias-fixture-target', contextId: 'alias-fixture-context' }
+  const base: TargetProfile = { ...binding, kind: 'owned-disposable', origin: `http://127.0.0.1:${address.port}`, protectedOrigins: [], credential: 'fake-alias-only' }
+  const observedSend: typeof fetch = async (url, init) => { transportCalls++; return fetch(url, init) }
+  try {
+    for (const hostname of ['localhost.', 'LOCALHOST.', '[::ffff:127.0.0.1]', '[::ffff:7f00:1]', '[0:0:0:0:0:ffff:7F00:0001]', '[::ffff:127.255.255.255]', '127.0.0.2', '127.255.255.255', '127.1', '[::1]']) {
+      for (const port of [address.port, otherPort]) await t.test(`${hostname} protected port ${port}`, async () => {
+        transportCalls = 0; requests = 0
+        const transport = inventoryTransport({ ...base, protectedOrigins: [`http://${hostname}:${port}`] }, observedSend)
+        let refused = false
+        try { await (await transport.sendStock(binding, '{"quantity":"3.125"}')).text() }
+        catch (error) { assert.match(String(error), /mutation_target_refused/); refused = true }
+        assert.deepEqual({ refused, transportCalls, requests }, { refused: true, transportCalls: 0, requests: 0 })
+      })
+    }
+    for (const hostname of ['126.255.255.255', '128.0.0.1', '[::ffff:126.255.255.255]', '[::ffff:128.0.0.1]', 'localhost.invalid']) {
+      await t.test(`${hostname} is not a protected loopback alias`, async () => {
+        transportCalls = 0; requests = 0
+        const transport = inventoryTransport({ ...base, protectedOrigins: [`http://${hostname}:${otherPort}`] }, observedSend)
+        const response = await transport.sendStock(binding, '{"quantity":"3.125"}')
+        assert.equal(response.status, 200)
+        await response.text()
+        assert.deepEqual({ transportCalls, requests }, { transportCalls: 1, requests: 1 })
+      })
+    }
+    for (const hostname of ['localhost.', '[::ffff:127.0.0.1]', '127.0.0.2']) {
+      await t.test(`${hostname} does not become an allowed writable destination`, async () => {
+        transportCalls = 0; requests = 0
+        const transport = inventoryTransport({ ...base, origin: `http://${hostname}:${address.port}`, protectedOrigins: ['https://protected.invalid'] }, observedSend)
+        await assert.rejects(transport.sendStock(binding, '{}'), /mutation_target_refused/)
+        assert.deepEqual({ transportCalls, requests }, { transportCalls: 0, requests: 0 })
+      })
+    }
+  } finally { await new Promise<void>(resolve => endpoint.close(() => resolve())) }
+})
+
 test('protected aliases, external/DNS writes, mismatched binding and semantic non-read fail before transport', async () => {
   let requests = 0, transportCalls = 0
   const observations: { method: string | undefined; path: string | undefined }[] = []

@@ -15,7 +15,13 @@ function origin(value: string): URL {
   return url
 }
 function host(value: URL): string {
-  return value.hostname === 'localhost' || value.hostname === '[::1]' ? '127.0.0.1' : value.hostname
+  // WHATWG URL validates/canonicalizes IP literals, including mapped IPv6 to hex.
+  // Group loopback conservatively across address families/ports; do not resolve DNS.
+  const hostname = value.hostname.replace(/\.$/, '')
+  const loopback = hostname === 'localhost' || hostname === '[::1]'
+    || /^127\.[0-9]+\.[0-9]+\.[0-9]+$/.test(hostname)
+    || /^\[::ffff:7f[0-9a-f]{2}:[0-9a-f]{1,4}\]$/.test(hostname)
+  return loopback ? '127.0.0.1' : hostname
 }
 /** Transport defense in depth, NOT approval or request-journal authority. Only T03 apply may receive this closure. */
 export function inventoryTransport(input: TargetProfile, send: typeof fetch = fetch) {
