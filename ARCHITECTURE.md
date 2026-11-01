@@ -3,7 +3,7 @@
 The repository is a root pnpm workspace containing a uv-managed Python importer in `backend/` and a minimal React/TypeScript/Vite intake scaffold in `frontend/`. These applications currently have no runtime connection. Root pnpm scripts are development/check control points; they do not introduce a backend service or coordinate import execution.
 
 | Responsibility                                                                            | Owner and current boundary                                                                                                                     |
-|-------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | Import CLI, reusable domain workflows, vendor/InvenTree integrations and durable recovery | [Backend architecture](backend/ARCHITECTURE.md)                                                                                                |
 | Browser-local file metadata selection/removal                                             | [Frontend architecture](frontend/ARCHITECTURE.md)                                                                                              |
 | Cross-language engineering and change review                                              | [Shared code guidelines](CODE_GUIDELINES.md), specialized by [backend](backend/CODE_GUIDELINES.md) and [frontend](frontend/CODE_GUIDELINES.md) |
@@ -28,6 +28,8 @@ Root `.env`, `.local_imports/`, `.cache/`, `.temp/` and backups retain their exi
 ## Provisional integration spikes
 
 The [shared spike fixture and message contract](spikes/shared/README.md) provides versioned JSON Schema and original synthetic evidence for independent provider, coordinator and importer-adapter investigations. It is repository-only investigation material, checked offline by `pnpm spikes:check` and the backend's normal suite. It does not add production endpoints, a coordinator, provider authentication or inventory-write authority, and it does not change the packaged importer or frontend runtime. Domain revisions, attempt correlation and intended consumer acceptance rules are explicit; their transactional enforcement remains part of the individual spikes.
+
+The [proposed intake design](docs/intake-design.md) and [revised application delivery plan](docs/intake-plan.md) reconcile the separately reviewed spikes, distinguish actual provider observations from synthetic/fake-target evidence, and retain outstanding runtime and combined-integration gates. They recommend boundaries for later work rather than describe an implemented application. The [reconciliation handover](docs/handovers/intake-spike-decisions.md) records decisions, alternatives, validation and publication limits.
 
 ## Documentation and change ownership
 
