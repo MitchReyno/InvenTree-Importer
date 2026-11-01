@@ -19,9 +19,9 @@ import urllib.error
 import pytest
 from PIL import Image, ImageDraw
 
-from invimport.config import CONFIG_DIR
+from tests.support import REPO_ROOT
 
-SCRIPTS = CONFIG_DIR.parent / ".claude" / "skills" / "company-logos" / "scripts"
+SCRIPTS = REPO_ROOT / ".claude" / "skills" / "company-logos" / "scripts"
 URL = "https://example.org/Archive/Electronics%201971.pdf"
 BODY = bytes(range(256)) * 40
 

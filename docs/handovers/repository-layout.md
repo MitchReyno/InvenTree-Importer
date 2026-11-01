@@ -79,9 +79,23 @@ Passed before initial review candidate:
   wheel installed in a fresh separate environment. External wheel smoke ongoing.
 - `git diff --check`: pass.
 
-Pending at initial review candidate: complete normal suite, explicit happy/partial
-restart/retry demo inspection, installed-wheel CLI smoke, final complete check
-summary. The initial standalone wheel assertion incorrectly expected site-packages
+The first normal run exposed a relocated test-fixture lookup error: logo/crop/skill
+checks inferred the shared root from CONFIG_DIR.parent, which is now backend.
+That produced 18 missing-script errors and 49 unintended skips (1840 passed,
+50 skipped, 43 deselected, 203.98 seconds). Correct those tests to use the shared
+repository fixture root; no product workflow is bypassed. Focused correction checks pass all 67 logo/crop/skill tests; the corrected normal
+suite is rerun below. A first mechanical import rewrite briefly caused a collection
+error in the skill test; retaining its config-loader import fixed it before rerun.
+
+Actual happy and partial demos pass prepare/preview/execute/status/completed
+resume. Partial recovery includes stopping/restarting the persistent fake server,
+retrying the original failed operation and confirming all Part/stock/PO/line records
+and PKs unchanged. Each has one Part, two stock lots, one PO, two contributions.
+Poisoned inherited proxy/target settings are ignored by the private child.
+Installed-wheel external-cwd discovery and CLI help pass in a fresh environment.
+
+Pending: corrected normal suite, final complete check summary and independent
+review. The initial standalone wheel assertion incorrectly expected site-packages
 in the fallback config directory; the historical fallback is the interpreter lib
 parent. This was a validation expectation error, not a runtime change.
 

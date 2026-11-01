@@ -14,7 +14,8 @@ import re
 
 import pytest
 
-from invimport.config import CONFIG_DIR, load_categories_config, load_parameters_config
+from invimport.config import load_categories_config, load_parameters_config
+from tests.support import REPO_ROOT
 from invimport.stockfile import (
     CONDITIONS,
     MANUFACTURER_PART_KEYS,
@@ -24,7 +25,7 @@ from invimport.stockfile import (
 )
 from invimport.validate import validate
 
-SKILL = (CONFIG_DIR.parent / ".claude" / "skills" / "inventree-stock-import"
+SKILL = (REPO_ROOT / ".claude" / "skills" / "inventree-stock-import"
          / "SKILL.md")
 
 pytestmark = pytest.mark.skipif(not SKILL.exists(), reason="skill not installed")
@@ -204,7 +205,7 @@ def test_the_skill_does_not_overclaim_what_ran(text):
 
 # Looking parts up is delegated: the main skill sends identified items to a
 # research subagent, whose instructions are the component-researcher agent.
-AGENTS = CONFIG_DIR.parent / ".claude" / "agents"
+AGENTS = REPO_ROOT / ".claude" / "agents"
 RESEARCH = AGENTS / "component-researcher.md"
 
 
@@ -272,7 +273,7 @@ def test_the_worked_example_includes_a_datasheet_and_an_image(example):
 # Same argument as the skill: an example someone copies has to work. These are
 # the two blocks under `### import-stock`.
 # --------------------------------------------------------------------------
-README = CONFIG_DIR.parent / "README.md"
+README = REPO_ROOT / "README.md"
 
 readme_only = pytest.mark.skipif(not README.exists(), reason="no README")
 

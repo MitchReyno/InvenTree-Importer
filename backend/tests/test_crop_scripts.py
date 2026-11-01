@@ -17,9 +17,9 @@ import subprocess
 import pytest
 from PIL import Image, ImageDraw, ImageStat
 
-from invimport.config import CONFIG_DIR
+from tests.support import REPO_ROOT
 
-SCRIPTS = CONFIG_DIR.parent / ".claude" / "skills"
+SCRIPTS = REPO_ROOT / ".claude" / "skills"
 CROP = SCRIPTS / "component-photo-crops" / "scripts" / "crop.py"
 GRID = SCRIPTS / "image-grid-overlay" / "scripts" / "grid.py"
 
