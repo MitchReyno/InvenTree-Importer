@@ -37,6 +37,24 @@ Run `pnpm format`, then `pnpm format:check` before review. Editor and hooks use 
 - Let the formatter expand argument lists, objects and types. Write substantial SQL as readable multiline templates with named results and parameter arrays easy to compare with placeholders. Never rewrite immutable migrations or exact request/approval bytes for appearance.
 - Review conceptual density after formatting. Extract by responsibility with explicit inputs/results, without line quotas or helpers that hide state in closures.
 
+### Separate declarations and responsibilities
+
+Leave a blank line between function declarations and between class/object methods. Keep overload signatures with their implementation, and separate the logical phases inside a function. A formatter passing does not establish readable structure.
+
+Review functions that require holding several unrelated stages in memory. Split at meaningful boundaries such as validation, authority lookup, input materialization, persistence, transport and projection. Keep the order visible; do not replace a long function with tiny wrappers or a helper that secretly owns all its state.
+
+### Patterns to avoid
+
+- **Positional or indirect API types**, such as `Parameters<typeof answerQuestion>[6]`. Use a named domain type such as `ProcessingAnswerDto`, so a reader can understand the argument without counting another function's parameters.
+- **Type guarantees that exceed validation**, such as a generic `unseal<T>` that verifies a hash and parses JSON before returning `value as T`. Return `unknown` until shape and domain checks establish the type, or provide a named decoder that performs those checks. Integrity and schema validation are different guarantees.
+- **Compound guards that mix unrelated decisions** or hide policy in nested ternaries. Give distinct checks meaningful names or explicit guard clauses, preserving authorization, lock and effect ordering. Keep simple conditions inline.
+- **Deep projections over raw database rows** that combine relationship lookup, defaults, validation and DTO construction in nested `map`/`filter` expressions. Build named indexes and focused projections when needed; avoid repeatedly changing what a generic `row` or `value` represents.
+- **HTTP handlers that mix authorization SQL, filesystem/blob work and response policy**. Use owning repository/service interfaces for authorized object lookup and keep the handler's request/response orchestration apparent. Make materially different download or effect cases explicit.
+- **Error-message matching and catch-all failure classification** that can turn infrastructure faults into malformed user input or successful absence. Use typed/tagged domain errors, explicit known cases and a distinct unexpected-failure path; preserve causes and retained outcomes.
+- **Unexplained numeric limits or units**, such as `86400000` or `245760` inside business logic. Name consequential policies with their units, such as `MIN_GC_AGE_MS` or `MAX_SNAPSHOT_BYTES`, and explain the reason when it affects safety or supported scope.
+
+These are review requirements for new and changed code. Fix the relevant occurrences before submission; document a concrete exception when keeping a cohesive expression or declaration is clearer. Do not turn the examples into arbitrary line-count quotas or a mandate for unrelated refactoring.
+
 ## Contracts, effects and failures
 
 - Validate untrusted data at boundaries; types/casts do not validate runtime input. Distinguish missing, invalid, empty and unavailable values. Document units, output shapes, effects and limits.

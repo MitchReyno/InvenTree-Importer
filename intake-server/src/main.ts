@@ -2,6 +2,8 @@ import { createServer } from './api/server.ts'
 import { devConfig } from './config.ts'
 import { database } from './db/database.ts'
 import { registerCapture } from './capture/routes.ts'
+import { BlobStore } from './media/blob-store.ts'
+import { registerMediaRoutes } from './media/routes.ts'
 import { captureRead } from './capture/read.ts'
 import { registerManual } from './review/routes.ts'
 import { inventoryTransport } from './inventory/transport.ts'
@@ -9,8 +11,25 @@ import fastifyStatic from '@fastify/static'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
+/** Explicit opt-in only; never discovers a default directory or initializes without a DB. */
+async function configuredMediaStore(env: NodeJS.ProcessEnv) {
+  const root = env.INTAKE_BLOB_ROOT
+  if (root === undefined) {
+    return undefined
+  }
+  if (!env.INTAKE_DATABASE_URL) {
+    throw new Error('media_database_required')
+  }
+  if (root.length === 0) {
+    throw new Error('media_root_required')
+  }
+
+  return BlobStore.initialize(root)
+}
+
 const config = devConfig(process.env)
-const server = createServer(config)
+const mediaStore = await configuredMediaStore(process.env)
+const server = createServer(config, { mediaEnabled: mediaStore !== undefined })
 if (process.env.INTAKE_DATABASE_URL) {
   const db = database(process.env.INTAKE_DATABASE_URL)
   server.addHook('onClose', () => db.close())
@@ -32,11 +51,15 @@ if (process.env.INTAKE_DATABASE_URL) {
       )
     : undefined
   await registerCapture(server, db.pool, config, read)
+  if (mediaStore) {
+    registerMediaRoutes(server, db.pool, config, mediaStore)
+  }
   registerManual(
     server,
     db.pool,
     {
       ...config,
+      mediaEnabled: mediaStore !== undefined,
       deploymentId: process.env.INTAKE_DEPLOYMENT_ID,
       readOrigin: process.env.INTAKE_READ_ORIGIN,
     },

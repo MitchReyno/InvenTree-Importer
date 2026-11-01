@@ -129,6 +129,7 @@ export interface Bootstrap {
   target_id: string;
   target_context_id: string;
   mutation_enabled: false;
+  media_enabled?: boolean;
   permission_gate: "deferred_T11";
   csrf_token: string | null;
 }
@@ -621,7 +622,927 @@ export interface ManualPreview {
   plan_sha256: string;
   review_fingerprint: string;
   target_revision: string;
-  capability: "owned-fake-stock/1";
+  capability: "owned-fake-stock/1" | "owned-fake-media/1";
+  /**
+   * @maxItems 10
+   */
+  attachments?:
+    | []
+    | [
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        }
+      ]
+    | [
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        }
+      ]
+    | [
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        }
+      ]
+    | [
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        }
+      ]
+    | [
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        }
+      ]
+    | [
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        }
+      ]
+    | [
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        }
+      ]
+    | [
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        }
+      ]
+    | [
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        }
+      ]
+    | [
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        },
+        {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          evidence_label: string;
+          destination: "stock_attachment";
+        }
+      ];
+  /**
+   * @maxItems 64
+   */
+  evidence?: {
+    version_id: string;
+    evidence_id: string;
+    blob_sha256: string;
+    byte_size: string;
+    media_type: "image/jpeg" | "image/png" | "application/pdf";
+    kind: "original" | "derived";
+    original_version_id: string;
+    original_sha256: string;
+    recipe_sha256: string | null;
+  }[];
+  media_inputs_sha256?: string;
   /**
    * @minItems 1
    * @maxItems 10
@@ -1254,6 +2175,35 @@ export interface ManualPreview {
       ];
 }
 
+export interface ManualAttachment {
+  version_id: string;
+  evidence_id: string;
+  blob_sha256: string;
+  byte_size: string;
+  media_type: "image/jpeg" | "image/png" | "application/pdf";
+  kind: "original" | "derived";
+  original_version_id: string;
+  original_sha256: string;
+  recipe_sha256: string | null;
+  artifact_key: string;
+  lot_id: string;
+  lot_label: string;
+  evidence_label: string;
+  destination: "stock_attachment";
+}
+
+export interface ManualMediaEvidence {
+  version_id: string;
+  evidence_id: string;
+  blob_sha256: string;
+  byte_size: string;
+  media_type: "image/jpeg" | "image/png" | "application/pdf";
+  kind: "original" | "derived";
+  original_version_id: string;
+  original_sha256: string;
+  recipe_sha256: string | null;
+}
+
 export type ManualPreparationResult =
   | {
       status: "prepared";
@@ -1279,7 +2229,927 @@ export type ManualPreparationResult =
         plan_sha256: string;
         review_fingerprint: string;
         target_revision: string;
-        capability: "owned-fake-stock/1";
+        capability: "owned-fake-stock/1" | "owned-fake-media/1";
+        /**
+         * @maxItems 10
+         */
+        attachments?:
+          | []
+          | [
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              }
+            ]
+          | [
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              }
+            ]
+          | [
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              }
+            ]
+          | [
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              }
+            ]
+          | [
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              }
+            ]
+          | [
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              }
+            ]
+          | [
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              }
+            ]
+          | [
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              }
+            ]
+          | [
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              }
+            ]
+          | [
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              },
+              {
+                version_id: string;
+                evidence_id: string;
+                blob_sha256: string;
+                byte_size: string;
+                media_type: "image/jpeg" | "image/png" | "application/pdf";
+                kind: "original" | "derived";
+                original_version_id: string;
+                original_sha256: string;
+                recipe_sha256: string | null;
+                artifact_key: string;
+                lot_id: string;
+                lot_label: string;
+                evidence_label: string;
+                destination: "stock_attachment";
+              }
+            ];
+        /**
+         * @maxItems 64
+         */
+        evidence?: {
+          version_id: string;
+          evidence_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          media_type: "image/jpeg" | "image/png" | "application/pdf";
+          kind: "original" | "derived";
+          original_version_id: string;
+          original_sha256: string;
+          recipe_sha256: string | null;
+        }[];
+        media_inputs_sha256?: string;
         /**
          * @minItems 1
          * @maxItems 10
@@ -1984,6 +3854,746 @@ export interface ManualRun {
   attributed_stock_ids: string[];
   cancellation_requested: boolean;
   dispatch_state: "not_requested" | "queued" | "running" | "finished" | "interrupted";
+  /**
+   * @maxItems 10
+   */
+  attachments?:
+    | []
+    | [
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        }
+      ]
+    | [
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        }
+      ]
+    | [
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        }
+      ]
+    | [
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        }
+      ]
+    | [
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        }
+      ]
+    | [
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        }
+      ]
+    | [
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        }
+      ]
+    | [
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        }
+      ]
+    | [
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        }
+      ]
+    | [
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        },
+        {
+          artifact_key: string;
+          lot_id: string;
+          lot_label: string;
+          version_id: string;
+          blob_sha256: string;
+          byte_size: string;
+          kind: "original" | "derived";
+          certainty: "none" | "unknown" | "confirmed";
+          remote_pk: string | null;
+          verification: "matches" | "missing_or_changed" | "unavailable" | null;
+          recovery_action: "repair_attachment" | "verify_attachment" | null;
+        }
+      ];
   operations: {
     operation_key: string;
     lot_id: string;
@@ -2003,7 +4613,7 @@ export interface ManualWorkspace {
   batch_id: string;
   revision: string;
   supported: boolean;
-  capability: "owned-fake-stock/1" | null;
+  capability: ("owned-fake-stock/1" | "owned-fake-media/1") | null;
   lots: {
     lot_id: string;
     reviewed: boolean;
@@ -2027,6 +4637,746 @@ export interface ManualWorkspace {
     attributed_stock_ids: string[];
     cancellation_requested: boolean;
     dispatch_state: "not_requested" | "queued" | "running" | "finished" | "interrupted";
+    /**
+     * @maxItems 10
+     */
+    attachments?:
+      | []
+      | [
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          }
+        ]
+      | [
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          }
+        ]
+      | [
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          }
+        ]
+      | [
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          }
+        ]
+      | [
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          }
+        ]
+      | [
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          }
+        ]
+      | [
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          }
+        ]
+      | [
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          }
+        ]
+      | [
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          }
+        ]
+      | [
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          },
+          {
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            version_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            kind: "original" | "derived";
+            certainty: "none" | "unknown" | "confirmed";
+            remote_pk: string | null;
+            verification: "matches" | "missing_or_changed" | "unavailable" | null;
+            recovery_action: "repair_attachment" | "verify_attachment" | null;
+          }
+        ];
     operations: {
       operation_key: string;
       lot_id: string;
@@ -2063,7 +5413,927 @@ export interface ManualWorkspace {
     plan_sha256: string;
     review_fingerprint: string;
     target_revision: string;
-    capability: "owned-fake-stock/1";
+    capability: "owned-fake-stock/1" | "owned-fake-media/1";
+    /**
+     * @maxItems 10
+     */
+    attachments?:
+      | []
+      | [
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          }
+        ]
+      | [
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          }
+        ]
+      | [
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          }
+        ]
+      | [
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          }
+        ]
+      | [
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          }
+        ]
+      | [
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          }
+        ]
+      | [
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          }
+        ]
+      | [
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          }
+        ]
+      | [
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          }
+        ]
+      | [
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          },
+          {
+            version_id: string;
+            evidence_id: string;
+            blob_sha256: string;
+            byte_size: string;
+            media_type: "image/jpeg" | "image/png" | "application/pdf";
+            kind: "original" | "derived";
+            original_version_id: string;
+            original_sha256: string;
+            recipe_sha256: string | null;
+            artifact_key: string;
+            lot_id: string;
+            lot_label: string;
+            evidence_label: string;
+            destination: "stock_attachment";
+          }
+        ];
+    /**
+     * @maxItems 64
+     */
+    evidence?: {
+      version_id: string;
+      evidence_id: string;
+      blob_sha256: string;
+      byte_size: string;
+      media_type: "image/jpeg" | "image/png" | "application/pdf";
+      kind: "original" | "derived";
+      original_version_id: string;
+      original_sha256: string;
+      recipe_sha256: string | null;
+    }[];
+    media_inputs_sha256?: string;
     /**
      * @minItems 1
      * @maxItems 10
@@ -2709,4 +6979,224 @@ export interface ManualActivity {
     state: "queued" | "running" | "stopping" | "settled_complete" | "settled_incomplete" | "recovery_required";
   }[];
   truncated: boolean;
+}
+
+export interface MediaRecipe {
+  version: "documentary-crop/1";
+  source_version_id: string;
+  source_digest: string;
+  page: number;
+  source_width: number;
+  source_height: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  quarter_turns: number;
+}
+
+export interface MediaVersion {
+  id: string;
+  evidence_id: string;
+  kind: "original" | "derived";
+  digest: string;
+  byte_size: string;
+  media_type: "image/jpeg" | "image/png" | "application/pdf" | "application/octet-stream";
+  state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
+  decoder_build: string | null;
+  recipe: {
+    version: "documentary-crop/1";
+    source_version_id: string;
+    source_digest: string;
+    page: number;
+    source_width: number;
+    source_height: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    quarter_turns: number;
+  } | null;
+  /**
+   * @maxItems 30
+   */
+  pages: {
+    page: number;
+    width: number;
+    height: number;
+    preview_id: string;
+  }[];
+}
+
+export interface MediaSnapshot {
+  batch_id: string;
+  revision: string;
+  /**
+   * @maxItems 200
+   */
+  evidence: {
+    id: string;
+    label: string;
+    group_id: string | null;
+    /**
+     * @maxItems 200
+     */
+    linked_subject_ids: string[];
+    /**
+     * @maxItems 100
+     */
+    versions: {
+      id: string;
+      evidence_id: string;
+      kind: "original" | "derived";
+      digest: string;
+      byte_size: string;
+      media_type: "image/jpeg" | "image/png" | "application/pdf" | "application/octet-stream";
+      state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
+      decoder_build: string | null;
+      recipe: {
+        version: "documentary-crop/1";
+        source_version_id: string;
+        source_digest: string;
+        page: number;
+        source_width: number;
+        source_height: number;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        quarter_turns: number;
+      } | null;
+      /**
+       * @maxItems 30
+       */
+      pages: {
+        page: number;
+        width: number;
+        height: number;
+        preview_id: string;
+      }[];
+    }[];
+  }[];
+  /**
+   * @maxItems 200
+   */
+  attachments: {
+    id: string;
+    subject_id: string;
+    mode: "selected" | "declined" | "unset";
+    version_id: string | null;
+    destination: "lot_attachment";
+  }[];
+  /**
+   * @maxItems 100
+   */
+  groups: {
+    id: string;
+    label: string;
+  }[];
+  /**
+   * @maxItems 200
+   */
+  derivations: {
+    id: string;
+    evidence_id: string;
+    recipe: {
+      version: "documentary-crop/1";
+      source_version_id: string;
+      source_digest: string;
+      page: number;
+      source_width: number;
+      source_height: number;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      quarter_turns: number;
+    };
+    state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
+    version_id: string | null;
+  }[];
+}
+
+export interface MediaReceipt {
+  status: "retained";
+  batch_id: string;
+  evidence_id: string;
+  version: {
+    id: string;
+    evidence_id: string;
+    kind: "original" | "derived";
+    digest: string;
+    byte_size: string;
+    media_type: "image/jpeg" | "image/png" | "application/pdf" | "application/octet-stream";
+    state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
+    decoder_build: string | null;
+    recipe: {
+      version: "documentary-crop/1";
+      source_version_id: string;
+      source_digest: string;
+      page: number;
+      source_width: number;
+      source_height: number;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      quarter_turns: number;
+    } | null;
+    /**
+     * @maxItems 30
+     */
+    pages: {
+      page: number;
+      width: number;
+      height: number;
+      preview_id: string;
+    }[];
+  };
+}
+
+export interface MediaEdit {
+  expected_revision: string;
+  change:
+    | {
+        kind: "group";
+        label: string;
+      }
+    | {
+        kind: "move";
+        evidence_id: string;
+        group_id: string | null;
+      }
+    | {
+        kind: "link";
+        evidence_id: string;
+        subject_id: string;
+        linked: boolean;
+      }
+    | {
+        kind: "derive";
+        evidence_id: string;
+        recipe: {
+          version: "documentary-crop/1";
+          source_version_id: string;
+          source_digest: string;
+          page: number;
+          source_width: number;
+          source_height: number;
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          quarter_turns: number;
+        };
+      }
+    | {
+        kind: "select_attachment";
+        subject_id: string;
+        mode: "selected" | "declined" | "unset";
+        version_id: string | null;
+        destination: "lot_attachment";
+      };
 }

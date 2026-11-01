@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./json": "./src/json.ts",
-    "./client": "./generated/client.ts"
+    "./client": "./generated/client.ts",
+    "./media": "./src/media.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
