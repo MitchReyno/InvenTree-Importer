@@ -12,6 +12,7 @@ import type { ProcessingConfig } from './attempts.ts'
 import { processingRepository } from './repository.ts'
 import { fail, ProcessingError } from './model.ts'
 import { CaptureError } from '../capture/repository.ts'
+import { CommandPayloadConflict } from '../db/authority.ts'
 
 function id(request: FastifyRequest, field = 'id') {
   const value = (request.params as Record<string, string>)[field]
@@ -39,7 +40,7 @@ export function registerProcessing(
   const repository = processingRepository(pool, config, lockCapture)
   app.register(async (scope) => {
     scope.setErrorHandler((error, request, reply) => {
-      const conflict = error instanceof Error && error.message === 'payload_conflict'
+      const conflict = error instanceof CommandPayloadConflict
       if (!(error instanceof ProcessingError) && !(error instanceof CaptureError) && !conflict) {
         throw error
       }

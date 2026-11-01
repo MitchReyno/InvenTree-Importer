@@ -120,3 +120,19 @@ The normal aggregate suite, final generation drift/build/format/hooks, actual de
 The first heavy-test window is released. All T06 test children, random fixture databases and roles were cleaned. The shared PostgreSQL service and retained previews were left running and unchanged. T06 has no allocated browser preview and started no duplicate service.
 
 Only synthetic fixture credentials and the existing owned PostgreSQL helper state were used, without printing credentials. Tests did not discover or read the original repository environment. The original InvenTree server remains strictly read-only.
+
+## Resumed integration plan
+
+The same T06 owner resumed after the coordinator checkpointed shared registration and merged the actual query/form changes. The normal trunk merge now includes the reviewed readability rules from PR #49. Capture's lock/apply/publish extraction is preserved; its incoming conflict contained formatting of the superseded inline edit body. Root/frontend guideline conflicts adopt the actual merged rules.
+
+React Hook Form 7.91.0 arrived through the independently merged capture/new-batch PR #48 rather than waiting for T05. Adapt the owned QuestionAnswer now: native registered fields, library-owned field/error/submission state, unchanged TypeBox validation and exact scalar strings, a mount-pinned question/context, synchronous dirty reporting from the input event, and stable retry payload/key. Polling must never reset the form. Retain TypeBox/AJV; no resolver package or dependency change is needed.
+
+Replace the Processing route's temporary payload-conflict message comparison with the merged `CommandPayloadConflict` type. Apply the maintained readability fixer and Prettier to owned source. Then request the serialized PostgreSQL window for the three focused HTTP/PG and two child-process cases, including the adapter-input capability separation.
+
+The independent server-state owner retains App, Batch, legacy ManualWorkspace and global activity ownership. ProcessingWorkspace's query-cache adaptation waits for that actual merge and will use its public server scope and query keys. The OpenAPI client and media interfaces likewise wait for actual trunk merges. No unpublished sibling code or new preview is consumed during this step.
+
+### Form/error/readability checkpoint
+
+The React Hook Form conversion passed all five focused question tests and application typechecks. Added observations cover synchronous dirty notification, TypeBox rejection without a send, a replaced question prop retaining its original mounted context, exact large decimal strings and frozen fields during a pending submission. The existing lost-acknowledgement test still adopts the same payload/key. The form uses library field/error/submission state; no polling reset or numeric coercion was added.
+
+Processing routes now classify the actual merged `CommandPayloadConflict` type. Maintained readability rules were applied to owned runtime files and the extracted capture seam; the initial check also caught two missing function-declaration spacings in the new tests, which were fixed with the same maintained rule. API client integration will follow a normal merge of the actual PR #50 trunk before the coordinator changes its shared registrations.

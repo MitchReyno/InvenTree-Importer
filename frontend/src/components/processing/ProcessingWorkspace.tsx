@@ -54,6 +54,7 @@ export function ProcessingWorkspace({
   useEffect(() => {
     let active = true
     let timer: ReturnType<typeof setTimeout>
+
     async function poll() {
       try {
         const value = await client.read(batch.id)
@@ -73,6 +74,7 @@ export function ProcessingWorkspace({
         }
       }
     }
+
     void poll()
     return () => {
       active = false
@@ -95,6 +97,7 @@ export function ProcessingWorkspace({
       setPinned({ question, captureRevision: snapshot.capture_revision })
     }
   }, [questionId, snapshot, pinned])
+
   async function perform(work: () => Promise<unknown>) {
     setBusy(true)
     setError('')

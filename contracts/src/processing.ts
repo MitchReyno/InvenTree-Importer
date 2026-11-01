@@ -4,6 +4,7 @@ import { CaptureDefaults, CaptureSnapshot } from './capture.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
+
 const text = Type.String({ minLength: 1, maxLength: 2048 })
 const stages = ['reading', 'identifying', 'research', 'images', 'inventory'] as const
 export const ProcessingStage = Type.Union(stages.map((stage) => Type.Literal(stage)))

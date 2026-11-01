@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import type { ProcessingSnapshotDto } from '@invimport/contracts'
@@ -82,4 +82,94 @@ test('lost acknowledgement preserves typed value and exact idempotency key for r
     value: { kind: 'quantity', value: '17.000001', basis: 'counted' },
   })
   expect(screen.getByLabelText('Quantity')).toHaveValue('17.000001')
+})
+
+test('RHF reports dirty input synchronously and keeps TypeBox quantity errors without sending', async () => {
+  const user = userEvent.setup()
+  const answer = vi.fn().mockResolvedValue(undefined)
+  const dirty = vi.fn()
+  render(
+    <QuestionAnswer
+      question={question}
+      captureRevision="8"
+      currentQuestion={question}
+      currentCaptureRevision="8"
+      disabled={false}
+      onDirtyChange={dirty}
+      answer={answer}
+    />,
+  )
+  fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '1e2' } })
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  await user.click(screen.getByRole('button', { name: 'Save answer and queue continuation' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('positive exact quantity')
+  expect(screen.getByLabelText('Quantity')).toHaveValue('1e2')
+  expect(answer).not.toHaveBeenCalled()
+
+  await user.click(screen.getByRole('button', { name: 'Discard unsaved answer' }))
+  expect(screen.getByLabelText('Quantity')).toHaveValue('')
+  expect(dirty).toHaveBeenLastCalledWith(false)
+})
+
+test('a replacement question prop cannot adopt the mounted form draft, even with equal revisions', async () => {
+  const user = userEvent.setup()
+  const answer = vi.fn().mockResolvedValue(undefined)
+  const props = {
+    question,
+    captureRevision: '8',
+    currentQuestion: question,
+    currentCaptureRevision: '8',
+    disabled: false,
+    onDirtyChange: vi.fn(),
+    answer,
+  }
+  const view = render(<QuestionAnswer {...props} />)
+  await user.type(screen.getByLabelText('Quantity'), '9007199254740.123456')
+  const replacement = {
+    ...question,
+    id: '70000000-0000-4000-8000-000000000007',
+    spec: { ...question.spec, prompt: 'Replacement question' },
+  }
+  view.rerender(<QuestionAnswer {...props} question={replacement} currentQuestion={replacement} />)
+  expect(screen.queryByText('Replacement question')).not.toBeInTheDocument()
+  expect(screen.getByLabelText('Quantity')).toHaveValue('9007199254740.123456')
+  expect(screen.getByRole('button', { name: 'Save answer and queue continuation' })).toBeDisabled()
+  expect(answer).not.toHaveBeenCalled()
+})
+
+test('pending submission freezes fields and confirmed save clears the guard without coercing exact strings', async () => {
+  const user = userEvent.setup()
+
+  let finish: () => void = () => {}
+
+  const pending = new Promise<void>((resolve) => {
+    finish = resolve
+  })
+  const answer = vi.fn().mockReturnValue(pending)
+  const dirty = vi.fn()
+  render(
+    <QuestionAnswer
+      question={question}
+      captureRevision="8"
+      currentQuestion={question}
+      currentCaptureRevision="8"
+      disabled={false}
+      onDirtyChange={dirty}
+      answer={answer}
+    />,
+  )
+  await user.type(screen.getByLabelText('Quantity'), '9007199254740.123456')
+  await user.selectOptions(screen.getByLabelText('How was the quantity determined?'), 'estimated')
+  await user.click(screen.getByRole('button', { name: 'Save answer and queue continuation' }))
+  await waitFor(() => expect(screen.getByLabelText('Quantity')).toBeDisabled())
+  await user.type(screen.getByLabelText('Quantity'), '99')
+  expect(screen.getByLabelText('Quantity')).toHaveValue('9007199254740.123456')
+  expect(answer.mock.calls[0][1].value).toEqual({
+    kind: 'quantity',
+    value: '9007199254740.123456',
+    basis: 'estimated',
+  })
+  finish()
+  await waitFor(() => expect(screen.getByLabelText('Quantity')).toHaveValue(''))
+  expect(dirty).toHaveBeenLastCalledWith(false)
 })

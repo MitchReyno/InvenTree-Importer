@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, type FormEvent } from 'react'
+import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
 import {
   validate,
@@ -8,6 +9,7 @@ import {
 import {
   Button,
   ErrorNotice,
+  Fieldset,
   Input,
   Label,
   Notice,
@@ -17,34 +19,44 @@ import {
   TextArea,
 } from '../ui/primitives'
 
-type Question = ProcessingQuestionDto
-
 interface Props {
-  question: Question
+  question: ProcessingQuestionDto
   captureRevision: string
-  currentQuestion: Question | undefined
+  currentQuestion: ProcessingQuestionDto | undefined
   currentCaptureRevision: string
   disabled: boolean
   onDirtyChange: (dirty: boolean) => void
   answer: (questionId: string, input: ProcessingAnswerDto, key: string) => Promise<void>
 }
 
-/** Mount identity is pinned by the parent. Polling changes current validity, never the editing target. */
+interface AnswerFields {
+  value: string
+  basis: 'counted' | 'estimated'
+}
+
+const emptyAnswer: AnswerFields = { value: '', basis: 'counted' }
+
+/** Mount identity is pinned. Polling changes current validity, never the editing target or fields. */
 export function QuestionAnswer({
-  question,
-  captureRevision,
+  question: requestedQuestion,
+  captureRevision: requestedCaptureRevision,
   currentQuestion,
   currentCaptureRevision,
   disabled,
   onDirtyChange,
   answer,
 }: Props) {
-  const [value, setValue] = useState('')
-  const [basis, setBasis] = useState<'counted' | 'estimated'>('counted')
-  const [error, setError] = useState('')
-  const [saving, setSaving] = useState(false)
+  const { question, captureRevision } = useRef({
+    question: requestedQuestion,
+    captureRevision: requestedCaptureRevision,
+  }).current
+  const { register, handleSubmit, getValues, reset, setError, clearErrors, formState } =
+    useForm<AnswerFields>({ defaultValues: emptyAnswer })
   const submission = useRef<{ fingerprint: string; key: string } | null>(null)
-  const dirty = value.length > 0
+  const dirtyObserver = useRef(onDirtyChange)
+  dirtyObserver.current = onDirtyChange
+  useEffect(() => () => dirtyObserver.current(false), [])
+
   const stale =
     !currentQuestion ||
     currentQuestion.id !== question.id ||
@@ -53,37 +65,55 @@ export function QuestionAnswer({
     currentQuestion.attempt_id !== question.attempt_id ||
     currentQuestion.input_sha256 !== question.input_sha256 ||
     currentCaptureRevision !== captureRevision
-  const dirtyObserver = useRef(onDirtyChange)
-  dirtyObserver.current = onDirtyChange
-  useEffect(() => () => dirtyObserver.current(false), [])
-  function change(next: string) {
-    setValue(next)
-    onDirtyChange(next.length > 0)
-  }
-  async function submit() {
-    if (stale || disabled || saving) {
+  const error = formState.errors.value?.message ?? formState.errors.root?.command?.message
+
+  function reportDirty(event: FormEvent<HTMLFormElement>) {
+    const target = event.target
+    const fieldEvent =
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLSelectElement ||
+      target instanceof HTMLTextAreaElement
+    if (!fieldEvent) {
       return
     }
-    const typed: ProcessingAnswerDto['value'] =
+    const values = getValues()
+    // Use the event value explicitly: navigation must see this edit before a later RHF render.
+    const nextValue = target.name === 'value' ? target.value : values.value
+    const nextBasis = target.name === 'basis' ? target.value : values.basis
+    onDirtyChange(nextValue !== emptyAnswer.value || nextBasis !== emptyAnswer.basis)
+  }
+
+  function discard() {
+    reset(emptyAnswer)
+    submission.current = null
+    onDirtyChange(false)
+  }
+
+  async function submit(values: AnswerFields) {
+    if (stale || disabled) {
+      return
+    }
+    clearErrors()
+    const typedValue: ProcessingAnswerDto['value'] =
       question.spec.kind === 'quantity'
-        ? { kind: 'quantity', value, basis }
-        : { kind: 'clarification', text: value }
+        ? { kind: 'quantity', value: values.value, basis: values.basis }
+        : { kind: 'clarification', text: values.value }
     const input: ProcessingAnswerDto = {
       schema_version: 'bench-intake-answer/1',
       expected_question_revision: question.revision,
       expected_capture_revision: captureRevision,
       attempt_id: question.attempt_id,
       input_sha256: question.input_sha256,
-      value: typed,
+      value: typedValue,
     }
     try {
       validate('ProcessingAnswer', input)
     } catch {
-      setError(
+      const message =
         question.spec.kind === 'quantity'
           ? 'Enter a positive exact quantity with at most six decimal places.'
-          : 'Enter a clarification of up to 2048 characters.',
-      )
+          : 'Enter a clarification of up to 2048 characters.'
+      setError('value', { type: 'contract', message })
       return
     }
 
@@ -91,27 +121,26 @@ export function QuestionAnswer({
     if (submission.current?.fingerprint !== fingerprint) {
       submission.current = { fingerprint, key: crypto.randomUUID() }
     }
-    setSaving(true)
-    setError('')
     try {
       await answer(question.id, input, submission.current.key)
-      setValue('')
+      reset(emptyAnswer)
+      submission.current = null
       onDirtyChange(false)
     } catch {
-      setError(
-        'Answer not confirmed. Your input and original question are kept. Refresh status before retrying this same answer.',
-      )
-    } finally {
-      setSaving(false)
+      setError('root.command', {
+        type: 'server',
+        message:
+          'Answer not confirmed. Your input and original question are kept. Refresh status before retrying this same answer.',
+      })
     }
-  }
-  function handleSubmit(event: FormEvent) {
-    event.preventDefault()
-    void submit()
   }
 
   return (
-    <Card aria-label="Pinned application question" onSubmit={handleSubmit}>
+    <Card
+      aria-label="Pinned application question"
+      onChange={reportDirty}
+      onSubmit={handleSubmit(submit)}
+    >
       <h3>{question.spec.prompt}</h3>
       <Paragraph>{question.spec.reason}</Paragraph>
       <Small>
@@ -123,50 +152,53 @@ export function QuestionAnswer({
           preserved; it cannot be applied to another question.
         </Notice>
       )}
-      <Field>
-        <Label htmlFor={`answer-${question.id}`}>
-          {question.spec.kind === 'quantity' ? 'Quantity' : 'Clarification'}
-        </Label>
-        {question.spec.kind === 'quantity' ? (
-          <Input
-            id={`answer-${question.id}`}
-            value={value}
-            inputMode="decimal"
-            onChange={(event) => change(event.target.value)}
-          />
-        ) : (
-          <TextArea
-            id={`answer-${question.id}`}
-            value={value}
-            maxLength={2048}
-            onChange={(event) => change(event.target.value)}
-          />
-        )}
-      </Field>
-      {question.spec.kind === 'quantity' && (
+      <Fieldset disabled={formState.isSubmitting}>
         <Field>
-          <Label htmlFor={`basis-${question.id}`}>How was the quantity determined?</Label>
-          <Select
-            id={`basis-${question.id}`}
-            value={basis}
-            onChange={(event) => setBasis(event.target.value as typeof basis)}
-          >
-            <option value="counted">Counted</option>
-            <option value="estimated">Estimated</option>
-          </Select>
+          <Label htmlFor={`answer-${question.id}`}>
+            {question.spec.kind === 'quantity' ? 'Quantity' : 'Clarification'}
+          </Label>
+          {question.spec.kind === 'quantity' ? (
+            <Input
+              id={`answer-${question.id}`}
+              inputMode="decimal"
+              required
+              aria-invalid={Boolean(formState.errors.value)}
+              {...register('value')}
+            />
+          ) : (
+            <TextArea
+              id={`answer-${question.id}`}
+              maxLength={2048}
+              required
+              aria-invalid={Boolean(formState.errors.value)}
+              {...register('value')}
+            />
+          )}
         </Field>
-      )}
-      {error && <ErrorNotice role="alert">{error}</ErrorNotice>}
-      <Actions>
-        <Button disabled={stale || disabled || saving || !dirty} type="submit">
-          {saving ? 'Saving answer…' : 'Save answer and queue continuation'}
-        </Button>
-        {dirty && (
-          <Button type="button" disabled={saving} onClick={() => change('')}>
-            Discard unsaved answer
-          </Button>
+        {question.spec.kind === 'quantity' && (
+          <Field>
+            <Label htmlFor={`basis-${question.id}`}>How was the quantity determined?</Label>
+            <Select id={`basis-${question.id}`} {...register('basis')}>
+              <option value="counted">Counted</option>
+              <option value="estimated">Estimated</option>
+            </Select>
+          </Field>
         )}
-      </Actions>
+        {error && <ErrorNotice role="alert">{error}</ErrorNotice>}
+        <Actions>
+          <Button
+            disabled={stale || disabled || formState.isSubmitting || !formState.isDirty}
+            type="submit"
+          >
+            {formState.isSubmitting ? 'Saving answer…' : 'Save answer and queue continuation'}
+          </Button>
+          {formState.isDirty && (
+            <Button type="button" disabled={formState.isSubmitting} onClick={discard}>
+              Discard unsaved answer
+            </Button>
+          )}
+        </Actions>
+      </Fieldset>
       <Small>This human answer updates the saved lot or note and queues a new attempt.</Small>
     </Card>
   )
