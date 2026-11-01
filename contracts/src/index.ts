@@ -1,15 +1,11 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Ajv2020 } from 'ajv/dist/2020.js'
+import { Id, Revision, CursorSequence, Digest, PositivePk, Quantity } from './scalars.ts'
+import { captureSchemas } from './capture.ts'
+export * from './scalars.ts'
+export * from './capture.ts'
 
 const object = <T extends TProperties>(properties: T) => Type.Object(properties, { additionalProperties: false })
-// Unlike $, this assertion cannot accept a trailing newline.
-const end = '(?![\\s\\S])'
-export const Id = Type.String({ pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}' + end })
-export const Revision = Type.String({ pattern: '^[1-9][0-9]{0,18}' + end, format: 'int64' })
-export const CursorSequence = Type.String({ pattern: '^(0|[1-9][0-9]{0,18})' + end, format: 'int64' })
-export const Digest = Type.String({ pattern: '^[0-9a-f]{64}' + end })
-export const PositivePk = Type.String({ pattern: '^[1-9][0-9]{0,18}' + end, format: 'int64' })
-export const Quantity = Type.String({ pattern: '^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?' + end })
 const Label = Type.String({ minLength: 1, maxLength: 256 })
 const Selection = Type.Union([
   object({ mode: Type.Literal('inherit') }),
@@ -34,7 +30,7 @@ export const WorkerEnvelope = Type.Union([
 export const ErrorDto = object({ code: Type.String({ pattern: '^[a-z_]{1,64}$' }), message: Type.String({ maxLength: 256 }), recovery: Type.Union((['refresh', 'wait', 'review', 'none'] as const).map(value => Type.Literal(value))), correlation_id: Type.String({ maxLength: 64 }) })
 export const Bootstrap = object({ mode: Type.Literal('development-key'), banner: Type.Literal('Single-operator development mode — not a verified human session'), status: Type.Union([Type.Literal('configured'), Type.Literal('setup_required')]), actor_id: Id, target_id: Id, target_context_id: Id, mutation_enabled: Type.Literal(false), permission_gate: Type.Literal('deferred_T11'), csrf_token: Type.Union([Digest, Type.Null()]) })
 export const Health = object({ status: Type.Literal('ok'), api_version: Type.Literal('bench-intake-app/1') })
-export const schemas = { BatchCreate, LotCreate, PartSelection, LotSelection, Preparation, Approval, Cancellation, RunSnapshot, WorkerEnvelope, ErrorDto, Bootstrap, Health }
+export const schemas = { BatchCreate, LotCreate, PartSelection, LotSelection, Preparation, Approval, Cancellation, RunSnapshot, WorkerEnvelope, ErrorDto, Bootstrap, Health, ...captureSchemas }
 export type BootstrapDto = Static<typeof Bootstrap>
 
 // Public failures deliberately expose no diagnostic list; stop on the first error.

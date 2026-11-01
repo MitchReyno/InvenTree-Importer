@@ -29,9 +29,9 @@ def select_checks(paths: list[str] | None) -> dict[str, bool]:
         # The backend stub reads this route contract; it is not prose documentation.
         if path == "docs/InvenTree API.yaml":
             selected["backend"] = True
-        if (not markdown and path.startswith("frontend/")) or path in WORKSPACE_INPUTS:
+        if (not markdown and path.startswith(("frontend/", "contracts/"))) or path in WORKSPACE_INPUTS:
             selected["frontend"] = True
-        # Server consumes contracts; neither package is currently a frontend/backend dependency.
+        # Both browser and server consume contracts; intake-server stays independent of Python.
         if (not markdown and path.startswith(("intake-server/", "contracts/"))) or path in WORKSPACE_INPUTS:
             selected["intake"] = True
         if path.startswith(SHARED_WORKFLOWS):

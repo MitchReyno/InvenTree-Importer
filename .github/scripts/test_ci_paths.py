@@ -29,11 +29,13 @@ class SelectionTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assert_checks([path], "frontend")
 
-    def test_intake_contract_dependencies_are_independent_of_python_and_frontend(self):
-        # Frontend has no contracts import yet; server consumes every contracts source/artifact.
-        for path in ("intake-server/src/api/server.ts", "intake-server/package.json", "intake-server/tsconfig.json", "intake-server/migrations/0001_foundation.sql", "intake-server/scripts/dev-services.cjs", "intake-server/tests/support/database.ts", "contracts/package.json", "contracts/tsconfig.json", "contracts/src/index.ts", "contracts/generated/api.d.ts", "contracts/generated/client.ts", "contracts/generated/openapi.json", "contracts/vectors/canonical-v1.json", "contracts/scripts/generate.cjs"):
+    def test_intake_and_browser_select_actual_contract_consumers_not_python(self):
+        for path in ("intake-server/src/api/server.ts", "intake-server/package.json", "intake-server/tsconfig.json", "intake-server/migrations/0001_foundation.sql", "intake-server/scripts/dev-services.cjs", "intake-server/tests/support/database.ts"):
             with self.subTest(path=path):
                 self.assert_checks([path], "intake")
+        for path in ("contracts/package.json", "contracts/tsconfig.json", "contracts/src/index.ts", "contracts/generated/api.d.ts", "contracts/generated/client.ts", "contracts/generated/openapi.json", "contracts/vectors/canonical-v1.json", "contracts/scripts/generate.cjs"):
+            with self.subTest(path=path):
+                self.assert_checks([path], "intake", "frontend")
         self.assert_checks(["intake-server-other/foo.ts", "contracts-other/schema.json"])
         self.assert_checks(["intake-server/src/config.ts", "frontend/src/App.tsx"], "intake", "frontend")
 

@@ -19,7 +19,11 @@ Always available: activity + questions | target/runner status | settings/help
 
 Use persistent URLs for batch, stage, selected lot, source page and approval round; returning from another device restores server-saved work, not local timer state. Global activity shows queued/running/waiting tasks across batches and links to the relevant item. Connection status distinguishes browser→application, application→target and runner→provider. “Connected” is not one green dot claiming all three.
 
-## Layout exploration
+## Primary original reference and layout exploration
+
+Inspect the [original interactive HTML prototype](reference/bench-intake.html) and direct screenshots of [Inbox](reference/01-inbox.png), [Capture](reference/03-capture.png), [Review](reference/02-review.png), [phone frame](reference/10-phone.png) and [actual mobile viewport](reference/11-mobile-viewport.png) before changing layout. The [reference index](reference/README.md) preserves all fifteen original screenshots, provenance, dependencies and historical limitations. These originals are the primary visual/interaction reference; the generated board below is secondary and derivative. Current wireframes/contracts override obsolete prototype behavior and simulations.
+
+During T02, Mitch explicitly approved the implementation's current light/neutral palette and blue accents, while requiring layout/UX continuity with the original. Preserve that palette; borrow the compact workspace hierarchy, retained evidence beside shared details, lot selection and narrow list → focused item flow. Do not switch to dark just to resemble screenshots, or introduce inactive capabilities as functional controls. Broader theme support remains a later product concern, not a reason to redesign this slice.
 
 ![Three exploratory review layouts](assets/review-layouts.png)
 
