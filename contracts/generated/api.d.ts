@@ -450,6 +450,354 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{batchId}/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    batchId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description MediaSnapshot */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MediaSnapshot"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{batchId}/media/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    batchId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["MediaEdit"];
+                };
+            };
+            responses: {
+                /** @description MediaSnapshot */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MediaSnapshot"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{batchId}/media/originals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    "x-intake-media-revision": string;
+                    /** @description Percent-encoded UTF-8 label, decoded and validated by the server. */
+                    "x-intake-media-label": string;
+                };
+                path: {
+                    batchId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/octet-stream": Blob;
+                };
+            };
+            responses: {
+                /** @description MediaReceipt */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MediaReceipt"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{batchId}/media/versions/{resourceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+                resourceId: string;
+            };
+            cookie?: never;
+        };
+        /** @description Private forced download; use a browser resource URL. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    batchId: string;
+                    resourceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Private forced download; use a browser resource URL. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/octet-stream": Blob;
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{batchId}/media/previews/{resourceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+                resourceId: string;
+            };
+            cookie?: never;
+        };
+        /** @description Private image preview; use a browser resource URL. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    batchId: string;
+                    resourceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Private image preview; use a browser resource URL. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "image/png": Blob;
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/activity": {
         parameters: {
             query?: never;
@@ -1941,6 +2289,10 @@ export interface components {
             /** Format: int64 */
             expected_run_revision: string;
             operation_keys: string[];
+        } | {
+            /** Format: int64 */
+            expected_run_revision: string;
+            attachment_keys: string[];
         };
         ManualRun: {
             run_id: string;
@@ -2124,6 +2476,25 @@ export interface components {
             width: number;
             height: number;
             quarter_turns: number;
+        } | {
+            /** @constant */
+            version: "documentary-rotated-region/1";
+            source_version_id: string;
+            source_digest: string;
+            page: number;
+            source_width: number;
+            source_height: number;
+            center_x_micro: string;
+            center_y_micro: string;
+            width_micro: string;
+            height_micro: string;
+            rotation_millidegrees: number;
+            output_width: number;
+            output_height: number;
+            aspect_ratio: {
+                width: number;
+                height: number;
+            } | null;
         };
         MediaVersion: {
             id: string;
@@ -2134,7 +2505,7 @@ export interface components {
             media_type: "image/jpeg" | "image/png" | "application/pdf" | "application/octet-stream";
             state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
             decoder_build: string | null;
-            recipe: {
+            recipe: ({
                 /** @constant */
                 version: "documentary-crop/1";
                 source_version_id: string;
@@ -2147,7 +2518,26 @@ export interface components {
                 width: number;
                 height: number;
                 quarter_turns: number;
-            } | null;
+            } | {
+                /** @constant */
+                version: "documentary-rotated-region/1";
+                source_version_id: string;
+                source_digest: string;
+                page: number;
+                source_width: number;
+                source_height: number;
+                center_x_micro: string;
+                center_y_micro: string;
+                width_micro: string;
+                height_micro: string;
+                rotation_millidegrees: number;
+                output_width: number;
+                output_height: number;
+                aspect_ratio: {
+                    width: number;
+                    height: number;
+                } | null;
+            }) | null;
             pages: {
                 page: number;
                 width: number;
@@ -2173,7 +2563,7 @@ export interface components {
                     media_type: "image/jpeg" | "image/png" | "application/pdf" | "application/octet-stream";
                     state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
                     decoder_build: string | null;
-                    recipe: {
+                    recipe: ({
                         /** @constant */
                         version: "documentary-crop/1";
                         source_version_id: string;
@@ -2186,7 +2576,26 @@ export interface components {
                         width: number;
                         height: number;
                         quarter_turns: number;
-                    } | null;
+                    } | {
+                        /** @constant */
+                        version: "documentary-rotated-region/1";
+                        source_version_id: string;
+                        source_digest: string;
+                        page: number;
+                        source_width: number;
+                        source_height: number;
+                        center_x_micro: string;
+                        center_y_micro: string;
+                        width_micro: string;
+                        height_micro: string;
+                        rotation_millidegrees: number;
+                        output_width: number;
+                        output_height: number;
+                        aspect_ratio: {
+                            width: number;
+                            height: number;
+                        } | null;
+                    }) | null;
                     pages: {
                         page: number;
                         width: number;
@@ -2223,6 +2632,25 @@ export interface components {
                     width: number;
                     height: number;
                     quarter_turns: number;
+                } | {
+                    /** @constant */
+                    version: "documentary-rotated-region/1";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    source_width: number;
+                    source_height: number;
+                    center_x_micro: string;
+                    center_y_micro: string;
+                    width_micro: string;
+                    height_micro: string;
+                    rotation_millidegrees: number;
+                    output_width: number;
+                    output_height: number;
+                    aspect_ratio: {
+                        width: number;
+                        height: number;
+                    } | null;
                 };
                 state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
                 version_id: string | null;
@@ -2242,7 +2670,7 @@ export interface components {
                 media_type: "image/jpeg" | "image/png" | "application/pdf" | "application/octet-stream";
                 state: "queued" | "ready" | "unsupported" | "encrypted" | "malformed" | "limit_exceeded" | "interrupted";
                 decoder_build: string | null;
-                recipe: {
+                recipe: ({
                     /** @constant */
                     version: "documentary-crop/1";
                     source_version_id: string;
@@ -2255,7 +2683,26 @@ export interface components {
                     width: number;
                     height: number;
                     quarter_turns: number;
-                } | null;
+                } | {
+                    /** @constant */
+                    version: "documentary-rotated-region/1";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    source_width: number;
+                    source_height: number;
+                    center_x_micro: string;
+                    center_y_micro: string;
+                    width_micro: string;
+                    height_micro: string;
+                    rotation_millidegrees: number;
+                    output_width: number;
+                    output_height: number;
+                    aspect_ratio: {
+                        width: number;
+                        height: number;
+                    } | null;
+                }) | null;
                 pages: {
                     page: number;
                     width: number;
@@ -2286,6 +2733,7 @@ export interface components {
                 /** @constant */
                 kind: "derive";
                 evidence_id: string;
+                derivation_id?: string;
                 recipe: {
                     /** @constant */
                     version: "documentary-crop/1";
@@ -2299,6 +2747,25 @@ export interface components {
                     width: number;
                     height: number;
                     quarter_turns: number;
+                } | {
+                    /** @constant */
+                    version: "documentary-rotated-region/1";
+                    source_version_id: string;
+                    source_digest: string;
+                    page: number;
+                    source_width: number;
+                    source_height: number;
+                    center_x_micro: string;
+                    center_y_micro: string;
+                    width_micro: string;
+                    height_micro: string;
+                    rotation_millidegrees: number;
+                    output_width: number;
+                    output_height: number;
+                    aspect_ratio: {
+                        width: number;
+                        height: number;
+                    } | null;
                 };
             } | {
                 /** @constant */

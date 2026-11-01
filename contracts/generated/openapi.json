@@ -426,6 +426,372 @@
         }
       }
     },
+    "/api/v1/batches/{batchId}/media": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 45000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "MediaSnapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaSnapshot"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "batchId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/api/v1/batches/{batchId}/media/commands": {
+      "post": {
+        "x-intake-client": {
+          "timeoutMs": 45000,
+          "errorMode": "typed"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaEdit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MediaSnapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaSnapshot"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "batchId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/api/v1/batches/{batchId}/media/originals": {
+      "post": {
+        "x-intake-client": {
+          "timeoutMs": 45000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "MediaReceipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "x-intake-media-revision",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+              "format": "int64",
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-intake-media-label",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 3072
+            },
+            "description": "Percent-encoded UTF-8 label, decoded and validated by the server."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              },
+              "x-intake-max-bytes": 20971520
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "batchId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/api/v1/batches/{batchId}/media/versions/{resourceId}": {
+      "get": {
+        "x-intake-browser-resource": true,
+        "description": "Private forced download; use a browser resource URL.",
+        "responses": {
+          "200": {
+            "description": "Private forced download; use a browser resource URL.",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "batchId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        },
+        {
+          "name": "resourceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/api/v1/batches/{batchId}/media/previews/{resourceId}": {
+      "get": {
+        "x-intake-browser-resource": true,
+        "description": "Private image preview; use a browser resource URL.",
+        "responses": {
+          "200": {
+            "description": "Private image preview; use a browser resource URL.",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "batchId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        },
+        {
+          "name": "resourceId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ]
+    },
     "/api/v1/activity": {
       "get": {
         "x-intake-client": {
@@ -4983,29 +5349,58 @@
         }
       },
       "ManualRecoveryCommand": {
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "expected_run_revision",
-          "operation_keys"
-        ],
-        "properties": {
-          "expected_run_revision": {
-            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
-            "format": "int64",
-            "type": "string"
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "expected_run_revision",
+              "operation_keys"
+            ],
+            "properties": {
+              "expected_run_revision": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "operation_keys": {
+                "minItems": 1,
+                "maxItems": 10,
+                "uniqueItems": true,
+                "type": "array",
+                "items": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                }
+              }
+            }
           },
-          "operation_keys": {
-            "minItems": 1,
-            "maxItems": 10,
-            "uniqueItems": true,
-            "type": "array",
-            "items": {
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-              "type": "string"
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "expected_run_revision",
+              "attachment_keys"
+            ],
+            "properties": {
+              "expected_run_revision": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "attachment_keys": {
+                "minItems": 1,
+                "maxItems": 10,
+                "uniqueItems": true,
+                "type": "array",
+                "items": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                }
+              }
             }
           }
-        }
+        ]
       },
       "ManualRun": {
         "additionalProperties": false,
@@ -6232,75 +6627,186 @@
         }
       },
       "MediaRecipe": {
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "version",
-          "source_version_id",
-          "source_digest",
-          "page",
-          "source_width",
-          "source_height",
-          "x",
-          "y",
-          "width",
-          "height",
-          "quarter_turns"
-        ],
-        "properties": {
-          "version": {
-            "const": "documentary-crop/1",
-            "type": "string"
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "version",
+              "source_version_id",
+              "source_digest",
+              "page",
+              "source_width",
+              "source_height",
+              "x",
+              "y",
+              "width",
+              "height",
+              "quarter_turns"
+            ],
+            "properties": {
+              "version": {
+                "const": "documentary-crop/1",
+                "type": "string"
+              },
+              "source_version_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "source_digest": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "page": {
+                "minimum": 1,
+                "maximum": 30,
+                "type": "integer"
+              },
+              "source_width": {
+                "minimum": 1,
+                "maximum": 24000000,
+                "type": "integer"
+              },
+              "source_height": {
+                "minimum": 1,
+                "maximum": 24000000,
+                "type": "integer"
+              },
+              "x": {
+                "minimum": 0,
+                "maximum": 24000000,
+                "type": "integer"
+              },
+              "y": {
+                "minimum": 0,
+                "maximum": 24000000,
+                "type": "integer"
+              },
+              "width": {
+                "minimum": 1,
+                "maximum": 24000000,
+                "type": "integer"
+              },
+              "height": {
+                "minimum": 1,
+                "maximum": 24000000,
+                "type": "integer"
+              },
+              "quarter_turns": {
+                "minimum": 0,
+                "maximum": 3,
+                "type": "integer"
+              }
+            }
           },
-          "source_version_id": {
-            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-            "type": "string"
-          },
-          "source_digest": {
-            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
-            "type": "string"
-          },
-          "page": {
-            "minimum": 1,
-            "maximum": 30,
-            "type": "integer"
-          },
-          "source_width": {
-            "minimum": 1,
-            "maximum": 24000000,
-            "type": "integer"
-          },
-          "source_height": {
-            "minimum": 1,
-            "maximum": 24000000,
-            "type": "integer"
-          },
-          "x": {
-            "minimum": 0,
-            "maximum": 24000000,
-            "type": "integer"
-          },
-          "y": {
-            "minimum": 0,
-            "maximum": 24000000,
-            "type": "integer"
-          },
-          "width": {
-            "minimum": 1,
-            "maximum": 24000000,
-            "type": "integer"
-          },
-          "height": {
-            "minimum": 1,
-            "maximum": 24000000,
-            "type": "integer"
-          },
-          "quarter_turns": {
-            "minimum": 0,
-            "maximum": 3,
-            "type": "integer"
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "version",
+              "source_version_id",
+              "source_digest",
+              "page",
+              "source_width",
+              "source_height",
+              "center_x_micro",
+              "center_y_micro",
+              "width_micro",
+              "height_micro",
+              "rotation_millidegrees",
+              "output_width",
+              "output_height",
+              "aspect_ratio"
+            ],
+            "properties": {
+              "version": {
+                "const": "documentary-rotated-region/1",
+                "type": "string"
+              },
+              "source_version_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "source_digest": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "page": {
+                "minimum": 1,
+                "maximum": 30,
+                "type": "integer"
+              },
+              "source_width": {
+                "minimum": 1,
+                "maximum": 24000000,
+                "type": "integer"
+              },
+              "source_height": {
+                "minimum": 1,
+                "maximum": 24000000,
+                "type": "integer"
+              },
+              "center_x_micro": {
+                "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                "type": "string"
+              },
+              "center_y_micro": {
+                "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                "type": "string"
+              },
+              "width_micro": {
+                "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                "type": "string"
+              },
+              "height_micro": {
+                "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                "type": "string"
+              },
+              "rotation_millidegrees": {
+                "minimum": 0,
+                "maximum": 359999,
+                "type": "integer"
+              },
+              "output_width": {
+                "minimum": 1,
+                "maximum": 24000000,
+                "type": "integer"
+              },
+              "output_height": {
+                "minimum": 1,
+                "maximum": 24000000,
+                "type": "integer"
+              },
+              "aspect_ratio": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "width",
+                      "height"
+                    ],
+                    "properties": {
+                      "width": {
+                        "minimum": 1,
+                        "maximum": 10000,
+                        "type": "integer"
+                      },
+                      "height": {
+                        "minimum": 1,
+                        "maximum": 10000,
+                        "type": "integer"
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
           }
-        }
+        ]
       },
       "MediaVersion": {
         "additionalProperties": false,
@@ -6413,75 +6919,186 @@
           "recipe": {
             "anyOf": [
               {
-                "additionalProperties": false,
-                "type": "object",
-                "required": [
-                  "version",
-                  "source_version_id",
-                  "source_digest",
-                  "page",
-                  "source_width",
-                  "source_height",
-                  "x",
-                  "y",
-                  "width",
-                  "height",
-                  "quarter_turns"
-                ],
-                "properties": {
-                  "version": {
-                    "const": "documentary-crop/1",
-                    "type": "string"
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "version",
+                      "source_version_id",
+                      "source_digest",
+                      "page",
+                      "source_width",
+                      "source_height",
+                      "x",
+                      "y",
+                      "width",
+                      "height",
+                      "quarter_turns"
+                    ],
+                    "properties": {
+                      "version": {
+                        "const": "documentary-crop/1",
+                        "type": "string"
+                      },
+                      "source_version_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "source_digest": {
+                        "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "page": {
+                        "minimum": 1,
+                        "maximum": 30,
+                        "type": "integer"
+                      },
+                      "source_width": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "source_height": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "x": {
+                        "minimum": 0,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "y": {
+                        "minimum": 0,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "width": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "height": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "quarter_turns": {
+                        "minimum": 0,
+                        "maximum": 3,
+                        "type": "integer"
+                      }
+                    }
                   },
-                  "source_version_id": {
-                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                    "type": "string"
-                  },
-                  "source_digest": {
-                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
-                    "type": "string"
-                  },
-                  "page": {
-                    "minimum": 1,
-                    "maximum": 30,
-                    "type": "integer"
-                  },
-                  "source_width": {
-                    "minimum": 1,
-                    "maximum": 24000000,
-                    "type": "integer"
-                  },
-                  "source_height": {
-                    "minimum": 1,
-                    "maximum": 24000000,
-                    "type": "integer"
-                  },
-                  "x": {
-                    "minimum": 0,
-                    "maximum": 24000000,
-                    "type": "integer"
-                  },
-                  "y": {
-                    "minimum": 0,
-                    "maximum": 24000000,
-                    "type": "integer"
-                  },
-                  "width": {
-                    "minimum": 1,
-                    "maximum": 24000000,
-                    "type": "integer"
-                  },
-                  "height": {
-                    "minimum": 1,
-                    "maximum": 24000000,
-                    "type": "integer"
-                  },
-                  "quarter_turns": {
-                    "minimum": 0,
-                    "maximum": 3,
-                    "type": "integer"
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "version",
+                      "source_version_id",
+                      "source_digest",
+                      "page",
+                      "source_width",
+                      "source_height",
+                      "center_x_micro",
+                      "center_y_micro",
+                      "width_micro",
+                      "height_micro",
+                      "rotation_millidegrees",
+                      "output_width",
+                      "output_height",
+                      "aspect_ratio"
+                    ],
+                    "properties": {
+                      "version": {
+                        "const": "documentary-rotated-region/1",
+                        "type": "string"
+                      },
+                      "source_version_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "source_digest": {
+                        "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "page": {
+                        "minimum": 1,
+                        "maximum": 30,
+                        "type": "integer"
+                      },
+                      "source_width": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "source_height": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "center_x_micro": {
+                        "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "center_y_micro": {
+                        "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "width_micro": {
+                        "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "height_micro": {
+                        "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "rotation_millidegrees": {
+                        "minimum": 0,
+                        "maximum": 359999,
+                        "type": "integer"
+                      },
+                      "output_width": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "output_height": {
+                        "minimum": 1,
+                        "maximum": 24000000,
+                        "type": "integer"
+                      },
+                      "aspect_ratio": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "width",
+                              "height"
+                            ],
+                            "properties": {
+                              "width": {
+                                "minimum": 1,
+                                "maximum": 10000,
+                                "type": "integer"
+                              },
+                              "height": {
+                                "minimum": 1,
+                                "maximum": 10000,
+                                "type": "integer"
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
                   }
-                }
+                ]
               },
               {
                 "type": "null"
@@ -6703,75 +7320,186 @@
                       "recipe": {
                         "anyOf": [
                           {
-                            "additionalProperties": false,
-                            "type": "object",
-                            "required": [
-                              "version",
-                              "source_version_id",
-                              "source_digest",
-                              "page",
-                              "source_width",
-                              "source_height",
-                              "x",
-                              "y",
-                              "width",
-                              "height",
-                              "quarter_turns"
-                            ],
-                            "properties": {
-                              "version": {
-                                "const": "documentary-crop/1",
-                                "type": "string"
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "version",
+                                  "source_version_id",
+                                  "source_digest",
+                                  "page",
+                                  "source_width",
+                                  "source_height",
+                                  "x",
+                                  "y",
+                                  "width",
+                                  "height",
+                                  "quarter_turns"
+                                ],
+                                "properties": {
+                                  "version": {
+                                    "const": "documentary-crop/1",
+                                    "type": "string"
+                                  },
+                                  "source_version_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "source_digest": {
+                                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "page": {
+                                    "minimum": 1,
+                                    "maximum": 30,
+                                    "type": "integer"
+                                  },
+                                  "source_width": {
+                                    "minimum": 1,
+                                    "maximum": 24000000,
+                                    "type": "integer"
+                                  },
+                                  "source_height": {
+                                    "minimum": 1,
+                                    "maximum": 24000000,
+                                    "type": "integer"
+                                  },
+                                  "x": {
+                                    "minimum": 0,
+                                    "maximum": 24000000,
+                                    "type": "integer"
+                                  },
+                                  "y": {
+                                    "minimum": 0,
+                                    "maximum": 24000000,
+                                    "type": "integer"
+                                  },
+                                  "width": {
+                                    "minimum": 1,
+                                    "maximum": 24000000,
+                                    "type": "integer"
+                                  },
+                                  "height": {
+                                    "minimum": 1,
+                                    "maximum": 24000000,
+                                    "type": "integer"
+                                  },
+                                  "quarter_turns": {
+                                    "minimum": 0,
+                                    "maximum": 3,
+                                    "type": "integer"
+                                  }
+                                }
                               },
-                              "source_version_id": {
-                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                "type": "string"
-                              },
-                              "source_digest": {
-                                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
-                                "type": "string"
-                              },
-                              "page": {
-                                "minimum": 1,
-                                "maximum": 30,
-                                "type": "integer"
-                              },
-                              "source_width": {
-                                "minimum": 1,
-                                "maximum": 24000000,
-                                "type": "integer"
-                              },
-                              "source_height": {
-                                "minimum": 1,
-                                "maximum": 24000000,
-                                "type": "integer"
-                              },
-                              "x": {
-                                "minimum": 0,
-                                "maximum": 24000000,
-                                "type": "integer"
-                              },
-                              "y": {
-                                "minimum": 0,
-                                "maximum": 24000000,
-                                "type": "integer"
-                              },
-                              "width": {
-                                "minimum": 1,
-                                "maximum": 24000000,
-                                "type": "integer"
-                              },
-                              "height": {
-                                "minimum": 1,
-                                "maximum": 24000000,
-                                "type": "integer"
-                              },
-                              "quarter_turns": {
-                                "minimum": 0,
-                                "maximum": 3,
-                                "type": "integer"
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "version",
+                                  "source_version_id",
+                                  "source_digest",
+                                  "page",
+                                  "source_width",
+                                  "source_height",
+                                  "center_x_micro",
+                                  "center_y_micro",
+                                  "width_micro",
+                                  "height_micro",
+                                  "rotation_millidegrees",
+                                  "output_width",
+                                  "output_height",
+                                  "aspect_ratio"
+                                ],
+                                "properties": {
+                                  "version": {
+                                    "const": "documentary-rotated-region/1",
+                                    "type": "string"
+                                  },
+                                  "source_version_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "source_digest": {
+                                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "page": {
+                                    "minimum": 1,
+                                    "maximum": 30,
+                                    "type": "integer"
+                                  },
+                                  "source_width": {
+                                    "minimum": 1,
+                                    "maximum": 24000000,
+                                    "type": "integer"
+                                  },
+                                  "source_height": {
+                                    "minimum": 1,
+                                    "maximum": 24000000,
+                                    "type": "integer"
+                                  },
+                                  "center_x_micro": {
+                                    "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "center_y_micro": {
+                                    "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "width_micro": {
+                                    "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "height_micro": {
+                                    "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "rotation_millidegrees": {
+                                    "minimum": 0,
+                                    "maximum": 359999,
+                                    "type": "integer"
+                                  },
+                                  "output_width": {
+                                    "minimum": 1,
+                                    "maximum": 24000000,
+                                    "type": "integer"
+                                  },
+                                  "output_height": {
+                                    "minimum": 1,
+                                    "maximum": 24000000,
+                                    "type": "integer"
+                                  },
+                                  "aspect_ratio": {
+                                    "anyOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "type": "object",
+                                        "required": [
+                                          "width",
+                                          "height"
+                                        ],
+                                        "properties": {
+                                          "width": {
+                                            "minimum": 1,
+                                            "maximum": 10000,
+                                            "type": "integer"
+                                          },
+                                          "height": {
+                                            "minimum": 1,
+                                            "maximum": 10000,
+                                            "type": "integer"
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                }
                               }
-                            }
+                            ]
                           },
                           {
                             "type": "null"
@@ -6921,75 +7649,186 @@
                   "type": "string"
                 },
                 "recipe": {
-                  "additionalProperties": false,
-                  "type": "object",
-                  "required": [
-                    "version",
-                    "source_version_id",
-                    "source_digest",
-                    "page",
-                    "source_width",
-                    "source_height",
-                    "x",
-                    "y",
-                    "width",
-                    "height",
-                    "quarter_turns"
-                  ],
-                  "properties": {
-                    "version": {
-                      "const": "documentary-crop/1",
-                      "type": "string"
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "version",
+                        "source_version_id",
+                        "source_digest",
+                        "page",
+                        "source_width",
+                        "source_height",
+                        "x",
+                        "y",
+                        "width",
+                        "height",
+                        "quarter_turns"
+                      ],
+                      "properties": {
+                        "version": {
+                          "const": "documentary-crop/1",
+                          "type": "string"
+                        },
+                        "source_version_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "source_digest": {
+                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "page": {
+                          "minimum": 1,
+                          "maximum": 30,
+                          "type": "integer"
+                        },
+                        "source_width": {
+                          "minimum": 1,
+                          "maximum": 24000000,
+                          "type": "integer"
+                        },
+                        "source_height": {
+                          "minimum": 1,
+                          "maximum": 24000000,
+                          "type": "integer"
+                        },
+                        "x": {
+                          "minimum": 0,
+                          "maximum": 24000000,
+                          "type": "integer"
+                        },
+                        "y": {
+                          "minimum": 0,
+                          "maximum": 24000000,
+                          "type": "integer"
+                        },
+                        "width": {
+                          "minimum": 1,
+                          "maximum": 24000000,
+                          "type": "integer"
+                        },
+                        "height": {
+                          "minimum": 1,
+                          "maximum": 24000000,
+                          "type": "integer"
+                        },
+                        "quarter_turns": {
+                          "minimum": 0,
+                          "maximum": 3,
+                          "type": "integer"
+                        }
+                      }
                     },
-                    "source_version_id": {
-                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                      "type": "string"
-                    },
-                    "source_digest": {
-                      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
-                      "type": "string"
-                    },
-                    "page": {
-                      "minimum": 1,
-                      "maximum": 30,
-                      "type": "integer"
-                    },
-                    "source_width": {
-                      "minimum": 1,
-                      "maximum": 24000000,
-                      "type": "integer"
-                    },
-                    "source_height": {
-                      "minimum": 1,
-                      "maximum": 24000000,
-                      "type": "integer"
-                    },
-                    "x": {
-                      "minimum": 0,
-                      "maximum": 24000000,
-                      "type": "integer"
-                    },
-                    "y": {
-                      "minimum": 0,
-                      "maximum": 24000000,
-                      "type": "integer"
-                    },
-                    "width": {
-                      "minimum": 1,
-                      "maximum": 24000000,
-                      "type": "integer"
-                    },
-                    "height": {
-                      "minimum": 1,
-                      "maximum": 24000000,
-                      "type": "integer"
-                    },
-                    "quarter_turns": {
-                      "minimum": 0,
-                      "maximum": 3,
-                      "type": "integer"
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "version",
+                        "source_version_id",
+                        "source_digest",
+                        "page",
+                        "source_width",
+                        "source_height",
+                        "center_x_micro",
+                        "center_y_micro",
+                        "width_micro",
+                        "height_micro",
+                        "rotation_millidegrees",
+                        "output_width",
+                        "output_height",
+                        "aspect_ratio"
+                      ],
+                      "properties": {
+                        "version": {
+                          "const": "documentary-rotated-region/1",
+                          "type": "string"
+                        },
+                        "source_version_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "source_digest": {
+                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "page": {
+                          "minimum": 1,
+                          "maximum": 30,
+                          "type": "integer"
+                        },
+                        "source_width": {
+                          "minimum": 1,
+                          "maximum": 24000000,
+                          "type": "integer"
+                        },
+                        "source_height": {
+                          "minimum": 1,
+                          "maximum": 24000000,
+                          "type": "integer"
+                        },
+                        "center_x_micro": {
+                          "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "center_y_micro": {
+                          "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "width_micro": {
+                          "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "height_micro": {
+                          "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "rotation_millidegrees": {
+                          "minimum": 0,
+                          "maximum": 359999,
+                          "type": "integer"
+                        },
+                        "output_width": {
+                          "minimum": 1,
+                          "maximum": 24000000,
+                          "type": "integer"
+                        },
+                        "output_height": {
+                          "minimum": 1,
+                          "maximum": 24000000,
+                          "type": "integer"
+                        },
+                        "aspect_ratio": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "width",
+                                "height"
+                              ],
+                              "properties": {
+                                "width": {
+                                  "minimum": 1,
+                                  "maximum": 10000,
+                                  "type": "integer"
+                                },
+                                "height": {
+                                  "minimum": 1,
+                                  "maximum": 10000,
+                                  "type": "integer"
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
                     }
-                  }
+                  ]
                 },
                 "state": {
                   "anyOf": [
@@ -7172,75 +8011,186 @@
               "recipe": {
                 "anyOf": [
                   {
-                    "additionalProperties": false,
-                    "type": "object",
-                    "required": [
-                      "version",
-                      "source_version_id",
-                      "source_digest",
-                      "page",
-                      "source_width",
-                      "source_height",
-                      "x",
-                      "y",
-                      "width",
-                      "height",
-                      "quarter_turns"
-                    ],
-                    "properties": {
-                      "version": {
-                        "const": "documentary-crop/1",
-                        "type": "string"
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "version",
+                          "source_version_id",
+                          "source_digest",
+                          "page",
+                          "source_width",
+                          "source_height",
+                          "x",
+                          "y",
+                          "width",
+                          "height",
+                          "quarter_turns"
+                        ],
+                        "properties": {
+                          "version": {
+                            "const": "documentary-crop/1",
+                            "type": "string"
+                          },
+                          "source_version_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "source_digest": {
+                            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "page": {
+                            "minimum": 1,
+                            "maximum": 30,
+                            "type": "integer"
+                          },
+                          "source_width": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "source_height": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "x": {
+                            "minimum": 0,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "y": {
+                            "minimum": 0,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "width": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "height": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "quarter_turns": {
+                            "minimum": 0,
+                            "maximum": 3,
+                            "type": "integer"
+                          }
+                        }
                       },
-                      "source_version_id": {
-                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                        "type": "string"
-                      },
-                      "source_digest": {
-                        "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
-                        "type": "string"
-                      },
-                      "page": {
-                        "minimum": 1,
-                        "maximum": 30,
-                        "type": "integer"
-                      },
-                      "source_width": {
-                        "minimum": 1,
-                        "maximum": 24000000,
-                        "type": "integer"
-                      },
-                      "source_height": {
-                        "minimum": 1,
-                        "maximum": 24000000,
-                        "type": "integer"
-                      },
-                      "x": {
-                        "minimum": 0,
-                        "maximum": 24000000,
-                        "type": "integer"
-                      },
-                      "y": {
-                        "minimum": 0,
-                        "maximum": 24000000,
-                        "type": "integer"
-                      },
-                      "width": {
-                        "minimum": 1,
-                        "maximum": 24000000,
-                        "type": "integer"
-                      },
-                      "height": {
-                        "minimum": 1,
-                        "maximum": 24000000,
-                        "type": "integer"
-                      },
-                      "quarter_turns": {
-                        "minimum": 0,
-                        "maximum": 3,
-                        "type": "integer"
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "version",
+                          "source_version_id",
+                          "source_digest",
+                          "page",
+                          "source_width",
+                          "source_height",
+                          "center_x_micro",
+                          "center_y_micro",
+                          "width_micro",
+                          "height_micro",
+                          "rotation_millidegrees",
+                          "output_width",
+                          "output_height",
+                          "aspect_ratio"
+                        ],
+                        "properties": {
+                          "version": {
+                            "const": "documentary-rotated-region/1",
+                            "type": "string"
+                          },
+                          "source_version_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "source_digest": {
+                            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "page": {
+                            "minimum": 1,
+                            "maximum": 30,
+                            "type": "integer"
+                          },
+                          "source_width": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "source_height": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "center_x_micro": {
+                            "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "center_y_micro": {
+                            "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "width_micro": {
+                            "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "height_micro": {
+                            "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "rotation_millidegrees": {
+                            "minimum": 0,
+                            "maximum": 359999,
+                            "type": "integer"
+                          },
+                          "output_width": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "output_height": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "aspect_ratio": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "width",
+                                  "height"
+                                ],
+                                "properties": {
+                                  "width": {
+                                    "minimum": 1,
+                                    "maximum": 10000,
+                                    "type": "integer"
+                                  },
+                                  "height": {
+                                    "minimum": 1,
+                                    "maximum": 10000,
+                                    "type": "integer"
+                                  }
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
                       }
-                    }
+                    ]
                   },
                   {
                     "type": "null"
@@ -7394,76 +8344,191 @@
                     "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                     "type": "string"
                   },
+                  "derivation_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
                   "recipe": {
-                    "additionalProperties": false,
-                    "type": "object",
-                    "required": [
-                      "version",
-                      "source_version_id",
-                      "source_digest",
-                      "page",
-                      "source_width",
-                      "source_height",
-                      "x",
-                      "y",
-                      "width",
-                      "height",
-                      "quarter_turns"
-                    ],
-                    "properties": {
-                      "version": {
-                        "const": "documentary-crop/1",
-                        "type": "string"
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "version",
+                          "source_version_id",
+                          "source_digest",
+                          "page",
+                          "source_width",
+                          "source_height",
+                          "x",
+                          "y",
+                          "width",
+                          "height",
+                          "quarter_turns"
+                        ],
+                        "properties": {
+                          "version": {
+                            "const": "documentary-crop/1",
+                            "type": "string"
+                          },
+                          "source_version_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "source_digest": {
+                            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "page": {
+                            "minimum": 1,
+                            "maximum": 30,
+                            "type": "integer"
+                          },
+                          "source_width": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "source_height": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "x": {
+                            "minimum": 0,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "y": {
+                            "minimum": 0,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "width": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "height": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "quarter_turns": {
+                            "minimum": 0,
+                            "maximum": 3,
+                            "type": "integer"
+                          }
+                        }
                       },
-                      "source_version_id": {
-                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                        "type": "string"
-                      },
-                      "source_digest": {
-                        "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
-                        "type": "string"
-                      },
-                      "page": {
-                        "minimum": 1,
-                        "maximum": 30,
-                        "type": "integer"
-                      },
-                      "source_width": {
-                        "minimum": 1,
-                        "maximum": 24000000,
-                        "type": "integer"
-                      },
-                      "source_height": {
-                        "minimum": 1,
-                        "maximum": 24000000,
-                        "type": "integer"
-                      },
-                      "x": {
-                        "minimum": 0,
-                        "maximum": 24000000,
-                        "type": "integer"
-                      },
-                      "y": {
-                        "minimum": 0,
-                        "maximum": 24000000,
-                        "type": "integer"
-                      },
-                      "width": {
-                        "minimum": 1,
-                        "maximum": 24000000,
-                        "type": "integer"
-                      },
-                      "height": {
-                        "minimum": 1,
-                        "maximum": 24000000,
-                        "type": "integer"
-                      },
-                      "quarter_turns": {
-                        "minimum": 0,
-                        "maximum": 3,
-                        "type": "integer"
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "version",
+                          "source_version_id",
+                          "source_digest",
+                          "page",
+                          "source_width",
+                          "source_height",
+                          "center_x_micro",
+                          "center_y_micro",
+                          "width_micro",
+                          "height_micro",
+                          "rotation_millidegrees",
+                          "output_width",
+                          "output_height",
+                          "aspect_ratio"
+                        ],
+                        "properties": {
+                          "version": {
+                            "const": "documentary-rotated-region/1",
+                            "type": "string"
+                          },
+                          "source_version_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "source_digest": {
+                            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "page": {
+                            "minimum": 1,
+                            "maximum": 30,
+                            "type": "integer"
+                          },
+                          "source_width": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "source_height": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "center_x_micro": {
+                            "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "center_y_micro": {
+                            "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "width_micro": {
+                            "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "height_micro": {
+                            "pattern": "^(0|[1-9][0-9]{0,13})(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "rotation_millidegrees": {
+                            "minimum": 0,
+                            "maximum": 359999,
+                            "type": "integer"
+                          },
+                          "output_width": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "output_height": {
+                            "minimum": 1,
+                            "maximum": 24000000,
+                            "type": "integer"
+                          },
+                          "aspect_ratio": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "width",
+                                  "height"
+                                ],
+                                "properties": {
+                                  "width": {
+                                    "minimum": 1,
+                                    "maximum": 10000,
+                                    "type": "integer"
+                                  },
+                                  "height": {
+                                    "minimum": 1,
+                                    "maximum": 10000,
+                                    "type": "integer"
+                                  }
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
                       }
-                    }
+                    ]
                   }
                 }
               },

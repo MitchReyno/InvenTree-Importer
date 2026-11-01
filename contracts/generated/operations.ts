@@ -61,6 +61,32 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/batches/{batchId}/media",
+    {
+      "timeoutMs": 45000,
+      "errorMode": "typed",
+      "responseSchema": "MediaSnapshot"
+    }
+  ],
+  [
+    "POST /api/v1/batches/{batchId}/media/commands",
+    {
+      "timeoutMs": 45000,
+      "errorMode": "typed",
+      "responseSchema": "MediaSnapshot",
+      "requestSchema": "MediaEdit"
+    }
+  ],
+  [
+    "POST /api/v1/batches/{batchId}/media/originals",
+    {
+      "timeoutMs": 45000,
+      "errorMode": "typed",
+      "responseSchema": "MediaReceipt",
+      "requestMediaType": "application/octet-stream"
+    }
+  ],
+  [
     "GET /api/v1/activity",
     {
       "timeoutMs": 45000,
