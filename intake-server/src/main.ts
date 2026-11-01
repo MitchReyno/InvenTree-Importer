@@ -2,6 +2,8 @@ import { createServer } from './api/server.ts'
 import { devConfig } from './config.ts'
 import { database } from './db/database.ts'
 import { registerCapture } from './capture/routes.ts'
+import { lockCaptureForEdit } from './capture/repository.ts'
+import { registerProcessing } from './processing/routes.ts'
 import { captureRead } from './capture/read.ts'
 import { registerManual } from './review/routes.ts'
 import { inventoryTransport } from './inventory/transport.ts'
@@ -32,6 +34,15 @@ if (process.env.INTAKE_DATABASE_URL) {
       )
     : undefined
   await registerCapture(server, db.pool, config, read)
+  registerProcessing(
+    server,
+    db.pool,
+    {
+      ...config,
+      channelSecret: process.env.INTAKE_PROCESSING_CHANNEL_SECRET ?? '',
+    },
+    lockCaptureForEdit,
+  )
   registerManual(
     server,
     db.pool,
