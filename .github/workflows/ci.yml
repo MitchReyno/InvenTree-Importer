@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, interactive-app]
   pull_request:
 
 concurrency:
@@ -10,23 +10,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  backend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - uses: actions/checkout@v4
-
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-
-      # Python comes from .python-version. The scanner extra is left out: it
-      # wants radio and input libraries a runner has no use for, and the TUI
-      # tests skip themselves without it.
-      - name: Install
+          cache-dependency-glob: backend/uv.lock
+      - name: Install Python project
         run: uv sync --locked
-
-      - name: Lint
-        run: uv run ruff check .
-
-      - name: Test
+      - name: Lint Python and shared skill scripts
+        run: uv run ruff check --config pyproject.toml . ../.agents/skills ../.claude/skills
+      - name: Test Python (includes shared workflow sync)
         run: uv run pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v4
+      - name: Frozen workspace install
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint:frontend
+      - name: Test
+        run: pnpm test:frontend
+      - name: Build
+        run: pnpm build

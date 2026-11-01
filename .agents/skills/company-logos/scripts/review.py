@@ -1,6 +1,6 @@
 """Review finished logos: a montage, a 64 px strip, and flags.
 
-    uv run --with pillow python review.py LOGOS_DIR OUT_DIR [--cell 200]
+    uv run --project backend --with pillow python review.py LOGOS_DIR OUT_DIR [--cell 200]
 
 Writes OUT_DIR/montage.png (each logo labelled with its name and size) and
 OUT_DIR/strip64.png (every logo at 64 px - the size InvenTree lists

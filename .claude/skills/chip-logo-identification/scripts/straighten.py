@@ -1,6 +1,6 @@
 """Make a maker's mark upright and flat before matching it.
 
-    uv run -q --with numpy --with pillow python -I straighten.py SRC OUT [options]
+    uv run --project backend -q --with numpy --with pillow python -I straighten.py SRC OUT [options]
 
 Only for a mark that needs it: match.py tolerates a few degrees of tilt, and
 every resample softens fine etched strokes, so an upright, square-on photo is
