@@ -26,12 +26,18 @@ def select_checks(paths: list[str] | None) -> dict[str, bool]:
         if not markdown and path.startswith(("backend/", "spikes/")):
             selected["backend"] = True
             selected["backend_lint"] = True
+        # The backend stub reads this route contract; it is not prose documentation.
+        if path == "docs/InvenTree API.yaml":
+            selected["backend"] = True
         if (not markdown and path.startswith("frontend/")) or path in WORKSPACE_INPUTS:
             selected["frontend"] = True
         if path.startswith(SHARED_WORKFLOWS):
             selected["workflow_sync"] = True
             if suffix == ".py":
                 selected["backend_lint"] = True
+                # Backend crop/logo tests execute skill scripts; mirror equality alone is insufficient.
+                if path.startswith((".agents/skills/", ".claude/skills/")):
+                    selected["backend"] = True
         # This targeted backend test also validates the root/frontend command surface.
         if path in WORKSPACE_INPUTS or path == "frontend/package.json":
             selected["workflow_sync"] = True
