@@ -361,3 +361,21 @@ Fresh corrected-head storage and native UI review are still pending; these passi
 checks do not clear the three findings by themselves. Execution review found no
 material issue at the earlier head and must confirm its unchanged scope at the final
 head. No actual-model or real inventory calls occurred.
+
+## Native forced-close correction plan
+
+A fresh correction owner starts from `e6d109aa` after the independent browser reviewer reproduced a second Escape forcing native closure while React kept the crop mounted and the navigation guard active. The [HTML close-watcher contract](https://html.spec.whatwg.org/multipage/interaction.html#close-watcher-infrastructure) permits a later close request to bypass cancellation; `onCancel` alone cannot own lifecycle cleanup.
+
+Scope is only `MediaCropDialog.tsx`, its focused component tests and this record. Use the existing native dialog/React APIs; no package, contract, service, inventory or provider change is needed. The coordinator retains shared integration and builds; the independent reviewer retains its existing fixture and browser lease.
+
+Reconcile the native close event with the component lifetime. Dismissing an unsent local draft explicitly discards it; dismissing a confirmed prepared view closes that view. A pending or uncertain request instead restores the same dialog and exact frozen request identity until confirmation or the existing explicit discard action. Guard redundant reopening; if modal restoration fails, expose the preserved controls as an open nonmodal recovery view rather than leave a hidden guard.
+
+First reproduce the hidden-dialog regression. Then cover unsent/confirmed dismissal and parent guard cleanup, pending close followed by rejection and exact retry, explicit uncertain discard, and a failed modal reopen. Run focused/full frontend tests, types, lint/readability/format and diff checks without rebuilding `dist`. Native browser re-review and the eventual build remain coordinator-owned gates. Tests use deterministic in-process stubs; no model/provider usage, protected inventory request, credential access, PG/Docker action or preview replacement is authorized.
+
+### Forced-close result and verification
+
+The component now handles native `close` as well as `cancel`. An unsent local draft or confirmed prepared view closes through the parent callback, unmounting the editor and clearing its guard. Pending and uncertain requests restore the same mounted dialog; no save, payload change, new key or new derivation is created. An uncertain request still requires exact retry or the existing explicit discard button. If `showModal()` fails during restoration, an open nonmodal view keeps those controls and the preserved request accessible with an explanatory error.
+
+Four new component regressions first failed against the previous code at the retained-guard and closed-dialog assertions. With the fix, all eight crop tests pass. The new cases cover initial cancellable versus forced noncancellable closure, parent cleanup and reopening, confirmed dismissal, pending rejection followed by exact retry and explicit discard, and visible recovery after a failed modal restoration.
+
+All 66 frontend tests, root application typechecks, frontend lint, shared readability checks, full Prettier check and the focused Markdown/diff checks passed. The owner did not rebuild assets or access the browser/service lease. The independent reviewer must still replay native Escape/focus recovery at the corrected exact head; component events are not native browser qualification. No model/provider, inventory, credential, database or container operation occurred.

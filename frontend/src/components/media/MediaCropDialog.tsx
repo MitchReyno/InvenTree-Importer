@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type SyntheticEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
 import type {
@@ -112,6 +112,30 @@ export function MediaCropDialog({
     }
   }
 
+  function reconcileNativeClose(event: SyntheticEvent<HTMLDialogElement>) {
+    const nativeDialog = event.currentTarget
+    if (!nativeDialog.isConnected || nativeDialog.open) {
+      return
+    }
+
+    const unconfirmedRequest = intent.current !== null && !submitted
+    if (!busy && !unconfirmedRequest) {
+      close()
+      return
+    }
+
+    // A repeated platform close request can bypass cancel.preventDefault().
+    // Keep the same pending/uncertain intent reachable until explicit discard.
+    try {
+      nativeDialog.showModal()
+    } catch {
+      nativeDialog.open = true
+      setError(
+        'Your crop request is preserved, but the modal view could not be restored. Retry the exact request or discard it when the controls become available.',
+      )
+    }
+  }
+
   const retained = snapshot.derivations.find((item) => item.id === intent.current?.derivationId)
   const output = snapshot.evidence
     .find((item) => item.id === version.evidence_id)
@@ -130,7 +154,12 @@ export function MediaCropDialog({
       : null
 
   return createPortal(
-    <Dialog ref={dialog} aria-labelledby="crop-title" onCancel={(event) => event.preventDefault()}>
+    <Dialog
+      ref={dialog}
+      aria-labelledby="crop-title"
+      onCancel={(event) => event.preventDefault()}
+      onClose={reconcileNativeClose}
+    >
       <Heading id="crop-title">Prepare documentary crop</Heading>
       <Paragraph>
         Drag the crop box. Resize at a corner; drag just outside a corner to rotate the box. The
