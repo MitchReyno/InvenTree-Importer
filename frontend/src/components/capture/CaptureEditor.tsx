@@ -1,11 +1,14 @@
 import { Button, Fieldset, Form, Input, Label, Select, Small, TextArea } from '../ui/primitives'
-import { useState, type FormEvent } from 'react'
-import type { Snapshot, CaptureWorkspaceProps, Quantity, Reference } from '../../capture/types'
-import type { CaptureEditDto } from '@invimport/contracts'
+import { Controller, useForm } from 'react-hook-form'
+import type { Snapshot, CaptureWorkspaceProps } from '../../capture/types'
+import {
+  captureEditorDefaults,
+  captureEditorChange,
+  type CaptureEditorValues,
+} from '../../capture/editor-model'
 import { QuantityField } from './QuantityField'
 import { ReferenceField } from './ReferenceField'
 
-const empty = { mode: 'unset' } as const
 type EditorProps = {
   batch: Snapshot
   selected: string
@@ -28,71 +31,35 @@ export function CaptureEditor({
   const lot = batch.lots.find((l) => l.id === selected)
   const part = batch.parts.find((p) => p.id === selected)
   const defaults = selected === 'defaults'
-  const [label, setLabel] = useState(
-    lot?.label ?? part?.label ?? (selected === 'batch' ? batch.title : ''),
-  )
-  const [quantity, setQuantity] = useState<Quantity>(
-    lot?.quantity ?? (defaults ? batch.defaults.quantity : empty),
-  )
-  const [location, setLocation] = useState<Reference>(
-    lot?.location ?? (defaults ? batch.defaults.location : empty),
-  )
-  const [choice, setChoice] = useState<Reference>(part?.choice ?? empty)
-  const [partId, setPartId] = useState(lot?.part_subject_id ?? '')
-  const [text, setText] = useState('')
-  const [noteSubject, setNoteSubject] = useState('')
-  function change(): CaptureEditDto['change'] {
-    if (defaults) {
-      return { kind: 'defaults', quantity, location }
-    }
-    if (lot) {
-      return { kind: 'lot', id: lot.id, label, part_subject_id: partId || null, quantity, location }
-    }
-    if (part) {
-      return {
-        kind: 'part',
-        id: part.id,
-        label,
-        choice: choice.mode === 'inherit' ? empty : choice,
-      }
-    }
-    if (selected === 'add_part') {
-      return { kind: 'add_part', label }
-    }
-    if (selected === 'add_lot') {
-      return { kind: 'add_lot', label, note: text, part_subject_id: partId || null }
-    }
-    if (selected === 'note') {
-      return { kind: 'note', subject_id: noteSubject || null, text }
-    }
-    return { kind: 'batch', title: label }
+  let labelCaption = 'Lot label'
+  if (part || selected === 'add_part') {
+    labelCaption = 'Part label'
+  } else if (selected === 'batch') {
+    labelCaption = 'Title'
   }
-  function saveChanges(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    void edit(change())
+
+  // Defaults belong to this selected editor's lifetime. Polling does not reset human input.
+  const { register, control, handleSubmit, formState } = useForm<CaptureEditorValues>({
+    defaultValues: captureEditorDefaults(batch, selected),
+  })
+
+  function saveChanges(values: CaptureEditorValues) {
+    return edit(captureEditorChange(batch, selected, values))
   }
+
   return (
-    <Form onChange={() => onDirty(true)} onSubmit={saveChanges}>
-      <Fieldset disabled={frozen}>
+    <Form onChange={() => onDirty(true)} onSubmit={handleSubmit(saveChanges)}>
+      <Fieldset disabled={frozen || formState.isSubmitting}>
         {!defaults && selected !== 'note' && (
           <Label>
-            {part || selected === 'add_part'
-              ? 'Part label'
-              : selected === 'batch'
-                ? 'Title'
-                : 'Lot label'}
-            <Input
-              required
-              maxLength={256}
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-            />
+            {labelCaption}
+            <Input required maxLength={256} {...register('label')} />
           </Label>
         )}
         {(lot || selected === 'add_lot') && (
           <Label>
             Shared Part proposal
-            <Select value={partId} onChange={(e) => setPartId(e.target.value)}>
+            <Select {...register('partId')}>
               <option value="">Not linked yet</option>
               {batch.parts.map((p) => (
                 <option value={p.id} key={p.id}>
@@ -104,39 +71,57 @@ export function CaptureEditor({
         )}
         {(defaults || lot) && (
           <>
-            <QuantityField value={quantity} defaults={defaults} onChange={setQuantity} />
-            <ReferenceField
-              title="Location"
-              model="location"
-              value={location}
-              defaults={defaults}
-              batch={batch}
-              onChange={(v) => {
-                setLocation(v)
-                onDirty(true)
-              }}
-              observe={observe}
+            <Controller
+              name="quantity"
+              control={control}
+              render={({ field }) => (
+                <QuantityField value={field.value} defaults={defaults} onChange={field.onChange} />
+              )}
+            />
+            <Controller
+              name="location"
+              control={control}
+              render={({ field }) => (
+                <ReferenceField
+                  title="Location"
+                  model="location"
+                  value={field.value}
+                  defaults={defaults}
+                  batch={batch}
+                  onChange={(value) => {
+                    field.onChange(value)
+                    onDirty(true)
+                  }}
+                  observe={observe}
+                />
+              )}
             />
           </>
         )}
         {part && (
-          <ReferenceField
-            title="Existing Part"
-            model="part"
-            value={choice}
-            defaults
-            batch={batch}
-            onChange={(v) => {
-              setChoice(v)
-              onDirty(true)
-            }}
-            observe={observe}
+          <Controller
+            name="choice"
+            control={control}
+            render={({ field }) => (
+              <ReferenceField
+                title="Existing Part"
+                model="part"
+                value={field.value}
+                defaults
+                batch={batch}
+                onChange={(value) => {
+                  field.onChange(value)
+                  onDirty(true)
+                }}
+                observe={observe}
+              />
+            )}
           />
         )}
         {selected === 'note' && (
           <Label>
             Note relates to
-            <Select value={noteSubject} onChange={(e) => setNoteSubject(e.target.value)}>
+            <Select {...register('noteSubject')}>
               <option value="">Batch</option>
               {[...batch.parts, ...batch.lots].map((s) => (
                 <option key={s.id} value={s.id}>
@@ -149,7 +134,7 @@ export function CaptureEditor({
         {(selected === 'add_lot' || selected === 'note') && (
           <Label>
             Human observation / note
-            <TextArea maxLength={8192} value={text} onChange={(e) => setText(e.target.value)} />
+            <TextArea maxLength={8192} {...register('text')} />
           </Label>
         )}
         <Button disabled={frozen || (!dirty && !selected.startsWith('add_'))}>
@@ -173,6 +158,7 @@ export function CaptureEditor({
     </Form>
   )
 }
+
 function locationReload() {
   window.location.reload()
 }
