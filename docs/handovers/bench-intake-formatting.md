@@ -1,12 +1,26 @@
 # Code formatting owner handover
 
+This record separates the original formatter qualification from the later executor/readability expansion. Results and pending steps describe their recorded stage; the later PG/process evidence does not retroactively change the original limits.
+
 ## Plan recorded before implementation
 
 Scope: shared formatter configuration, root package scripts/lockfile, opt-in pre-commit integration, project-local VS Code settings/recommendations and developer documentation. No application behavior, inventory access, service startup, global editor settings or shared hook installation. This owner works independently from capture/executor owners; they should reconcile the root manifest/lock after this PR merges, not copy unmerged siblings.
 
 Public workflow: pinned Prettier for TS/TSX/JS/JSX/CJS/MJS/JSON/JSONC/CSS, existing uv-managed Ruff for Python, existing remark for Markdown with unwrapped prose. Provide explicit code write/check commands; hooks format changed eligible files without staging them. Workspace editor mappings enable format-on-save after developers install recommended extensions and project dependencies and trust the workspace. Recommendations cannot silently install extensions. Do not introduce a second Markdown or Python formatter.
 
-Package research: npm metadata for Prettier 3.9.10 reports MIT, Node >=14, no runtime dependencies; it was published recently according to the registry listing. The official [Prettier package](https://www.npmjs.com/package/prettier) supports all required web languages without plugins. The [official VS Code extension](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) uses the project's local Prettier and supports its ignore/config files. Qualify on the repository's Node 24.22.2 / pnpm 12.16.1, not merely the advertised engine range. Biome is maintained and MIT/Apache-2.0, but adds a replacement lint/format ecosystem without a need to replace existing ESLint; Prettier's separate formatter is the smaller integration. ESLint formatting alone does not cover CSS/JSON; a bespoke formatter is inappropriate. Ruff remains the locked Python formatter, not a Prettier plugin. Package metadata and tests do not constitute a full security audit; future dependency upgrades require the same compatibility checks.
+### Package research
+
+Prettier 3.9.10 npm metadata reports MIT, Node >=14 and no runtime dependencies; the registry showed a recent release. The [official package](https://www.npmjs.com/package/prettier) supports the required web languages without plugins. Its [VS Code extension](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) uses project-local Prettier and its config/ignore files.
+
+Qualify against Node 24.22.2 / pnpm 12.16.1, not merely the advertised engine range.
+
+Alternatives assessed:
+
+- Biome is maintained, MIT/Apache-2.0, but would add another lint/format ecosystem without replacing ESLint for a demonstrated need.
+- ESLint formatting alone does not cover CSS/JSON; a bespoke formatter is inappropriate.
+- Keep locked Ruff for Python, not a Prettier plugin.
+
+Package metadata/tests are not a full security audit. Future dependency upgrades need the same compatibility checks.
 
 Sequence:
 
@@ -63,6 +77,8 @@ The formatting tests use temporary owned repositories and installed tools, delet
 
 ### Limits and next owner
 
+These were the original submission limits, before the later executor expansion below.
+
 Actual VS Code GUI save interaction was not exercised, nor were Windows executables run; the editor configuration is qualified against public extension contracts and local formatter behavior. Developers still need to install the recommended extensions, install project dependencies and trust the root-opened workspace. Scanner/TUI and PG/process suites are not locally run: this task changes formatting only and starts no Docker or database services. Their source is mechanically formatted where eligible, but local passing fast tests do not prove those integration tiers. Existing CI selection remains responsible for its selected checks.
 
 Publish this coherent PR ready into `interactive-app`, not main, without merging or launching another agent. The coordinator assigns fresh independent review after ready publication; review findings and fixes belong in this record before merge. No independent approval is claimed yet. Subscribe PR feedback and exact pushed-head CI to the coordinator's source thread.
@@ -71,34 +87,120 @@ Capture owner reconciliation: this PR owns root formatter/editor/pre-commit poli
 
 ## Continuation plan after user-requested pause
 
-A fresh owner resumed on 2026-11-01 after Mitch explicitly requested continuation. The existing 42 staged files and clean unstaged worktree are preserved. This continuation does not recreate implementation or backdate the original plan: inspect the staged source/configuration, rerun the formatter and real isolated hook tests, check protected-path diffs and generated-contract drift, then record actual results and publish the existing coherent branch as a ready PR against `interactive-app`. Existing package choices and their recorded qualification remain the basis; no new dependency or service is needed. Preserve byte-sensitive originals, generated outputs, vectors and migration SQL. No shared hooks, real inventory endpoint, provider session or credential store is touched. Capture remains the designated integrator after merged trunk changes; no unmerged sibling code is imported. Independent review and merge belong to the coordinator.
+A fresh owner resumed on 2026-11-01 after Mitch explicitly requested continuation. All 42 staged files and the clean unstaged worktree were preserved; the original plan was not backdated.
 
-Continuation observed results: live `interactive-app` remained at `b0e1fe7de83b68fb72590f47244624394ed12202`, with no existing formatting PR. Fresh `pnpm format:check` and `pnpm contracts:check` passed. Fresh `pnpm test:formatting` passed all three tests, including actual isolated Git commits and partial-index preservation. The sandboxed first attempt passed its pure formatter case but failed the two hook cases because the host uv cache was inaccessible; rerunning with host-cache access passed without changing tests. Fresh staged `pre-commit run` passed all selected syntax/Prettier/ESLint/remark hooks; Python hooks correctly skipped because no Python source is staged. The hook restored the continuation handover's unstaged additions. No shared hook was installed. Protected-path diffs and staged/unstaged whitespace checks are empty/clean. Earlier full workspace/backend results above remain the prior owner's observed qualification; this continuation has made only this documentation addition and does not claim a fresh full-suite run.
+The remaining plan was:
+
+1. Inspect staged source/configuration.
+2. Rerun formatter/isolated real-hook tests and check protected paths/generated drift.
+3. Record results and publish a ready PR to `interactive-app`.
+
+Existing package qualification remained the basis; no new dependency/service was needed. Preserve byte-sensitive originals, generated outputs, vectors and SQL. No shared hooks, real inventory endpoint, provider session or credential store was touched.
+
+Capture remained the post-merge integrator. No unmerged sibling code was imported; independent review/merge belonged to the coordinator.
+
+### Continuation results before scope expansion
+
+Live `interactive-app` was still `b0e1fe7de83b68fb72590f47244624394ed12202`, with no formatting PR. Fresh checks passed:
+
+- `pnpm format:check` and `pnpm contracts:check`.
+- All three `pnpm test:formatting` cases, including real isolated commits and partial-index preservation.
+- Staged `pre-commit run`: syntax, Prettier, ESLint and remark. Python correctly skipped because no Python source was staged.
+- Protected-path diffs and staged/unstaged whitespace checks.
+
+The first sandboxed run passed pure formatting but failed the two hook cases because the host uv cache was inaccessible. Host-cache access passed unchanged tests. Pre-commit restored the handover's unstaged additions; no shared hook was installed.
+
+Earlier workspace/backend results remain the prior owner's evidence. This continuation stage added documentation only and did not rerun the full suite.
 
 This harness exposes no event-subscription API. The coordinator will poll live exact-head CI and PR feedback with github-pr-tools instead; no subscription is claimed. Independent review is still pending.
 
 ## Prospective readability scope update
 
-Mitch expanded this task after ready publication: focus on the newly written TypeScript's condensed presentation and improve the relevant code guidelines. Before further edits, the continuation owner inspected capture repository/snapshot code and executor verification read-only. Remaining sequence: test the existing formatter against temporary copies of representative capture repository, capture JSX and executor modules; distinguish mechanical expansion from structural problems; update shared, frontend and intake-server guidance with practical rules for explicit branching, named operations/intermediates and cohesive responsibilities; qualify formatter coverage and unchanged original bytes; update this ready PR and hand off exact-head review. No unmerged feature code will be imported or edited here. The coordinator's proposed integration order is formatter/guidelines first, then feature owners integrate merged trunk and format their new code before final independent review. Structural readability fixes remain owned by those feature owners or a separately bounded follow-up, preserving reviewed safety behavior and avoiding blanket refactoring.
+Mitch expanded the task after ready publication to address condensed new TypeScript and its guidelines. Before editing, the owner inspected capture repository/snapshot and executor verification read-only.
+
+The prospective plan was:
+
+1. Format temporary representative capture repository/JSX and executor copies.
+2. Separate mechanical expansion from structural readability problems.
+3. Improve shared/frontend/server guidance for branches, named operations and responsibility boundaries.
+4. Verify coverage and unchanged source bytes, update the ready PR and obtain fresh review.
+
+No unmerged feature code would be edited/imported. The coordinator initially proposed formatter/guidelines first, then feature-owner integration and formatting before final review. Structural changes remained with feature owners or a bounded follow-up, preserving safety rather than prompting blanket refactoring.
 
 ### Readability diagnosis and temporary-copy evidence
 
-Observed capture repository code combined awaited SQL, row extraction, projection and fallback decisions; capture JSX compressed whole queue/forms into single lines; executor modules compressed validations, callback steps and declarations. Shared guidance now requires explicit statement/declaration lines and branch bodies, meaningful intermediate names, readable transaction ordering and cohesive extraction without line quotas. Frontend guidance adds named props/handlers and scannable JSX; a linked intake-server guideline adds query/predicate/effect-order rules. These instructions complement the formatter rather than treating wrapping as a structural refactor.
+Readability problems observed:
 
-The existing Prettier configuration was exercised through its real CLI on temporary copies using the original relative source paths. Capture repository expanded from 162 to 384 lines (longest 291 to 149 characters); CaptureWorkspace from 113 to 615 (1039 to 141); executor verification from 77 to 137 (229 to 142); executor apply from 133 to 268 (313 to 238). Each file was included by the actual ignore policy with the TypeScript parser; formatting the output again was byte-identical, and SHA-256 checks proved the source worktrees unchanged. Long SQL/string literals and structural expressions remain; `printWidth` is a preference, not a hard maximum. No configuration change is warranted by this evidence. Source copies are local qualification artifacts, not a sibling dependency or imported implementation.
+- Capture repository combined awaited SQL, row extraction, projection and fallback decisions.
+- Capture JSX compressed entire queues/forms onto single lines.
+- Executor modules compressed validations, callbacks and declarations.
 
-The coordinator adjusted integration order prospectively: merge the reviewed bounded executor fix first, then refresh this branch from merged `interactive-app` and format the actual new executor TypeScript here, preserving its single-send transport. Add only small obvious behavior-preserving readability corrections where formatter output still leaves comma declarations or compressed guard bodies. Record manual corrections separately from mechanical output. Capture subsequently incorporates the merged formatting/guidance and formats its own new TypeScript before final independent review. No unmerged sibling implementation is imported.
+Shared guidance now covers explicit statement/declaration lines and branches, named intermediates, transaction order and cohesive extraction without quotas. Frontend guidance adds named props/handlers and scannable JSX; server guidance adds query/predicate/effect order. Wrapping alone is not a structural refactor.
+
+The real Prettier CLI formatted temporary copies using original relative source paths:
+
+| Sample                | Lines before → after | Longest line before → after |
+| --------------------- | -------------------- | --------------------------- |
+| Capture repository    | 162 → 384            | 291 → 149                   |
+| CaptureWorkspace      | 113 → 615            | 1039 → 141                  |
+| Executor verification | 77 → 137             | 229 → 142                   |
+| Executor apply        | 133 → 268            | 313 → 238                   |
+
+Each path was included by the actual ignore policy with the TypeScript parser. Second formatting was byte-identical; SHA-256 checks proved original worktrees unchanged.
+
+SQL/string literals and structural expressions remained. `printWidth` is a preference, not a hard maximum; no config change was warranted. These local copies were qualification evidence, not imported sibling implementation.
+
+The coordinator then revised the order prospectively:
+
+1. Merge the reviewed bounded executor fix.
+2. Refresh this branch from merged `interactive-app` and format the new executor TypeScript, preserving single-send transport.
+3. Make only obvious behavior-preserving declaration/guard corrections, recorded separately from mechanical output.
+4. Capture integrates merged guidance/formatter and formats its code before final review.
+
+No unmerged sibling implementation was imported.
 
 ### Expanded implementation and current qualification
 
-Integrated executor only after its reviewed fix merged into `interactive-app` at `8ae745c4d6a48877c10b635350e52875bc4fb9fc`. The one transport conflict was resolved from that merged source, then formatted; exact package-output comparison proves the single-send implementation is preserved. Commit `5e6aced` records the mechanical expansion of the newly merged executor modules/tests separately. Immutable migrations, generated contracts/vectors and synthetic fixture bytes remain unchanged. Twenty-five merged executor/neighbor source/test files (including transport) exactly equal formatting of merged-trunk source; only `execution/plan.ts` and `response.ts` have the following manual changes: explicit braces around existing branches/loop bodies, and independent declarations for operation/contribution sets and retained bytes/digest. No predicate, evaluation order, SQL, timeout, quantity, retained-byte or network policy changed. The broader architectural guidance does not claim every existing module has already been structurally refactored.
+Executor integration followed its reviewed fix on `interactive-app` at `8ae745c4d6a48877c10b635350e52875bc4fb9fc`. The transport conflict used merged source followed by formatting; exact output comparison proved single-send behavior was preserved.
 
-Capture's required original `07-table.png` is over the existing 500 KiB hook limit. The large-file hook now excludes exactly `^docs/bench-intake/reference/07-table\.png$`, preserving the default limit everywhere else and all original bytes. A fourth isolated real-hook test proves a 512001-byte file at that exact path passes and the adjacent `08-table.png` still fails. This is a user-required historical-reference exception, not a general evidence exclusion or increased size limit.
+Commit `5e6aced` separately records mechanical executor module/test expansion. Twenty-five merged executor/neighbor files, including transport, exactly equal package formatting of trunk source. Migrations, generated contracts/vectors and synthetic fixtures stayed unchanged.
 
-Fresh checks on the expanded implementation pass: full workspace `pnpm typecheck`; contracts 3/server 39 fast tests including actual HTTP421 single-send; PostgreSQL 17/17; process 6/6 including real COMMIT-ACK loss and surviving physical children; all four formatting/real-hook tests; `pnpm contracts:check`; `pnpm format:check`; targeted guideline/handover Markdown checks and whitespace/protected-path diff checks. An initial fast-suite invocation was blocked before tests by sandbox denial of tsx's IPC pipe; unchanged tests pass with host IPC access. PostgreSQL reused the existing owned service and isolated randomized databases; no duplicate service, shared restart or protected inventory access occurred. DBOS's deliberate queue-collision diagnostic remains expected and the asserted case passes.
+Manual edits were limited to `execution/plan.ts` and `response.ts`:
 
-Remaining integration obligations: coordinator assigns fresh exact-head independent review and checks selected CI before merging PR43. Capture then integrates merged trunk, retains its own manifest/lock changes, runs the formatter on its actual new TypeScript/TSX, checks generated bytes and revalidates its functional/visual behavior before final independent review. Structural fixes beyond this bounded change remain capture's responsibility or an explicitly scoped follow-up; formatting alone is not proof of good decomposition. The earlier VS Code/Windows, legacy Python and unsupported actual-InvenTree capability limits remain in force.
+- Explicit braces around existing branches/loop bodies.
+- Separate operation/contribution set declarations and bytes/digest declarations.
+
+No predicates, evaluation order, SQL, timeouts, quantities, retained bytes or network policy changed. The guidance does not claim every module was structurally refactored.
+
+Capture's required original `07-table.png` exceeds the 500 KiB hook limit. Exclude exactly `^docs/bench-intake/reference/07-table\.png$`; retain the default limit elsewhere and all original bytes.
+
+A fourth real isolated-hook test passed a 512001-byte file at that path and rejected adjacent `08-table.png`. This is one user-required historical-reference exception, not a general evidence exclusion or raised limit.
+
+Fresh expanded-implementation checks passed:
+
+- Full workspace `pnpm typecheck`.
+- Contracts 3/server 39 fast tests, including actual HTTP421 single-send.
+- PostgreSQL 17/17 and process 6/6, including real COMMIT-ACK loss and surviving physical children.
+- All four formatting/real-hook tests.
+- `pnpm contracts:check`, `pnpm format:check`, targeted Markdown and whitespace/protected-path checks.
+
+The first fast invocation was blocked before tests by sandbox denial of tsx IPC; host access passed unchanged tests. The expected DBOS queue-collision diagnostic's asserted case passed.
+
+PostgreSQL reused the existing owned service with isolated random databases. No duplicate service, shared restart or protected inventory access occurred.
+
+At final submission, the coordinator still needed fresh exact-head independent review and selected CI before merging PR43.
+
+After merge, capture must retain its manifest/lock changes, format its actual TypeScript/TSX, check generated bytes and revalidate functional/visual behavior before final review. Remaining structural fixes belong to capture or an explicit follow-up; formatting does not prove good decomposition.
+
+VS Code/Windows, legacy Python and unsupported actual-InvenTree capability limits remain in force.
 
 ### Queued user-requested Markdown follow-up
 
-After the expanded PR43 work, Mitch requested a separate follow-up PR to improve verbose, hard-to-parse Markdown and add practical readability guidance. This remains outstanding and belongs to the formatting owner after PR43 merges: audit maintained current entrypoints, architecture, guidelines and active design/plan documents; propose a bounded coordinated scope; then use a fresh non-stacked branch/worktree from merged trunk. Shorten coherent paragraphs, add useful headings/lists/tables and remove repetition while preserving decisions and safety contracts. Keep the unwrapped-source rule (no fixed-width wrapping), byte-preserved originals and historical evidence/handovers; coordinate capture-owned documentation through the coordinator. This queue entry records the request, not completed Markdown editing or authorization to rewrite historical provenance.
+Mitch requested a separate Markdown readability follow-up after the expanded PR43 work. At that point it remained queued for the formatting owner after merge:
+
+- Audit maintained entrypoints, architecture, guidelines and active design/plan documents.
+- Agree bounded coordinated scope, then use a fresh non-stacked branch/worktree from merged trunk.
+- Shorten coherent paragraphs, add useful structure and remove repetition while preserving decisions/safety.
+- Keep unwrapped source, byte-preserved originals and truthful historical evidence; coordinate capture-owned docs through the coordinator.
+
+This entry records the request as it stood then; it does not backdate completed Markdown work or authorize rewriting provenance.
