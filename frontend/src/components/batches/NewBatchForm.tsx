@@ -1,21 +1,21 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import type { Client } from '../../capture/client'
+import type { BatchCreate } from '../../../../contracts/generated/api.d.ts'
+import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { Button, Form, Input, Label, Paragraph, TextArea } from '../ui/primitives'
 
-type NewBatchValues = { title: string; note: string }
+type NewBatchValues = BatchCreate
 type NewBatchFormProps = {
-  client: Client
+  create: (input: BatchCreate) => Promise<CaptureSnapshotDto>
   onDirtyChange: (dirty: boolean) => void
   onDiscard: () => void
 }
 
-export function NewBatchForm({ client, onDirtyChange, onDiscard }: NewBatchFormProps) {
+export function NewBatchForm({ create, onDirtyChange, onDiscard }: NewBatchFormProps) {
   const { register, handleSubmit, getValues, reset, formState } = useForm<NewBatchValues>({
     defaultValues: { title: '', note: '' },
   })
   const [error, setError] = useState('')
-  const createIntent = useRef({ payload: '', key: crypto.randomUUID() })
 
   function reportDirty() {
     const { title, note } = getValues()
@@ -29,14 +29,10 @@ export function NewBatchForm({ client, onDirtyChange, onDiscard }: NewBatchFormP
   }
 
   async function createBatch(input: NewBatchValues) {
-    const payload = JSON.stringify(input)
-    if (createIntent.current.payload !== payload) {
-      createIntent.current = { payload, key: crypto.randomUUID() }
-    }
     setError('')
 
     try {
-      const batch = await client.create(input, createIntent.current.key)
+      const batch = await create(input)
       onDirtyChange(false)
       location.hash = batch.id
     } catch {

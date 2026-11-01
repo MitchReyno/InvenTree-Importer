@@ -1,7 +1,8 @@
 import { HeadingRow, Eyebrow, Intro, Caption, CheckboxLabel } from '../ui/primitives'
 import { Button, Heading, Input, Link, PageTitle, Panel, Paragraph } from '../ui/primitives'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NewBatchForm } from './NewBatchForm'
+import type { BatchCreate } from '../../../../contracts/generated/api.d.ts'
 import type { Client } from '../../capture/client'
 import styled from 'styled-components'
 export function Batches({
@@ -15,6 +16,9 @@ export function Batches({
   const [error, setError] = useState('')
   const [archived, setArchived] = useState(false)
   const [creating, setCreating] = useState(false)
+  // Command identity outlives the mountable editor, including discard/reopen after lost ACK.
+  const createIntent = useRef({ payload: '', key: crypto.randomUUID() })
+
   useEffect(() => () => onDirtyChange(false), [onDirtyChange])
 
   useEffect(() => {
@@ -35,6 +39,15 @@ export function Batches({
       active = false
     }
   }, [client])
+  function createBatch(input: BatchCreate) {
+    const payload = JSON.stringify(input)
+    if (createIntent.current.payload !== payload) {
+      createIntent.current = { payload, key: crypto.randomUUID() }
+    }
+
+    return client.create(input, createIntent.current.key)
+  }
+
   const recent = batches?.batches.find((b) => !b.archived)
   const others =
     batches?.batches.filter((b) => (archived || !b.archived) && b.id !== recent?.id) ?? []
@@ -56,7 +69,7 @@ export function Batches({
         <Panel aria-labelledby="new-batch">
           <Heading id="new-batch">New batch</Heading>
           <NewBatchForm
-            client={client}
+            create={createBatch}
             onDirtyChange={onDirtyChange}
             onDiscard={() => setCreating(false)}
           />

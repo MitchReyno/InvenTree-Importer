@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import App from './App'
 import { CaptureEditor } from './components/capture/CaptureEditor'
-import { NewBatchForm } from './components/batches/NewBatchForm'
+import { Batches } from './components/batches/Batches'
 import type { Client } from './capture/client'
 import { CaptureWorkspace } from './components/capture/CaptureWorkspace'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
@@ -431,9 +431,17 @@ test('capture form reports input dirty synchronously and preserves exact draft a
 test('new batch form retains payload and delivery key after an uncertain acknowledgement', async () => {
   const user = userEvent.setup()
   const create = vi.fn().mockRejectedValue(new Error('connection_lost'))
-  const client = { create } as unknown as Client
+  const client = {
+    create,
+    list: async () => ({
+      batches: [{ ...fixture, title: 'Existing retained batch' }],
+      truncated: false,
+    }),
+  } as unknown as Client
   const onDirtyChange = vi.fn()
-  render(<NewBatchForm client={client} onDirtyChange={onDirtyChange} onDiscard={vi.fn()} />)
+  render(<Batches client={client} onDirtyChange={onDirtyChange} />)
+  await screen.findByRole('heading', { name: 'Existing retained batch' })
+  await user.click(screen.getByRole('button', { name: 'New batch' }))
   fireEvent.change(screen.getByRole('textbox', { name: 'Batch title' }), {
     target: { value: 'Original bag' },
   })
@@ -449,4 +457,10 @@ test('new batch form retains payload and delivery key after an uncertain acknowl
   expect(create.mock.calls[0][0]).toEqual({ title: 'Original bag', note: 'Keep this note' })
   await user.click(screen.getByRole('button', { name: 'Discard new batch input' }))
   expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+  await user.click(screen.getByRole('button', { name: 'New batch' }))
+  await user.type(screen.getByRole('textbox', { name: 'Batch title' }), 'Original bag')
+  await user.type(screen.getByRole('textbox', { name: 'Human note' }), 'Keep this note')
+  await user.click(screen.getByRole('button', { name: 'Create retained batch' }))
+  await waitFor(() => expect(create).toHaveBeenCalledTimes(3))
+  expect(create.mock.calls[2]).toEqual(create.mock.calls[0])
 })
