@@ -157,6 +157,17 @@ test('attachment options distinguish colliding identities and match visible reta
       }),
     ),
   }
+  const selectedVersion = populated.evidence[1].versions[1]
+  populated.attachments = [
+    {
+      id: '70000000-0000-4000-8000-000000000007',
+      subject_id: lotId,
+      mode: 'selected',
+      version_id: selectedVersion.id,
+      destination: 'lot_attachment',
+    },
+  ]
+  const media = client(vi.fn(async () => populated))
   const populatedBatch: CaptureSnapshotDto = {
     ...batch,
     lots: [
@@ -175,14 +186,16 @@ test('attachment options distinguish colliding identities and match visible reta
     <ServerStateProvider scope={fixtureScope} client={createServerQueryClient()}>
       <MediaWorkspace
         batch={populatedBatch}
-        client={client(vi.fn(async () => populated))}
+        client={media}
         disabled={false}
         selectedSubject={lotId}
         onDirtyChange={vi.fn()}
       />
     </ServerStateProvider>,
   )
-  const select = await screen.findByRole('combobox', { name: 'Attachment for Chosen lot' })
+  const select = await screen.findByRole<HTMLSelectElement>('combobox', {
+    name: 'Attachment for Chosen lot',
+  })
   await waitFor(() => expect(select).toBeEnabled())
   const options = Array.from(select.querySelectorAll('option')).filter(
     (option) => option.value !== 'unset' && option.value !== 'declined',
@@ -201,4 +214,25 @@ test('attachment options distinguish colliding identities and match visible reta
     expect(option.textContent).toContain('photo.png · evidence 11111111')
     expect(option.textContent).toContain(' · crop 22222222')
   }
+  const selectedOption = select.selectedOptions[0]
+  expect(selectedOption.value).toBe(selectedVersion.id)
+  expect(select).toHaveAccessibleDescription(`Selected attachment: ${selectedOption.textContent}`)
+  expect(screen.getByText(`Selected attachment: ${selectedOption.textContent}`)).toBeVisible()
+
+  const replacementVersion = populated.evidence[0].versions[0]
+  await userEvent.setup().selectOptions(select, replacementVersion.id)
+  expect(media.edit).toHaveBeenCalledWith(
+    populatedBatch.id,
+    {
+      expected_revision: populated.revision,
+      change: {
+        kind: 'select_attachment',
+        subject_id: lotId,
+        mode: 'selected',
+        version_id: replacementVersion.id,
+        destination: 'lot_attachment',
+      },
+    },
+    expect.any(String),
+  )
 })

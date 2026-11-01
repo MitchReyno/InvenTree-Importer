@@ -379,3 +379,17 @@ The component now handles native `close` as well as `cancel`. An unsent local dr
 Four new component regressions first failed against the previous code at the retained-guard and closed-dialog assertions. With the fix, all eight crop tests pass. The new cases cover initial cancellable versus forced noncancellable closure, parent cleanup and reopening, confirmed dismissal, pending rejection followed by exact retry and explicit discard, and visible recovery after a failed modal restoration.
 
 All 66 frontend tests, root application typechecks, frontend lint, shared readability checks, full Prettier check and the focused Markdown/diff checks passed. The owner did not rebuild assets or access the browser/service lease. The independent reviewer must still replay native Escape/focus recovery at the corrected exact head; component events are not native browser qualification. No model/provider, inventory, credential, database or container operation occurred.
+
+## Narrow attachment-choice correction plan
+
+The independent reviewer cleared native Escape recovery at `64389a2`, including the unchanged uncertain retry, then found the selected lot's attachment label/select extending a 390px document to 546px. Collision-safe choice labels exposed the native control's intrinsic width; only that label/control overflowed.
+
+Extend ownership only to `MediaWorkspace.tsx`, its existing focused identity test and this record. Bound the containing field and native select with styled-components and existing shared controls. Keep all full UUID option values, shared collision-safe labels and command/query semantics. Add a wrapping selected-attachment description linked with `aria-describedby`, so constraining the select does not hide its distinguishing identity. This adds no package or secondary selection state.
+
+Verify the visible/accessibility description and exact selected option/command identity in the existing component case. CSS assertion tests cannot qualify native layout; the coordinator will rebuild and the independent reviewer will measure width and exercise selection at 390px in the same retained fixture. Run frontend tests/types/lint/readability/format and scoped Markdown/diff checks without browser, build, service, database, container, inventory or model operations.
+
+### Attachment-choice result and verification
+
+The attachment field now uses the existing styled `Label`/`Select` controls in a bounded grid with a wrapping label. A separate wrapping `Small` description exposes the entire collision-safe selected label, linked to the select through `aria-describedby`; constraining the native control does not remove the distinguishing identity. Full option UUID values and the existing selected-read/command flow remain unchanged.
+
+The enhanced existing identity regression failed before the change because the full selected identity had no accessible description, then passed. It checks the description against the selected option/card label and verifies that choosing another crop sends its exact UUID. All 66 frontend tests, application typechecks, frontend lint, shared readability and full formatting checks passed. Scoped Markdown/diff checks passed. Actual 390px width and native choice/readability re-review remain pending; no CSS assertion is presented as browser evidence. The owner's changes remain limited to this field, its existing test and this handover; no build, browser, service, provider or inventory action occurred.

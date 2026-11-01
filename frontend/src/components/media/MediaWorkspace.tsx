@@ -2,9 +2,10 @@ import { mediaIdentityLabels } from '../../media/identity-labels'
 import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import styled from 'styled-components'
 import type { CaptureSnapshotDto, MediaEditDto, MediaVersionDto } from '@invimport/contracts'
-import { Button, Heading, Paragraph, Small } from '../ui/primitives'
+import { Button, Heading, Label, Paragraph, Select, Small } from '../ui/primitives'
 import type { MediaClient } from '../../media/types'
 import { MediaUpload } from './MediaUpload'
 import { MediaEvidenceCard } from './MediaEvidenceCard'
@@ -21,6 +22,8 @@ interface Props {
 
 export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDirtyChange }: Props) {
   const scope = useServerScope()
+  const attachmentControlId = useId()
+  const attachmentDescriptionId = `${attachmentControlId}-selection`
   const mediaQuery = useQuery({
     queryKey: serverQueryKey(scope, 'media', batch.id),
     queryFn: () => client.snapshot(batch.id),
@@ -135,6 +138,13 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
   const subject = batch.lots.find((lot) => lot.id === selectedSubject)
   const selection = snapshot?.attachments.find((item) => item.subject_id === selectedSubject)
   const identityLabels = mediaIdentityLabels(snapshot?.evidence ?? [])
+  let attachmentDescription = 'Not chosen'
+  if (selection?.version_id) {
+    attachmentDescription =
+      identityLabels.versions.get(selection.version_id) ?? `Saved version ${selection.version_id}`
+  } else if (selection?.mode === 'declined') {
+    attachmentDescription = 'No attachment for this lot'
+  }
   const frozen = disabled || busy || !snapshot || readUnavailable
 
   return (
@@ -168,9 +178,11 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
             }
           />
           {subject && (
-            <label>
-              Attachment for {subject.label}
-              <select
+            <AttachmentChoice>
+              <Label htmlFor={attachmentControlId}>Attachment for {subject.label}</Label>
+              <Select
+                id={attachmentControlId}
+                aria-describedby={attachmentDescriptionId}
                 disabled={frozen}
                 value={selection?.version_id ?? selection?.mode ?? 'unset'}
                 onChange={(event) => {
@@ -196,8 +208,11 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
                       </option>
                     )),
                 )}
-              </select>
-            </label>
+              </Select>
+              <Small id={attachmentDescriptionId}>
+                Selected attachment: {attachmentDescription}
+              </Small>
+            </AttachmentChoice>
           )}
           <Small>
             {snapshot.evidence.length} retained files · {snapshot.groups.length} groups
@@ -257,3 +272,21 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
     </section>
   )
 }
+
+const AttachmentChoice = styled.div`
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  label {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  select {
+    max-width: 100%;
+  }
+`
