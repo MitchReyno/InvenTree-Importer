@@ -61,6 +61,49 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/processing-activity",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "ProcessingActivity"
+    }
+  ],
+  [
+    "GET /api/v1/batches/{id}/processing",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "ProcessingSnapshot"
+    }
+  ],
+  [
+    "POST /api/v1/batches/{id}/processing",
+    {
+      "timeoutMs": 45000,
+      "errorMode": "typed",
+      "responseSchema": "ProcessingReceipt",
+      "requestSchema": "ProcessingStart"
+    }
+  ],
+  [
+    "POST /api/v1/batches/{id}/processing/{jobId}/cancellation",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "ProcessingReceipt",
+      "requestSchema": "ProcessingCancellation"
+    }
+  ],
+  [
+    "POST /api/v1/batches/{id}/questions/{questionId}/answers",
+    {
+      "timeoutMs": 45000,
+      "errorMode": "typed",
+      "responseSchema": "ProcessingAnswerReceipt",
+      "requestSchema": "ProcessingAnswer"
+    }
+  ],
+  [
     "GET /api/v1/activity",
     {
       "timeoutMs": 45000,
