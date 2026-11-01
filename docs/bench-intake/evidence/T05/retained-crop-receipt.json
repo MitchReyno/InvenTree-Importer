@@ -1,0 +1,71 @@
+{
+  "derivation": {
+    "id": "3da87573-4ba2-40fe-ab11-fbaf9f404e94",
+    "evidence_id": "9cb47cc6-bc4b-487c-8820-0408e6f4973b",
+    "recipe": {
+      "aspect_ratio": {
+        "height": 3,
+        "width": 4
+      },
+      "center_x_micro": "333552941",
+      "center_y_micro": "250164706",
+      "height_micro": "308329412",
+      "output_height": 308,
+      "output_width": 411,
+      "page": 1,
+      "rotation_millidegrees": 11335,
+      "source_digest": "8fd23edc0ed59f844576521a76eb89a460ca17cae0bf15d95903bf2bfd7af4eb",
+      "source_height": 480,
+      "source_version_id": "a10af381-b59f-4a1c-a23a-0b9feb599c1f",
+      "source_width": 640,
+      "version": "documentary-rotated-region/1",
+      "width_micro": "411105882"
+    },
+    "state": "ready",
+    "version_id": "3da87573-4ba2-40fe-ab11-fbaf9f404e94"
+  },
+  "output": {
+    "id": "3da87573-4ba2-40fe-ab11-fbaf9f404e94",
+    "evidence_id": "9cb47cc6-bc4b-487c-8820-0408e6f4973b",
+    "kind": "derived",
+    "digest": "fd95d4bc3e642b3a9497f62950d2f41d3c6973130fd2ca233a22b13a2f39ac12",
+    "byte_size": "111867",
+    "media_type": "image/png",
+    "state": "ready",
+    "decoder_build": "bench-media-decoder/1;sharp/0.35.5;pdfjs/6.4.299;canvas/1.1.0;png/1;sha256:19e60044e7cd6ac3a2e66402b45d71657c0d6c6029bb7f45b3440cdf982a4419",
+    "recipe": {
+      "aspect_ratio": {
+        "height": 3,
+        "width": 4
+      },
+      "center_x_micro": "333552941",
+      "center_y_micro": "250164706",
+      "height_micro": "308329412",
+      "output_height": 308,
+      "output_width": 411,
+      "page": 1,
+      "rotation_millidegrees": 11335,
+      "source_digest": "8fd23edc0ed59f844576521a76eb89a460ca17cae0bf15d95903bf2bfd7af4eb",
+      "source_height": 480,
+      "source_version_id": "a10af381-b59f-4a1c-a23a-0b9feb599c1f",
+      "source_width": 640,
+      "version": "documentary-rotated-region/1",
+      "width_micro": "411105882"
+    },
+    "pages": [
+      {
+        "page": 1,
+        "width": 411,
+        "height": 308,
+        "preview_id": "e2060556-41df-460a-a9d3-d2b06d36cb2b"
+      }
+    ]
+  },
+  "preview_sha256": "fd95d4bc3e642b3a9497f62950d2f41d3c6973130fd2ca233a22b13a2f39ac12",
+  "download_sha256": "fd95d4bc3e642b3a9497f62950d2f41d3c6973130fd2ca233a22b13a2f39ac12",
+  "preview_bytes": 111867,
+  "download_bytes": 111867,
+  "source_transform": "none",
+  "rendered_width": 411,
+  "rendered_height": 308
+}

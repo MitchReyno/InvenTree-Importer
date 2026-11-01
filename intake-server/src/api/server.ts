@@ -2,7 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { schemas, validate } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
-import { bootstrap, type DevConfig } from '../config.ts'
+import { bootstrap, type DevConfig, type RuntimeFeatures } from '../config.ts'
 
 /** Shared production parser/validator/serializer; fixture routes exercise this exact installation. */
 export function installContracts(app: FastifyInstance) {
@@ -51,7 +51,10 @@ export function installContracts(app: FastifyInstance) {
 }
 
 /** No DB connections, workers or target requests are started by constructing the web API. */
-export function createServer(config: DevConfig) {
+export function createServer(
+  config: DevConfig,
+  features: RuntimeFeatures = { mediaEnabled: false },
+) {
   const app = Fastify({
     logger: false,
     bodyLimit: 262144,
@@ -118,7 +121,7 @@ export function createServer(config: DevConfig) {
     api_version: 'bench-intake-app/1',
   }))
   app.get('/api/v1/bootstrap', { schema: { response: { 200: schemas.Bootstrap } } }, async () =>
-    bootstrap(config, configured ? csrfToken : null),
+    bootstrap(config, configured ? csrfToken : null, features),
   )
   return app
 }

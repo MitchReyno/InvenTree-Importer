@@ -9,6 +9,10 @@ export interface DevConfig {
   apiKey?: string
 }
 
+export interface RuntimeFeatures {
+  mediaEnabled: boolean
+}
+
 /** Explicit injected server configuration only. Never discovers or loads a .env. */
 export function devConfig(env: NodeJS.ProcessEnv): DevConfig {
   const config = {
@@ -30,7 +34,11 @@ export function devConfig(env: NodeJS.ProcessEnv): DevConfig {
   return Object.freeze(config)
 }
 
-export function bootstrap(config: DevConfig, csrfToken: string | null = null): BootstrapDto {
+export function bootstrap(
+  config: DevConfig,
+  csrfToken: string | null = null,
+  features: RuntimeFeatures = { mediaEnabled: false },
+): BootstrapDto {
   return {
     mode: Bootstrap.properties.mode.const,
     banner: Bootstrap.properties.banner.const,
@@ -42,6 +50,7 @@ export function bootstrap(config: DevConfig, csrfToken: string | null = null): B
     target_id: config.targetId,
     target_context_id: config.targetContextId,
     mutation_enabled: false,
+    media_enabled: features.mediaEnabled,
     permission_gate: 'deferred_T11',
     csrf_token: csrfToken,
   }

@@ -4,6 +4,7 @@ import { canonical, strictJson } from '@invimport/contracts/json'
 import { transaction } from '../db/database.ts'
 import { verifyBytes } from '../db/authority.ts'
 import { loadRun, snapshot } from '../execution/authority.ts'
+import { attachmentVerificationOnly } from '../execution/attachment-recovery.ts'
 import { startApply } from '../execution/supervisor.ts'
 import type { TargetProfile } from '../inventory/transport.ts'
 import { deliverCommand } from '../workers/delivery.ts'
@@ -14,6 +15,7 @@ export interface ManualRunnerConfig {
   applyDatabaseUrl: string
   gateRoot: string
   deploymentId: string
+  mediaBlobRoot?: string
   profile: TargetProfile
 }
 
@@ -100,10 +102,13 @@ export async function executeManualDispatch(
       throw new Error('manual_dispatch_binding_mismatch')
     }
     const original = await snapshot(client, row.run_id)
+    const verificationOnly =
+      authority.plan.version === 'bench-media-plan/1' &&
+      (await attachmentVerificationOnly(client, row.run_id, recoveryIds))
     if (
       row.state !== 'queued' ||
-      original.state === 'recovery_required' ||
-      original.state === 'settled_complete'
+      (!verificationOnly && original.state === 'recovery_required') ||
+      (!verificationOnly && original.state === 'settled_complete')
     ) {
       if (row.state === 'running') {
         await client.query('UPDATE manual_dispatch SET state=$2,safe_code=$3 WHERE id=$1', [
@@ -126,6 +131,7 @@ export async function executeManualDispatch(
       gateRoot: config.gateRoot,
       runId: retained.runId,
       profile: config.profile,
+      mediaBlobRoot: config.mediaBlobRoot,
       recoveryIds: retained.recoveryIds,
     })
     const result = await supervised.completed

@@ -3,7 +3,8 @@ import { lstat, open, readFile, readdir, mkdir, rmdir, unlink } from 'node:fs/pr
 import { join, resolve } from 'node:path'
 import { Client, type Pool } from 'pg'
 import { canonical, strictJson } from '@invimport/contracts/json'
-import { id, type StockPlan } from './plan.ts'
+import { id } from './plan.ts'
+import type { ExecutablePlan } from './media-plan.ts'
 import { checkDeployment } from './authority.ts'
 
 async function privatePath(path: string, directory: boolean) {
@@ -67,7 +68,7 @@ export class ExternalGate {
     return value
   }
 
-  async check(pool: Pick<Pool, 'query'>, plan: StockPlan): Promise<void> {
+  async check(pool: Pick<Pool, 'query'>, plan: ExecutablePlan): Promise<void> {
     const active = await this.activation()
     const deployment = await checkDeployment(pool, plan)
     const expected = {
@@ -94,10 +95,22 @@ export class ExternalGate {
       const path = join(this.root, 'witnesses', name)
       await privatePath(path, false)
       const bytes = await readFile(path, 'utf8')
-      const retained = await pool.query(
-        `SELECT i.request_digest,a.deployment_id,a.plan_digest FROM executor_intent i JOIN executor_run r ON r.id=i.run_id JOIN executor_approval a ON a.id=r.approval_id WHERE i.id=$1 AND i.kind='create_stock'`,
-        [intentId],
-      )
+      const stockWitness = `
+        SELECT i.request_digest,a.deployment_id,a.plan_digest
+        FROM executor_intent i JOIN executor_run r ON r.id=i.run_id
+        JOIN executor_approval a ON a.id=r.approval_id
+        WHERE i.id=$1 AND i.kind='create_stock'`
+      const mediaWitness = `${stockWitness}
+        UNION ALL
+        SELECT i.request_digest,a.deployment_id,a.plan_digest
+        FROM executor_attachment_intent i JOIN executor_run r ON r.id=i.run_id
+        JOIN executor_approval a ON a.id=r.approval_id
+        WHERE i.id=$1 AND i.kind='create_attachment'`
+      const query = plan.version === 'bench-media-plan/1' ? mediaWitness : stockWitness
+      const retained = await pool.query(query, [intentId])
+      if (retained.rows.length !== 1) {
+        throw new Error('restore_history_missing')
+      }
       const row = retained.rows[0]
       if (
         !row ||

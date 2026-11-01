@@ -1,3 +1,4 @@
+import { PreparedMediaEffects } from './PreparedMediaEffects'
 import styled from 'styled-components'
 import type { CaptureSnapshotDto, ManualPreviewDto } from '@invimport/contracts'
 import {
@@ -142,6 +143,7 @@ export function ApprovalWorkspace({
                 <Small>Original contribution preserved.</Small>
               </Effect>
             ))}
+            <PreparedMediaEffects preview={preview} />
             <details>
               <Summary>Exact approval binding and original keys</Summary>
               <Binding>

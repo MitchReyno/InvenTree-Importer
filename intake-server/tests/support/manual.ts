@@ -1,3 +1,9 @@
+import { readMediaStoreIdentity } from '../../src/media/store-identity.ts'
+import { realpath } from 'node:fs/promises'
+import { BlobStore } from '../../src/media/blob-store.ts'
+import { grantMedia } from '../../src/media/grants.ts'
+import { registerMediaRoutes } from '../../src/media/routes.ts'
+import { MEDIA_CAPABILITY, MEDIA_EXECUTOR_BUILD } from '../../src/execution/media-plan.ts'
 import { randomUUID } from 'node:crypto'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -20,17 +26,24 @@ import { createServer } from '../../src/api/server.ts'
 import { registerCapture } from '../../src/capture/routes.ts'
 import { registerManual } from '../../src/review/routes.ts'
 import { captureRead } from '../../src/capture/read.ts'
+import type { TargetProfile } from '../../src/inventory/transport.ts'
 import { inventoryTransport } from '../../src/inventory/transport.ts'
 import type { ManualRunnerConfig } from '../../src/review/runner.ts'
 
 /** Only fresh synthetic roles/credentials and random isolated databases on the shared owned PG. */
-export async function manualFixture() {
+export async function manualFixture(options: { media?: boolean } = {}) {
   const db = await isolatedDatabase()
   const identity = await seedAuthority(db.pool)
-  const root = await mkdtemp(join(tmpdir(), 'bench-manual-'))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'bench-manual-')))
+  const build = options.media ? MEDIA_EXECUTOR_BUILD : EXECUTOR_BUILD
+  const capability = options.media ? MEDIA_CAPABILITY : CAPABILITY
+  const blobRoot = join(root, 'blobs')
+  const store = options.media
+    ? await BlobStore.initialize(blobRoot, await readMediaStoreIdentity(db.pool))
+    : undefined
   const roles: string[] = []
   const connections: ReturnType<typeof database>[] = []
-  let fake = await inventoryFake(db.pool, 0, true)
+  let fake = await inventoryFake(db.pool, 0, true, options.media)
   const deploymentId = randomUUID()
   const epoch = randomUUID()
   await db.pool.query('INSERT INTO executor_deployment VALUES($1,$2,$3,$4,$5,$6,$7,$8)', [
@@ -40,8 +53,8 @@ export async function manualFixture() {
     identity.context,
     fake.origin,
     'manual-owned-fake-1',
-    EXECUTOR_BUILD,
-    CAPABILITY,
+    build,
+    capability,
   ])
   const gateRoot = join(root, 'gate')
   await mkdir(gateRoot, { mode: 0o700 })
@@ -56,8 +69,8 @@ export async function manualFixture() {
       contextId: identity.context,
       origin: fake.origin,
       continuity: 'manual-owned-fake-1',
-      build: EXECUTOR_BUILD,
-      capability: CAPABILITY,
+      build,
+      capability,
     }),
   )
   async function role(purpose: 'api' | 'runner' | 'apply' | 'scheduler') {
@@ -70,6 +83,9 @@ export async function manualFixture() {
     if (purpose === 'api') {
       await grantFoundation(db.pool, name)
       await grantCapture(db.pool, name)
+      if (options.media) {
+        await grantMedia(db.pool, name, 'api')
+      }
     }
     if (purpose === 'scheduler') {
       await db.pool.query(`GRANT CREATE ON DATABASE ${db.name} TO ${name}`)
@@ -87,13 +103,14 @@ export async function manualFixture() {
   const runner = await role('runner')
   const apply = await role('apply')
   const scheduler = await role('scheduler')
-  const profile = {
+  const profile: TargetProfile = {
     kind: 'owned-disposable' as const,
     targetId: identity.target,
     contextId: identity.context,
     origin: fake.origin,
     protectedOrigins: ['https://protected.invalid'],
     credential: 'owned-fake-token',
+    ...(options.media ? { attachmentCapability: MEDIA_CAPABILITY } : {}),
   }
   const runnerConfig: ManualRunnerConfig = {
     runnerDatabaseUrl: runner.url,
@@ -102,6 +119,7 @@ export async function manualFixture() {
     gateRoot,
     deploymentId,
     profile,
+    ...(options.media ? { mediaBlobRoot: blobRoot } : {}),
   }
   const runnerConfigPath = join(root, 'runner.json')
   await writeFile(runnerConfigPath, JSON.stringify(runnerConfig), { mode: 0o600 })
@@ -114,6 +132,7 @@ export async function manualFixture() {
     apiKey: 'owned-fake-token',
     deploymentId,
     readOrigin: fake.origin,
+    ...(options.media ? { mediaEnabled: true } : {}),
   }
   const transport = inventoryTransport({ ...profile, kind: 'protected-read-only' })
   const read = captureRead((operation) =>
@@ -122,9 +141,12 @@ export async function manualFixture() {
   let app: ReturnType<typeof createServer> | undefined
   let token = ''
   async function start() {
-    app = createServer(config)
+    app = createServer(config, { mediaEnabled: Boolean(store) })
     registerCapture(app, api.pool, config, read)
     registerManual(app, api.pool, config, read)
+    if (store) {
+      registerMediaRoutes(app, api.pool, config, store)
+    }
     config.origin = await app.listen({ host: '127.0.0.1', port: 0 })
     await authenticate()
   }
@@ -151,6 +173,7 @@ export async function manualFixture() {
   await start()
   return {
     db,
+    store,
     identity,
     root,
     gateRoot,
@@ -171,7 +194,7 @@ export async function manualFixture() {
     async restartFake() {
       const port = fake.port
       await fake.close()
-      fake = await inventoryFake(db.pool, port, true)
+      fake = await inventoryFake(db.pool, port, true, options.media)
     },
     async seedCapture() {
       const created = await http('/batches', {

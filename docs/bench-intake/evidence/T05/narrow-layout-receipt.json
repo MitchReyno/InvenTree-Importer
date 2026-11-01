@@ -1,0 +1,17 @@
+{
+  "viewport": 390,
+  "document": 390,
+  "dialog": {
+    "x": 19,
+    "y": 16,
+    "width": 352,
+    "height": 812,
+    "top": 16,
+    "right": 371,
+    "bottom": 828,
+    "left": 19
+  },
+  "dialogWidth": 350,
+  "sourceTransform": "none",
+  "outputLoaded": true
+}

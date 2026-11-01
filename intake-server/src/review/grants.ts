@@ -9,7 +9,20 @@ export async function grantManual(pool: Pool, role: string, purpose: 'api' | 'ru
   await pool.query(
     `GRANT SELECT ON manual_review,manual_prepare_command,manual_read_intent,manual_read_result,manual_preparation,manual_preparation_review,manual_preparation_lot,manual_prepare_outcome,manual_approval,manual_run,manual_dispatch TO ${role}`,
   )
+  const mediaTables = await pool.query(
+    "SELECT to_regclass('public.manual_preparation_media') AS relation",
+  )
+  if (mediaTables.rows[0].relation) {
+    await pool.query(`GRANT SELECT ON manual_preparation_media,media_evidence TO ${role}`)
+    if (purpose === 'api') {
+      await pool.query(`GRANT INSERT ON manual_preparation_media TO ${role}`)
+    }
+  }
   if (purpose === 'api') {
+    const media = await pool.query("SELECT to_regclass('public.media_batch') AS relation")
+    if (media.rows[0].relation) {
+      await pool.query(`GRANT SELECT ON media_batch TO ${role}`)
+    }
     await grantExecutor(pool, role, 'approval')
     await pool.query(`GRANT INSERT ON manual_review,manual_prepare_command,manual_read_intent,manual_read_result,manual_preparation,manual_preparation_review,manual_preparation_lot,manual_prepare_outcome,manual_approval,manual_run,manual_dispatch TO ${role};
       GRANT USAGE ON SEQUENCE manual_dispatch_sequence_seq TO ${role}`)

@@ -36,7 +36,7 @@ Reviewed SQL remains the DDL authority. Explicit parameterized SQL retains the a
 
 `db/authority.ts` exposes payload-bound idempotency inside the caller-owned transaction, byte verification and commit-ordered event allocation. Idempotency serializes absent as well as present keys using a transaction advisory lock; exact canonical bytes are compared as well as their digest. Different property order is equivalent; changed semantic payload conflicts. Domain writes and dedup result must commit together. A lost commit acknowledgement is **not automatically retried**; consuming features must inspect stable keys read-only and retain uncertainty. No network call belongs inside a retried database transaction.
 
-The global order is idempotency scope → target head → source guard → batch → subject/current heads sorted by ID → job/attempt/question → run/operation/request → stream heads sorted by ID. Skip absent domains, never acquire earlier domains after later locks. `appendEvent` holds the stream-head row lock until the caller commits/rolls back; an unrelated transaction cannot publish a later sequence first. Consistent future snapshots require one repeatable-read view of state and stream head. T02 owns capture migrations/repositories; T03 owns source guards/execution tables and dedicated writer-lock connection; they must coordinate migration IDs and shared contracts rather than query each other's SQL internals. No distributed writer, advisory-lock-only failover or automatic uncertain-write retry is enabled.
+The global order is idempotency scope → target head → source guard → batch → subject/current heads sorted by ID → media revision → blob digests sorted by digest → job/attempt/question → run/operation/request → stream heads sorted by ID. Skip absent domains, never acquire earlier domains after later locks. `appendEvent` holds the stream-head row lock until the caller commits/rolls back; an unrelated transaction cannot publish a later sequence first. Consistent future snapshots require one repeatable-read view of state and stream head. T02 owns capture migrations/repositories; T03 owns source guards/execution tables and dedicated writer-lock connection; they must coordinate migration IDs and shared contracts rather than query each other's SQL internals. No distributed writer, advisory-lock-only failover or automatic uncertain-write retry is enabled.
 
 ## Durable-runtime qualification boundary
 
@@ -57,3 +57,31 @@ New approval, executor reservation/run, command/outbox, semantic idempotency and
 Start, cancellation and selected safe recovery are durable original-run commands. Only the explicit `review/runner-main.ts` process receives private fake apply configuration. Public DBOS registration/enqueue/inspection delivers commands; it grants no physical ownership. An already claimed dispatch is inspection-only on scheduler recovery. Only the supervisor/physical child may write, under the unchanged host/advisory/activation/witness protocol. Imports, web/autoreload and migrations start no runner.
 
 Journal changes and dispatch receipts append projection events and advance the retained run revision/owning stream in the same transaction. Repeatable-read snapshots pair complete original journal outcomes with a consistent cursor. An interrupted physical owner is recovery-required, never permission to relaunch. The [T04 record](../docs/handovers/bench-intake-T04.md) distinguishes actual browser/process observations, controlled fault fixtures and unsupported production capabilities.
+
+## Retained media and additive attachment execution
+
+T05 adds optional retained JPEG/PNG/PDF evidence. An explicitly configured private root
+binds to an immutable DB store UUID. Wrong DB/root identity or an unmarked nonempty root
+fails closed. Raw uploads are bounded; authorized receipts distinguish retention from
+readability. Originals remain unchanged and only generated PNG previews are inline.
+
+Media queries use typed Drizzle declarations through the original transaction client.
+The media-owned search-path fence precedes initial capture authorization and reads;
+foundation transaction behavior is unchanged. Atomic claim/lock, GC positive references
+and immutable pin authority remain explicit SQL. Decoder publication and human edits share
+the media exclusion before sorted digest locks. Collection never acquires batch locks
+following a digest lock and cannot unpin or delete retained history.
+
+Decoding is an explicit one-command worker in a pinned local Linux container with native
+memory/CPU/PID/tmpfs/time bounds, no network and no host mounts. No decoder or inventory
+apply starts from web import. Source/derived hashes, normalized coordinates and immutable
+recipe versions are retained. The original quarter-turn recipe remains unchanged; an
+additive rotated-region recipe extracts a rotating selection while the source remains fixed.
+
+Additive media plans seal supporting provenance and selected file destinations under the
+original approval/run. All supporting bytes are checked before stock dispatch. Attachment
+confirmation requires byte/hash and stock/artifact verification. Unknown ACKs authorize
+explicit reads only; positive no-effect repair never creates extra stock. Removed confirmed
+attachments remain historical effects and cannot be replaced. Actual InvenTree mutation
+profiles, providers and production access remain unqualified. See the current
+[T05 handover](../docs/handovers/bench-intake-T05.md) for observations and remaining gates.

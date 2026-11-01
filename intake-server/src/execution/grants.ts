@@ -14,6 +14,20 @@ export async function grantExecutor(
   await pool.query(`GRANT USAGE ON SCHEMA public TO ${role};
     GRANT SELECT ON operator,target,target_context,command,outbox,executor_deployment,executor_source,executor_guard,executor_approval,executor_run,executor_operation,executor_cancel,executor_recovery,executor_intent,executor_result,executor_effect,executor_verification TO ${role};
   `)
+  const media = await pool.query("SELECT to_regclass('public.executor_attachment') AS relation")
+  if (media.rows[0].relation) {
+    await pool.query(`GRANT SELECT ON media_store_identity,executor_attachment,executor_attachment_recovery,
+      executor_attachment_intent,executor_attachment_result,executor_attachment_effect,
+      executor_attachment_verification,media_approval_pin,media_version,media_blob TO ${role}`)
+    if (purpose === 'approval') {
+      await pool.query(
+        `GRANT INSERT ON executor_attachment,executor_attachment_recovery,media_approval_pin TO ${role}`,
+      )
+    } else if (purpose === 'apply') {
+      await pool.query(`GRANT INSERT ON executor_attachment_intent,executor_attachment_result,
+        executor_attachment_effect,executor_attachment_verification TO ${role}`)
+    }
+  }
   if (purpose === 'delivery') {
     await pool.query(`GRANT UPDATE(delivery_attempts,acked_at,conflict_code) ON outbox TO ${role}`)
     return

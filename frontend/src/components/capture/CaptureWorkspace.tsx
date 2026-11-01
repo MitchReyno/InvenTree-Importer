@@ -1,6 +1,6 @@
 import { Notice, HeadingRow, Caption } from '../ui/primitives'
 import { Button, Heading, Panel, Paragraph } from '../ui/primitives'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import styled from 'styled-components'
 import { CaptureHeader } from './CaptureHeader'
@@ -11,6 +11,7 @@ import { CaptureEditor } from './CaptureEditor'
 export function CaptureWorkspace({
   batch,
   busy,
+  media,
   edit,
   observe,
   onStage,
@@ -18,12 +19,26 @@ export function CaptureWorkspace({
 }: CaptureWorkspaceProps) {
   const [selected, select] = useState(() => location.hash.split('/')[1] || 'defaults')
   const [focused, setFocused] = useState(() => Boolean(location.hash.split('/')[1]))
-  const [dirty, setDirty] = useState(false)
+  const [editorDirty, setDirty] = useState(false)
+  const [mediaDirty, setMediaDirty] = useState(false)
+  const dirtyFlags = useRef({ editor: false, media: false })
+  const dirty = editorDirty || mediaDirty
+
+  const reportMediaDirty = useCallback(
+    (value: boolean) => {
+      dirtyFlags.current.media = value
+      setMediaDirty(value)
+      onDirtyChange?.(dirtyFlags.current.editor || dirtyFlags.current.media)
+    },
+    [onDirtyChange],
+  )
+
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
 
   function reportDirty(value: boolean) {
+    dirtyFlags.current.editor = value
     setDirty(value)
-    onDirtyChange?.(value)
+    onDirtyChange?.(dirtyFlags.current.editor || dirtyFlags.current.media)
   }
 
   function setSelected(value: string) {
@@ -81,9 +96,12 @@ export function CaptureWorkspace({
         <EvidencePanel
           batch={batch}
           selected={selected}
-          dirty={dirty}
+          dirty={editorDirty}
+          navigationDirty={dirty}
           frozen={frozen}
           setSelected={setSelected}
+          media={media}
+          onMediaDirtyChange={reportMediaDirty}
         />
         <EditorPanel data-area="editor" aria-labelledby="editor-title">
           <HeadingRow>
@@ -113,8 +131,8 @@ export function CaptureWorkspace({
             key={selected}
             batch={batch}
             selected={selected}
-            frozen={frozen}
-            dirty={dirty}
+            frozen={frozen || mediaDirty}
+            dirty={editorDirty}
             onDirty={reportDirty}
             edit={edit}
             observe={observe}

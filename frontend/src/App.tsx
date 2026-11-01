@@ -1,7 +1,7 @@
 import { Button, PageTitle, Panel, Paragraph, Notice } from './components/ui/primitives'
 import { useMemo, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { captureClient, intakeClient, manualClient } from '@invimport/contracts/client'
+import { captureClient, intakeClient, manualClient, mediaClient } from '@invimport/contracts/client'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { serverScopeIdentity } from './queries/scope'
 import { Batches } from './components/batches/Batches'
@@ -38,6 +38,13 @@ export default function App() {
     () => (bootstrap?.csrf_token ? manualClient(location.origin, bootstrap.csrf_token) : null),
     [bootstrap],
   )
+  const media = useMemo(
+    () =>
+      bootstrap?.csrf_token && bootstrap.media_enabled === true
+        ? mediaClient(location.origin, bootstrap.csrf_token)
+        : undefined,
+    [bootstrap],
+  )
   let content: ReactNode
   if (bootstrapUnavailable && !bootstrap) {
     content = (
@@ -68,6 +75,7 @@ export default function App() {
         id={route.split('/')[0]}
         client={client}
         manual={manual}
+        media={media}
         route={route}
         onDirtyChange={onDirtyChange}
       />

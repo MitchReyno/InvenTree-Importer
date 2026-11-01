@@ -1,0 +1,13 @@
+{
+  "result": "pass",
+  "decoder_image": "sha256:9c0ee883543576d689830057a6e31cb60c753b4de3e9c6a5443747f2f852d8ab",
+  "probe_image": "sha256:3e4aeb0726258c70b82970b0eb6aa2486ffa8e00ade893111c7bd0b6f54c8210",
+  "both_images_retained": true,
+  "workflow": ".github/workflows/test.yml",
+  "step": "Build bounded decoder and isolated resource probe images",
+  "qualification": "local execution of the exact workflow step; hosted CI remains pending",
+  "private_exclusive_output_files": true,
+  "ci_path_tests_passed": 21,
+  "live_model_calls": 0,
+  "inventory_requests": 0
+}

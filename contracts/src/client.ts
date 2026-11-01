@@ -1,6 +1,4 @@
-import createClient from 'openapi-fetch'
 import type {
-  paths,
   BatchCreate,
   CaptureEdit,
   CaptureObserve,
@@ -9,25 +7,10 @@ import type {
   ManualRunCommand,
   ManualRecoveryCommand,
 } from '../generated/api.d.ts'
-import { compatibleTransport, contractMiddleware, successfulData } from './client-policy.ts'
+import { successfulData } from './client-policy.ts'
+import { typedClient, commandHeaders } from './client-runtime.ts'
 
 export { IntakeRequestError } from './client-policy.ts'
-
-function typedClient(baseUrl: string, transport: typeof fetch, csrfToken?: string) {
-  // Preserve the original absolute API-path behavior when a caller supplies a base URL path.
-  const client = createClient<paths>({
-    baseUrl: new URL('/', baseUrl).href.replace(/\/$/, ''),
-    redirect: 'error',
-    fetch: compatibleTransport(transport),
-  })
-  client.use(contractMiddleware(csrfToken))
-
-  return client
-}
-
-function commandHeaders(key: string) {
-  return { 'idempotency-key': key ?? crypto.randomUUID() }
-}
 
 /** Compatibility facade; paths, request bodies and response types come from OpenAPI. */
 export function captureClient(baseUrl: string, csrfToken: string, transport: typeof fetch = fetch) {

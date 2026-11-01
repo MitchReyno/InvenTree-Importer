@@ -8,6 +8,7 @@ export interface ClientOperation {
   timeoutMs: number
   errorMode: 'typed' | 'setup'
   requestSchema?: SchemaName
+  requestMediaType?: 'application/octet-stream'
   responseSchema: SchemaName
 }
 
@@ -39,6 +40,12 @@ export function contractMiddleware(csrfToken?: string): Middleware {
       })
       if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
         boundedRequest.headers.set('x-intake-csrf', csrfToken ?? '')
+      }
+      if (
+        operation.requestMediaType &&
+        boundedRequest.headers.get('content-type') !== operation.requestMediaType
+      ) {
+        throw new Error('invalid_contract')
       }
       if (operation.requestSchema) {
         validate(operation.requestSchema, await boundedRequest.clone().json())

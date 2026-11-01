@@ -3,17 +3,31 @@ import { Button, Heading, Panel, Paragraph, Small, Subheading, Summary } from '.
 import type { Snapshot } from '../../capture/types'
 import { display } from '../../capture/display'
 import styled from 'styled-components'
+import type { MediaClient } from '../../media/types'
+import { MediaWorkspace } from '../media/MediaWorkspace'
 import { HumanNote } from './HumanNote'
 
 type Props = {
   batch: Snapshot
+  media?: MediaClient
+  onMediaDirtyChange: (dirty: boolean) => void
   selected: string
   dirty: boolean
+  navigationDirty: boolean
   frozen: boolean
   setSelected: (value: string) => void
 }
 
-export function EvidencePanel({ batch, selected, dirty, frozen, setSelected }: Props) {
+export function EvidencePanel({
+  batch,
+  selected,
+  dirty,
+  navigationDirty,
+  frozen,
+  setSelected,
+  media,
+  onMediaDirtyChange,
+}: Props) {
   const lot = batch.lots.find((l) => l.id === selected)
   const part = batch.parts.find((p) => p.id === selected)
   const sharedPart = part ?? batch.parts.find((p) => p.id === lot?.part_subject_id)
@@ -32,7 +46,7 @@ export function EvidencePanel({ batch, selected, dirty, frozen, setSelected }: P
     <EvidenceArea data-area="context" aria-labelledby="evidence">
       <HeadingRow>
         <Heading id="evidence">Human note evidence</Heading>
-        <Button disabled={dirty || frozen} onClick={() => setSelected('note')}>
+        <Button disabled={navigationDirty || frozen} onClick={() => setSelected('note')}>
           Add note
         </Button>
       </HeadingRow>
@@ -73,6 +87,15 @@ export function EvidencePanel({ batch, selected, dirty, frozen, setSelected }: P
             <HumanNote key={n.id} note={n} batch={batch} />
           ))}
         </details>
+      )}
+      {media && (
+        <MediaWorkspace
+          batch={batch}
+          client={media}
+          disabled={dirty || frozen}
+          selectedSubject={selected}
+          onDirtyChange={onMediaDirtyChange}
+        />
       )}
       <IdentityDetails>
         <Summary>Retained source identity</Summary>

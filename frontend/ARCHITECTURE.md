@@ -8,7 +8,7 @@ React and TypeScript run in a Vite browser application. `index.html` loads `src/
 
 `src/components/capture/CaptureWorkspace.tsx` coordinates focused header, queue, evidence, editor and field components, each in its own `.tsx` file. Batch list/detail components live in `src/components/batches/`; retained data/client types and pure display mapping stay in `src/capture/`. The capture components own the compact lot queue, human-note/context panel and focused details editor. Shared Part proposals never combine physical lots. Exact quantity and PK strings stay strings; notes visibly identify human provenance. Defaults and explicit lot selections retain unset/unknown/clear/inherit/set distinctions. Reading a configured target's existing Part/location creates an observation; selecting it is a separate human action. No browser command accepts a target URL, actor or inventory secret. Only manual quantity, location, existing Part choice, labels, links and append-only notes are implemented.
 
-Each save carries the loaded batch revision. A 412 preserves local inputs and displays current saved values; explicit discard/reload is required, never silent rebase or last-write-wins. A single dirty editor disables subject navigation/archive, with explicit discard. The app-owned navigation guard receives synchronous dirty callbacks from Capture and nonempty new-batch title/note forms. It blocks same-document links and hash/history route acceptance while retaining the mounted form and exact input; native unload is protected too. Save/create or explicit discard releases the guard. Transient review selections/archive filters do not lock navigation. A failed/uncertain save remains visibly unconfirmed; it is not blindly retried. Archive retains history and disables editing until explicit resume. Review, Approve and Results use the generated manual client; Processing remains explicitly unavailable. There is no upload, provider or Python runtime connection.
+Each save carries the loaded batch revision. A 412 preserves local inputs and displays current saved values; explicit discard/reload is required, never silent rebase or last-write-wins. A single dirty editor disables subject navigation/archive, with explicit discard. The app-owned navigation guard receives synchronous dirty callbacks from Capture and nonempty new-batch title/note forms. It blocks same-document links and hash/history route acceptance while retaining the mounted form and exact input; native unload is protected too. Save/create or explicit discard releases the guard. Transient review selections/archive filters do not lock navigation. A failed/uncertain save remains visibly unconfirmed; it is not blindly retried. Archive retains history and disables editing until explicit resume. Review, Approve and Results use the generated manual client; Processing remains explicitly unavailable. Retained uploads and crop preparation are described below. There is no provider or Python runtime connection.
 
 Capture's editor and the separate `components/batches/NewBatchForm.tsx` use pinned React Hook Form. Native fields register directly; Controller adapts the existing quantity/reference controls without changing their modes or exact string values. `capture/editor-model.ts` owns initial values and command construction. Editor defaults remain fixed for the mounted selection, so newer snapshots do not reset a human draft. Synchronous event callbacks still feed the application navigation guard. The form package does not own revision authority, uncertain acknowledgements or payload-bound delivery keys; new-batch creation preserves its existing retry intent independently of form submission state.
 
@@ -32,6 +32,26 @@ Cache data is an observation, never edit or command authority. Capture retains i
 
 `ServerState.test.tsx` verifies scope isolation and late prior responses. App/manual component tests cover deduplication, periodic recovery, paused reads, accepted revisions, retained drafts, pinned preparation identity and lost acknowledgement. The [server-state handover](../docs/handovers/bench-intake-server-state.md) records actual browser evidence and package qualification.
 
+## Retained media and crop state
+
+Bootstrap exposes optional media capability only for an initialized, explicitly configured
+private store. App supplies the generated media client only when that capability is true.
+Media components keep original bytes, request keys/revisions and crop identities outside the
+observation cache. Failed, paused or unfetched-this-mount reads disable new media commands
+without resetting pending input. Capture and media dirtiness remain separate.
+
+RHF coordinates group and frame/aspect forms. Moveable controls only the crop overlay;
+the normalized source image stays fixed. Exact rational source dimensions correct CSS
+rounding before server validation. Prepared output is gated by the submitted derivation ID
+and exact recipe. An uncertain request retains its identity; explicit new-crop selection
+creates a new intent using the current successfully read revision.
+
+The crop dialog portals to the document body so responsive hiding of Capture context cannot hide an open modal. Native close events also reconcile the React editor lifetime: unsent or confirmed views close through the parent, while pending or uncertain requests keep their exact intent and reachable retry/discard controls.
+
+Desktop follows the original crop editor/result hierarchy; narrow screens stack them. Existing reference bytes and the light/neutral/blue palette remain unchanged.
+
+Prepared approval and results show exact attachment identity, source provenance and destination; they never choose a current/latest replacement implicitly.
+
 ## Tooling and application ownership
 
 Frontend dependencies and scripts live in `package.json` here. Root pnpm owns the workspace/control point and single lockfile; `.node-version` and root `packageManager` pin the toolchain. React/Vite/TypeScript/styled-components/plugin versions are pinned in the frontend manifest, as is three.js, which renders only the decorative masthead in its own lazily loaded chunk; Python dependencies stay entirely in backend.
@@ -42,4 +62,4 @@ From repository root, `pnpm dev`, `pnpm typecheck`, `pnpm lint:frontend`, `pnpm 
 
 ## Future work — not implemented
 
-Upload/media retention, automated processing, provider inference, broader effects/shared metadata and final InvenTree authentication/access qualification remain future work, not hidden features. Manual execution is qualified only against an owned persistent fake; no actual InvenTree mutation profile is supported. Existing capture source/contribution identities, immutable human notes and exact selection histories are the future integration seam; do not replace them with a disposable browser draft or copy historical prototype timers/localStorage. Capture and review use reviewed public contracts and owning repository seams, not sibling SQL internals. Normal remote/phone deployment is not enabled by changing the loopback bind.
+Automated processing, provider inference, broader effects/shared metadata and final InvenTree authentication/access qualification remain future work, not hidden features. Manual execution is qualified only against an owned persistent fake; no actual InvenTree mutation profile is supported. Existing capture source/contribution identities, immutable human notes and exact selection histories are the future integration seam; do not replace them with a disposable browser draft or copy historical prototype timers/localStorage. Capture and review use reviewed public contracts and owning repository seams, not sibling SQL internals. Normal remote/phone deployment is not enabled by changing the loopback bind.

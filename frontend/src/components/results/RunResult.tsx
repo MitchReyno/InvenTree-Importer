@@ -1,3 +1,5 @@
+import { AttachmentResult } from './AttachmentResult'
+import type { RunRecoverySelection } from '../../manual/types'
 import styled from 'styled-components'
 import type { ManualRunDto } from '@invimport/contracts'
 import {
@@ -18,7 +20,7 @@ interface Props {
   command: (
     run: ManualRunDto,
     action: 'start' | 'cancel' | 'recover',
-    operationKeys?: string[],
+    selection?: RunRecoverySelection,
   ) => void
 }
 const states: Record<ManualRunDto['state'], string> = {
@@ -88,12 +90,24 @@ export function RunResult({ run, busy, command }: Props) {
           {operation.recovery_allowed && (
             <Button
               disabled={busy}
-              onClick={() => command(run, 'recover', [operation.operation_key])}
+              onClick={() =>
+                command(run, 'recover', { kind: 'stock', keys: [operation.operation_key] })
+              }
             >
               Resume original operation: {operation.lot_label}
             </Button>
           )}
         </Operation>
+      ))}
+      {run.attachments?.map((attachment) => (
+        <AttachmentResult
+          key={attachment.artifact_key}
+          attachment={attachment}
+          busy={busy}
+          recover={() =>
+            command(run, 'recover', { kind: 'attachment', keys: [attachment.artifact_key] })
+          }
+        />
       ))}
       {untouched.length > 0 && (
         <Small>

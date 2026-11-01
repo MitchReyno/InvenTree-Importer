@@ -4,12 +4,15 @@ import type {
   CaptureObservationDto,
 } from '@invimport/contracts'
 
+import type { MediaClient } from '../media/types'
+
 export type Snapshot = CaptureSnapshotDto
 export type Quantity = Snapshot['lots'][number]['quantity']
 export type Reference = Snapshot['lots'][number]['location']
 export type CaptureWorkspaceProps = {
   batch: Snapshot
   busy: boolean
+  media?: MediaClient
   edit: (change: CaptureEditDto['change']) => Promise<void>
   observe: (model: 'part' | 'location', pk: string) => Promise<CaptureObservationDto | null>
   onDirtyChange?: (dirty: boolean) => void
