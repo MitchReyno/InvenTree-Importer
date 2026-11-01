@@ -5,6 +5,8 @@ import { NewBatchForm } from './NewBatchForm'
 import type { BatchCreate } from '../../../../contracts/generated/api.d.ts'
 import type { Client } from '../../capture/client'
 import styled from 'styled-components'
+import { useQuery } from '@tanstack/react-query'
+import { serverQueryKey, useServerScope } from '../../queries/scope'
 
 export function Batches({
   client,
@@ -13,8 +15,12 @@ export function Batches({
   client: Client
   onDirtyChange: (dirty: boolean) => void
 }) {
-  const [batches, setBatches] = useState<Awaited<ReturnType<Client['list']>> | null>(null)
-  const [error, setError] = useState('')
+  const scope = useServerScope()
+  const batchesQuery = useQuery({
+    queryKey: serverQueryKey(scope, 'batches'),
+    queryFn: () => client.list(),
+  })
+  const batches = batchesQuery.data
   const [archived, setArchived] = useState(false)
   const [creating, setCreating] = useState(false)
   // Command identity outlives the mountable editor, including discard/reopen after lost ACK.
@@ -22,24 +28,13 @@ export function Batches({
 
   useEffect(() => () => onDirtyChange(false), [onDirtyChange])
 
-  useEffect(() => {
-    let active = true
-    void client
-      .list()
-      .then((value) => {
-        if (active) {
-          setBatches(value)
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setError('Cannot load retained batches. Check capture database setup and retry.')
-        }
-      })
-    return () => {
-      active = false
+  function reportDraftDirty(dirty: boolean) {
+    if (dirty) {
+      // A list refresh must not unmount an automatically opened form containing human input.
+      setCreating(true)
     }
-  }, [client])
+    onDirtyChange(dirty)
+  }
 
   function createBatch(input: BatchCreate) {
     const payload = JSON.stringify(input)
@@ -66,13 +61,17 @@ export function Batches({
         Start with a note or known values. Each packet stays a distinct physical lot, even when it
         shares a Part.
       </Intro>
-      {error && <Paragraph role="alert">{error}</Paragraph>}
+      {(batchesQuery.isError || batchesQuery.fetchStatus === 'paused') && (
+        <Paragraph role="alert">
+          Cannot load retained batches. Check capture database setup and retry.
+        </Paragraph>
+      )}
       {(creating || batches?.batches.length === 0) && (
         <Panel aria-labelledby="new-batch">
           <Heading id="new-batch">New batch</Heading>
           <NewBatchForm
             create={createBatch}
-            onDirtyChange={onDirtyChange}
+            onDirtyChange={reportDraftDirty}
             onDiscard={() => setCreating(false)}
           />
         </Panel>

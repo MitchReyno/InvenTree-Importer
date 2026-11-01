@@ -1,4 +1,13 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act } from '@testing-library/react'
+import type { ReactNode } from 'react'
+import { captureClient, manualClient } from '@invimport/contracts/client'
+import { Batch } from './components/batches/Batch'
+import { ServerStateProvider } from './components/query/ServerStateProvider'
+import { createServerQueryClient } from './queries/client'
+import { serverQueryKey } from './queries/scope'
+import { fixtureScope } from './test/render'
+import { render } from './test/render'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import App from './App'
@@ -466,4 +475,116 @@ test('new batch form retains payload and delivery key after an uncertain acknowl
   await user.click(screen.getByRole('button', { name: 'Create retained batch' }))
   await waitFor(() => expect(create).toHaveBeenCalledTimes(3))
   expect(create.mock.calls[2]).toEqual(create.mock.calls[0])
+})
+
+test('a refreshed query cache cannot replace Capture input or its accepted edit revision', async () => {
+  const cache = createServerQueryClient()
+  const edits: unknown[] = []
+  let reads = 0
+  const transport: typeof fetch = async (input, init) => {
+    if (new URL(String(input)).pathname.endsWith('/edits')) {
+      edits.push(JSON.parse(String(init?.body)))
+      return response(
+        {
+          code: 'revision_conflict',
+          message: 'Other client saved',
+          recovery: 'refresh',
+          correlation_id: 'owned-query-fixture',
+        },
+        412,
+      )
+    }
+    reads += 1
+    return response(
+      reads === 1
+        ? fixture
+        : { ...fixture, title: 'New server title', revision: '9007199254740994' },
+    )
+  }
+  const client = captureClient(location.origin, 'a'.repeat(64), transport)
+  const manual = manualClient(location.origin, 'a'.repeat(64), async () => {
+    throw new Error('unexpected_manual_transport')
+  })
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerStateProvider scope={fixtureScope} client={cache}>
+        {children}
+      </ServerStateProvider>
+    )
+  }
+
+  const user = userEvent.setup()
+  render(
+    <Batch id={batchId} route={batchId} client={client} manual={manual} onDirtyChange={vi.fn()} />,
+    { wrapper: Wrapper },
+  )
+  await screen.findByRole('heading', { name: 'Separate packets' })
+  await user.click(screen.getByRole('button', { name: 'Batch title' }))
+  await user.clear(screen.getByLabelText('Title'))
+  await user.type(screen.getByLabelText('Title'), 'Keep my human draft')
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'capture', batchId) })
+  })
+  expect(cache.getQueryData(serverQueryKey(fixtureScope, 'capture', batchId))).toEqual(
+    expect.objectContaining({ revision: '9007199254740994' }),
+  )
+  expect(screen.getByLabelText('Title')).toHaveValue('Keep my human draft')
+  expect(screen.getByText('Saved · revision 9007199254740993')).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Save human changes' }))
+  await screen.findByText(/Another client saved first/)
+  expect(edits).toEqual([
+    {
+      expected_revision: '9007199254740993',
+      change: { kind: 'batch', title: 'Keep my human draft' },
+    },
+  ])
+  expect(screen.getByLabelText('Title')).toHaveValue('Keep my human draft')
+})
+
+test('an unavailable bootstrap refresh within the same scope preserves the mounted human draft', async () => {
+  const cache = createServerQueryClient()
+  let bootstrapAvailable = true
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const path = new URL(String(input)).pathname
+    if (path.endsWith('/bootstrap')) {
+      if (!bootstrapAvailable) {
+        throw new Error('owned_bootstrap_unavailable')
+      }
+      return response({
+        mode: 'development-key',
+        banner: 'Single-operator development mode — not a verified human session',
+        status: 'configured',
+        actor_id: fixture.actor_id,
+        target_id: fixtureScope.targetId,
+        target_context_id: fixture.target_context_id,
+        mutation_enabled: false,
+        permission_gate: 'deferred_T11',
+        csrf_token: 'a'.repeat(64),
+      })
+    }
+    if (path.endsWith('/activity')) {
+      return response({ runs: [], truncated: false })
+    }
+    return response(fixture)
+  })
+  location.hash = batchId
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return <ServerStateProvider client={cache}>{children}</ServerStateProvider>
+  }
+
+  const user = userEvent.setup()
+  render(<App />, { wrapper: Wrapper })
+  await screen.findByRole('heading', { name: 'Separate packets' })
+  await user.click(screen.getByRole('button', { name: 'Batch title' }))
+  await user.clear(screen.getByLabelText('Title'))
+  await user.type(screen.getByLabelText('Title'), 'Keep this draft while offline')
+  bootstrapAvailable = false
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: ['bootstrap', location.origin] })
+  })
+  await screen.findByText(/Application connection unavailable/)
+  expect(screen.getByLabelText('Title')).toHaveValue('Keep this draft while offline')
+  expect(screen.getByRole('button', { name: 'Add lot' })).toBeDisabled()
 })
