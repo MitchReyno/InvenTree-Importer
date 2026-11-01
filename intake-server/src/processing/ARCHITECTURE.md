@@ -4,7 +4,7 @@ This module implements durable coordination for the explicit synthetic research 
 
 ## Inputs and attempts
 
-`processing_input` retains canonical `bench-intake-input/1` bytes and SHA-256, exact string values, source/subject lineage, selected human values, notes, dependency attempt IDs and answer identity. Trusted instruction bytes and their digest live in the immutable synthetic profile; the manifest binds that digest and the restricted tool-profile version. Runtime decoders verify both retained-byte integrity and strict shape before treating JSON as a domain type.
+`processing_input` retains canonical input bytes and SHA-256, exact string values, source/subject lineage, selected human values, notes, dependency attempt IDs and answer identity. Legacy `bench-intake-input/1` remains note-only with exact empty-media semantics. New `bench-intake-input/2` binds the exact owning media canonical string and its digest, including version/evidence IDs, recipes and attachment choices. Numeric recipe coordinates remain inside that string; Processing does not recanonicalize them using its number-free JSON format. Trusted instruction bytes and their digest live in the immutable synthetic profile; the manifest binds that digest and the restricted tool-profile version. Runtime decoders verify both retained-byte integrity and strict shape before treating JSON as a domain type.
 
 A logical job is unique by batch, subject and stage. Its selected attempt is an exact-parent foreign key; a new attempt never rewrites the old input or messages. Stage dependencies reference exact attempts in the same batch and advance through the stage order, preventing dependency cycles. Old dependency IDs never redirect to newer attempts automatically. An accepted human answer creates fresh downstream attempts with an explicit replacement closure in the same transaction.
 
@@ -12,7 +12,7 @@ A logical job is unique by batch, subject and stage. Its selected attempt is an 
 
 Browser commands use the existing server-bound development actor/target/context and origin/CSRF checks. Idempotency compares the full normalized payload and retains the original response. The deployment must explicitly configure a persistent private processing-channel secret; no ephemeral fallback is generated. Missing configuration permits retained inspection and cancellation while blocking new starts/answers.
 
-DBOS delivers immutable commands through the existing complete workflow-name/class/config/queue/version/argument comparison. Worker claims recheck the actual build, command bytes, input bytes, profile and current attempt. A durable lane serializes research for the server actor in the synthetic single-owner profile. That is not proof of a real personal provider account binding; T07 must qualify the native account route.
+DBOS delivers immutable commands through the existing complete workflow-name/class/config/queue/version/argument comparison. Worker claims recheck the actual build, command bytes, input bytes, profile, retained media binding and current attempt. The V2 worker never executes a retained V1 command as its own build; a queued legacy attempt exposes a version blocker and needs an explicit fresh attempt. Legacy accepted messages and compatible human-answer continuations retain their original authority. A durable lane serializes research for the server actor in the synthetic single-owner profile. That is not proof of a real personal provider account binding; T07 must qualify the native account route.
 
 The coordinator authenticates each versioned envelope with a private capability scoped to its attempt. The injected research adapter receives staged input and trusted instructions with a bound result callback; it receives no channel capability, database connection, inventory credential or apply interface. Unknown envelope kinds, wrong parent/context, sequence gaps and conflicting duplicate payloads fail. Authenticated stale messages remain retained but cannot publish a current proposal or question.
 
@@ -28,15 +28,26 @@ Application questions cannot represent native permission handles. A cancelled/in
 
 Processing has Overview, Reading, Identifying, Research, Images and Inventory views under the existing five primary stages. Question forms pin their first exact question/context; polling updates validity without replacing the editing target or resetting dirty input. Global navigation uses the inherited dirty guard. Complete question/proposal payloads are compared with their accepted sealed producer message before display or answering.
 
-Manual notes support standalone T06. Media consumption remains pending the merged T05 owning resolver/pin interface; processing contains no media SQL, decoder or duplicate blob authority. Actual provider sign-in, capacity and interruption are typed outcomes, but fixture outcomes do not establish real provider support.
+Manual notes support standalone T06; meaningful retained notes or ready relevant media admit a V2 input. Media-only inputs never receive invented notes. Processing consumes merged T05 owning interfaces and contains no media SQL, decoder or duplicate blob authority. A lot consumes its own media plus its linked Part; unrelated subjects do not change the scoped input. The no-tools fixture uses descriptors only and cannot claim media-byte inspection. Actual provider sign-in, capacity and interruption are typed outcomes, but fixture outcomes do not establish real provider support.
 
 ## Verification and limits
 
 The T06 handover records current PostgreSQL, HTTP, DBOS process, browser and normal-suite evidence separately. The original repository environment's InvenTree server remains strictly read-only. Tests use random owned databases, synthetic identities and explicit fixture workers without loading that environment or constructing a target/provider transport.
-
 
 ## Read models and occupied capacity
 
 Ordinary read models use Drizzle on the existing checked-out client; reviewed migration SQL remains the schema authority. Snapshot authorization, input freshness and cursor share one repeatable-read transaction. Question/proposal projections validate the complete accepted producer envelope before returning displayed payloads.
 
 Logical freshness and occupied capacity are separate. The workspace may label changed input superseded while global activity retains a running attempt's recorded state with `input_current=false` and `occupies_lane=true`. A held lane is included before truncation; a held command outside the configured target/context contributes only the aggregate `lane_occupied` flag. Occupancy requires terminal settlement or explicit interruption after reaping, and does not itself prove native process liveness.
+
+## Media locking and retained provenance
+
+Command creation takes authorized capture batch/all sorted subject locks, media revision exclusion and the complete sorted digest union before any actor lane, job, attempt or question lock. The owning bulk seam returns genuine per-subject handles in request order. Each stage/continuation pins its exact handle immediately after inserting the immutable foundation command, including empty scopes. Answer closure discovery happens under the capture lock before media reservation; publication remains last.
+
+Read snapshots and activity use one authorized media snapshot with separate typed results per subject closure. Pending media and input capacity make the old input noncurrent and expose a safe blocker without hiding its history or held lane. Authorization, corrupt/missing retained command bindings and infrastructure failures propagate. Read paths neither acquire domain locks nor manufacture recovery pins.
+
+V2 proposal provenance binds note ID and exact text digest, or evidence ID, version ID and content digest. Retained display verifies the complete accepted producer payload and those sources against the exact input. Worker authority additionally verifies the owning immutable command binding and complete pin set. A digest from another version or batch is insufficient.
+
+Logical cancellation/supersession of a held attempt retains physical lane ownership. Authenticated stale proposal bytes remain inspectable without publishing current proposals or releasing that lane. Only its exact command-ending terminal/question or explicit interruption after reaping settles the claim; old settlement cannot release a newer attempt or regress its selected job.
+
+All actual agent/model/provider usage is prohibited until explicit later user authorization. Deterministic fixtures may exercise coordination and descriptor provenance only. The handover records seven passing PG/public-HTTP cases and three passing actual deterministic child cases for the V2 consumer. Final normal checks, browser qualification and independent review remain separate gates; these fixture results do not establish actual provider support.

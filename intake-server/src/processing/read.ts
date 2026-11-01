@@ -9,11 +9,18 @@ import {
   type ProcessingSnapshotDto,
   type ProcessingStateDto,
   type ProcessingActivityDto,
+  type ProcessingBlockerDto,
 } from '@invimport/contracts'
 import { commands } from '../db/schema.ts'
 import { captureInTransaction } from '../capture/repository.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { processingInputIsCurrent } from './authority.ts'
+import {
+  readProcessingMediaScopes,
+  processingMediaFor,
+  verifyRetainedProcessingMedia,
+  type ProcessingMediaAvailability,
+} from './media.ts'
 import { decodeProcessingInput, fail } from './model.ts'
 import {
   MAX_JOB_RESULTS,
@@ -23,6 +30,7 @@ import {
   MAX_ACTIVITY_BATCHES,
 } from './limits.ts'
 import { retainedQuestionSpec, retainedProposalValue } from './retained.ts'
+import { canCancelProcessingAttempt } from './state.ts'
 import {
   processingJobs,
   processingAttempts,
@@ -43,6 +51,7 @@ const jobColumns = {
   currentAttemptId: processingJobs.currentAttemptId,
   attemptId: processingAttempts.id,
   attemptState: processingAttempts.state,
+  commandId: processingAttempts.commandId,
   attemptNumber: processingAttempts.number,
   inputBytes: processingInputs.manifestBytes,
   inputDigest: processingInputs.manifestDigest,
@@ -66,23 +75,41 @@ async function selectedJobs(client: PoolClient, batchId: string) {
 
 type SelectedJob = Awaited<ReturnType<typeof selectedJobs>>[number]
 
-function inputIsCurrent(job: SelectedJob, capture: CaptureSnapshotDto) {
-  const manifest = decodeProcessingInput(job.inputBytes, job.inputDigest)
-  return (
-    job.currentAttemptId === job.attemptId &&
-    !capture.archived &&
-    processingInputIsCurrent(manifest, capture)
-  )
+interface InputCurrency {
+  current: boolean
+  blockedCode?: ProcessingBlockerDto
 }
 
-function currentJobState(job: SelectedJob, capture: CaptureSnapshotDto): ProcessingStateDto {
-  return inputIsCurrent(job, capture) ? job.state : 'superseded'
+async function inputCurrency(
+  client: PoolClient,
+  config: ProcessingConfig,
+  job: SelectedJob,
+  capture: CaptureSnapshotDto,
+  media: ProcessingMediaAvailability,
+): Promise<InputCurrency> {
+  const manifest = decodeProcessingInput(job.inputBytes, job.inputDigest)
+  await verifyRetainedProcessingMedia(client, config, manifest, job.commandId)
+  if (!media.available) {
+    return { current: false, blockedCode: media.blockedCode }
+  }
+  const current =
+    job.currentAttemptId === job.attemptId &&
+    !capture.archived &&
+    processingInputIsCurrent(manifest, capture, media.inputs)
+  const legacyQueued =
+    manifest.schema_version === 'bench-intake-input/1' && job.attemptState === 'queued'
+  return legacyQueued ? { current, blockedCode: 'worker_version_conflict' } : { current }
+}
+
+function currentJobState(job: SelectedJob, currency: InputCurrency): ProcessingStateDto {
+  return currency.current ? job.state : 'superseded'
 }
 
 async function proposalsForJob(
   client: PoolClient,
   job: SelectedJob,
 ): Promise<ProcessingJobDto['proposals']> {
+  const manifest = decodeProcessingInput(job.inputBytes, job.inputDigest)
   const proposals = await drizzle(client)
     .select({
       ...getTableColumns(processingProposals),
@@ -106,7 +133,7 @@ async function proposalsForJob(
   return proposals.map((proposal) => ({
     id: proposal.id,
     message_id: proposal.messageId,
-    value: retainedProposalValue(proposal, job.subjectId),
+    value: retainedProposalValue(proposal, job.subjectId, manifest),
   }))
 }
 
@@ -157,9 +184,22 @@ export async function processingSnapshot(
   capture: CaptureSnapshotDto,
 ): Promise<ProcessingSnapshotDto> {
   const retainedJobs = await selectedJobs(client, capture.id)
+  const media = await readProcessingMediaScopes(
+    client,
+    config,
+    capture,
+    retainedJobs.map((job) => job.subjectId),
+  )
   const jobs: ProcessingJobDto[] = []
   for (const job of retainedJobs) {
-    const state = currentJobState(job, capture)
+    const currency = await inputCurrency(
+      client,
+      config,
+      job,
+      capture,
+      processingMediaFor(media, job.subjectId),
+    )
+    const state = currentJobState(job, currency)
     const proposals = await proposalsForJob(client, job)
     const questions = await questionsForJob(client, job, state)
     jobs.push({
@@ -172,6 +212,12 @@ export async function processingSnapshot(
       input_sha256: job.inputDigest.toString('hex'),
       attempt_number: job.attemptNumber.toString(),
       qualification: 'fixture_only',
+      can_cancel: canCancelProcessingAttempt(
+        { current_attempt_id: job.currentAttemptId, state: job.state },
+        { id: job.attemptId, state: job.attemptState },
+        capture.archived,
+      ),
+      ...(currency.blockedCode ? { blocked_code: currency.blockedCode } : {}),
       proposals,
       questions,
     })
@@ -220,15 +266,16 @@ async function heldLaneJob(client: PoolClient, config: ProcessingConfig, attempt
 
 function activityJob(
   job: SelectedJob,
-  capture: CaptureSnapshotDto,
+  currency: InputCurrency,
   occupiesLane: boolean,
 ): ProcessingActivityDto['jobs'][number] {
   return {
     batch_id: job.batchId,
     job_id: job.id,
     attempt_id: job.attemptId,
-    state: occupiesLane ? job.attemptState : currentJobState(job, capture),
-    input_current: inputIsCurrent(job, capture),
+    state: occupiesLane ? job.attemptState : currentJobState(job, currency),
+    input_current: currency.current,
+    ...(currency.blockedCode ? { blocked_code: currency.blockedCode } : {}),
     occupies_lane: occupiesLane,
   }
 }
@@ -251,7 +298,17 @@ export async function processingActivity(
     const held = await heldLaneJob(client, config, heldAttemptId)
     if (held) {
       const capture = await captureInTransaction(client, config, held.batchId)
-      jobs.push(activityJob(held, capture.snapshot, true))
+      const media = await readProcessingMediaScopes(client, config, capture.snapshot, [
+        held.subjectId,
+      ])
+      const currency = await inputCurrency(
+        client,
+        config,
+        held,
+        capture.snapshot,
+        processingMediaFor(media, held.subjectId),
+      )
+      jobs.push(activityJob(held, currency, true))
     }
   }
 
@@ -275,12 +332,25 @@ export async function processingActivity(
   for (const batch of batches.slice(0, MAX_ACTIVITY_BATCHES)) {
     const capture = await captureInTransaction(client, config, batch.batchId)
     const retainedJobs = await selectedJobs(client, batch.batchId)
+    const media = await readProcessingMediaScopes(
+      client,
+      config,
+      capture.snapshot,
+      retainedJobs.map((job) => job.subjectId),
+    )
     for (const job of retainedJobs) {
       if (job.attemptId === heldAttemptId) {
         continue
       }
-      if (activeStates.has(currentJobState(job, capture.snapshot))) {
-        jobs.push(activityJob(job, capture.snapshot, false))
+      const currency = await inputCurrency(
+        client,
+        config,
+        job,
+        capture.snapshot,
+        processingMediaFor(media, job.subjectId),
+      )
+      if (activeStates.has(currentJobState(job, currency))) {
+        jobs.push(activityJob(job, currency, false))
       }
     }
     if (jobs.length > MAX_JOBS_PER_BATCH) {

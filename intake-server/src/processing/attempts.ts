@@ -3,7 +3,15 @@ import type { PoolClient } from 'pg'
 import { validate, type CaptureSnapshotDto } from '@invimport/contracts'
 import type { CaptureBinding } from '../capture/repository.ts'
 import { MIN_CHANNEL_SECRET_BYTES, MAX_PROCESSING_SNAPSHOT_BYTES } from './limits.ts'
-import { fail, handlerVersion, inputManifest, profileId, sealed, type Stage } from './model.ts'
+import {
+  fail,
+  mediaHandlerVersion,
+  mediaInputManifest,
+  mediaProfileId,
+  sealed,
+  type Stage,
+} from './model.ts'
+import type { LockedMediaInputs } from '../media/locked-inputs.ts'
 
 export interface ProcessingConfig extends CaptureBinding {
   /** Separate private runner-channel root, never a target/provider credential or DTO. */
@@ -26,13 +34,24 @@ export async function createAttempt(
   job: { id: string; subject_id: string; stage: Stage },
   number: string,
   dependencies: string[],
+  media: LockedMediaInputs,
   parentId: string | null = null,
   answerId: string | null = null,
 ) {
   const attemptId = randomUUID()
   const inputId = randomUUID()
   const commandId = randomUUID()
-  const manifestValue = inputManifest(snapshot, job.subject_id, job.stage, dependencies, answerId)
+  const manifestValue = mediaInputManifest(
+    snapshot,
+    job.subject_id,
+    job.stage,
+    dependencies,
+    answerId,
+    {
+      manifest: media.manifest,
+      sha256: media.manifestDigest,
+    },
+  )
   validate('ProcessingInput', manifestValue)
   const manifest = sealed(manifestValue)
   if (manifest.bytes.length > MAX_PROCESSING_SNAPSHOT_BYTES) {
@@ -44,13 +63,13 @@ export async function createAttempt(
     [inputId, snapshot.id, parentId, snapshot.revision, manifest.bytes, manifest.digest],
   )
   const payload = sealed({
-    schema_version: 'bench-intake-processing-command/1',
+    schema_version: 'bench-intake-processing-command/2',
     job_id: job.id,
     attempt_id: attemptId,
     input_id: inputId,
     input_sha256: manifest.digest.toString('hex'),
-    profile_id: profileId,
-    handler_version: handlerVersion,
+    profile_id: mediaProfileId,
+    handler_version: mediaHandlerVersion,
     command_id: commandId,
   })
   await client.query(
@@ -62,17 +81,18 @@ export async function createAttempt(
       config.targetId,
       config.targetContextId,
       answerId ? 'continue' : 'process',
-      handlerVersion,
+      mediaHandlerVersion,
       `processing:${attemptId}`,
       payload.bytes,
       payload.digest,
     ],
   )
+  await media.pinCommand(commandId)
   const channel = sealed(channelToken(config, attemptId))
   await client.query(
     `INSERT INTO processing_attempt(id,batch_id,job_id,number,input_id,profile_id,command_id,channel_digest,state)
      VALUES($1,$2,$3,$4,$5,$6,$7,$8,'queued')`,
-    [attemptId, snapshot.id, job.id, number, inputId, profileId, commandId, channel.digest],
+    [attemptId, snapshot.id, job.id, number, inputId, mediaProfileId, commandId, channel.digest],
   )
   for (const dependency of dependencies) {
     await client.query(

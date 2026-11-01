@@ -53,15 +53,15 @@ Web BlobStore availability is distinct from DB descriptor authority. Resolve/pin
 
 ## Owned changes after go
 
-| Owner | Files / change |
-| --- | --- |
-| T06 contracts | `contracts/src/processing.ts`: additive V2 input/envelope/proposal unions, typed provenance and safe unavailable-input projection |
-| T06 media consumer | New `processing/media.ts`: owning API adapter, subject closure, exact retained binding verification and shared typed currency result |
-| T06 command paths | `commands.ts`, `answers.ts`, `continuations.ts`, `jobs.ts`, `attempts.ts`: pre-reserve all handles, pass exact closure, pin immediately after command insertion |
+| Owner                    | Files / change                                                                                                                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T06 contracts            | `contracts/src/processing.ts`: additive V2 input/envelope/proposal unions, typed provenance and safe unavailable-input projection                                                     |
+| T06 media consumer       | New `processing/media.ts`: owning API adapter, subject closure, exact retained binding verification and shared typed currency result                                                  |
+| T06 command paths        | `commands.ts`, `answers.ts`, `continuations.ts`, `jobs.ts`, `attempts.ts`: pre-reserve all handles, pass exact closure, pin immediately after command insertion                       |
 | T06 authority/read paths | `model.ts`, `authority.ts`, `runner.ts`, `messages.ts`, `read.ts`, `retained.ts`: version compatibility, media currency, complete provenance seals and truthful stale lane settlement |
-| T06 grants/tests | Processing provisioning consumes owning narrow media read/command-pin helpers; runner gets read/verify only, with no pin manufacturing, decoder, upload, approval or apply capability |
-| Coordinator | Owning read/retained-command media wrappers and grants, shared capture seam where needed, main/App/Batch, shared exports/generation/manifests and actual merge resolution |
-| T06 UI/docs | Relevant provenance/blocker presentation, fixture-only labels, architecture and comprehensive final handover |
+| T06 grants/tests         | Processing provisioning consumes owning narrow media read/command-pin helpers; runner gets read/verify only, with no pin manufacturing, decoder, upload, approval or apply capability |
+| Coordinator              | Owning read/retained-command media wrappers and grants, shared capture seam where needed, main/App/Batch, shared exports/generation/manifests and actual merge resolution             |
+| T06 UI/docs              | Relevant provenance/blocker presentation, fixture-only labels, architecture and comprehensive final handover                                                                          |
 
 ## Independent adverse proof
 
@@ -72,3 +72,17 @@ Verify lot plus linked-Part/batch evidence inclusion, unrelated-lot exclusion, r
 Exercise union/per-closure digest order, zero-version sentinel lifetime, savepoint rollback, wrong backend/transaction/command actor/context and no late lock acquisition. Include a negative control that omits pinning or expands scope and fails through the owning authority seam, rather than checking helper call order.
 
 An actual deterministic child must emit a stale nonterminal proposal after relevant media becomes pending or changes, then remain alive and keep its lane. Read models must retain history and report noncurrent input plus occupancy until a terminal or reaped interruption. A later fresh attempt must retain the human quantity. Re-run answer COMMIT-ACK adoption, continuation atomicity, restart, cancellation and existing exact-byte legacy cases. Browser checks and whole-feature review remain gated on the integrated head; no live-model test is part of this plan.
+
+## Implementation go after actual T05 merge
+
+The coordinator integrated actual T05 squash merge `4341940` at T06 merge checkpoint `d647938` and authorized owned consumer implementation. Earlier plan text records the prospective decision; it does not authorize imports from unpublished sibling code.
+
+The owning bulk reservation seam replaces the union-handle workaround above. Resolve one authorized capture/media snapshot, validate each requested scope independently, acquire the complete sorted digest union once, then return genuine per-scope handles in request order. The combined union may exceed 64 versions when every individual manifest satisfies the published cap. No Processing code owns media SQL or fabricates handles.
+
+V2 embeds media as `{ manifest, sha256 }`, where `manifest` is the exact owning canonical string. Media recipes contain numeric coordinates, while Processing canonical JSON excludes JavaScript numbers. Interpret the wrapper with owning `decodeMediaInputs`; do not reserialize parsed recipe objects into Processing JSON. Existing /1 bytes and empty-media semantics remain unchanged.
+
+New profiles use `synthetic-research/2`, `processing/2` and `restricted-synthetic/2`, with additive migration 0007. The runner remains a metadata-only deterministic fixture with no media-byte, provider or native-agent capability. Legacy command execution is quarantined by actual handler version; retained legacy evidence remains readable.
+
+The owning `MediaInputUnavailableError` distinguishes `not_ready` and `capacity`, preserving safe public codes `media_not_ready` and `media_input_capacity`. Only those specific typed failures become read-currency blockers. Missing or corrupt retained command bindings fail closed and never become empty/current scope.
+
+No service/test allocation accompanies implementation go. PG, process and browser checks wait for coordinator allocation. Stage/commit only owned files after coordinating the shared Git index.

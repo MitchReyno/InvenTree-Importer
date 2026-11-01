@@ -5,6 +5,7 @@ import { createAttempt, type ProcessingConfig } from './attempts.ts'
 import { MAX_JOBS_PER_BATCH } from './limits.ts'
 import { fail, type Stage } from './model.ts'
 import type { ProcessingJobRow } from './state.ts'
+import type { LockedMediaInputs } from '../media/locked-inputs.ts'
 
 /** Caller holds the actor lane and selected job lock before invalidating attempts/questions. */
 export async function supersedeJobAttempts(client: PoolClient, jobId: string) {
@@ -19,11 +20,7 @@ export async function supersedeJobAttempts(client: PoolClient, jobId: string) {
      WHERE job_id=$1 AND state='open'`,
     [jobId],
   )
-  await client.query(
-    `UPDATE processing_lane SET attempt_id=NULL WHERE attempt_id IN
-     (SELECT id FROM processing_attempt WHERE job_id=$1)`,
-    [jobId],
-  )
+  // Logical supersession does not prove that a held worker command ended.
 }
 
 export async function queueJob(
@@ -33,6 +30,7 @@ export async function queueJob(
   subjectId: string,
   stage: Stage,
   dependencies: string[],
+  media: LockedMediaInputs,
 ) {
   const jobs = await client.query<ProcessingJobRow>(
     'SELECT * FROM processing_job WHERE batch_id=$1 AND subject_id=$2 AND stage=$3 FOR UPDATE',
@@ -60,6 +58,7 @@ export async function queueJob(
     job,
     attemptNumber,
     dependencies,
+    media,
     parentInputId,
   )
   if (priorJob) {

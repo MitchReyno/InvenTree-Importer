@@ -364,3 +364,66 @@ test('archiving a verified workspace preserves the draft but refuses every mutat
   expect(quantity).toHaveValue('')
   expect(mounted.dirty).toHaveBeenLastCalledWith(false)
 })
+
+test('retained V2 provenance and media blockers stay visible without replacing a pinned draft', async () => {
+  const client = clientFixture()
+  const withMedia: ProcessingSnapshotDto = structuredClone(snapshot)
+  withMedia.jobs[0].blocked_code = 'media_not_ready'
+  withMedia.jobs[0].proposals = [
+    {
+      id: 'e0000000-0000-4000-8000-000000000005',
+      message_id: 'f0000000-0000-4000-8000-000000000006',
+      value: {
+        schema_version: 'bench-intake-proposal/2',
+        subject_id: subjectId,
+        summary: 'Synthetic descriptor receipt; no media content inspection.',
+        sources: [
+          {
+            kind: 'media_version',
+            evidence_id: 'a0000000-0000-4000-8000-000000000007',
+            version_id: 'a0000000-0000-4000-8000-000000000008',
+            sha256: 'b'.repeat(64),
+          },
+        ],
+      },
+    },
+  ]
+  validate('ProcessingSnapshot', withMedia)
+  client.read.mockResolvedValue(withMedia)
+  mount(client)
+  expect(await screen.findByText(/Relevant media is still being prepared/)).toBeInTheDocument()
+  const sources = screen.getByRole('list', { name: 'Retained candidate sources' })
+  expect(within(sources).getByText('a0000000-0000-4000-8000-000000000008')).toBeInTheDocument()
+  expect(within(sources).getByText('a0000000-0000-4000-8000-000000000007')).toBeInTheDocument()
+  expect(client.start).not.toHaveBeenCalled()
+  expect(client.answer).not.toHaveBeenCalled()
+})
+
+test('stale running input exposes its exact cancel action, while explicit false suppresses legacy fallback', async () => {
+  const user = userEvent.setup()
+  const client = clientFixture()
+  const stale: ProcessingSnapshotDto = structuredClone(snapshot)
+  stale.jobs[0].state = 'superseded'
+  stale.jobs[0].can_cancel = true
+  stale.jobs[0].questions = []
+  client.read.mockResolvedValue(stale)
+  const mounted = mount(client)
+  const cancel = await screen.findByRole('button', { name: 'Cancel this attempt' })
+  await waitFor(() => expect(cancel).toBeEnabled())
+  await user.click(cancel)
+  await waitFor(() => expect(client.cancel).toHaveBeenCalledTimes(1))
+  expect(client.cancel.mock.calls[0].slice(0, 3)).toEqual([
+    batchId,
+    jobId,
+    { expected_revision: '2', attempt_id: attemptId },
+  ])
+  const noAction = structuredClone(stale)
+  // A legacy state fallback would allow queued cancellation; explicit server false must win.
+  noAction.jobs[0].state = 'queued'
+  noAction.jobs[0].can_cancel = false
+  act(() => mounted.cache.setQueryData(serverQueryKey(scope, 'processing', batchId), noAction))
+  await waitFor(() =>
+    expect(screen.queryByRole('button', { name: 'Cancel this attempt' })).not.toBeInTheDocument(),
+  )
+  expect(client.cancel).toHaveBeenCalledTimes(1)
+})

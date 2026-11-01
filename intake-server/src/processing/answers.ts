@@ -10,7 +10,11 @@ import { commandScope, lockLane } from './scope.ts'
 import { fail, unseal, sealed, decodeProcessingInput } from './model.ts'
 import { lockProcessingAttempt } from './state.ts'
 import { loadRetainedQuestionSpec } from './retained.ts'
-import { continueDependentJobs } from './continuations.ts'
+import { continueDependentJobs, continuationSubjectIds } from './continuations.ts'
+import { prepareMediaTransaction } from '../media/transaction.ts'
+import { decodeMediaInputs } from '../media/inputs.ts'
+import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
+import { loadProcessingAuthority, processingInputIsCurrent } from './authority.ts'
 
 type QuestionRow = {
   id: string
@@ -145,8 +149,9 @@ export async function answerQuestion(
   channelToken(config, input.attempt_id)
   const scope = commandScope(config, 'processing_answer', `${batchId}:${questionId}`, key)
 
-  return transaction(pool, (client) =>
-    idempotent(client, scope, input, async () => {
+  return transaction(pool, async (client) => {
+    await prepareMediaTransaction(client)
+    return idempotent(client, scope, input, async () => {
       // Serialize different keys before inspecting a previous answer, including after lost COMMIT ACK.
       await captureInTransaction(client, config, batchId, true)
       const originalReceipt = await adoptRetainedAnswer(client, config, batchId, questionId, input)
@@ -155,6 +160,17 @@ export async function answerQuestion(
       }
 
       const capture = await lockCapture(client, config, batchId, input.expected_capture_revision)
+      const affectedSubjects = await continuationSubjectIds(client, batchId, input.attempt_id)
+      const media = await reserveProcessingMedia(client, config, capture.snapshot, affectedSubjects)
+      const authority = await loadProcessingAuthority(client, config, input.attempt_id)
+      const questionMedia = reservedMediaFor(media, authority.manifest.subject_id)
+      const currentMedia = decodeMediaInputs(
+        Buffer.from(questionMedia.manifest, 'utf8'),
+        Buffer.from(questionMedia.manifestDigest, 'hex'),
+      )
+      if (!processingInputIsCurrent(authority.manifest, capture.snapshot, currentMedia)) {
+        fail('stale_question', 412)
+      }
       await lockLane(client, config.actorId)
       const { job, attempt, question } = await lockCurrentQuestion(
         client,
@@ -185,6 +201,7 @@ export async function answerQuestion(
         job,
         attemptNumber,
         dependencies,
+        reservedMediaFor(media, job.subject_id),
         attempt.input_id,
         answerId,
       )
@@ -219,6 +236,7 @@ export async function answerQuestion(
         attempt.id,
         continuation.attemptId,
         answerId,
+        media,
       )
 
       await capture.publish()
@@ -230,6 +248,6 @@ export async function answerQuestion(
         capture_revision: snapshot.revision,
         command_id: continuation.commandId,
       }
-    }),
-  )
+    })
+  })
 }

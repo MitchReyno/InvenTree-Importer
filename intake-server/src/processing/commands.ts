@@ -6,11 +6,14 @@ import {
 } from '@invimport/contracts'
 import { transaction } from '../db/database.ts'
 import { appendEvent, idempotent } from '../db/authority.ts'
-import { captureInTransaction } from '../capture/repository.ts'
+import { captureInTransaction, lockCaptureForInputs } from '../capture/repository.ts'
+import { prepareMediaTransaction } from '../media/transaction.ts'
+import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { checkJobCapacity, queueJob, supersedeJobAttempts } from './jobs.ts'
 import { fail, stageOrder } from './model.ts'
 import { commandScope, lockLane } from './scope.ts'
+import { canCancelProcessingAttempt, lockProcessingAttempt } from './state.ts'
 
 async function lockedSnapshot(
   client: PoolClient,
@@ -36,35 +39,53 @@ export async function startProcessing(
   input: ProcessingStartDto,
 ) {
   validate('ProcessingStart', input)
-  return transaction(pool, (client) =>
-    idempotent(client, commandScope(config, 'processing_start', batchId, key), input, async () => {
-      const capture = await lockedSnapshot(client, config, batchId, input.expected_capture_revision)
-      // Account then jobs is the common processing lock order for every state mutation.
-      await lockLane(client, config.actorId)
-      const jobIds: string[] = []
-      const attemptIds: string[] = []
-      const stages = stageOrder.filter((stage) => input.stages.includes(stage))
-      await checkJobCapacity(client, batchId, input.subject_ids, stages)
-      for (const subjectId of [...input.subject_ids].sort()) {
-        let dependencies: string[] = []
-        for (const stage of stages) {
-          const attempt = await queueJob(
-            client,
-            config,
-            capture.snapshot,
-            subjectId,
-            stage,
-            dependencies,
-          )
-          jobIds.push(attempt.jobId)
-          attemptIds.push(attempt.attemptId)
-          dependencies = [attempt.attemptId]
+  return transaction(pool, async (client) => {
+    await prepareMediaTransaction(client)
+    return idempotent(
+      client,
+      commandScope(config, 'processing_start', batchId, key),
+      input,
+      async () => {
+        const capture = await lockCaptureForInputs(
+          client,
+          config,
+          batchId,
+          input.expected_capture_revision,
+        )
+        const media = await reserveProcessingMedia(
+          client,
+          config,
+          capture.snapshot,
+          input.subject_ids,
+        )
+        // Account then jobs is the common processing lock order for every state mutation.
+        await lockLane(client, config.actorId)
+        const jobIds: string[] = []
+        const attemptIds: string[] = []
+        const stages = stageOrder.filter((stage) => input.stages.includes(stage))
+        await checkJobCapacity(client, batchId, input.subject_ids, stages)
+        for (const subjectId of [...input.subject_ids].sort()) {
+          let dependencies: string[] = []
+          for (const stage of stages) {
+            const attempt = await queueJob(
+              client,
+              config,
+              capture.snapshot,
+              subjectId,
+              stage,
+              dependencies,
+              reservedMediaFor(media, subjectId),
+            )
+            jobIds.push(attempt.jobId)
+            attemptIds.push(attempt.attemptId)
+            dependencies = [attempt.attemptId]
+          }
         }
-      }
-      await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: batchId })
-      return { batch_id: batchId, job_ids: jobIds, attempt_ids: attemptIds }
-    }),
-  )
+        await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: batchId })
+        return { batch_id: batchId, job_ids: jobIds, attempt_ids: attemptIds }
+      },
+    )
+  })
 }
 
 export async function cancelProcessing(
@@ -76,8 +97,9 @@ export async function cancelProcessing(
   input: ProcessingCancellationDto,
 ) {
   validate('ProcessingCancellation', input)
-  return transaction(pool, (client) =>
-    idempotent(
+  return transaction(pool, async (client) => {
+    await prepareMediaTransaction(client)
+    return idempotent(
       client,
       commandScope(config, 'processing_cancel', `${batchId}:${jobId}`, key),
       input,
@@ -95,16 +117,8 @@ export async function cancelProcessing(
         ) {
           fail('stale_attempt', 412)
         }
-        if (
-          ![
-            'queued',
-            'running',
-            'waiting_for_user',
-            'waiting_for_login',
-            'waiting_for_capacity',
-            'interrupted',
-          ].includes(job.state)
-        ) {
+        const locked = await lockProcessingAttempt(client, jobId, input.attempt_id)
+        if (!canCancelProcessingAttempt(locked.job, locked.attempt, capture.snapshot.archived)) {
           fail('attempt_terminal')
         }
         await supersedeJobAttempts(client, jobId)
@@ -118,8 +132,8 @@ export async function cancelProcessing(
         await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: batchId })
         return { batch_id: batchId, job_ids: [jobId], attempt_ids: [input.attempt_id] }
       },
-    ),
-  )
+    )
+  })
 }
 
 export { answerQuestion } from './answers.ts'

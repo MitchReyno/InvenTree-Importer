@@ -28,7 +28,7 @@ export async function processingProcess() {
   let output = ''
   let diagnostic = ''
 
-  async function startWorker(pauseAfterClaim = false) {
+  async function startWorker(pauseAfterClaim = false, controlledAttemptId?: string) {
     if (child) throw new Error('synthetic_processing_worker_already_started')
     await writeFile(
       configPath,
@@ -37,6 +37,7 @@ export async function processingProcess() {
         runnerDatabaseUrl: fixture.runner.url,
         schedulerDatabaseUrl: fixture.scheduler.url,
         pauseAfterClaim,
+        controlledAttemptId,
       }),
       { mode: 0o600 },
     )
@@ -50,7 +51,7 @@ export async function processingProcess() {
         TMPDIR: process.env.TMPDIR,
         INTAKE_SYNTHETIC_PROCESSING_CONFIG: configPath,
       },
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
     })
     child.stdout!.on('data', (bytes) => {
       output += bytes.toString()
@@ -85,6 +86,10 @@ export async function processingProcess() {
     ...fixture,
     startWorker,
     stopWorker,
+    sendWorkerStep(step: 'proposal' | 'terminal') {
+      if (!child?.stdin?.writable) throw new Error('synthetic_worker_control_unavailable')
+      child.stdin.write(`${step}\n`)
+    },
     get workerAlive() {
       return Boolean(child && child.exitCode === null && child.signalCode === null)
     },

@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
+import { canonicalMedia } from '../../src/media/encoding.ts'
+import { decodeMediaInputs } from '../../src/media/inputs.ts'
+import { sha256 } from '../../src/db/authority.ts'
 
 /** Synthetic retained manual evidence. No inventory/provider connection is constructed. */
 export function manualInputFixture(): CaptureSnapshotDto {
@@ -39,4 +42,19 @@ export function manualInputFixture(): CaptureSnapshotDto {
     ],
     cursor: { stream_id: randomUUID(), sequence: '9' },
   }
+}
+
+/** Explicit empty owning descriptor for legacy/manual fixture currency tests. */
+export function emptyProcessingMedia(snapshot: CaptureSnapshotDto, subjectId: string) {
+  const bytes = Buffer.from(
+    canonicalMedia({
+      version: 'media-inputs/1',
+      batchId: snapshot.id,
+      subjectIds: [subjectId],
+      evidence: [],
+      attachments: [],
+      versions: [],
+    }),
+  )
+  return decodeMediaInputs(bytes, sha256(bytes))
 }

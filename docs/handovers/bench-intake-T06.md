@@ -1,5 +1,7 @@
 # T06 — durable processing and application questions
 
+Current checkpoint: V2 retained-media integration is implemented. Focused qualification passes 7 PG/public-HTTP cases and 3 actual deterministic worker cases, with zero skips. Final normal host-loopback checks, browser qualification and independent review remain outstanding. No ready PR or actual provider capability is claimed.
+
 ## Prospective implementation plan
 
 Recorded before implementation on the merged T04 base `10bd6c85c81d02a0a5970b002c79f55f9d41fe87`. The approved implementation plan and T01–T04 handovers govern this task. T04's independent review fixes require guarded global navigation, pinned action identity and complete retained-byte verification.
@@ -149,7 +151,6 @@ Coordinator review identified an essential distinction before qualification: a l
 
 The logical workspace can mark stale input superseded while activity still reports the observed running attempt with `input_current=false` and `occupies_lane=true`. Only terminal settlement or an explicitly reaped/interrupted child releases that occupancy. The process regression edits human quantity while the actual synthetic child is paused and alive, checks its public activity and retained lane, then reaps/interrupts it and verifies the released lane and fresh attempt preserve the human value.
 
-
 ### Resumed qualification results
 
 After the actual PR #49 and #50 merges, all application typechecks and five React Hook Form question tests passed. Maintained readability checks passed after fixing the two test declaration spacings with the owning rule.
@@ -195,3 +196,40 @@ The archive regression first reproduced the enabled Queue action after a verifie
 The [prospective media integration plan](bench-intake-T06-media-plan.md) records the exact owning seam, closure/lock/pin order, additive format compatibility, unavailable-media currency and adverse tests before runtime integration. This is documentation-only preparation; actual T05 merge and coordinator go-ahead still gate code changes.
 
 The latest user instruction prohibits actual agent/LLM/provider test usage until explicit later authorization. Deterministic stubs only; prior permission to reuse local sign-in does not authorize live-model tests. The original InvenTree server remains strictly read-only. No services, runtime code or unpublished sibling implementation were changed during this preparation.
+
+## Post-T05 V2 implementation checkpoint
+
+The coordinator integrated actual T05 at `d647938` and approved the committed media integration plan. New migration 0007 adds profile2 without rewriting migration 0006, profile1 instructions or old sealed bytes. Shared code generation is coordinator-owned and has been refreshed from the frozen V1/V2 Processing unions.
+
+Owned consumers now reserve bulk exact media handles before Processing locks, pin each foundation command, verify historical command media authority, retain typed note/media provenance and use per-closure media currency. Legacy queued commands are quarantined by actual handler version while retained evidence remains readable. V2 admits ready media-only input without inventing a manual note; the synthetic runner has no content/model capability.
+
+The stale-message fix also covers logical cancellation/reprocess: held capacity survives until its exact terminal or reaped interruption. A controlled deterministic child fixture is prepared to prove pending-media stale proposal, cancellation and fresh reprocess behavior while the old child is physically alive. This case has not yet run at this checkpoint.
+
+Observed offline evidence at this working checkpoint: server and frontend types passed; full frontend suite passed 79 cases; focused model/provenance suite passed 8 cases. Owned runtime readability passes. The normal server-fast run was attempted in the filesystem sandbox: 18 passed and 9 loopback-listener cases failed `EPERM`, so that full tier is not green. Rerun it with the approved loopback execution capability during qualification.
+
+Prepared qualification adds media-only linked-Part input with disabled web media, unrelated pending scope exclusion, relevant pending history/occupancy, exact version provenance and atomic queue refusal. Separate cases cover legacy read/quarantine/new explicit empty pin binding and missing V2 binding refusal. The existing answer COMMIT-ACK and restart cases remain selected. PG/process and small actual decoder checks await the coordinator's exclusive allocation; no service or provider action was started by this implementation checkpoint.
+
+No actual agent/LLM/provider test usage is allowed until explicit later user authorization. All research workers here are deterministic fixtures. Real InvenTree remains strictly read-only, and no real credentials or original environment are loaded. No new PR, independent clearance or merge is claimed. Preserve all coordinator/other-owner work and coordinate the shared index before staging or committing.
+
+### Allocated V2 qualification results
+
+The coordinator allocated the sole PG/Docker window after the owning media scope suite released it. Processing used the existing PG service and immutable decoder image `sha256:99b15169e7d8c286bbe7f2f7a5241be9feb9d714a53200d496bf639b4c58f888`, without creating persistent services. The window is released and all selected fixture disposal paths completed.
+
+| Selected boundary                  | Observed result      | Discriminating evidence                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Processing PG/public HTTP          | 6 passed, zero skips | Existing answer COMMIT-ACK/continuation/publication cases; legacy worker quarantine with byte preservation and explicit new empty binding; absent V2 binding refusal; media-only linked-Part scope with disabled web media, unrelated pending exclusion, relevant pending history/occupancy, atomic queue refusal, relinked closure and attachment-staled exact question |
+| Actual deterministic DBOS children | 3 passed, zero skips | Existing restart/question/second-lot and reaped-session cases; live controlled child emits stale proposal after relevant media becomes pending, keeps its lane across logical cancel/reprocess, then its exact terminal releases old capacity and fresh work preserves the human quantity                                                                                |
+| Focused Processing UI              | 14 passed            | Warm-cache and pinned RHF cases, archive/discard, typed media blocker/source IDs, stale-running exact Cancel and explicit server false suppressing legacy fallback                                                                                                                                                                                                       |
+| Model/provenance offline           | 8 passed             | Exact numeric media canonical bytes inside the V2 string, media-only admission, no blank-note fabrication, note hashes, wrong evidence/version/hash and preserved V1 input shape                                                                                                                                                                                         |
+
+The final schema includes optional `can_cancel` on jobs; actual responses supply explicit booleans. Snapshot and mutation share the raw selected-attempt cancellation policy, while displayed superseded freshness remains separate. Revision/attempt checks still authorize the command. The coordinator regenerated shared contracts after this final addition.
+
+These results qualify deterministic coordination only. They do not claim actual AI/media inspection, native permission support or provider entitlement. Final host-loopback normal checks, current-image whole-feature checks, actual desktop/narrow browser checks and independent review remain separate gates. No new PR or review clearance is claimed. Shared and owned files remain unstaged pending coordinator index sequencing.
+
+### Fenced lookup requalification
+
+Post-check inspection found inherited pool reads before the transaction search-path fence in worker claim and dispatch. Those reads now run inside short fenced owning transactions; DBOS delivery stays outside. Post-adapter state/lane reads name the public schema explicitly.
+
+A max-one-connection runner fixture installs a hostile temporary `command` table. The negative control returns its forged command ID, while the actual fenced claim returns the exact retained public attempt. After this fix the selected PG tier passed 7/7 and all 3 deterministic child cases passed again, without skips. A final strengthened stale-output test additionally proved that another old terminal cannot clear a newer running lane or regress its current job; its affected PG file passed 3/3.
+
+The exclusive PG/Docker window is released and fixture disposal completed. Root API/test checkpoints are `e7084a4` and `763a463`; the coordinator delegated staging of the two regenerated contract artifacts with the owned Processing checkpoint. No unrelated root paths are included. Final host-loopback normal checks, actual browser checks and independent review still remain.

@@ -3,16 +3,29 @@ import {
   validate,
   type CaptureSnapshotDto,
   type ProcessingInputDto,
+  type ProcessingInputV1Dto,
+  type ProcessingInputV2Dto,
   type ProcessingCommandDto,
   type ProcessingQuestionSpecDto,
   type ProcessingProposalDto,
 } from '@invimport/contracts'
-import { instructionVersion, instructionDigest, toolProfileVersion } from './policy.ts'
+import {
+  instructionVersion,
+  instructionDigest,
+  toolProfileVersion,
+  mediaInstructionVersion,
+  mediaInstructionDigest,
+} from './policy.ts'
+import { decodeMediaInputs } from '../media/inputs.ts'
 import { sha256, verifyBytes } from '../db/authority.ts'
 
 export const handlerVersion = 'processing/1'
 
 export const profileId = 'synthetic-research/1'
+
+export const mediaHandlerVersion = 'processing/2'
+
+export const mediaProfileId = 'synthetic-research/2'
 
 export const stageOrder = ['reading', 'identifying', 'research', 'images', 'inventory'] as const
 
@@ -45,14 +58,13 @@ export function unseal(bytes: Buffer, digest: Buffer): unknown {
   return value
 }
 
-/** No clock, stream cursor or browser value contributes authority to an input. */
-export function inputManifest(
+function captureInputFields(
   snapshot: CaptureSnapshotDto,
   subjectId: string,
   stage: Stage,
   dependencies: string[],
   answerId: string | null,
-): ProcessingInputDto {
+) {
   const lot = snapshot.lots.find((item) => item.id === subjectId)
   const part = snapshot.parts.find((item) => item.id === subjectId)
   if (!lot && !part) {
@@ -65,11 +77,7 @@ export function inputManifest(
       note.subject_id === subjectId ||
       note.subject_id === linkedPart?.id,
   )
-  if (!notes.length) {
-    fail('retained_manual_evidence_required', 422)
-  }
   return {
-    schema_version: 'bench-intake-input/1',
     batch_id: snapshot.id,
     source_id: snapshot.source_id,
     capture_revision: snapshot.revision,
@@ -82,11 +90,87 @@ export function inputManifest(
     linked_part: linkedPart ?? null,
     notes,
     observations: snapshot.observations,
+  }
+}
+
+/** Legacy constructor preserves the original /1 fields and exact empty-media semantics. */
+export function inputManifest(
+  snapshot: CaptureSnapshotDto,
+  subjectId: string,
+  stage: Stage,
+  dependencies: string[],
+  answerId: string | null,
+): ProcessingInputV1Dto {
+  const fields = captureInputFields(snapshot, subjectId, stage, dependencies, answerId)
+  if (!fields.notes.length) {
+    fail('retained_manual_evidence_required', 422)
+  }
+
+  return {
+    ...fields,
+    schema_version: 'bench-intake-input/1',
     profile_id: profileId,
     instruction_version: instructionVersion,
     instruction_sha256: instructionDigest,
     tool_profile_version: toolProfileVersion,
     media: [],
+  }
+}
+
+export interface RetainedMediaDescriptor {
+  manifest: string
+  sha256: string
+}
+
+/** A lot consumes its linked Part's evidence as well as its own. */
+export function processingSubjectScope(snapshot: CaptureSnapshotDto, subjectId: string): string[] {
+  const lot = snapshot.lots.find((subject) => subject.id === subjectId)
+  const part = snapshot.parts.find((subject) => subject.id === subjectId)
+  if (!lot && !part) {
+    fail('subject_not_found', 404)
+  }
+
+  const subjectIds = new Set([subjectId])
+  if (lot?.part_subject_id) {
+    subjectIds.add(lot.part_subject_id)
+  }
+
+  return [...subjectIds].sort()
+}
+
+/** No clock, stream cursor or browser value contributes authority to an input. */
+export function mediaInputManifest(
+  snapshot: CaptureSnapshotDto,
+  subjectId: string,
+  stage: Stage,
+  dependencies: string[],
+  answerId: string | null,
+  media: RetainedMediaDescriptor,
+): ProcessingInputV2Dto {
+  const fields = captureInputFields(snapshot, subjectId, stage, dependencies, answerId)
+  const decodedMedia = decodeMediaInputs(
+    Buffer.from(media.manifest, 'utf8'),
+    Buffer.from(media.sha256, 'hex'),
+  )
+  const expectedSubjectIds = processingSubjectScope(snapshot, subjectId)
+  const subjectScopeMatches = canonical(decodedMedia.subjectIds) === canonical(expectedSubjectIds)
+  if (decodedMedia.batchId !== snapshot.id || !subjectScopeMatches) {
+    fail('processing_media_binding_invalid')
+  }
+
+  const meaningfulNote = fields.notes.some((note) => note.text.trim().length > 0)
+  if (!meaningfulNote && decodedMedia.versions.length === 0) {
+    fail('retained_evidence_required', 422)
+  }
+
+  return {
+    ...fields,
+    schema_version: 'bench-intake-input/2',
+    profile_id: mediaProfileId,
+    instruction_version: mediaInstructionVersion,
+    instruction_sha256: mediaInstructionDigest,
+    tool_profile_version: toolProfileVersion,
+    media: { ...media },
   }
 }
 

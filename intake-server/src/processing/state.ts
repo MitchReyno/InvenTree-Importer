@@ -4,6 +4,29 @@ import { fail, type Stage } from './model.ts'
 
 type State = ProcessingStateDto
 
+const cancellableStates = new Set<State>([
+  'queued',
+  'running',
+  'waiting_for_user',
+  'waiting_for_login',
+  'waiting_for_capacity',
+  'interrupted',
+])
+
+/** Shared action projection and mutation policy; expected revision remains a separate authority check. */
+export function canCancelProcessingAttempt(
+  job: { current_attempt_id: string; state: State },
+  attempt: { id: string; state: State },
+  archived: boolean,
+): boolean {
+  return (
+    !archived &&
+    job.current_attempt_id === attempt.id &&
+    cancellableStates.has(job.state) &&
+    cancellableStates.has(attempt.state)
+  )
+}
+
 export interface ProcessingJobRow {
   id: string
   batch_id: string
@@ -59,8 +82,11 @@ export async function transitionAttempt(
   }
 
   if (state !== 'running') {
-    await client.query('UPDATE processing_lane SET attempt_id=NULL WHERE attempt_id=$1', [
-      attempt.id,
-    ])
+    await releaseProcessingLane(client, attempt.id)
   }
+}
+
+/** Exact-attempt compare prevents old settlement from releasing a newer claim. */
+export async function releaseProcessingLane(client: PoolClient, attemptId: string): Promise<void> {
+  await client.query('UPDATE processing_lane SET attempt_id=NULL WHERE attempt_id=$1', [attemptId])
 }

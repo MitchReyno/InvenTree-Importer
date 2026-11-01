@@ -1,6 +1,7 @@
 import styled from 'styled-components'
 import type { CaptureSnapshotDto, ProcessingJobDto } from '@invimport/contracts'
 import { Button, Heading, Paragraph, Panel, Small } from '../ui/primitives'
+import { ProcessingSources } from './ProcessingSources'
 
 type Job = ProcessingJobDto
 
@@ -17,6 +18,15 @@ const labels: Record<Job['state'], string> = {
   interrupted: 'Interrupted — start a new attempt',
 }
 
+const blockerLabels: Record<NonNullable<Job['blocked_code']>, string> = {
+  media_not_ready:
+    'Relevant media is still being prepared. This retained input is no longer current.',
+  media_input_capacity:
+    'Relevant media exceeds the supported input limit. Reduce the selected evidence scope before starting a new attempt.',
+  worker_version_conflict:
+    'This retained attempt uses an older fixture version. Start a new attempt to continue.',
+}
+
 export function ProcessingJobCard({
   job,
   batch,
@@ -31,14 +41,16 @@ export function ProcessingJobCard({
   chooseQuestion: (questionId: string) => void
 }) {
   const subject = [...batch.lots, ...batch.parts].find((value) => value.id === job.subject_id)
-  const cancellable = [
-    'queued',
-    'running',
-    'waiting_for_user',
-    'waiting_for_login',
-    'waiting_for_capacity',
-    'interrupted',
-  ].includes(job.state)
+  const cancellable =
+    job.can_cancel ??
+    [
+      'queued',
+      'running',
+      'waiting_for_user',
+      'waiting_for_login',
+      'waiting_for_capacity',
+      'interrupted',
+    ].includes(job.state)
   return (
     <Panel>
       <Row>
@@ -48,11 +60,15 @@ export function ProcessingJobCard({
         <Status>{labels[job.state]}</Status>
       </Row>
       <Small>Attempt {job.attempt_number} · synthetic fixture only</Small>
+      {job.blocked_code && <Paragraph role="status">{blockerLabels[job.blocked_code]}</Paragraph>}
       {job.proposals.map((proposal) => (
-        <Paragraph key={proposal.id}>
-          <strong>Candidate:</strong> {proposal.value.summary}
-          <Small>Candidate assertions do not replace your selections.</Small>
-        </Paragraph>
+        <div key={proposal.id}>
+          <Paragraph>
+            <strong>Candidate:</strong> {proposal.value.summary}
+            <Small>Candidate assertions do not replace your selections.</Small>
+          </Paragraph>
+          <ProcessingSources proposal={proposal.value} />
+        </div>
       ))}
       {job.questions
         .filter((question) => question.state === 'open')

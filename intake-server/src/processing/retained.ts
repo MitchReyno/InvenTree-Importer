@@ -12,7 +12,9 @@ import {
   type ProcessingEnvelopeDto,
   type ProcessingQuestionSpecDto,
   type ProcessingProposalDto,
+  type ProcessingInputDto,
 } from '@invimport/contracts'
+import { validateProposalSources } from './provenance.ts'
 import { canonical } from '@invimport/contracts/json'
 import { decodeProposal, decodeQuestionSpec, fail, unseal } from './model.ts'
 
@@ -63,6 +65,7 @@ export function retainedQuestionSpec(
 export function retainedProposalValue(
   seal: MessageSeal & { valueBytes: Buffer; valueDigest: Buffer },
   subjectId: string,
+  manifest: ProcessingInputDto,
 ): ProcessingProposalDto {
   const envelope = acceptedProducer(seal)
   const proposal = decodeProposal(seal.valueBytes, seal.valueDigest)
@@ -74,6 +77,7 @@ export function retainedProposalValue(
     fail('retained_proposal_binding_invalid')
   }
 
+  validateProposalSources(manifest, proposal)
   return proposal
 }
 

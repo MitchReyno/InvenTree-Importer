@@ -1,4 +1,6 @@
 import type { Pool } from 'pg'
+import { grantCaptureInputLocks } from '../capture/grants.ts'
+import { grantMedia } from '../media/grants.ts'
 
 /** Provisioning only. A research coordinator cannot manufacture a human answer or input. */
 export async function grantProcessing(pool: Pool, role: string, purpose: 'api' | 'runner' = 'api') {
@@ -13,9 +15,12 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
     GRANT UPDATE(attempt_id) ON processing_lane TO ${role};
     GRANT UPDATE(state,revision) ON processing_question TO ${role};`)
   if (purpose === 'api') {
+    await grantMedia(pool, role, 'processing')
     await pool.query(`GRANT INSERT ON processing_input,processing_job,processing_attempt,processing_dependency,processing_answer TO ${role};
       GRANT UPDATE(current_attempt_id) ON processing_job TO ${role};`)
   } else {
+    await grantCaptureInputLocks(pool, role)
+    await grantMedia(pool, role, 'processing-reader')
     // Reading the owning capture projection and publishing its stream grants no selection write.
     await pool.query(`GRANT SELECT ON operator,target,target_context,command,outbox,ui_stream,ui_event,
       capture_source,capture_batch,capture_subject,capture_part,capture_lot,capture_note,capture_observation,capture_selection,capture_revision TO ${role};

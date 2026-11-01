@@ -7,12 +7,14 @@ import type {
 import { canonical } from '@invimport/contracts/json'
 import { transaction } from '../db/database.ts'
 import { appendEvent } from '../db/authority.ts'
-import { captureInTransaction } from '../capture/repository.ts'
+import { lockCaptureForInputSettlement } from '../capture/repository.ts'
 import { lockLane } from './scope.ts'
 import { channelToken, type ProcessingConfig } from './attempts.ts'
-import { fail, handlerVersion, sealed } from './model.ts'
+import { fail, mediaHandlerVersion, sealed } from './model.ts'
 import { loadProcessingAuthority, processingInputIsCurrent } from './authority.ts'
-import { lockProcessingAttempt, transitionAttempt } from './state.ts'
+import { prepareMediaTransaction } from '../media/transaction.ts'
+import { lockProcessingMediaCurrency } from './media.ts'
+import { lockProcessingAttempt, transitionAttempt, releaseProcessingLane } from './state.ts'
 
 export interface ResearchInput {
   payload: ProcessingCommandDto
@@ -27,7 +29,7 @@ export interface ResearchCommand extends ResearchInput {
 
 export interface RestrictedResearchRunner {
   qualification: 'fixture_only'
-  profileId: 'synthetic-research/1'
+  profileId: 'synthetic-research/2'
   run(
     command: ResearchInput,
     emit: (message: ProcessingEnvelopeDto) => Promise<void>,
@@ -42,31 +44,42 @@ export async function claimProcessingCommand(
   payload: unknown,
   actualHandlerVersion: string,
 ): Promise<ResearchCommand | null> {
-  if (actualHandlerVersion !== handlerVersion) {
+  if (actualHandlerVersion !== mediaHandlerVersion) {
     fail('worker_version_conflict')
   }
-  const found = (await pool.query('SELECT id FROM command WHERE workflow_id=$1', [workflowId]))
-    .rows[0]
-  if (!found) {
-    fail('command_missing', 404)
-  }
-  const ref = (
-    await pool.query('SELECT id FROM processing_attempt WHERE command_id=$1', [found.id])
-  ).rows[0]
-  if (!ref) {
-    fail('attempt_not_found', 404)
-  }
   return transaction(pool, async (client) => {
+    await prepareMediaTransaction(client)
+    const commands = await client.query('SELECT id FROM command WHERE workflow_id=$1', [workflowId])
+    const found = commands.rows[0]
+    if (!found) {
+      fail('command_missing', 404)
+    }
+    const attempts = await client.query('SELECT id FROM processing_attempt WHERE command_id=$1', [
+      found.id,
+    ])
+    const ref = attempts.rows[0]
+    if (!ref) {
+      fail('attempt_not_found', 404)
+    }
     const retained = await loadProcessingAuthority(client, config, ref.id)
     if (canonical(payload) !== canonical(retained.payload)) {
       fail('payload_conflict')
+    }
+    if (retained.payload.handler_version !== actualHandlerVersion) {
+      fail('worker_version_conflict')
     }
     const token = channelToken(config, ref.id)
     const channelMatches = sealed(token).digest.equals(retained.row.channel_digest)
     if (!channelMatches) {
       fail('processing_channel_binding_mismatch', 503)
     }
-    const capture = await captureInTransaction(client, config, retained.row.batch_id, true)
+    const capture = await lockCaptureForInputSettlement(client, config, retained.row.batch_id)
+    const media = await lockProcessingMediaCurrency(
+      client,
+      config,
+      capture.snapshot,
+      retained.manifest.subject_id,
+    )
     const lane = await lockLane(client, config.actorId)
     const { job, attempt } = await lockProcessingAttempt(client, retained.row.job_id, ref.id)
     if (job.current_attempt_id !== attempt.id || attempt.state !== 'queued') {
@@ -74,7 +87,8 @@ export async function claimProcessingCommand(
     }
     if (
       capture.snapshot.archived ||
-      !processingInputIsCurrent(retained.manifest, capture.snapshot)
+      !media.available ||
+      !processingInputIsCurrent(retained.manifest, capture.snapshot, media.inputs)
     ) {
       await transitionAttempt(client, job, attempt, 'superseded')
       await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: job.batch_id })
@@ -107,14 +121,19 @@ export async function claimProcessingCommand(
 /** Restart never revives a prior process or native permission callback; explicit new attempt required. */
 export async function interruptProcessing(pool: Pool, config: ProcessingConfig, attemptId: string) {
   return transaction(pool, async (client) => {
+    await prepareMediaTransaction(client)
     const { row } = await loadProcessingAuthority(client, config, attemptId)
-    const capture = await captureInTransaction(client, config, row.batch_id, true)
-    await lockLane(client, config.actorId)
+    const capture = await lockCaptureForInputSettlement(client, config, row.batch_id)
+    const lane = await lockLane(client, config.actorId)
     const { job, attempt } = await lockProcessingAttempt(client, row.job_id, row.id)
-    if (attempt.state !== 'running') {
+    if (attempt.state !== 'running' && lane.attempt_id !== attempt.id) {
       return
     }
-    await transitionAttempt(client, job, attempt, 'interrupted')
+    if (attempt.state === 'running') {
+      await transitionAttempt(client, job, attempt, 'interrupted')
+    } else {
+      await releaseProcessingLane(client, attempt.id)
+    }
     await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: row.batch_id })
   })
 }

@@ -10,6 +10,7 @@ import type { LockCapture } from './capture.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { startProcessing, cancelProcessing, answerQuestion } from './commands.ts'
 import { processingActivity, processingSnapshot } from './read.ts'
+import { prepareMediaTransaction } from '../media/transaction.ts'
 
 export function processingRepository(
   pool: Pool,
@@ -29,6 +30,7 @@ export function processingRepository(
     async read(batchId: string) {
       return transaction(pool, async (client) => {
         await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+        await prepareMediaTransaction(client)
         const capture = await captureInTransaction(client, config, batchId)
         return processingSnapshot(client, config, capture.snapshot)
       })
@@ -37,6 +39,7 @@ export function processingRepository(
     async activity() {
       return transaction(pool, async (client) => {
         await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+        await prepareMediaTransaction(client)
         return processingActivity(client, config)
       })
     },

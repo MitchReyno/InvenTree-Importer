@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import type {
   ProcessingAnswerDto,
   ProcessingEnvelopeDto,
+  ProcessingEnvelopeV2Dto,
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
@@ -41,7 +42,7 @@ async function claim(fixture: Fixture, attemptId: string) {
     fixture.config,
     retained.workflowId,
     retained.payload,
-    'processing/1',
+    'processing/2',
   )
 }
 
@@ -49,18 +50,18 @@ function envelope(
   command: NonNullable<Awaited<ReturnType<typeof claim>>>,
   sequence: string,
   content:
-    | Pick<Extract<ProcessingEnvelopeDto, { kind: 'question' }>, 'kind' | 'payload'>
-    | Pick<Extract<ProcessingEnvelopeDto, { kind: 'terminal' }>, 'kind' | 'payload'>
-    | Pick<Extract<ProcessingEnvelopeDto, { kind: 'proposal' }>, 'kind' | 'payload'>,
+    | Pick<Extract<ProcessingEnvelopeV2Dto, { kind: 'question' }>, 'kind' | 'payload'>
+    | Pick<Extract<ProcessingEnvelopeV2Dto, { kind: 'terminal' }>, 'kind' | 'payload'>
+    | Pick<Extract<ProcessingEnvelopeV2Dto, { kind: 'proposal' }>, 'kind' | 'payload'>,
 ): ProcessingEnvelopeDto {
   return {
-    schema_version: 'bench-intake-runner/1',
+    schema_version: 'bench-intake-runner/2',
     job_id: command.payload.job_id,
     attempt_id: command.payload.attempt_id,
     command_id: command.payload.command_id,
     input_sha256: command.payload.input_sha256,
-    profile_id: 'synthetic-research/1',
-    handler_version: 'processing/1',
+    profile_id: 'synthetic-research/2',
+    handler_version: 'processing/2',
     sequence,
     ...content,
   }
@@ -288,7 +289,14 @@ test('authenticated stale output, wrong binding, cancellation and interrupted at
       payload: {
         subject_id: capture.packetA.id,
         summary: 'Synthetic candidate: quantity 999. This is not a human selection.',
-        source_note_ids: [command.manifest.notes[0].id],
+        schema_version: 'bench-intake-proposal/2',
+        sources: [
+          {
+            kind: 'note',
+            note_id: command.manifest.notes[0].id,
+            text_sha256: sha256(command.manifest.notes[0].text).toString('hex'),
+          },
+        ],
       },
     })
     await assert.rejects(
@@ -337,14 +345,36 @@ test('authenticated stale output, wrong binding, cancellation and interrupted at
       input_current: false,
       occupies_lane: true,
     })
-    assert.equal((await read(fixture, capture.batch.id)).jobs[0].state, 'superseded')
+    const staleJob = (await read(fixture, capture.batch.id)).jobs[0]
+    assert.equal(staleJob.state, 'superseded')
+    assert.equal(staleJob.can_cancel, true)
 
     assert.equal(
       await acceptEnvelope(fixture.runner.pool, fixture.config, command.channelToken, proposal),
       'stale',
     )
+    const stillRunning = await fixture.http('/processing-activity')
+    assert.equal(stillRunning.value.lane_occupied, true)
+    assert.deepEqual(
+      stillRunning.value.jobs.find(
+        (job: { attempt_id: string }) => job.attempt_id === command.payload.attempt_id,
+      ),
+      staleRunning,
+    )
+
+    // Only an authenticated command-ending outcome settles the stale physical attempt.
+    assert.equal(
+      await acceptEnvelope(
+        fixture.runner.pool,
+        fixture.config,
+        command.channelToken,
+        envelope(command, '2', { kind: 'terminal', payload: { state: 'ready' } }),
+      ),
+      'stale',
+    )
     const settledActivity = await fixture.http('/processing-activity')
     assert.equal(settledActivity.value.lane_occupied, false)
+    assert.equal((await read(fixture, capture.batch.id)).jobs[0].can_cancel, false)
     assert.equal(
       settledActivity.value.jobs.some(
         (job: { attempt_id: string }) => job.attempt_id === command.payload.attempt_id,
@@ -373,6 +403,22 @@ test('authenticated stale output, wrong binding, cancellation and interrupted at
     })
     const current = await claim(fixture, restarted.value.attempt_ids[0])
     assert.ok(current)
+    // A later old terminal may settle only its own attempt, never the newer running claim.
+    assert.equal(
+      await acceptEnvelope(
+        fixture.runner.pool,
+        fixture.config,
+        command.channelToken,
+        envelope(command, '3', { kind: 'terminal', payload: { state: 'ready' } }),
+      ),
+      'stale',
+    )
+    const newerLane = await fixture.db.pool.query(
+      'SELECT attempt_id FROM processing_lane WHERE actor_id=$1',
+      [fixture.identity.actor],
+    )
+    assert.deepEqual(newerLane.rows, [{ attempt_id: current.payload.attempt_id }])
+    assert.equal((await read(fixture, capture.batch.id)).jobs[0].state, 'running')
     await interruptProcessing(fixture.runner.pool, fixture.config, current.payload.attempt_id)
     assert.equal(
       await acceptEnvelope(

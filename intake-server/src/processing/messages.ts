@@ -4,13 +4,16 @@ import { validate, type ProcessingEnvelopeDto } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
 import { transaction } from '../db/database.ts'
 import { appendEvent, sha256, verifyBytes } from '../db/authority.ts'
-import { captureInTransaction } from '../capture/repository.ts'
+import { lockCaptureForInputSettlement } from '../capture/repository.ts'
 import { lockLane } from './scope.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { MAX_RUNNER_MESSAGE_BYTES } from './limits.ts'
 import { fail, sealed } from './model.ts'
 import { loadProcessingAuthority, processingInputIsCurrent } from './authority.ts'
-import { lockProcessingAttempt, transitionAttempt } from './state.ts'
+import { lockProcessingAttempt, transitionAttempt, releaseProcessingLane } from './state.ts'
+import { validateProposalSources } from './provenance.ts'
+import { prepareMediaTransaction } from '../media/transaction.ts'
+import { lockProcessingMediaCurrency } from './media.ts'
 
 type Authority = Awaited<ReturnType<typeof loadProcessingAuthority>>
 
@@ -50,11 +53,7 @@ function validatePayloadReferences(
   }
 
   if (envelope.kind === 'proposal') {
-    const stagedNoteIds = new Set(authority.manifest.notes.map((note) => note.id))
-    const unstagedSource = envelope.payload.source_note_ids.some((id) => !stagedNoteIds.has(id))
-    if (unstagedSource) {
-      fail('runner_source_mismatch', 422)
-    }
+    validateProposalSources(authority.manifest, envelope.payload)
   }
 
   const quantityQuestion = envelope.kind === 'question' && envelope.payload.kind === 'quantity'
@@ -140,10 +139,17 @@ export async function acceptEnvelope(
   }
 
   return transaction(pool, async (client) => {
+    await prepareMediaTransaction(client)
     const authority = await loadProcessingAuthority(client, config, envelope.attempt_id)
     authenticateEnvelope(authority, token, envelope)
 
-    const capture = await captureInTransaction(client, config, authority.row.batch_id, true)
+    const capture = await lockCaptureForInputSettlement(client, config, authority.row.batch_id)
+    const media = await lockProcessingMediaCurrency(
+      client,
+      config,
+      capture.snapshot,
+      authority.manifest.subject_id,
+    )
     await lockLane(client, config.actorId)
     const { job, attempt } = await lockProcessingAttempt(
       client,
@@ -165,7 +171,8 @@ export async function acceptEnvelope(
       job.current_attempt_id !== attempt.id ||
       attempt.state !== 'running' ||
       capture.snapshot.archived ||
-      !processingInputIsCurrent(authority.manifest, capture.snapshot)
+      !media.available ||
+      !processingInputIsCurrent(authority.manifest, capture.snapshot, media.inputs)
 
     const messageId = randomUUID()
     await client.query('INSERT INTO processing_message VALUES($1,$2,$3,$4,$5,$6)', [
@@ -183,8 +190,14 @@ export async function acceptEnvelope(
 
     if (stale) {
       // Authenticated stale bytes remain inspectable without creating a current proposal or question.
-      if (attempt.state === 'running') {
-        await transitionAttempt(client, job, attempt, 'superseded')
+      // A proposal does not prove that the physical command ended or released its account lane.
+      const commandEnded = envelope.kind === 'terminal' || envelope.kind === 'question'
+      if (commandEnded) {
+        if (attempt.state === 'running') {
+          await transitionAttempt(client, job, attempt, 'superseded')
+        } else {
+          await releaseProcessingLane(client, attempt.id)
+        }
         await appendEvent(client, capture.streamId, 'processing_changed', {
           batch_id: job.batch_id,
         })

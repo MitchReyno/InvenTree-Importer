@@ -5,7 +5,7 @@ import { validate } from '@invimport/contracts'
 import { retainedQuestionSpec } from '../src/processing/retained.ts'
 import { inputManifest, sealed, unseal } from '../src/processing/model.ts'
 import { processingInputIsCurrent } from '../src/processing/authority.ts'
-import { manualInputFixture } from './support/processing-input.ts'
+import { manualInputFixture, emptyProcessingMedia } from './support/processing-input.ts'
 
 test('immutable manual input retains exact human values and explicit stage dependencies', () => {
   const capture = manualInputFixture()
@@ -22,7 +22,10 @@ test('immutable manual input retains exact human values and explicit stage depen
 
   const changed = structuredClone(capture)
   changed.lots[0].quantity = { mode: 'set', value: '19' }
-  assert.equal(processingInputIsCurrent(manifest, changed), false)
+  assert.equal(
+    processingInputIsCurrent(manifest, changed, emptyProcessingMedia(changed, manifest.subject_id)),
+    false,
+  )
   assert.deepEqual(manifest.subject.quantity, { mode: 'set', value: '17.000001' })
   assert.notDeepEqual(
     sealed(inputManifest(changed, changed.lots[0].id, 'research', [predecessor], null)).digest,
@@ -38,10 +41,16 @@ test('stream clocks and unrelated lot edits do not rewrite dependency authority'
   changed.revision = '13'
   changed.updated_at = '2026-11-02T00:00:00Z'
   changed.lots.push({ ...capture.lots[0], id: randomUUID(), label: 'Packet B' })
-  assert.equal(processingInputIsCurrent(manifest, changed), true)
+  assert.equal(
+    processingInputIsCurrent(manifest, changed, emptyProcessingMedia(changed, manifest.subject_id)),
+    true,
+  )
 
   changed.notes[0].text = 'Human correction: Packet A contains 31.'
-  assert.equal(processingInputIsCurrent(manifest, changed), false)
+  assert.equal(
+    processingInputIsCurrent(manifest, changed, emptyProcessingMedia(changed, manifest.subject_id)),
+    false,
+  )
 })
 
 test('processing contracts reject extra authority, numeric quantities and native permission handles', () => {
