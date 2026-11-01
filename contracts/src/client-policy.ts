@@ -37,9 +37,11 @@ export function contractMiddleware(csrfToken?: string): Middleware {
       const boundedRequest = new Request(request, {
         signal: AbortSignal.timeout(operation.timeoutMs),
       })
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
+        boundedRequest.headers.set('x-intake-csrf', csrfToken ?? '')
+      }
       if (operation.requestSchema) {
         validate(operation.requestSchema, await boundedRequest.clone().json())
-        boundedRequest.headers.set('x-intake-csrf', csrfToken ?? '')
       }
 
       return boundedRequest
@@ -72,6 +74,18 @@ export function contractMiddleware(csrfToken?: string): Middleware {
   }
 }
 
+async function compatibleBody(request: Request) {
+  if (!request.body) {
+    return undefined
+  }
+  const mediaType = request.headers.get('content-type')?.split(';')[0].trim().toLowerCase()
+  if (mediaType === 'application/json') {
+    return request.text()
+  }
+
+  return request.arrayBuffer()
+}
+
 /** Keep the public URL/RequestInit injection seam used by existing consumers and tests. */
 export function compatibleTransport(transport: typeof fetch): typeof fetch {
   return async (input, init) => {
@@ -81,7 +95,7 @@ export function compatibleTransport(transport: typeof fetch): typeof fetch {
       headers: Object.fromEntries(request.headers),
       redirect: request.redirect,
       signal: request.signal,
-      body: request.body ? await request.text() : undefined,
+      body: await compatibleBody(request),
     })
   }
 }

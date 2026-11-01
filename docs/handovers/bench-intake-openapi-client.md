@@ -44,3 +44,38 @@ Verify generated drift, frozen install, contracts/frontend/server typechecks, co
 ## Implementation and observed results
 
 Plan recorded before implementation. The coordinator approved narrow ownership of pnpm-workspace.yaml and tooling/openapi-generator for the isolated generator. Dependency installation and implementation follow this checkpoint.
+
+
+## Implemented boundary
+
+The OpenAPI generator now emits paths, component schemas, existing schema-name aliases and a generated operation-policy map. The old per-schema json-schema-to-typescript conversion and embedded generic fetch templates are removed. Thin compatibility facades call openapi-fetch with inferred route/body/result types; existing imports and URL/RequestInit transport injection remain supported.
+
+Runtime middleware validates the serialized JSON request before transport and validates returned DTOs/errors through existing AJV schemas. It injects CSRF for command methods and applies generated setup/capture/manual deadlines. Safe typed failures preserve IntakeRequestError status/code; setup errors retain their prior generic message. Unexpected transport errors preserve identity, and this layer adds no retry. A JSON body keeps the existing string injection boundary; other transport bytes use ArrayBuffer rather than accidental text decoding.
+
+Input validation before transport is a deliberate tightening of the client boundary; existing server validation and authority remain unchanged. This client is not a replacement for server validation or safe command ownership. Future media upload/download routes need an explicit binary response/request policy extension; this task advertises only existing JSON foundation/capture/manual endpoints.
+
+### Compiler isolation and integration
+
+Strict peer installation resolves TypeScript 5.9.3 only within the private generator workspace. Contracts, frontend and intake-server retain TypeScript 6.0.3. Actual generated declarations compile under all three application consumers. No compiler peer warning is suppressed, and the generator is not imported from runtime source.
+
+The owner checkpoint was preserved before a normal merge of actual React Hook Form trunk e592a80. The lockfile merged without conflict and passed a frozen offline install. Existing source references, canonical vectors and migrations are unchanged. This branch has no unpublished sibling dependency.
+
+### Verification at current implementation
+
+- Full frontend/contracts/server typecheck, frontend ESLint and production build pass.
+- The merged frontend's 13 tests and existing server's 41 fast/HTTP tests pass.
+- The expanded contracts suite passes 12 tests, including nine new client/transport cases. These exercise encoded paths, exact scalars, pre-send rejection, safe/malformed error responses, approval/recovery paths, explicit deadline/abort propagation, original transport error identity, actual loopback HTTP UTF-8 bytes/CSRF/key/redirect refusal, and non-JSON byte preservation.
+- Compile-only adverse cases reject nonexistent routes, missing path parameters, numeric revisions and incomplete bodies; the existing facade result remains assignable to CaptureSnapshot.
+- Generated drift, changed-source Prettier, Markdown and diff checks pass. The isolated generator/compiler dependency listing matches the intended versions.
+- The normal suite completed: backend 2038 passed, 4 known skips and 43 scanner/TUI exclusions. After the last TypeScript-only transport refinements, affected contracts 12/12, server 41/41 and frontend 13/13 were rerun and passed, together with all application types/lint/build. The unchanged Python suite was not redundantly repeated. No PG/process, browser or real inventory capability is claimed from these client checks.
+
+The production entry is 530.32 kB minified / 162.53 kB gzip at the final qualified build, and Vite reports its standard >500 kB advisory. This is an observed build-size result, not a runtime performance measurement or reason to suppress the warning.
+
+
+## Acceptance and remaining gates
+
+Observed against owned/injected boundaries: exact generated request/response typing, runtime input/output checks, existing consumer compatibility, safe status/code errors, exact string/UTF-8 transport, stable caller-supplied keys, abort/error propagation, redirect refusal and deterministic generation. The actual HTTP case is a local synthetic endpoint, not an inventory API capability test.
+
+Not tested or changed: protected inventory behavior, provider inference/authentication, new media/processing routes, final identity, PostgreSQL ownership/transactions, physical apply or operational deployment. The client refactor grants none of those capabilities.
+
+Fresh independent review and selected hosted CI remain outstanding before the coordinator may merge. No self-review clearance or human GitHub approval is claimed. The coordinator owns all later merges and cross-owner integration; this owner does not merge the PR or alter other worktrees.

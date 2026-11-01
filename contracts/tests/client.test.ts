@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { createServer } from 'node:http'
+import { once } from 'node:events'
 import {
   captureClient,
   intakeClient,
   manualClient,
   IntakeRequestError,
 } from '../generated/client.ts'
+import { compatibleTransport } from '../src/client-policy.ts'
 import type { CaptureSnapshot } from '../generated/api.d.ts'
 
 const id = '10000000-0000-4000-8000-000000000001'
@@ -201,4 +204,79 @@ test('original transport failures are not wrapped or retried', async () => {
     (error) => error === failure,
   )
   assert.equal(sends, 1)
+})
+
+test('actual HTTP preserves command bytes and redirect refusal never reaches the sink', async () => {
+  const requests: {
+    method: string
+    path: string
+    headers: Record<string, string | string[] | undefined>
+    body: string
+  }[] = []
+  let redirect = false
+  const server = createServer((request, response) => {
+    const chunks: Buffer[] = []
+    request.on('data', (chunk: Buffer) => chunks.push(chunk))
+    request.on('end', () => {
+      requests.push({
+        method: request.method ?? '',
+        path: request.url ?? '',
+        headers: request.headers,
+        body: Buffer.concat(chunks).toString('utf8'),
+      })
+      if (redirect) {
+        response.writeHead(302, { location: '/forbidden-sink' }).end()
+        return
+      }
+      response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(snapshot))
+    })
+  })
+  server.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  try {
+    const address = server.address()
+    assert.ok(address && typeof address === 'object')
+    const client = captureClient(`http://127.0.0.1:${address.port}`, 'owned-csrf')
+    const input = {
+      expected_revision: '9007199254740993',
+      change: { kind: 'batch' as const, title: 'é exact human title' },
+    }
+    assert.deepEqual(await client.edit(id, input, key), snapshot)
+    assert.equal(
+      requests[0].body,
+      '{"expected_revision":"9007199254740993","change":{"kind":"batch","title":"é exact human title"}}',
+    )
+    assert.equal(requests[0].method, 'POST')
+    assert.equal(requests[0].headers['x-intake-csrf'], 'owned-csrf')
+    assert.equal(requests[0].headers['idempotency-key'], key)
+
+    redirect = true
+    await assert.rejects(client.read(id), TypeError)
+    assert.deepEqual(
+      requests.map((request) => request.path),
+      [`/api/v1/batches/${id}/edits`, `/api/v1/batches/${id}`],
+    )
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    )
+  }
+})
+
+test('transport compatibility preserves non-JSON bytes rather than decoding them as text', async () => {
+  const original = new Uint8Array([0, 255, 128, 195, 40, 1])
+  let retained: RequestInit['body']
+  const transport = compatibleTransport(async (_url, init) => {
+    retained = init?.body
+    return new Response(null, { status: 204 })
+  })
+  await transport(
+    new Request('http://127.0.0.1:4310/owned-binary-fixture', {
+      method: 'POST',
+      headers: { 'content-type': 'application/octet-stream' },
+      body: original,
+    }),
+  )
+  assert.ok(retained instanceof ArrayBuffer)
+  assert.deepEqual(new Uint8Array(retained), original)
 })

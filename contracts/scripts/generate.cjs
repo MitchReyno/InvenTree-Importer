@@ -4,6 +4,10 @@ const generateOpenApiTypes = require('@invimport/openapi-generator')
 // Pinned Node natively erases the runtime schema module's types; no tsx/tool loader.
 const { schemas, Id } = require('../src/index.ts')
 
+const SETUP_TIMEOUT_MS = 5000
+const CAPTURE_TIMEOUT_MS = 10000
+const MANUAL_TIMEOUT_MS = 45000
+
 function schemaName(reference) {
   const prefix = '#/components/schemas/'
   if (typeof reference !== 'string' || !reference.startsWith(prefix)) {
@@ -65,11 +69,11 @@ async function main() {
     description: name,
     content: { 'application/json': { schema: { $ref: `#/components/schemas/${name}` } } },
   })
-  const get = (output, timeoutMs = 45000, errorMode = 'typed') => ({
+  const get = (output, timeoutMs = MANUAL_TIMEOUT_MS, errorMode = 'typed') => ({
     'x-intake-client': { timeoutMs, errorMode },
     responses: { 200: response(output), default: response('ErrorDto') },
   })
-  const post = (input, output, status = '200', timeoutMs = 45000) => ({
+  const post = (input, output, status = '200', timeoutMs = MANUAL_TIMEOUT_MS) => ({
     'x-intake-client': { timeoutMs, errorMode: 'typed' },
     requestBody: {
       required: true,
@@ -89,13 +93,13 @@ async function main() {
     openapi: '3.1.0',
     info: { title: 'Bench Intake foundation', version: 'bench-intake-app/1' },
     paths: {
-      '/api/v1/health': { get: get('Health', 5000, 'setup') },
+      '/api/v1/health': { get: get('Health', SETUP_TIMEOUT_MS, 'setup') },
       '/api/v1/bootstrap': {
-        get: get('Bootstrap', 5000, 'setup'),
+        get: get('Bootstrap', SETUP_TIMEOUT_MS, 'setup'),
       },
       '/api/v1/batches': {
-        get: get('CaptureList', 10000),
-        post: post('BatchCreate', 'CaptureSnapshot', '201', 10000),
+        get: get('CaptureList', CAPTURE_TIMEOUT_MS),
+        post: post('BatchCreate', 'CaptureSnapshot', '201', CAPTURE_TIMEOUT_MS),
       },
       '/api/v1/batches/{id}': {
         parameters: [
@@ -106,15 +110,15 @@ async function main() {
             schema: Id,
           },
         ],
-        get: get('CaptureSnapshot', 10000),
+        get: get('CaptureSnapshot', CAPTURE_TIMEOUT_MS),
       },
       '/api/v1/batches/{id}/edits': {
         parameters: [{ name: 'id', in: 'path', required: true, schema: Id }],
-        post: post('CaptureEdit', 'CaptureSnapshot', '200', 10000),
+        post: post('CaptureEdit', 'CaptureSnapshot', '200', CAPTURE_TIMEOUT_MS),
       },
       '/api/v1/batches/{id}/observations': {
         parameters: [{ name: 'id', in: 'path', required: true, schema: Id }],
-        post: post('CaptureObserve', 'CaptureObservation', '201', 10000),
+        post: post('CaptureObserve', 'CaptureObservation', '201', CAPTURE_TIMEOUT_MS),
       },
       '/api/v1/activity': { get: get('ManualActivity') },
       '/api/v1/batches/{id}/manual': { get: get('ManualWorkspace') },
