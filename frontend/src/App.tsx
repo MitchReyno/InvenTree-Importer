@@ -14,6 +14,7 @@ import { Batch } from './components/batches/Batch'
 import { GlobalStyle } from './components/GlobalStyle'
 import styled from 'styled-components'
 import { ActivityIndicator } from './components/ui/ActivityIndicator'
+import { Masthead } from './components/masthead/Masthead'
 import { useNavigationGuard } from './navigation/useNavigationGuard'
 
 export default function App() {
@@ -88,12 +89,8 @@ export default function App() {
   return (
     <AppShell>
       <GlobalStyle />
-      <Masthead>
-        <Brand>
-          Bench <span>Intake</span>
-        </Brand>
-        <span>Bench workflow</span>
-      </Masthead>
+      <Masthead />
+
       <DevelopmentBanner>
         {bootstrap?.banner ?? 'Connecting to local application…'}
       </DevelopmentBanner>
@@ -128,30 +125,6 @@ const AppShell = styled.div`
   margin: auto;
   @media (max-width: 700px) {
     padding: 0 12px;
-  }
-`
-const Masthead = styled.header`
-  min-height: 60px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  border-bottom: 1px solid #d5dce5;
-  @media (max-width: 700px) {
-    min-height: 56px;
-    font-size: 12px;
-  }
-`
-const Brand = styled.strong`
-  font-size: 22px;
-  font-weight: 750;
-  text-decoration: none;
-  color: #233349;
-  span {
-    font-weight: 450;
-  }
-  @media (max-width: 700px) {
-    font-size: 20px;
   }
 `
 const DevelopmentBanner = styled.p`
