@@ -1,6 +1,6 @@
 # Masthead electronics animation
 
-Status: implemented and owner-qualified. Fresh independent review is next, before the PR is opened; this is not merge clearance.
+Status: implemented, independently reviewed, and review findings resolved. Ready to publish as a PR to `interactive-app`. Mitch asked for it to be merged once CI is green.
 
 ## Background and chronology
 
@@ -106,11 +106,11 @@ Decisions and plan adjustments made during implementation:
 
 | Check | Observed result |
 | --- | --- |
-| Frontend tests | 29 passed (13 existing, 16 new: catalogue, displays, flow, masthead component) |
+| Frontend tests | 38 passed after review fixes (13 existing, 25 new: catalogue, displays, flow, outline kit, scene controller, masthead component) |
 | Readability fix/check, Prettier fix/check | Passed; only files in this change were reformatted |
 | Root typecheck (frontend, contracts, server) | Passed |
 | Frontend lint and readability rule fixtures | Passed |
-| Production build | Passed. Main chunk 524.89 kB (160.93 kB gzip), previously 521.45 kB. Separate `scene` chunk 569.89 kB (144.93 kB gzip), loaded only after the shell and only with WebGL 2. Vite's existing >500 kB advisory now also names the scene chunk; it is not suppressed. |
+| Production build | Passed. Main chunk 525.21 kB (161.06 kB gzip), previously 521.45 kB. Separate `scene` chunk 570.37 kB (145.09 kB gzip), loaded only after the shell and only with WebGL 2. Vite's existing >500 kB advisory now also names the scene chunk; it is not suppressed. |
 | Browser check | Chrome 155.0.8059.86 against the standalone Vite dev server (API unavailable, so the page shows its connection error). The canvas created a 2920×238 drawing buffer for a 1460×119 CSS box at DPR 2. Screenshots showed outlined tinted parts (resistors, DIP/QFP/SOIC, a lit 7-segment display, LEDs, capacitors, a transistor) drifting over the dot grid and fading before the title and label. At 390 px: no horizontal overflow (scroll width 390), and parts visible after the narrow-fade fix. |
 
 Component tests cover: visible brand and label; `aria-hidden` canvas; no scene import without WebGL 2; the reduced-motion preference passed through; pointer forwarding; disposal on unmount; and no scene started when unmounted before the chunk resolves.
@@ -133,4 +133,30 @@ Pure-module tests cover:
 
 ## Independent review
 
-Pending: a fresh reviewer is assessing the diff before publication. Findings and their resolution will be recorded here.
+A fresh reviewer read every new file and the relevant three.js 0.186.1 sources. It re-ran tests, typecheck, lint, Prettier and a scratch build, and found no blockers.
+
+**Confirmed by the reviewer:**
+- **Bundle:** three.js is absent from the main chunk; it lives only in the lazy scene chunk.
+- **three.js API:** the `begin_vertex` shader replacement and the geometry signatures are correct for 0.186.1, and the shared sprite geometry is never disposed.
+- **Lifetime:** unmount before the import resolves and React StrictMode double mounting are safe.
+- **Recycling:** replacing a part inside the frame loop cannot cascade.
+- **Guidelines and accessibility:** no violations.
+
+Findings and resolution:
+
+| # | Severity | Finding | Resolution |
+| --- | --- | --- | --- |
+| 1 | should-fix | `kit.glass()` created a material per call, which accumulated in the kit while glass parts recycled | Glass materials are now shared per colour. Regression test added. |
+| 2 | should-fix | The scene controller had no tests; the planned reduced-motion and disposal cases were unverified | Added `scene.test.ts`: real three.js with a fake renderer, stubbed frames and observers, seeded random. It covers reduced motion (no loop, one frame), disposal (loop cancelled, observers disconnected, geometries and renderer freed), off-screen pause and resume, recycling that keeps the count over about 90 simulated seconds, and finite positions under pointer stirring. It also exposed an extra empty render at start-up under reduced motion, now removed. |
+| 3 | should-fix | The loop kept rendering while the masthead was scrolled off-screen | An `IntersectionObserver` pauses and resumes the loop; it is disconnected on dispose |
+| 4 | nit | Under reduced motion, a resize left a layout built for the old width | Under reduced motion, the static frame is re-laid out when the width changes |
+| 5 | nit | The glow texture used nearest filtering | Linear filtering, covered by a test |
+| 6 | nit | A set-up error leaked the WebGL context and was swallowed; a frame error would repeat every frame | Set-up failure disposes the renderer and rethrows; development builds warn. The next frame is scheduled only after a successful step and render. |
+| 7 | nit | The outline thickness comment overstated a constant 1 px | Comment corrected: thickness scales with part size |
+| 8 | nit | The pointer could stay active at a stale spot after scrolling; the pixel ratio was read once | The pointer clears on scroll and `pointercancel`; the pixel ratio is re-read on resize |
+| 9 | nit | Small per-frame allocations | Left as is: negligible at about 30 parts, and no profile shows a cost |
+| 10 | nit | The plan's reduced-motion component test did not match the record | Resolved by the scene controller tests (finding 2) |
+
+**After the fixes:**
+- **Checks:** all required checks passed again.
+- **Browser:** a fresh Chrome check confirmed the loop still animates; screenshots three seconds apart differ.

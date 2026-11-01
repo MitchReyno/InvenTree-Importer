@@ -168,8 +168,9 @@ export function createElectronicsCurrent(
   let time = 0
   let lastFrameAt = performance.now()
   let frameRequest = 0
+  let running = false
+  let laidOutWidth = 0
 
-  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1))
   renderer.setClearColor(0x000000, 0)
   scene.fog = new Fog(BACKGROUND_COLOUR, 96, 124)
 
@@ -469,7 +470,10 @@ export function createElectronicsCurrent(
   }
 
   function frame(now: number): void {
-    frameRequest = requestAnimationFrame(frame)
+    if (!running) {
+      return
+    }
+
     const elapsed = Math.min(MAX_FRAME_SECONDS, Math.max(0, (now - lastFrameAt) / 1000))
     lastFrameAt = now
     matchCountToWidth()
@@ -477,11 +481,38 @@ export function createElectronicsCurrent(
     pointer.velocityY *= Math.exp(-elapsed * POINTER_SPEED_DECAY)
     step(elapsed)
     render()
+    // Schedule only after a successful frame, so an error cannot repeat every frame.
+    frameRequest = requestAnimationFrame(frame)
+  }
+
+  function startLoop(): void {
+    if (running || options.reducedMotion) {
+      return
+    }
+
+    running = true
+    lastFrameAt = performance.now()
+    frameRequest = requestAnimationFrame(frame)
+  }
+
+  function stopLoop(): void {
+    running = false
+    cancelAnimationFrame(frameRequest)
+  }
+
+  /** Reduced motion has no loop to adapt the count, so re-lay out the static frame. */
+  function relayOutStaticFrame(): void {
+    parts.forEach(removePart)
+    parts.length = 0
+    layOutInitialParts()
+    step(0)
+    laidOutWidth = width
   }
 
   function resize(): void {
     width = canvas.clientWidth || REFERENCE_WIDTH_PX
     height = canvas.clientHeight || 120
+    renderer?.setPixelRatio(Math.min(2, window.devicePixelRatio || 1))
     renderer?.setSize(width, height, false)
     camera.left = (-width * UNITS_PER_PX) / 2
     camera.right = (width * UNITS_PER_PX) / 2
@@ -489,22 +520,54 @@ export function createElectronicsCurrent(
     camera.bottom = (-height * UNITS_PER_PX) / 2
     camera.updateProjectionMatrix()
 
-    if (options.reducedMotion) {
-      render()
+    if (!options.reducedMotion) {
+      return
+    }
+
+    // The first resize runs before any parts exist; the initial layout renders then.
+    if (parts.length === 0) {
+      return
+    }
+
+    if (width !== laidOutWidth) {
+      relayOutStaticFrame()
+    }
+
+    render()
+  }
+
+  // Pause while the masthead is scrolled out of view; resume when it returns.
+  function handleVisibility(entries: IntersectionObserverEntry[]): void {
+    const visible = entries.some((entry) => entry.isIntersecting)
+
+    if (visible) {
+      startLoop()
+    } else {
+      stopLoop()
     }
   }
 
   const resizeObserver = new ResizeObserver(resize)
-  resize()
-  layOutInitialParts()
-  step(0)
-  render()
-  resizeObserver.observe(canvas)
+  const visibilityObserver =
+    typeof IntersectionObserver === 'function' ? new IntersectionObserver(handleVisibility) : null
 
-  if (!options.reducedMotion) {
-    lastFrameAt = performance.now()
-    frameRequest = requestAnimationFrame(frame)
+  try {
+    resize()
+    layOutInitialParts()
+    laidOutWidth = width
+    step(0)
+    render()
+  } catch (error) {
+    // Release the WebGL context rather than leaking it on a failed start.
+    parts.forEach(removePart)
+    kit.dispose()
+    renderer.dispose()
+    throw error
   }
+
+  resizeObserver.observe(canvas)
+  visibilityObserver?.observe(canvas)
+  startLoop()
 
   function setPointer(clientX: number, clientY: number): void {
     const bounds = canvas.getBoundingClientRect()
@@ -538,8 +601,9 @@ export function createElectronicsCurrent(
   }
 
   function dispose(): void {
-    cancelAnimationFrame(frameRequest)
+    stopLoop()
     resizeObserver.disconnect()
+    visibilityObserver?.disconnect()
     parts.forEach(removePart)
     parts.length = 0
     kit.dispose()

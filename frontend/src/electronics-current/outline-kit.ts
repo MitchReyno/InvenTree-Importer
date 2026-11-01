@@ -3,6 +3,7 @@ import {
   BufferAttribute,
   Color,
   DataTexture,
+  LinearFilter,
   EdgesGeometry,
   LineBasicMaterial,
   LineSegments,
@@ -21,7 +22,8 @@ import {
   UNLIT_SEGMENT,
 } from './finishes'
 
-// Silhouette shell thickness in scene units (about 1 px at the masthead scale).
+// Silhouette shell thickness in part units: about 1 px for a full-size part. It
+// scales with each part's size, so smaller parts get slightly finer outlines.
 const HULL_THICKNESS = 0.16
 
 // Edges sharper than this become faint crease lines.
@@ -142,6 +144,9 @@ export function createGlowTexture(): DataTexture {
   }
 
   const texture = new DataTexture(data, size, size, RGBAFormat)
+  // DataTexture defaults to nearest filtering, which makes stretched glows blocky.
+  texture.magFilter = LinearFilter
+  texture.minFilter = LinearFilter
   texture.needsUpdate = true
 
   return texture
@@ -150,6 +155,7 @@ export function createGlowTexture(): DataTexture {
 export function createOutlineKit(): OutlineKit {
   const owned: Material[] = []
   const fillsByColour = new Map<number, MeshBasicMaterial>()
+  const glassByColour = new Map<number, MeshBasicMaterial>()
   const hull = createHullMaterial(OUTLINE_COLOUR)
   const glassHull = createHullMaterial(OUTLINE_COLOUR)
   const crease = new LineBasicMaterial({ color: CREASE_COLOUR })
@@ -197,11 +203,24 @@ export function createOutlineKit(): OutlineKit {
     return new Mesh(geometry, solid)
   }
 
-  function glass(geometry: BufferGeometry, colour: number): Mesh {
+  // Shared per colour like fills, so recycled glass parts never accumulate materials.
+  function glassMaterial(colour: number): MeshBasicMaterial {
+    const cached = glassByColour.get(colour)
+
+    if (cached) {
+      return cached
+    }
+
     const material = new MeshBasicMaterial({ color: colour, transparent: true, opacity: 0.55 })
-    const mesh = new Mesh(geometry, material)
-    const silhouette = new Mesh(createHullGeometry(geometry), glassHull)
+    glassByColour.set(colour, material)
     owned.push(material)
+
+    return material
+  }
+
+  function glass(geometry: BufferGeometry, colour: number): Mesh {
+    const mesh = new Mesh(geometry, glassMaterial(colour))
+    const silhouette = new Mesh(createHullGeometry(geometry), glassHull)
     mesh.renderOrder = 1
     silhouette.renderOrder = 2
     mesh.add(silhouette)

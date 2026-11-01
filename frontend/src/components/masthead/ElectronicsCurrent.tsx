@@ -47,19 +47,30 @@ export function ElectronicsCurrent() {
       controller?.setPointer(event.clientX, event.clientY)
     }
 
-    function handlePointerLeavePage(): void {
+    // Leaving the page, cancelling or scrolling leaves the pointer somewhere new.
+    function handlePointerGone(): void {
       controller?.clearPointer()
     }
 
-    // The scene chunk failing to load leaves a plain masthead; nothing depends on it.
-    start(canvas).catch(() => undefined)
+    function handleStartFailure(error: unknown): void {
+      // The masthead stays plain text; nothing depends on the animation.
+      if (import.meta.env.DEV) {
+        console.warn('Masthead animation unavailable', error)
+      }
+    }
+
+    start(canvas).catch(handleStartFailure)
     window.addEventListener('pointermove', handlePointerMove)
-    document.documentElement.addEventListener('pointerleave', handlePointerLeavePage)
+    window.addEventListener('pointercancel', handlePointerGone)
+    window.addEventListener('scroll', handlePointerGone, { passive: true })
+    document.documentElement.addEventListener('pointerleave', handlePointerGone)
 
     return () => {
       unmounted = true
       window.removeEventListener('pointermove', handlePointerMove)
-      document.documentElement.removeEventListener('pointerleave', handlePointerLeavePage)
+      window.removeEventListener('pointercancel', handlePointerGone)
+      window.removeEventListener('scroll', handlePointerGone)
+      document.documentElement.removeEventListener('pointerleave', handlePointerGone)
       controller?.dispose()
       controller = null
     }
