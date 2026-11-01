@@ -2,6 +2,7 @@ packages:
   - frontend
   - contracts
   - intake-server
+  - tooling/openapi-generator
 strictPeerDependencies: true
 allowBuilds:
   esbuild: true
