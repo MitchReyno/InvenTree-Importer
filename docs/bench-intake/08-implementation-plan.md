@@ -44,7 +44,7 @@ Each row is one substantial independently mergeable task PR, not one PR per tabl
 | T04 | Exact manual review → approval → apply → results | T02, T03 | L | Review domain, approval routes/screens, apply integration |
 | T05 | Retained uploads and deterministic media/attachments | T04 | L | Blob/media modules, upload/media UI and attachment handler |
 | T06 | Durable research coordination and persisted questions | T04 | L | Processing domain/worker, question routes and processing UI |
-| T07 | First supported native subscription provider | T06 | L | Restricted runner, read broker, provider integration/tests |
+| T07 | First supported native subscription provider | T05, T06 | L | Restricted runner, read broker, provider integration/tests |
 | T08 | Rich evidence/table review and capture refinements | T05, T06 | L | Evidence/review/capture browser work and scoped domain commands |
 | T09 | Complete supported inventory effects and selected recovery | T05 | L | Inventory/execution handlers, recovery routes/results UI |
 | T10 | Live projections, deployment and operational recovery | T07, T08, T09 | L | Events/SSE, operations tooling, supervision/restore/integration tests |
@@ -98,6 +98,8 @@ Add basic Processing overview/stage status, typed question UI, login/capacity/in
 
 ### T07 — first actual supported subscription route
 
+The complete task waits for both T05's retained photo/PDF artifacts and T06's runner/continuation contracts to merge. Documentation/route/entitlement investigation may inform earlier coordinator decisions without starting a second implementation owner or claiming integrated media acceptance; no unmerged sibling code is imported.
+
 Investigate the currently supported Claude/Codex personal deployment route, installed compatibility and entitlement before inference, using Mitch's existing signed-in local instances where supported. Use official OpenAI documentation tools for Codex research. Choose the first route that can actually meet tool/credential isolation on the supported host; do not promise both providers, headless hosting or native resume parity based on old observations. Keep native login in its supported credential store, never copy it or disturb the existing sessions. A blocked route does not stop T08/T09/manual use and is recorded as a gate, not worked around with paid APIs.
 
 Implement bounded staged evidence access, source retention/fetch SSRF controls and semantic inventory-read broker; no unrestricted provider tools or write secrets. Exercise actual photo and PDF processing, structured proposals with provenance, application questions/continuation, cancellation, restart and stale native permission-reply rejection. Preserve human selections. Label independently observed behavior, retained-provider replay, synthetic cases and untested capabilities in handover and UI capability status. Unsupported native continuation must stop/new-attempt safely rather than reusing a dead permission handle. Acceptance requires fresh actual inference only after supported login/tool gates hold; quota/login blocks are honest limitations, not fabricated acceptance.
@@ -141,26 +143,24 @@ Qualify a second provider independently for supported host/auth/media/questions/
 ## Sequence and parallel work
 
 ```diagram
-Plan approved → T01 → ┬─ T02 capture ──┐
-                      └─ T03 executor ─┴─ T04 MANUAL WORKING MILESTONE
+Plan approval → T01 → ┬─ T02 capture ──┐
+                     └─ T03 executor ─┴─ T04 MANUAL WORKING MILESTONE
+                                           │
+                                  ┌────────┴────────┐
+                              T05 media       T06 coordination
+
+Both T05 + T06 merged ─────────────► T07 provider
+Both T05 + T06 merged ─────────────► T08 review
+T05 merged ───────────────────────► T09 effects
+
+T07 + T08 + T09 merged → T10 operations → T11 identity
                                              │
-                               ┌─────────────┴──────────────┐
-                          T05 media                    T06 coordination
-                           │     └────────┐          ┌──────┴─────┐
-                           ▼              └─────────►T08 review  T07 provider
-                      T09 effects                      │           │
-                           └───────────────────────────┴───────────┘
-                                                       │
-                                                   T10 operations
-                                                       │
-                                                   T11 identity
-                                                       │
-                                                   T12 qualification
-                                                       │
-                                                   T13 optional
+                                        T12 qualification
+                                             │
+                                        T13 optional
 ```
 
-The dependency table is authoritative; arrows summarize it. T08 waits for both T05 and T06. T10's full completion waits for T07/T08/T09, with only the explicitly bounded provider-block exception above. No task depends on unmerged code from a sibling branch.
+The dependency table is authoritative; arrows summarize it. T07 and T08 each wait for both T05 and T06. T10's full completion waits for T07/T08/T09, with only the explicitly bounded provider-block exception above. No task depends on unmerged code from a sibling branch.
 
 | Wave | Eligible owners | Result / scheduling rule |
 | --- | --- | --- |
@@ -168,7 +168,7 @@ The dependency table is authoritative; arrows summarize it. T08 waits for both T
 | 1 | T02 and T03 | Capture and executor proceed independently on T01; coordinator resolves contract changes |
 | 2 | T04 | Integrate merged public seams; deliver first functional manual version |
 | 3 | T05 and T06 | Media and coordination own different modules/routes/views |
-| 4 | T07 after T06; T09 after T05; T08 after both | Up to three substantial owners; don't wait for an entire wave when a dependency has merged |
+| 4 | T07 and T08 after both T05/T06; T09 after T05 | Up to three substantial owners; don't wait for an entire wave when a dependency has merged |
 | 5 | T10, then T11, then T12 | Operational convergence, final access, integrated qualification; no speculative stacked branches |
 | Later | T13 after qualification | Independent parity/improvement scope; protected server remains read-only |
 
