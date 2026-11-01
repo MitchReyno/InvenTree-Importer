@@ -15,6 +15,7 @@ import { prepareMediaTransaction } from '../media/transaction.ts'
 import { decodeMediaInputs } from '../media/inputs.ts'
 import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import { loadProcessingAuthority, processingInputIsCurrent } from './authority.ts'
+import { processingDependencyStatus } from './dependencies.ts'
 
 type QuestionRow = {
   id: string
@@ -168,7 +169,12 @@ export async function answerQuestion(
         Buffer.from(questionMedia.manifest, 'utf8'),
         Buffer.from(questionMedia.manifestDigest, 'hex'),
       )
-      if (!processingInputIsCurrent(authority.manifest, capture.snapshot, currentMedia)) {
+      const dependencyStatus = await processingDependencyStatus(client, config, authority)
+      const questionCurrent =
+        dependencyStatus.current &&
+        dependencyStatus.ready &&
+        processingInputIsCurrent(authority.manifest, capture.snapshot, currentMedia)
+      if (!questionCurrent) {
         fail('stale_question', 412)
       }
       await lockLane(client, config.actorId)

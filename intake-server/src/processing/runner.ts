@@ -15,6 +15,7 @@ import { loadProcessingAuthority, processingInputIsCurrent } from './authority.t
 import { prepareMediaTransaction } from '../media/transaction.ts'
 import { lockProcessingMediaCurrency } from './media.ts'
 import { lockProcessingAttempt, transitionAttempt, releaseProcessingLane } from './state.ts'
+import { processingDependencyStatus } from './dependencies.ts'
 
 export interface ResearchInput {
   payload: ProcessingCommandDto
@@ -85,8 +86,10 @@ export async function claimProcessingCommand(
     if (job.current_attempt_id !== attempt.id || attempt.state !== 'queued') {
       return null
     }
+    const dependencies = await processingDependencyStatus(client, config, retained)
     if (
       capture.snapshot.archived ||
+      !dependencies.current ||
       !media.available ||
       !processingInputIsCurrent(retained.manifest, capture.snapshot, media.inputs)
     ) {
@@ -94,13 +97,7 @@ export async function claimProcessingCommand(
       await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: job.batch_id })
       return null
     }
-    const incomplete = await client.query(
-      `SELECT 1 FROM processing_dependency d JOIN processing_attempt a
-      ON a.id=d.dependency_attempt_id JOIN processing_job j ON j.id=a.job_id
-      WHERE d.attempt_id=$1 AND (a.state<>'ready' OR j.current_attempt_id<>a.id)`,
-      [attempt.id],
-    )
-    if (lane.attempt_id || incomplete.rowCount) {
+    if (lane.attempt_id || !dependencies.ready) {
       return null
     }
     await client.query('UPDATE processing_lane SET attempt_id=$2 WHERE actor_id=$1', [

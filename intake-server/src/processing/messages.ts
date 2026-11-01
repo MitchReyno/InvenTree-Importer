@@ -14,6 +14,7 @@ import { lockProcessingAttempt, transitionAttempt, releaseProcessingLane } from 
 import { validateProposalSources } from './provenance.ts'
 import { prepareMediaTransaction } from '../media/transaction.ts'
 import { lockProcessingMediaCurrency } from './media.ts'
+import { processingDependencyStatus } from './dependencies.ts'
 
 type Authority = Awaited<ReturnType<typeof loadProcessingAuthority>>
 
@@ -167,10 +168,13 @@ export async function acceptEnvelope(
     }
 
     validatePayloadReferences(authority, job.subject_id, envelope)
+    const dependencies = await processingDependencyStatus(client, config, authority)
     const stale =
       job.current_attempt_id !== attempt.id ||
       attempt.state !== 'running' ||
       capture.snapshot.archived ||
+      !dependencies.current ||
+      !dependencies.ready ||
       !media.available ||
       !processingInputIsCurrent(authority.manifest, capture.snapshot, media.inputs)
 

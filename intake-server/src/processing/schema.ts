@@ -64,3 +64,8 @@ export const processingLanes = pgTable('processing_lane', {
   actorId: uuid('actor_id').primaryKey(),
   attemptId: uuid('attempt_id'),
 })
+
+export const processingDependencies = pgTable('processing_dependency', {
+  attemptId: uuid('attempt_id').notNull(),
+  dependencyAttemptId: uuid('dependency_attempt_id').notNull(),
+})

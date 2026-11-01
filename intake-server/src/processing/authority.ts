@@ -1,4 +1,6 @@
 import type { PoolClient } from 'pg'
+import { eq } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/node-postgres'
 import type { CaptureSnapshotDto, ProcessingInputDto } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
 import {
@@ -15,6 +17,25 @@ import { processingProfiles, toolProfileVersion } from './policy.ts'
 import type { MediaInputs } from '../media/inputs.ts'
 import { verifyRetainedProcessingMedia } from './media.ts'
 import type { ProcessingConfig } from './attempts.ts'
+import { processingDependencies } from './schema.ts'
+
+async function verifyDependencyBinding(
+  client: PoolClient,
+  attemptId: string,
+  manifest: ProcessingInputDto,
+) {
+  const dependencies = await drizzle(client)
+    .select({ attemptId: processingDependencies.dependencyAttemptId })
+    .from(processingDependencies)
+    .where(eq(processingDependencies.attemptId, attemptId))
+    .orderBy(processingDependencies.dependencyAttemptId)
+    .limit(manifest.dependencies.length + 1)
+  const retainedIds = dependencies.map((dependency) => dependency.attemptId)
+  const manifestIds = [...manifest.dependencies].sort()
+  if (canonical(retainedIds) !== canonical(manifestIds)) {
+    fail('processing_dependency_binding_invalid')
+  }
+}
 
 export async function loadProcessingAuthority(
   client: PoolClient,
@@ -26,11 +47,13 @@ export async function loadProcessingAuthority(
             command.payload_bytes, command.payload_digest, command.actor_id, command.target_id,
             command.target_context_id, command.handler_version, command.workflow_id,
             command.queue_name, command.kind,
-            profile.instruction_bytes, profile.instruction_digest, profile.tool_profile_version
+            profile.instruction_bytes, profile.instruction_digest, profile.tool_profile_version,
+            job.subject_id, job.stage, job.current_attempt_id, job.state AS job_state
      FROM processing_attempt attempt
      JOIN processing_input input ON input.id = attempt.input_id
      JOIN command command ON command.id = attempt.command_id
      JOIN processing_profile profile ON profile.id = attempt.profile_id
+     JOIN processing_job job ON job.id = attempt.job_id AND job.batch_id = attempt.batch_id
      WHERE attempt.id = $1`,
     [attemptId],
   )
@@ -79,6 +102,8 @@ export async function loadProcessingAuthority(
     row.queue_name !== 'bench-research' ||
     !['process', 'continue'].includes(row.kind) ||
     manifest.batch_id !== row.batch_id ||
+    manifest.subject_id !== row.subject_id ||
+    manifest.stage !== row.stage ||
     manifest.instruction_version !== profile.instructionVersion ||
     manifest.instruction_sha256 !== profile.instructionDigest ||
     manifest.tool_profile_version !== toolProfileVersion
@@ -86,6 +111,7 @@ export async function loadProcessingAuthority(
     fail('processing_authority_corrupt')
   }
   await verifyRetainedProcessingMedia(client, config, manifest, row.command_id)
+  await verifyDependencyBinding(client, row.id, manifest)
   return { row, manifest, payload }
 }
 

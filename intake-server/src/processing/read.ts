@@ -14,11 +14,11 @@ import {
 import { commands } from '../db/schema.ts'
 import { captureInTransaction } from '../capture/repository.ts'
 import type { ProcessingConfig } from './attempts.ts'
-import { processingInputIsCurrent } from './authority.ts'
+import { loadProcessingAuthority, processingInputIsCurrent } from './authority.ts'
+import { processingDependencyStatus } from './dependencies.ts'
 import {
   readProcessingMediaScopes,
   processingMediaFor,
-  verifyRetainedProcessingMedia,
   type ProcessingMediaAvailability,
 } from './media.ts'
 import { decodeProcessingInput, fail } from './model.ts'
@@ -87,14 +87,17 @@ async function inputCurrency(
   capture: CaptureSnapshotDto,
   media: ProcessingMediaAvailability,
 ): Promise<InputCurrency> {
-  const manifest = decodeProcessingInput(job.inputBytes, job.inputDigest)
-  await verifyRetainedProcessingMedia(client, config, manifest, job.commandId)
+  const authority = await loadProcessingAuthority(client, config, job.attemptId)
+  const manifest = authority.manifest
+  const dependencies = await processingDependencyStatus(client, config, authority)
   if (!media.available) {
     return { current: false, blockedCode: media.blockedCode }
   }
   const current =
     job.currentAttemptId === job.attemptId &&
     !capture.archived &&
+    dependencies.current &&
+    (job.attemptState === 'queued' || dependencies.ready) &&
     processingInputIsCurrent(manifest, capture, media.inputs)
   const legacyQueued =
     manifest.schema_version === 'bench-intake-input/1' && job.attemptState === 'queued'
