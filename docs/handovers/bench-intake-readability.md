@@ -49,7 +49,7 @@ Before any runtime source normalization, the new rules reported 251 violations a
 
 ### Check wiring
 
-The root readability command checks runtime frontend, server and contracts TypeScript while excluding generated/vectors/fixtures/migrations. Frontend ESLint imports the same focused configuration alongside its existing correctness rules. A shared local hook and selected TypeScript CI run it; both application paths select the CI check. Rule fixtures run in the same CI job. These additions do not alter Prettier's byte-sensitive ignore policy.
+The root `format:readability` command applies maintained ESLint fixes, followed by ordinary Prettier formatting; its matching check command reports without writing. The root readability command checks runtime frontend, server and contracts TypeScript while excluding generated/vectors/fixtures/migrations. Frontend ESLint imports the same focused configuration alongside its existing correctness rules. A shared local hook and selected TypeScript CI run it; both application paths select the CI check. Rule fixtures run in the same CI job. These additions do not alter Prettier's byte-sensitive ignore policy.
 
 Observed so far: seven rule fixtures and nineteen CI-selector regressions pass. These are fixture/tooling results, not application regression qualification. The mechanical baseline and full normal suite remain pending.
 

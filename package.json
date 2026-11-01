@@ -39,7 +39,8 @@
     "workflow-sync": "uv run --directory backend pytest tests/test_project_workflow_sync.py",
     "spikes:check": "uv run --directory backend pytest tests/spikes/test_shared_contracts.py",
     "lint:readability": "eslint --config eslint.config.mjs frontend/src intake-server/src contracts/src --max-warnings 0",
-    "test:readability": "node --test tooling/tests/readability.test.mjs"
+    "test:readability": "node --test tooling/tests/readability.test.mjs",
+    "format:readability": "eslint --config eslint.config.mjs frontend/src intake-server/src contracts/src --fix --max-warnings 0"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "5.10.0",

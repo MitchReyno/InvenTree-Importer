@@ -45,7 +45,7 @@ Review functions that require holding several unrelated stages in memory. Split 
 
 ### Checked rules and review boundaries
 
-Run `pnpm lint:readability` for shared runtime TypeScript and `pnpm test:readability` for the rule fixtures. The same maintained ESLint rules run through frontend lint, local hooks and selected TypeScript CI. They enforce branch braces, separate variable declarations, blank lines around callable declarations and blank lines around class methods. TypeScript overload signatures stay with their implementation.
+Run `pnpm format:readability`, then `pnpm format` to apply the maintained readability fixes and formatting. Run `pnpm lint:readability` for shared runtime TypeScript and `pnpm test:readability` for the rule fixtures. The same maintained ESLint rules run through frontend lint, local hooks and selected TypeScript CI. They enforce branch braces, separate variable declarations, blank lines around callable declarations and blank lines around class methods. TypeScript overload signatures stay with their implementation.
 
 Generated contracts, exact vectors, preserved fixtures, immutable migrations and design references are excluded from this source-style check. Their owning validation still applies. The check does not inspect object-method spacing or infer whether a function has too many responsibilities: reviewers must check those explicitly. A green formatter/linter is necessary, not sufficient.
 

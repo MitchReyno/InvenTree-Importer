@@ -197,7 +197,7 @@ test('large-file exception admits only the preserved original table screenshot',
 })
 
 test('shared readability hook rejects missing separation without rewriting or staging source', (t) => {
-  const { write, read, git, hook } = fixture(t)
+  const { run, write, read, git, hook } = fixture(t)
   const source = 'frontend/src/probe.ts'
   const condensed = 'export function first() {}\nexport function second() {}\n'
   write(source, condensed)
@@ -211,7 +211,10 @@ test('shared readability hook rejects missing separation without rewriting or st
   assert.ok(output.includes('padding-line-between-statements'))
   assert.equal(read(source), condensed)
   assert.equal(git('show', ':' + source), condensed)
-  write(source, 'export function first() {}\n\nexport function second() {}\n')
+  run('pnpm', ['format:readability'])
+  run('pnpm', ['format'])
+  assert.equal(read(source), 'export function first() {}\n\nexport function second() {}\n')
+  assert.equal(git('show', ':' + source), condensed, 'formatter must not stage its changes')
   git('add', source)
   hook('eslint-readability')
   assert.equal(read('intake-server/src/fixtures/protocol.ts'), preserved)
