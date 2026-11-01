@@ -35,7 +35,17 @@ class SelectionTests(unittest.TestCase):
                 self.assert_checks([path], "workflow_sync")
         self.assert_checks([".claude/agents/component-researcher.md"], "workflow_sync", "markdown")
         self.assert_checks([".agents/skills/crop/SKILL.md"], "workflow_sync", "markdown")
-        self.assert_checks([".claude/skills/crop/scripts/crop.py"], "workflow_sync", "backend_lint")
+
+    def test_either_skill_python_mirror_selects_behavioral_backend_tests(self):
+        for root in (".agents/skills", ".claude/skills"):
+            for script in ("component-photo-crops/scripts/crop.py", "company-logos/scripts/scan_logo.py"):
+                with self.subTest(root=root, script=script):
+                    # Each mirror alone must select the consumers, not only a paired change.
+                    self.assert_checks([f"{root}/{script}"], "backend", "backend_lint", "workflow_sync")
+
+    def test_api_spec_is_a_backend_test_input_not_ordinary_documentation(self):
+        self.assert_checks(["docs/InvenTree API.yaml"], "backend")
+        self.assert_checks(["docs/unrelated.yaml"])
 
     def test_manifests_and_tool_configuration(self):
         for path in ("package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", ".node-version"):
@@ -121,6 +131,26 @@ class GitComparisonTests(unittest.TestCase):
         self.assertEqual(len(paths), 351)
         self.assertTrue(select_checks(paths)["frontend"])
         self.assertFalse(select_checks(paths)["backend"])
+
+    def test_api_spec_deletion_and_rename_retain_backend_ownership(self):
+        spec = "docs/InvenTree API.yaml"
+        archived = "docs/archived-api.yaml"
+        for operation in ("delete", "rename"):
+            with self.subTest(operation=operation):
+                self.write(spec, "paths: {}\n")
+                base = self.commit()
+                if operation == "delete":
+                    (self.root / spec).unlink()
+                else:
+                    self.git("mv", spec, archived)
+                head = self.commit()
+                for event_name, event in (
+                    ("push", self.push_event(base, head)),
+                    ("pull_request", self.pr_event(base, head)),
+                ):
+                    paths = changed_paths(event_name, event, self.root)
+                    self.assertEqual(set(paths), {spec} if operation == "delete" else {spec, archived})
+                    self.assertEqual({name for name, selected in select_checks(paths).items() if selected}, {"backend"})
 
     def test_rename_uses_old_and_new_paths_with_unusual_names(self):
         old = "backend/config/odd\nname.yaml"
