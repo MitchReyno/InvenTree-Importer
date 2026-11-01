@@ -1,18 +1,80 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import type { PoolClient } from 'pg'
+import { and, eq } from 'drizzle-orm'
 import { canonical } from '@invimport/contracts/json'
+import { executeDatabaseQuery, queryDatabase } from './database.ts'
+import { events, idempotencyRecords } from './schema.ts'
+
+const SHA256_BYTES = 32
 
 export const sha256 = (bytes: Uint8Array | string) => createHash('sha256').update(bytes).digest()
+
 export function verifyBytes(bytes: Buffer, expected: Buffer): void {
-  if (expected.length !== 32 || !timingSafeEqual(sha256(bytes), expected))
+  if (expected.length !== SHA256_BYTES || !timingSafeEqual(sha256(bytes), expected)) {
     throw new Error('retained_bytes_corrupt')
+  }
 }
+
+/** A reused command key cannot authorize a different semantic payload. */
+export class CommandPayloadConflict extends Error {
+  constructor() {
+    super('payload_conflict')
+    this.name = 'CommandPayloadConflict'
+  }
+}
+
 export interface CommandScope {
   actorId: string
   action: string
   resourceKey: string
   key: string
 }
+
+async function lockCommandScope(client: PoolClient, scope: CommandScope): Promise<void> {
+  const identity = [scope.actorId, scope.action, scope.resourceKey, scope.key]
+  // Unlike a row lock, this serializes the exact logical scope even when the key is absent.
+  await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [canonical(identity)])
+}
+
+async function findIdempotencyRecord(client: PoolClient, scope: CommandScope) {
+  const records = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        semanticBytes: idempotencyRecords.semanticBytes,
+        semanticDigest: idempotencyRecords.semanticDigest,
+        responseBytes: idempotencyRecords.responseBytes,
+      })
+      .from(idempotencyRecords)
+      .where(
+        and(
+          eq(idempotencyRecords.actorId, scope.actorId),
+          eq(idempotencyRecords.action, scope.action),
+          eq(idempotencyRecords.resourceKey, scope.resourceKey),
+          eq(idempotencyRecords.key, scope.key),
+        ),
+      ),
+  )
+  return records[0]
+}
+
+async function retainIdempotencyRecord(
+  client: PoolClient,
+  scope: CommandScope,
+  semanticBytes: Buffer,
+  result: unknown,
+): Promise<void> {
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .insert(idempotencyRecords)
+      .values({
+        ...scope,
+        semanticBytes,
+        semanticDigest: sha256(semanticBytes),
+        responseBytes: Buffer.from(canonical(result)),
+      }),
+  )
+}
+
 /** Caller owns the domain transaction. No network effects or automatic retries are permitted here. */
 export async function idempotent(
   client: PoolClient,
@@ -20,34 +82,23 @@ export async function idempotent(
   payload: unknown,
   work: () => Promise<unknown>,
 ): Promise<unknown> {
-  const values = [scope.actorId, scope.action, scope.resourceKey, scope.key]
-  // Lock the exact logical scope before looking for a row; unlike row locking this covers absent keys.
-  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [canonical(values)])
+  const commandScope = { ...scope }
+  await lockCommandScope(client, commandScope)
   const bytes = Buffer.from(canonical(payload))
-  const found = await client.query<{
-    semantic_bytes: Buffer
-    semantic_digest: Buffer
-    response_bytes: Buffer
-  }>(
-    'SELECT semantic_bytes,semantic_digest,response_bytes FROM idempotency_record WHERE actor_id=$1 AND action=$2 AND resource_key=$3 AND key=$4',
-    values,
-  )
-  if (found.rowCount) {
-    const prior = found.rows[0]
-    verifyBytes(prior.semantic_bytes, prior.semantic_digest)
-    if (!prior.semantic_bytes.equals(bytes)) throw new Error('payload_conflict')
-    return JSON.parse(prior.response_bytes.toString('utf8')) as unknown
+  const prior = await findIdempotencyRecord(client, commandScope)
+  if (prior) {
+    verifyBytes(prior.semanticBytes, prior.semanticDigest)
+    if (!prior.semanticBytes.equals(bytes)) {
+      throw new CommandPayloadConflict()
+    }
+    return JSON.parse(prior.responseBytes.toString('utf8')) as unknown
   }
+
   const result = await work()
-  const response = Buffer.from(canonical(result))
-  await client.query('INSERT INTO idempotency_record VALUES ($1,$2,$3,$4,$5,$6,$7)', [
-    ...values,
-    bytes,
-    sha256(bytes),
-    response,
-  ])
+  await retainIdempotencyRecord(client, commandScope, bytes, result)
   return result
 }
+
 /** Acquire stream heads LAST, sorted by id for multi-stream transactions; holds until COMMIT. */
 export async function appendEvent(
   client: PoolClient,
@@ -56,16 +107,25 @@ export async function appendEvent(
   payload: unknown,
 ): Promise<string> {
   const result = await client.query<{ head: string }>(
-    'UPDATE ui_stream SET head=head+1 WHERE id=$1 RETURNING head',
+    `UPDATE ui_stream
+     SET head = head + 1
+     WHERE id = $1
+     RETURNING head`,
     [streamId],
   )
-  if (result.rowCount !== 1) throw new Error('stream_missing')
+  if (result.rowCount !== 1) {
+    throw new Error('stream_missing')
+  }
   const sequence = result.rows[0].head
-  await client.query('INSERT INTO ui_event VALUES ($1,$2,$3,$4)', [
-    streamId,
-    sequence,
-    kind,
-    Buffer.from(canonical(payload)),
-  ])
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .insert(events)
+      .values({
+        streamId,
+        sequence: BigInt(sequence),
+        kind,
+        publicBytes: Buffer.from(canonical(payload)),
+      }),
+  )
   return sequence
 }
