@@ -7,6 +7,7 @@ import { CaptureHeader } from './CaptureHeader'
 import { CaptureQueue } from './CaptureQueue'
 import { EvidencePanel } from './EvidencePanel'
 import { CaptureEditor } from './CaptureEditor'
+
 export function CaptureWorkspace({
   batch,
   busy,
@@ -19,15 +20,18 @@ export function CaptureWorkspace({
   const [focused, setFocused] = useState(() => Boolean(location.hash.split('/')[1]))
   const [dirty, setDirty] = useState(false)
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+
   function reportDirty(value: boolean) {
     setDirty(value)
     onDirtyChange?.(value)
   }
+
   function setSelected(value: string) {
     select(value)
     setFocused(true)
     history.replaceState(null, '', `#${batch.id}/${value}`)
   }
+
   const lot = batch.lots.find((l) => l.id === selected)
   const part = batch.parts.find((p) => p.id === selected)
   const frozen = busy || batch.archived

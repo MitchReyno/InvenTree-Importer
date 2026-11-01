@@ -16,6 +16,7 @@ export interface ManualMaterial {
   bytes: Buffer
   digest: Buffer
 }
+
 export function issue(
   code: string,
   message: string,
@@ -31,10 +32,12 @@ export function materialize(snapshot: CaptureSnapshotDto, selectedIds: string[])
   const issues: ManualIssueDto[] = []
   const effects: ManualEffectDto[] = []
   const subjects = new Map<string, SubjectDependency>()
+
   function retain(subjectId: string, value: unknown) {
     const bytes = Buffer.from(canonical(value))
     subjects.set(subjectId, { subjectId, bytes, digest: sha256(bytes) })
   }
+
   if (snapshot.archived) {
     issues.push(issue('batch_archived', 'Resume this batch before reviewing or approving.'))
   }

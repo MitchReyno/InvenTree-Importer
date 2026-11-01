@@ -159,10 +159,12 @@ const run: ManualRunDto = {
   ],
   cursor: { stream_id: stream, sequence: '10' },
 }
+
 function checked<T>(schema: Parameters<typeof validate>[0], value: unknown): T {
   validate(schema, value)
   return value as T
 }
+
 function fakeClient(revision = batch.revision) {
   let workspace: ManualWorkspaceDto = {
     batch_id: batchId,
@@ -234,6 +236,7 @@ function fakeClient(revision = batch.revision) {
   }
   return client
 }
+
 afterEach(() => {
   location.hash = ''
   vi.restoreAllMocks()

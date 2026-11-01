@@ -25,6 +25,7 @@ export interface StockPlan {
   originalSourceKey: string
   operations: StockOperation[]
 }
+
 function record(value: unknown, keys: string[]): asserts value is Record<string, unknown> {
   if (
     !value ||
@@ -35,11 +36,13 @@ function record(value: unknown, keys: string[]): asserts value is Record<string,
     throw new Error('invalid_stock_plan')
   }
 }
+
 export function id(value: unknown): asserts value is string {
   if (typeof value !== 'string' || !new RegExp(Id.pattern!).test(value)) {
     throw new Error('invalid_executor_id')
   }
 }
+
 export function pk(value: unknown): asserts value is string {
   if (
     typeof value !== 'string' ||
@@ -49,12 +52,14 @@ export function pk(value: unknown): asserts value is string {
     throw new Error('invalid_stock_pk')
   }
 }
+
 /** v1 freezes the ORIGINAL keys, never a run ID or generated replacement source. */
 export function contributionBarcode(originalSourceKey: string, contributionKey: string): string {
   id(originalSourceKey)
   id(contributionKey)
   return `bi1:${originalSourceKey}:${contributionKey}`
 }
+
 export function stockBytes(operation: StockOperation): Buffer {
   return Buffer.from(
     canonical({
@@ -65,6 +70,7 @@ export function stockBytes(operation: StockOperation): Buffer {
     }),
   )
 }
+
 export function decodePlan(bytes: Buffer, digest: Buffer): StockPlan {
   verifyBytes(bytes, digest)
   const value = strictJson(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
@@ -142,6 +148,7 @@ export function decodePlan(bytes: Buffer, digest: Buffer): StockPlan {
   }
   return value as unknown as StockPlan
 }
+
 export function encodePlan(plan: StockPlan): { bytes: Buffer; digest: Buffer } {
   const bytes = Buffer.from(canonical(plan))
   const digest = sha256(bytes)

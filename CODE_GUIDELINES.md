@@ -29,7 +29,7 @@ No package is required for trivial logic. Do not substitute a library list for r
 
 ## Readable TypeScript
 
-Run `pnpm format`, then `pnpm format:check` before review. Editor and hooks use the same config; generated contracts, preserved evidence and immutable migrations retain their byte policies. Formatting cannot fix unclear names or mixed responsibilities.
+Before review, run `pnpm format:readability`, `pnpm format`, `pnpm lint:readability` and `pnpm format:check`. Editor and hooks use the same config; generated contracts, preserved evidence and immutable migrations retain their byte policies. Formatting cannot fix unclear names or mixed responsibilities.
 
 - Write one statement and variable declaration per line. Use braces for branches/loops, including early exits. Avoid compressed callbacks, nested ternaries and joined assignments/declarations.
 - Name intermediate values that explain domain decisions or asynchronous results. Separate query results from row selection, mapping and fallback when combining them obscures behavior. Keep trivial expressions inline.
@@ -45,9 +45,9 @@ Review functions that require holding several unrelated stages in memory. Split 
 
 ### Checked rules and review boundaries
 
-Run `pnpm format:readability`, then `pnpm format` to apply the maintained readability fixes and formatting. Run `pnpm lint:readability` for shared runtime TypeScript and `pnpm test:readability` for the rule fixtures. The same maintained ESLint rules run through frontend lint, local hooks and selected TypeScript CI. They enforce branch braces, separate variable declarations, blank lines around callable declarations and blank lines around class methods. TypeScript overload signatures stay with their implementation.
+The readability fix/check commands cover shared runtime TypeScript; `pnpm test:readability` exercises the configured rules. The same maintained ESLint rules run through frontend lint, local hooks and selected TypeScript CI. They enforce branch braces, separate variable declarations, blank lines around ordinary/exported functions and direct arrow/function-expression declarations, and blank lines around class methods. TypeScript overload signatures stay with their implementation.
 
-Generated contracts, exact vectors, preserved fixtures, immutable migrations and design references are excluded from this source-style check. Their owning validation still applies. The check does not inspect object-method spacing or infer whether a function has too many responsibilities: reviewers must check those explicitly. A green formatter/linter is necessary, not sufficient.
+Generated contracts, exact vectors, preserved fixtures, immutable migrations and design references are excluded from this source-style check. Their owning validation still applies. The check does not infer functions returned by factories such as `useCallback`, inspect object-method spacing or decide whether a function has too many responsibilities: reviewers must check those explicitly. A green formatter/linter is necessary, not sufficient.
 
 ### Patterns to avoid
 

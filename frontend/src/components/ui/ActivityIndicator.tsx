@@ -4,12 +4,14 @@ import type { ManualClient } from '../../manual/types'
 import { Link, Small } from './primitives'
 
 type Activity = Awaited<ReturnType<ManualClient['activity']>>
+
 export function ActivityIndicator({ client }: { client: ManualClient }) {
   const [activity, setActivity] = useState<Activity | null>(null)
   const [unavailable, setUnavailable] = useState(false)
   useEffect(() => {
     let active = true
     let timer: ReturnType<typeof setTimeout>
+
     async function refresh() {
       try {
         const value = await client.activity()
@@ -29,6 +31,7 @@ export function ActivityIndicator({ client }: { client: ManualClient }) {
         }
       }
     }
+
     void refresh()
     return () => {
       active = false
@@ -56,6 +59,7 @@ export function ActivityIndicator({ client }: { client: ManualClient }) {
     </Indicator>
   )
 }
+
 const Indicator = styled.aside`
   display: flex;
   align-items: center;

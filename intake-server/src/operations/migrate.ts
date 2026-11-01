@@ -22,7 +22,9 @@ export async function migrate(pool: Pool): Promise<void> {
         [name],
       )
       if (existing.rowCount) {
-        if (existing.rows[0].sha256 !== digest) throw new Error('migration_drift')
+        if (existing.rows[0].sha256 !== digest) {
+          throw new Error('migration_drift')
+        }
       } else {
         await client.query(sql)
         await client.query('INSERT INTO schema_migration VALUES ($1,$2)', [name, digest])

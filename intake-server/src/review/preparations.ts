@@ -36,9 +36,11 @@ function scope(config: ManualConfig, action: string, batchId: string, key: strin
     key,
   }
 }
+
 function normalized(input: ManualScopeDto) {
   return { ...input, selected_lot_ids: [...input.selected_lot_ids].sort() }
 }
+
 async function checkedSelection(
   client: PoolClient,
   config: ManualConfig,
@@ -63,6 +65,7 @@ async function checkedSelection(
   issues.push(...(await historyIssues(client, capture.source, material, capture.guard.activeRunId)))
   return { capture, material, binding, issues }
 }
+
 export async function markReviewed(
   pool: Pool,
   config: ManualConfig,
@@ -105,6 +108,7 @@ export async function markReviewed(
     ),
   )
 }
+
 interface PreparationContext {
   commandId: string
   capture: Awaited<ReturnType<typeof lockedCapture>>
@@ -113,6 +117,7 @@ interface PreparationContext {
   reviews: ReviewBinding[]
   reviewBytes: Buffer
 }
+
 async function boundedRead(
   read: CaptureRead,
   model: 'part' | 'location',
@@ -135,6 +140,7 @@ async function boundedRead(
     clearTimeout(timer)
   }
 }
+
 async function observePreparation(
   pool: Pool,
   read: CaptureRead | undefined,
@@ -216,6 +222,7 @@ async function observePreparation(
   }
   return issues
 }
+
 export async function prepareSelection(
   pool: Pool,
   config: ManualConfig,
@@ -397,6 +404,7 @@ export async function prepareSelection(
     return response
   })
 }
+
 export interface ApprovalInput {
   preparation_id: string
   expected_plan_sha256: string
@@ -404,6 +412,7 @@ export interface ApprovalInput {
   selected_lot_ids: string[]
   expected_target_revision: string
 }
+
 export async function approvePreparation(
   pool: Pool,
   config: ManualConfig,

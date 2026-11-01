@@ -12,6 +12,7 @@ type Props = {
   frozen: boolean
   setSelected: (value: string) => void
 }
+
 export function EvidencePanel({ batch, selected, dirty, frozen, setSelected }: Props) {
   const lot = batch.lots.find((l) => l.id === selected)
   const part = batch.parts.find((p) => p.id === selected)

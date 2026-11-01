@@ -107,7 +107,12 @@ test('a maintained-rule fix remains stable through the configured Prettier style
   )
 })
 
-test('object methods stay an explicit review requirement, without pretending class rules cover them', async () => {
-  const source = 'const worker = {\nrun() {},\nstop() {},\n}\n'
-  assert.equal((await inspect(source)).errorCount, 0)
+test('object methods and factory-returned functions remain explicit review requirements', async () => {
+  const sources = [
+    'const worker = {\nrun() {},\nstop() {},\n}\n',
+    'const first = useCallback(() => {})\nconst second = useCallback(() => {})\n',
+  ]
+  for (const source of sources) {
+    assert.equal((await inspect(source)).errorCount, 0)
+  }
 })

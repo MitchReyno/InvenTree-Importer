@@ -4,8 +4,8 @@ import { executeRun } from './apply.ts'
 import { ExternalGate, WriterConnection } from './ownership.ts'
 import type { WorkerInput } from './supervisor.ts'
 
-let started = false,
-  stopping = false
+let started = false
+let stopping = false
 process.on('disconnect', () => {
   stopping = true
 })
@@ -14,13 +14,17 @@ process.on('SIGTERM', () => {
 })
 process.on('message', async (input: WorkerInput | { kind: string }) => {
   if ('kind' in input) {
-    if (input.kind === 'stop') stopping = true
+    if (input.kind === 'stop') {
+      stopping = true
+    }
     return
   }
-  if (started) return
+  if (started) {
+    return
+  }
   started = true
-  const db = database(input.databaseUrl),
-    writer = new WriterConnection(input.databaseUrl)
+  const db = database(input.databaseUrl)
+  const writer = new WriterConnection(input.databaseUrl)
   try {
     const authority = await loadRun(db.pool, input.runId)
     await writer.acquire(authority.plan.deploymentId)
@@ -36,15 +40,18 @@ process.on('message', async (input: WorkerInput | { kind: string }) => {
       input.runId,
       input.recoveryIds,
     )
-    if (process.connected)
+    if (process.connected) {
       await new Promise<void>((resolve, reject) =>
         process.send!({ kind: 'result', result }, (error) => (error ? reject(error) : resolve())),
       )
+    }
   } catch {
     process.exitCode = 1
   } finally {
     await writer.close()
     await db.close()
-    if (process.connected) process.disconnect()
+    if (process.connected) {
+      process.disconnect()
+    }
   }
 })

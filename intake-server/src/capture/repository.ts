@@ -19,9 +19,11 @@ export class CaptureError extends Error {
     super(code)
   }
 }
+
 export function fail(code: string, status = 422): never {
   throw new CaptureError(status, code)
 }
+
 export type CaptureBinding = Pick<DevConfig, 'actorId' | 'targetId' | 'targetContextId'>
 type Binding = CaptureBinding
 type Batch = {
@@ -55,6 +57,7 @@ async function batch(
   )
   return result.rows[0] ?? fail('not_found', 404)
 }
+
 const summary = (b: Batch) => ({
   id: b.id,
   source_id: b.source_id,
@@ -87,8 +90,10 @@ ORDER BY subject_id,field,version DESC`,
     [id],
   )
   const selections = selectionsResult.rows
+
   const value = (subject: string | null, field: string, fallback: Selection) =>
     selections.find((s) => s.subject_id === subject && s.field === field)?.value ?? fallback
+
   const lotsResult = await client.query<{
     id: string
     contribution_key: string
@@ -222,6 +227,7 @@ export function captureRepository(pool: Pool, config: Binding) {
       idempotent(c, { actorId: config.actorId, action, resourceKey, key }, payload, () => work(c)),
     )
   }
+
   return {
     async list() {
       const rows = (
@@ -289,15 +295,19 @@ VALUES($1,$2,$3,$4,$5,$6,$7)`,
           [id],
         )
         const subjects = subjectsResult.rows
+
         const subject = (subjectId: string, kind?: Subject['kind']) =>
           subjects.find((s) => s.id === subjectId && (!kind || s.kind === kind)) ??
           fail('subject_not_found', 404)
+
         const checkPart = (partId: string | null) => {
           if (partId !== null) {
             subject(partId, 'part')
           }
         }
+
         const nextRevision = (BigInt(b.revision) + 1n).toString()
+
         const select = async (
           subjectId: string | null,
           field: string,
@@ -338,6 +348,7 @@ VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
             [randomUUID(), id, subjectId, field, nextRevision, value, observation, b.actor_id],
           )
         }
+
         switch (change.kind) {
           case 'batch':
             await c.query(

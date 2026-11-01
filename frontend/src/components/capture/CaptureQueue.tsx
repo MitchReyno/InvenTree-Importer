@@ -11,6 +11,7 @@ type Props = {
   frozen: boolean
   setSelected: (value: string) => void
 }
+
 export function CaptureQueue({ batch, selected, dirty, frozen, setSelected }: Props) {
   return (
     <QueueArea data-area="queue" aria-label="Capture selection">
