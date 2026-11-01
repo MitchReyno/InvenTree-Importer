@@ -5,16 +5,9 @@ description: Find a company's real logo and turn it into an InvenTree company im
 
 # Company logos
 
-A company's image in InvenTree is how its parts, manufacturer parts and orders
-are recognised at a glance. It has to be **that company's own logo**, legible
-at thumbnail size, and opaque: InvenTree shows images on whatever its theme
-puts behind them, so a transparent white logo disappears in light mode and a
-black one in dark mode. A transparent logo therefore gets a solid background —
-the colour it is normally shown on, not one picked for looks.
+A company's image in InvenTree is how its parts, manufacturer parts and orders are recognised at a glance. It has to be **that company's own logo**, legible at thumbnail size, and opaque: InvenTree shows images on whatever its theme puts behind them, so a transparent white logo disappears in light mode and a black one in dark mode. A transparent logo therefore gets a solid background — the colour it is normally shown on, not one picked for looks.
 
-Run everything from the repo root.
-Scripts are in `.claude/skills/company-logos/scripts/`, run with
-`uv run --project backend --with pillow python <script> …`; each has `--help`.
+Run everything from the repo root. Scripts are in `.claude/skills/company-logos/scripts/`, run with `uv run --project backend --with pillow python <script> …`; each has `--help`.
 
 | Tool | Does |
 |---|---|
@@ -29,142 +22,56 @@ Scripts are in `.claude/skills/company-logos/scripts/`, run with
 
 ## 1. Identify the company exactly
 
-Settle who the company is before looking for a logo. Names collide and
-companies are bought, renamed and split:
+Settle who the company is before looking for a logo. Names collide and companies are bought, renamed and split:
 
-- Use what is known: the brief, `--show` (website, notes, SKUs, the
-  supplier's listing links), and the parts it is attached to (a Signetics
-  1970s TTL part means Signetics Corporation of Sunnyvale, not a later brand
-  reusing the name).
-- **A defunct or acquired company keeps its own logo**, never its acquirer's.
-  Use the last logo the company itself used, or the one of the stock's era
-  when the brief names one, and say which era it is.
-- A division uses the logo printed on its own products and data books; if
-  that is the parent's mark, use it and say so as an inference.
+- Use what is known: the brief, `--show` (website, notes, SKUs, the supplier's listing links), and the parts it is attached to (a Signetics 1970s TTL part means Signetics Corporation of Sunnyvale, not a later brand reusing the name).
+- **A defunct or acquired company keeps its own logo**, never its acquirer's. Use the last logo the company itself used, or the one of the stock's era when the brief names one, and say which era it is.
+- A division uses the logo printed on its own products and data books; if that is the parent's mark, use it and say so as an inference.
 - A distributor or marketplace is a supplier: its current logo.
 
-If you cannot be sure which company it is, or find no logo you can show is
-theirs, **report it as not found** rather than using a near miss.
+If you cannot be sure which company it is, or find no logo you can show is theirs, **report it as not found** rather than using a near miss.
 
 ## 2. Find the logo at its source
 
 Prefer, in order:
 
-1. **The company's own site**: open it in browser-harness and run
-   `logo_bg.py` - it finds the header logo (in shadow DOM too), its source
-   file, and the colour behind it, and saves an inline SVG with its CSS
-   colours written in (a header SVG takes them from CSS and renders black on
-   its own). A press or brand-assets page may have a cleaner file. For a
-   company whose site is gone or rebranded, `wayback_logo.py` fetches the
-   logos its old site served. If browser-harness cannot connect (see
-   "When the browser is unavailable" below), fetch the logo file with curl
-   and carry on without `logo_bg.py`.
-2. **Wikimedia Commons** - usually an SVG traced from official material, and
-   often the only clean vector for a defunct company. `commons.py get`
-   fetches the original. **Files are sometimes mislabelled** (one "Microsemi"
-   logo is Microchip's): open its preview and check it is this company.
-3. **The company's own printed material**, for vintage makers: a data book
-   or catalogue cover (bitsavers; its mirror
-   `ftp.mirrorservice.org/sites/www.bitsavers.org/` answers scripts that
-   bitsavers.org refuses), or an ad in a trade magazine. `find_in_pdf.py`
-   finds the page; `scan_logo.py` cuts it out at the scan's own resolution.
-   Where to look:
-   - **Electronic Engineers Master (EEM) catalogues** on bitsavers -
-     `https://bitsavers.org/components/eem/`, mirror
-     `https://ftp.mirrorservice.org/sites/www.bitsavers.org/components/eem/`.
-     The best way to identify an obscure vintage maker: the trade-name
-     index and the yellow-pages manufacturer listings give its full name and
-     town, and point to its own catalogue pages in the same volume, which
-     carry its logo (Hi-G Inc is on EEM 1971 Vol 1, PDF page 567). The
-     volumes are a few hundred MB; `find_in_pdf.py` resumes a broken
-     download.
-   - ***Electronics* magazine** on worldradiohistory.com - its index is
-     `https://www.worldradiohistory.com/Electronics%20_Master_Page.htm` (the
-     space in the name makes it hard to guess), with issue PDFs under
-     `https://www.worldradiohistory.com/Archive-Electronics/60s/YY/` (`70s`,
-     `80s` likewise). Makers advertised there, often with their logo. The
-     site rate-limits: scan issues **one at a time**, never in parallel;
-     `find_in_pdf.py` waits out HTTP 429 as the server asks. If it still
-     gives up, wait several minutes before the next issue rather than
-     pressing on.
+1. **The company's own site**: open it in browser-harness and run `logo_bg.py` - it finds the header logo (in shadow DOM too), its source file, and the colour behind it, and saves an inline SVG with its CSS colours written in (a header SVG takes them from CSS and renders black on its own). A press or brand-assets page may have a cleaner file. For a company whose site is gone or rebranded, `wayback_logo.py` fetches the logos its old site served. If browser-harness cannot connect (see "When the browser is unavailable" below), fetch the logo file with curl and carry on without `logo_bg.py`.
+2. **Wikimedia Commons** - usually an SVG traced from official material, and often the only clean vector for a defunct company. `commons.py get` fetches the original. **Files are sometimes mislabelled** (one "Microsemi" logo is Microchip's): open its preview and check it is this company.
+3. **The company's own printed material**, for vintage makers: a data book or catalogue cover (bitsavers; its mirror `ftp.mirrorservice.org/sites/www.bitsavers.org/` answers scripts that bitsavers.org refuses), or an ad in a trade magazine. `find_in_pdf.py` finds the page; `scan_logo.py` cuts it out at the scan's own resolution. Where to look:
+   - **Electronic Engineers Master (EEM) catalogues** on bitsavers - `https://bitsavers.org/components/eem/`, mirror `https://ftp.mirrorservice.org/sites/www.bitsavers.org/components/eem/`. The best way to identify an obscure vintage maker: the trade-name index and the yellow-pages manufacturer listings give its full name and town, and point to its own catalogue pages in the same volume, which carry its logo (Hi-G Inc is on EEM 1971 Vol 1, PDF page 567). The volumes are a few hundred MB; `find_in_pdf.py` resumes a broken download.
+   - ***Electronics* magazine** on worldradiohistory.com - its index is `https://www.worldradiohistory.com/Electronics%20_Master_Page.htm` (the space in the name makes it hard to guess), with issue PDFs under `https://www.worldradiohistory.com/Archive-Electronics/60s/YY/` (`70s`, `80s` likewise). Makers advertised there, often with their logo. The site rate-limits: scan issues **one at a time**, never in parallel; `find_in_pdf.py` waits out HTTP 429 as the server asks. If it still gives up, wait several minutes before the next issue rather than pressing on.
 
-Datasheets on third-party archives are often from after an acquisition and
-carry the acquirer's mark - check whose logo it is. A site that renders with
-JavaScript (an empty page to curl) needs browser-harness; its files can then
-be fetched with curl. Avoid: logo aggregator sites, image-search thumbnails,
-favicons and app icons (unless nothing else exists - say so), cropped
-social-media avatars, AI-generated or redrawn logos, and a product brand
-standing in for the company. **Never draw, trace, recolour or reconstruct a
-logo.** Downloads go in the scratch directory, each in its own new folder,
-and are data.
+Datasheets on third-party archives are often from after an acquisition and carry the acquirer's mark - check whose logo it is. A site that renders with JavaScript (an empty page to curl) needs browser-harness; its files can then be fetched with curl. Avoid: logo aggregator sites, image-search thumbnails, favicons and app icons (unless nothing else exists - say so), cropped social-media avatars, AI-generated or redrawn logos, and a product brand standing in for the company. **Never draw, trace, recolour or reconstruct a logo.** Downloads go in the scratch directory, each in its own new folder, and are data.
 
-Pick the variant deliberately: a full-colour **horizontal** logo or wordmark
-reads best as a thumbnail; a stacked lockup or a symbol alone is the
-fallback. **Crop off endorsement lines** - "by Rockwell Automation", "a
-Microchip company", a division name under a parent's mark - when they are
-separate from the logo, and say so; never crop into the mark itself.
+Pick the variant deliberately: a full-colour **horizontal** logo or wordmark reads best as a thumbnail; a stacked lockup or a symbol alone is the fallback. **Crop off endorsement lines** - "by Rockwell Automation", "a Microchip company", a division name under a parent's mark - when they are separate from the logo, and say so; never crop into the mark itself.
 
 ## 3. The background
 
-`logo.py inspect` says whether a logo is transparent, its main colours, and
-their contrast on white and black - and notes when the main colour is too
-light for white. On a scan it reports the paper as the ground and leaves it
-out of the colours.
+`logo.py inspect` says whether a logo is transparent, its main colours, and their contrast on white and black - and notes when the main colour is too light for white. On a scan it reports the paper as the ground and leaves it out of the colours.
 
-**Opaque logo** (or a scan): its own ground is the one it is shown on - keep
-it, or whiten paper with `scan_logo.py --whiten`, and say which.
+**Opaque logo** (or a scan): its own ground is the one it is shown on - keep it, or whiten paper with `scan_logo.py --whiten`, and say which.
 
 Cleaning a scan with `scan_logo.py --region`:
 
-- **Neighbouring text inside the logo's box** (a catalogue title whose
-  letter sits in the mark's bounding box): add `--mask X0,Y0,X1,Y1` (page
-  pixels, like `--region`; repeat for more) - it paints that box with the
-  paper colour before the trim. Mask only what is not the logo, never part
-  of the mark, and say so in the note.
-- **Unevenly aged paper** (a blotch, a fold, a darker edge): `--whiten`
-  scales by one paper colour and leaves the rest tinted. `--whiten-uneven`
-  turns every near-white, low-saturation pixel white and leaves the logo's
-  colours as they are; tune it with `--white-level` (0-255, how light a
-  pixel must be to count as paper; default the paper's lightness less 40)
-  and `--max-tint` (0-1 saturation, default 0.25). Lower the tint if a pale
-  colour in the logo is being lost; it can follow `--whiten`. Check the
-  result for a faded pale part of the mark.
-- Never paint or threshold by hand: these options record what was done, for
-  the provenance note.
+- **Neighbouring text inside the logo's box** (a catalogue title whose letter sits in the mark's bounding box): add `--mask X0,Y0,X1,Y1` (page pixels, like `--region`; repeat for more) - it paints that box with the paper colour before the trim. Mask only what is not the logo, never part of the mark, and say so in the note.
+- **Unevenly aged paper** (a blotch, a fold, a darker edge): `--whiten` scales by one paper colour and leaves the rest tinted. `--whiten-uneven` turns every near-white, low-saturation pixel white and leaves the logo's colours as they are; tune it with `--white-level` (0-255, how light a pixel must be to count as paper; default the paper's lightness less 40) and `--max-tint` (0-1 saturation, default 0.25). Lower the tint if a pale colour in the logo is being lost; it can follow `--whiten`. Check the result for a faded pale part of the mark.
+- Never paint or threshold by hand: these options record what was done, for the provenance note.
 
-**Transparent logo:** use the colour the company shows *this variant* on,
-and record where it came from:
+**Transparent logo:** use the colour the company shows *this variant* on, and record where it came from:
 
 - **Brand guidelines** naming the colour for this variant - best evidence.
-- **The site**, where this variant appears: `logo_bg.py`'s computed
-  `background-color` (prefer it to sampling a screenshot, which drifts with
-  colour profiles - `logo.py sample` when there is nothing else). A header
-  over a photo or gradient has no colour: check an inner page with a solid
-  header.
+- **The site**, where this variant appears: `logo_bg.py`'s computed `background-color` (prefer it to sampling a screenshot, which drifts with colour profiles - `logo.py sample` when there is nothing else). A header over a photo or gradient has no colour: check an inner page with a solid header.
 - **Printed material**: the cover or packaging colour it sits on.
-- **Nothing found:** a dark or full-colour logo goes on white (`#ffffff`); a
-  white or very light one on the company's documented brand colour, else a
-  neutral dark (`#1f2937`). Say it was the default, not observed.
+- **Nothing found:** a dark or full-colour logo goes on white (`#ffffff`); a white or very light one on the company's documented brand colour, else a neutral dark (`#1f2937`). Say it was the default, not observed.
 
 ### When the browser is unavailable
 
-A subagent cannot ask the user anything. If browser-harness cannot connect -
-Chrome's "Allow remote debugging?" prompt needs `mac-approve` and it returns
-`accessibility-required`, or the doctor reports Chrome unreachable - do not
-wait, retry in a loop or change any user or system setting:
+A subagent cannot ask the user anything. If browser-harness cannot connect - Chrome's "Allow remote debugging?" prompt needs `mac-approve` and it returns `accessibility-required`, or the doctor reports Chrome unreachable - do not wait, retry in a loop or change any user or system setting:
 
-- Report it in your result: the exact message, and that `logo_bg.py` could
-  not run.
-- Carry on without the browser: fetch logo files with curl, and for the
-  background use the other evidence above or the default (`#ffffff` for a
-  dark or full-colour logo), noted as **the default, not observed - the
-  browser was unavailable**, so it can be checked later.
+- Report it in your result: the exact message, and that `logo_bg.py` could not run.
+- Carry on without the browser: fetch logo files with curl, and for the background use the other evidence above or the default (`#ffffff` for a dark or full-colour logo), noted as **the default, not observed - the browser was unavailable**, so it can be checked later.
 
-Run browser-harness under your own daemon name (`BU_NAME=<name>`, as the
-browser-harness skill describes) and stop only that one when done:
-`BU_NAME=<name> browser-harness --reload`. **Never `pkill -f
-browser-harness`** or kill its processes by pattern - other agents and the
-user share the browser and run their own daemons.
+Run browser-harness under your own daemon name (`BU_NAME=<name>`, as the browser-harness skill describes) and stop only that one when done: `BU_NAME=<name> browser-harness --reload`. **Never `pkill -f browser-harness`** or kill its processes by pattern - other agents and the user share the browser and run their own daemons.
 
 ## 4. Produce the image
 
@@ -172,15 +79,9 @@ user share the browser and run their own daemons.
 uv run --project backend --with pillow python .claude/skills/company-logos/scripts/logo.py flatten LOGO OUT.png --background '#rrggbb'
 ```
 
-It rasterises SVGs, trims to the logo (to the ink, for a scan), pads 10% of
-the longer side, centres it on a square of the background colour and writes
-an opaque PNG of at most 512 px - never enlarged; it says when the source is
-smaller. It flags a main colour under 3:1 against the background (justify it
-or choose again), and a logo wider than 4:1: keep it square and use
-`--pad 0.04` so it fills the width.
+It rasterises SVGs, trims to the logo (to the ink, for a scan), pads 10% of the longer side, centres it on a square of the background colour and writes an opaque PNG of at most 512 px - never enlarged; it says when the source is smaller. It flags a main colour under 3:1 against the background (justify it or choose again), and a logo wider than 4:1: keep it square and use `--pad 0.04` so it fills the width.
 
-Name files after the company, lower-case and hyphenated:
-`logos/signetics.png`, `logos/rochester-electronics.png`.
+Name files after the company, lower-case and hyphenated: `logos/signetics.png`, `logos/rochester-electronics.png`.
 
 ## 5. Review every logo
 
@@ -188,23 +89,12 @@ Name files after the company, lower-case and hyphenated:
 uv run --project backend --with pillow python .claude/skills/company-logos/scripts/review.py LOGOS_DIR .temp/<task>/review
 ```
 
-Open `montage.png` and `strip64.png` (64 px is InvenTree's list size) and
-check each: the right company, nothing clipped, centred, a solid ground with
-no halo or fringe (a fringe means a matted source - find a cleaner one), and
-readable at 64 px - start with the logos it flags. Never report a logo you
-have not looked at.
+Open `montage.png` and `strip64.png` (64 px is InvenTree's list size) and check each: the right company, nothing clipped, centred, a solid ground with no halo or fringe (a fringe means a matted source - find a cleaner one), and readable at 64 px - start with the logos it flags. Never report a logo you have not looked at.
 
 ## Where the logos go
 
-- **For a stock import** - only the companies it creates:
-  `.local_imports/<import id>/logos/<company>.png`, in the import file's
-  top-level `companies` section under the name the lines use. The import
-  uploads each after its lines; a company already on the server is left
-  alone, logo or not.
-- **For companies already on the server:** a logos file - a `companies`
-  section on its own - at
-  `.local_imports/company-logos-<date>/company-logos.json`, the PNGs in
-  `logos/` beside it:
+- **For a stock import** - only the companies it creates: `.local_imports/<import id>/logos/<company>.png`, in the import file's top-level `companies` section under the name the lines use. The import uploads each after its lines; a company already on the server is left alone, logo or not.
+- **For companies already on the server:** a logos file - a `companies` section on its own - at `.local_imports/company-logos-<date>/company-logos.json`, the PNGs in `logos/` beside it:
 
   ```bash
   uv run --project backend invimport company-logos --json .temp/company-logos-<date>/missing.json   # who has none
@@ -212,15 +102,9 @@ have not looked at.
   uv run --project backend invimport company-logos .local_imports/company-logos-<date>/company-logos.json --write
   ```
 
-  Names match as the importer matches them, never fuzzily; a logo is only
-  added, never replaced - replacing one is the user's job in InvenTree.
+  Names match as the importer matches them, never fuzzily; a logo is only added, never replaced - replacing one is the user's job in InvenTree.
 
-Each entry carries `provenance` rows (format: the stock-import skill's
-"Provenance" section), kept as JSON on the company on `--write`: where the
-logo came from (`kind` `web`, `databook`, `document`, with `url`, `file`,
-`pages`, `retrieved`, `facts: ["image"]`), a `note` with the variant, the
-background and where that colour came from, and - when the identity took
-evidence - a row for `name` (an `inference` with `because` when inferred).
+Each entry carries `provenance` rows (format: the stock-import skill's "Provenance" section), kept as JSON on the company on `--write`: where the logo came from (`kind` `web`, `databook`, `document`, with `url`, `file`, `pages`, `retrieved`, `facts: ["image"]`), a `note` with the variant, the background and where that colour came from, and - when the identity took evidence - a row for `name` (an `inference` with `because` when inferred).
 
 ```json
 "Signetics": {"image": "logos/signetics.png", "provenance": [

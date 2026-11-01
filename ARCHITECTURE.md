@@ -1,76 +1,32 @@
 # Repository architecture
 
-The repository is a root pnpm workspace containing a uv-managed Python importer
-in `backend/` and a minimal React/TypeScript/Vite intake scaffold in `frontend/`.
-These applications currently have no runtime connection. Root pnpm scripts are
-development/check control points; they do not introduce a backend service or
-coordinate import execution.
+The repository is a root pnpm workspace containing a uv-managed Python importer in `backend/` and a minimal React/TypeScript/Vite intake scaffold in `frontend/`. These applications currently have no runtime connection. Root pnpm scripts are development/check control points; they do not introduce a backend service or coordinate import execution.
 
-| Responsibility | Owner and current boundary |
-| --- | --- |
-| Import CLI, reusable domain workflows, vendor/InvenTree integrations and durable recovery | [Backend architecture](backend/ARCHITECTURE.md) |
-| Browser-local file metadata selection/removal | [Frontend architecture](frontend/ARCHITECTURE.md) |
-| Cross-language engineering and change review | [Shared code guidelines](CODE_GUIDELINES.md), specialized by [backend](backend/CODE_GUIDELINES.md) and [frontend](frontend/CODE_GUIDELINES.md) |
-| Runtime paths, environments and root commands | [Repository layout](docs/repository-layout.md) |
-| Shared agent workflows, mirrors and required checks | [AGENTS.md](AGENTS.md), `.agents/`, `.claude/`, `.codex/` |
-| Import design, contracts, operator procedures and historical evidence | Root `docs/`, indexed by the backend architecture |
+| Responsibility                                                                            | Owner and current boundary                                                                                                                     |
+|-------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| Import CLI, reusable domain workflows, vendor/InvenTree integrations and durable recovery | [Backend architecture](backend/ARCHITECTURE.md)                                                                                                |
+| Browser-local file metadata selection/removal                                             | [Frontend architecture](frontend/ARCHITECTURE.md)                                                                                              |
+| Cross-language engineering and change review                                              | [Shared code guidelines](CODE_GUIDELINES.md), specialized by [backend](backend/CODE_GUIDELINES.md) and [frontend](frontend/CODE_GUIDELINES.md) |
+| Runtime paths, environments and root commands                                             | [Repository layout](docs/repository-layout.md)                                                                                                 |
+| Shared agent workflows, mirrors and required checks                                       | [AGENTS.md](AGENTS.md), `.agents/`, `.claude/`, `.codex/`                                                                                      |
+| Import design, contracts, operator procedures and historical evidence                     | Root `docs/`, indexed by the backend architecture                                                                                              |
 
 ## Application boundaries
 
-`backend/` owns `pyproject.toml`, `uv.lock`, `.python-version`, `src/invimport/`,
-importer `config/`, Python `tests/` and operational `scripts/`. Its package name,
-CLI and import contracts remain `invimport`. The ordinary importer retains its
-legacy default; durable execution is an explicit bounded opt-in. Detailed identity,
-approval, ownership, effects, recovery and release limits live in the
-[backend architecture](backend/ARCHITECTURE.md), not in a parallel root summary.
+`backend/` owns `pyproject.toml`, `uv.lock`, `.python-version`, `src/invimport/`, importer `config/`, Python `tests/` and operational `scripts/`. Its package name, CLI and import contracts remain `invimport`. The ordinary importer retains its legacy default; durable execution is an explicit bounded opt-in. Detailed identity, approval, ownership, effects, recovery and release limits live in the [backend architecture](backend/ARCHITECTURE.md), not in a parallel root summary.
 
-`frontend/` owns its package dependencies/scripts, Vite configuration, TypeScript
-source and component tests. It currently holds selected File objects in browser
-memory and displays names/sizes/removal controls. It does not upload, parse,
-persist, approve or mutate inventory. There is no backend HTTP API, dev proxy,
-authentication or workflow runner connecting it to the importer. The
-[frontend architecture](frontend/ARCHITECTURE.md) distinguishes this implemented
-scaffold from future work.
+`frontend/` owns its package dependencies/scripts, Vite configuration, TypeScript source and component tests. It currently holds selected File objects in browser memory and displays names/sizes/removal controls. It does not upload, parse, persist, approve or mutate inventory. There is no backend HTTP API, dev proxy, authentication or workflow runner connecting it to the importer. The [frontend architecture](frontend/ARCHITECTURE.md) distinguishes this implemented scaffold from future work.
 
-Keep dependencies within these declared boundaries. Shared documentation and
-tooling are not a shared runtime package. Do not make the backend import frontend
-or test code, or add a second importer policy implementation to a future UI.
-Any future application interface needs an explicit reviewed contract; the file
-picker is not an executable import preview or an authorization boundary.
+Keep dependencies within these declared boundaries. Shared documentation and tooling are not a shared runtime package. Do not make the backend import frontend or test code, or add a second importer policy implementation to a future UI. Any future application interface needs an explicit reviewed contract; the file picker is not an executable import preview or an authorization boundary.
 
 ## Workspace and data ownership
 
-Root `package.json` delegates development/build/check commands; frontend owns its
-dependencies and root `pnpm-lock.yaml` is the single pnpm lockfile. Python remains
-uv-managed with its own backend lock. `.node-version` pins maintained Node LTS;
-Python's version stays scoped to backend. CI has separate backend/frontend jobs,
-runs on PRs and on pushes to main and the user-named `interactive-app` initiative
-trunk. The [layout guide](docs/repository-layout.md) lists commands and supported
-source/installed-wheel behavior.
+Root `package.json` delegates development/build/check commands; frontend owns its dependencies and root `pnpm-lock.yaml` is the single pnpm lockfile. Python remains uv-managed with its own backend lock. `.node-version` pins maintained Node LTS; Python's version stays scoped to backend. CI has separate backend/frontend jobs, runs on PRs and on pushes to main and the user-named `interactive-app` initiative trunk. The [layout guide](docs/repository-layout.md) lists commands and supported source/installed-wheel behavior.
 
-Root `.env`, `.local_imports/`, `.cache/`, `.temp/` and backups retain their
-existing meaning; relocation does not migrate or delete them. Explicit relative
-arguments remain caller-cwd-relative. Omitted managed cache/scanner-export defaults
-from backend cwd share root local data. Platform execution/scanner state and an
-explicit `INVIMPORT_STATE_DIR` keep their existing namespace. Backend source
-location anchors default environment/config discovery; it does not search an
-unrelated cwd repository. Frontend Vite configuration neither loads root `.env`
-nor proxies to inventory. See the layout guide for exact rules and wheel limits.
+Root `.env`, `.local_imports/`, `.cache/`, `.temp/` and backups retain their existing meaning; relocation does not migrate or delete them. Explicit relative arguments remain caller-cwd-relative. Omitted managed cache/scanner-export defaults from backend cwd share root local data. Platform execution/scanner state and an explicit `INVIMPORT_STATE_DIR` keep their existing namespace. Backend source location anchors default environment/config discovery; it does not search an unrelated cwd repository. Frontend Vite configuration neither loads root `.env` nor proxies to inventory. See the layout guide for exact rules and wheel limits.
 
 ## Documentation and change ownership
 
-Maintain this file as the cross-application map and responsibility contract.
-Keep application internals in their corresponding `ARCHITECTURE.md` and language/
-framework rules in their `CODE_GUIDELINES.md`; root [CODE_GUIDELINES.md](CODE_GUIDELINES.md)
-owns shared engineering rules. When a boundary changes, update its owning document
-and any callers/operator guidance in the same change. Root README and AGENTS are
-entry points into this map.
+Maintain this file as the cross-application map and responsibility contract. Keep application internals in their corresponding `ARCHITECTURE.md` and language/ framework rules in their `CODE_GUIDELINES.md`; root [CODE_GUIDELINES.md](CODE_GUIDELINES.md) owns shared engineering rules. When a boundary changes, update its owning document and any callers/operator guidance in the same change. Root README and AGENTS are entry points into this map.
 
-Backend stage decisions, rejected candidates, acceptance evidence and historical
-release limits remain in `docs/handovers/` and the maintained execution documents.
-The relocation/documentation split is recorded in its
-[handover](docs/handovers/repository-layout.md). Historical handovers retain the
-filenames and commands used at the time; active links point to current documents.
-Future product plans must be labeled as plans and cannot imply implemented API,
-deployment or end-to-end UI behavior. Nothing in this map enables a new default
-import path, remote concurrency guarantee or live inventory authorization.
+Backend stage decisions, rejected candidates, acceptance evidence and historical release limits remain in `docs/handovers/` and the maintained execution documents. The relocation/documentation split is recorded in its [handover](docs/handovers/repository-layout.md). Historical handovers retain the filenames and commands used at the time; active links point to current documents. Future product plans must be labeled as plans and cannot imply implemented API, deployment or end-to-end UI behavior. Nothing in this map enables a new default import path, remote concurrency guarantee or live inventory authorization.

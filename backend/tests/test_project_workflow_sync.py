@@ -22,19 +22,11 @@ CODEX_AGENTS = ROOT / ".codex/agents"
 # changes, review its Codex adaptation rather than silently ignoring the block.
 HOST_ADAPTATIONS = (
     (
-        """1. **Read the research memory**:
-   `.claude/skills/inventree-stock-import/COMPONENT_RESEARCH.md`.""",
-        """1. **Read the research memory**, `COMPONENT_RESEARCH.md`, provided by the
-   project-level `inventree-stock-import` skill.""",
+        """1. **Read the research memory**: `.claude/skills/inventree-stock-import/COMPONENT_RESEARCH.md`.""",
+        """1. **Read the research memory**, `COMPONENT_RESEARCH.md`, provided by the project-level `inventree-stock-import` skill.""",
     ),
     (
-        """- **alldatasheet.com: inject the site scripts on every visit.** Before the
-  tab you use for alldatasheet loads any alldatasheet page, register the
-  scripts in
-  `.claude/skills/inventree-stock-import/browser-scripts/alldatasheet/` on that tab with
-  `Page.addScriptToEvaluateOnNewDocument`, using the injector (it wraps each
-  script to run once the DOM exists, which a new-document script otherwise
-  does not):
+        """- **alldatasheet.com: inject the site scripts on every visit.** Before the tab you use for alldatasheet loads any alldatasheet page, register the scripts in `.claude/skills/inventree-stock-import/browser-scripts/alldatasheet/` on that tab with `Page.addScriptToEvaluateOnNewDocument`, using the injector (it wraps each script to run once the DOM exists, which a new-document script otherwise does not):
 
   ```bash
   browser-harness <<'PY'
@@ -48,20 +40,9 @@ HOST_ADAPTATIONS = (
   PY
   ```
 
-  `01-hide-adblock-wall.js` hides the ad-block overlay and restores
-  scrolling; `02-download-form.js` replaces the download page's form with a
-  plain DOWNLOAD button. Register once per tab — a new tab needs it again,
-  and registering twice on one tab runs the scripts twice. Do not edit the
-  scripts; if one stops working, report it.
+  `01-hide-adblock-wall.js` hides the ad-block overlay and restores scrolling; `02-download-form.js` replaces the download page's form with a plain DOWNLOAD button. Register once per tab — a new tab needs it again, and registering twice on one tab runs the scripts twice. Do not edit the scripts; if one stops working, report it.
 """,
-        """- **alldatasheet.com: inject the site scripts on every visit.** Use the
-  site scripts and injector provided by the project-level
-  `inventree-stock-import` skill. Follow that skill's instructions to register
-  them with `Page.addScriptToEvaluateOnNewDocument` before navigating to any
-  alldatasheet page. Register once per tab; a new tab needs registration again.
-  The scripts hide the ad-block overlay, restore scrolling, and replace the
-  download form with a plain DOWNLOAD button. Do not edit them; if one stops
-  working, report it.
+        """- **alldatasheet.com: inject the site scripts on every visit.** Use the site scripts and injector provided by the project-level `inventree-stock-import` skill. Follow that skill's instructions to register them with `Page.addScriptToEvaluateOnNewDocument` before navigating to any alldatasheet page. Register once per tab; a new tab needs registration again. The scripts hide the ad-block overlay, restore scrolling, and replace the download form with a plain DOWNLOAD button. Do not edit them; if one stops working, report it.
 """,
     ),
 )
