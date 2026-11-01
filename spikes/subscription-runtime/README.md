@@ -12,6 +12,8 @@ On 2026-11-01 the owner read current official documentation using the OpenAI doc
 
 Native status observed Codex `chatgpt` / `prolite` and Claude `claude.ai` / `firstParty` / `pro`. These are safe status summaries, not credentials. No personal credential files, keychain contents, raw tokens or auth caches are inspected/copied by this spike. The native runtimes retain their own credentials. No login/logout/setup-token operation or global configuration edit is allowed.
 
+**Review correction and historical limit:** SDK `0.163.0` overlays `CodexConfig.env` onto inherited `os.environ`. The initial helper allowlist therefore did not prove a sanitized Codex spawn; earlier no-forwarding claims are withdrawn, without asserting anything about previous billing routing or charges. The corrected standalone Codex entrypoint replaces its dedicated process environment before any SDK workers start and rejects unsanitized embedded callers. An offline sentinel-parent test intercepts the actual pinned SDK Popen before native execution. It proves the current launch control synthetically, not the historical ambient state. No inference or credential inspection is authorized for this review-fix round. Retained provider evidence is unchanged.
+
 ## Reproduction
 
 From repository root:
@@ -19,10 +21,12 @@ From repository root:
 ```sh
 uv sync --project backend --locked
 uv sync --project spikes/subscription-runtime --locked
-uv run --project backend pytest backend/tests/spikes/test_subscription_runtime.py
-uv run --project backend ruff check --config backend/pyproject.toml spikes/subscription-runtime backend/tests/spikes/test_subscription_runtime.py
+uv run --project backend pytest backend/tests/spikes/test_subscription_runtime*.py backend/tests/spikes/test_shared_contracts.py
+uv run --project backend ruff check --config backend/pyproject.toml spikes/subscription-runtime backend/tests/spikes/test_subscription_runtime*.py
 ```
 
-Live commands consume subscription capacity and require the explicit personal-host and fixture-inference permission given for this investigation. They are not part of the ordinary test suite. Fresh runs use a new directory under spike-local `local/`. Initial evidence staging allowlists only `input.json` and its three byte-verified originals. `expected-stock.json`, messages and confirmed answers are never initially staged. Continue only after a persisted question, using the authorized fixture answer “20 counted”. Originals are retained unchanged; proposed data is never approval.
+These checks need no native login/inference. The actual-SDK launch test requires the spike-local environment created by the locked sync above and explicitly skips if missing; do not count that skip as launch-boundary coverage. Proposal acceptance rejects proposal/ancestor symlinks and validates/hashes one byte snapshot through the real importer parser. Claude observation acceptance requires the three staged media Read requests, a nonblank question, an explicit Write request/denial and absence of the denied file; incomplete success transcripts are inconclusive.
+
+Historical live commands consumed subscription capacity under the explicit personal-host and fixture-inference permission then given for this investigation; **do not rerun inference during this review-fix round**. They are not part of the ordinary test suite. Live runs use a new directory under spike-local `local/`. Initial evidence staging allowlists only `input.json` and its three byte-verified originals. `expected-stock.json`, messages and confirmed answers are never initially staged. Continue only after a persisted question, using the authorized fixture answer “20 counted”. Originals are retained unchanged; proposed data is never approval.
 
 The spike's local SQLite question/event retention is deliberately not a coordinator or lease scheduler. A synthetic pending-permission control rejects stale process epochs in a fresh subprocess; the live probes deny escalation and expose no native permission-reply interface. A live pending native prompt/restart/stale-reply experiment remains untested. Human quantity answers never become native tool approvals. Fixture-only actor/value validation is not production application authentication.

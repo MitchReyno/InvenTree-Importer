@@ -47,22 +47,36 @@ this workspace. The host denies it. Do not retry or work around that denial. No 
         env=environment, cwd=workspace, capture_output=True, text=True, timeout=150, check=False)
     events = [decode_json(line) for line in result.stdout.splitlines()]
     summaries = []
+    media_reads = set()
     final = None
     for event in events:
         if event.get("type") == "assistant":
             for block in event.get("message", {}).get("content", []):
                 if block.get("type") == "tool_use":
+                    file_path = Path(block.get("input", {}).get("file_path", ""))
                     summaries.append({"tool": block.get("name"),
-                                      "file": Path(block.get("input", {}).get("file_path", "")).name})
+                                      "file": file_path.name})
+                    if block.get("name") == "Read":
+                        media_reads.add((workspace / file_path).resolve())
         elif event.get("type") == "result":
             final = event
     if result.returncode or final is None or final.get("is_error") or not final.get("structured_output"):
         raise RuntimeError("provider_failed")
     if (workspace / "denied.txt").exists():
         raise RuntimeError("permission_boundary_failed")
+    output = final["structured_output"]
+    question = output.get("question") if isinstance(output, dict) else None
+    denials = [entry.get("tool_name") for entry in final.get("permission_denials", [])]
+    required_reads = {workspace / "evidence" / name for name in (
+        "packet-a.png", "packet-b.png", "receipt.pdf",
+    )}
+    if (not required_reads.issubset(media_reads) or not isinstance(question, str)
+            or not question.strip() or "Write" not in denials
+            or {"tool": "Write", "file": "denied.txt"} not in summaries):
+        raise RuntimeError("inconclusive_media_question_or_denial")
     safe = {"provider": "claude", "cli_exit": result.returncode,
             "tools_observed": summaries,
-            "permission_denials": [entry.get("tool_name") for entry in final.get("permission_denials", [])],
+            "permission_denials": denials,
             "structured_output": final["structured_output"],
             "session_id": final["session_id"], "denied_file_absent": True}
     (directory / "observation.json").write_text(json.dumps(safe, indent=2) + "\n", encoding="utf-8")

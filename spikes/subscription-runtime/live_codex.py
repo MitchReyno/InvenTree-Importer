@@ -5,6 +5,7 @@ import argparse
 import asyncio
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 from uuid import uuid4
 
@@ -33,6 +34,10 @@ Use relative evidence paths, retain original evidence, no approval or inventory 
 
 
 def configuration(workspace: Path) -> CodexConfig:
+    # SDK 0.163.0 overlays env onto os.environ rather than replacing it. Refuse
+    # embedded callers unless the dedicated process boundary was sanitized first.
+    if dict(os.environ) != live_environment():
+        raise GateBlocked("unsanitized_process_environment")
     return CodexConfig(cwd=str(workspace), env=live_environment(), config_overrides=(
         'forced_login_method="chatgpt"', 'model_provider="openai"',
         "features.shell_tool=false", "features.hooks=false", "features.apps=false",
@@ -182,6 +187,11 @@ if __name__ == "__main__":
     parser.add_argument("action", choices=["start", "continue", "cancel"])
     parser.add_argument("directory", type=Path)
     args = parser.parse_args()
+    # This standalone process owns its environment; do this before any SDK worker
+    # starts. An env overlay alone cannot remove inherited credentials/overrides.
+    environment = live_environment()
+    os.environ.clear()
+    os.environ.update(environment)
     try:
         asyncio.run(asyncio.wait_for(run(args.directory, args.action), timeout=180))
     except GateBlocked as exc:

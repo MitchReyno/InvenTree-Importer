@@ -4,17 +4,25 @@ from __future__ import annotations
 import argparse
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 
 from invimport.config import load_categories_config, load_parameters_config
-from invimport.stockfile import read_file
+from invimport.stockfile import parse_document
 from invimport.validate import validate
 
 from runtime import FIXTURE, RunStore, decode_json, evidence_bytes
 
 
 def validate_fixture_proposal(proposal: Path) -> dict:
-    raw = decode_json(proposal.read_text(encoding="utf-8"))
+    if any(parent.is_symlink() for parent in [proposal, *proposal.parents]):
+        raise ValueError("symlink proposal")
+    # Refuse final-component symlink substitution at open as well. Parse and hash
+    # this one snapshot: importer validation must not reopen a mutable pathname.
+    descriptor = os.open(proposal, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, "rb") as source:
+        data = source.read()
+    raw = decode_json(data.decode("utf-8"))
     if set(raw) - {"version", "source", "defaults", "parts", "lines"}:
         raise ValueError("unsupported fixture proposal fields")
     if raw.get("version") != 2 or raw.get("source", {}).get("reference") != "SPIKE-TWO-LOTS-001":
@@ -36,12 +44,12 @@ def validate_fixture_proposal(proposal: Path) -> dict:
         if (line["id"], line["part"], str(line["quantity"]), line["batch"], line["stock_images"]) != (
                 lot["id"], lot["part_id"], lot["quantity"], lot["batch"], [f"evidence/{image}.png"]):
             raise ValueError("changed contribution or unsupported evidence")
-    document = read_file(proposal)
+    document = parse_document(raw, path=proposal)
     config = FIXTURE / "config"
     report = validate(document, load_categories_config(config), load_parameters_config(config))
     if not report.ok:
         raise ValueError(report.text())
-    return {"ok": True, "validation_report": report.text(), "proposal_sha256": sha256(proposal.read_bytes()).hexdigest(),
+    return {"ok": True, "validation_report": report.text(), "proposal_sha256": sha256(data).hexdigest(),
             "keys": [document.key_for(line) for line in document.lines]}
 
 

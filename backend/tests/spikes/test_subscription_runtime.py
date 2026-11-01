@@ -125,6 +125,51 @@ def test_modified_evidence_symlinks_and_traversal_rejected(tmp_path):
             runtime.evidence_bytes(bundle, reference | {"path": path})
 
 
+@pytest.mark.parametrize("contained", [False, True])
+def test_proposal_symlinks_rejected_before_read_or_success(tmp_path, contained):
+    directory = tmp_path / "run"
+    bundle = directory / "bundle"
+    runtime.stage_bundle(bundle)
+    target = bundle / "other.json" if contained else tmp_path / "external.json"
+    target.write_bytes((SPIKE / "observed/proposal.json").read_bytes())
+    (bundle / "proposal.json").symlink_to(target)
+    with patch("os.open", side_effect=AssertionError("proposal must not be opened")):
+        with pytest.raises(ValueError, match="symlink proposal"):
+            validation["accept"](directory)
+    assert not (directory / "questions.sqlite3").exists()
+    assert not (directory / "validation.json").exists()
+
+
+def test_proposal_symlink_parent_rejected(tmp_path):
+    bundle = tmp_path / "bundle"
+    runtime.stage_bundle(bundle)
+    (bundle / "proposal.json").write_bytes((SPIKE / "observed/proposal.json").read_bytes())
+    alias = tmp_path / "alias"
+    alias.symlink_to(bundle, target_is_directory=True)
+    with pytest.raises(ValueError, match="symlink proposal"):
+        validation["validate_fixture_proposal"](alias / "proposal.json")
+
+
+def test_importer_validation_and_digest_use_the_same_proposal_snapshot(tmp_path):
+    bundle = tmp_path / "bundle"
+    runtime.stage_bundle(bundle)
+    proposal = bundle / "proposal.json"
+    original = (SPIKE / "observed/proposal.json").read_bytes()
+    proposal.write_bytes(original)
+    parse_document = validation["parse_document"]
+
+    def replace_path_then_parse(data, *, path):
+        assert data == json.loads(original)
+        path.write_bytes(b'{"invalid":"replacement must not be parsed or hashed"}')
+        return parse_document(data, path=path)
+
+    with patch.dict(validation["validate_fixture_proposal"].__globals__, {"parse_document": replace_path_then_parse}):
+        report = validation["validate_fixture_proposal"](proposal)
+    assert report["ok"]
+    assert report["proposal_sha256"] == sha256(original).hexdigest()
+    assert report["proposal_sha256"] != sha256(proposal.read_bytes()).hexdigest()
+
+
 def shared_messages():
     return [json.loads(line) for line in (FIXTURE / "messages.jsonl").read_text(encoding="utf-8").splitlines()]
 
