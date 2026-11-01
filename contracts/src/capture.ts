@@ -3,6 +3,7 @@ import { Id, PositivePk, Quantity, Revision } from './scalars.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
+
 const label = Type.String({ minLength: 1, maxLength: 256 })
 const note = Type.String({ maxLength: 8192 })
 export const CaptureRef = object({
@@ -11,6 +12,7 @@ export const CaptureRef = object({
   model: Type.Union([Type.Literal('part'), Type.Literal('location')]),
   pk: PositivePk,
 })
+
 const selection = <T extends TSchema>(value: T) =>
   Type.Union([
     object({ mode: Type.Literal('unset') }),
@@ -18,8 +20,10 @@ const selection = <T extends TSchema>(value: T) =>
     object({ mode: Type.Literal('clear') }),
     object({ mode: Type.Literal('set'), value }),
   ])
+
 const inheritable = <T extends TSchema>(value: T) =>
   Type.Union([...selection(value).anyOf, object({ mode: Type.Literal('inherit') })])
+
 export const CaptureQuantity = inheritable(Quantity)
 export const CaptureLocation = inheritable(CaptureRef)
 export const CapturePartChoice = selection(CaptureRef)

@@ -24,10 +24,12 @@ export function devConfig(env: NodeJS.ProcessEnv): DevConfig {
     apiKey: env.INTAKE_DEV_API_KEY,
   }
   const url = new URL(config.origin)
-  if (url.hostname !== '127.0.0.1' || url.protocol !== 'http:' || url.origin !== config.origin)
+  if (url.hostname !== '127.0.0.1' || url.protocol !== 'http:' || url.origin !== config.origin) {
     throw new Error('loopback_origin_required')
-  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(config.credentialRef))
+  }
+  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(config.credentialRef)) {
     throw new Error('invalid_credential_reference')
+  }
   validate('Bootstrap', bootstrap(config))
   return Object.freeze(config)
 }

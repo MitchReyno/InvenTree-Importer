@@ -24,6 +24,7 @@ interface Props {
   approve: () => void
   review: () => void
 }
+
 export function ApprovalWorkspace({
   batch,
   preparations,
@@ -176,6 +177,7 @@ export function ApprovalWorkspace({
     </ApprovalGrid>
   )
 }
+
 const ApprovalGrid = styled.div`
   display: grid;
   grid-template-columns: minmax(250px, 1fr) minmax(300px, 1.25fr);

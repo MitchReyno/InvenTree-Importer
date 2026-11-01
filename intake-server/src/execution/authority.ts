@@ -29,6 +29,7 @@ export interface RunAuthority {
   plan: ExecutablePlan
   planDigest: string
 }
+
 /** Source owner invokes this ONLY with retained original capture/lineage authority.
  * No browser-supplied alias/new namespace is accepted as evidence of a fresh source.
  * Provision separately from the approval/apply roles; neither can enroll its own sources.
@@ -51,9 +52,11 @@ export async function retainOriginalSource(
       [input.targetId, input.sourceId],
     )
   ).rows[0]
-  if (!stored || stored.original_key !== input.originalSourceKey)
+  if (!stored || stored.original_key !== input.originalSourceKey) {
     throw new Error('original_source_binding_conflict')
+  }
 }
+
 export async function checkDeployment(client: Pick<PoolClient, 'query'>, plan: ExecutablePlan) {
   const result = await client.query(
     `SELECT d.*, t.current_context_id,t.profile FROM executor_deployment d JOIN target t ON t.id=d.target_id WHERE d.id=$1`,
@@ -70,10 +73,12 @@ export async function checkDeployment(client: Pick<PoolClient, 'query'>, plan: E
     row.build !== plan.build ||
     row.continuity !== plan.continuity ||
     row.capability !== plan.capability
-  )
+  ) {
     throw new Error('deployment_binding_mismatch')
+  }
   return row as { origin: string; epoch: string; id: string }
 }
+
 /** T04 calls inside its approval transaction AFTER current draft/review/actor checks.
  * This seam does not itself approve a draft, register a source, or commit the transaction.
  */
@@ -81,8 +86,9 @@ export async function reserveApprovedStock(
   client: PoolClient,
   input: Reservation,
 ): Promise<{ runId: string; commandId: string; approvalId: string }> {
-  for (const key of ['approvalId', 'preparationId', 'runId', 'commandId', 'actorId'] as const)
+  for (const key of ['approvalId', 'preparationId', 'runId', 'commandId', 'actorId'] as const) {
     id(input[key])
+  }
   const plan = decodeExecutablePlan(input.bytes, input.digest)
   await client.query('SELECT id FROM target WHERE id=$1 FOR UPDATE', [plan.targetId])
   await checkDeployment(client, plan)
@@ -90,7 +96,9 @@ export async function reserveApprovedStock(
     'SELECT 1 FROM executor_source WHERE target_id=$1 AND source_id=$2 AND original_key=$3',
     [plan.targetId, plan.sourceId, plan.originalSourceKey],
   )
-  if (!source.rowCount) throw new Error('original_source_authority_missing')
+  if (!source.rowCount) {
+    throw new Error('original_source_authority_missing')
+  }
   await client.query(
     'INSERT INTO executor_guard(target_id,original_key) VALUES ($1,$2) ON CONFLICT DO NOTHING',
     [plan.targetId, plan.originalSourceKey],
@@ -108,12 +116,15 @@ export async function reserveApprovedStock(
   if (prior.rowCount) {
     const row = prior.rows[0]
     verifyBytes(row.plan_bytes, row.plan_digest)
-    if (row.actor_id !== input.actorId || !row.plan_bytes.equals(input.bytes))
+    if (row.actor_id !== input.actorId || !row.plan_bytes.equals(input.bytes)) {
       throw new Error('approval_payload_conflict')
+    }
     await loadRun(client, row.run_id)
     return { runId: row.run_id, commandId: row.command_id, approvalId: row.id }
   }
-  if (guard.active_run) throw new Error('source_reserved')
+  if (guard.active_run) {
+    throw new Error('source_reserved')
+  }
   // Never infer a clean source merely from its current guard pointer.
   const previousRuns = await client.query(
     'SELECT id FROM executor_run WHERE target_id=$1 AND original_key=$2',
@@ -121,15 +132,18 @@ export async function reserveApprovedStock(
   )
   for (const previous of previousRuns.rows) {
     const state = (await snapshot(client, previous.id)).state
-    if (state === 'recovery_required' || state === 'queued')
+    if (state === 'recovery_required' || state === 'queued') {
       throw new Error('source_history_unsettled')
+    }
   }
   // A previous approved contribution blocks even when its stock no longer exists.
   const history = await client.query(
     'SELECT contribution_key FROM executor_operation WHERE target_id=$1 AND contribution_key=ANY($2::uuid[])',
     [plan.targetId, plan.operations.map((value) => value.contributionKey)],
   )
-  if (history.rowCount) throw new Error('original_contribution_already_approved')
+  if (history.rowCount) {
+    throw new Error('original_contribution_already_approved')
+  }
   const mediaBatchId =
     plan.version === 'bench-media-plan/1'
       ? await lockApprovedMedia(client, input.actorId, plan)
@@ -199,6 +213,7 @@ export async function reserveApprovedStock(
   )
   return { runId: input.runId, commandId: input.commandId, approvalId: input.approvalId }
 }
+
 /** Every start/adopt and authorization rechecks ALL retained bindings, not just a run status. */
 export async function loadRun(
   client: Pick<PoolClient, 'query'>,
@@ -211,7 +226,9 @@ export async function loadRun(
     [runId],
   )
   const row = result.rows[0]
-  if (!row) throw new Error('run_authority_missing')
+  if (!row) {
+    throw new Error('run_authority_missing')
+  }
   const plan = decodeExecutablePlan(row.plan_bytes, row.plan_digest)
   await checkDeployment(client, plan)
   verifyBytes(row.payload_bytes, row.payload_digest)
@@ -232,12 +249,15 @@ export async function loadRun(
     row.source_id !== plan.sourceId ||
     row.original_key !== plan.originalSourceKey ||
     row.deployment_id !== plan.deploymentId
-  )
+  ) {
     throw new Error('command_authority_mismatch')
+  }
   const operations = (
     await client.query('SELECT * FROM executor_operation WHERE run_id=$1', [runId])
   ).rows
-  if (operations.length !== plan.operations.length) throw new Error('operation_authority_missing')
+  if (operations.length !== plan.operations.length) {
+    throw new Error('operation_authority_missing')
+  }
   for (const operation of plan.operations) {
     const stored = operations.find((value) => value.operation_key === operation.operationKey)
     if (
@@ -245,11 +265,13 @@ export async function loadRun(
       stored.contribution_key !== operation.contributionKey ||
       stored.original_key !== plan.originalSourceKey ||
       stored.target_id !== plan.targetId
-    )
+    ) {
       throw new Error('operation_binding_mismatch')
+    }
     verifyBytes(stored.request_bytes, stored.request_digest)
-    if (!stored.request_bytes.equals(stockBytes(operation)))
+    if (!stored.request_bytes.equals(stockBytes(operation))) {
       throw new Error('operation_bytes_mismatch')
+    }
   }
   await requireAttachmentIndex(client, runId, plan)
   if (plan.version === 'bench-media-plan/1') {
@@ -264,6 +286,7 @@ export async function loadRun(
     planDigest: row.plan_digest.toString('hex'),
   }
 }
+
 export async function lockRun(client: PoolClient, runId: string): Promise<RunAuthority> {
   const authority = await loadRun(client, runId)
   await client.query('SELECT id FROM target WHERE id=$1 FOR UPDATE', [authority.plan.targetId])
@@ -273,20 +296,28 @@ export async function lockRun(client: PoolClient, runId: string): Promise<RunAut
       [authority.plan.targetId, authority.plan.originalSourceKey],
     )
   ).rows[0]
-  if (!guard) throw new Error('source_guard_missing')
-  if (guard.active_run && guard.active_run !== runId) throw new Error('source_reserved')
+  if (!guard) {
+    throw new Error('source_guard_missing')
+  }
+  if (guard.active_run && guard.active_run !== runId) {
+    throw new Error('source_reserved')
+  }
   await client.query('SELECT id FROM executor_run WHERE id=$1 FOR UPDATE', [runId])
   await loadRun(client, runId)
   return authority
 }
+
 export async function cancelRun(client: PoolClient, runId: string, actorId: string): Promise<void> {
   const authority = await lockRun(client, runId)
-  if (authority.actorId !== actorId) throw new Error('run_actor_mismatch')
+  if (authority.actorId !== actorId) {
+    throw new Error('run_actor_mismatch')
+  }
   await client.query('INSERT INTO executor_cancel(run_id,actor_id) VALUES ($1,$2)', [
     runId,
     actorId,
   ])
 }
+
 export async function selectRecovery(
   client: PoolClient,
   runId: string,
@@ -297,18 +328,21 @@ export async function selectRecovery(
   if (
     authority.actorId !== actorId ||
     !authority.plan.operations.some((value) => value.operationKey === operationKey)
-  )
+  ) {
     throw new Error('recovery_scope_mismatch')
+  }
   // Unknown sibling creates retain the SAME guard too; selecting another untouched
   // operation cannot be used to sneak additional creates past unresolved history.
-  if ((await snapshot(client, runId)).state === 'recovery_required')
+  if ((await snapshot(client, runId)).state === 'recovery_required') {
     throw new Error('create_not_recoverable')
+  }
   const intents = await client.query(
     `SELECT i.*,r.outcome,e.certainty FROM executor_intent i LEFT JOIN executor_result r ON r.intent_id=i.id LEFT JOIN executor_effect e ON e.intent_id=i.id WHERE i.run_id=$1 AND i.operation_key=$2 AND i.kind='create_stock'`,
     [runId, operationKey],
   )
-  if (intents.rows.some((row) => row.outcome !== 'proven_not_sent' || row.certainty !== 'none'))
+  if (intents.rows.some((row) => row.outcome !== 'proven_not_sent' || row.certainty !== 'none')) {
     throw new Error('create_not_recoverable')
+  }
   const recoveryId = randomUUID()
   const cancelVersion = (
     await client.query(
@@ -330,6 +364,7 @@ export async function selectRecovery(
   )
   return recoveryId
 }
+
 export interface StockSnapshot {
   runId: string
   state: 'queued' | 'settled_complete' | 'settled_incomplete' | 'recovery_required'
@@ -343,6 +378,7 @@ export interface StockSnapshot {
     remotePk: string | null
   }[]
 }
+
 export async function snapshot(
   client: Pick<Pool, 'query'> | Pick<PoolClient, 'query'>,
   runId: string,

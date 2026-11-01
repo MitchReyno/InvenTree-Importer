@@ -7,6 +7,7 @@ import { CaptureHeader } from './CaptureHeader'
 import { CaptureQueue } from './CaptureQueue'
 import { EvidencePanel } from './EvidencePanel'
 import { CaptureEditor } from './CaptureEditor'
+
 export function CaptureWorkspace({
   batch,
   busy,
@@ -45,6 +46,7 @@ export function CaptureWorkspace({
     setFocused(true)
     history.replaceState(null, '', `#${batch.id}/${value}`)
   }
+
   const lot = batch.lots.find((l) => l.id === selected)
   const part = batch.parts.find((p) => p.id === selected)
   const frozen = busy || batch.archived

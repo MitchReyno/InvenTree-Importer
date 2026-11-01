@@ -29,7 +29,9 @@ export async function verifyKnownStock(
   const intentId = randomUUID()
   const retained = await executorTransaction(pool, async (client) => {
     const authority = await lockRun(client, input.runId)
-    if (input.actorId !== authority.actorId) throw new Error('verification_actor_mismatch')
+    if (input.actorId !== authority.actorId) {
+      throw new Error('verification_actor_mismatch')
+    }
     const operation = authority.plan.operations.find(
       (value) => value.operationKey === input.operationKey,
     )
@@ -39,8 +41,9 @@ export async function verifyKnownStock(
       deployment.origin !== profile.origin ||
       profile.targetId !== authority.plan.targetId ||
       profile.contextId !== authority.plan.contextId
-    )
+    ) {
       throw new Error('verification_binding_mismatch')
+    }
     // Start at intents: an unresolved attempt must not disappear through an inner join.
     const attempts = (
       await client.query<CreateAttempt>(
@@ -55,10 +58,13 @@ export async function verifyKnownStock(
       )
     ).rows
     const confirmed = attempts.filter((value) => value.certainty === 'confirmed')
-    if (confirmed.length !== 1) throw new Error('known_output_required')
-    const effect = confirmed[0]
-    if (!effect.remote_pk || effect.outcome !== 'response' || effect.status !== 201)
+    if (confirmed.length !== 1) {
       throw new Error('known_output_required')
+    }
+    const effect = confirmed[0]
+    if (!effect.remote_pk || effect.outcome !== 'response' || effect.status !== 201) {
+      throw new Error('known_output_required')
+    }
     // Selected recovery may follow positively checkpointed local refusals only.
     // Any other create history remains ambiguous or conflicting, never verification authority.
     const earlierNoEffects = attempts
@@ -72,7 +78,9 @@ export async function verifyKnownStock(
           value.status === null &&
           value.response_bytes === null,
       )
-    if (!earlierNoEffects) throw new Error('known_output_required')
+    if (!earlierNoEffects) {
+      throw new Error('known_output_required')
+    }
     const bytes = Buffer.from(canonical({ kind: 'get_stock', pk: effect.remote_pk }))
     const attempt = (
       await client.query(
@@ -92,8 +100,8 @@ export async function verifyKnownStock(
   })
   // Even if caller supplied a writable profile, this verifier retains ONLY the read closure.
   const { read } = inventoryTransport({ ...profile, kind: 'protected-read-only' })
-  let bytes: Buffer | null = null,
-    status: number | null = null
+  let bytes: Buffer | null = null
+  let status: number | null = null
   let outcome: 'matches' | 'missing_or_changed' | 'unavailable' = 'unavailable'
   try {
     const response = await read(retained.authority.plan, {
@@ -107,8 +115,9 @@ export async function verifyKnownStock(
     status = null
   }
   try {
-    if (status === 404) outcome = 'missing_or_changed'
-    else if (status === 200 && bytes) {
+    if (status === 404) {
+      outcome = 'missing_or_changed'
+    } else if (status === 200 && bytes) {
       const value = responseObject(bytes)
       outcome =
         responsePk(value.pk) === retained.effect.remote_pk &&

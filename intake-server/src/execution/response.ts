@@ -37,6 +37,7 @@ export async function inventoryBody(response: Response, maxBytes = 65536): Promi
     await reader.cancel().catch(() => undefined)
   }
 }
+
 export function responseObject(bytes: Buffer): Record<string, unknown> {
   const value = strictJson(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -44,11 +45,13 @@ export function responseObject(bytes: Buffer): Record<string, unknown> {
   }
   return value as Record<string, unknown>
 }
+
 export function responsePk(value: unknown): string {
   const result = typeof value === 'number' && Number.isSafeInteger(value) ? String(value) : value
   pk(result)
   return result
 }
+
 export function stockMatches(value: Record<string, unknown>, operation: StockOperation): boolean {
   return (
     responsePk(value.part) === operation.part &&

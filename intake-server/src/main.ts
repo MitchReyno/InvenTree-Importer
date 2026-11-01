@@ -67,11 +67,13 @@ if (process.env.INTAKE_DATABASE_URL) {
   )
 }
 const assets = fileURLToPath(new URL('../../frontend/dist/', import.meta.url))
-if (existsSync(assets))
+if (existsSync(assets)) {
   await server.register(fastifyStatic, { root: assets, index: 'index.html', dotfiles: 'deny' })
-for (const signal of ['SIGINT', 'SIGTERM'] as const)
+}
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     void server.close()
   })
+}
 await server.listen({ host: '127.0.0.1', port: Number(new URL(config.origin).port) || 80 })
 process.stdout.write('Bench Intake development API listening on configured loopback origin.\n')

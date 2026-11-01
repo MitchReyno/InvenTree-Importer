@@ -1,6 +1,7 @@
 import { Paragraph, Small, Summary } from '../ui/primitives'
 import type { Snapshot } from '../../capture/types'
 import styled from 'styled-components'
+
 export function HumanNote({ note, batch }: { note: Snapshot['notes'][number]; batch: Snapshot }) {
   const subject = [...batch.lots, ...batch.parts].find((s) => s.id === note.subject_id)
   return (

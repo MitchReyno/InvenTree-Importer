@@ -11,14 +11,17 @@ export * from './media.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
+
 const Label = Type.String({ minLength: 1, maxLength: 256 })
 const Selection = Type.Union([
   object({ mode: Type.Literal('inherit') }),
   object({ mode: Type.Literal('clear') }),
   object({ mode: Type.Literal('set'), value: Quantity }),
 ])
+
 const reference = (model: 'part' | 'location') =>
   object({ target_context_id: Id, model: Type.Literal(model), pk: PositivePk, observation_id: Id })
+
 export const BatchCreate = object({ title: Label, note: Type.String({ maxLength: 8192 }) })
 export const LotCreate = object({
   expected_batch_revision: Revision,
@@ -153,6 +156,9 @@ ajv.addFormat(
 const validators = new Map(
   Object.entries(schemas).map(([key, schema]) => [key, ajv.compile(schema)]),
 )
+
 export function validate(name: keyof typeof schemas, value: unknown): void {
-  if (!validators.get(name)!(value)) throw new Error('invalid_contract')
+  if (!validators.get(name)!(value)) {
+    throw new Error('invalid_contract')
+  }
 }

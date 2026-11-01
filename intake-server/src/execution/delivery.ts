@@ -10,8 +10,12 @@ import { loadRun } from './authority.ts'
 export async function deliverStockCommand(pool: Pool, scheduler: DBOSClient, commandId: string) {
   const row = (await pool.query('SELECT id FROM executor_run WHERE command_id=$1', [commandId]))
     .rows[0]
-  if (!row) throw new Error('stock_command_authority_missing')
+  if (!row) {
+    throw new Error('stock_command_authority_missing')
+  }
   const authority = await loadRun(pool, row.id)
-  if (authority.commandId !== commandId) throw new Error('stock_command_binding_mismatch')
+  if (authority.commandId !== commandId) {
+    throw new Error('stock_command_binding_mismatch')
+  }
   return deliverCommand(pool, scheduler, commandId)
 }

@@ -16,6 +16,7 @@ type Props = {
   frozen: boolean
   setSelected: (value: string) => void
 }
+
 export function EvidencePanel({
   batch,
   selected,

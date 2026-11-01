@@ -3,6 +3,7 @@ import { Id, Digest, Revision, PositivePk, Quantity, CursorSequence } from './sc
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
+
 const text = Type.String({ maxLength: 256 })
 const selected = Type.Array(Id, { minItems: 1, maxItems: 10, uniqueItems: true })
 const cursor = object({ stream_id: Id, sequence: CursorSequence })

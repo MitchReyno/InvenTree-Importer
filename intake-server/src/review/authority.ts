@@ -19,6 +19,7 @@ export interface ManualConfig extends DevConfig {
   mediaEnabled?: boolean
 }
 export type DeploymentBinding = StockDeployment | MediaDeployment
+
 export async function deploymentBinding(
   client: PoolClient,
   config: ManualConfig,
@@ -38,6 +39,7 @@ export async function deploymentBinding(
   }
   return mediaDeployment(client, input)
 }
+
 export async function lockedCapture(client: PoolClient, config: ManualConfig, batchId: string) {
   const observed = await captureInTransaction(client, config, batchId)
   const source = {
@@ -49,6 +51,7 @@ export async function lockedCapture(client: PoolClient, config: ManualConfig, ba
   const retained = await captureInTransaction(client, config, batchId, true)
   return { ...retained, source, guard }
 }
+
 export async function historyIssues(
   client: PoolClient,
   source: Parameters<typeof stockSourceHistory>[1],
@@ -89,11 +92,13 @@ export async function historyIssues(
   }
   return issues
 }
+
 export interface ReviewBinding {
   subjectId: string
   reviewId: string
   digest: string
 }
+
 export async function currentReviews(
   client: PoolClient,
   batchId: string,
@@ -120,11 +125,13 @@ export async function currentReviews(
   }
   return bindings
 }
+
 export function requireReviews(material: ManualMaterial, reviews: ReviewBinding[]) {
   if (reviews.length !== material.subjects.length) {
     fail('current_review_required', 409)
   }
 }
+
 export function stockPlan(
   binding: StockDeployment,
   sourceId: string,

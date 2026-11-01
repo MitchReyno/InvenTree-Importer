@@ -23,7 +23,9 @@ export function installContracts(app: FastifyInstance) {
     const name = Object.entries(schemas).find(
       ([, value]) => JSON.stringify(value) === JSON.stringify(schema),
     )?.[0] as keyof typeof schemas | undefined
-    if (!name) throw new Error('unregistered_contract')
+    if (!name) {
+      throw new Error('unregistered_contract')
+    }
     return (value) => {
       try {
         validate(name, value)
@@ -38,7 +40,9 @@ export function installContracts(app: FastifyInstance) {
     const name = Object.entries(schemas).find(
       ([, value]) => JSON.stringify(value) === JSON.stringify(schema),
     )?.[0] as keyof typeof schemas | undefined
-    if (!name) throw new Error('unregistered_contract')
+    if (!name) {
+      throw new Error('unregistered_contract')
+    }
     return (value) => {
       validate(name, value)
       return JSON.stringify(value)
