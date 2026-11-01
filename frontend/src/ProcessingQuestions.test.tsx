@@ -1,11 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import type { ProcessingSnapshotDto } from '@invimport/contracts'
+import type { ProcessingQuestionDto } from '@invimport/contracts'
 import { QuestionAnswer } from './components/processing/QuestionAnswer'
 
-type Question = ProcessingSnapshotDto['jobs'][number]['questions'][number]
-const question: Question = {
+const question: ProcessingQuestionDto = {
   id: '10000000-0000-4000-8000-000000000001',
   job_id: '20000000-0000-4000-8000-000000000002',
   attempt_id: '30000000-0000-4000-8000-000000000003',
@@ -53,6 +52,10 @@ test('a polled replacement cannot redirect a dirty pinned answer', async () => {
   expect(screen.getByRole('button', { name: 'Save answer and queue continuation' })).toBeDisabled()
   expect(answer).not.toHaveBeenCalled()
   expect(screen.getByText(/unsaved answer is preserved/)).toBeInTheDocument()
+  await act(async () => {
+    fireEvent.submit(screen.getByRole('form', { name: 'Pinned application question' }))
+  })
+  expect(answer).not.toHaveBeenCalled()
 })
 
 test('lost acknowledgement preserves typed value and exact idempotency key for retry', async () => {
@@ -72,7 +75,7 @@ test('lost acknowledgement preserves typed value and exact idempotency key for r
   await user.type(screen.getByLabelText('Quantity'), '17.000001')
   await user.click(screen.getByRole('button', { name: 'Save answer and queue continuation' }))
   await waitFor(() => expect(answer).toHaveBeenCalledTimes(1))
-  await user.click(screen.getByRole('button', { name: 'Save answer and queue continuation' }))
+  await user.click(screen.getByRole('button', { name: 'Retry exact answer' }))
   await waitFor(() => expect(answer).toHaveBeenCalledTimes(2))
 
   expect(answer.mock.calls[1]).toEqual(answer.mock.calls[0])
@@ -172,4 +175,165 @@ test('pending submission freezes fields and confirmed save clears the guard with
   finish()
   await waitFor(() => expect(screen.getByLabelText('Quantity')).toHaveValue(''))
   expect(dirty).toHaveBeenLastCalledWith(false)
+})
+
+test.each(['answered', 'missing', 'replaced'] as const)(
+  'an unconfirmed answer retries its original receipt after polling reports the question %s',
+  async (polledState) => {
+    const user = userEvent.setup()
+    const answer = vi.fn().mockRejectedValueOnce(new Error('lost_ack')).mockResolvedValue(undefined)
+    const dirty = vi.fn()
+    const props = {
+      question,
+      captureRevision: '8',
+      currentQuestion: question,
+      currentCaptureRevision: '8',
+      disabled: false,
+      onDirtyChange: dirty,
+      answer,
+    }
+    const view = render(<QuestionAnswer {...props} />)
+    await user.type(screen.getByLabelText('Quantity'), '17.000001')
+    await user.selectOptions(screen.getByLabelText('How was the quantity determined?'), 'estimated')
+    await user.click(screen.getByRole('button', { name: 'Save answer and queue continuation' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Answer not confirmed')
+    const original = structuredClone(answer.mock.calls[0])
+
+    let currentQuestion: ProcessingQuestionDto | undefined
+    if (polledState === 'answered') {
+      currentQuestion = { ...question, state: 'answered', revision: '3' }
+    } else if (polledState === 'replaced') {
+      currentQuestion = {
+        ...question,
+        id: '50000000-0000-4000-8000-000000000005',
+        attempt_id: '60000000-0000-4000-8000-000000000006',
+      }
+    }
+    view.rerender(
+      <QuestionAnswer {...props} currentQuestion={currentQuestion} currentCaptureRevision="9" />,
+    )
+    const retry = screen.getByRole('button', {
+      name: 'Retry exact answer',
+    })
+    expect(retry).toBeEnabled()
+    expect(screen.getByLabelText('Quantity')).toBeDisabled()
+    expect(screen.getByLabelText('How was the quantity determined?')).toBeDisabled()
+    expect(screen.getByLabelText('Quantity')).toHaveValue('17.000001')
+    await user.click(retry)
+    await waitFor(() => expect(answer).toHaveBeenCalledTimes(2))
+    expect(answer.mock.calls[1]).toEqual(original)
+    expect(answer.mock.calls[1][0]).toBe(question.id)
+    expect(answer.mock.calls[1][1].expected_capture_revision).toBe('8')
+    await waitFor(() => expect(screen.getByLabelText('Quantity')).toHaveValue(''))
+    expect(dirty).toHaveBeenLastCalledWith(false)
+  },
+)
+
+test('unconfirmed fields stay frozen and a forced field change cannot replace the original delivery', async () => {
+  const user = userEvent.setup()
+  const answer = vi.fn().mockRejectedValueOnce(new Error('lost_ack')).mockResolvedValue(undefined)
+  render(
+    <QuestionAnswer
+      question={question}
+      captureRevision="8"
+      currentQuestion={question}
+      currentCaptureRevision="8"
+      disabled={false}
+      onDirtyChange={vi.fn()}
+      answer={answer}
+    />,
+  )
+  const quantity = screen.getByLabelText('Quantity')
+  await user.type(quantity, '17.000001')
+  await user.click(screen.getByRole('button', { name: 'Save answer and queue continuation' }))
+  await screen.findByRole('alert')
+  const original = structuredClone(answer.mock.calls[0])
+  expect(quantity).toBeDisabled()
+  await user.type(quantity, '99')
+  expect(quantity).toHaveValue('17.000001')
+
+  // The retained delivery must also survive programmatic values outside native disabled controls.
+  fireEvent.change(quantity, { target: { value: '99' } })
+  fireEvent.change(screen.getByLabelText('How was the quantity determined?'), {
+    target: { value: 'estimated' },
+  })
+  await user.click(screen.getByRole('button', { name: 'Retry exact answer' }))
+  await waitFor(() => expect(answer).toHaveBeenCalledTimes(2))
+  expect(answer.mock.calls[1]).toEqual(original)
+})
+
+test('exact retry retains unavailable-read and archive gates without losing its intent', async () => {
+  const user = userEvent.setup()
+  const answer = vi.fn().mockRejectedValueOnce(new Error('lost_ack')).mockResolvedValue(undefined)
+  const props = {
+    question,
+    captureRevision: '8',
+    currentQuestion: question,
+    currentCaptureRevision: '8',
+    disabled: false,
+    onDirtyChange: vi.fn(),
+    answer,
+  }
+  const view = render(<QuestionAnswer {...props} />)
+  await user.type(screen.getByLabelText('Quantity'), '17')
+  await user.click(screen.getByRole('button', { name: 'Save answer and queue continuation' }))
+  await screen.findByRole('alert')
+  const original = structuredClone(answer.mock.calls[0])
+
+  for (const guard of [
+    { disabled: true, readOnly: false },
+    { disabled: false, readOnly: true },
+  ]) {
+    view.rerender(
+      <QuestionAnswer
+        {...props}
+        {...guard}
+        currentQuestion={undefined}
+        currentCaptureRevision="9"
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Retry exact answer' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Discard unsaved answer' })).toBeEnabled()
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('form', { name: 'Pinned application question' }))
+    })
+    expect(answer).toHaveBeenCalledTimes(1)
+  }
+
+  view.rerender(
+    <QuestionAnswer {...props} currentQuestion={undefined} currentCaptureRevision="9" />,
+  )
+  await user.click(screen.getByRole('button', { name: 'Retry exact answer' }))
+  await waitFor(() => expect(answer).toHaveBeenCalledTimes(2))
+  expect(answer.mock.calls[1]).toEqual(original)
+})
+
+test('explicit discard releases an unconfirmed delivery and permits a new validated intent', async () => {
+  const user = userEvent.setup()
+  const answer = vi.fn().mockRejectedValueOnce(new Error('lost_ack')).mockResolvedValue(undefined)
+  const dirty = vi.fn()
+  render(
+    <QuestionAnswer
+      question={question}
+      captureRevision="8"
+      currentQuestion={question}
+      currentCaptureRevision="8"
+      disabled={false}
+      onDirtyChange={dirty}
+      answer={answer}
+    />,
+  )
+  await user.type(screen.getByLabelText('Quantity'), '17')
+  await user.click(screen.getByRole('button', { name: 'Save answer and queue continuation' }))
+  await screen.findByRole('alert')
+  const original = structuredClone(answer.mock.calls[0])
+  await user.click(screen.getByRole('button', { name: 'Discard unsaved answer' }))
+  expect(screen.getByLabelText('Quantity')).toBeEnabled()
+  expect(screen.getByLabelText('Quantity')).toHaveValue('')
+  expect(dirty).toHaveBeenLastCalledWith(false)
+  await user.type(screen.getByLabelText('Quantity'), '23')
+  await user.click(screen.getByRole('button', { name: 'Save answer and queue continuation' }))
+  await waitFor(() => expect(answer).toHaveBeenCalledTimes(2))
+  expect(answer.mock.calls[1][2]).not.toBe(original[2])
+  expect(answer.mock.calls[1][1].value).toEqual({ kind: 'quantity', value: '23', basis: 'counted' })
 })

@@ -35,7 +35,35 @@ interface AnswerFields {
   basis: 'counted' | 'estimated'
 }
 
+interface AnswerSubmission {
+  readonly questionId: string
+  readonly input: ProcessingAnswerDto
+  readonly key: string
+}
+
 const emptyAnswer: AnswerFields = { value: '', basis: 'counted' }
+
+function validatedAnswerInput(
+  question: ProcessingQuestionDto,
+  captureRevision: string,
+  values: AnswerFields,
+): ProcessingAnswerDto {
+  const typedValue: ProcessingAnswerDto['value'] =
+    question.spec.kind === 'quantity'
+      ? { kind: 'quantity', value: values.value, basis: values.basis }
+      : { kind: 'clarification', text: values.value }
+  const input: ProcessingAnswerDto = {
+    schema_version: 'bench-intake-answer/1',
+    expected_question_revision: question.revision,
+    expected_capture_revision: captureRevision,
+    attempt_id: question.attempt_id,
+    input_sha256: question.input_sha256,
+    value: typedValue,
+  }
+  validate('ProcessingAnswer', input)
+  Object.freeze(input.value)
+  return Object.freeze(input)
+}
 
 /** Mount identity is pinned. Polling changes current validity, never the editing target or fields. */
 export function QuestionAnswer({
@@ -54,7 +82,7 @@ export function QuestionAnswer({
   }).current
   const { register, handleSubmit, getValues, reset, setError, clearErrors, formState } =
     useForm<AnswerFields>({ defaultValues: emptyAnswer })
-  const submission = useRef<{ fingerprint: string; key: string } | null>(null)
+  const submission = useRef<AnswerSubmission | null>(null)
   const dirtyObserver = useRef(onDirtyChange)
   dirtyObserver.current = onDirtyChange
   useEffect(() => () => dirtyObserver.current(false), [])
@@ -67,6 +95,16 @@ export function QuestionAnswer({
     currentQuestion.attempt_id !== question.attempt_id ||
     currentQuestion.input_sha256 !== question.input_sha256 ||
     currentCaptureRevision !== captureRevision
+  const retrying = submission.current !== null
+  const hasCurrentDraft = !stale && formState.isDirty
+  const deliveryUnavailable = disabled || readOnly || formState.isSubmitting
+  const submitDisabled = deliveryUnavailable || (!retrying && !hasCurrentDraft)
+  let actionLabel = 'Save answer and queue continuation'
+  if (formState.isSubmitting) {
+    actionLabel = 'Saving answer…'
+  } else if (retrying) {
+    actionLabel = 'Retry exact answer'
+  }
   const error = formState.errors.value?.message ?? formState.errors.root?.command?.message
   const errorId = `answer-error-${question.id}`
 
@@ -79,6 +117,10 @@ export function QuestionAnswer({
     if (!fieldEvent) {
       return
     }
+    if (submission.current) {
+      onDirtyChange(true)
+      return
+    }
     const values = getValues()
     // Use the event value explicitly: navigation must see this edit before a later RHF render.
     const nextValue = target.name === 'value' ? target.value : values.value
@@ -87,53 +129,45 @@ export function QuestionAnswer({
   }
 
   function discard() {
-    reset(emptyAnswer)
     submission.current = null
+    reset(emptyAnswer)
     onDirtyChange(false)
   }
 
   async function submit(values: AnswerFields) {
-    if (stale || disabled || readOnly) {
+    if (disabled || readOnly) {
       return
+    }
+    let delivery = submission.current
+    if (!delivery) {
+      if (stale) {
+        return
+      }
+      let input: ProcessingAnswerDto
+      try {
+        input = validatedAnswerInput(question, captureRevision, values)
+      } catch {
+        const message =
+          question.spec.kind === 'quantity'
+            ? 'Enter a positive exact quantity with at most six decimal places.'
+            : 'Enter a clarification of up to 2048 characters.'
+        setError('value', { type: 'contract', message })
+        return
+      }
+      delivery = Object.freeze({ questionId: question.id, input, key: crypto.randomUUID() })
+      submission.current = delivery
     }
     clearErrors()
-    const typedValue: ProcessingAnswerDto['value'] =
-      question.spec.kind === 'quantity'
-        ? { kind: 'quantity', value: values.value, basis: values.basis }
-        : { kind: 'clarification', text: values.value }
-    const input: ProcessingAnswerDto = {
-      schema_version: 'bench-intake-answer/1',
-      expected_question_revision: question.revision,
-      expected_capture_revision: captureRevision,
-      attempt_id: question.attempt_id,
-      input_sha256: question.input_sha256,
-      value: typedValue,
-    }
     try {
-      validate('ProcessingAnswer', input)
-    } catch {
-      const message =
-        question.spec.kind === 'quantity'
-          ? 'Enter a positive exact quantity with at most six decimal places.'
-          : 'Enter a clarification of up to 2048 characters.'
-      setError('value', { type: 'contract', message })
-      return
-    }
-
-    const fingerprint = JSON.stringify(input)
-    if (submission.current?.fingerprint !== fingerprint) {
-      submission.current = { fingerprint, key: crypto.randomUUID() }
-    }
-    try {
-      await answer(question.id, input, submission.current.key)
-      reset(emptyAnswer)
+      await answer(delivery.questionId, delivery.input, delivery.key)
       submission.current = null
+      reset(emptyAnswer)
       onDirtyChange(false)
     } catch {
       setError('root.command', {
         type: 'server',
         message:
-          'Answer not confirmed. Your input and original question are kept. Refresh status before retrying this same answer.',
+          'Answer not confirmed. Your answer may already be saved. Retry sends only this original answer; discard clears only the local draft.',
       })
     }
   }
@@ -151,11 +185,12 @@ export function QuestionAnswer({
       </Small>
       {stale && (
         <Notice role="status">
-          This question is superseded or its saved context changed. Your unsaved answer is
-          preserved; it cannot be applied to another question.
+          {retrying
+            ? 'The saved question context changed. Retry only the original unconfirmed answer, or discard the local draft.'
+            : 'This question is superseded or its saved context changed. Your unsaved answer is preserved; it cannot be applied to another question.'}
         </Notice>
       )}
-      <Fieldset disabled={formState.isSubmitting || readOnly}>
+      <Fieldset disabled={formState.isSubmitting || readOnly || retrying}>
         <Field>
           <Label htmlFor={`answer-${question.id}`}>
             {question.spec.kind === 'quantity' ? 'Quantity' : 'Clarification'}
@@ -196,13 +231,10 @@ export function QuestionAnswer({
         )}
       </Fieldset>
       <Actions>
-        <Button
-          disabled={stale || disabled || readOnly || formState.isSubmitting || !formState.isDirty}
-          type="submit"
-        >
-          {formState.isSubmitting ? 'Saving answer…' : 'Save answer and queue continuation'}
+        <Button disabled={submitDisabled} type="submit">
+          {actionLabel}
         </Button>
-        {formState.isDirty && (
+        {(formState.isDirty || retrying) && (
           <Button type="button" disabled={formState.isSubmitting} onClick={discard}>
             Discard unsaved answer
           </Button>
