@@ -102,3 +102,16 @@ The coordinator and fresh T08 owner own a wording follow-up: separate header sta
 ### Future package candidates
 
 Mitch requested a shortlist for upcoming phases. `docs/bench-intake/09-package-candidates.md` records candidates and adoption conditions for T07–T12. It is linked from the maintained implementation plan. No additional installation is authorized by the shortlist alone.
+
+
+### Actual shared integration after PR #51
+
+T05 merged actual trunk as `6a1c91d`; T06 merged it as `d57d06d`. Frozen installs retained all approved package pins. Root T05 checkpoint `9396e62` connects the optional media client from App through Batch to Capture, only when bootstrap explicitly returns `media_enabled: true`. Its three public-client integration cases cover true, false and omitted flags. Root also adds the explicit one-command `media:decode` entry point; web startup does not launch it.
+
+Before the owner's subsequent query adaptation, all 32 frontend tests, workspace types, maintained readability, generated-contract drift and production frontend build passed. The build reports an 821.02 KB chunk (255.26 KB gzip); this advisory is retained. After adapting its retained queries, the media owner reports 34 frontend tests passing. Final whole-feature checks and independent review remain required.
+
+Root main reuses one database pool to read the immutable media store UUID before initializing its private blob root. The actual startup regression passed: initial binding and bootstrap advertisement, same-database reopen with unchanged marker bytes, and a different-database refusal before listening. All three child launches and both random databases were cleaned. The marker does not qualify forked/restored deployment authority; restore remains a separate protocol.
+
+The owner strengthened attachment corruption to a one-byte change of unchanged length. An intentionally disabled download hash check produced a false positive journal receipt and failed the new assertion; the independent settlement reducer still refused completion. The exact source was restored, then both original controls passed. This demonstrates two distinct defenses without claiming the earlier shorter-content test proved hashing.
+
+The scoped package assessment is committed as `ce063c0`. React Router is an additional T08 candidate, alongside the earlier table and accessibility primitives; none of these future candidates has been installed. Package choice remains conditional on concrete phase requirements and exact-release qualification.
