@@ -4,6 +4,8 @@ Status: **proposed, not implemented**. Prepared on 2026-11-01. At Mitch's reques
 
 **Current delivery entrypoint:** [chapter 8's implementation plan](08-implementation-plan.md) records the latest proposed task sequence and owner/review/merge workflow, awaiting Mitch's approval. Designs/spikes are now consolidated into `interactive-app`; do not use the deleted spike branch as a PR base. Early development uses the explicitly restricted server-side API-key mode, deferring final InvenTree login/access qualification rather than deleting that end-state requirement. Older publication/dependency prose below is historical.
 
+**Protected inventory:** Mitch explicitly prohibits all writes to the real InvenTree server identified by the referenced `.env`. Read-only calls are allowed; all mutation tests use owned fakes or separately designated disposable targets. Older pilot descriptions do not override this prohibition. Existing signed-in local Codex/Claude Code may be used through supported routes without credential copying.
+
 ## Read the design
 
 Read the summary here, then the chapters below. Diagrams and wireframes show proposed responsibilities and behavior, not running services. The current application remains the [browser-local scaffold and Python importer](../../ARCHITECTURE.md).
