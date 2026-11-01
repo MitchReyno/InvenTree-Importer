@@ -147,26 +147,30 @@ test('warm cache and cache writes cannot authorize commands; failed reads retain
   const fresh = deferredRead()
   client.read.mockReturnValueOnce(fresh.promise)
   const mounted = mount(client, cache)
-  const field = await screen.findByLabelText('Quantity')
-  await user.type(field, '37')
+  expect(screen.queryByLabelText('Quantity')).not.toBeInTheDocument()
   await user.click(screen.getByRole('checkbox', { name: 'Packet A' }))
   const queue = screen.getByRole('button', { name: 'Queue new processing attempts' })
   const cancel = screen.getByRole('button', { name: 'Cancel this attempt' })
-  const answer = screen.getByRole('button', { name: 'Save answer and queue continuation' })
   expect(queue).toBeDisabled()
   expect(cancel).toBeDisabled()
-  expect(answer).toBeDisabled()
+  expect(
+    screen.queryByRole('button', { name: 'Save answer and queue continuation' }),
+  ).not.toBeInTheDocument()
 
   act(() => {
     cache.setQueryData(key, { ...snapshot, cursor: { ...snapshot.cursor, sequence: '99' } })
   })
   expect(queue).toBeDisabled()
+  expect(screen.queryByLabelText('Quantity')).not.toBeInTheDocument()
   expect(client.start).not.toHaveBeenCalled()
   await act(async () => {
     fresh.resolve(snapshot)
     await fresh.promise
   })
   await waitFor(() => expect(queue).toBeEnabled())
+  const field = await screen.findByLabelText('Quantity')
+  await user.type(field, '37')
+  const answer = screen.getByRole('button', { name: 'Save answer and queue continuation' })
   expect(answer).toBeEnabled()
   expect(field).toHaveValue('37')
 
@@ -204,6 +208,55 @@ test('warm cache and cache writes cannot authorize commands; failed reads retain
   expect(field).toHaveValue('37')
   await waitFor(() => expect(answer).toBeDisabled())
   expect(mounted.navigate).not.toHaveBeenCalled()
+})
+
+test('cold mount pins only the fresh question state, never the stale warm-cache context', async () => {
+  const user = userEvent.setup()
+  const client = clientFixture()
+  const cache = createServerQueryClient()
+  const key = serverQueryKey(scope, 'processing', batchId)
+  cache.setQueryData(key, snapshot)
+  const fresh = deferredRead()
+  client.read.mockReturnValueOnce(fresh.promise)
+  mount(client, cache)
+  await waitFor(() => expect(client.read).toHaveBeenCalledTimes(1))
+  expect(
+    screen.queryByRole('form', { name: 'Pinned application question' }),
+  ).not.toBeInTheDocument()
+
+  const current = structuredClone(snapshot)
+  const currentAttempt = 'f0000000-0000-4000-8000-000000000006'
+  current.capture_revision = '9'
+  current.cursor.sequence = '9'
+  current.jobs[0].attempt_id = currentAttempt
+  current.jobs[0].attempt_number = '2'
+  current.jobs[0].input_sha256 = 'b'.repeat(64)
+  current.jobs[0].questions[0].state = 'answered'
+  current.jobs[0].questions[0].revision = '2'
+  current.jobs[0].questions.push({
+    ...current.jobs[0].questions[0],
+    id: 'e0000000-0000-4000-8000-000000000005',
+    attempt_id: currentAttempt,
+    input_sha256: 'b'.repeat(64),
+    revision: '1',
+    state: 'open',
+    spec: { ...current.jobs[0].questions[0].spec, prompt: 'The new current question' },
+  })
+  validate('ProcessingSnapshot', current)
+  await act(async () => {
+    fresh.resolve(current)
+    await fresh.promise
+  })
+  const form = await screen.findByRole('form', { name: 'Pinned application question' })
+  expect(within(form).getByText(/question revision 2/)).toBeInTheDocument()
+  expect(within(form).queryByText(/question revision 1/)).not.toBeInTheDocument()
+  expect(within(form).getByText('How many are in Packet A?')).toBeInTheDocument()
+  expect(within(form).queryByText('The new current question')).not.toBeInTheDocument()
+  await user.type(within(form).getByLabelText('Quantity'), '51')
+  expect(
+    within(form).getByRole('button', { name: 'Save answer and queue continuation' }),
+  ).toBeDisabled()
+  expect(client.answer).not.toHaveBeenCalled()
 })
 
 test('uncertain start keeps the original payload and key across query refreshes', async () => {

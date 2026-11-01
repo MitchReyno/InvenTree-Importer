@@ -97,13 +97,17 @@ export function ProcessingWorkspace({
     if (pinned?.question.id === questionId) {
       return
     }
+    // Warm query data is useful for status only; it cannot establish a new answer context.
+    if (waitingForRead || offline) {
+      return
+    }
     const question = snapshot?.jobs
       .flatMap((job) => job.questions)
       .find((question) => question.id === questionId)
     if (question && snapshot) {
       setPinned({ question, captureRevision: snapshot.capture_revision })
     }
-  }, [questionId, snapshot, pinned])
+  }, [questionId, snapshot, pinned, waitingForRead, offline])
 
   function commandReadAvailable() {
     const current = queryClient.getQueryState(queryKey)
@@ -281,7 +285,9 @@ export function ProcessingWorkspace({
           ) : (
             questionId && (
               <Notice>
-                The pinned question is unavailable. Choose a current question explicitly.
+                {waitingForRead || offline
+                  ? 'The selected question cannot be opened until current state is available.'
+                  : 'The pinned question is unavailable. Choose a current question explicitly.'}
               </Notice>
             )
           )}
