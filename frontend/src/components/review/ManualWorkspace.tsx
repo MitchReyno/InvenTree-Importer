@@ -27,6 +27,7 @@ interface Props {
   edit: (change: CaptureEditDto['change']) => Promise<void>
   navigate: (stage: ManualStage, resourceId?: string) => void
   reload: () => Promise<void>
+  onProcessing?: () => void
 }
 
 function commandMessage(error: unknown) {
@@ -59,6 +60,7 @@ export function ManualWorkspace({
   edit,
   navigate,
   reload,
+  onProcessing,
 }: Props) {
   const scope = useServerScope()
   const workspaceQuery = useQuery({
@@ -281,12 +283,13 @@ export function ManualWorkspace({
         dirty={false}
         edit={edit}
         stage={stage}
+        onProcessing={onProcessing}
         onStage={(value) =>
           navigate(value, value === 'approve' ? (preparationId ?? lastPreview?.id) : undefined)
         }
       />
       <Small>
-        Manual workflow · owned fake only. Processing, uploads and research remain unavailable.
+        Manual inventory workflow · owned fake only. Actual provider research remains unavailable.
       </Small>
       <Heading>
         {

@@ -4,12 +4,28 @@ import type { CaptureWorkspaceProps } from '../../capture/types'
 import styled from 'styled-components'
 import type { ManualStage } from '../../manual/types'
 
-type Props = Pick<CaptureWorkspaceProps, 'batch' | 'busy' | 'edit' | 'onStage'> & {
+type Props = Pick<CaptureWorkspaceProps, 'batch' | 'busy' | 'edit' | 'onStage' | 'onProcessing'> & {
   dirty: boolean
-  stage?: ManualStage
+  stage?: ManualStage | 'processing'
 }
 
-export function CaptureHeader({ batch, busy, dirty, edit, onStage, stage = 'capture' }: Props) {
+export function CaptureHeader({
+  batch,
+  busy,
+  dirty,
+  edit,
+  onStage,
+  onProcessing,
+  stage = 'capture',
+}: Props) {
+  function chooseStage(value: ManualStage | 'processing') {
+    if (value === 'processing') {
+      onProcessing?.()
+      return
+    }
+    onStage?.(value)
+  }
+
   return (
     <BatchHeader>
       <Breadcrumb>
@@ -44,8 +60,10 @@ export function CaptureHeader({ batch, busy, dirty, edit, onStage, stage = 'capt
         </Button>
       </HeadingRow>
       <StageNav aria-label="Batch stages">
-        {(['capture', 'processing', 'review', 'approve', 'results'] as const).map((value) =>
-          value === 'processing' || (!onStage && value !== 'capture') ? (
+        {(['capture', 'processing', 'review', 'approve', 'results'] as const).map((value) => {
+          const unavailable =
+            value === 'processing' ? !onProcessing : !onStage && value !== 'capture'
+          return unavailable ? (
             <span key={value} aria-disabled="true">
               {value[0].toUpperCase() + value.slice(1)}
               <Small>Not available yet</Small>
@@ -56,12 +74,12 @@ export function CaptureHeader({ batch, busy, dirty, edit, onStage, stage = 'capt
               $active={stage === value}
               aria-current={stage === value ? 'page' : undefined}
               disabled={dirty || busy}
-              onClick={() => onStage?.(value)}
+              onClick={() => chooseStage(value)}
             >
               {value[0].toUpperCase() + value.slice(1)}
             </StageControl>
-          ),
-        )}
+          )
+        })}
       </StageNav>
     </BatchHeader>
   )

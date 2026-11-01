@@ -41,3 +41,18 @@ From repository root, `pnpm dev`, `pnpm typecheck`, `pnpm lint:frontend`, `pnpm 
 ## Future work — not implemented
 
 Upload/media retention, automated processing, provider inference, broader effects/shared metadata and final InvenTree authentication/access qualification remain future work, not hidden features. Manual execution is qualified only against an owned persistent fake; no actual InvenTree mutation profile is supported. Existing capture source/contribution identities, immutable human notes and exact selection histories are the future integration seam; do not replace them with a disposable browser draft or copy historical prototype timers/localStorage. Capture and review use reviewed public contracts and owning repository seams, not sibling SQL internals. Normal remote/phone deployment is not enabled by changing the loopback bind.
+
+## Processing workspace
+
+Batch routing keeps Processing separate from the manual inventory stages. Its
+header and stage tabs preserve the app-wide dirty-input guard; question URLs pin
+an exact question rather than selecting the latest question from polling.
+Processing reads use the same actor/target/context query scope as Capture and
+manual review. Commands require a successful mounted read; cached data alone
+cannot establish answer or start authority.
+
+The global indicator reports inventory runs and Processing lane occupancy
+separately. A stale-input worker that still physically occupies the lane remains
+visible as occupied. Processing activity failures are reported independently.
+Actual provider integration remains unqualified; retained synthetic fixtures do
+not imply native login, entitlement or inference support.

@@ -2,10 +2,18 @@ import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
 import styled from 'styled-components'
+import type { processingClient } from '@invimport/contracts/client'
+import { ProcessingActivity } from '../processing/ProcessingActivity'
 import type { ManualClient } from '../../manual/types'
 import { Link, Small } from './primitives'
 
-export function ActivityIndicator({ client }: { client: ManualClient }) {
+export function ActivityIndicator({
+  client,
+  processing,
+}: {
+  client: ManualClient
+  processing?: ReturnType<typeof processingClient>
+}) {
   const scope = useServerScope()
   const activityQuery = useQuery({
     queryKey: serverQueryKey(scope, 'activity'),
@@ -23,14 +31,17 @@ export function ActivityIndicator({ client }: { client: ManualClient }) {
       (value) => value.state === 'recovery_required' || value.state === 'settled_incomplete',
     ).length ?? 0
   const first = activity?.runs[0]
+  let status = 'Reading inventory activity…'
+  if (unavailable) {
+    status = 'Inventory activity unavailable'
+  } else if (activity) {
+    status = `Inventory: ${running} running · ${queued} awaiting apply · ${attention} need attention`
+  }
   return (
     <Indicator aria-label="Application activity" aria-live="polite">
-      {unavailable
-        ? 'Activity unavailable'
-        : activity
-          ? `${running} running · ${queued} awaiting apply · ${attention} need attention`
-          : 'Reading activity…'}
+      <span>{status}</span>
       {first && <Link href={`#${first.batch_id}/results/${first.run_id}`}>Open original run</Link>}
+      {processing && <ProcessingActivity client={processing} />}
       {activity?.truncated && <Small>Showing the first 100 retained runs.</Small>}
     </Indicator>
   )
