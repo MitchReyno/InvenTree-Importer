@@ -27,6 +27,8 @@ Virtualization stays conditional on measured row volume. For T09, reuse the exis
 
 ## Native-provider integration
 
+Mitch subsequently prohibited actual-model testing or provider-usage consumption while he is away. Use stubs for integration tests until explicit later authorization; no SDK or native route may be exercised with real models merely to assess a package.
+
 Official OpenAI documentation distinguishes the Codex SDK's automation interface from App Server's richer authentication, approvals, history and streamed-event integration. T07 should choose the route that meets the actual product requirements and supported host/authentication boundary. Do not select an SDK merely because it shortens a subprocess wrapper, or substitute paid APIs for an unsupported native route.
 
 Use version-matched generated App Server types/schemas when that route is selected. MCP tools and application questions are different interfaces; native permission handles remain transient and cannot be recovered as application authority. No provider login, credential copy or inference was performed for this shortlist.
