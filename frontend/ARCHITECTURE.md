@@ -20,6 +20,16 @@ Module-scope styled-components declarations own the light/neutral palette and bl
 
 `src/App.test.tsx` covers exact string emission, human attribution, archive/resume and concurrent-edit conflict through a jsdom/component boundary. Actual loopback server/browser/restart and inspected desktop/narrow/nondefault screenshots are recorded in the [T02 handover](../docs/handovers/bench-intake-T02.md); component tests alone are not browser or production-access qualification. `ManualWorkflow.test.tsx` adds exact selected/digest emission, explicit stale-display reload and unknown-result controls. The [T04 handover](../docs/handovers/bench-intake-T04.md) links actual desktop/narrow manual journey evidence.
 
+## Retained read coordination
+
+Pinned TanStack Query coordinates bootstrap, batch reads, manual workspace and activity. The generated AJV-validated client façades remain the transport boundary. `queries/client.ts` explicitly disables retries and focus/reconnect refetch; manual/activity observers poll every two seconds. Loopback reads attempt even when browser connectivity reports offline. Existing client deadlines still bound requests; cache cancellation does not claim physical cancellation of non-abortable ports.
+
+`components/query/ServerStateProvider.tsx` owns an in-memory cache. App separates bootstrap from the private cache and keys its lifetime by origin, actor, target and target-context IDs. Scope replacement cancels and clears the previous private cache; no browser persistence is installed. `useServerScope()` and `serverQueryKey(scope, ...resourceIds)` provide the shared seam for additional readers.
+
+Cache data is an observation, never edit or command authority. Capture retains its accepted loaded snapshot until a confirmed save or explicit reload. React Hook Form drafts, dirty navigation, pinned preparation identity, review selection, last preview and payload-bound delivery intents remain outside the cache. Repeated reads cannot reset them. A cached manual preview stays disabled until the mounted observer verifies a read; failed or paused reads retain history while disabling freshness-sensitive commands. Confirmed commands and subsequent failed status reads have separate outcomes.
+
+`ServerState.test.tsx` verifies scope isolation and late prior responses. App/manual component tests cover deduplication, periodic recovery, paused reads, accepted revisions, retained drafts, pinned preparation identity and lost acknowledgement. The [server-state handover](../docs/handovers/bench-intake-server-state.md) records actual browser evidence and package qualification.
+
 ## Tooling and application ownership
 
 Frontend dependencies and scripts live in `package.json` here. Root pnpm owns the workspace/control point and single lockfile; `.node-version` and root `packageManager` pin the toolchain. React/Vite/TypeScript/styled-components/plugin versions are pinned in the frontend manifest; Python dependencies stay entirely in backend.

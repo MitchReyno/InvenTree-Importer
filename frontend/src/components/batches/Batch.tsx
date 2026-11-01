@@ -1,6 +1,8 @@
 import { ErrorNotice } from '../ui/primitives'
 import { Button, Paragraph, Summary } from '../ui/primitives'
 import { useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type {
   CaptureEditDto,
@@ -34,29 +36,38 @@ export function Batch({
     location.hash = value === 'capture' ? id : `${id}/${value}${resourceId ? `/${resourceId}` : ''}`
   }
 
+  const scope = useServerScope()
+  const queryClient = useQueryClient()
+  const queryKey = serverQueryKey(scope, 'capture', id)
+  const captureQuery = useQuery({ queryKey, queryFn: () => client.read(id) })
+  // This is accepted edit authority, not a mirror of the latest cache value.
   const [batch, setBatch] = useState<CaptureSnapshotDto | null>(null)
   const [error, setError] = useState('')
   const [current, setCurrent] = useState<CaptureSnapshotDto | null>(null)
   const [busy, setBusy] = useState(false)
   const [reset, setReset] = useState(0)
+
   useEffect(() => {
-    let active = true
-    void client
-      .read(id)
-      .then((value) => {
-        if (active) {
-          setBatch(value)
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setError('Batch unavailable. Check connection and server-side target binding.')
-        }
-      })
-    return () => {
-      active = false
+    if (
+      !batch &&
+      captureQuery.isFetchedAfterMount &&
+      captureQuery.isSuccess &&
+      !captureQuery.isFetching
+    ) {
+      setBatch(captureQuery.data)
     }
-  }, [id, client])
+  }, [
+    batch,
+    captureQuery.data,
+    captureQuery.isFetchedAfterMount,
+    captureQuery.isSuccess,
+    captureQuery.isFetching,
+  ])
+
+  function acceptSavedBatch(value: CaptureSnapshotDto) {
+    queryClient.setQueryData(queryKey, value)
+    setBatch(value)
+  }
 
   async function edit(change: CaptureEditDto['change']) {
     if (!batch) {
@@ -66,7 +77,7 @@ export function Batch({
     setError('')
     setCurrent(null)
     try {
-      setBatch(
+      acceptSavedBatch(
         await client.edit(id, { expected_revision: batch.revision, change }, crypto.randomUUID()),
       )
     } catch (error) {
@@ -118,8 +129,11 @@ export function Batch({
 
   async function reloadSavedValues() {
     try {
-      const value = await client.read(id)
-      setBatch(value)
+      const result = await captureQuery.refetch({ throwOnError: true })
+      if (!result.data) {
+        throw new Error('capture_snapshot_missing')
+      }
+      acceptSavedBatch(result.data)
       setReset((revision) => revision + 1)
       setCurrent(null)
       setError('')
@@ -128,11 +142,17 @@ export function Batch({
     }
   }
 
+  const readUnavailable = captureQuery.isError || captureQuery.fetchStatus === 'paused'
+  const visibleError =
+    error ||
+    (readUnavailable ? 'Batch unavailable. Check connection and server-side target binding.' : '')
+  const readOrCommandBusy = busy || captureQuery.isFetching
+
   return (
     <>
-      {error && (
+      {visibleError && (
         <ErrorNotice role="alert">
-          <Paragraph>{error}</Paragraph>
+          <Paragraph>{visibleError}</Paragraph>
           {current && (
             <>
               <Paragraph>
@@ -156,7 +176,7 @@ export function Batch({
             </>
           )}
           <Button
-            disabled={busy}
+            disabled={readOrCommandBusy}
             onClick={() => {
               void reloadSavedValues()
             }}
@@ -181,14 +201,14 @@ export function Batch({
         <CaptureWorkspace
           key={`${batch.id}:${batch.revision}:${reset}`}
           batch={batch}
-          busy={busy}
+          busy={readOrCommandBusy || readUnavailable}
           edit={edit}
           observe={observe}
           onStage={navigate}
           onDirtyChange={onDirtyChange}
         />
       ) : (
-        !error && <Paragraph role="status">Resuming saved batch…</Paragraph>
+        !visibleError && <Paragraph role="status">Resuming saved batch…</Paragraph>
       )}
     </>
   )
