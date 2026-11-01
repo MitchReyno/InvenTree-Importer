@@ -7,6 +7,10 @@
   "paths": {
     "/api/v1/health": {
       "get": {
+        "x-intake-client": {
+          "timeoutMs": 5000,
+          "errorMode": "setup"
+        },
         "responses": {
           "200": {
             "description": "Health",
@@ -17,12 +21,26 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/v1/bootstrap": {
       "get": {
+        "x-intake-client": {
+          "timeoutMs": 5000,
+          "errorMode": "setup"
+        },
         "responses": {
           "200": {
             "description": "Bootstrap",
@@ -34,7 +52,7 @@
               }
             }
           },
-          "403": {
+          "default": {
             "description": "ErrorDto",
             "content": {
               "application/json": {
@@ -49,6 +67,10 @@
     },
     "/api/v1/batches": {
       "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
         "responses": {
           "200": {
             "description": "CaptureList",
@@ -59,10 +81,24 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
           }
         }
       },
       "post": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -133,6 +169,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
           }
         }
       }
@@ -150,6 +196,10 @@
         }
       ],
       "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
         "responses": {
           "200": {
             "description": "CaptureSnapshot",
@@ -157,6 +207,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CaptureSnapshot"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
                 }
               }
             }
@@ -177,6 +237,10 @@
         }
       ],
       "post": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -247,6 +311,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
           }
         }
       }
@@ -264,6 +338,10 @@
         }
       ],
       "post": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -334,12 +412,26 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/v1/activity": {
       "get": {
+        "x-intake-client": {
+          "timeoutMs": 45000,
+          "errorMode": "typed"
+        },
         "responses": {
           "200": {
             "description": "ManualActivity",
@@ -350,12 +442,26 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
           }
         }
       }
     },
     "/api/v1/batches/{id}/manual": {
       "get": {
+        "x-intake-client": {
+          "timeoutMs": 45000,
+          "errorMode": "typed"
+        },
         "responses": {
           "200": {
             "description": "ManualWorkspace",
@@ -363,6 +469,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ManualWorkspace"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
                 }
               }
             }
@@ -383,6 +499,10 @@
     },
     "/api/v1/batches/{id}/reviews": {
       "post": {
+        "x-intake-client": {
+          "timeoutMs": 45000,
+          "errorMode": "typed"
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -453,6 +573,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
           }
         }
       },
@@ -470,6 +600,10 @@
     },
     "/api/v1/batches/{id}/preparations": {
       "post": {
+        "x-intake-client": {
+          "timeoutMs": 45000,
+          "errorMode": "typed"
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -540,6 +674,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
           }
         }
       },
@@ -557,6 +701,10 @@
     },
     "/api/v1/preparations/{id}/approvals": {
       "post": {
+        "x-intake-client": {
+          "timeoutMs": 45000,
+          "errorMode": "typed"
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -627,6 +775,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
           }
         }
       },
@@ -644,6 +802,10 @@
     },
     "/api/v1/runs/{id}": {
       "get": {
+        "x-intake-client": {
+          "timeoutMs": 45000,
+          "errorMode": "typed"
+        },
         "responses": {
           "200": {
             "description": "ManualRun",
@@ -651,6 +813,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ManualRun"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
                 }
               }
             }
@@ -671,6 +843,10 @@
     },
     "/api/v1/runs/{id}/start": {
       "post": {
+        "x-intake-client": {
+          "timeoutMs": 45000,
+          "errorMode": "typed"
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -733,6 +909,16 @@
             }
           },
           "422": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "default": {
             "description": "ErrorDto",
             "content": {
               "application/json": {
@@ -758,6 +944,10 @@
     },
     "/api/v1/runs/{id}/cancel": {
       "post": {
+        "x-intake-client": {
+          "timeoutMs": 45000,
+          "errorMode": "typed"
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -828,6 +1018,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
           }
         }
       },
@@ -845,6 +1045,10 @@
     },
     "/api/v1/runs/{id}/recover": {
       "post": {
+        "x-intake-client": {
+          "timeoutMs": 45000,
+          "errorMode": "typed"
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -907,6 +1111,16 @@
             }
           },
           "422": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "default": {
             "description": "ErrorDto",
             "content": {
               "application/json": {

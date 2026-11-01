@@ -98,6 +98,24 @@ class SelectionTests(unittest.TestCase):
         self.assert_checks(["tooling/unrelated.cjs"])
         self.assert_checks(["tooling/eslint/README.md"], "markdown")
 
+    def test_openapi_generator_inputs_select_contract_consumers(self):
+        for path in (
+            "tooling/openapi-generator/index.cjs",
+            "tooling/openapi-generator/package.json",
+            "tooling/openapi-generator/tsconfig.json",
+        ):
+            with self.subTest(path=path):
+                self.assert_checks([path], "frontend", "intake")
+        for path in (
+            "tooling/openapi-generator/README.md",
+            "tooling/openapi-generator/CHANGELOG.markdown",
+        ):
+            with self.subTest(path=path):
+                self.assert_checks([path], "markdown")
+        self.assert_checks(
+            ["tooling/openapi-generator-other/index.cjs", "tooling/unrelated/index.cjs"]
+        )
+
     def test_shared_skills_agents_and_resources_need_sync_not_full_tests(self):
         for path in (
             ".agents/skills/crop/reference.png",
@@ -292,6 +310,36 @@ class GitComparisonTests(unittest.TestCase):
             {name for name, selected in select_checks(paths).items() if selected},
             {"intake"},
         )
+
+    def test_generator_deletion_and_move_retain_contract_consumers(self):
+        generator = "tooling/openapi-generator/index.cjs"
+        archived = "tooling/archived-generator.cjs"
+        for operation in ("delete", "rename"):
+            with self.subTest(operation=operation):
+                self.write(generator, "module.exports = 'fixture'\n")
+                base = self.commit()
+                if operation == "delete":
+                    (self.root / generator).unlink()
+                else:
+                    self.git("mv", generator, archived)
+                head = self.commit()
+                for event_name, event in (
+                    ("push", self.push_event(base, head)),
+                    ("pull_request", self.pr_event(base, head)),
+                ):
+                    paths = changed_paths(event_name, event, self.root)
+                    self.assertEqual(
+                        set(paths),
+                        {generator} if operation == "delete" else {generator, archived},
+                    )
+                    self.assertEqual(
+                        {
+                            name
+                            for name, selected in select_checks(paths).items()
+                            if selected
+                        },
+                        {"frontend", "intake"},
+                    )
 
     def test_rename_uses_old_and_new_paths_with_unusual_names(self):
         old = "backend/config/odd\nname.yaml"
