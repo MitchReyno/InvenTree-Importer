@@ -1,7 +1,9 @@
 import { Button, PageTitle, Panel, Paragraph, Notice } from './components/ui/primitives'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { captureClient, intakeClient, manualClient } from '@invimport/contracts/client'
-import type { BootstrapDto } from '@invimport/contracts'
+import { ServerStateProvider } from './components/query/ServerStateProvider'
+import { serverScopeIdentity } from './queries/scope'
 import { Batches } from './components/batches/Batches'
 import { Batch } from './components/batches/Batch'
 import { GlobalStyle } from './components/GlobalStyle'
@@ -10,27 +12,23 @@ import { ActivityIndicator } from './components/ui/ActivityIndicator'
 import { useNavigationGuard } from './navigation/useNavigationGuard'
 
 export default function App() {
-  const [bootstrap, setBootstrap] = useState<BootstrapDto | null>(null)
-  const [error, setError] = useState('')
   const { route, navigationBlocked, onDirtyChange } = useNavigationGuard()
-  useEffect(() => {
-    let active = true
-    void intakeClient(location.origin)
-      .bootstrap()
-      .then((value) => {
-        if (active) {
-          setBootstrap(value)
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setError('Application unavailable. Check the local API and retry.')
-        }
-      })
-    return () => {
-      active = false
-    }
-  }, [])
+  const bootstrapQuery = useQuery({
+    queryKey: ['bootstrap', location.origin],
+    queryFn: () => intakeClient(location.origin).bootstrap(),
+    staleTime: Infinity,
+    refetchOnMount: false,
+  })
+  const bootstrapUnavailable = bootstrapQuery.isError || bootstrapQuery.fetchStatus === 'paused'
+  const bootstrap = bootstrapQuery.data
+  const scope = bootstrap
+    ? {
+        origin: location.origin,
+        actorId: bootstrap.actor_id,
+        targetId: bootstrap.target_id,
+        targetContextId: bootstrap.target_context_id,
+      }
+    : undefined
   const client = useMemo(
     () => (bootstrap?.csrf_token ? captureClient(location.origin, bootstrap.csrf_token) : null),
     [bootstrap],
@@ -40,10 +38,11 @@ export default function App() {
     [bootstrap],
   )
   let content: ReactNode
-  if (error) {
+  if (bootstrapUnavailable && !bootstrap) {
     content = (
       <div role="alert">
-        {error} <Button onClick={() => location.reload()}>Retry connection</Button>
+        Application unavailable. Check the local API and retry.{' '}
+        <Button onClick={() => location.reload()}>Retry connection</Button>
       </div>
     )
   } else if (!bootstrap) {
@@ -87,14 +86,22 @@ export default function App() {
       <DevelopmentBanner>
         {bootstrap?.banner ?? 'Connecting to local application…'}
       </DevelopmentBanner>
-      {manual && <ActivityIndicator client={manual} />}
-      {navigationBlocked && (
-        <Notice role="alert">
-          Your unsaved input is preserved. Save this form or discard its unsaved input before
-          navigating, then choose the destination again.
-        </Notice>
-      )}
-      <Main>{content}</Main>
+      <ServerStateProvider key={scope ? serverScopeIdentity(scope) : 'setup'} scope={scope}>
+        {manual && <ActivityIndicator client={manual} />}
+        {bootstrapUnavailable && bootstrap && (
+          <Notice role="alert">
+            Application connection unavailable. Showing the last development context; retained views
+            report their own freshness. Unsaved input is preserved.
+          </Notice>
+        )}
+        {navigationBlocked && (
+          <Notice role="alert">
+            Your unsaved input is preserved. Save this form or discard its unsaved input before
+            navigating, then choose the destination again.
+          </Notice>
+        )}
+        <Main>{content}</Main>
+      </ServerStateProvider>
       <Footer>
         Saved in the application database, not this browser. Exact manual approvals can queue the
         separately supervised owned fake. Real inventory writes, uploads and research remain

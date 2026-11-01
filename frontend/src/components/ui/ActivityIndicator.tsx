@@ -1,43 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { serverQueryKey, useServerScope } from '../../queries/scope'
+import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
 import styled from 'styled-components'
 import type { ManualClient } from '../../manual/types'
 import { Link, Small } from './primitives'
 
-type Activity = Awaited<ReturnType<ManualClient['activity']>>
-
 export function ActivityIndicator({ client }: { client: ManualClient }) {
-  const [activity, setActivity] = useState<Activity | null>(null)
-  const [unavailable, setUnavailable] = useState(false)
-  useEffect(() => {
-    let active = true
-    let timer: ReturnType<typeof setTimeout>
-
-    async function refresh() {
-      try {
-        const value = await client.activity()
-        if (active) {
-          setActivity(value)
-          setUnavailable(false)
-        }
-      } catch {
-        if (active) {
-          setUnavailable(true)
-        }
-      } finally {
-        if (active) {
-          timer = setTimeout(() => {
-            void refresh()
-          }, 2000)
-        }
-      }
-    }
-
-    void refresh()
-    return () => {
-      active = false
-      clearTimeout(timer)
-    }
-  }, [client])
+  const scope = useServerScope()
+  const activityQuery = useQuery({
+    queryKey: serverQueryKey(scope, 'activity'),
+    queryFn: () => client.activity(),
+    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+  })
+  const activity = activityQuery.isFetchedAfterMount ? activityQuery.data : undefined
+  const unavailable = activityQuery.isError || activityQuery.fetchStatus === 'paused'
   const running =
     activity?.runs.filter((value) => value.state === 'running' || value.state === 'stopping')
       .length ?? 0
