@@ -11,6 +11,7 @@ concurrency:
 
 jobs:
   backend:
+    name: backend/test
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -27,6 +28,7 @@ jobs:
         run: uv run pytest
 
   frontend:
+    name: frontend/test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +45,8 @@ jobs:
       - name: Build
         run: pnpm build
 
-  lint:
+  lint-backend:
+    name: backend/lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,21 +54,37 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
+      - name: Install Python project
+        run: uv sync --project backend --locked
+      - name: Lint Python and shared skill scripts
+        run: uv run --directory backend ruff check --config pyproject.toml . ../.agents/skills ../.claude/skills
+
+  lint-frontend:
+    name: frontend/lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
       - uses: pnpm/action-setup@v4
-      - name: Install Python project
-        run: uv sync --project backend --locked
       - name: Frozen workspace install
         run: pnpm install --frozen-lockfile
-      - name: Lint Python and shared skill scripts
-        run: pnpm lint:backend
       - name: Lint frontend
-        if: ${{ !cancelled() }}
         run: pnpm lint:frontend
+
+  lint-markdown:
+    name: markdown/lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v4
+      - name: Frozen workspace install
+        run: pnpm install --frozen-lockfile
       - name: Lint Markdown
-        if: ${{ !cancelled() }}
         run: pnpm lint:markdown
 
   ci:
