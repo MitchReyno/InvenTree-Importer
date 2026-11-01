@@ -31,6 +31,13 @@ export function CaptureEditor({
   const lot = batch.lots.find((l) => l.id === selected)
   const part = batch.parts.find((p) => p.id === selected)
   const defaults = selected === 'defaults'
+  let labelCaption = 'Lot label'
+  if (part || selected === 'add_part') {
+    labelCaption = 'Part label'
+  } else if (selected === 'batch') {
+    labelCaption = 'Title'
+  }
+
   // Defaults belong to this selected editor's lifetime. Polling does not reset human input.
   const { register, control, handleSubmit, formState } = useForm<CaptureEditorValues>({
     defaultValues: captureEditorDefaults(batch, selected),
@@ -45,11 +52,7 @@ export function CaptureEditor({
       <Fieldset disabled={frozen || formState.isSubmitting}>
         {!defaults && selected !== 'note' && (
           <Label>
-            {part || selected === 'add_part'
-              ? 'Part label'
-              : selected === 'batch'
-                ? 'Title'
-                : 'Lot label'}
+            {labelCaption}
             <Input required maxLength={256} {...register('label')} />
           </Label>
         )}

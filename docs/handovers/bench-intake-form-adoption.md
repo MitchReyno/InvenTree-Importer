@@ -34,3 +34,10 @@ The isolated worktree's frozen offline install, frontend typecheck, ESLint, 13 c
 Vite reports its standard >500 kB chunk advisory: the minified entry is 521.41 kB (159.65 kB gzip). This change does not suppress the advisory or claim a performance measurement.
 
 The former T04 preview's recorded PIDs and port are no longer live in the refreshed elevated process/listener check. Its retained metadata, files and database are preserved. A short isolated browser fixture will reuse the existing PostgreSQL service after the query owner's allocated heavy checks; no duplicate preview has been started. Browser evidence and independent review remain pending.
+
+
+## Independent review correction
+
+The fresh reviewer rejected head 148f772 with one P2. Although repeated retries in the mounted form retained the key, extracting createIntent into NewBatchForm shortened its lifetime. After a lost create acknowledgement, discard/reopen could send identical data with a new key. The reviewer's adverse interaction failed this head and passed the original T04 implementation.
+
+The correction keeps createIntent and the payload-bound create command in Batches, which outlives the mountable editing form. NewBatchForm receives the create operation and owns only editing/submission presentation. The tracked regression now submits, retries, discards, reopens and submits identical data, asserting the original key throughout. All 13 frontend tests pass after the correction. Independent re-review and actual browser checks remain pending.
