@@ -3,9 +3,11 @@ import { Ajv2020 } from 'ajv/dist/2020.js'
 import { Id, Revision, CursorSequence, Digest, PositivePk, Quantity } from './scalars.ts'
 import { captureSchemas } from './capture.ts'
 import { manualSchemas } from './manual.ts'
+import { processingSchemas } from './processing.ts'
 export * from './scalars.ts'
 export * from './capture.ts'
 export * from './manual.ts'
+export * from './processing.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -130,6 +132,7 @@ export const schemas = {
   Health,
   ...captureSchemas,
   ...manualSchemas,
+  ...processingSchemas,
 }
 export type BootstrapDto = Static<typeof Bootstrap>
 export type ApprovalDto = Static<typeof Approval>

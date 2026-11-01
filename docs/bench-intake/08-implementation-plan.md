@@ -198,3 +198,21 @@ Use **at most five implementation task owners concurrently**, not a target to fi
 The task owner records acceptance as **observed / fixture-only / blocked / not tested**, with reproducible evidence and exact versions. A merged PR is not proof of native provider support or permission for a live pilot; the protected server remains strictly read-only. Every owner/reviewer kickoff repeats that prohibition and the local-sign-in/no-credential-copying rule. T04 is the first basic manual/fake working version; T05/T06 add evidence and coordination; T07/T08/T09 deliver the supported assisted workflow; T10/T11 make it operationally deployable with final access controls; T12 qualifies release. Carry the full end-solution traceability and unresolved gates forward, not just the happy-path demo.
 
 At every merge checkpoint reconcile the architecture's **implemented** state and remaining plan against evidence. Escalate consequential changes (different provider hosting, unsupported identity route, changed inventory scope or safety guarantees) to Mitch; record reversible engineering decisions within the approved scope without unnecessary blocking. Do not invent dates/throughput guarantees. If a blocked gate changes the first-release scope, propose that adjustment explicitly instead of pretending completion.
+
+
+## Approved package and crop refinements
+
+Mitch approved these refinements during implementation after reviewing concrete sources of custom code. They retain the existing safety, lineage, exact-byte and independent-review gates.
+
+- Use React Hook Form for substantive field editing, preserving shared TypeBox/AJV contracts, exact string quantities/identifiers, synchronous navigation guards, pinned context and payload-bound retry identity. Capture/new-batch adoption is a focused independent task; media and processing owners adapt their own forms after its actual merge.
+- Use the existing Drizzle package for ordinary domain queries on the existing checked-out connection. Keep explicit SQL where it makes locking or atomic operations clearer. The separate query owner handles existing foundation/delivery code; current feature owners retain their own repositories.
+- Adopt TanStack Query for repeated frontend read/poll/cache state and OpenAPI-generated typed clients where this removes duplicated transport/path definitions. Configure retry/refetch behaviour deliberately. Query cache state must not replace form drafts, pinned preparation/question identity, immutable server authority or explicit recovery.
+- Assess Execa for decoder process plumbing and use existing TypeBox for protocol structures. Adopt Execa only if a concrete trial materially simplifies code while preserving binary/output/time limits, private environment, explicit Docker container cleanup and failure semantics.
+
+### Crop interaction requirement
+
+Use Moveable for a crop-frame interaction that supports rotation by dragging outside the corners and an optional locked aspect ratio. The base image preview remains fixed and unrotated; only the selection frame rotates. Show a separate output preview and verify it against the retained transformed pixels.
+
+React Image Crop was initially approved for rectangle interaction, then superseded by this more specific requirement before its UI adoption. Do not retain an unused second crop package. Verify the actual selected Moveable release with the project's React/TypeScript versions rather than inferring compatibility from absent peer metadata.
+
+Arbitrary-angle frame rotation needs an explicit versioned media recipe and reproducible coordinate/output semantics. Preserve documentary-crop/1 and already retained recipe/approval bytes; do not silently reinterpret their quarter-turn behaviour. The media owner proposes the additive recipe and supplies preview/output, aspect-lock, pointer/keyboard, bounds and adverse-case evidence.
