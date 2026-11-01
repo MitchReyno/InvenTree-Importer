@@ -14,6 +14,16 @@ Use function components and hooks, semantic HTML, PascalCase component/type name
 - Use effects only to synchronize external systems, with cleanup/cancellation. Do not maintain redundant state with effects.
 - Separate transient UI IDs from domain/source/inventory identity. A selected File list is not an approved executable import.
 
+## Form editing
+
+Use React Hook Form for substantive forms instead of duplicating field values, touched/dirty state and submission flags across many state hooks. Register native inputs directly; adapt composite controls with Controller. Keep simple transient controls local when a form abstraction adds no clarity. Keep components and command construction focused rather than hiding a large workflow in a form hook.
+
+Keep TypeBox/AJV contracts authoritative; do not introduce another schema vocabulary solely for a form. Preserve exact quantity and identifier strings. Never use numeric coercion for those fields.
+
+Default values belong to the explicitly selected editor/context. Do not reset from polling or enable automatic reinitialization that discards human input. A newer revision or stale question requires explicit conflict handling. Form state does not establish server authority, approval identity or idempotency.
+
+Report meaningful unsaved changes synchronously from input events to the app navigation guard. Do not rely only on a later effect observing isDirty. Preserve the stable payload/delivery key after an uncertain acknowledgement; clear the guard only after confirmed save/create or explicit discard. Verify keyboard/native validation, dirty navigation, conflict preservation and retry behaviour after a form conversion.
+
 ## Readable rendering and interactions
 
 - Format JSX so controls, props and content can be scanned independently. Do not compress entire queues/forms/panels onto a line. Name props types when inline types obscure the contract.
