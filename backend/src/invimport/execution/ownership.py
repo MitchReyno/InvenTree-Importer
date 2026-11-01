@@ -281,6 +281,36 @@ class Registry:
             raise JournalError("registered run missing; operator recovery required")
         return path, row[1]
 
+    def inspect_binding(self, target: Target, import_id: str, *, location: Path,
+                        revision: str) -> tuple[str, str] | None:
+        """Discover a deterministic application binding, including reservations.
+
+        This is inspection, not a writer lease or permission to resume. Historical
+        completed runs remain discoverable after a later same-source approval.
+        Conflicting locations/revisions and earlier unresolved claims fail closed.
+        Callers must still use the normal execute/resume ownership guards.
+        """
+        with FileLock(self.directory / "registry.lock"), self.connection:
+            identity = self.identity(target)
+            claim = self.connection.execute(
+                "SELECT run_id,location,revision,state FROM claims WHERE identity=? AND import_id=?",
+                (identity, import_id)).fetchone()
+            runs = self.connection.execute(
+                "SELECT run_id,revision,state FROM runs WHERE location=?",
+                (str(location.resolve()),)).fetchall()
+            if len(runs) > 1:
+                raise JournalError("multiple canonical runs at bound location; recovery required")
+            if runs:
+                run_id, saved_revision, state = runs[0]
+                if saved_revision != revision:
+                    raise OwnershipError("bound execution revision differs")
+                if state != "complete" and claim != (run_id, str(location.resolve()), revision, state):
+                    raise JournalError("bound run has no matching canonical claim")
+                return run_id, state
+            if claim and claim[3] != "complete":
+                raise OwnershipError("earlier same-source claim requires reconciliation")
+            return None
+
     def complete(self, run_id: str) -> None:
         with FileLock(self.directory / "registry.lock"), self.connection:
             self.connection.execute("UPDATE claims SET state='complete' WHERE run_id=?", (run_id,))
