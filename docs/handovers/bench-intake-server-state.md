@@ -51,8 +51,7 @@ Inspect desktop and narrow native browser interactions with browser-harness and 
 
 ## Results and review
 
-Pending implementation and independent qualification. No runtime capability or production deployment is claimed by this plan.
-
+Implementation and local qualification are complete. A ready PR and fresh independent exact-head review remain coordinator gates; no production deployment is claimed.
 
 ## Initial implementation checkpoint
 
@@ -63,3 +62,51 @@ Read status and command outcomes remain separate. A status refresh failure after
 The installer automatically added two exact-version release-age exceptions. The coordinator explicitly approved retaining only those two pins; global age/strictness controls were not changed. Registry SHA512 and the available npm provenance subject match each exact tarball. The provenance identifies the official TanStack/query release workflow and commit a6be1cede9b69b56ee0bd6c84641dd3899c86ed2. Three critical packaged source files per package match that commit byte-for-byte; neither package has install lifecycle scripts. Sigstore certificate/signature trust was not independently reverified. Registry metadata omits gitHead, so the source commit came from the provenance statement.
 
 A sandbox package-store permission failure caused an unwanted install attempt during the first formatter command. Only that owned process was stopped; an elevated frozen offline install restored the existing store, and subsequent formatting/checks use the qualified pinned toolchain. No application service or original environment was involved.
+
+## Integrated qualification
+
+The owner checkpoint is based on actual readability PR49, then a normal merge incorporated actual OpenAPI PR50 (`9acbc5b1242c7995d338739436b97a1b171b65ca`). No unpublished feature branch was used. Frontend consumers still use the generated AJV-validated façades.
+
+All 25 frontend tests pass, including the original 13. New cases cover scope replacement in each identity dimension, late old responses, duplicate observers, polling/recovery, paused reads, draft preservation, pinned preparation freshness and confirmed-command/read-failure separation. Two negative controls demonstrate meaningful coverage: removing mounted-read verification enables an unverified cached preparation; removing the new-draft lifetime marker unmounts input when the refreshed list becomes nonempty. Each focused test fails at the intended assertion; exact original source bytes were restored. The [negative-control receipt](../bench-intake/evidence/server-state/negative-controls.json) records the restored-source hashes.
+
+Local checks passed after the actual API merge:
+
+- Frozen offline installation with strict peer dependencies, using the existing package store.
+- Frontend, contract and intake-server TypeScript checks.
+- Frontend tests: 25 passed; contract tests: 12 passed; server tests: 41 passed.
+- Frontend lint, cross-application readability lint and seven readability-rule fixtures.
+- Generated-contract/client drift check and production build.
+- Full repository Prettier and Markdown lint gates, plus `git diff --check`.
+
+The build emits one minified JavaScript chunk of 564.29 kB (172.60 kB gzip), with Vite's 500 kB warning. No splitting/runtime framework was added for this refactor. Backend source is unchanged; this owner did not independently rerun Python or the full PostgreSQL/process suites.
+
+## Actual browser checks
+
+Browser-harness used the existing local Chrome with recordings disabled. Screenshots were inspected directly; the current palette and responsive component layout remain intact.
+
+The existing Capture-only service served this owner's production build during an exclusive asset window. Its original ignored asset directory was preserved by rename, then restored by rename; every original file hash matched afterward. No service restart, source/staging change or retained database write was needed. Native title entry, blocked Batches navigation and explicit discard preserved the accepted revision and human input. The [desktop](../bench-intake/evidence/server-state/capture-desktop.png), [dirty navigation](../bench-intake/evidence/server-state/capture-dirty-navigation.png) and [390 px layout](../bench-intake/evidence/server-state/capture-narrow.png) show this result. That service lacks Manual endpoints and truthfully displayed Activity unavailable; it does not qualify Manual polling.
+
+A separately allocated compatible Manual fixture used the existing owned PostgreSQL service, fresh random database/roles, synthetic credentials and its owned fake. It started only the web process, with no scheduler or runner. Native selection included Packet A alone; explicit review and preparation produced the [frozen preview](../bench-intake/evidence/server-state/manual-preparation.png). No approval or queue action was taken.
+
+Stopping that fixture's web process caused real polling failures. The [unavailable view](../bench-intake/evidence/server-state/manual-unavailable.png) retained the exact preview and pinned preparation URL while disabling approval. Restart and the next periodic read restored availability without replacing that identity. Reload retained the same preparation. The [390 px approval view](../bench-intake/evidence/server-state/manual-narrow.png) had no horizontal overflow. The fresh fixture was disposed completely: web, fake, temporary authority files, roles and random database. Historical Manual namespaces were untouched.
+
+The [browser receipt](../bench-intake/evidence/server-state/browser-checks.json) records the boundaries. No real inventory request or personal provider/inventory credential was used.
+
+## Interface for subsequent owners
+
+Use the existing shared scope and direct TanStack Query API:
+
+```tsx
+const scope = useServerScope()
+const statusQuery = useQuery({
+  queryKey: serverQueryKey(scope, 'domain-name', batchId),
+  queryFn: () => validatedClient.readStatus(batchId),
+  refetchInterval: RETAINED_POLL_INTERVAL_MS,
+})
+```
+
+This is an illustrative read shape, not a new domain client. Name resource keys consistently; keep accepted revisions, drafts, questions and command identities outside query data. Treat both `isError` and `fetchStatus === 'paused'` as unavailable for freshness-sensitive controls. If a component shows warm cache before a fresh mounted read, verify `isFetchedAfterMount` before enabling commands. Avoid mutation retries and side effects driven by cache refresh.
+
+## Remaining review gate
+
+The coordinator must obtain a fresh independent exact-head review and selected CI before merging the ready PR into `interactive-app`. This owner does not merge its own PR. Any review fixes need their actual checks and final head recorded here. Subsequent media/processing owners should consume this seam only after the actual merge.

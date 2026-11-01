@@ -602,3 +602,54 @@ test('a failed status refresh does not relabel a confirmed review command as unc
   expect(screen.getByRole('button', { name: 'Mark selected reviewed' })).toBeDisabled()
   expect(screen.queryByText(/command outcome is not confirmed/i)).not.toBeInTheDocument()
 })
+
+test('a cached preparation remains visible but cannot be approved before the mounted read is verified', async () => {
+  const client = fakeClient()
+  const cache = createServerQueryClient()
+  const snapshot: ManualWorkspaceDto = {
+    ...(await client.workspace(batchId)),
+    preparations: [preview],
+  }
+  cache.setQueryData(serverQueryKey(fixtureScope, 'manual', batchId), snapshot)
+  let finish: ((value: ManualWorkspaceDto) => void) | undefined
+  const mountedRead = new Promise<ManualWorkspaceDto>((resolve) => {
+    finish = resolve
+  })
+  vi.mocked(client.workspace).mockReturnValue(mountedRead)
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerStateProvider scope={fixtureScope} client={cache}>
+        {children}
+      </ServerStateProvider>
+    )
+  }
+
+  render(
+    <ManualWorkspace
+      batch={batch}
+      client={client}
+      stage="approve"
+      preparationId={prep}
+      edit={vi.fn(async () => undefined)}
+      navigate={vi.fn()}
+      reload={vi.fn(async () => undefined)}
+    />,
+    { wrapper: Wrapper },
+  )
+  await screen.findByText('0.000001 × Packet A')
+  expect(screen.getByText(/Verifying current retained state/)).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeDisabled()
+  expect(client.approve).not.toHaveBeenCalled()
+  const complete = finish
+  if (!complete) {
+    throw new Error('mounted_read_fixture_not_started')
+  }
+  await act(async () => {
+    complete(snapshot)
+  })
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeEnabled(),
+  )
+  expect(client.approve).not.toHaveBeenCalled()
+})

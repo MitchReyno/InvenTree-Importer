@@ -14,6 +14,14 @@ Use function components and hooks, semantic HTML, PascalCase component/type name
 - Use effects only to synchronize external systems, with cleanup/cancellation. Do not maintain redundant state with effects.
 - Separate transient UI IDs from domain/source/inventory identity. A selected File list is not an approved executable import.
 
+## Server reads and command authority
+
+Use TanStack Query for shared server reads and polling through the validated client façades. Use `useServerScope()` and `serverQueryKey()` so private reads include origin, actor, target and target context. Keep timers, retry and refetch policies explicit; do not add a parallel effect-based cache or a generic query framework.
+
+Avoid treating cached data as a loaded revision, approved preparation or permission to command. Keep form drafts, selections and payload-bound recovery intents in their domain owners. A refresh must not reset a draft, silently rebase a conflict or replace a pinned preparation. Cached previews need mounted-read verification before freshness-sensitive commands; failed and paused reads must show unavailable status even when prior data remains visible.
+
+Do not use mutation retries, effects or cache refreshes to approve, queue, recover or invent delivery keys. Distinguish confirmed command results from failed subsequent reads. Clear private caches when scope lifetimes change, and describe cache cancellation honestly when a client does not accept AbortSignal.
+
 ## Form editing
 
 Use React Hook Form for substantive forms instead of duplicating field values, touched/dirty state and submission flags across many state hooks. Register native inputs directly; adapt composite controls with Controller. Keep simple transient controls local when a form abstraction adds no clarity. Keep components and command construction focused rather than hiding a large workflow in a form hook.

@@ -481,6 +481,7 @@ test('a refreshed query cache cannot replace Capture input or its accepted edit 
   const cache = createServerQueryClient()
   const edits: unknown[] = []
   let reads = 0
+
   const transport: typeof fetch = async (input, init) => {
     if (new URL(String(input)).pathname.endsWith('/edits')) {
       edits.push(JSON.parse(String(init?.body)))
@@ -501,6 +502,7 @@ test('a refreshed query cache cannot replace Capture input or its accepted edit 
         : { ...fixture, title: 'New server title', revision: '9007199254740994' },
     )
   }
+
   const client = captureClient(location.origin, 'a'.repeat(64), transport)
   const manual = manualClient(location.origin, 'a'.repeat(64), async () => {
     throw new Error('unexpected_manual_transport')
@@ -587,4 +589,62 @@ test('an unavailable bootstrap refresh within the same scope preserves the mount
   await screen.findByText(/Application connection unavailable/)
   expect(screen.getByLabelText('Title')).toHaveValue('Keep this draft while offline')
   expect(screen.getByRole('button', { name: 'Add lot' })).toBeDisabled()
+})
+
+test('a batch-list refresh cannot unmount an automatically opened form with human input', async () => {
+  const cache = createServerQueryClient()
+  let reads = 0
+
+  const transport: typeof fetch = async (_input, init) => {
+    if (init?.method === 'POST') {
+      throw new Error('unexpected_create_during_read')
+    }
+    reads += 1
+    return response({
+      batches:
+        reads === 1
+          ? []
+          : [
+              {
+                id: fixture.id,
+                source_id: fixture.source_id,
+                title: fixture.title,
+                revision: fixture.revision,
+                archived: fixture.archived,
+                updated_at: fixture.updated_at,
+              },
+            ],
+      truncated: false,
+    })
+  }
+
+  const client = captureClient(location.origin, 'a'.repeat(64), transport)
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerStateProvider scope={fixtureScope} client={cache}>
+        {children}
+      </ServerStateProvider>
+    )
+  }
+
+  const dirty = vi.fn()
+  const user = userEvent.setup()
+  render(<Batches client={client} onDirtyChange={dirty} />, { wrapper: Wrapper })
+  await screen.findByRole('textbox', { name: 'Batch title' })
+  await user.type(screen.getByRole('textbox', { name: 'Batch title' }), 'Unsaved new bag')
+  await user.type(
+    screen.getByRole('textbox', { name: 'Human note' }),
+    'Keep this draft across list refresh',
+  )
+  await act(async () => {
+    await cache.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'batches') })
+  })
+  expect(await screen.findByRole('heading', { name: fixture.title })).toBeVisible()
+  expect(screen.getByRole('textbox', { name: 'Batch title' })).toHaveValue('Unsaved new bag')
+  expect(screen.getByRole('textbox', { name: 'Human note' })).toHaveValue(
+    'Keep this draft across list refresh',
+  )
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  expect(reads).toBe(2)
 })

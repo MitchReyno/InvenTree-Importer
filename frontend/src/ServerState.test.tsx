@@ -16,6 +16,7 @@ function deferred<T>() {
   let complete: (value: T) => void = () => {
     throw new Error('deferred_not_initialized')
   }
+
   const promise = new Promise<T>((resolve) => {
     complete = resolve
   })
