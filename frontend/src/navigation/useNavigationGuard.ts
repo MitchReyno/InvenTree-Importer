@@ -30,6 +30,7 @@ export function useNavigationGuard() {
       }
       setRoute(location.hash.slice(1))
     }
+
     function guardLink(event: MouseEvent) {
       if (
         !dirty.current ||
@@ -61,12 +62,14 @@ export function useNavigationGuard() {
         setNavigationBlocked(true)
       }
     }
+
     function guardUnload(event: BeforeUnloadEvent) {
       if (dirty.current) {
         event.preventDefault()
         event.returnValue = ''
       }
     }
+
     addEventListener('hashchange', acceptRoute)
     addEventListener('popstate', acceptRoute)
     addEventListener('beforeunload', guardUnload)

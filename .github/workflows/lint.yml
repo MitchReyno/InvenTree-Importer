@@ -9,6 +9,9 @@ on:
       frontend:
         type: boolean
         required: true
+      intake:
+        type: boolean
+        required: true
       markdown:
         type: boolean
         required: true
@@ -30,8 +33,8 @@ jobs:
         run: uv run --directory backend ruff check --config pyproject.toml . ../.agents/skills ../.claude/skills ../.github/scripts
 
   frontend:
-    name: Frontend
-    if: ${{ inputs.frontend }}
+    name: TypeScript
+    if: ${{ inputs.frontend || inputs.intake }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +44,12 @@ jobs:
       - uses: pnpm/action-setup@v4
       - name: Frozen workspace install
         run: pnpm install --frozen-lockfile
+      - name: Check shared readability rules
+        run: pnpm lint:readability
+      - name: Test readability checks
+        run: pnpm test:readability
       - name: Lint frontend
+        if: ${{ inputs.frontend }}
         run: pnpm --filter @invimport/frontend lint
 
   markdown:

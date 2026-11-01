@@ -87,6 +87,17 @@ class SelectionTests(unittest.TestCase):
             "frontend",
         )
 
+    def test_shared_readability_tools_select_both_typescript_consumers(self):
+        for path in (
+            "eslint.config.mjs",
+            "tooling/eslint/readability.mjs",
+            "tooling/tests/readability.test.mjs",
+        ):
+            with self.subTest(path=path):
+                self.assert_checks([path], "frontend", "intake")
+        self.assert_checks(["tooling/unrelated.cjs"])
+        self.assert_checks(["tooling/eslint/README.md"], "markdown")
+
     def test_shared_skills_agents_and_resources_need_sync_not_full_tests(self):
         for path in (
             ".agents/skills/crop/reference.png",

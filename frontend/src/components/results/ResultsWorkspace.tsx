@@ -10,6 +10,7 @@ interface Props {
   busy: boolean
   command: (run: ManualRunDto, action: 'start' | 'cancel' | 'recover', keys?: string[]) => void
 }
+
 export function ResultsWorkspace({ batchId, runs, focusedRunId, busy, command }: Props) {
   const focused = focusedRunId ? runs.find((value) => value.run_id === focusedRunId) : null
   return (
@@ -42,6 +43,7 @@ export function ResultsWorkspace({ batchId, runs, focusedRunId, busy, command }:
     </Results>
   )
 }
+
 const Results = styled.div`
   max-width: 1050px;
   margin: auto;

@@ -46,8 +46,10 @@ const fixture: CaptureSnapshotDto = {
   ],
   cursor: { stream_id: '90000000-0000-4000-8000-000000000009', sequence: '3' },
 }
+
 const response = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } })
+
 afterEach(() => {
   vi.restoreAllMocks()
   history.replaceState(null, '', location.pathname + location.search)
@@ -227,6 +229,7 @@ test('inbox resumes retained capture, filters archives and creates a batch with 
 
 const activityRunId = 'a0000000-0000-4000-8000-00000000000a'
 const activityDestination = `${batchId}/results/${activityRunId}`
+
 function navigationServer(conflict = false) {
   let saved = fixture
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {

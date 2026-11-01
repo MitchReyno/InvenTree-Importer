@@ -24,6 +24,7 @@ interface Props {
   navigate: (stage: ManualStage, resourceId?: string) => void
   reload: () => Promise<void>
 }
+
 function commandMessage(error: unknown) {
   if (error instanceof IntakeRequestError) {
     const messages: Record<string, string> = {
@@ -44,6 +45,7 @@ function commandMessage(error: unknown) {
   }
   return 'The command outcome is not confirmed. Refresh retained results before deciding what to do next.'
 }
+
 export function ManualWorkspace({
   batch,
   client,
@@ -61,6 +63,7 @@ export function ManualWorkspace({
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [connectionLost, setConnectionLost] = useState(false)
+
   async function refresh() {
     const value = await client.workspace(batch.id)
     setWorkspace(value)
@@ -78,9 +81,11 @@ export function ManualWorkspace({
     )
     return value
   }
+
   useEffect(() => {
     let active = true
     let timer: ReturnType<typeof setTimeout>
+
     async function poll() {
       try {
         const value = await client.workspace(batch.id)
@@ -111,6 +116,7 @@ export function ManualWorkspace({
         }
       }
     }
+
     void poll()
     return () => {
       active = false
@@ -140,11 +146,14 @@ export function ManualWorkspace({
     ? (workspace?.preparations.find((value) => value.id === preparationId) ??
       (lastPreview?.id === preparationId ? lastPreview : null))
     : null
+
   function choosePreparation(value: ManualPreviewDto) {
     setLastPreview(value)
     navigate('approve', value.id)
   }
+
   const stale = workspace ? workspace.revision !== batch.revision : true
+
   async function perform(label: string, work: () => Promise<void>) {
     setBusy(label)
     setError('')
@@ -162,6 +171,7 @@ export function ManualWorkspace({
       setBusy('')
     }
   }
+
   function toggle(id: string) {
     setSelected((previous) =>
       previous.includes(id)
@@ -171,6 +181,7 @@ export function ManualWorkspace({
           : previous,
     )
   }
+
   function review() {
     void perform('Retaining exact review…', async () => {
       await client.review(
@@ -180,6 +191,7 @@ export function ManualWorkspace({
       )
     })
   }
+
   function prepare() {
     void perform('Reading the fixed target and preparing selected effects…', async () => {
       const result = await client.prepare(
@@ -195,6 +207,7 @@ export function ManualWorkspace({
       navigate('approve', result.preparation.id)
     })
   }
+
   function approve() {
     if (!displayedPreview) {
       return
@@ -215,6 +228,7 @@ export function ManualWorkspace({
       navigate('results', accepted.run_id)
     })
   }
+
   function command(
     run: ManualRunDto,
     action: 'start' | 'cancel' | 'recover',
@@ -233,6 +247,7 @@ export function ManualWorkspace({
       }
     })
   }
+
   const disabled = Boolean(busy) || connectionLost
   let content: ReactNode
   if (!workspace) {

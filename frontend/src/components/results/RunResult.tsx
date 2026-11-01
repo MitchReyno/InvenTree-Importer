@@ -29,6 +29,7 @@ const states: Record<ManualRunDto['state'], string> = {
   settled_incomplete: 'Original run is safely incomplete',
   recovery_required: 'Original run needs inspection',
 }
+
 export function RunResult({ run, busy, command }: Props) {
   const untouched = run.operations.filter((value) => value.recovery_allowed)
   const cancellable = ['queued', 'running', 'stopping'].includes(run.state)
@@ -131,6 +132,7 @@ export function RunResult({ run, busy, command }: Props) {
     </Panel>
   )
 }
+
 const Outcome = styled.div<{ $confirmed: boolean }>`
   padding: 14px;
   border: 1px solid ${(p) => (p.$confirmed ? '#9fcbb5' : '#b9cde7')};
