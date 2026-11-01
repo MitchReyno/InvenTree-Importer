@@ -230,9 +230,21 @@ Passed final entry-point checks before the new review candidate:
 - Corrected main/interactive-app CI push and PR events parse/assert correctly;
   `git diff --check` passes. Trunk rename/PR base confirmed on the remote.
 
-Pending: final new-entry-point `pnpm test` and fresh independent exact-commit
-clearance. Earlier Make commands above are historical checks actually run before
-Make removal; they are not relabeled as pnpm evidence. No new live or model/vendor
+Final `pnpm test` passes: 1908 Python passed, 1 existing skip, 43 scanner
+deselected in 212.86 seconds; frontend 2 passed in 903 milliseconds. The one added
+Python test verifies the root public command surface/alias graph; no new skip.
+Fresh independent exact-commit clearance is pending. Earlier Make commands above
+are historical checks actually run before Make removal; they are not relabeled as pnpm evidence. No new live or model/vendor
 calls are authorized. New frontend guidelines were checked against the linked
 primary React purity/effect and TypeScript handbook references. No repository-wide
 Markdown reflow or unrelated runtime change is part of these adjustments.
+
+
+The new independent review identified two documentation corrections: an extra
+backend README EOF blank failed the base-to-head whitespace check, and shared
+privacy guidance accidentally prohibited authorized source facts in private
+plan/provenance/status exports. Removed the blank and explicitly separated secrets
+(which must never be exported) from controlled approved source-data exports.
+These are documentation-only fixes; pnpm commands, test assertions and application
+runtime remain those validated above. Subsequent whitespace checks use the full
+base-to-head range, not only the working-tree delta.

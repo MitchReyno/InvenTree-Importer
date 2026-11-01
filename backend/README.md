@@ -1416,4 +1416,3 @@ then follow the [loopback demo guide](../docs/import-demo.md) in a second termin
 It uses the real CLI/SDK and a persistent fake HTTP server to show plan hierarchy,
 request progress, partial evidence outcomes and targeted recovery without any
 real inventory or vendor credentials.
-

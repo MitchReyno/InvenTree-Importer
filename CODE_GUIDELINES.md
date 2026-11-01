@@ -44,8 +44,11 @@ rewrite. Application documents own language/framework details.
 - Use portable paths from explicit input, configuration or deliberate runtime
   discovery. Never embed a developer checkout/home/temp path. Preserve caller-cwd
   meaning and state namespaces unless an explicit migration is part of the change.
-- Keep credentials and private source data out of source, fixtures, logs, exports
-  and errors. Use safe identifiers and deliberate diagnostics/result channels.
+- Never export credentials/secrets or include them in source, fixtures, logs or
+  errors. Keep private source data within approved, access-controlled inputs and
+  outputs; plans, provenance and status may intentionally contain source facts
+  under their documented privacy/retention policy. Do not leak them through public
+  exports or unrelated diagnostics. Use safe identifiers and deliberate channels.
 
 ## Testing and tools
 
