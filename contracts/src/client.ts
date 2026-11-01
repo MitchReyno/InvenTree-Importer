@@ -35,10 +35,13 @@ export function captureClient(baseUrl: string, csrfToken: string, transport: typ
 
   return {
     list: () => successfulData(client.GET('/api/v1/batches')),
+
     read: (id: string) =>
       successfulData(client.GET('/api/v1/batches/{id}', { params: { path: { id } } })),
+
     create: (input: BatchCreate, key: string) =>
       successfulData(client.POST('/api/v1/batches', { body: input, headers: commandHeaders(key) })),
+
     edit: (id: string, input: CaptureEdit, key: string) =>
       successfulData(
         client.POST('/api/v1/batches/{id}/edits', {
@@ -47,6 +50,7 @@ export function captureClient(baseUrl: string, csrfToken: string, transport: typ
           headers: commandHeaders(key),
         }),
       ),
+
     observe: (id: string, input: CaptureObserve, key: string) =>
       successfulData(
         client.POST('/api/v1/batches/{id}/observations', {
@@ -63,8 +67,10 @@ export function manualClient(baseUrl: string, csrfToken: string, transport: type
 
   return {
     activity: () => successfulData(client.GET('/api/v1/activity')),
+
     workspace: (id: string) =>
       successfulData(client.GET('/api/v1/batches/{id}/manual', { params: { path: { id } } })),
+
     review: (id: string, input: ManualScope, key: string) =>
       successfulData(
         client.POST('/api/v1/batches/{id}/reviews', {
@@ -73,6 +79,7 @@ export function manualClient(baseUrl: string, csrfToken: string, transport: type
           headers: commandHeaders(key),
         }),
       ),
+
     prepare: (id: string, input: ManualScope, key: string) =>
       successfulData(
         client.POST('/api/v1/batches/{id}/preparations', {
@@ -81,6 +88,7 @@ export function manualClient(baseUrl: string, csrfToken: string, transport: type
           headers: commandHeaders(key),
         }),
       ),
+
     approve: (input: Approval, key: string) =>
       successfulData(
         client.POST('/api/v1/preparations/{id}/approvals', {
@@ -89,8 +97,10 @@ export function manualClient(baseUrl: string, csrfToken: string, transport: type
           headers: commandHeaders(key),
         }),
       ),
+
     run: (id: string) =>
       successfulData(client.GET('/api/v1/runs/{id}', { params: { path: { id } } })),
+
     start: (id: string, input: ManualRunCommand, key: string) =>
       successfulData(
         client.POST('/api/v1/runs/{id}/start', {
@@ -99,6 +109,7 @@ export function manualClient(baseUrl: string, csrfToken: string, transport: type
           headers: commandHeaders(key),
         }),
       ),
+
     cancel: (id: string, input: ManualRunCommand, key: string) =>
       successfulData(
         client.POST('/api/v1/runs/{id}/cancel', {
@@ -107,6 +118,7 @@ export function manualClient(baseUrl: string, csrfToken: string, transport: type
           headers: commandHeaders(key),
         }),
       ),
+
     recover: (id: string, input: ManualRecoveryCommand, key: string) =>
       successfulData(
         client.POST('/api/v1/runs/{id}/recover', {
@@ -123,6 +135,7 @@ export function intakeClient(baseUrl: string, transport: typeof fetch = fetch) {
 
   return {
     health: () => successfulData(client.GET('/api/v1/health')),
+
     bootstrap: () => successfulData(client.GET('/api/v1/bootstrap')),
   }
 }

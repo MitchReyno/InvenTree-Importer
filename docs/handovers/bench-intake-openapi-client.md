@@ -79,3 +79,23 @@ Observed against owned/injected boundaries: exact generated request/response typ
 Not tested or changed: protected inventory behavior, provider inference/authentication, new media/processing routes, final identity, PostgreSQL ownership/transactions, physical apply or operational deployment. The client refactor grants none of those capabilities.
 
 Fresh independent review and selected hosted CI remain outstanding before the coordinator may merge. No self-review clearance or human GitHub approval is claimed. The coordinator owns all later merges and cross-owner integration; this owner does not merge the PR or alter other worktrees.
+
+## Independent review correction: generator CI coverage
+
+The fresh reviewer did not clear head 7f12936. Its actual selector probe showed that a change only to tooling/openapi-generator/index.cjs or its package.json selected no checks. The current PR happened to select consumers through other changed files, but future generator-only changes could bypass generation drift, application typechecks and consumer tests. This is a behavioral P2, not a documentation nit.
+
+Before correction, the clean implementation head was preserved and actual merged readability trunk f121095 was incorporated with a normal merge. The coordinator expanded this task's ownership narrowly to .github/scripts/ci_paths.py and its selector regressions. Other owners and worktrees remain untouched.
+
+### Prospective correction plan
+
+Treat non-Markdown inputs under the exact tooling/openapi-generator/ boundary as contract-generation inputs, selecting frontend and intake checks just like contracts source. Keep documentation-only paths Markdown-only and near-match/unrelated tooling paths unselected. Add explicit input regressions and actual Git deletion/rename cases so an old generator path cannot disappear from consumer selection.
+
+Run the selector tests with Python 3.12, Ruff on the changed Python files, frozen install, current readability/formatting checks and affected contract/frontend/server types/tests/drift/build. Correct any mechanical style issues in this task's new runtime sources under the merged maintained rules. Do not rerun PostgreSQL or unchanged full Python suites without a new concern. Push the corrected head to the same ready PR and request exact-head re-review; previous independent native-abort success does not clear this CI finding.
+
+### Correction result
+
+The added regressions failed before the fix in all three generator-input subcases and actual Git deletion/rename cases. After classifying the exact generator boundary as a contract input, all 21 selector tests pass. Code/manifest/config select frontend plus intake; Markdown-only generator documentation selects only Markdown; unrelated and near-match tooling paths remain unselected. The existing intake job explicitly runs generated drift and contract/server typechecks, so this selection reaches the required consumers.
+
+Changed Python Ruff checks and formatting pass. Frozen installation, maintained runtime readability checks, seven readability fixtures, all application typechecks, frontend lint/build, generated drift, contracts 12/12, server 41/41 and frontend 13/13 pass after the actual readability-trunk merge. The new client sources already satisfied the checked rules; public facade entries received blank-line separation for the manual object-function readability gate, with no behavior change. The build output remains 530.32 kB minified / 162.53 kB gzip.
+
+The correction does not change runtime request policy or generated artifacts. No PostgreSQL, provider, inventory or full Python rerun was needed. Re-review of the corrected exact head and fresh selected hosted CI remain outstanding; the rejected head stays historical evidence.

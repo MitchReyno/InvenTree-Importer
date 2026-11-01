@@ -15,6 +15,7 @@ WORKSPACE_INPUTS = {
     "pnpm-workspace.yaml",
     ".node-version",
 }
+CONTRACT_INPUT_ROOTS = ("contracts/", "tooling/openapi-generator/")
 SHARED_WORKFLOWS = (
     ".agents/skills/",
     ".claude/skills/",
@@ -29,6 +30,7 @@ def select_checks(paths: list[str] | None) -> dict[str, bool]:
     for path in paths or []:
         suffix = PurePosixPath(path).suffix.lower()
         markdown = suffix in MARKDOWN_SUFFIXES
+        contract_input = not markdown and path.startswith(CONTRACT_INPUT_ROOTS)
         if not markdown and path.startswith((".github/workflows/", ".github/scripts/")):
             return dict.fromkeys(CHECKS, True)
         if (
@@ -45,8 +47,10 @@ def select_checks(paths: list[str] | None) -> dict[str, bool]:
         if path == "docs/InvenTree API.yaml":
             selected["backend"] = True
         if (
-            not markdown and path.startswith(("frontend/", "contracts/"))
-        ) or path in WORKSPACE_INPUTS:
+            contract_input
+            or (not markdown and path.startswith("frontend/"))
+            or path in WORKSPACE_INPUTS
+        ):
             selected["frontend"] = True
         # Shared readability configuration is consumed by both application checks.
         if not markdown and (
@@ -57,8 +61,10 @@ def select_checks(paths: list[str] | None) -> dict[str, bool]:
             selected["intake"] = True
         # Both browser and server consume contracts; intake-server stays independent of Python.
         if (
-            not markdown and path.startswith(("intake-server/", "contracts/"))
-        ) or path in WORKSPACE_INPUTS:
+            contract_input
+            or (not markdown and path.startswith("intake-server/"))
+            or path in WORKSPACE_INPUTS
+        ):
             selected["intake"] = True
         if path.startswith(SHARED_WORKFLOWS):
             selected["workflow_sync"] = True
