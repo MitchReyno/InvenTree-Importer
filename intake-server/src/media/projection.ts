@@ -45,7 +45,7 @@ export interface MediaRows {
   derivations: DerivationRow[]
 }
 
-function recipeValue(bytes: Buffer | null, digest: Buffer | null) {
+export function decodeMediaRecipe(bytes: Buffer | null, digest: Buffer | null) {
   if (!bytes && !digest) {
     return null
   }
@@ -68,7 +68,7 @@ function projectVersion(version: VersionRow, pages: PreviewRow[]): MediaVersionD
     media_type: version.media_type,
     state: version.state ?? 'queued',
     decoder_build: version.decoder_build,
-    recipe: recipeValue(version.recipe_bytes, version.recipe_digest),
+    recipe: decodeMediaRecipe(version.recipe_bytes, version.recipe_digest),
     pages: pages.map((page) => ({
       page: page.page,
       width: page.width,
@@ -119,7 +119,7 @@ export function projectMediaSnapshot(batchId: string, rows: MediaRows): MediaSna
     attachments: rows.attachments,
     evidence: projectEvidence(rows),
     derivations: rows.derivations.map((derivation) => {
-      const recipe = recipeValue(derivation.recipe_bytes, derivation.recipe_digest)
+      const recipe = decodeMediaRecipe(derivation.recipe_bytes, derivation.recipe_digest)
       if (!recipe) {
         throw new Error('recipe_authority_missing')
       }

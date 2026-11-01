@@ -214,6 +214,43 @@ export async function captureInTransaction(
   }
 }
 
+async function lockCaptureSubjectHeads(client: PoolClient, batchId: string): Promise<Subject[]> {
+  const result = await client.query<Subject>(
+    'SELECT id,label,revision,kind FROM capture_subject WHERE batch_id=$1 ORDER BY id FOR UPDATE',
+    [batchId],
+  )
+  return result.rows
+}
+
+/** Lock live capture facts before media or job locks without opening an edit/publication lifecycle. */
+export async function lockCaptureForInputs(
+  client: PoolClient,
+  config: CaptureBinding,
+  batchId: string,
+  expectedRevision?: string,
+) {
+  const capture = await captureInTransaction(client, config, batchId, true)
+  if (capture.snapshot.archived) {
+    fail('batch_archived', 409)
+  }
+  if (expectedRevision !== undefined && capture.snapshot.revision !== expectedRevision) {
+    fail('revision_conflict', 412)
+  }
+  await lockCaptureSubjectHeads(client, batchId)
+  return capture
+}
+
+/** Archived work may settle its exact held lane; this seam grants no capture edit capability. */
+export async function lockCaptureForInputSettlement(
+  client: PoolClient,
+  config: CaptureBinding,
+  batchId: string,
+) {
+  const capture = await captureInTransaction(client, config, batchId, true)
+  await lockCaptureSubjectHeads(client, batchId)
+  return capture
+}
+
 async function applyLockedCaptureEdit(
   c: PoolClient,
   b: Batch,
@@ -371,10 +408,7 @@ export async function lockCaptureForEdit(
   if (retained.revision !== expectedRevision) {
     fail('revision_conflict', 412)
   }
-  const subjectsResult = await client.query<Subject>(
-    'SELECT id,label,revision,kind FROM capture_subject WHERE batch_id=$1 ORDER BY id FOR UPDATE',
-    [batchId],
-  )
+  const subjects = await lockCaptureSubjectHeads(client, batchId)
   const initialSnapshot = await snapshot(client, config, batchId)
   let phase: 'locked' | 'applied' | 'published' = 'locked'
   const publicationId = randomUUID()
@@ -391,7 +425,7 @@ export async function lockCaptureForEdit(
       if (input.expected_revision !== expectedRevision) {
         fail('revision_conflict', 412)
       }
-      await applyLockedCaptureEdit(client, retained, subjectsResult.rows, input)
+      await applyLockedCaptureEdit(client, retained, subjects, input)
       await client.query('INSERT INTO capture_edit_publication VALUES($1,$2)', [
         publicationId,
         batchId,

@@ -31,6 +31,7 @@ async function main() {
   const suite = process.argv[3] ?? 'retention'
   const suites = {
     retention: 'tests/pg/media.test.ts',
+    inputs: 'tests/pg/media-input-scopes.test.ts',
     executor: 'tests/pg/media-executor.test.ts',
     browser: 'tests/fixtures/media-browser.ts',
     startup: 'tests/pg/media-startup-authority.test.ts',

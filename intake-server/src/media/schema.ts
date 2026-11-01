@@ -115,3 +115,20 @@ export const mediaDecodeClaims = pgTable('media_decode_claim', {
   commandId: uuid('command_id').primaryKey(),
   ownerId: uuid('owner_id').notNull(),
 })
+
+export const mediaCommandBindings = pgTable('media_command_binding', {
+  commandId: uuid('command_id').primaryKey(),
+  batchId: uuid('batch_id').notNull(),
+  actorId: uuid('actor_id').notNull(),
+  targetId: uuid('target_id').notNull(),
+  targetContextId: uuid('target_context_id').notNull(),
+  manifestBytes: bytea('manifest_bytes').notNull(),
+  manifestDigest: bytea('manifest_digest').notNull(),
+})
+
+export const mediaCommandPins = pgTable('media_command_pin', {
+  commandId: uuid('command_id').notNull(),
+  batchId: uuid('batch_id').notNull(),
+  versionId: uuid('version_id').notNull(),
+  blobDigest: bytea('blob_digest').notNull(),
+})

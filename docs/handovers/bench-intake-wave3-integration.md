@@ -172,3 +172,33 @@ At this combined tree, frozen install reused all 27 added packages without downl
 
 
 Staged whitespace inspection excludes the three immutable PDF fixtures: their cross-reference rows contain required trailing spaces. Their bytes match actual trunk exactly; no PDF or preserved reference was reformatted. The changed source and documentation pass whitespace inspection.
+
+
+### Coordinator-owned input API signatures
+
+The actual-media merge is committed cleanly as `d647938`. Before implementation, the coordinator and T06 owner agreed these caller-transaction interfaces:
+
+- `readMediaInputs(client, binding, batchId, subjectIds)` and bulk `readMediaInputScopes(..., subjectScopes)` authorize and materialize the same repeatable-read snapshot without domain locks.
+- `lockMediaInputScopes(client, binding, batchId, subjectScopes)` returns genuine immutable handles in scope order after one authorized capture/media snapshot and the complete sorted digest union. Each scope retains its own lifetime sentinel and exact manifest; `lockMediaInputs` remains the compatible single-scope wrapper. Bulk work is bounded at 100 scopes; each published manifest keeps its existing 100-subject, 64-version and 256-KiB byte limits.
+- `readCommandMediaInputs(client, binding, batchId, commandId)` verifies authorized immutable binding bytes/digest and the complete retained pin set, including exact-empty bindings. It neither locks nor creates missing pins.
+- `lockCaptureForInputs(client, binding, batchId, expectedRevision?)` locks a live authorized capture batch and sorted subjects before media; the existing edit/apply/publication lifecycle is preserved.
+- `MediaInputUnavailableError` distinguishes expected `not_ready` and `capacity` conditions while retaining the existing HTTP error vocabulary. Other authority/infrastructure faults propagate. Export the existing media manifest schema and named limits without changing its interpreted shape or retained bytes.
+- A narrow `processing-reader` media grant and owning `grantCaptureInputLocks` grant permit descriptor/binding reads and required row locks, but no media pins/uploads/decoding/approval/apply or human selection edits.
+
+New tests exercise actual PostgreSQL read-only snapshots, individual and bulk capacity, sorted union exclusion, per-scope exact pins, savepoint/transaction lifetime, wrong identity and missing/corrupt bindings. Preserve the existing eight media retention cases. Use a serialized owned test namespace; no model/provider call, protected target or credential copy. The T06 owner writes its separate Processing consumers and freezes schema changes before coordinator generation.
+
+
+### Consumer-driven API refinements
+
+Before the remaining API edits, consumer inspection identified two necessary refinements. A single pending closure must not hide unaffected jobs, so `readMediaInputScopeResults` will share one authorized snapshot but return independent ready/known-blocker results; unexpected faults still propagate. Runner settlement must lock archived batches to retain authenticated terminal output and release the exact held lane, so `lockCaptureForInputSettlement` will provide archived-inclusive locks while new-work `lockCaptureForInputs` retains live/revision refusal. The existing edit lifecycle remains unchanged.
+
+A separate fresh test owner owns only the new scope/grant PG tests and its handover. Root retains runtime/API ownership; the Processing owner retains its consumers and additive migration. No PostgreSQL window starts before the current migration is frozen and the coordinator allocates it.
+
+
+### Owning input API qualification
+
+The compatible single-scope path passed all eight existing media-retention cases with explicit immutable decoder image `99b15169`. The new owning-interface suite passed all seven actual-PG cases, including read-only snapshot isolation, independent blockers, exact 32/33/empty pins across a 65-version union, byte capacity below individual count limits, retained corruption refusal and narrow reader/archived-settlement grants. Its [handover](bench-intake-T06-media-input-checks.md) distinguishes metadata-only facts from content/decoder qualification.
+
+A deliberately reversed global digest loop failed the expected lower-lock assertion. Exact source SHA-256 `305cc67725eb5df1626c379c0bd51899a756c5fae80762f6661be4e55d5efb0e` was restored in a `finally` block; the selected restored case passed. Test-only checkpoint `763a463` preserves the new suite and its evidence without claiming a separately releasable feature. Root API lint/types and the combined working-tree checks passed.
+
+Processing separately observed six PG and three deterministic child-process passes, then found and corrected an inherited first-read search-path gap during source inspection. Its updated seven-PG/three-process requalification is pending at this coordinator checkpoint. The final current-image build, normal suite, native combined UI and independent PR review remain feature gates. No actual model/provider usage or protected inventory request occurred.
