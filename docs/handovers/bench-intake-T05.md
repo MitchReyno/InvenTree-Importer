@@ -249,7 +249,7 @@ cleanup/binary policy. Coordinator accepted retaining `node:child_process`.
 - Root independently observed original-DB bind/reopen and swapped-DB startup refusal
   across three actual main launches. The final complete PG tier repeated this case successfully.
 
-Current production image: `sha256:65a5eacfd48c4ab6b93f4975b747739f874423de79277590c9c1d378ef5fc7be`.
+Current production image: `sha256:99b15169e7d8c286bbe7f2f7a5241be9feb9d714a53200d496bf639b4c58f888`.
 The 355.95 KB allowlisted context excludes credentials, tests/probes and personal state.
 Dedicated resource cases passed 4/4 with an explicitly selected test-only probe.
 The runtime inspector observed cgroup memory/swap/CPU/PID limits, no addressed external
@@ -258,7 +258,7 @@ root. Native allocation produced a Docker kernel OOM event plus exit 137. The ac
 wall timeout was approximately 25 seconds; oversized binary output was bounded and
 the exact container was reaped. These are observed local Linux arm64 boundaries.
 
-Current probe image: `sha256:ef4b3f6d709907de5b6efe0da2f7d34bc8b55b52a92ad4f35bb5dec964c2d186`.
+Current probe image: `sha256:c54c14637775b1648023e674d41c0114402b13fa9da6f18267f7f10a19e5eb31`.
 It extends the exact production image with two allowlisted test-only files. A retained
 content-addressed production tag prevents temporary probe-alias removal from deleting
 the production manifest; the builder verifies its original image ID after cleanup.
@@ -345,3 +345,19 @@ No command loads the original `.env`. Tests never migrate a live shared intake D
 Remaining limits: Linux arm64 qualified here; other platforms and CI runs need their
 own evidence. No full backup/restore, power-loss or concurrent restored-fork guarantee
 is inferred from these fixtures. No actual provider/model invocation is authorized.
+
+
+### Corrected-head coordinator checks
+
+At owner checkpoint `bd09931`, all 62 frontend tests, application types, production
+build, full lint, format and generated drift checks passed. The exact CI build step
+also passed with both new images retained after alias cleanup; see the
+[review-fix receipt](../bench-intake/evidence/T05/review-fix-qualification.json).
+The application chunk advisory is 826.24 KB / 257.27 KB gzip; the lazy scene remains
+570.37 KB / 145.09 KB gzip. No advisories were suppressed.
+
+The owner observed eight corrected retention cases and separate red/green controls.
+Fresh corrected-head storage and native UI review are still pending; these passing
+checks do not clear the three findings by themselves. Execution review found no
+material issue at the earlier head and must confirm its unchanged scope at the final
+head. No actual-model or real inventory calls occurred.
