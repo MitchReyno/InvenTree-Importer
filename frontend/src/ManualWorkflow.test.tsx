@@ -1,0 +1,342 @@
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, expect, test, vi } from 'vitest'
+import {
+  validate,
+  type CaptureSnapshotDto,
+  type ManualWorkspaceDto,
+  type ManualPreviewDto,
+  type ManualRunDto,
+} from '@invimport/contracts'
+import type { ManualClient } from './manual/types'
+import { ManualWorkspace } from './components/review/ManualWorkspace'
+import { ResultsWorkspace } from './components/results/ResultsWorkspace'
+import { ActivityIndicator } from './components/ui/ActivityIndicator'
+
+const batchId = '10000000-0000-4000-8000-000000000001'
+const partId = '20000000-0000-4000-8000-000000000002'
+const a = '30000000-0000-4000-8000-000000000003'
+const b = '30000000-0000-4000-8000-000000000004'
+const source = '40000000-0000-4000-8000-000000000004'
+const actor = '50000000-0000-4000-8000-000000000005'
+const context = '60000000-0000-4000-8000-000000000006'
+const stream = '90000000-0000-4000-8000-000000000009'
+const prep = 'a0000000-0000-4000-8000-000000000001'
+const runId = 'b0000000-0000-4000-8000-000000000002'
+const approvalId = 'c0000000-0000-4000-8000-000000000003'
+const observedPart = 'd0000000-0000-4000-8000-000000000004'
+const observedLocation = 'e0000000-0000-4000-8000-000000000005'
+const batch: CaptureSnapshotDto = {
+  id: batchId,
+  source_id: source,
+  title: 'Distinct physical packets',
+  revision: '9007199254740993',
+  archived: false,
+  updated_at: '2026-11-01T12:00:00Z',
+  actor_id: actor,
+  target_context_id: context,
+  defaults: { quantity: { mode: 'unknown' }, location: { mode: 'clear' } },
+  parts: [
+    {
+      id: partId,
+      label: 'Shared resistor',
+      revision: '2',
+      choice: {
+        mode: 'set',
+        value: {
+          observation_id: observedPart,
+          target_context_id: context,
+          model: 'part',
+          pk: '29',
+        },
+      },
+    },
+  ],
+  lots: [
+    {
+      id: a,
+      label: 'Packet A',
+      revision: '3',
+      contribution_key: '70000000-0000-4000-8000-000000000007',
+      part_subject_id: partId,
+      quantity: { mode: 'set', value: '0.000001' },
+      location: {
+        mode: 'set',
+        value: {
+          observation_id: observedLocation,
+          target_context_id: context,
+          model: 'location',
+          pk: '43',
+        },
+      },
+    },
+    {
+      id: b,
+      label: 'Packet B',
+      revision: '4',
+      contribution_key: '80000000-0000-4000-8000-000000000008',
+      part_subject_id: partId,
+      quantity: { mode: 'set', value: '23' },
+      location: { mode: 'clear' },
+    },
+  ],
+  notes: [
+    {
+      id: 'f0000000-0000-4000-8000-000000000006',
+      subject_id: a,
+      text: 'Human count; do not merge packets.',
+      actor_id: actor,
+      created_at: '2026-11-01T12:00:00Z',
+      producer: 'human',
+    },
+  ],
+  observations: [
+    {
+      id: observedPart,
+      model: 'part',
+      pk: '29',
+      target_context_id: context,
+      label: '100 Ω resistor',
+      observed_at: '2026-11-01T12:00:00Z',
+    },
+    {
+      id: observedLocation,
+      model: 'location',
+      pk: '43',
+      target_context_id: context,
+      label: 'Drawer 4',
+      observed_at: '2026-11-01T12:00:00Z',
+    },
+  ],
+  cursor: { stream_id: stream, sequence: '7' },
+}
+const preview: ManualPreviewDto = {
+  id: prep,
+  batch_id: batchId,
+  selected_lot_ids: [a],
+  remaining_lot_ids: [b],
+  plan_sha256: 'a'.repeat(64),
+  review_fingerprint: 'b'.repeat(64),
+  target_revision: '3',
+  capability: 'owned-fake-stock/1',
+  effects: [
+    {
+      lot_id: a,
+      lot_label: 'Packet A',
+      part_id: '29',
+      part_label: '100 Ω resistor',
+      quantity: '0.000001',
+      location_id: '43',
+      location_label: 'Drawer 4',
+      contribution_key: batch.lots[0].contribution_key,
+      barcode: `bi1:${source}:${batch.lots[0].contribution_key}`,
+    },
+  ],
+}
+const run: ManualRunDto = {
+  run_id: runId,
+  approval_id: approvalId,
+  preparation_id: prep,
+  batch_id: batchId,
+  round_number: '1',
+  revision: '5',
+  state: 'queued',
+  effect_certainty: 'none',
+  confirmed_stock_ids: [],
+  attributed_stock_ids: [],
+  cancellation_requested: false,
+  dispatch_state: 'not_requested',
+  operations: [
+    {
+      operation_key: a,
+      lot_id: a,
+      lot_label: 'Packet A',
+      quantity: '0.000001',
+      certainty: 'none',
+      remote_pk: null,
+      recovery_allowed: false,
+    },
+  ],
+  cursor: { stream_id: stream, sequence: '10' },
+}
+function checked<T>(schema: Parameters<typeof validate>[0], value: unknown): T {
+  validate(schema, value)
+  return value as T
+}
+function fakeClient(revision = batch.revision) {
+  let workspace: ManualWorkspaceDto = {
+    batch_id: batchId,
+    revision,
+    supported: true,
+    capability: 'owned-fake-stock/1',
+    lots: [
+      { lot_id: a, reviewed: false, issues: [] },
+      { lot_id: b, reviewed: false, issues: [] },
+    ],
+    runs: [],
+    preparations: [],
+    preparations_truncated: false,
+    cursor: batch.cursor,
+  }
+  const accepted = { run_id: runId, approval_id: approvalId, preparation_id: prep }
+  const client: ManualClient = {
+    workspace: vi.fn(async () =>
+      checked<Awaited<ReturnType<ManualClient['workspace']>>>('ManualWorkspace', workspace),
+    ),
+    activity: vi.fn(async () => ({
+      runs: [{ batch_id: batchId, run_id: runId, state: 'recovery_required' as const }],
+      truncated: false,
+    })),
+    review: vi.fn(async (_id, input) => {
+      workspace = {
+        ...workspace,
+        lots: workspace.lots.map((value) => ({
+          ...value,
+          reviewed: input.selected_lot_ids.includes(value.lot_id),
+        })),
+      }
+      return { reviewed_subject_ids: [a, partId], cursor: batch.cursor }
+    }),
+    prepare: vi.fn(async () => {
+      workspace = { ...workspace, preparations: [preview] }
+      return checked<Awaited<ReturnType<ManualClient['prepare']>>>('ManualPreparationResult', {
+        status: 'prepared',
+        preparation: preview,
+      })
+    }),
+    approve: vi.fn(async () => {
+      workspace = {
+        ...workspace,
+        preparations: [],
+        runs: [run],
+        lots: workspace.lots.map((value) =>
+          value.lot_id === a
+            ? {
+                ...value,
+                issues: [
+                  {
+                    code: 'original_contribution_already_approved',
+                    message: 'Original approval retained',
+                    lot_id: a,
+                    run_id: runId,
+                  },
+                ],
+              }
+            : value,
+        ),
+      }
+      return accepted
+    }),
+    run: vi.fn(async () => run),
+    start: vi.fn(async () => accepted),
+    cancel: vi.fn(async () => accepted),
+    recover: vi.fn(async () => accepted),
+  }
+  return client
+}
+afterEach(() => {
+  location.hash = ''
+  vi.restoreAllMocks()
+})
+
+test('manual review and approval keep exact A-only scope, scalar text and server digest while leaving B outside', async () => {
+  const client = fakeClient()
+  const navigate = vi.fn()
+  const user = userEvent.setup()
+  const props = {
+    batch,
+    client,
+    edit: vi.fn(async () => undefined),
+    navigate,
+    reload: vi.fn(async () => undefined),
+  }
+  const view = render(<ManualWorkspace {...props} stage="review" />)
+  await screen.findByRole('checkbox', { name: 'Select Packet A' })
+  await user.click(screen.getByRole('checkbox', { name: 'Select Packet A' }))
+  await user.click(screen.getByRole('button', { name: 'Inspect Packet A' }))
+  expect(screen.getByText('Human count; do not merge packets.')).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Mark selected reviewed' }))
+  expect(client.review).toHaveBeenCalledWith(
+    batchId,
+    { expected_batch_revision: '9007199254740993', selected_lot_ids: [a] },
+    expect.any(String),
+  )
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Prepare exact selected effects' })).toBeEnabled(),
+  )
+  await user.click(screen.getByRole('button', { name: 'Prepare exact selected effects' }))
+  await waitFor(() => expect(navigate).toHaveBeenCalledWith('approve'))
+  view.rerender(<ManualWorkspace {...props} stage="approve" />)
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' })).toBeEnabled(),
+  )
+  expect(screen.getByText('Not included')).toBeVisible()
+  expect(screen.getByText('Packet B')).toBeVisible()
+  expect(screen.getByText('0.000001 × Packet A')).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Approve 1 lot for the owned fake' }))
+  expect(client.approve).toHaveBeenCalledWith(
+    {
+      preparation_id: prep,
+      expected_plan_sha256: 'a'.repeat(64),
+      expected_review_fingerprint: 'b'.repeat(64),
+      selected_lot_ids: [a],
+      expected_target_revision: '3',
+    },
+    expect.any(String),
+  )
+  await waitFor(() => expect(navigate).toHaveBeenCalledWith('results', runId))
+})
+
+test('changed capture never silently reviews unseen values; explicit reload is required', async () => {
+  const client = fakeClient('9007199254740994')
+  const reload = vi.fn(async () => undefined)
+  const user = userEvent.setup()
+  render(
+    <ManualWorkspace
+      batch={batch}
+      client={client}
+      stage="review"
+      edit={vi.fn(async () => undefined)}
+      navigate={vi.fn()}
+      reload={reload}
+    />,
+  )
+  await screen.findByRole('checkbox', { name: 'Select Packet A' })
+  await user.click(screen.getByRole('checkbox', { name: 'Select Packet A' }))
+  expect(screen.getByRole('button', { name: 'Mark selected reviewed' })).toBeDisabled()
+  expect(screen.getByText(/Your review display has not silently changed/)).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Load current saved choices' }))
+  expect(reload).toHaveBeenCalledOnce()
+  expect(client.review).not.toHaveBeenCalled()
+})
+
+test('unknown results retain uncertainty without create retry and app-wide activity links to original run', async () => {
+  const unknown: ManualRunDto = {
+    ...run,
+    state: 'recovery_required',
+    effect_certainty: 'unknown',
+    dispatch_state: 'finished',
+    operations: [{ ...run.operations[0], certainty: 'unknown', remote_pk: '7101' }],
+    attributed_stock_ids: ['7101'],
+  }
+  const command = vi.fn()
+  render(
+    <>
+      <ActivityIndicator client={fakeClient()} />
+      <ResultsWorkspace batchId={batchId} runs={[unknown]} busy={false} command={command} />
+    </>,
+  )
+  expect(
+    screen.getByText(/Stock may have been created, or the original physical owner/),
+  ).toBeVisible()
+  expect(screen.getByText(/Attributed record #7101/)).toBeVisible()
+  expect(
+    screen.queryByRole('button', { name: /resume|retry|queue supervised/i }),
+  ).not.toBeInTheDocument()
+  await screen.findByRole('link', { name: 'Open original run' })
+  expect(screen.getByRole('link', { name: 'Open original run' })).toHaveAttribute(
+    'href',
+    `#${batchId}/results/${runId}`,
+  )
+  expect(command).not.toHaveBeenCalled()
+})

@@ -12,4 +12,5 @@ export type CaptureWorkspaceProps = {
   busy: boolean
   edit: (change: CaptureEditDto['change']) => Promise<void>
   observe: (model: 'part' | 'location', pk: string) => Promise<CaptureObservationDto | null>
+  onStage?: (stage: 'capture' | 'review' | 'approve' | 'results') => void
 }

@@ -81,6 +81,9 @@ test('refresh URL resumes server batch and a 412 preserves local inputs while sh
   const sent: unknown[] = []
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const path = new URL(String(input)).pathname
+    if (path.endsWith('/activity')) {
+      return response({ runs: [], truncated: false })
+    }
     if (path.endsWith('bootstrap')) {
       return response({
         mode: 'development-key',
@@ -164,6 +167,9 @@ test('inbox resumes retained capture, filters archives and creates a batch with 
   }
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const path = new URL(String(input)).pathname
+    if (path.endsWith('/activity')) {
+      return response({ runs: [], truncated: false })
+    }
     if (path.endsWith('bootstrap')) {
       return response({
         mode: 'development-key',

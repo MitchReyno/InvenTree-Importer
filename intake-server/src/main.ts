@@ -3,6 +3,7 @@ import { devConfig } from './config.ts'
 import { database } from './db/database.ts'
 import { registerCapture } from './capture/routes.ts'
 import { captureRead } from './capture/read.ts'
+import { registerManual } from './review/routes.ts'
 import { inventoryTransport } from './inventory/transport.ts'
 import fastifyStatic from '@fastify/static'
 import { existsSync } from 'node:fs'
@@ -25,15 +26,21 @@ if (process.env.INTAKE_DATABASE_URL) {
           credential: config.apiKey,
         })
       : undefined
-  await registerCapture(
+  const read = transport
+    ? captureRead((op) =>
+        transport.read({ targetId: config.targetId, contextId: config.targetContextId }, op),
+      )
+    : undefined
+  await registerCapture(server, db.pool, config, read)
+  registerManual(
     server,
     db.pool,
-    config,
-    transport
-      ? captureRead((op) =>
-          transport.read({ targetId: config.targetId, contextId: config.targetContextId }, op),
-        )
-      : undefined,
+    {
+      ...config,
+      deploymentId: process.env.INTAKE_DEPLOYMENT_ID,
+      readOrigin: process.env.INTAKE_READ_ORIGIN,
+    },
+    read,
   )
 }
 const assets = fileURLToPath(new URL('../../frontend/dist/', import.meta.url))

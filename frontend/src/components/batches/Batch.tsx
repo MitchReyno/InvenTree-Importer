@@ -10,7 +10,25 @@ import type {
 import type { Client } from '../../capture/client'
 import { CaptureWorkspace } from '../capture/CaptureWorkspace'
 import styled from 'styled-components'
-export function Batch({ id, client }: { id: string; client: Client }) {
+import type { ManualClient, ManualStage } from '../../manual/types'
+import { ManualWorkspace } from '../review/ManualWorkspace'
+export function Batch({
+  id,
+  client,
+  manual,
+  route,
+}: {
+  id: string
+  client: Client
+  manual: ManualClient
+  route: string
+}) {
+  const segment = route.split('/')[1]
+  const stage: ManualStage =
+    segment === 'review' || segment === 'approve' || segment === 'results' ? segment : 'capture'
+  function navigate(value: ManualStage, runId?: string) {
+    location.hash = value === 'capture' ? id : `${id}/${value}${runId ? `/${runId}` : ''}`
+  }
   const [batch, setBatch] = useState<CaptureSnapshotDto | null>(null)
   const [error, setError] = useState('')
   const [current, setCurrent] = useState<CaptureSnapshotDto | null>(null)
@@ -138,13 +156,25 @@ export function Batch({ id, client }: { id: string; client: Client }) {
           </Button>
         </ErrorNotice>
       )}
-      {batch ? (
+      {batch && stage !== 'capture' ? (
+        <ManualWorkspace
+          key={`${batch.id}:${batch.revision}:${reset}`}
+          batch={batch}
+          client={manual}
+          stage={stage}
+          runId={route.split('/')[2]}
+          edit={edit}
+          navigate={navigate}
+          reload={reloadSavedValues}
+        />
+      ) : batch ? (
         <CaptureWorkspace
           key={`${batch.id}:${batch.revision}:${reset}`}
           batch={batch}
           busy={busy}
           edit={edit}
           observe={observe}
+          onStage={navigate}
         />
       ) : (
         !error && <Paragraph role="status">Resuming saved batch…</Paragraph>

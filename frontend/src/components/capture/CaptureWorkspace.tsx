@@ -7,7 +7,7 @@ import { CaptureHeader } from './CaptureHeader'
 import { CaptureQueue } from './CaptureQueue'
 import { EvidencePanel } from './EvidencePanel'
 import { CaptureEditor } from './CaptureEditor'
-export function CaptureWorkspace({ batch, busy, edit, observe }: CaptureWorkspaceProps) {
+export function CaptureWorkspace({ batch, busy, edit, observe, onStage }: CaptureWorkspaceProps) {
   const [selected, select] = useState(() => location.hash.split('/')[1] || 'defaults')
   const [focused, setFocused] = useState(() => Boolean(location.hash.split('/')[1]))
   const [dirty, setDirty] = useState(false)
@@ -37,7 +37,7 @@ export function CaptureWorkspace({ batch, busy, edit, observe }: CaptureWorkspac
 
   return (
     <>
-      <CaptureHeader batch={batch} busy={busy} dirty={dirty} edit={edit} />
+      <CaptureHeader batch={batch} busy={busy} dirty={dirty} edit={edit} onStage={onStage} />
       {batch.archived && (
         <Notice role="status">
           Archived, not deleted. History and original contributions are retained. Resume to edit.

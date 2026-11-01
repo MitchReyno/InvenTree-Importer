@@ -5,7 +5,7 @@ import { transaction } from '../../src/db/database.ts'
 /** Owned persistent HTTP fake. PG, not a JS map, owns requests, faults and stock.
  * Restart the listener with the same pool to retain ALL receipts and effects.
  */
-export async function inventoryFake(pool: Pool, port = 0) {
+export async function inventoryFake(pool: Pool, port = 0, names = false) {
   await pool.query(`CREATE TABLE IF NOT EXISTS fake_request (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,method text NOT NULL,path text NOT NULL,body bytea NOT NULL);
     CREATE TABLE IF NOT EXISTS fake_stock (pk bigint GENERATED ALWAYS AS IDENTITY (START WITH 7101) PRIMARY KEY,request_id bigint NOT NULL REFERENCES fake_request(id),part text NOT NULL,location text,quantity text NOT NULL,barcode text NOT NULL);
     CREATE TABLE IF NOT EXISTS fake_control (id integer PRIMARY KEY CHECK (id=1),fault text NOT NULL);
@@ -28,6 +28,18 @@ export async function inventoryFake(pool: Pool, port = 0) {
       void row
       response.setHeader('content-type','application/json')
       if (request.method === 'GET') {
+        if (fault === 'read_unavailable') {
+          response.writeHead(503).end('{}')
+          return
+        }
+        if (fault === 'hold_reads') {
+          while (
+            (await pool.query('SELECT fault FROM fake_control WHERE id=1')).rows[0].fault === 'hold_reads' &&
+            !response.destroyed
+          ) {
+            await new Promise(resolve => setTimeout(resolve,25))
+          }
+        }
         const stockMatch = /^\/api\/stock\/([1-9][0-9]*)\/$/.exec(request.url!)
         if (stockMatch) {
           const stored = (await pool.query('SELECT pk,part,location,quantity,barcode FROM fake_stock WHERE pk=$1',[stockMatch[1]])).rows[0]
@@ -36,7 +48,8 @@ export async function inventoryFake(pool: Pool, port = 0) {
         }
         const match = /^\/api\/(part|stock\/location)\/([1-9][0-9]*)\/$/.exec(request.url!)
         if (!match) { response.writeHead(404).end('{}'); return }
-        response.end(JSON.stringify({ pk: match[2] })); return
+        const name = match[1] === 'part' ? `Existing Part ${match[2]}` : `Location ${match[2]}`
+        response.end(JSON.stringify({ pk: match[2], ...(names ? { name } : {}) })); return
       }
       if (fault === 'redirect') { response.writeHead(307,{ location: '/forbidden-redirect-sink' }).end(); return }
       if (fault === 'drop_response') { response.destroy(); return }

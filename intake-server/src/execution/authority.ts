@@ -19,6 +19,7 @@ export interface RunAuthority {
   commandId: string
   actorId: string
   plan: StockPlan
+  planDigest: string
 }
 /** Source owner invokes this ONLY with retained original capture/lineage authority.
  * No browser-supplied alias/new namespace is accepted as evidence of a fresh source.
@@ -231,7 +232,14 @@ export async function loadRun(
     if (!stored.request_bytes.equals(stockBytes(operation)))
       throw new Error('operation_bytes_mismatch')
   }
-  return { runId, approvalId: row.id, commandId: row.command_id, actorId: row.actor_id, plan }
+  return {
+    runId,
+    approvalId: row.id,
+    commandId: row.command_id,
+    actorId: row.actor_id,
+    plan,
+    planDigest: row.plan_digest.toString('hex'),
+  }
 }
 export async function lockRun(client: PoolClient, runId: string): Promise<RunAuthority> {
   const authority = await loadRun(client, runId)
@@ -304,6 +312,7 @@ export interface StockSnapshot {
   state: 'queued' | 'settled_complete' | 'settled_incomplete' | 'recovery_required'
   confirmedStockIds: string[]
   attributedStockIds: string[]
+  cancellationRequested: boolean
   operations: {
     operationKey: string
     certainty: 'confirmed' | 'unknown' | 'none'
@@ -344,6 +353,7 @@ export async function snapshot(
   ).rowCount
   return {
     runId,
+    cancellationRequested: Boolean(cancelled),
     state: operations.some((value) => value.certainty === 'unknown')
       ? 'recovery_required'
       : operations.every((value) => value.certainty === 'confirmed')

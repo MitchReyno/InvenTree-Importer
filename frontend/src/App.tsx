@@ -1,11 +1,12 @@
 import { Button, PageTitle, Panel, Paragraph } from './components/ui/primitives'
-import { useEffect, useState, type ReactNode } from 'react'
-import { captureClient, intakeClient } from '@invimport/contracts/client'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { captureClient, intakeClient, manualClient } from '@invimport/contracts/client'
 import type { BootstrapDto } from '@invimport/contracts'
 import { Batches } from './components/batches/Batches'
 import { Batch } from './components/batches/Batch'
 import { GlobalStyle } from './components/GlobalStyle'
 import styled from 'styled-components'
+import { ActivityIndicator } from './components/ui/ActivityIndicator'
 
 export default function App() {
   const [bootstrap, setBootstrap] = useState<BootstrapDto | null>(null)
@@ -32,7 +33,14 @@ export default function App() {
       removeEventListener('hashchange', change)
     }
   }, [])
-  const client = bootstrap?.csrf_token ? captureClient(location.origin, bootstrap.csrf_token) : null
+  const client = useMemo(
+    () => (bootstrap?.csrf_token ? captureClient(location.origin, bootstrap.csrf_token) : null),
+    [bootstrap],
+  )
+  const manual = useMemo(
+    () => (bootstrap?.csrf_token ? manualClient(location.origin, bootstrap.csrf_token) : null),
+    [bootstrap],
+  )
   let content: ReactNode
   if (error) {
     content = (
@@ -55,8 +63,16 @@ export default function App() {
         </Paragraph>
       </Panel>
     )
-  } else if (route) {
-    content = <Batch key={route.split('/')[0]} id={route.split('/')[0]} client={client} />
+  } else if (route && manual) {
+    content = (
+      <Batch
+        key={route.split('/')[0]}
+        id={route.split('/')[0]}
+        client={client}
+        manual={manual}
+        route={route}
+      />
+    )
   } else {
     content = <Batches client={client} />
   }
@@ -67,15 +83,17 @@ export default function App() {
         <Brand>
           Bench <span>Intake</span>
         </Brand>
-        <span>Manual capture</span>
+        <span>Manual workflow</span>
       </Masthead>
       <DevelopmentBanner>
         {bootstrap?.banner ?? 'Connecting to local application…'}
       </DevelopmentBanner>
+      {manual && <ActivityIndicator client={manual} />}
       <Main>{content}</Main>
       <Footer>
-        Saved in the application database, not this browser. No uploads, research, approval or
-        inventory writes.
+        Saved in the application database, not this browser. Exact manual approvals can queue the
+        separately supervised owned fake. Real inventory writes, uploads and research remain
+        unavailable.
       </Footer>
     </AppShell>
   )
