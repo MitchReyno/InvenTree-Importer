@@ -1,6 +1,6 @@
 # Bench Intake server foundation
 
-This is the executable T01 foundation, **not** capture, approval or an inventory executor. Only `GET /api/v1/health` and `GET /api/v1/bootstrap` are application routes. See [implemented architecture](ARCHITECTURE.md), [testing guidelines and tiers](TESTING.md), [shared contracts](../contracts/README.md) and the [T01 evidence/handover](../docs/handovers/bench-intake-T01.md). Python and the browser picker remain unchanged and disconnected.
+This is the executable T01 foundation, **not** capture, approval or an inventory executor. Only `GET /api/v1/health` and `GET /api/v1/bootstrap` are application routes. See [code guidelines](CODE_GUIDELINES.md), [implemented architecture](ARCHITECTURE.md), [testing guidelines and tiers](TESTING.md), [shared contracts](../contracts/README.md) and the [T01 evidence/handover](../docs/handovers/bench-intake-T01.md). Python and the browser picker remain unchanged and disconnected.
 
 ## Run and check
 

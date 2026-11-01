@@ -18,9 +18,14 @@
     "lint:frontend": "pnpm --filter @invimport/frontend lint",
     "lint:backend": "uv run --directory backend ruff check --config pyproject.toml . ../.agents/skills ../.claude/skills",
     "lint:markdown": "remark . --ignore-path .gitignore --ignore-pattern '.claude/worktrees/**' --ignore-pattern '.amp/**' --frail --no-stdout",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "format:python": "uv run --project backend ruff format --config backend/pyproject.toml --force-exclude",
+    "format:python:check": "uv run --project backend ruff format --config backend/pyproject.toml --force-exclude --check",
     "format:markdown": "remark . --ignore-path .gitignore --ignore-pattern '.claude/worktrees/**' --ignore-pattern '.amp/**' --output",
     "hooks:install": "uv run --project backend pre-commit install",
     "hooks:check": "uv run --project backend pre-commit run --all-files",
+    "test:formatting": "node --test tooling/tests/formatting.test.mjs",
     "test": "pnpm run test:frontend && pnpm run test:intake && pnpm run test:backend",
     "test:intake": "pnpm --filter @invimport/contracts test && pnpm --filter @invimport/intake-server test",
     "test:intake:pg": "pnpm --filter @invimport/intake-server test:pg",
@@ -35,6 +40,7 @@
     "spikes:check": "uv run --directory backend pytest tests/spikes/test_shared_contracts.py"
   },
   "devDependencies": {
+    "prettier": "3.9.10",
     "remark-cli": "12.0.1",
     "remark-frontmatter": "5.0.0",
     "remark-gfm": "4.0.1",

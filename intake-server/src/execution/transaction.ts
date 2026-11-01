@@ -4,11 +4,16 @@ import type { Pool, PoolClient } from 'pg'
  * from a rejected query when its socket disappears; consume both and destroy that client.
  * Caller reconnects only to INSPECT stable authority, never to retry a remote mutation.
  */
-export async function executorTransaction<T>(pool: Pool, work: (client: PoolClient) => Promise<T>): Promise<T> {
+export async function executorTransaction<T>(
+  pool: Pool,
+  work: (client: PoolClient) => Promise<T>,
+): Promise<T> {
   const client = await pool.connect()
   let broken = false
-  const onError = () => { broken = true }
-  client.on('error',onError)
+  const onError = () => {
+    broken = true
+  }
+  client.on('error', onError)
   try {
     await client.query('BEGIN')
     const result = await work(client)
@@ -20,6 +25,6 @@ export async function executorTransaction<T>(pool: Pool, work: (client: PoolClie
     throw error
   } finally {
     client.release(broken)
-    client.removeListener('error',onError)
+    client.removeListener('error', onError)
   }
 }
