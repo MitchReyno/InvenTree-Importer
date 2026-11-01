@@ -110,7 +110,9 @@ test('failed retained polling preserves pending original and its exact upload in
   await act(async () => {
     await queries.refetchQueries({ queryKey: key })
   })
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Retain retained.png' })).toBeDisabled())
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Retain retained.png' })).toBeDisabled(),
+  )
   vi.mocked(media.snapshot).mockResolvedValue({ ...snapshot, revision: '8' })
   await user.click(screen.getByRole('button', { name: 'Refresh saved evidence' }))
   await waitFor(() =>

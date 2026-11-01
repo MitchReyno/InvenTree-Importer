@@ -86,7 +86,10 @@ test('private root binds one durable database identity and refuses foreign or un
     await BlobStore.initialize(root, first)
     await assert.rejects(BlobStore.initialize(root, randomUUID()), /identity_mismatch/)
     const marker = join(root, '.media-store.json')
-    assert.equal(await readFile(marker, 'utf8'), JSON.stringify({ version: 'media-store/1', store_id: first }) + '\n')
+    assert.equal(
+      await readFile(marker, 'utf8'),
+      JSON.stringify({ version: 'media-store/1', store_id: first }) + '\n',
+    )
     await chmod(marker, 0o644)
     await assert.rejects(BlobStore.initialize(root, first), /unsafe_media_store_marker/)
     await chmod(marker, 0o600)
@@ -101,7 +104,8 @@ test('competing foreign bindings cannot both own the same previously empty root'
   const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-media-bind-race-')))
   try {
     const results = await Promise.allSettled([
-      BlobStore.initialize(root, randomUUID()), BlobStore.initialize(root, randomUUID()),
+      BlobStore.initialize(root, randomUUID()),
+      BlobStore.initialize(root, randomUUID()),
     ])
     assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1)
     assert.equal(results.filter((result) => result.status === 'rejected').length, 1)

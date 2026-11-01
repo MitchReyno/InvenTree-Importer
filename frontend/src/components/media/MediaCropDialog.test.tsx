@@ -57,7 +57,7 @@ afterEach(() => vi.unstubAllGlobals())
 
 test('uncertain crop ACK locks editing and retries exact key, ID, recipe and original revision across polling', async () => {
   const user = userEvent.setup()
-  const save = vi.fn(async (_input: MediaEditDto, _key: string) => {
+  const save = vi.fn<(input: MediaEditDto, key: string) => Promise<void>>(async () => {
     throw new Error('lost ack')
   })
   const props = {
@@ -90,7 +90,7 @@ test('uncertain crop ACK locks editing and retries exact key, ID, recipe and ori
 
 test('prepared output is shown only for this submitted derivation ID and exact recipe', async () => {
   const user = userEvent.setup()
-  const save = vi.fn(async (_input: MediaEditDto, _key: string) => undefined)
+  const save = vi.fn<(input: MediaEditDto, key: string) => Promise<void>>(async () => undefined)
   const props = {
     batchId: snapshot.batch_id,
     version,
@@ -153,7 +153,7 @@ test('prepared output is shown only for this submitted derivation ID and exact r
 
 test('explicit new crop captures the current read revision with a new identity after a successful preparation', async () => {
   const user = userEvent.setup()
-  const save = vi.fn(async (_input: MediaEditDto, _key: string) => undefined)
+  const save = vi.fn<(input: MediaEditDto, key: string) => Promise<void>>(async () => undefined)
   const props = {
     batchId: snapshot.batch_id,
     version,
