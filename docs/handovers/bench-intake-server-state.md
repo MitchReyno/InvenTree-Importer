@@ -90,7 +90,7 @@ A separately allocated compatible Manual fixture used the existing owned Postgre
 
 Stopping that fixture's web process caused real polling failures. The [unavailable view](../bench-intake/evidence/server-state/manual-unavailable.png) retained the exact preview and pinned preparation URL while disabling approval. Restart and the next periodic read restored availability without replacing that identity. Reload retained the same preparation. The [390 px approval view](../bench-intake/evidence/server-state/manual-narrow.png) had no horizontal overflow. The fresh fixture was disposed completely: web, fake, temporary authority files, roles and random database. Historical Manual namespaces were untouched.
 
-The [browser receipt](../bench-intake/evidence/server-state/browser-checks.json) records the boundaries. No real inventory request or personal provider/inventory credential was used.
+The [browser receipt](../bench-intake/evidence/server-state/browser-checks.json) records the boundaries. No real inventory request or personal provider/inventory credential was used. Screenshot contents are synthetic qualification data: Capture fixture code fixes the fake Part/location names; the T02 handover records the retained Packet A/B quantities and test-client title. The fresh Manual seed helper creates Packet A/B, quantities 17/23, Part 29 and locations 43/48. All images contain only the application viewport, individually inspected without desktop/session chrome or credentials.
 
 ## Interface for subsequent owners
 
@@ -110,3 +110,7 @@ This is an illustrative read shape, not a new domain client. Name resource keys 
 ## Remaining review gate
 
 The coordinator must obtain a fresh independent exact-head review and selected CI before merging the ready PR into `interactive-app`. This owner does not merge its own PR. Any review fixes need their actual checks and final head recorded here. Subsequent media/processing owners should consume this seam only after the actual merge.
+
+## Publication safety check
+
+The first push was rejected by automatic approval review because screenshot provenance had not been established for egress. No push occurred. The owner then inspected the actual Capture fixture launcher/read fake and historical T02 evidence, alongside the fresh Manual seed helper, and recorded the synthetic-only source mapping in the browser receipt. A subsequent publication attempt must be evaluated with that concrete provenance; the rejection is not bypassed.
