@@ -31,7 +31,7 @@ Implemented CaptureEditor native registration and composite Controller adapters 
 
 The isolated worktree's frozen offline install, frontend typecheck, ESLint, 13 component tests, production build and changed-file Prettier/diff checks pass. The two new interaction tests cover synchronous dirty events, newer-snapshot draft retention, explicit quantity/location modes and identical payload/delivery keys after lost acknowledgement. Existing conflict/navigation/exact-decimal tests remain green.
 
-Vite reports its standard >500 kB chunk advisory: the minified entry is 521.41 kB (159.65 kB gzip). This change does not suppress the advisory or claim a performance measurement.
+Vite reports its standard >500 kB chunk advisory: the minified entry is 521.45 kB (159.68 kB gzip). This change does not suppress the advisory or claim a performance measurement.
 
 The former T04 preview's recorded PIDs and port are no longer live in the refreshed elevated process/listener check. Its retained metadata, files and database are preserved. A short isolated browser fixture will reuse the existing PostgreSQL service after the query owner's allocated heavy checks; no duplicate preview has been started. Browser evidence and independent review remain pending.
 
@@ -41,3 +41,22 @@ The former T04 preview's recorded PIDs and port are no longer live in the refres
 The fresh reviewer rejected head 148f772 with one P2. Although repeated retries in the mounted form retained the key, extracting createIntent into NewBatchForm shortened its lifetime. After a lost create acknowledgement, discard/reopen could send identical data with a new key. The reviewer's adverse interaction failed this head and passed the original T04 implementation.
 
 The correction keeps createIntent and the payload-bound create command in Batches, which outlives the mountable editing form. NewBatchForm receives the create operation and owns only editing/submission presentation. The tracked regression now submits, retries, discards, reopens and submits identical data, asserting the original key throughout. All 13 frontend tests pass after the correction. Independent re-review and actual browser checks remain pending.
+
+
+## Final qualification
+
+The independent reviewer cleared corrected code at 4b75175 and the actual rebuilt browser runtime at ad43bfc. A normal merge incorporated actual query-uplift trunk a1e1c18; the frontend diff across that merge is empty. Independent typecheck, ESLint, 13 frontend tests, formatting and the original discard/reopen adverse probe pass. The coordinator's full frontend/contracts/server typecheck and production build pass too.
+
+The short browser fixture used the sole retained local PostgreSQL service with a new randomized database/restricted role and fake GET-only inventory endpoint. Older preview processes were confirmed absent; their retained namespaces were untouched. No new PG service, real inventory operation, apply worker, provider credential or inference was involved. The capture-only fixture does not grant manual activity access, so its Activity unavailable banner is expected and is not product-wide activity qualification.
+
+Native browser interactions verified retained new-batch creation and human note, required title, quantity modes, rejection of exponent text, exact 9999999999999.999999 save and reload, dirty Batches/Resume links, real history Back, explicit discard and desktop/narrow layout. All five screenshots were visually inspected:
+
+- [Desktop dirty navigation](../bench-intake/evidence/forms/desktop-dirty-navigation.png).
+- [Narrow conflict preservation](../bench-intake/evidence/forms/narrow-conflict-preserved.png).
+- [Narrow exact quantity](../bench-intake/evidence/forms/narrow-exact-quantity.png).
+- [Desktop saved exact quantity](../bench-intake/evidence/forms/desktop-saved-exact-quantity.png).
+- [New batch dirty navigation](../bench-intake/evidence/forms/new-batch-dirty-navigation.png).
+
+The observed 412 was incidental, not a deliberately injected conflict fixture. Read-only retained history identified archive/resume commands before the exact quantity save; pre-instrumented native actions could not be attributed more precisely. The exact quantity save itself succeeded as revision 4 and survived actual reload. Existing component conflict tests remain an independently reproduced controlled conflict case.
+
+No remaining material finding was reported. Final documentation/evidence changes and selected exact-head CI still require the normal merge gate. Processing and media form adaptations remain their owners' follow-ups after this dependency merges; this PR does not claim their completion.
