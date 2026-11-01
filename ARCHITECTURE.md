@@ -1,5 +1,14 @@
 # Import architecture
 
+The repository root coordinates `backend/` (the uv-managed `invimport` Python
+package) and `frontend/` (a React/TypeScript/Vite intake scaffold) through pnpm and
+Make. The scaffold currently keeps selected file metadata in browser memory; it
+has no backend proxy, upload endpoint, persistence or importer integration. The
+CLI and durable execution architecture below remain the executable backend.
+Shared guidance, skills, agents, docs and CI remain at the repository root.
+See [repository layout](docs/repository-layout.md) for runtime path rules and
+[relocation handover](docs/handovers/repository-layout.md) for validation evidence.
+
 This is the current implementation through Stage 7 (bounded opt-in independently approved),
 based on main `c22b7a1`
 (including the code-organization conventions) and SDK `inventree==0.13.5`.
@@ -294,7 +303,7 @@ category learning inside durable preparation and arbitrary multi-order allocatio
 remain outside this opt-in scope. Obtain and map those inputs before preparation.
 
 The reproducible [synthetic evaluation](docs/evidence/import-concurrency-synthetic.json)
-and `scripts/evaluate-import-concurrency.py` show only simulated independent I/O
+and `backend/scripts/evaluate-import-concurrency.py` show only simulated independent I/O
 latency, not live performance. Production executor workers remain one: the SQLite
 writer/SDK dispatch owner, process-global legacy ledger, shared allocation/fields/
 artifacts and unverified live total rate budgets do not justify parallel writes or

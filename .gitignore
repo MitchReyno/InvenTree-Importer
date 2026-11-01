@@ -41,3 +41,11 @@ backups/
 
 # macOS system files
 .DS_Store
+
+# JavaScript workspace outputs (the root lockfile is tracked).
+node_modules/
+frontend/dist/
+.pnpm-store/
+*.tsbuildinfo
+pnpm-debug.log*
+.ruff_cache/

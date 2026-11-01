@@ -89,7 +89,7 @@ a focused change into an unrelated rewrite.
   rules justify a split on their own.
 - Follow the existing separation between `commands/`, integration packages
   such as `inventree/` and `digikey/`, and shared input/configuration modules
-  under `src/invimport/`. CLI argument handling, prompts and presentation belong
+  under `backend/src/invimport/`. CLI argument handling, prompts and presentation belong
   at the command boundary; reusable workflows belong in importable modules.
   Keep optional hardware or UI dependencies confined to the feature using them.
 - Keep a helper in the narrowest module or package that owns its meaning.
@@ -102,11 +102,11 @@ a focused change into an unrelated rewrite.
   lower-level code must not import command modules. Keep `__init__.py` focused
   on an intentional package interface or registration, without eager setup.
 - Put related tests in discoverable locations following the existing layout,
-  such as `tests/inventree/` and `tests/digikey/`. Keep scenario-specific
+  such as `backend/tests/inventree/` and `backend/tests/digikey/`. Keep scenario-specific
   fixtures near their tests and share fixtures only at the scope that needs
   them. When a test file becomes hard to navigate, group tests by behaviour
   rather than exposing implementation stages as separate test APIs.
-- Keep reusable application logic under `src/invimport/`; scripts should
+- Keep reusable application logic under `backend/src/invimport/`; scripts should
   primarily adapt a standalone invocation or operational task. If script logic
   gains library callers, place that logic in the package rather than making
   callers import a script or alter `sys.path`.

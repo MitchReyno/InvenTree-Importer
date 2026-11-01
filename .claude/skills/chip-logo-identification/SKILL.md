@@ -27,8 +27,8 @@ so bring it (and Pillow) in with `--with`; nothing is installed:
 
 ```bash
 D=.claude/skills/chip-logo-identification
-uv run -q --with numpy --with pillow python -I $D/scripts/match.py CROP.png [--top N] [--sheet OUT.png]
-uv run -q --with numpy --with pillow python -I $D/scripts/straighten.py SRC OUT [--quarter N] [--level X1,Y1,X2,Y2 | --rotate DEG | --corners TL TR BR BL]
+uv run --project backend -q --with numpy --with pillow python -I $D/scripts/match.py CROP.png [--top N] [--sheet OUT.png]
+uv run --project backend -q --with numpy --with pillow python -I $D/scripts/straighten.py SRC OUT [--quarter N] [--level X1,Y1,X2,Y2 | --rotate DEG | --corners TL TR BR BL]
 ```
 
 Write crops and candidate sheets to the scratch directory you were given, or
@@ -81,8 +81,8 @@ made only to identify a logo is scratch, not an image for the import.
 
    ```bash
    T=.temp/<task>
-   CROP="uv run -q --with pillow --with numpy python .claude/skills/component-photo-crops/scripts/crop.py"
-   S="uv run -q --with numpy --with pillow python -I $D/scripts/straighten.py"
+   CROP="uv run --project backend -q --with pillow --with numpy python .claude/skills/component-photo-crops/scripts/crop.py"
+   S="uv run --project backend -q --with numpy --with pillow python -I $D/scripts/straighten.py"
    $CROP photo.jpg $T/region.png X0 Y0 X1 Y1 --exact --nosquare
    $S $T/region.png $T/upright.png --level 112,388,904,341                 # tilted
    $S $T/region.png $T/upright.png --quarter 1                             # sideways
@@ -102,7 +102,7 @@ made only to identify a logo is scratch, not an image for the import.
 
    ```bash
    $CROP photo.jpg $T/mark.png X0 Y0 X1 Y1 --exact --nosquare   # the ROI as drawn
-   uv run -q --with numpy --with pillow python -I $D/scripts/match.py $T/mark.png --top 15 --sheet $T/candidates.png
+   uv run --project backend -q --with numpy --with pillow python -I $D/scripts/match.py $T/mark.png --top 15 --sheet $T/candidates.png
    ```
 
    The matcher normalises polarity and size, so laser-etched, printed,
@@ -211,9 +211,9 @@ by eye.
 4. Rebuild into scratch, look at the changed page, then rebuild in place:
 
    ```bash
-   uv run -q --with pillow python -I $D/scripts/build.py \
+   uv run --project backend -q --with pillow python -I $D/scripts/build.py \
        $D/data/annotations.tsv $D/data/rows.json $D/data/logos .temp/<task>/logo-build
-   uv run -q --with pillow python -I $D/scripts/build.py \
+   uv run --project backend -q --with pillow python -I $D/scripts/build.py \
        $D/data/annotations.tsv $D/data/rows.json $D/data/logos $D/data
    ```
 

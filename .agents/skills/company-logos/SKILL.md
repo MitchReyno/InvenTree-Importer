@@ -14,7 +14,7 @@ the colour it is normally shown on, not one picked for looks.
 
 Run everything from the repo root.
 Scripts are in `.claude/skills/company-logos/scripts/`, run with
-`uv run --with pillow python <script> …`; each has `--help`.
+`uv run --project backend --with pillow python <script> …`; each has `--help`.
 
 | Tool | Does |
 |---|---|
@@ -169,7 +169,7 @@ user share the browser and run their own daemons.
 ## 4. Produce the image
 
 ```bash
-uv run --with pillow python .claude/skills/company-logos/scripts/logo.py flatten LOGO OUT.png --background '#rrggbb'
+uv run --project backend --with pillow python .claude/skills/company-logos/scripts/logo.py flatten LOGO OUT.png --background '#rrggbb'
 ```
 
 It rasterises SVGs, trims to the logo (to the ink, for a scan), pads 10% of
@@ -185,7 +185,7 @@ Name files after the company, lower-case and hyphenated:
 ## 5. Review every logo
 
 ```bash
-uv run --with pillow python .claude/skills/company-logos/scripts/review.py LOGOS_DIR .temp/<task>/review
+uv run --project backend --with pillow python .claude/skills/company-logos/scripts/review.py LOGOS_DIR .temp/<task>/review
 ```
 
 Open `montage.png` and `strip64.png` (64 px is InvenTree's list size) and
@@ -207,9 +207,9 @@ have not looked at.
   `logos/` beside it:
 
   ```bash
-  uv run invimport company-logos --json .temp/company-logos-<date>/missing.json   # who has none
-  uv run invimport company-logos .local_imports/company-logos-<date>/company-logos.json  # dry run
-  uv run invimport company-logos .local_imports/company-logos-<date>/company-logos.json --write
+  uv run --project backend invimport company-logos --json .temp/company-logos-<date>/missing.json   # who has none
+  uv run --project backend invimport company-logos .local_imports/company-logos-<date>/company-logos.json  # dry run
+  uv run --project backend invimport company-logos .local_imports/company-logos-<date>/company-logos.json --write
   ```
 
   Names match as the importer matches them, never fuzzily; a logo is only

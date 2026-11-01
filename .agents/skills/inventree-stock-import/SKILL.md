@@ -30,12 +30,12 @@ transcribe, decide, ask the user, and write the file.
 
 ## The loop
 
-Always run from the repo root (`invimport` is not on PATH — use `uv run`):
+Always run from the repo root (`invimport` is not on PATH — use `uv run --project backend`):
 
 **1. Get the vocabulary. Do this first, every time.**
 
 ```bash
-uv run invimport import-stock --vocabulary
+uv run --project backend invimport import-stock --vocabulary
 ```
 
 ~26KB of JSON listing the exact category paths, parameter names, units and
@@ -67,7 +67,7 @@ a newly identified item, find out whether InvenTree already holds that part
 (or stock of it). Search with every identifier you have for the item — MPN,
 type designator, NSN (both the printed form and the modern 13-digit form),
 drawing or house numbers, cross-referenced part numbers (e.g. `1989622-1` and
-`S8T90F`), maker — from the repo root with `uv run python` and
+`S8T90F`), maker — from the repo root with `uv run --project backend python` and
 `invimport.inventree.api.connect()`:
 
 - parts: `Part.list(api, search=...)` for each identifier, and by name/IPN
@@ -119,7 +119,7 @@ scratch files in `.local_imports/`, in the repo proper, or in the system tempora
 **4. Validate. Fix. Repeat.**
 
 ```bash
-uv run invimport import-stock .local_imports/IMG_4821/IMG_4821.json --validate
+uv run --project backend invimport import-stock .local_imports/IMG_4821/IMG_4821.json --validate
 ```
 
 Returns JSON with `errors` carrying `did_you_mean`. No API calls, nothing
@@ -128,7 +128,7 @@ written — loop here as long as you need. Exit code 0 means clean.
 **5. Show the dry run to the user.**
 
 ```bash
-uv run invimport import-stock .local_imports/IMG_4821/IMG_4821.json
+uv run --project backend invimport import-stock .local_imports/IMG_4821/IMG_4821.json
 ```
 
 Human-readable, with the parsed parameter values so they can check your reading.
@@ -146,7 +146,7 @@ a glance.
 **6. Only then, write — and only if the user says to.**
 
 ```bash
-uv run invimport import-stock .local_imports/IMG_4821/IMG_4821.json --write
+uv run --project backend invimport import-stock .local_imports/IMG_4821/IMG_4821.json --write
 ```
 
 **Never run `--write` without the user having seen the dry run and agreed.**
@@ -271,7 +271,7 @@ hold, and keeps the lines down to the stock itself:
 }
 ```
 
-Run `uv run invimport import-stock --schema` for the full field reference. YAML
+Run `uv run --project backend invimport import-stock --schema` for the full field reference. YAML
 is accepted too. Version 1 — every part field repeated on every line — is still
 read, and is what CSV uses (dotted columns: `param.Resistance`,
 `order.reference`, `notes.stock`); do not write it by hand.
@@ -491,9 +491,9 @@ Some typical gaps:
   forward voltage on an LED, gain on a transistor. Before inventing a name,
   search the whole `parameters` list in the vocabulary: another category may
   already define it, and reusing that template is always better than a
-  near-duplicate. Otherwise add it to `config/parameters.yaml` with `units`,
+  near-duplicate. Otherwise add it to `backend/config/parameters.yaml` with `units`,
   a `description` and the DigiKey spelling in `aliases`, then add it to the
-  category's `parameters` in `config/categories.yaml`.
+  category's `parameters` in `backend/config/categories.yaml`.
 - **A parameter that is wrong for the part.** A unit that cannot express
   the value (`Memory Size` in `Mbit` for a 4 Kbit PROM), or a description
   that only fits the parts seen so far. Fix the config instead of forcing
@@ -508,8 +508,8 @@ The YAML files are the source of truth, and editing them changes nothing on
 the server. `import-stock` never creates templates. Push the config with:
 
 ```bash
-uv run invimport categories          # dry run: units, templates, categories
-uv run invimport categories --write  # apply
+uv run --project backend invimport categories          # dry run: units, templates, categories
+uv run --project backend invimport categories --write  # apply
 ```
 
 Include this in what the user reviews alongside the import dry run, since it
@@ -620,9 +620,9 @@ naming the site.
    the import folder. The plan comes from a dry run (nothing is written):
 
    ```bash
-   uv run invimport import-stock .local_imports/<import id>/<import id>.json --yes \
+   uv run --project backend invimport import-stock .local_imports/<import id>/<import id>.json --yes \
        --plan .temp/<import id>/plan/plan.json
-   uv run -q --with pillow python .claude/skills/inventree-stock-import/scripts/interpretation_montage.py \
+   uv run --project backend -q --with pillow python .claude/skills/inventree-stock-import/scripts/interpretation_montage.py \
        .local_imports/<import id>/<import id>.json .temp/<import id>/interp \
        --plan .temp/<import id>/plan/plan.json
    ```
@@ -651,7 +651,7 @@ normally shown on — is a job for the **`company-logo-finder` agent**, not for
 you, and the rules for it live in the `company-logos` skill it loads.
 
 1. **Work out which companies are new**: the manufacturers and suppliers the
-   lines name that are not on the server. `uv run invimport company-logos
+   lines name that are not on the server. `uv run --project backend invimport company-logos
    --show "<name>"` exits 1 for a company that is not there, listing the
    closest names - one that is plainly the same company counts as there (the
    import will match it, not create it). **Skip every company already on the

@@ -46,10 +46,28 @@ and description while adapting skill loading and tool references to each host.
 
 - Run `make test` for the normal suite. It excludes the slow scanner/TUI tests.
 - After changing skills or agents, run
-  `uv run pytest tests/test_project_workflow_sync.py`. These checks compare all
+  `uv run --project backend pytest backend/tests/test_project_workflow_sync.py`. These checks compare all
   skill files and agent counterparts, allowing only the explicitly reviewed
   Codex adaptations in the test.
 - Run `make test-scanner` when changing scanner/TUI behavior; it installs the
   scanner extra and runs the TUI tests. Use `make test-all` to run both suites.
-- Run `uv run ruff check` on changed Python files. Add or update regression tests
+- Run `make lint-backend` (or `uv run --project backend ruff check --config
+  backend/pyproject.toml backend`) on changed Python files. Add or update regression tests
   for behavior changes, and report the checks run and any failures.
+
+## Repository layout and local data
+
+The Python project is under `backend/` and remains uv-managed. The React/TypeScript
+intake scaffold is under `frontend/`, managed through the root pnpm workspace.
+Shared docs, skills and agents stay at repository root. From root use
+`uv run --project backend invimport ...` or `pnpm backend ...`; root `make`/pnpm
+checks delegate to the correct project. Use the pinned Node LTS in `.node-version`
+and package manager in root `package.json`. Run frontend typecheck, lint, tests
+and build after frontend changes.
+
+Root `.env`, `.local_imports`, `.cache`, `.temp` and backups are not moved. Omitted
+managed data defaults from the backend cwd share root data; explicit relative
+arguments always retain caller-cwd meaning. Importer config defaults to
+`backend/config/`. Platform execution/scanner state and explicit state overrides
+retain their existing identity. Do not migrate, delete or reseed real local data
+as part of layout/tooling work. See `docs/repository-layout.md`.

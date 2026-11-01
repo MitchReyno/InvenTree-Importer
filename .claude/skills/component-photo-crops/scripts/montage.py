@@ -1,6 +1,6 @@
 """Tile images into one labelled contact sheet, for reviewing crops at a glance.
 
-    uv run --with pillow python montage.py OUT.png IMG [IMG ...] [--cell 360] [--cols 4]
+    uv run --project backend --with pillow python montage.py OUT.png IMG [IMG ...] [--cell 360] [--cols 4]
 
 Each image is scaled to fit its cell (aspect kept) and labelled with its file
 name and pixel size, so a wrong aspect ratio or a tiny crop shows up as well

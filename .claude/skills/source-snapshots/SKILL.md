@@ -17,10 +17,10 @@ Run from the repo root (`requests` comes from the project environment):
 
 ```bash
 S=.claude/skills/source-snapshots/scripts/snapshot.py
-uv run python $S "<url>" -o .local_imports/<import id>/snapshots/l03-nsn-5961007827187.html
-uv run python $S "<url>" --render                 # run the page's JavaScript first (headless Chrome)
-uv run python $S "<url>" --from-html saved.html   # markup saved from a real browser
-uv run python $S "<url>" --pdf                    # also print the snapshot to PDF
+uv run --project backend python $S "<url>" -o .local_imports/<import id>/snapshots/l03-nsn-5961007827187.html
+uv run --project backend python $S "<url>" --render                 # run the page's JavaScript first (headless Chrome)
+uv run --project backend python $S "<url>" --from-html saved.html   # markup saved from a real browser
+uv run --project backend python $S "<url>" --pdf                    # also print the snapshot to PDF
 ```
 
 Without `-o` the file goes to `.temp/snapshots/` (or `--dir`) under a name

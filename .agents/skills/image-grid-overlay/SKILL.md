@@ -16,7 +16,7 @@ nothing is installed):
 
 ```bash
 G=.claude/skills/image-grid-overlay/scripts/grid.py
-uv run -q --with pillow python $G SRC OUT.png [--region X0 Y0 X1 Y1] [--width N] [--step N] \
+uv run --project backend -q --with pillow python $G SRC OUT.png [--region X0 Y0 X1 Y1] [--width N] [--step N] \
     [--object X0 Y0 X1 Y1] [--box X0 Y0 X1 Y1 [NAME]] ...
 ```
 
@@ -51,8 +51,8 @@ convert by hand.
 
 ```bash
 # overview, then zoom on one bag and test two candidate crops
-uv run -q --with pillow python $G photo.png $T/g-photo.png
-uv run -q --with pillow python $G photo.png $T/g-bag.png --region 200 150 1250 1400 \
+uv run --project backend -q --with pillow python $G photo.png $T/g-photo.png
+uv run --project backend -q --with pillow python $G photo.png $T/g-bag.png --region 200 150 1250 1400 \
     --object 275 240 1150 1255 --box 225 195 1200 1300 even --box 200 200 1260 1260 square
 ```
 

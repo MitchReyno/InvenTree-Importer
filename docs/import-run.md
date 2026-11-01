@@ -5,13 +5,13 @@ command and all existing flags, including its montage `--plan` schema, retain th
 meaning. There is no fallback to legacy execution after a durable failure.
 
 ```sh
-uv run invimport import-run prepare stock.json --output approved-plan.json --json
-uv run invimport import-run execute approved-plan.json --json
-uv run invimport import-run execute approved-plan.json --write --events events.jsonl --json
-uv run invimport import-run status RUN_ID --json
-uv run invimport import-run resume RUN_ID --write --continuity-reason 'Reviewed same database, unchanged restore/instance history' --json
-uv run invimport import-run retry-operation RUN_ID OPERATION_ID --write --continuity-reason 'Reviewed same database and saved record continuity' --json
-uv run invimport import-run abandon RUN_ID --reason 'Reviewed unresolved outcome; retain blocking claim' --write --json
+uv run --project backend invimport import-run prepare stock.json --output approved-plan.json --json
+uv run --project backend invimport import-run execute approved-plan.json --json
+uv run --project backend invimport import-run execute approved-plan.json --write --events events.jsonl --json
+uv run --project backend invimport import-run status RUN_ID --json
+uv run --project backend invimport import-run resume RUN_ID --write --continuity-reason 'Reviewed same database, unchanged restore/instance history' --json
+uv run --project backend invimport import-run retry-operation RUN_ID OPERATION_ID --write --continuity-reason 'Reviewed same database and saved record continuity' --json
+uv run --project backend invimport import-run abandon RUN_ID --reason 'Reviewed unresolved outcome; retain blocking claim' --write --json
 ```
 
 Preparation validates configuration/input, connects and performs complete read-only
@@ -186,14 +186,14 @@ preparation when missing supplier models should be created. No vendor fetch or
 interactive category/config write is hidden inside durable execution.
 
 ```sh
-uv run invimport orders --order 87654321 --json order.json
-uv run invimport product SKU-A SKU-B --json products.json
-uv run invimport import-run prepare-digikey order.json --supplier 12 --location 4 --output approved-order.json --json
-uv run invimport import-run execute approved-order.json --json
-uv run invimport import-run execute approved-order.json --write --json
+uv run --project backend invimport orders --order 87654321 --json order.json
+uv run --project backend invimport product SKU-A SKU-B --json products.json
+uv run --project backend invimport import-run prepare-digikey order.json --supplier 12 --location 4 --output approved-order.json --json
+uv run --project backend invimport import-run execute approved-order.json --json
+uv run --project backend invimport import-run execute approved-order.json --write --json
 ```
 
-Add `--create-parts --products products.json --config config --create-manufacturers`
+Add `--create-parts --products products.json --config backend/config --create-manufacturers`
 to preparation only when those model choices are approved. Category aliases and
 parameter templates must already be mapped/synchronized. Otherwise use existing
 supplier SKUs or explicitly choose `--partial`; unmatched lines are never silently

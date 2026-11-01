@@ -1,5 +1,10 @@
 # InvenTree-Importer
 
+The root is a pnpm workspace with a Python backend and a minimal React intake
+scaffold. The scaffold only lists files in the browser tab; upload, processing and
+inventory actions are not connected. See [repository setup and paths](docs/repository-layout.md)
+and [ARCHITECTURE.md](ARCHITECTURE.md) before changing these boundaries.
+
 A utility for getting component data out of DigiKey and into
 [InvenTree](https://inventree.org/), without hand-typing part numbers, pack
 quantities and datasheet links into forms.
@@ -21,8 +26,8 @@ It provides eight commands:
 | `product`        | Look up DigiKey SKUs and report packaging, pack quantity, MOQ, description, datasheet and canonical product link        |
 | `orders`         | Fetch order history or a single sales order, with line items, ordered/shipped quantities, pricing and shipment tracking |
 | `import-orders`  | Pick DigiKey orders from a checklist and book them into InvenTree as purchase orders                                    |
-| `parameters`     | Create and update InvenTree parameter templates from `config/parameters.yaml`                                          |
-| `categories`     | Create and update InvenTree part categories from `config/categories.yaml`, and learn DigiKey path aliases              |
+| `parameters`     | Create and update InvenTree parameter templates from `backend/config/parameters.yaml`                                          |
+| `categories`     | Create and update InvenTree part categories from `backend/config/categories.yaml`, and learn DigiKey path aliases              |
 | `supplier-parts` | Create InvenTree parts, manufacturer parts and supplier parts from DigiKey SKUs                                         |
 | `discover`       | Triage supplier parameters a category is receiving but not importing                                                   |
 | `import-stock`   | Import stock from a JSON/YAML/CSV file, for parts DigiKey cannot describe                                              |
@@ -63,34 +68,34 @@ not available commands yet.
 ```bash
 git clone <this-repo>
 cd InvenTree-Importer
-uv sync
+uv sync --project backend
 ```
 
-`uv sync` creates `.venv`, installs dependencies from `uv.lock`, and installs
+`uv sync --project backend` creates `backend/.venv`, installs dependencies from `backend/uv.lock`, and installs
 the project itself so the `invimport` command is available. There is no venv to
-activate — prefix commands with `uv run`.
+activate — prefix commands with `uv run --project backend`.
 
-#### Optional: drop the `uv run`
+#### Optional: drop the `uv run --project backend`
 
 To type `invimport` on its own, in any shell, install it as a uv tool:
 
 ```bash
-uv tool install --editable .
+uv tool install --editable ./backend
 ```
 
 `--editable` points the tool at this checkout, so edits to the code take effect
-straight away, and `.env` and `config/` are still read from the repo wherever
+straight away, and root `.env` and `backend/config/` are still read from this checkout wherever
 you run it. Relative paths you pass — an import file under `.local_imports/` —
 are relative to the folder you run from, so run imports from the repo root.
 
 * If the shell cannot find `invimport` afterwards, `uv tool update-shell` adds
   uv's tool directory to your `PATH`; open a new terminal.
-* After a change to the dependencies in `pyproject.toml`, reinstall with
-  `uv tool install --editable . --reinstall`.
+* After a change to the dependencies in `backend/pyproject.toml`, reinstall with
+  `uv tool install --editable ./backend --reinstall`.
 * Remove it with `uv tool uninstall inventree-importer`.
 
 The tool only provides `invimport`. Tests and lint still go through
-`make test` and `uv run ruff check .`.
+`make test` and `make lint-backend`.
 
 ### Credentials
 
@@ -126,7 +131,7 @@ DIGIKEY_LOCALE_LANGUAGE=en
 precedence over the file, so you can override one for a single run:
 
 ```bash
-DIGIKEY_LOCALE_CURRENCY=AUD uv run invimport product 296-1234-1-ND --pricing
+DIGIKEY_LOCALE_CURRENCY=AUD uv run --project backend invimport product 296-1234-1-ND --pricing
 ```
 
 ### Two things that will bite you first
@@ -142,28 +147,28 @@ DIGIKEY_LOCALE_CURRENCY=AUD uv run invimport product 296-1234-1-ND --pricing
 ### Check it works
 
 ```bash
-uv run invimport --help
-uv run pytest
+uv run --project backend invimport --help
+uv run --project backend pytest backend/tests
 ```
 
 ## Usage
 
 Run any command with `--help` for its full options. The examples use
-`uv run invimport`; if you installed the tool (see
-[Optional: drop the `uv run`](#optional-drop-the-uv-run)), leave out the
-`uv run`.
+`uv run --project backend invimport`; if you installed the tool (see
+[Optional: drop the `uv run --project backend`](#optional-drop-the-uv-run)), leave out the
+`uv run --project backend`.
 
 ### product
 
 Look up one or more DigiKey SKUs.
 
 ```bash
-uv run invimport product 296-1234-1-ND
-uv run invimport product 296-1234-1-ND 311-1.00KHRCT-ND --pricing
-uv run invimport product 296-1234-1-ND --json results.json
+uv run --project backend invimport product 296-1234-1-ND
+uv run --project backend invimport product 296-1234-1-ND 311-1.00KHRCT-ND --pricing
+uv run --project backend invimport product 296-1234-1-ND --json results.json
 
 # read SKUs from stdin, one per line
-printf '296-1234-1-ND\n311-1.00KHRCT-ND\n' | uv run invimport product -
+printf '296-1234-1-ND\n311-1.00KHRCT-ND\n' | uv run --project backend invimport product -
 ```
 
 | Flag              | Effect                                                  |
@@ -183,11 +188,11 @@ If a SKU matches no `ProductVariation`, it is reported with a warning and
 Fetch order history, or one specific sales order.
 
 ```bash
-uv run invimport orders                                    # last 30 days
-uv run invimport orders --start-date 2026-01-01 --end-date 2026-06-30
-uv run invimport orders --shared                           # whole account, not just you
-uv run invimport orders --order 87654321                   # one sales order
-uv run invimport orders --json orders.json --refresh
+uv run --project backend invimport orders                                    # last 30 days
+uv run --project backend invimport orders --start-date 2026-01-01 --end-date 2026-06-30
+uv run --project backend invimport orders --shared                           # whole account, not just you
+uv run --project backend invimport orders --order 87654321                   # one sales order
+uv run --project backend invimport orders --json orders.json --refresh
 ```
 
 | Flag                          | Effect                                                          |
@@ -207,10 +212,10 @@ Fetch orders, choose which ones you want from a checklist, and book each one
 into InvenTree as a purchase order.
 
 ```bash
-uv run invimport import-orders                             # dry run, last 30 days
-uv run invimport import-orders --start-date 2026-01-01 --write
-uv run invimport import-orders --order 87654321 --write    # one sales order
-uv run invimport import-orders --all --supplier 1 --write  # no prompts
+uv run --project backend invimport import-orders                             # dry run, last 30 days
+uv run --project backend invimport import-orders --start-date 2026-01-01 --write
+uv run --project backend invimport import-orders --order 87654321 --write    # one sales order
+uv run --project backend invimport import-orders --all --supplier 1 --write  # no prompts
 ```
 
 It takes the same date and scope flags as `orders`, plus:
@@ -320,16 +325,16 @@ location the purchase order is still created and stock is skipped.
 ### parameters
 
 Create and update the InvenTree parameter templates defined in
-`config/parameters.yaml`. Templates are the vocabulary parts are described
+`backend/config/parameters.yaml`. Templates are the vocabulary parts are described
 with: a category names the parameters its parts carry, and each of those has to
 exist as a template with the right units before any value can be stored.
 
 ```bash
 # dry run: reports what it would do, changes nothing
-uv run invimport parameters
+uv run --project backend invimport parameters
 
 # apply
-uv run invimport parameters --write
+uv run --project backend invimport parameters --write
 ```
 
 **Dry run is the default.** Nothing is written without `--write`, and nothing is
@@ -374,7 +379,7 @@ through to a plainer one rather than being written wrongly.
 
 **Custom units are created first.** A template names its unit, and InvenTree
 rejects one it cannot resolve, so anything pint does not already know has to
-exist before the template that uses it. Declare those in `config/units.yaml`:
+exist before the template that uses it. Declare those in `backend/config/units.yaml`:
 
 ```yaml
 ppm_per_delta_degC:
@@ -399,18 +404,18 @@ a DigiKey parameters dict becomes the stored strings — `100 kOhms` is
 ### categories
 
 Create and update the InvenTree part category tree defined in
-`config/categories.yaml`. Templates are ensured first, because a category
+`backend/config/categories.yaml`. Templates are ensured first, because a category
 names the parameters its parts carry.
 
 ```bash
 # dry run: reports what it would do, changes nothing on the server
-uv run invimport categories
+uv run --project backend invimport categories
 
 # apply
-uv run invimport categories --write
+uv run --project backend invimport categories --write
 
 # map unmapped DigiKey paths from the product cache (writes the YAML)
-uv run invimport categories --learn
+uv run --project backend invimport categories --learn
 ```
 
 **Dry run is the default** for the server. Nothing is created or renamed
@@ -434,16 +439,16 @@ none.
 
 ```bash
 # dry run
-uv run invimport supplier-parts 296-1411-1-ND
+uv run --project backend invimport supplier-parts 296-1411-1-ND
 
 # apply
-uv run invimport supplier-parts 296-1411-1-ND --write
+uv run --project backend invimport supplier-parts 296-1411-1-ND --write
 
 # every SKU on recent orders
-uv run invimport supplier-parts --from-orders --start-date 2026-01-01 --write
+uv run --project backend invimport supplier-parts --from-orders --start-date 2026-01-01 --write
 
 # from a file
-uv run invimport supplier-parts - < skus.txt --write
+uv run --project backend invimport supplier-parts - < skus.txt --write
 ```
 
 **Dry run is the default.** Re-running is a no-op: a SKU that is already
@@ -492,13 +497,13 @@ asks what to do with each one.
 
 ```bash
 # report only
-uv run invimport discover
+uv run --project backend invimport discover
 
 # decide, and record the answers
-uv run invimport discover --write
+uv run --project backend invimport discover --write
 
 # one category at a time
-uv run invimport discover --write --category Resistors
+uv run --project backend invimport discover --write --category Resistors
 ```
 
 | Flag              | Effect                                                        |
@@ -524,8 +529,8 @@ Resistors
     skip             leave undecided, ask again next time
 ```
 
-Answers are written straight to `config/parameters.yaml` and
-`config/categories.yaml`, so nothing is asked twice — including `ignore`, which
+Answers are written straight to `backend/config/parameters.yaml` and
+`backend/config/categories.yaml`, so nothing is asked twice — including `ignore`, which
 is recorded per category and inherited by subcategories. Units, parse mode and
 choices are **suggested** from the observed values (`300 V` → `units: V`,
 `±1%` → `parse: percent`), never applied on their own: filing a key parameter
@@ -542,13 +547,13 @@ from a photographed receipt or a hand-written list.
 
 ```bash
 # check the file against the config - no API calls, nothing written
-uv run invimport import-stock .local_imports/drawer-a/drawer-a.json --validate
+uv run --project backend invimport import-stock .local_imports/drawer-a/drawer-a.json --validate
 
 # dry run: ask the server what would happen
-uv run invimport import-stock .local_imports/drawer-a/drawer-a.json
+uv run --project backend invimport import-stock .local_imports/drawer-a/drawer-a.json
 
 # create the records
-uv run invimport import-stock .local_imports/drawer-a/drawer-a.json --write
+uv run --project backend invimport import-stock .local_imports/drawer-a/drawer-a.json --write
 ```
 
 Each import lives in **its own folder** under `.local_imports/` (gitignored),
@@ -755,7 +760,7 @@ file that is not there is a validation warning. The report lists each logo as
 `would set` or `set`, `on the server - left alone`, `not on the server` (a
 company whose lines were skipped, so it was never created) or `failed`.
 
-Run `uv run invimport import-stock --schema` for the full field reference.
+Run `uv run --project backend invimport import-stock --schema` for the full field reference.
 
 #### Re-running is safe
 
@@ -1019,7 +1024,7 @@ distributor page - are made by a standalone script in the `source-snapshots`
 Claude skill, not by `invimport`:
 
 ```bash
-uv run python .claude/skills/source-snapshots/scripts/snapshot.py URL -o .local_imports/<import>/snapshots/l03-nsn.html
+uv run --project backend python .claude/skills/source-snapshots/scripts/snapshot.py URL -o .local_imports/<import>/snapshots/l03-nsn.html
 ```
 
 It writes one self-contained HTML file (styles, images and fonts inlined,
@@ -1034,13 +1039,13 @@ Attach a copy of each part's linked datasheet, for parts already on the server.
 
 ```bash
 # dry run: downloads (to the cache) and reports, uploads nothing
-uv run invimport datasheets
+uv run --project backend invimport datasheets
 
 # one category and everything under it
-uv run invimport datasheets --category "Integrated Circuits/Memory"
+uv run --project backend invimport datasheets --category "Integrated Circuits/Memory"
 
 # apply
-uv run invimport datasheets --write
+uv run --project backend invimport datasheets --write
 ```
 
 For each part without a `Datasheet` attachment, the links on its manufacturer
@@ -1076,14 +1081,14 @@ logos file.
 
 ```bash
 # who has none (and, for an agent, the same as JSON)
-uv run invimport company-logos
-uv run invimport company-logos --json missing.json
+uv run --project backend invimport company-logos
+uv run --project backend invimport company-logos --json missing.json
 
 # dry run: what the file would set
-uv run invimport company-logos .local_imports/company-logos-2026-10-17/company-logos.json
+uv run --project backend invimport company-logos .local_imports/company-logos-2026-10-17/company-logos.json
 
 # apply
-uv run invimport company-logos .local_imports/company-logos-2026-10-17/company-logos.json --write
+uv run --project backend invimport company-logos .local_imports/company-logos-2026-10-17/company-logos.json --write
 ```
 
 The logos file is a stock file's `companies` section on its own, JSON or
@@ -1219,76 +1224,40 @@ Order cache keys include the date window and `--shared` scope, so a different
 query can never be served a stale page from another one.
 
 To force a refetch, pass `--refresh` or delete the directory. The cache is
-relative to the working directory, so **run commands from the repo root** or
-you will scatter `.cache` directories.
+relative to the working directory. Omitted cache defaults from `backend/` share
+the repository root cache; explicit relative paths and other working directories
+keep their existing meaning. See [repository layout](docs/repository-layout.md).
 
 ## Project layout
 
-```
-config/
-    units.yaml                custom units, created before any template needs them
-    categories.yaml           part categories, their parameters and DigiKey aliases
-    parameters.yaml           parameter templates and how to read supplier values
-src/
-    invimport/
-        __main__.py           CLI entrypoint and subcommand registry
-        cache.py              on-disk response cache
-        config.py             YAML config loading and validation
-        env.py                .env loading
-        stockfile.py          read a stock import file (JSON/YAML/CSV)
-        validate.py           check one against the config, without the API
-        digikey/
-            api.py            auth, endpoints, HTTP retry, Client
-            products.py       Product Information API
-            orders.py         OrderStatus API
-        inventree/
-            api.py            connection and API 530 model overrides
-            parameters.py     parameter templates, from config/parameters.yaml
-            units.py          custom units, from config/units.yaml
-            values.py         parse DigiKey values, format them for InvenTree
-            matching.py       normalise, learned aliases, fuzzy candidates
-            categories.py     part categories, from config/categories.yaml
-            parts.py          find-or-create Part, ManufacturerPart, SupplierPart
-            purchase_orders.py  suppliers and DigiKey order import
-            discovery.py      unmapped supplier parameters, and filing them
-            stock.py          stock items, locations, barcode idempotence
-            stockimport.py    a stock file becoming InvenTree records
-            archive.py        an import's folder, zipped onto its orders
-            datasheets.py     datasheet PDFs attached to parts, and back-fill
-            companies.py      company logos: who has none, and setting them
-        commands/             thin CLI adapters over the above
-            _keys.py          raw-mode key reading for the category browser
-            _prompt.py        prompt façade (InquirerPy, or numbered fallback)
-            _fancy.py         InquirerPy menus, fuzzy search, Rich chrome
-tests/                        mirrors the package
-    conftest.py               shared fixtures
-    support.py                test doubles: fake DigiKey, stub InvenTree
-    test_cache.py
-    test_cli.py
-    test_env.py
-    test_library.py
-    digikey/
-        test_products.py
-        test_orders.py
-    inventree/
-        test_parameters.py
-.claude/
-    agents/                   subagents the stock-import skill dispatches
-        component-researcher.md   identifies parts, finds datasheets and sources
-        component-image-cropper.md  photos into part and stock images
-        company-logo-finder.md    manufacturer and supplier logos
-    skills/
-        inventree-stock-import/   a Claude skill that generates a stock file
-        company-logos/            finding a logo and giving it a background
-        chip-logo-identification/ naming a chip's maker from its logo (483 logos)
-docs/
-    InvenTree API.yaml        OpenAPI spec, used by the test suite
-.local_imports/               (gitignored) one folder per stock import
-.temp/                        (gitignored) scratch work that is not an import
+```text
+backend/
+    pyproject.toml, uv.lock    Python project and locked dependencies
+    .python-version           Python 3.12
+    src/invimport/            unchanged import package and CLI entrypoint
+    config/                   importer category, parameter and unit policies
+    tests/                    Python tests, SDK/fake HTTP fixtures and scanner tests
+    scripts/                  scanner, inventory maintenance and evaluation tools
+frontend/
+    package.json              React/TypeScript/Vite dependencies and scripts
+    src/                      local-only intake scaffold and component tests
+package.json                  root pnpm command/control point
+pnpm-workspace.yaml           frontend workspace membership
+pnpm-lock.yaml                single frontend dependency lockfile
+.node-version                 maintained Node LTS pin
+Makefile                      backend/frontend development and validation commands
+AGENTS.md, CONVENTIONS.md      shared project guidance
+ARCHITECTURE.md, docs/         architecture, operator docs and handovers
+.agents/, .claude/, .codex/    shared workflows and synchronized custom agents
+.local_imports/               existing gitignored import data, retained at root
+.env, .cache/                 existing root environment and cache, retained in place
 ```
 
+[Repository layout and runtime paths](docs/repository-layout.md) explains setup,
+root commands, backend-only commands, explicit paths and installed-wheel limits.
+
 This is the standard [src layout](https://packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/):
-the package is `invimport`, and `src/` is only a container. Keeping it out of
+the package is `invimport`, and `backend/src/` is only a container. Keeping it out of
 the repo root means the root is not on `sys.path`, so tests always exercise the
 installed package rather than accidentally importing loose source.
 
@@ -1298,12 +1267,12 @@ Adding a command means dropping a module in `commands/` exposing `NAME`,
 
 ## Starting over
 
-`scripts/wipe-inventory.py` deletes everything the importers load, and keeps
+`backend/scripts/wipe-inventory.py` deletes everything the importers load, and keeps
 everything that describes it.
 
 ```bash
-uv run scripts/wipe-inventory.py                # dry run: what would go
-uv run scripts/wipe-inventory.py --write        # do it, backing up first
+uv run --project backend backend/scripts/wipe-inventory.py                # dry run: what would go
+uv run --project backend backend/scripts/wipe-inventory.py --write        # do it, backing up first
 ```
 
 | Deleted                                     | Kept                          |
@@ -1344,13 +1313,13 @@ contains the project-specific workflow and required checks.
 make test                     # everything but the scanner TUI tests
 make test-scanner             # just the scanner TUI tests
 make test-all                 # everything, TUI included
-uv run pytest tests/digikey   # one package's suite
-uv run pytest -k cache        # by name
+uv run --project backend pytest backend/tests/digikey   # one package's suite
+uv run --project backend pytest -k cache        # by name
 ```
 
-`tests/` mirrors the package, so the tests for `invimport.digikey.orders` are in
-`tests/digikey/test_orders.py`. Fixtures are in `tests/conftest.py`, and the
-fakes they wrap are in `tests/support.py` — importable directly if you want a
+`backend/tests/` mirrors the package, so the tests for `invimport.digikey.orders` are in
+`backend/tests/digikey/test_orders.py`. Fixtures are in `backend/tests/conftest.py`, and the
+fakes they wrap are in `backend/tests/support.py` — importable directly if you want a
 `FakeDigiKey` or an `InvenTreeStub` outside of a fixture. Nothing test-related
 ships in the built wheel.
 
@@ -1378,7 +1347,7 @@ against a real `pty`, including that raw mode is always restored.
 * **`inventree` is pinned to `>=0.13.5,<0.14` deliberately.** InvenTree API 530
   moved parameters to `/api/parameter/` and replaced the `part` field with
   `model_type` + `model_id`, but the client library still ships the pre-530
-  routes. `src/invimport/inventree/api.py` overrides them. If a later release fixes
+  routes. `backend/src/invimport/inventree/api.py` overrides them. If a later release fixes
   this upstream, the override becomes the bug — hence the ceiling.
 * **`.env` interpolation is disabled.** python-dotenv expands `${VAR}` by
   default, and there is no way to escape it — every quoting style expands, and
@@ -1428,8 +1397,8 @@ with, endorsed by, or sponsored by** either.
 
 ### Durable stock imports (opt-in)
 
-Use `uv run invimport import-run prepare FILE --output PLAN.json`, review the
-resolved hierarchy, then `uv run invimport import-run execute PLAN.json --write`.
+Use `uv run --project backend invimport import-run prepare FILE --output PLAN.json`, review the
+resolved hierarchy, then `uv run --project backend invimport import-run execute PLAN.json --write`.
 Local `status`, explicit `resume`/`retry-operation`, JSON/events and blocking
 `abandon` are described in the [operator workflow](docs/import-run.md).
 `import-stock` remains the legacy default with its existing flags and `--plan`
@@ -1446,7 +1415,7 @@ recovery limits. Ordinary command defaults remain legacy; execution remains seri
 
 ### Try import execution with synthetic data
 
-Run `uv run invimport demo serve --workspace demo-partial --scenario partial`,
+Run `uv run --project backend invimport demo serve --workspace demo-partial --scenario partial`,
 then follow the [loopback demo guide](docs/import-demo.md) in a second terminal.
 It uses the real CLI/SDK and a persistent fake HTTP server to show plan hierarchy,
 request progress, partial evidence outcomes and targeted recovery without any

@@ -620,7 +620,7 @@ supported single-process concurrency model. Cross-host safety is not claimed.
 - For resume guarantees, restart a fresh executor/process against persistent fake
   server state; an in-memory retry in one context is insufficient evidence.
 - Run focused tests during development, `make test` for normal required coverage,
-  `uv run ruff check` on changed Python files, and `git diff --check` before each PR.
+  `uv run --project backend ruff check` on changed Python files, and `git diff --check` before each PR.
 - If skills/agents change, mirror shared copies and run workflow-sync tests.
   If scanner/TUI behavior changes, run `make test-scanner` (or `make test-all`).
 - Record skipped/unavailable integration checks honestly. Mocks do not establish

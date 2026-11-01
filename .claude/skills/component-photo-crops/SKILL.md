@@ -13,15 +13,15 @@ labels whole. For small axial parts, a square close-up may deliberately crop
 the lead ends.
 
 Two scripts do the mechanical work; your job is choosing what each crop should
-contain and checking that it does. Run them from the repo root with `uv run`
+contain and checking that it does. Run them from the repo root with `uv run --project backend`
 (Pillow and numpy come in with `--with`; nothing is installed):
 
 ```bash
 S=.claude/skills/component-photo-crops/scripts
-uv run --with pillow --with numpy python $S/crop.py SRC OUT X0 Y0 X1 Y1 [--margin F] [--exact] [--nosquare] \
+uv run --project backend --with pillow --with numpy python $S/crop.py SRC OUT X0 Y0 X1 Y1 [--margin F] [--exact] [--nosquare] \
     [--package-box X0 Y0 X1 Y1] [--package-fill F] \
     [--rotate 90|180|270] [--straighten D] [--wb] [--autocontrast [PCT]] [--gamma G] [--sharpen]
-uv run --with pillow python $S/montage.py OUT.png IMG [IMG ...]
+uv run --project backend --with pillow python $S/montage.py OUT.png IMG [IMG ...]
 ```
 
 `crop.py --help` documents the options. In short: X0 Y0 X1 Y1 is a region of
@@ -35,7 +35,7 @@ options turn the crop upright and correct its lighting — see
 [Correct poor lighting, lightly](#correct-poor-lighting-lightly).
 
 zsh does not word-split variables, so wrap the command in a function
-(`C() { uv run -q --with pillow --with numpy python $S/crop.py "$@"; }`)
+(`C() { uv run --project backend -q --with pillow --with numpy python $S/crop.py "$@"; }`)
 rather than putting it in a variable.
 
 ## What to crop, and whether to
@@ -119,7 +119,7 @@ defaults to `--package-fill 0.34`. The positional ROI is the larger safe area
 that excludes neighbours and tags, not the package bounds. For example:
 
 ```bash
-uv run --with pillow --with numpy python $S/crop.py photo.jpg diode.jpg \
+uv run --project backend --with pillow --with numpy python $S/crop.py photo.jpg diode.jpg \
     1000 1000 4000 4000 --package-box 2300 2400 2700 2600
 ```
 
@@ -235,7 +235,7 @@ Do not:
 Build a montage of all the crops and read it:
 
 ```bash
-uv run --with pillow python $S/montage.py .temp/<import id>/review.png OUT1.jpg OUT2.jpg ...
+uv run --project backend --with pillow python $S/montage.py .temp/<import id>/review.png OUT1.jpg OUT2.jpg ...
 ```
 
 Look for unintended clipping (package, pins, pouch edges, label text), a

@@ -1,0 +1,19 @@
+{
+  "name": "inventree-importer-workspace",
+  "private": true,
+  "packageManager": "pnpm@12.16.1",
+  "engines": { "node": ">=24.15.0 <25" },
+  "scripts": {
+    "dev": "pnpm --filter @invimport/frontend dev",
+    "build": "pnpm --filter @invimport/frontend build",
+    "typecheck": "pnpm --filter @invimport/frontend typecheck",
+    "lint": "pnpm run lint:frontend && pnpm run lint:backend",
+    "lint:frontend": "pnpm --filter @invimport/frontend lint",
+    "lint:backend": "make lint-backend",
+    "test": "pnpm run test:frontend && pnpm run test:backend",
+    "test:frontend": "pnpm --filter @invimport/frontend test",
+    "test:backend": "make test-backend",
+    "backend": "uv run --project backend invimport",
+    "demo": "uv run --project backend invimport demo"
+  }
+}

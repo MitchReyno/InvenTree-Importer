@@ -14,7 +14,7 @@ keeps its own logo), where to look and what to avoid, choosing the
 background a transparent logo is normally shown on, and the `logo.py` script
 that inspects, samples and flattens. Run everything from the repo root:
 `.` (`invimport` is not on PATH;
-use `uv run invimport`).
+use `uv run --project backend invimport`).
 
 ## Never invent
 
@@ -49,7 +49,7 @@ to add, keyed by the exact name the import's lines use as `manufacturer` or
 gives, or get it yourself:
 
 ```bash
-uv run invimport company-logos --json .temp/company-logos-<date>/missing.json
+uv run --project backend invimport company-logos --json .temp/company-logos-<date>/missing.json
 ```
 
 Write the PNGs to `.local_imports/company-logos-<date>/logos/`, and the
@@ -65,7 +65,7 @@ JSON on the company:
 keyed by the company's name **as the server has it**. Then dry-run it:
 
 ```bash
-uv run invimport company-logos .local_imports/company-logos-<date>/company-logos.json
+uv run --project backend invimport company-logos .local_imports/company-logos-<date>/company-logos.json
 ```
 
 Every company should come back `would set`. Fix anything `not on the

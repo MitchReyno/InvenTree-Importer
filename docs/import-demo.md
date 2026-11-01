@@ -6,10 +6,10 @@ credentials, Docker or real server. All components, companies, prices, evidence
 and credentials are synthetic. This demonstrates client behavior against this
 stub; it establishes no live server capability or exactly-once guarantee.
 
-From a checkout with `uv sync` already completed, start a server in one terminal:
+From a checkout with `uv sync --project backend` already completed, start a server in one terminal:
 
 ```sh
-uv run invimport demo serve --workspace demo-partial --scenario partial
+uv run --project backend invimport demo serve --workspace demo-partial --scenario partial
 ```
 
 `demo-partial` must be a **new directory** with an existing parent. Do not point it
@@ -33,8 +33,8 @@ network-failure simulation or hidden retry of a rejected write.
 In another terminal, from the same checkout:
 
 ```sh
-uv run invimport demo run demo-partial prepare
-uv run invimport demo run demo-partial execute
+uv run --project backend invimport demo run demo-partial prepare
+uv run --project backend invimport demo run demo-partial execute
 ```
 
 Preparation performs real read-only HTTP discovery/authentication/OPTIONS, displays
@@ -43,9 +43,9 @@ The second command previews it without connecting or writing. Authorize the froz
 demo import explicitly:
 
 ```sh
-uv run invimport demo run demo-partial execute --write
-uv run invimport demo run demo-partial status
-uv run invimport demo inspect demo-partial > demo-partial/output/fake-before.json
+uv run --project backend invimport demo run demo-partial execute --write
+uv run --project backend invimport demo run demo-partial status
+uv run --project backend invimport demo inspect demo-partial > demo-partial/output/fake-before.json
 ```
 
 Expect exit 1 from the partial execution/status: both lots are registered, while
@@ -59,7 +59,7 @@ while the real SQLite registry/journal remains authoritative.
 Find the failed original operation ID without hand-editing any plan or journal:
 
 ```sh
-uv run python -c 'import json; from pathlib import Path; result=json.loads(Path("demo-partial/output/execute-result.json").read_text()); print("\n".join(row["id"] for row in result["operations"] if row["state"] == "failed"))'
+uv run --project backend python -c 'import json; from pathlib import Path; result=json.loads(Path("demo-partial/output/execute-result.json").read_text()); print("\n".join(row["id"] for row in result["operations"] if row["state"] == "failed"))'
 ```
 
 Review `status` and `fake-before.json`, including the consumed `reject_before`
@@ -67,9 +67,9 @@ fault, known record PKs, two barcode owners and media SHA-256 receipts. There is
 one failed label evidence operation. Use its printed ID as `OPERATION_ID` below:
 
 ```sh
-uv run invimport demo run demo-partial retry-operation OPERATION_ID --write --continuity-reason 'Reviewed the unchanged synthetic demo database, original instance nonce and saved record PKs'
-uv run invimport demo run demo-partial status
-uv run invimport demo inspect demo-partial > demo-partial/output/fake-after.json
+uv run --project backend invimport demo run demo-partial retry-operation OPERATION_ID --write --continuity-reason 'Reviewed the unchanged synthetic demo database, original instance nonce and saved record PKs'
+uv run --project backend invimport demo run demo-partial status
+uv run --project backend invimport demo inspect demo-partial > demo-partial/output/fake-after.json
 ```
 
 Retry uses the original run/operation IDs, retained plan, attempts and confirmed
@@ -80,9 +80,9 @@ provenance/archive revisions; historical uploads remain. Part, stock, PO and PO-
 counts and PKs stay unchanged. Inspect those exact records with this comparison:
 
 ```sh
-uv run python -c 'import json; from pathlib import Path; before=json.loads(Path("demo-partial/output/fake-before.json").read_text()); after=json.loads(Path("demo-partial/output/fake-after.json").read_text()); routes=("part/","stock/","order/po/","order/po-line/"); assert all(before["records"][r] == after["records"][r] for r in routes); print({r: [x["pk"] for x in after["records"][r]] for r in routes})'
-uv run invimport demo run demo-partial resume --write --continuity-reason 'Reviewed the same completed synthetic database and retained records'
-uv run invimport demo inspect demo-partial
+uv run --project backend python -c 'import json; from pathlib import Path; before=json.loads(Path("demo-partial/output/fake-before.json").read_text()); after=json.loads(Path("demo-partial/output/fake-after.json").read_text()); routes=("part/","stock/","order/po/","order/po-line/"); assert all(before["records"][r] == after["records"][r] for r in routes); print({r: [x["pk"] for x in after["records"][r]] for r in routes})'
+uv run --project backend invimport demo run demo-partial resume --write --continuity-reason 'Reviewed the same completed synthetic database and retained records'
+uv run --project backend invimport demo inspect demo-partial
 ```
 
 Completed resume adds no remote records/transfers. A workspace permits one write
@@ -99,14 +99,14 @@ To demonstrate recovery across a server restart, stop it after the partial run,
 inspect status locally, and restart it before the retry:
 
 ```sh
-uv run invimport demo serve --workspace demo-partial --restart
+uv run --project backend invimport demo serve --workspace demo-partial --restart
 ```
 
 To slow an already running server, let the current import invocation finish,
 then press **Ctrl-C in its original server terminal**. In that same terminal run:
 
 ```sh
-uv run invimport demo serve --workspace demo-partial --restart --delay-ms 250
+uv run --project backend invimport demo serve --workspace demo-partial --restart --delay-ms 250
 ```
 
 This changes only runtime request pacing. It preserves the original port, nonce,
@@ -119,7 +119,7 @@ The identity probe adds no pacing delay.
 For a slower **full replay**, start a new workspace that does not already exist:
 
 ```sh
-uv run invimport demo serve --workspace demo-paced --scenario partial --delay-ms 250
+uv run --project backend invimport demo serve --workspace demo-paced --scenario partial --delay-ms 250
 ```
 
 Use `demo-paced` in the corresponding prepare/execute/status commands. Keep an

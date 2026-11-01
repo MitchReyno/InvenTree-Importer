@@ -27,7 +27,7 @@ photos. You return findings; the caller decides and writes.
    PATH):
 
    ```bash
-   uv run invimport import-stock --vocabulary
+   uv run --project backend invimport import-stock --vocabulary
    ```
 
    It lists the exact category paths, parameter names, units and choices this

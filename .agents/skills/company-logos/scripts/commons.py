@@ -1,7 +1,7 @@
 """Find and fetch logo files on Wikimedia Commons.
 
-    uv run --with pillow python commons.py search "Signetics logo" [--limit 10]
-    uv run --with pillow python commons.py get "File:Signetics logo.svg" OUT_DIR
+    uv run --project backend --with pillow python commons.py search "Signetics logo" [--limit 10]
+    uv run --project backend --with pillow python commons.py get "File:Signetics logo.svg" OUT_DIR
 
 search  lists matching files: title, size, type, date, author, and the first
         line of each description.
