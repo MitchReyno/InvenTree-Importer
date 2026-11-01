@@ -1,10 +1,11 @@
+import { MEDIA_SOURCE_MAX_BYTES } from '@invimport/contracts/media'
 import { constants } from 'node:fs'
 import { link, lstat, mkdir, open, realpath, unlink } from 'node:fs/promises'
 import { createHash, randomUUID } from 'node:crypto'
 import { join, resolve } from 'node:path'
 import type { PoolClient } from 'pg'
 
-export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+export const MAX_UPLOAD_BYTES = MEDIA_SOURCE_MAX_BYTES
 const MIN_GC_AGE_MS = 24 * 60 * 60 * 1000
 const DIGEST = /^[a-f0-9]{64}$/
 

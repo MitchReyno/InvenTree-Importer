@@ -1,3 +1,4 @@
+import { requireMediaRecipeBounds } from '@invimport/contracts/media'
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import { validate, type MediaEditDto } from '@invimport/contracts'
@@ -116,22 +117,28 @@ async function requestDerivation(
     source.digest !== recipe.source_digest ||
     !page ||
     page.width !== recipe.source_width ||
-    page.height !== recipe.source_height ||
-    recipe.x + recipe.width > page.width ||
-    recipe.y + recipe.height > page.height
+    page.height !== recipe.source_height
   ) {
+    fail('invalid_recipe_source', 409)
+  }
+  try {
+    requireMediaRecipeBounds(recipe)
+  } catch {
     fail('invalid_recipe_source', 409)
   }
   if (snapshot.derivations.length >= 200 || evidence!.versions.length >= 100) {
     fail('media_capacity', 409)
   }
-  const derivationId = randomUUID()
+  const derivationId = change.derivation_id ?? randomUUID()
   const bytes = Buffer.from(canonicalMedia(recipe))
-  await client.query(
+  const inserted = await client.query(
     `INSERT INTO media_derivation(id,batch_id,evidence_id,source_version_id,recipe_bytes,recipe_digest,actor_id)
-     VALUES($1,$2,$3,$4,$5,$6,$7)`,
+     VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(id) DO NOTHING RETURNING id`,
     [derivationId, batchId, change.evidence_id, source.id, bytes, sha256(bytes), binding.actorId],
   )
+  if (!inserted.rowCount) {
+    fail('media_resource_conflict', 409)
+  }
   await client.query(
     `INSERT INTO media_decode_command(id,batch_id,version_id,derivation_id,build)
      VALUES($1,$2,$3,$4,$5)`,

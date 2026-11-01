@@ -4,6 +4,7 @@ import { canonical } from '@invimport/contracts/json'
 import { transaction } from '../db/database.ts'
 import { idempotent, sha256 } from '../db/authority.ts'
 import { fail } from '../capture/repository.ts'
+import { selectAttachmentRecovery } from '../execution/attachment-recovery.ts'
 import { cancelRun, lockRun, selectRecovery } from '../execution/authority.ts'
 import { lockedCapture, type ManualConfig } from './authority.ts'
 import { manualRunSnapshot, runIdentity } from './runs.ts'
@@ -13,12 +14,13 @@ export async function runCommand(
   config: ManualConfig,
   runId: string,
   key: string,
-  input: { expected_run_revision: string; operation_keys?: string[] },
+  input: { expected_run_revision: string; operation_keys?: string[]; attachment_keys?: string[] },
   action: 'start' | 'cancel' | 'recover',
 ) {
   const payload = {
     ...input,
     ...(input.operation_keys ? { operation_keys: [...input.operation_keys].sort() } : {}),
+    ...(input.attachment_keys ? { attachment_keys: [...input.attachment_keys].sort() } : {}),
   }
   return transaction(pool, (client) =>
     idempotent(
@@ -69,8 +71,15 @@ export async function runCommand(
           return accepted
         }
         const selected = payload.operation_keys ?? []
+        const selectedAttachments = payload.attachment_keys ?? []
         if (
-          !selected.length ||
+          (!selected.length && !selectedAttachments.length) ||
+          (selected.length > 0 && selectedAttachments.length > 0) ||
+          selectedAttachments.some(
+            (artifactKey) =>
+              !current.attachments?.find((attachment) => attachment.artifact_key === artifactKey)
+                ?.recovery_action,
+          ) ||
           selected.some(
             (operationKey) =>
               !current.operations.find((value) => value.operation_key === operationKey)
@@ -82,6 +91,11 @@ export async function runCommand(
         const recoveryIds: string[] = []
         for (const operationKey of selected) {
           recoveryIds.push(await selectRecovery(client, runId, operationKey, config.actorId))
+        }
+        for (const artifactKey of selectedAttachments) {
+          recoveryIds.push(
+            await selectAttachmentRecovery(client, runId, artifactKey, config.actorId),
+          )
         }
         const dispatchId = randomUUID()
         const commandId = randomUUID()

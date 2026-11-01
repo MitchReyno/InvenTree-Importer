@@ -26,9 +26,13 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
   const [busy, setBusy] = useState(false)
   const [uploadDirty, setUploadDirty] = useState(false)
   const [, setCropDirty] = useState(false)
-  const [crop, setCrop] = useState<{ version: MediaVersionDto; page: number } | null>(null)
+  const [crop, setCrop] = useState<{
+    version: MediaVersionDto
+    page: number
+    revision: string
+  } | null>(null)
 
-  const dirtyFlags = useRef({ upload: false, crop: false })
+  const dirtyFlags = useRef({ upload: false, crop: false, command: false })
   const dirtyGroups = useRef(new Set<string>())
 
   const reportUploadDirty = useCallback(
@@ -36,7 +40,10 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
       dirtyFlags.current.upload = dirty
       setUploadDirty(dirty)
       onDirtyChange(
-        dirtyFlags.current.upload || dirtyFlags.current.crop || dirtyGroups.current.size > 0,
+        dirtyFlags.current.upload ||
+          dirtyFlags.current.crop ||
+          dirtyFlags.current.command ||
+          dirtyGroups.current.size > 0,
       )
     },
     [onDirtyChange],
@@ -47,7 +54,10 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
       dirtyFlags.current.crop = dirty
       setCropDirty(dirty)
       onDirtyChange(
-        dirtyFlags.current.upload || dirtyFlags.current.crop || dirtyGroups.current.size > 0,
+        dirtyFlags.current.upload ||
+          dirtyFlags.current.crop ||
+          dirtyFlags.current.command ||
+          dirtyGroups.current.size > 0,
       )
     },
     [onDirtyChange],
@@ -61,7 +71,10 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
         dirtyGroups.current.delete(evidenceId)
       }
       onDirtyChange(
-        dirtyFlags.current.upload || dirtyFlags.current.crop || dirtyGroups.current.size > 0,
+        dirtyFlags.current.upload ||
+          dirtyFlags.current.crop ||
+          dirtyFlags.current.command ||
+          dirtyGroups.current.size > 0,
       )
     },
     [onDirtyChange],
@@ -75,6 +88,7 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
 
   useEffect(() => {
     let active = true
+
     async function poll() {
       try {
         const current = await client.snapshot(batch.id)
@@ -89,6 +103,7 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
         }
       }
     }
+
     void poll()
     const interval = setInterval(() => void poll(), 3000)
     return () => {
@@ -97,31 +112,35 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
     }
   }, [batch.id, client])
 
-  async function edit(change: MediaEditDto['change']) {
-    if (!snapshot) {
-      throw new Error('media_not_loaded')
-    }
+  async function submitEdit(input: MediaEditDto, key: string) {
+    dirtyFlags.current.command = true
+    onDirtyChange(true)
     setBusy(true)
     setError('')
     try {
-      setSnapshot(
-        await client.edit(
-          batch.id,
-          {
-            expected_revision: snapshot.revision,
-            change,
-          },
-          crypto.randomUUID(),
-        ),
-      )
+      setSnapshot(await client.edit(batch.id, input, key))
     } catch (failure) {
       setError(
         'Media change was not confirmed. Refresh saved evidence before deciding whether to submit again.',
       )
       throw failure
     } finally {
+      dirtyFlags.current.command = false
+      onDirtyChange(
+        dirtyFlags.current.upload || dirtyFlags.current.crop || dirtyGroups.current.size > 0,
+      )
       setBusy(false)
     }
+  }
+
+  function edit(change: MediaEditDto['change'], intent?: { key: string; revision: string }) {
+    if (!snapshot) {
+      throw new Error('media_not_loaded')
+    }
+    return submitEdit(
+      { expected_revision: intent?.revision ?? snapshot.revision, change },
+      intent?.key ?? crypto.randomUUID(),
+    )
   }
 
   const subject = batch.lots.find((lot) => lot.id === selectedSubject)
@@ -203,7 +222,7 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
                 disabled={frozen || uploadDirty}
                 onCrop={(version, page) => {
                   reportCropDirty(true)
-                  setCrop({ version, page })
+                  setCrop({ version, page, revision: snapshot.revision })
                 }}
               />
               <MediaEvidenceRelations
@@ -221,18 +240,20 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
           )}
         </>
       )}
-      {crop && (
+      {crop && snapshot && (
         <MediaCropDialog
           key={`${crop.version.id}:${crop.page}`}
           batchId={batch.id}
           version={crop.version}
           pageNumber={crop.page}
+          revision={crop.revision}
+          snapshot={snapshot}
           onDirtyChange={reportCropDirty}
           close={() => {
             reportCropDirty(false)
             setCrop(null)
           }}
-          save={(recipe) => edit({ kind: 'derive', evidence_id: crop.version.evidence_id, recipe })}
+          save={submitEdit}
         />
       )}
     </section>

@@ -28,23 +28,32 @@ async function main() {
   if (process.env.INTAKE_MEDIA_DECODER_IMAGE) {
     environment.INTAKE_MEDIA_DECODER_IMAGE = process.env.INTAKE_MEDIA_DECODER_IMAGE
   }
+  const suite = process.argv[3] ?? 'retention'
+  const suites = {
+    retention: 'tests/pg/media.test.ts',
+    executor: 'tests/pg/media-executor.test.ts',
+    browser: 'tests/fixtures/media-browser.ts',
+  }
+  if (!Object.hasOwn(suites, suite)) {
+    throw new Error('unknown_media_pg_suite')
+  }
   const selectedPattern = process.argv[2]
   const testOptions = selectedPattern ? ['--test-name-pattern', selectedPattern] : []
-  const child = spawn(
-    process.execPath,
-    [
-      require.resolve('tsx/cli'),
-      '--test',
-      '--test-concurrency=1',
-      ...testOptions,
-      'tests/pg/media.test.ts',
-    ],
-    {
-      cwd: resolve(__dirname, '..'),
-      env: environment,
-      stdio: 'inherit',
-    },
-  )
+  const childArguments =
+    suite === 'browser'
+      ? [require.resolve('tsx/cli'), suites[suite]]
+      : [
+          require.resolve('tsx/cli'),
+          '--test',
+          '--test-concurrency=1',
+          ...testOptions,
+          suites[suite],
+        ]
+  const child = spawn(process.execPath, arguments, {
+    cwd: resolve(__dirname, '..'),
+    env: environment,
+    stdio: 'inherit',
+  })
   const code = await new Promise((resolveExit, reject) => {
     child.once('error', reject)
     child.once('close', resolveExit)

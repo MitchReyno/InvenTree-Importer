@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type {
   CaptureSnapshotDto,
@@ -14,7 +15,10 @@ interface Props {
   evidence: MediaEvidenceDto
   disabled: boolean
   onDirtyChange: (evidenceId: string, dirty: boolean) => void
-  edit: (change: MediaEditDto['change']) => Promise<void>
+  edit: (
+    change: MediaEditDto['change'],
+    intent?: { key: string; revision: string },
+  ) => Promise<void>
 }
 
 export function MediaEvidenceRelations({
@@ -25,7 +29,12 @@ export function MediaEvidenceRelations({
   edit,
   onDirtyChange,
 }: Props) {
-  const [groupLabel, setGroupLabel] = useState('')
+  const { register, watch, reset } = useForm<{ groupLabel: string }>({
+    defaultValues: { groupLabel: '' },
+  })
+  const groupLabel = watch('groupLabel')
+  const pending = useRef<{ label: string; key: string; revision: string } | null>(null)
+  const [unconfirmed, setUnconfirmed] = useState(false)
 
   useEffect(() => () => onDirtyChange(evidence.id, false), [evidence.id, onDirtyChange])
 
@@ -33,8 +42,16 @@ export function MediaEvidenceRelations({
     if (!groupLabel.trim()) {
       return
     }
-    await edit({ kind: 'group', label: groupLabel.trim() })
-    setGroupLabel('')
+    pending.current ??= {
+      label: groupLabel.trim(),
+      key: crypto.randomUUID(),
+      revision: snapshot.revision,
+    }
+    setUnconfirmed(true)
+    await edit({ kind: 'group', label: pending.current.label }, pending.current)
+    pending.current = null
+    setUnconfirmed(false)
+    reset({ groupLabel: '' })
     onDirtyChange(evidence.id, false)
   }
 
@@ -64,21 +81,32 @@ export function MediaEvidenceRelations({
       <label>
         New group label
         <input
-          value={groupLabel}
           maxLength={256}
-          disabled={disabled}
-          onChange={(event) => {
-            setGroupLabel(event.target.value)
-            onDirtyChange(evidence.id, Boolean(event.target.value))
-          }}
+          disabled={disabled || unconfirmed}
+          {...register('groupLabel', {
+            onChange: (event) => onDirtyChange(evidence.id, Boolean(event.target.value)),
+          })}
         />
       </label>
       <Button
         disabled={disabled || !groupLabel.trim()}
         onClick={() => void createGroup().catch(() => undefined)}
       >
-        Create group
+        {unconfirmed ? 'Retry exact group request' : 'Create group'}
       </Button>
+      {unconfirmed && (
+        <Button
+          disabled={disabled}
+          onClick={() => {
+            pending.current = null
+            setUnconfirmed(false)
+            reset({ groupLabel: '' })
+            onDirtyChange(evidence.id, false)
+          }}
+        >
+          Discard unconfirmed local group request
+        </Button>
+      )}
       <fieldset disabled={disabled}>
         <legend>This evidence supports</legend>
         {[...batch.parts, ...batch.lots].map((subject) => (

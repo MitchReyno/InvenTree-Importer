@@ -264,3 +264,100 @@ independent asymmetric vectors before implementation acceptance. Retain exact
 prepared bytes. A separate output panel must identify the current recipe and show
 its matching server-prepared result; a provisional canvas must not masquerade as
 retained output.
+
+## Rotated-region sampling decision before contract changes
+
+The new recipe uses normalized source **edge** coordinates in integer millionths
+of a pixel. Angles are clockwise millidegrees in `[0,359999]`. Width and height
+are positive; output dimensions are nearest integer (half upwards), minimum one.
+Every rotated selection corner must remain inside the normalized source edges.
+Aspect locking is an explicit width/height ratio hint and does not rotate the image.
+
+Sampling uses Sharp 0.35.5's maintained affine operation with libvips 8.18.7
+bicubic interpolation. Source and output pixel centers are integers; the edge
+coordinate center therefore subtracts one half. The inverse mapping from each
+output pixel is the selected center plus the clockwise-rotated displacement from
+the output center, scaled by physical selection width/output width and height/output
+height. Quarter-angle sine/cosine values are exact. Libvips's default affine canvas
+bounds use nearest-away-from-zero rounding, which is accounted for explicitly.
+The transformed intermediate is separately bounded to 48 million pixels before
+native allocation, as well as the existing per-output pixel and byte limits.
+
+Primary references: [Sharp affine](https://sharp.pixelplumbing.com/api-operation/#affine),
+[libvips affine implementation](https://github.com/libvips/libvips/blob/v8.18.7/libvips/resample/affine.c),
+[transform bounds](https://github.com/libvips/libvips/blob/v8.18.7/libvips/resample/transform.c),
+and [rounding definition](https://github.com/libvips/libvips/blob/v8.18.7/libvips/include/vips/util.h).
+A native scratch experiment on a 64×48 asymmetric gradient at 37 degrees, with a
+20×12 output, matched independently calculated inverse coordinates within one
+8-bit channel level across every pixel. This is algorithm evidence, not browser
+or container qualification; those checks remain required.
+
+## Shared merge and first attachment journey checkpoint
+
+Actual merged readability/OpenAPI trunk is integrated through `9e08fe8`. Shared
+upload limit is now `MEDIA_SOURCE_MAX_BYTES`; retained upload and decoder source
+limits consume it. Capture editor dirtiness and media pending state are separate:
+media input freezes Capture editing, Capture input freezes media edits, and both
+block navigation. Two interaction regressions passed, including failed file retry
+with exactly the same bytes, request key and original revision across rerender.
+
+The first two actual PG/HTTP/physical-child media journeys passed against the
+owned fake. Positive no-effect repair kept one original approval, one stock POST
+and two attachment attempts, with exact retained bytes and stock destination.
+A lost attachment ACK stayed unknown through wrong destination and changed bytes;
+explicit content verification completed without a second POST. Removing a confirmed
+attachment retained historical confirmation and only permitted read-only inspection.
+All isolated test databases/roles/private roots/listeners/children were cleaned.
+These focused cases do not qualify all interruption, resource or restore boundaries.
+
+## Current in-progress checkpoint after attachment and crop integration
+
+This remains unfinished T05 work, not a review-ready qualification claim.
+
+- Manual recovery now has separate strict stock `operation_keys` and attachment
+  `attachment_keys` request branches. Attachment results and prepared effects are
+  visible in their own components. Old stock-only output omits new media fields.
+- Apply validates all approved media bytes before stock dispatch. Attachment writes
+  and reads have separate committed intents, external witnesses and content/domain
+  verification. Physical apply still uses the original supervisor and run.
+- Moveable 0.56.0 controls only the crop overlay. RHF owns frame/aspect and group
+  forms. The crop dialog follows the original editor-left/result-right hierarchy.
+  A retained derivation ID plus exact recipe gates its output; no latest fallback.
+- Optional `derivation_id` is backward compatible. Collision returns typed 409;
+  uncertain UI retries retain original ID, key, recipe and expected revision.
+- New decoder input/output structural validation uses interpreted TypeBox. The
+  current decoder input change still needs a final rebuilt-image regression run.
+- Contracts: 21 passed. Frontend: 17 passed before the final fields-component
+  extraction; targeted types pass afterward. Maintained readability passed before
+  that extraction and must be repeated at submission.
+
+Tested rotated decoder image is
+`sha256:19e60044e7cd6ac3a2e66402b45d71657c0d6c6029bb7f45b3440cdf982a4419`.
+Its 336 KB explicit build context excluded credentials and personal state. All
+then-current eight decoder cases passed, including photographic raw transport,
+37-degree independent inverse pixel geometry and exact repeated bytes. A new
+literal quarter-angle rotated-region case is authored but not run yet.
+
+The owned attachment fake now flips a byte without changing length. The earlier
+passing changed-content case used shorter bytes and therefore proved size refusal;
+the strengthened hash-specific negative and a deliberate hash-check mutant remain
+pending. No real inventory target has been contacted.
+
+The real 4340 media browser fixture is authored, but has not started. It uses a
+new disposable DB/private blob root and explicit decoder loop, with no apply
+runner. It awaits the coordinator's App/Batch wiring after actual PR51 integration.
+The retained 4310 namespace is untouched.
+
+Execa 10.2.1 was assessed from its exact tagged MIT package and official
+[termination](https://github.com/sindresorhus/execa/blob/v10.2.1/docs/termination.md)
+and [output](https://github.com/sindresorhus/execa/blob/v10.2.1/docs/output.md)
+documentation. It requires Node >=22 and adds twelve direct runtime dependencies.
+It would remove only a small completion wrapper here: explicit named-container
+cleanup, binary ceilings, private environment and safe failure policy remain
+application responsibilities. The coordinator accepted retaining `node:child_process`.
+
+The coordinator has approved durable DB↔blob-root identity binding rather than
+relying on single-DB provisioning as an undocumented assumption. That migration,
+marker API and swapped-root startup qualification are the next bounded change;
+the coordinator owns production startup integration. No shared root was used or
+collected by any fixture.

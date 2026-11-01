@@ -2,15 +2,18 @@ import { Value } from '@sinclair/typebox/value'
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Digest, Id, Revision } from './scalars.ts'
 
+export const MEDIA_SOURCE_MAX_BYTES = 20 * 1024 * 1024
+
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
+
 const nullableId = Type.Union([Id, Type.Null()])
 const pixel = Type.Integer({ minimum: 0, maximum: 24000000 })
 const dimension = Type.Integer({ minimum: 1, maximum: 24000000 })
 const label = Type.String({ minLength: 1, maxLength: 256 })
 
 /** Coordinates address the orientation-normalized source, before output rotation. */
-export const MediaRecipe = object({
+export const LegacyMediaRecipe = object({
   version: Type.Literal('documentary-crop/1'),
   source_version_id: Id,
   source_digest: Digest,
@@ -23,6 +26,32 @@ export const MediaRecipe = object({
   height: dimension,
   quarter_turns: Type.Integer({ minimum: 0, maximum: 3 }),
 })
+const microPixel = Type.String({ pattern: '^(0|[1-9][0-9]{0,13})(?![\\s\\S])' })
+export const RotatedMediaRecipe = object({
+  version: Type.Literal('documentary-rotated-region/1'),
+  source_version_id: Id,
+  source_digest: Digest,
+  page: Type.Integer({ minimum: 1, maximum: 30 }),
+  source_width: dimension,
+  source_height: dimension,
+  center_x_micro: microPixel,
+  center_y_micro: microPixel,
+  width_micro: microPixel,
+  height_micro: microPixel,
+  rotation_millidegrees: Type.Integer({ minimum: 0, maximum: 359999 }),
+  output_width: dimension,
+  output_height: dimension,
+  aspect_ratio: Type.Union([
+    object({
+      width: Type.Integer({ minimum: 1, maximum: 10000 }),
+      height: Type.Integer({ minimum: 1, maximum: 10000 }),
+    }),
+    Type.Null(),
+  ]),
+})
+export const MediaRecipe = Type.Union([LegacyMediaRecipe, RotatedMediaRecipe])
+export type RotatedMediaRecipeDto = Static<typeof RotatedMediaRecipe>
+
 export const MediaDecodeState = Type.Union(
   ['queued', 'ready', 'unsupported', 'encrypted', 'malformed', 'limit_exceeded', 'interrupted'].map(
     (state) => Type.Literal(state),
@@ -99,7 +128,12 @@ export const MediaEdit = object({
     object({ kind: Type.Literal('group'), label }),
     object({ kind: Type.Literal('move'), evidence_id: Id, group_id: nullableId }),
     object({ kind: Type.Literal('link'), evidence_id: Id, subject_id: Id, linked: Type.Boolean() }),
-    object({ kind: Type.Literal('derive'), evidence_id: Id, recipe: MediaRecipe }),
+    object({
+      kind: Type.Literal('derive'),
+      evidence_id: Id,
+      derivation_id: Type.Optional(Id),
+      recipe: MediaRecipe,
+    }),
     object({
       kind: Type.Literal('select_attachment'),
       subject_id: Id,
@@ -221,5 +255,27 @@ export type AttachmentReceiptDto = Static<typeof AttachmentReceipt>
 export function assertAttachmentReceipt(value: unknown): asserts value is AttachmentReceiptDto {
   if (!Value.Check(AttachmentReceipt, value)) {
     throw new Error('invalid_attachment_receipt')
+  }
+}
+
+export {
+  MEDIA_MICRO_PIXELS,
+  regionTrigonometry,
+  rotatedMediaRegion,
+  requireMediaRecipeBounds,
+} from './media-geometry.ts'
+
+const MediaDecoderInputHeader = object({
+  version: Type.Literal('media-decode/1'),
+  digest: Digest,
+  recipe: Type.Union([MediaRecipe, Type.Null()]),
+})
+type MediaDecoderInputHeaderDto = Static<typeof MediaDecoderInputHeader>
+
+export function assertMediaDecoderInputHeader(
+  value: unknown,
+): asserts value is MediaDecoderInputHeaderDto {
+  if (!Value.Check(MediaDecoderInputHeader, value)) {
+    throw new Error('invalid_decoder_input')
   }
 }

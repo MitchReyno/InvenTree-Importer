@@ -53,6 +53,7 @@ export async function decodeIsolated(image: string, input: DecodeInput): Promise
   const chunks: Buffer[] = []
   let exceeded = false
   let cleanup: Promise<void> | null = null
+
   const discard = () => {
     child.kill('SIGKILL')
     // Killing the CLI does not prove its container died. Explicitly remove the named child.
@@ -75,6 +76,7 @@ export async function decodeIsolated(image: string, input: DecodeInput): Promise
       })
     })
   }
+
   const timer = setTimeout(discard, MEDIA_LIMITS.wallMilliseconds)
   child.stdout.on('data', (chunk: Buffer) => {
     length += chunk.length

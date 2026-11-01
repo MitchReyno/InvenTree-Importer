@@ -318,7 +318,40 @@ export async function manualRunSnapshot(
       recovery_allowed: state === 'settled_incomplete' && operation.certainty === 'none',
     }
   })
-  const certainties = new Set(operations.map((value) => value.certainty))
+  const attachments = journal.attachments.map((attachment) => {
+    const effect = preparation.preview.effects.find(
+      (value) => value.lot_id === attachment.stockOperationKey,
+    )
+    if (!effect) {
+      fail('retained_preparation_corrupt', 409)
+    }
+    const stock = journal.operations.find(
+      (value) => value.operationKey === attachment.stockOperationKey,
+    )
+    const inactive = dispatchState !== 'running' && dispatchState !== 'queued'
+    let recoveryAction: 'repair_attachment' | 'verify_attachment' | null = null
+    if (inactive && stock?.certainty === 'confirmed') {
+      if (attachment.certainty !== 'none') {
+        recoveryAction = 'verify_attachment'
+      } else if (journal.state !== 'recovery_required') {
+        recoveryAction = 'repair_attachment'
+      }
+    }
+    return {
+      artifact_key: attachment.artifactKey,
+      lot_id: effect.lot_id,
+      lot_label: effect.lot_label,
+      version_id: attachment.versionId,
+      blob_sha256: attachment.blobDigest,
+      byte_size: attachment.byteSize,
+      kind: attachment.kind,
+      certainty: attachment.certainty,
+      remote_pk: attachment.remotePk,
+      verification: attachment.verification,
+      recovery_action: recoveryAction,
+    }
+  })
+  const certainties = new Set([...operations, ...attachments].map((value) => value.certainty))
   const effectCertainty = certainties.size > 1 ? 'mixed' : (operations[0]?.certainty ?? 'none')
   const streamResult = await client.query<{ head: string }>(
     'SELECT head FROM ui_stream WHERE id=$1',
@@ -338,6 +371,7 @@ export async function manualRunSnapshot(
     cancellation_requested: journal.cancellationRequested,
     dispatch_state: dispatchState,
     operations,
+    ...(preparation.plan.version === 'bench-media-plan/1' ? { attachments } : {}),
     cursor: { stream_id: row.stream_id, sequence: streamResult.rows[0].head },
   }
   validate('ManualRun', result)

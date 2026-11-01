@@ -7,7 +7,7 @@ import type {
   ManualWorkspaceDto,
 } from '@invimport/contracts'
 import { IntakeRequestError } from '@invimport/contracts/client'
-import type { ManualClient, ManualStage } from '../../manual/types'
+import type { ManualClient, ManualStage, RunRecoverySelection } from '../../manual/types'
 import { CaptureHeader } from '../capture/CaptureHeader'
 import { Button, ErrorNotice, Notice, Paragraph, Small, Heading } from '../ui/primitives'
 import { ReviewWorkspace } from './ReviewWorkspace'
@@ -232,14 +232,16 @@ export function ManualWorkspace({
   function command(
     run: ManualRunDto,
     action: 'start' | 'cancel' | 'recover',
-    operationKeys?: string[],
+    selection?: RunRecoverySelection,
   ) {
     void perform('Retaining original-run command…', async () => {
       const input = { expected_run_revision: run.revision }
       if (action === 'recover') {
         await client.recover(
           run.run_id,
-          { ...input, operation_keys: operationKeys ?? [] },
+          selection?.kind === 'attachment'
+            ? { ...input, attachment_keys: selection.keys }
+            : { ...input, operation_keys: selection?.keys ?? [] },
           crypto.randomUUID(),
         )
       } else {

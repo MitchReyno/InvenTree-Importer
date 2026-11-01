@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto'
+import { assertMediaDecoderInputHeader } from '@invimport/contracts/media'
 import { strictJson } from '@invimport/contracts/json'
 import { decode } from './decode.ts'
-import { MEDIA_LIMITS, type DecodeInput } from './decoder-protocol.ts'
+import { MEDIA_LIMITS } from './decoder-protocol.ts'
 
 const MAX_HEADER_BYTES = 8192
 
@@ -22,22 +23,13 @@ if (headerEnd < 0 || headerEnd > MAX_HEADER_BYTES) {
   throw new Error('invalid_decoder_header')
 }
 const value = strictJson(protocol.subarray(0, headerEnd).toString('utf8'))
-if (!value || typeof value !== 'object' || Array.isArray(value)) {
-  throw new Error('invalid_decoder_input')
-}
-const header = value as Record<string, unknown>
-if (
-  Object.keys(header).sort().join(',') !== 'digest,recipe,version' ||
-  typeof header.digest !== 'string'
-) {
-  throw new Error('invalid_decoder_input')
-}
+assertMediaDecoderInputHeader(value)
 const result = await decode({
-  version: header.version,
-  digest: header.digest,
+  version: value.version,
+  digest: value.digest,
   bytes: protocol.subarray(headerEnd + 1),
-  recipe: header.recipe ?? undefined,
-} as DecodeInput)
+  recipe: value.recipe ?? undefined,
+})
 const resultHeader = JSON.stringify({
   state: result.state,
   toolchain: result.toolchain,

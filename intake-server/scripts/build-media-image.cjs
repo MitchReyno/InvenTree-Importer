@@ -16,20 +16,14 @@ const allowed = [
   'intake-server/package.json',
   'intake-server/src/media',
   'frontend/package.json',
+  'tooling/openapi-generator/package.json',
 ]
 
 async function build(context) {
   const imageFile = join(context, 'image-id')
   const child = spawn(
     'docker',
-    [
-      'build',
-      '--iidfile',
-      imageFile,
-      '--file',
-      join(context, 'Dockerfile'),
-      context,
-    ],
+    ['build', '--iidfile', imageFile, '--file', join(context, 'Dockerfile'), context],
     { stdio: 'inherit' },
   )
   const code = await new Promise((resolveExit, reject) => {

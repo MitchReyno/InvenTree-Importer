@@ -1,8 +1,12 @@
 import { createHash } from 'node:crypto'
-import { assertMediaRecipe, type MediaRecipeDto } from '@invimport/contracts/media'
+import {
+  assertMediaRecipe,
+  MEDIA_SOURCE_MAX_BYTES,
+  type MediaRecipeDto,
+} from '@invimport/contracts/media'
 
 export const MEDIA_LIMITS = Object.freeze({
-  sourceBytes: 20 * 1024 * 1024,
+  sourceBytes: MEDIA_SOURCE_MAX_BYTES,
   pages: 30,
   pixels: 24_000_000,
   totalPixels: 48_000_000,

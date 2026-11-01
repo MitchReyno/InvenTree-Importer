@@ -1,14 +1,30 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import type { MediaRecipeDto, MediaVersionDto } from '@invimport/contracts'
+import type {
+  MediaEditDto,
+  MediaSnapshotDto,
+  MediaVersionDto,
+  RotatedMediaRecipeDto,
+} from '@invimport/contracts'
 import { Button, Heading, Paragraph, Small } from '../ui/primitives'
 import { mediaResource } from '../../media/types'
+import {
+  cropRecipe,
+  sameRotatedRecipe,
+  type CropForm,
+  type CropIntent,
+} from '../../media/crop-model'
+import { MediaCropFields } from './MediaCropFields'
+import { RotatedCropSelection } from './RotatedCropSelection'
 
 interface Props {
   batchId: string
   version: MediaVersionDto
   pageNumber: number
-  save: (recipe: MediaRecipeDto) => Promise<void>
+  revision: string
+  snapshot: MediaSnapshotDto
+  save: (input: MediaEditDto, key: string) => Promise<void>
   close: () => void
   onDirtyChange: (dirty: boolean) => void
 }
@@ -17,17 +33,39 @@ export function MediaCropDialog({
   batchId,
   version,
   pageNumber,
+  revision,
+  snapshot,
   save,
   close,
   onDirtyChange,
 }: Props) {
   const page = version.pages.find((item) => item.page === pageNumber)!
   const dialog = useRef<HTMLDialogElement>(null)
-  const [crop, setCrop] = useState({ x: 0, y: 0, width: page.width, height: page.height })
-  const [turns, setTurns] = useState(0)
+  const intent = useRef<CropIntent | null>(null)
+  const [submitted, setSubmitted] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const drag = useRef<{ x: number; y: number } | null>(null)
+  const { control, watch, setValue, handleSubmit } = useForm<CropForm>({
+    defaultValues: {
+      frame: {
+        centerX: page.width / 2,
+        centerY: page.height / 2,
+        width: page.width * 0.6,
+        height: page.height * 0.6,
+        degrees: 0,
+      },
+      aspect: 'free',
+    },
+  })
+  const frame = watch('frame')
+  const aspect = watch('aspect')
+  const locked = intent.current !== null
+  let currentRecipe: RotatedMediaRecipeDto | null = null
+  try {
+    currentRecipe = cropRecipe(version, pageNumber, frame, aspect)
+  } catch {
+    // Invalid numeric input remains visible until the user corrects it.
+  }
 
   useEffect(() => {
     dialog.current?.showModal()
@@ -35,222 +73,199 @@ export function MediaCropDialog({
     return () => onDirtyChange(false)
   }, [onDirtyChange])
 
-  const valid =
-    Object.values(crop).every(Number.isInteger) &&
-    crop.x >= 0 &&
-    crop.y >= 0 &&
-    crop.width > 0 &&
-    crop.height > 0 &&
-    crop.x + crop.width <= page.width &&
-    crop.y + crop.height <= page.height
-
-  function sourcePoint(event: PointerEvent<HTMLDivElement>) {
-    const rectangle = event.currentTarget.getBoundingClientRect()
-    return {
-      x: Math.min(
-        page.width - 1,
-        Math.max(0, Math.floor(((event.clientX - rectangle.left) * page.width) / rectangle.width)),
-      ),
-      y: Math.min(
-        page.height - 1,
-        Math.max(0, Math.floor(((event.clientY - rectangle.top) * page.height) / rectangle.height)),
-      ),
-    }
-  }
-
-  function dragSelection(event: PointerEvent<HTMLDivElement>) {
-    const start = drag.current
-    if (!start || busy) {
+  async function prepare() {
+    if (!currentRecipe) {
       return
     }
-    const end = sourcePoint(event)
-    setCrop({
-      x: Math.min(start.x, end.x),
-      y: Math.min(start.y, end.y),
-      width: Math.abs(end.x - start.x) + 1,
-      height: Math.abs(end.y - start.y) + 1,
-    })
-  }
-
-  async function retainCrop() {
-    if (!valid) {
-      return
+    if (!intent.current) {
+      const derivationId = crypto.randomUUID()
+      intent.current = {
+        key: crypto.randomUUID(),
+        derivationId,
+        recipe: currentRecipe,
+        input: {
+          expected_revision: revision,
+          change: {
+            kind: 'derive',
+            evidence_id: version.evidence_id,
+            derivation_id: derivationId,
+            recipe: currentRecipe,
+          },
+        },
+      }
     }
     setBusy(true)
     setError('')
     try {
-      await save({
-        version: 'documentary-crop/1',
-        source_version_id: version.id,
-        source_digest: version.digest,
-        page: pageNumber,
-        source_width: page.width,
-        source_height: page.height,
-        ...crop,
-        quarter_turns: turns,
-      })
-      close()
+      await save(intent.current.input, intent.current.key)
+      setSubmitted(true)
     } catch {
       setError(
-        'Crop request was not confirmed. The coordinates are preserved; inspect saved evidence before submitting again.',
+        'Preparation was not confirmed. Retry preserves this exact recipe, request key and derivation ID; editing remains locked.',
       )
     } finally {
       setBusy(false)
     }
   }
 
+  const retained = snapshot.derivations.find((item) => item.id === intent.current?.derivationId)
+  const output = snapshot.evidence
+    .find((item) => item.id === version.evidence_id)
+    ?.versions.find((item) => item.id === retained?.version_id)
+  const retainedRecipeMatches =
+    retained?.recipe.version === 'documentary-rotated-region/1' &&
+    intent.current &&
+    sameRotatedRecipe(retained.recipe, intent.current.recipe)
+  const outputRecipeMatches =
+    output?.recipe?.version === 'documentary-rotated-region/1' &&
+    intent.current &&
+    sameRotatedRecipe(output.recipe, intent.current.recipe)
+  const outputPage =
+    retainedRecipeMatches && outputRecipeMatches && output.state === 'ready'
+      ? output.pages[0]
+      : null
+
   return (
     <Dialog ref={dialog} aria-labelledby="crop-title" onCancel={(event) => event.preventDefault()}>
       <Heading id="crop-title">Prepare documentary crop</Heading>
       <Paragraph>
-        Drag a rectangle or enter exact source pixels. The original stays unchanged.
+        Drag the crop box. Resize at a corner; drag just outside a corner to rotate the box. The
+        source image stays fixed.
       </Paragraph>
-      <Canvas
-        $ratio={page.width / page.height}
-        onPointerDown={(event) => {
-          if (busy) {
-            return
-          }
-          event.currentTarget.setPointerCapture(event.pointerId)
-          drag.current = sourcePoint(event)
-        }}
-        onPointerMove={dragSelection}
-        onPointerUp={(event) => {
-          dragSelection(event)
-          drag.current = null
-        }}
-        onPointerCancel={() => {
-          drag.current = null
-        }}
-      >
-        <img
-          src={mediaResource(batchId, 'previews', page.preview_id)}
-          alt="Orientation-normalized source for crop selection"
-          draggable={false}
-        />
-        {valid && (
-          <Selection
-            style={{
-              left: `${(crop.x / page.width) * 100}%`,
-              top: `${(crop.y / page.height) * 100}%`,
-              width: `${(crop.width / page.width) * 100}%`,
-              height: `${(crop.height / page.height) * 100}%`,
-            }}
+      <CropBody>
+        <SelectionEditor>
+          <Controller
+            name="frame"
+            control={control}
+            render={({ field }) => (
+              <RotatedCropSelection
+                source={mediaResource(batchId, 'previews', page.preview_id)}
+                sourceWidth={page.width}
+                sourceHeight={page.height}
+                frame={field.value}
+                aspectLocked={aspect !== 'free'}
+                disabled={locked || busy}
+                change={field.onChange}
+              />
+            )}
           />
-        )}
-      </Canvas>
-      <Fields>
-        {(['x', 'y', 'width', 'height'] as const).map((field) => (
-          <label key={field}>
-            {field}
-            <input
-              type="number"
-              step="1"
-              min={field === 'x' || field === 'y' ? 0 : 1}
-              value={crop[field]}
-              disabled={busy}
-              onChange={(event) => setCrop({ ...crop, [field]: Number(event.target.value) })}
+          <form onSubmit={handleSubmit(prepare)}>
+            <MediaCropFields
+              control={control}
+              setValue={setValue}
+              width={frame.width}
+              aspect={aspect}
+              disabled={locked || busy}
             />
-          </label>
-        ))}
-        <label>
-          Output rotation
-          <select
-            value={turns}
-            disabled={busy}
-            onChange={(event) => setTurns(Number(event.target.value))}
-          >
-            {[0, 1, 2, 3].map((value) => (
-              <option key={value} value={value}>
-                {value * 90}° clockwise
-              </option>
-            ))}
-          </select>
-        </label>
-      </Fields>
-      <Small>
-        Source {page.width} × {page.height}. Crop precedes output rotation. The prepared result
-        appears as a new retained version.
-      </Small>
-      {!valid && (
-        <Paragraph role="alert">
-          Keep a positive integer crop inside the source dimensions.
-        </Paragraph>
-      )}
-      {error && <Paragraph role="alert">{error}</Paragraph>}
-      <Actions>
-        <Button disabled={busy} onClick={close}>
-          Discard and close
-        </Button>
-        <Button disabled={busy || !valid} onClick={() => void retainCrop()}>
-          {busy ? 'Saving crop request…' : 'Prepare new version'}
-        </Button>
-      </Actions>
+            {!currentRecipe && (
+              <Paragraph role="alert">
+                Keep a positive crop with all four rotated corners inside the source image.
+              </Paragraph>
+            )}
+            {error && <Paragraph role="alert">{error}</Paragraph>}
+            <Actions>
+              <Button type="button" disabled={busy} onClick={close}>
+                {submitted ? 'Close prepared crop' : 'Discard and close'}
+              </Button>
+              {!submitted && (
+                <Button disabled={busy || !currentRecipe}>
+                  {busy
+                    ? 'Retaining crop request…'
+                    : locked
+                      ? 'Retry exact preparation request'
+                      : 'Prepare new version'}
+                </Button>
+              )}
+              {submitted && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    intent.current = null
+                    setSubmitted(false)
+                  }}
+                >
+                  Edit another crop
+                </Button>
+              )}
+            </Actions>
+          </form>
+        </SelectionEditor>
+        <Output aria-labelledby="crop-output-title">
+          <Heading id="crop-output-title">Prepared output</Heading>
+          {outputPage ? (
+            <img
+              src={mediaResource(batchId, 'previews', outputPage.preview_id)}
+              alt="Retained output for this exact rotated crop"
+            />
+          ) : (
+            <Paragraph>
+              {submitted
+                ? `Exact crop preparation: ${retained?.state ?? 'waiting for retained receipt'}.`
+                : 'Prepare this crop to see its retained server output.'}
+            </Paragraph>
+          )}
+          {retained && !retainedRecipeMatches && (
+            <Paragraph role="alert">
+              The retained recipe does not match this request. Output is blocked.
+            </Paragraph>
+          )}
+          <Small>
+            Source {page.width} × {page.height}. Prepared output uses the pinned server decoder; the
+            original stays unchanged.
+          </Small>
+        </Output>
+      </CropBody>
     </Dialog>
   )
 }
 
 const Dialog = styled.dialog`
-  width: min(1000px, calc(100vw - 32px));
+  width: min(1400px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   overflow: auto;
   border: 1px solid #bac7d8;
   border-radius: 8px;
   padding: 20px;
   background: #fff;
-  color: #202b3c;
-
   &::backdrop {
-    background: #152238a8;
+    background: rgb(20 35 55 / 40%);
   }
 `
-
-const Canvas = styled.div<{ $ratio: number }>`
-  position: relative;
-  width: min(100%, 760px);
-  aspect-ratio: ${(props) => props.$ratio};
-  margin: 16px auto;
-  touch-action: none;
-  user-select: none;
-  background: #eef2f7;
-
-  img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
+const CropBody = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 0.42fr);
+  gap: 20px;
+  align-items: start;
+  @media (max-width: 760px) {
+    grid-template-columns: minmax(0, 1fr);
   }
 `
-
-const Selection = styled.div`
-  position: absolute;
-  border: 2px solid #1769aa;
-  background: #2680c51f;
-  pointer-events: none;
-`
-
-const Fields = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-
-  label {
-    display: grid;
-    gap: 5px;
-    max-width: 160px;
-  }
-
-  input,
-  select {
-    width: 100%;
-    padding: 8px;
+const SelectionEditor = styled.div`
+  min-width: 0;
+  fieldset {
+    border: 0;
+    padding: 0;
+    margin: 0;
   }
 `
-
 const Actions = styled.div`
   display: flex;
+  gap: 10px;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 16px;
+  margin: 16px 0;
+`
+const Output = styled.section`
+  border-left: 1px solid #d5dce5;
+  padding-left: 20px;
+  @media (max-width: 760px) {
+    border-left: 0;
+    border-top: 1px solid #d5dce5;
+    padding: 16px 0 0;
+  }
+  img {
+    display: block;
+    max-width: 100%;
+    max-height: 360px;
+    margin-bottom: 12px;
+  }
 `

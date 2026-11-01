@@ -1,3 +1,5 @@
+import { decodeRotatedRegion, RotatedRegionLimitError } from './rotated-region.ts'
+import { requireMediaRecipeBounds } from '@invimport/contracts/media'
 import sharp from 'sharp'
 import { createCanvas } from '@napi-rs/canvas'
 import { createRequire } from 'node:module'
@@ -72,8 +74,9 @@ async function pdfPages(bytes: Buffer): Promise<DecodedPage[]> {
   })
   try {
     const document = await loading.promise
-    if (document.numPages < 1 || document.numPages > MEDIA_LIMITS.pages)
+    if (document.numPages < 1 || document.numPages > MEDIA_LIMITS.pages) {
       throw new LimitError('page_limit')
+    }
     const pages: DecodedPage[] = []
     let totalPixels = 0
     let totalBytes = 0
@@ -133,11 +136,14 @@ export async function decode(input: DecodeInput): Promise<DecodedMedia> {
       if (
         !source ||
         source.width !== recipe.source_width ||
-        source.height !== recipe.source_height ||
-        recipe.x + recipe.width > source.width ||
-        recipe.y + recipe.height > source.height
+        source.height !== recipe.source_height
       ) {
         throw new Error('invalid_recipe_coordinates')
+      }
+      requireMediaRecipeBounds(recipe)
+      if (recipe.version === 'documentary-rotated-region/1') {
+        pages = [await decodeRotatedRegion(source, recipe)]
+        return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, pages }
       }
       const { data, info } = await sharp(source.bytes, { limitInputPixels: MEDIA_LIMITS.pixels })
         .extract({ left: recipe.x, top: recipe.y, width: recipe.width, height: recipe.height })
@@ -151,7 +157,7 @@ export async function decode(input: DecodeInput): Promise<DecodedMedia> {
     }
     return { state: 'ready', toolchain: MEDIA_TOOLCHAIN, pages }
   } catch (error) {
-    if (error instanceof LimitError) {
+    if (error instanceof LimitError || error instanceof RotatedRegionLimitError) {
       return { state: 'limit_exceeded', toolchain: MEDIA_TOOLCHAIN, pages: [] }
     }
     if (error instanceof UnsupportedMediaError) {

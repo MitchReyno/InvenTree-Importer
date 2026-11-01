@@ -76,10 +76,10 @@ export const ManualPreparationResult = Type.Union([
 export const ManualReviewResult = object({ reviewed_subject_ids: Type.Array(Id), cursor })
 export const ManualAccepted = object({ run_id: Id, approval_id: Id, preparation_id: Id })
 export const ManualRunCommand = object({ expected_run_revision: Revision })
-export const ManualRecoveryCommand = object({
-  expected_run_revision: Revision,
-  operation_keys: selected,
-})
+export const ManualRecoveryCommand = Type.Union([
+  object({ expected_run_revision: Revision, operation_keys: selected }),
+  object({ expected_run_revision: Revision, attachment_keys: selected }),
+])
 export const ManualRun = object({
   run_id: Id,
   approval_id: Id,

@@ -3,6 +3,7 @@ import { lstat, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { strictJson } from '@invimport/contracts/json'
 import { database } from '../db/database.ts'
+import { MEDIA_EXECUTOR_BUILD, MEDIA_CAPABILITY } from '../execution/media-plan.ts'
 import { EXECUTOR_BUILD, id } from '../execution/plan.ts'
 import { requireHandlerVersion } from '../workers/delivery.ts'
 import { dispatchManualCommands, executeManualDispatch, type ManualRunnerConfig } from './runner.ts'
@@ -26,7 +27,11 @@ async function readConfig(): Promise<ManualRunnerConfig> {
   ) {
     throw new Error('private_manual_runner_configuration_required')
   }
-  const value = strictJson(await readFile(file, 'utf8')) as ManualRunnerConfig
+  const parsed = strictJson(await readFile(file, 'utf8'))
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('invalid_manual_runner_configuration')
+  }
+  const value = parsed as Record<string, unknown>
   const keys = [
     'runnerDatabaseUrl',
     'schedulerDatabaseUrl',
@@ -35,10 +40,14 @@ async function readConfig(): Promise<ManualRunnerConfig> {
     'deploymentId',
     'profile',
   ]
-  if (!value || Object.keys(value).sort().join(',') !== keys.sort().join(',')) {
+  const actualKeys = Object.keys(value).filter((key) => key !== 'mediaBlobRoot')
+  if (actualKeys.sort().join(',') !== keys.sort().join(',')) {
     throw new Error('invalid_manual_runner_configuration')
   }
   for (const name of ['runnerDatabaseUrl', 'schedulerDatabaseUrl', 'applyDatabaseUrl'] as const) {
+    if (typeof value[name] !== 'string') {
+      throw new Error('invalid_manual_runner_configuration')
+    }
     const url = new URL(value[name])
     if (
       !['postgres:', 'postgresql:'].includes(url.protocol) ||
@@ -48,29 +57,75 @@ async function readConfig(): Promise<ManualRunnerConfig> {
     }
   }
   id(value.deploymentId)
-  id(value.profile.targetId)
-  id(value.profile.contextId)
-  const origin = new URL(value.profile.origin)
+  const rawProfile = value.profile
+  if (!rawProfile || typeof rawProfile !== 'object' || Array.isArray(rawProfile)) {
+    throw new Error('owned_fake_manual_runner_required')
+  }
+  const profile = rawProfile as Record<string, unknown>
+  id(profile.targetId)
+  id(profile.contextId)
+  const protectedOrigins = profile.protectedOrigins
   if (
-    value.profile.kind !== 'owned-disposable' ||
-    origin.origin !== value.profile.origin ||
-    origin.protocol !== 'http:' ||
-    !['127.0.0.1', '[::1]'].includes(origin.hostname) ||
-    !value.profile.credential?.trim() ||
-    !value.profile.protectedOrigins?.length
+    typeof profile.origin !== 'string' ||
+    typeof profile.credential !== 'string' ||
+    !profile.credential.trim() ||
+    !Array.isArray(protectedOrigins) ||
+    !protectedOrigins.length ||
+    !protectedOrigins.every((entry): entry is string => typeof entry === 'string')
   ) {
     throw new Error('owned_fake_manual_runner_required')
   }
-  return value
+  const origin = new URL(profile.origin)
+  if (
+    profile.kind !== 'owned-disposable' ||
+    origin.origin !== profile.origin ||
+    origin.protocol !== 'http:' ||
+    !['127.0.0.1', '[::1]'].includes(origin.hostname)
+  ) {
+    throw new Error('owned_fake_manual_runner_required')
+  }
+  const media = profile.attachmentCapability === MEDIA_CAPABILITY
+  if (profile.attachmentCapability !== undefined && !media) {
+    throw new Error('unsupported_attachment_capability')
+  }
+  if (media && (typeof value.mediaBlobRoot !== 'string' || !value.mediaBlobRoot.trim())) {
+    throw new Error('media_storage_configuration_required')
+  }
+  if (!media && value.mediaBlobRoot !== undefined) {
+    throw new Error('media_capability_required')
+  }
+  if (typeof value.gateRoot !== 'string' || !value.gateRoot.trim()) {
+    throw new Error('private_gate_configuration_required')
+  }
+  // Each field is validated before crossing into the separately credentialed apply process.
+  return {
+    runnerDatabaseUrl: String(value.runnerDatabaseUrl),
+    schedulerDatabaseUrl: String(value.schedulerDatabaseUrl),
+    applyDatabaseUrl: String(value.applyDatabaseUrl),
+    deploymentId: String(value.deploymentId),
+    gateRoot: value.gateRoot,
+    ...(media ? { mediaBlobRoot: String(value.mediaBlobRoot) } : {}),
+    profile: {
+      kind: 'owned-disposable',
+      targetId: String(profile.targetId),
+      contextId: String(profile.contextId),
+      origin: profile.origin,
+      credential: profile.credential,
+      protectedOrigins,
+      ...(media ? { attachmentCapability: MEDIA_CAPABILITY } : {}),
+    },
+  }
 }
 
 async function main() {
   const config = await readConfig()
   const db = database(config.runnerDatabaseUrl)
+  const build =
+    config.profile.attachmentCapability === MEDIA_CAPABILITY ? MEDIA_EXECUTOR_BUILD : EXECUTOR_BUILD
   DBOS.setConfig({
     name: 'bench-intake-apply',
     systemDatabaseUrl: config.schedulerDatabaseUrl,
-    applicationVersion: EXECUTOR_BUILD,
+    applicationVersion: build,
     executorID: `manual-${config.deploymentId}`,
     runAdminServer: false,
     systemDatabasePoolSize: 3,
@@ -78,7 +133,7 @@ async function main() {
   })
   DBOS.registerWorkflow(
     async (payload: unknown) => {
-      requireHandlerVersion(DBOS.applicationVersion, EXECUTOR_BUILD)
+      requireHandlerVersion(DBOS.applicationVersion, build)
       const workflowId = DBOS.workflowID
       if (!workflowId) {
         throw new Error('manual_workflow_context_required')

@@ -1,3 +1,6 @@
+import type { BlobStore } from '../media/blob-store.ts'
+import { applyAttachments } from './attachment-apply.ts'
+import type { AttachmentRecovery } from './attachment-recovery.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
 import { canonical } from '@invimport/contracts/json'
@@ -17,6 +20,7 @@ export interface ApplyDependencies {
   claimToken: string
   profile: TargetProfile
   stopped: () => boolean
+  mediaStore?: BlobStore
   checkpoint?: (phase: Checkpoint, kind: string, intentId?: string) => Promise<void>
 }
 
@@ -42,6 +46,18 @@ export async function executeRun(
     profile.kind !== 'owned-disposable'
   ) {
     throw new Error('apply_profile_mismatch')
+  }
+  if (authority.plan.version === 'bench-media-plan/1') {
+    if (profile.attachmentCapability !== authority.plan.capability || !deps.mediaStore) {
+      throw new Error('media_apply_capability_unavailable')
+    }
+    // All supporting bytes must be present and verified before even the first stock POST.
+    for (const evidence of authority.plan.evidence) {
+      const bytes = await deps.mediaStore.read(evidence.blobDigest)
+      if (String(bytes.length) !== evidence.byteSize) {
+        throw new Error('approved_media_size_changed')
+      }
+    }
   }
   const transport = inventoryTransport(profile)
 
@@ -232,7 +248,20 @@ export async function executeRun(
   const selected = (
     await pool.query('SELECT * FROM executor_recovery WHERE id=ANY($1::uuid[])', [recoveryIds])
   ).rows
-  if (selected.length !== recoveryIds.length || selected.some((row) => row.run_id !== runId)) {
+  const attachmentRecoveries =
+    authority.plan.version === 'bench-media-plan/1'
+      ? (
+          await pool.query<AttachmentRecovery>(
+            'SELECT * FROM executor_attachment_recovery WHERE id=ANY($1::uuid[])',
+            [recoveryIds],
+          )
+        ).rows
+      : []
+  const allSelected = [...selected, ...attachmentRecoveries]
+  if (
+    allSelected.length !== recoveryIds.length ||
+    allSelected.some((row) => row.run_id !== runId)
+  ) {
     throw new Error('recovery_scope_mismatch')
   }
   for (const operation of authority.plan.operations) {
@@ -287,6 +316,16 @@ export async function executeRun(
     if ((await snapshot(pool, runId)).operations.some((row) => row.certainty === 'unknown')) {
       break
     }
+  }
+  if (authority.plan.version === 'bench-media-plan/1') {
+    await applyAttachments(
+      deps,
+      runId,
+      transport,
+      attachmentRecoveries,
+      recoveryIds.length > 0,
+      health,
+    )
   }
   return settle(pool, authority)
 }

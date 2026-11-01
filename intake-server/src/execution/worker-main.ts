@@ -1,3 +1,4 @@
+import { BlobStore } from '../media/blob-store.ts'
 import { database } from '../db/database.ts'
 import { loadRun } from './authority.ts'
 import { executeRun } from './apply.ts'
@@ -31,6 +32,9 @@ process.on('message', async (input: WorkerInput | { kind: string }) => {
     const result = await executeRun(
       {
         pool: db.pool,
+        mediaStore: input.mediaBlobRoot
+          ? await BlobStore.initialize(input.mediaBlobRoot)
+          : undefined,
         writer,
         gate: new ExternalGate(input.gateRoot),
         claimToken: input.claimToken,

@@ -189,3 +189,98 @@ mediaTest(
     assert.ok(result.pages[0].bytes.length > 262144)
   },
 )
+
+mediaTest(
+  'rotated selection samples an oblique non-square region without rotating the source image',
+  async () => {
+    const width = 64
+    const height = 48
+    const pixels = Buffer.alloc(width * height * 3)
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        pixels.set([3 * x, 4 * y, x + y], (y * width + x) * 3)
+      }
+    }
+    const bytes = await sharp(pixels, { raw: { width, height, channels: 3 } })
+      .png()
+      .toBuffer()
+    const request: DecodeInput = {
+      ...input(bytes),
+      recipe: {
+        version: 'documentary-rotated-region/1',
+        source_version_id: '10000000-0000-4000-8000-000000000001',
+        source_digest: input(bytes).digest,
+        page: 1,
+        source_width: width,
+        source_height: height,
+        center_x_micro: '32000000',
+        center_y_micro: '24000000',
+        width_micro: '20000000',
+        height_micro: '12000000',
+        rotation_millidegrees: 37000,
+        output_width: 20,
+        output_height: 12,
+        aspect_ratio: { width: 5, height: 3 },
+      },
+    }
+    const result = await decodeIsolated(decoderImage(), request)
+    assert.equal(result.state, 'ready')
+    assert.equal(result.pages.length, 1)
+    assert.deepEqual([result.pages[0].width, result.pages[0].height], [20, 12])
+    const output = await sharp(result.pages[0].bytes).removeAlpha().raw().toBuffer()
+    // Independent inverse geometry: source centers are half a pixel inside source edges.
+    const radians = (37 * Math.PI) / 180
+    for (let y = 0; y < 12; y++) {
+      for (let x = 0; x < 20; x++) {
+        const sourceX = 31.5 + Math.cos(radians) * (x - 9.5) - Math.sin(radians) * (y - 5.5)
+        const sourceY = 23.5 + Math.sin(radians) * (x - 9.5) + Math.cos(radians) * (y - 5.5)
+        const expected = [3 * sourceX, 4 * sourceY, sourceX + sourceY]
+        for (let channel = 0; channel < 3; channel++) {
+          assert.ok(
+            Math.abs(output[(y * 20 + x) * 3 + channel] - Math.round(expected[channel])) <= 1,
+            `source mapping at ${x},${y},${channel}`,
+          )
+        }
+      }
+    }
+    const repeat = await decodeIsolated(decoderImage(), request)
+    assert.deepEqual(repeat.pages[0].bytes, result.pages[0].bytes)
+  },
+)
+
+mediaTest(
+  'rotated-region quarter angle extracts the upright selection with literal asymmetric pixel order',
+  async () => {
+    const pixels = Buffer.from([
+      255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 255, 255, 255, 0, 255, 255, 255, 0,
+    ])
+    const bytes = await sharp(pixels, { raw: { width: 3, height: 2, channels: 3 } })
+      .png()
+      .toBuffer()
+    const result = await decodeIsolated(decoderImage(), {
+      ...input(bytes),
+      recipe: {
+        version: 'documentary-rotated-region/1',
+        source_version_id: '10000000-0000-4000-8000-000000000001',
+        source_digest: input(bytes).digest,
+        page: 1,
+        source_width: 3,
+        source_height: 2,
+        center_x_micro: '1500000',
+        center_y_micro: '1000000',
+        width_micro: '2000000',
+        height_micro: '3000000',
+        rotation_millidegrees: 90000,
+        output_width: 2,
+        output_height: 3,
+        aspect_ratio: null,
+      },
+    })
+    assert.equal(result.state, 'ready')
+    const output = await sharp(result.pages[0].bytes).removeAlpha().raw().toBuffer()
+    assert.deepEqual(
+      output,
+      Buffer.from([0, 0, 255, 255, 255, 0, 0, 255, 0, 255, 0, 255, 255, 0, 0, 0, 255, 255]),
+    )
+  },
+)

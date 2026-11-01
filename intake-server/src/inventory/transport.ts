@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+import { MEDIA_SOURCE_MAX_BYTES } from '@invimport/contracts/media'
 import { Digest, Id, PositivePk } from '@invimport/contracts'
 import { request as httpRequest } from 'node:http'
 import { request as httpsRequest } from 'node:https'
@@ -225,9 +227,10 @@ function checkedAttachmentWire(metadata: AttachmentWire, bytes: Buffer) {
     BigInt(metadata.stockPk) <= 9223372036854775807n
   const validBytes =
     bytes.length > 0 &&
-    bytes.length <= 20 * 1024 * 1024 &&
+    bytes.length <= MEDIA_SOURCE_MAX_BYTES &&
     metadata.byteSize === String(bytes.length) &&
-    new RegExp(Digest.pattern!).test(metadata.digest)
+    new RegExp(Digest.pattern!).test(metadata.digest) &&
+    createHash('sha256').update(bytes).digest('hex') === metadata.digest
   if (
     !validIdentity ||
     !validBytes ||
