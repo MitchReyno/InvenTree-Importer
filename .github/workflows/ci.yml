@@ -22,6 +22,7 @@ jobs:
       frontend: ${{ steps.paths.outputs.frontend }}
       markdown: ${{ steps.paths.outputs.markdown }}
       workflow-sync: ${{ steps.paths.outputs.workflow_sync }}
+      intake: ${{ steps.paths.outputs.intake }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,6 +42,7 @@ jobs:
       backend: ${{ needs.changes.outputs.backend == 'true' }}
       frontend: ${{ needs.changes.outputs.frontend == 'true' }}
       workflow-sync: ${{ needs.changes.outputs.workflow-sync == 'true' }}
+      intake: ${{ needs.changes.outputs.intake == 'true' }}
 
   lint:
     name: Lint

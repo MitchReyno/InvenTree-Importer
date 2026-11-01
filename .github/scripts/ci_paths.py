@@ -7,7 +7,7 @@ import re
 import subprocess
 
 
-CHECKS = ("backend", "backend_lint", "frontend", "markdown", "workflow_sync")
+CHECKS = ("backend", "backend_lint", "frontend", "markdown", "workflow_sync", "intake")
 MARKDOWN_SUFFIXES = {".md", ".markdown", ".mdown", ".mkdn", ".mkd", ".mkdown"}
 WORKSPACE_INPUTS = {"package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", ".node-version"}
 SHARED_WORKFLOWS = (".agents/skills/", ".claude/skills/", ".claude/agents/", ".codex/agents/")
@@ -31,6 +31,9 @@ def select_checks(paths: list[str] | None) -> dict[str, bool]:
             selected["backend"] = True
         if (not markdown and path.startswith("frontend/")) or path in WORKSPACE_INPUTS:
             selected["frontend"] = True
+        # Server consumes contracts; neither package is currently a frontend/backend dependency.
+        if (not markdown and path.startswith(("intake-server/", "contracts/"))) or path in WORKSPACE_INPUTS:
+            selected["intake"] = True
         if path.startswith(SHARED_WORKFLOWS):
             selected["workflow_sync"] = True
             if suffix == ".py":

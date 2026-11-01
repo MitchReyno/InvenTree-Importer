@@ -1,9 +1,12 @@
-const { test } = require('node:test')
-const assert = require('node:assert/strict')
-const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, copyFileSync, chmodSync, rmSync } = require('node:fs')
-const { tmpdir } = require('node:os')
-const { resolve } = require('node:path')
-const { spawnSync } = require('node:child_process')
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, copyFileSync, chmodSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { resolve } from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+
+const directoryOfTest = fileURLToPath(new URL('.', import.meta.url))
 
 test('owned service CLI refuses changed allocation and unsafe state before any Docker mutation or SQL', () => {
   const root = mkdtempSync(resolve(tmpdir(), 'intake-tooling-'))
@@ -12,11 +15,11 @@ test('owned service CLI refuses changed allocation and unsafe state before any D
     mkdirSync(directory, { mode: 0o700 })
     const stateFile = resolve(directory, 'postgres.json')
     const state = { admin: 'a'.repeat(48), migrator: 'b'.repeat(48), app: 'c'.repeat(48) }
-    const fakeDocker = resolve(root, 'docker.cjs'), calls = resolve(root, 'calls.jsonl')
-    copyFileSync(resolve(__dirname, 'fixtures/docker.cjs'), fakeDocker)
+    const fakeDocker = resolve(root, 'docker.ts'), calls = resolve(root, 'calls.jsonl')
+    copyFileSync(resolve(directoryOfTest, 'fixtures/docker.ts'), fakeDocker)
     chmodSync(fakeDocker, 0o700)
     writeFileSync(stateFile, JSON.stringify(state), { mode: 0o600 })
-    const invoke = () => spawnSync(process.execPath, [resolve(__dirname, '../scripts/dev-services.cjs'), 'start'], {
+    const invoke = () => spawnSync(process.execPath, [resolve(directoryOfTest, '../scripts/dev-services.cjs'), 'start'], {
       encoding: 'utf8', env: { PATH: process.env.PATH, DOCKER_BIN: fakeDocker, INTAKE_DEV_STATE: directory, INTAKE_FIXTURE_CALLS: calls }, timeout: 10000,
     })
     const allocation = invoke()
