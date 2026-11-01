@@ -16,10 +16,10 @@ The form adoption is isolated on a focused branch from merged T04 before review.
 
 Official React Hook Form documentation describes native registration, Controller for composite controlled inputs, and explicit reset/default behaviour. Registry metadata at adoption reports version 7.91.0, MIT, Node >=18, React peer compatibility through React 19, and no runtime dependencies. Pin that exact stable version with the workspace's Node 24.22.2/pnpm 12.16.1. This is a metadata compatibility result; installed type, lint, test and browser checks still need qualification.
 
-- https://react-hook-form.com/get-started
-- https://react-hook-form.com/docs/usecontroller/controller
-- https://react-hook-form.com/docs/useform/reset
-- https://registry.npmjs.org/react-hook-form/7.91.0
+- <https://react-hook-form.com/get-started>
+- <https://react-hook-form.com/docs/usecontroller/controller>
+- <https://react-hook-form.com/docs/useform/reset>
+- <https://registry.npmjs.org/react-hook-form/7.91.0>
 
 ## Verification plan
 
