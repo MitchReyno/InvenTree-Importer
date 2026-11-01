@@ -92,3 +92,13 @@ A fuller elevated service refresh corrected an earlier overstatement: the retain
 PR #48 merged at e592a80a3882f1bc737f09601cdac162bd52772a after exact-head independent code/UI clearance of3d29baf and7selectedCIpasses/2unrelatedskips. T05 checkpointed only root provisional form/guideline/dependency files, then normally merged actual trunk as12fef74. Root-owned conflicting form sources were resolved byte-identically to the cleared trunk; media dependencies and all unrelated owner work were preserved. T06 root checkpoint a287f50 and actual merge cf5c143 preserve its processing checkpoint and shared integration.
 
 The readability review identified one minor coverage edge: the overload spacing exception also allows adjacent ambient declare-function and ordinary function declarations. The manual blank-line guideline still applies. Root/readability owner owns the explicit next readability-maintenance follow-up to narrow that exception and add its adverse fixture; it is not a runtime correctness finding and does not hold the current PR for cosmetic iteration.
+
+### Query-state review follow-up
+
+PR #51 merged as `0a9ab840e6acaf738d1da6bd8bd9c68ae3095133`. Independent review cleared the exact head `504b227680688c58eeecd60f31396bdc45b7f62e`; seven selected hosted checks passed and two backend checks skipped. Independent checks covered 25 frontend tests, StrictMode, and warm Capture cache with a failed mounted read and explicit reload. No material finding remained.
+
+The coordinator and fresh T08 owner own a wording follow-up: separate header status from command disabling. `ManualWorkspace` passes unavailable state as `CaptureHeader` busy, so the small saved-state label says “Saving / reading…” while the prominent unavailable notice and disabled approval are correct. This nonblocking wording nit did not delay the merge.
+
+### Future package candidates
+
+Mitch requested a shortlist for upcoming phases. `docs/bench-intake/09-package-candidates.md` records candidates and adoption conditions for T07–T12. It is linked from the maintained implementation plan. No additional installation is authorized by the shortlist alone.
