@@ -912,7 +912,7 @@ Three obligations the agreement places on you, which this project is built to re
 * **Do not redistribute DigiKey data or documentation** (§3.2(iii), §3.2(iv), §4). The API specifications and the response cache are gitignored for this reason; see `docs/digikey-api/README.md`.
 * **Do not imply endorsement or affiliation** (§5.1(f)).
 
-Worth reading §5.1(e) — which restricts using the API to create or update your own database of information — against §1(iii), which permits an internal application automating your own purchasing. Whether a given deployment sits inside the permitted purpose is a question for DigiKey (api.contact@digikey.com), not for this README.
+Worth reading §5.1(e) — which restricts using the API to create or update your own database of information — against §1(iii), which permits an internal application automating your own purchasing. Whether a given deployment sits inside the permitted purpose is a question for DigiKey (<api.contact@digikey.com>), not for this README.
 
 ### Trademarks
 
