@@ -560,3 +560,2153 @@ export interface CaptureSnapshot {
     sequence: string;
   };
 }
+
+export interface ManualScope {
+  expected_batch_revision: string;
+  /**
+   * @minItems 1
+   * @maxItems 10
+   */
+  selected_lot_ids:
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string];
+}
+
+export interface ManualIssue {
+  code: string;
+  message: string;
+  lot_id: string | null;
+  run_id: string | null;
+}
+
+export interface ManualEffect {
+  lot_id: string;
+  lot_label: string;
+  part_id: string;
+  part_label: string;
+  quantity: string;
+  location_id: string | null;
+  location_label: string;
+  contribution_key: string;
+  barcode: string;
+}
+
+export interface ManualPreview {
+  id: string;
+  batch_id: string;
+  /**
+   * @minItems 1
+   * @maxItems 10
+   */
+  selected_lot_ids:
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string];
+  remaining_lot_ids: string[];
+  plan_sha256: string;
+  review_fingerprint: string;
+  target_revision: string;
+  capability: "owned-fake-stock/1";
+  /**
+   * @minItems 1
+   * @maxItems 10
+   */
+  effects:
+    | [
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        }
+      ]
+    | [
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        }
+      ]
+    | [
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        }
+      ]
+    | [
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        }
+      ]
+    | [
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        }
+      ]
+    | [
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        }
+      ]
+    | [
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        }
+      ]
+    | [
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        }
+      ]
+    | [
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        }
+      ]
+    | [
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        },
+        {
+          lot_id: string;
+          lot_label: string;
+          part_id: string;
+          part_label: string;
+          quantity: string;
+          location_id: string | null;
+          location_label: string;
+          contribution_key: string;
+          barcode: string;
+        }
+      ];
+}
+
+export type ManualPreparationResult =
+  | {
+      status: "prepared";
+      preparation: {
+        id: string;
+        batch_id: string;
+        /**
+         * @minItems 1
+         * @maxItems 10
+         */
+        selected_lot_ids:
+          | [string]
+          | [string, string]
+          | [string, string, string]
+          | [string, string, string, string]
+          | [string, string, string, string, string]
+          | [string, string, string, string, string, string]
+          | [string, string, string, string, string, string, string]
+          | [string, string, string, string, string, string, string, string]
+          | [string, string, string, string, string, string, string, string, string]
+          | [string, string, string, string, string, string, string, string, string, string];
+        remaining_lot_ids: string[];
+        plan_sha256: string;
+        review_fingerprint: string;
+        target_revision: string;
+        capability: "owned-fake-stock/1";
+        /**
+         * @minItems 1
+         * @maxItems 10
+         */
+        effects:
+          | [
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              }
+            ]
+          | [
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              }
+            ]
+          | [
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              }
+            ]
+          | [
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              }
+            ]
+          | [
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              }
+            ]
+          | [
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              }
+            ]
+          | [
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              }
+            ]
+          | [
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              }
+            ]
+          | [
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              }
+            ]
+          | [
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              },
+              {
+                lot_id: string;
+                lot_label: string;
+                part_id: string;
+                part_label: string;
+                quantity: string;
+                location_id: string | null;
+                location_label: string;
+                contribution_key: string;
+                barcode: string;
+              }
+            ];
+      };
+    }
+  | {
+      status: "blocked";
+      /**
+       * @minItems 1
+       * @maxItems 100
+       */
+      issues: [
+        {
+          code: string;
+          message: string;
+          lot_id: string | null;
+          run_id: string | null;
+        },
+        ...{
+          code: string;
+          message: string;
+          lot_id: string | null;
+          run_id: string | null;
+        }[]
+      ];
+    };
+
+export interface ManualReviewResult {
+  reviewed_subject_ids: string[];
+  cursor: {
+    stream_id: string;
+    sequence: string;
+  };
+}
+
+export interface ManualAccepted {
+  run_id: string;
+  approval_id: string;
+  preparation_id: string;
+}
+
+export interface ManualRunCommand {
+  expected_run_revision: string;
+}
+
+export interface ManualRecoveryCommand {
+  expected_run_revision: string;
+  /**
+   * @minItems 1
+   * @maxItems 10
+   */
+  operation_keys:
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string];
+}
+
+export interface ManualRun {
+  run_id: string;
+  approval_id: string;
+  preparation_id: string;
+  batch_id: string;
+  revision: string;
+  round_number: string;
+  state: "queued" | "running" | "stopping" | "settled_complete" | "settled_incomplete" | "recovery_required";
+  effect_certainty: "none" | "confirmed" | "unknown" | "mixed";
+  confirmed_stock_ids: string[];
+  attributed_stock_ids: string[];
+  cancellation_requested: boolean;
+  dispatch_state: "not_requested" | "queued" | "running" | "finished" | "interrupted";
+  operations: {
+    operation_key: string;
+    lot_id: string;
+    lot_label: string;
+    quantity: string;
+    certainty: "none" | "confirmed" | "unknown";
+    remote_pk: string | null;
+    recovery_allowed: boolean;
+  }[];
+  cursor: {
+    stream_id: string;
+    sequence: string;
+  };
+}
+
+export interface ManualWorkspace {
+  batch_id: string;
+  revision: string;
+  supported: boolean;
+  capability: "owned-fake-stock/1" | null;
+  lots: {
+    lot_id: string;
+    reviewed: boolean;
+    issues: {
+      code: string;
+      message: string;
+      lot_id: string | null;
+      run_id: string | null;
+    }[];
+  }[];
+  runs: {
+    run_id: string;
+    approval_id: string;
+    preparation_id: string;
+    batch_id: string;
+    revision: string;
+    round_number: string;
+    state: "queued" | "running" | "stopping" | "settled_complete" | "settled_incomplete" | "recovery_required";
+    effect_certainty: "none" | "confirmed" | "unknown" | "mixed";
+    confirmed_stock_ids: string[];
+    attributed_stock_ids: string[];
+    cancellation_requested: boolean;
+    dispatch_state: "not_requested" | "queued" | "running" | "finished" | "interrupted";
+    operations: {
+      operation_key: string;
+      lot_id: string;
+      lot_label: string;
+      quantity: string;
+      certainty: "none" | "confirmed" | "unknown";
+      remote_pk: string | null;
+      recovery_allowed: boolean;
+    }[];
+    cursor: {
+      stream_id: string;
+      sequence: string;
+    };
+  }[];
+  preparations: {
+    id: string;
+    batch_id: string;
+    /**
+     * @minItems 1
+     * @maxItems 10
+     */
+    selected_lot_ids:
+      | [string]
+      | [string, string]
+      | [string, string, string]
+      | [string, string, string, string]
+      | [string, string, string, string, string]
+      | [string, string, string, string, string, string]
+      | [string, string, string, string, string, string, string]
+      | [string, string, string, string, string, string, string, string]
+      | [string, string, string, string, string, string, string, string, string]
+      | [string, string, string, string, string, string, string, string, string, string];
+    remaining_lot_ids: string[];
+    plan_sha256: string;
+    review_fingerprint: string;
+    target_revision: string;
+    capability: "owned-fake-stock/1";
+    /**
+     * @minItems 1
+     * @maxItems 10
+     */
+    effects:
+      | [
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          }
+        ]
+      | [
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          }
+        ]
+      | [
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          }
+        ]
+      | [
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          }
+        ]
+      | [
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          }
+        ]
+      | [
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          }
+        ]
+      | [
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          }
+        ]
+      | [
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          }
+        ]
+      | [
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          }
+        ]
+      | [
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          },
+          {
+            lot_id: string;
+            lot_label: string;
+            part_id: string;
+            part_label: string;
+            quantity: string;
+            location_id: string | null;
+            location_label: string;
+            contribution_key: string;
+            barcode: string;
+          }
+        ];
+  }[];
+  preparations_truncated: boolean;
+  cursor: {
+    stream_id: string;
+    sequence: string;
+  };
+}
+
+export interface ManualActivity {
+  runs: {
+    batch_id: string;
+    run_id: string;
+    state: "queued" | "running" | "stopping" | "settled_complete" | "settled_incomplete" | "recovery_required";
+  }[];
+  truncated: boolean;
+}

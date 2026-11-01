@@ -3,7 +3,8 @@ import { Pool } from 'pg'
 import { database } from '../../src/db/database.ts'
 import { migrate } from '../../src/operations/migrate.ts'
 
-export async function isolatedDatabase() {
+/** Historical-upgrade fixtures may provision an empty random database explicitly. */
+export async function isolatedDatabase(options: { migrate?: boolean } = {}) {
   const url = process.env.INTAKE_TEST_ADMIN_URL
   if (!url || process.env.INTAKE_TEST_ALLOW_CREATE_DATABASE !== 'owned-sandbox')
     throw new Error('explicit_owned_test_database_required')
@@ -19,7 +20,9 @@ export async function isolatedDatabase() {
   parsed.pathname = `/${name}`
   const db = database(parsed.toString())
   try {
-    await migrate(db.pool)
+    if (options.migrate !== false) {
+      await migrate(db.pool)
+    }
   } catch (error) {
     await db.close()
     await admin.query(`DROP DATABASE ${name}`)

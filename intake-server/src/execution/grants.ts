@@ -6,20 +6,29 @@ import type { Pool } from 'pg'
 export async function grantExecutor(
   pool: Pool,
   role: string,
-  purpose: 'approval' | 'apply',
+  purpose: 'approval' | 'apply' | 'delivery',
 ): Promise<void> {
-  if (!/^intake_[a-z0-9_]{1,55}$/.test(role)) throw new Error('invalid_runtime_role')
+  if (!/^intake_[a-z0-9_]{1,55}$/.test(role)) {
+    throw new Error('invalid_runtime_role')
+  }
   await pool.query(`GRANT USAGE ON SCHEMA public TO ${role};
     GRANT SELECT ON operator,target,target_context,command,outbox,executor_deployment,executor_source,executor_guard,executor_approval,executor_run,executor_operation,executor_cancel,executor_recovery,executor_intent,executor_result,executor_effect,executor_verification TO ${role};
-    GRANT UPDATE(revision) ON target TO ${role};
+  `)
+  if (purpose === 'delivery') {
+    await pool.query(`GRANT UPDATE(delivery_attempts,acked_at,conflict_code) ON outbox TO ${role}`)
+    return
+  }
+  await pool.query(`GRANT UPDATE(revision) ON target TO ${role};
     GRANT UPDATE(id) ON executor_run TO ${role};
     GRANT UPDATE(active_run) ON executor_guard TO ${role};`)
-  if (purpose === 'apply')
+  if (purpose === 'apply') {
     await pool.query(
       `GRANT INSERT ON executor_intent,executor_result,executor_effect,executor_verification TO ${role}`,
     )
-  else
+  } else {
     await pool.query(
-      `GRANT INSERT ON executor_guard,executor_approval,executor_run,executor_operation,executor_cancel,executor_recovery,command,outbox TO ${role}`,
+      `GRANT INSERT ON executor_guard,executor_approval,executor_run,executor_operation,executor_cancel,executor_recovery,command,outbox TO ${role};
+       GRANT USAGE ON SEQUENCE executor_cancel_id_seq TO ${role}`,
     )
+  }
 }

@@ -2,9 +2,13 @@ import { HeadingRow } from '../ui/primitives'
 import { Button, Link, PageTitle, Paragraph, Small } from '../ui/primitives'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import styled from 'styled-components'
+import type { ManualStage } from '../../manual/types'
 
-type Props = Pick<CaptureWorkspaceProps, 'batch' | 'busy' | 'edit'> & { dirty: boolean }
-export function CaptureHeader({ batch, busy, dirty, edit }: Props) {
+type Props = Pick<CaptureWorkspaceProps, 'batch' | 'busy' | 'edit' | 'onStage'> & {
+  dirty: boolean
+  stage?: ManualStage
+}
+export function CaptureHeader({ batch, busy, dirty, edit, onStage, stage = 'capture' }: Props) {
   return (
     <BatchHeader>
       <Breadcrumb>
@@ -39,13 +43,24 @@ export function CaptureHeader({ batch, busy, dirty, edit }: Props) {
         </Button>
       </HeadingRow>
       <StageNav aria-label="Batch stages">
-        <strong aria-current="page">Capture</strong>
-        {['Processing', 'Review', 'Approve', 'Results'].map((stage) => (
-          <span key={stage} aria-disabled="true">
-            {stage}
-            <Small>Not available yet</Small>
-          </span>
-        ))}
+        {(['capture', 'processing', 'review', 'approve', 'results'] as const).map((value) =>
+          value === 'processing' || (!onStage && value !== 'capture') ? (
+            <span key={value} aria-disabled="true">
+              {value[0].toUpperCase() + value.slice(1)}
+              <Small>Not available yet</Small>
+            </span>
+          ) : (
+            <StageControl
+              key={value}
+              $active={stage === value}
+              aria-current={stage === value ? 'page' : undefined}
+              disabled={dirty || busy}
+              onClick={() => onStage?.(value)}
+            >
+              {value[0].toUpperCase() + value.slice(1)}
+            </StageControl>
+          ),
+        )}
       </StageNav>
     </BatchHeader>
   )
@@ -115,5 +130,19 @@ const StageNav = styled.nav`
     small {
       font-size: 9px;
     }
+  }
+`
+const StageControl = styled.button<{ $active: boolean }>`
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  min-height: 58px;
+  font: inherit;
+  color: ${(p) => (p.$active ? '#164a93' : '#526179')};
+  font-weight: ${(p) => (p.$active ? 700 : 400)};
+  border-bottom: 3px solid ${(p) => (p.$active ? '#266ac5' : 'transparent')};
+  &:disabled {
+    cursor: default;
+    opacity: 0.55;
   }
 `

@@ -50,7 +50,7 @@ async function main() {
   process.stdout.write(run('compose', 'ls'))
   const action = process.argv[2] ?? 'status'
   if (action === 'status') process.exit(0)
-  if (!['start', 'test', 'migrate', 'test:process'].includes(action))
+  if (!['start', 'test', 'migrate', 'test:process', 'preview:manual'].includes(action))
     throw new Error('unsupported_service_action')
   let state
   try {

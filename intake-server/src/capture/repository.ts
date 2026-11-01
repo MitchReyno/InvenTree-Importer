@@ -22,7 +22,8 @@ export class CaptureError extends Error {
 export function fail(code: string, status = 422): never {
   throw new CaptureError(status, code)
 }
-type Binding = Pick<DevConfig, 'actorId' | 'targetId' | 'targetContextId'>
+export type CaptureBinding = Pick<DevConfig, 'actorId' | 'targetId' | 'targetContextId'>
+type Binding = CaptureBinding
 type Batch = {
   id: string
   source_id: string
@@ -176,7 +177,37 @@ async function note(c: PoolClient, b: Batch, subject: string | null, text: strin
   )
 }
 
-/** Capture has no dependency on execution SQL. Future consumers take this retained source/lot snapshot. */
+/** Transaction-bound public capture seam. Callers acquire target/source locks first.
+ * The original key is derived only from retained native lineage, never caller aliases.
+ */
+export async function captureInTransaction(
+  client: PoolClient,
+  config: CaptureBinding,
+  batchId: string,
+  lock = false,
+) {
+  const retained = await batch(client, config, batchId, lock)
+  const sourceResult = await client.query(
+    'SELECT namespace_key,created_by FROM capture_source WHERE id=$1',
+    [retained.source_id],
+  )
+  const source = sourceResult.rows[0]
+  if (
+    !source ||
+    source.namespace_key !== `native_batch:${retained.source_id}` ||
+    source.created_by !== retained.actor_id
+  ) {
+    fail('native_source_binding_invalid', 409)
+  }
+  return {
+    snapshot: await snapshot(client, config, batchId),
+    sourceId: retained.source_id,
+    originalSourceKey: retained.source_id,
+    streamId: retained.stream_id,
+  }
+}
+
+/** Capture has no dependency on execution SQL. Consumers use retained source/lot snapshots. */
 export function captureRepository(pool: Pool, config: Binding) {
   const command = (
     action: string,

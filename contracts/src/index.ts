@@ -2,8 +2,10 @@ import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Ajv2020 } from 'ajv/dist/2020.js'
 import { Id, Revision, CursorSequence, Digest, PositivePk, Quantity } from './scalars.ts'
 import { captureSchemas } from './capture.ts'
+import { manualSchemas } from './manual.ts'
 export * from './scalars.ts'
 export * from './capture.ts'
+export * from './manual.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -127,8 +129,10 @@ export const schemas = {
   Bootstrap,
   Health,
   ...captureSchemas,
+  ...manualSchemas,
 }
 export type BootstrapDto = Static<typeof Bootstrap>
+export type ApprovalDto = Static<typeof Approval>
 
 // Public failures deliberately expose no diagnostic list; stop on the first error.
 const ajv = new Ajv2020({

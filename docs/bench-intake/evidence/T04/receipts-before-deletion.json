@@ -1,0 +1,48 @@
+{
+  "posts": [
+    {
+      "path": "/api/stock/",
+      "exact_body": "{\"barcode\":\"bi1:6b3673de-801d-45e9-bd4e-8830616c71ef:456f2af2-181c-4649-86b9-c0b28b95e385\",\"location\":\"43\",\"part\":\"29\",\"quantity\":\"17\"}"
+    },
+    {
+      "path": "/api/stock/",
+      "exact_body": "{\"barcode\":\"bi1:6b3673de-801d-45e9-bd4e-8830616c71ef:863a20d4-9b18-464e-a335-c098491ba790\",\"location\":\"48\",\"part\":\"29\",\"quantity\":\"23\"}"
+    }
+  ],
+  "stock": [
+    {
+      "pk": "7101",
+      "part": "29",
+      "location": "43",
+      "quantity": "17",
+      "barcode": "bi1:6b3673de-801d-45e9-bd4e-8830616c71ef:456f2af2-181c-4649-86b9-c0b28b95e385"
+    },
+    {
+      "pk": "7102",
+      "part": "29",
+      "location": "48",
+      "quantity": "23",
+      "barcode": "bi1:6b3673de-801d-45e9-bd4e-8830616c71ef:863a20d4-9b18-464e-a335-c098491ba790"
+    }
+  ],
+  "runs": [
+    {
+      "round_number": "1",
+      "run_id": "012415aa-c691-4781-a844-ac883191c78a"
+    },
+    {
+      "round_number": "2",
+      "run_id": "b15d5301-246e-43f1-8316-95561cc7c18b"
+    }
+  ],
+  "connections": [
+    {
+      "datname": "intake_test_7d3b47575f8041e9921bfd9eedf93d0a",
+      "connections": 6
+    },
+    {
+      "datname": null,
+      "connections": 5
+    }
+  ]
+}
