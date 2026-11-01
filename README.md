@@ -2,27 +2,30 @@
 
 This repository contains a Python component/inventory importer and a minimal browser intake scaffold. The backend is usable through its existing `invimport` CLI and library. The frontend currently previews selected file names/sizes only; it does not upload, process, approve or write inventory. The applications have no runtime connection yet.
 
-| Start here                                     | Responsibility                                                                                           |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| [Backend README](backend/README.md)            | Python install/configuration, CLI/library usage, imports, synthetic demo, scanner and operational limits |
-| [Frontend README](frontend/README.md)          | Scaffold setup, development, checks and current/future scope                                             |
-| [Shared architecture](ARCHITECTURE.md)         | Cross-application map, ownership and implemented boundaries                                              |
-| [Shared code guidelines](CODE_GUIDELINES.md)   | Cross-language engineering, effects, validation and review                                               |
-| [Repository layout](docs/repository-layout.md) | Runtime paths, local data and source/installed-wheel behavior                                            |
-| [AGENTS.md](AGENTS.md)                         | Project workflow, mirrored skills/agents and required checks                                             |
+| Start here                                      | Responsibility                                                                                           |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [Backend README](backend/README.md)             | Python install/configuration, CLI/library usage, imports, synthetic demo, scanner and operational limits |
+| [Frontend README](frontend/README.md)           | Scaffold setup, development, checks and current/future scope                                             |
+| [Intake server README](intake-server/README.md) | Executable bootstrap, exact contracts/SQL, testing tiers and owned local service ledger                  |
+| [Shared architecture](ARCHITECTURE.md)          | Cross-application map, ownership and implemented boundaries                                              |
+| [Shared code guidelines](CODE_GUIDELINES.md)    | Cross-language engineering, effects, validation and review                                               |
+| [Repository layout](docs/repository-layout.md)  | Runtime paths, local data and source/installed-wheel behavior                                            |
+| [AGENTS.md](AGENTS.md)                          | Project workflow, mirrored skills/agents and required checks                                             |
 
 ## Layout and toolchains
 
 ```text
 backend/       uv-managed Python package, config, scripts and tests
 frontend/      React + TypeScript + Vite application and component tests
+intake-server/ Fastify + PostgreSQL foundation, no product executor
+contracts/     runtime schemas and generated OpenAPI/DTO/client
 docs/          operator/design documents, handovers and evidence
 .agents/       mirrored project skills
 .claude/       mirrored skills and Claude agents
 .codex/        corresponding Codex agents
 ```
 
-Each application has its own `README.md`, `ARCHITECTURE.md` and `CODE_GUIDELINES.md`. Shared guidance, CI, root pnpm control and documentation remain at repository root. Frontend dependencies/scripts live in its package; root owns one pnpm lockfile. Python retains its own backend uv lock and package identity. Use Python 3.12/uv and the Node/pnpm pins in `.node-version` and root `package.json`; follow each app README for installation.
+Applications have owning READMEs and architecture; backend/frontend have language-specific guidelines, while intake specializes the shared rules in its [testing guidelines](intake-server/TESTING.md). Shared guidance, CI, root pnpm control and documentation remain at repository root. Node dependencies/scripts live in their packages; root owns one pnpm lockfile. Python retains its own backend uv lock and package identity. Use Python 3.12/uv and the Node/pnpm pins in `.node-version` and root `package.json`; follow each app README for installation.
 
 ## Root commands
 
@@ -33,12 +36,17 @@ pnpm dev                  # frontend loopback development server
 pnpm build                # frontend production assets
 pnpm typecheck
 pnpm lint                 # Python, frontend and Markdown
-pnpm test                 # normal backend suite and frontend tests
+pnpm test                 # normal backend, frontend and fast intake tests
+pnpm dev:intake            # loopback development bootstrap API, no worker/inventory calls
+pnpm typecheck:intake      # contracts and intake-server
+pnpm contracts:check       # generated OpenAPI/DTO/client drift
+pnpm db:intake test        # explicit owned local PostgreSQL qualification
+pnpm db:intake test:process # explicit synthetic DBOS process qualification
 pnpm backend --help        # unchanged invimport CLI
 pnpm demo --help           # synthetic loopback demonstration commands
 pnpm workflow-sync        # mirrored skill/agent consistency
 pnpm test:scanner         # scanner extra and scanner/TUI suite
-pnpm test:all              # both normal/scanner and frontend suites
+pnpm test:all              # normal/scanner, frontend and fast intake suites
 pnpm spikes:check          # offline shared intake-spike contract and fixtures
 ```
 
@@ -52,12 +60,14 @@ After `uv sync --project backend --locked` and `pnpm install --frozen-lockfile`,
 
 Use `pnpm hooks:check` to check all tracked files manually; remark may rewrite Markdown, so inspect and restage any changes before committing. `pnpm lint:markdown` reports Markdown warnings with a failing exit status without rewriting files. `pnpm format:markdown` explicitly formats applicable Markdown across the repository. Both Markdown commands respect `.gitignore` and exclude local worktrees and review artifacts. Formatting supports GitHub tables/task lists and leaves prose unwrapped; it does not enforce a fixed line width. Existing Markdown lint findings are not bulk-fixed by this change.
 
-GitHub Actions groups child jobs through reusable workflows: **Test** contains **Backend** and **Frontend**, and **Lint** contains independent **Backend**, **Frontend** and **Markdown** jobs. Frontend testing also retains typecheck and build validation. The aggregate **CI** check requires the Test workflow to succeed; failed, cancelled or skipped testing cannot pass the gate. Lint failures remain real failing checks but are intentionally excluded from the CI gate, with no `continue-on-error` masking. One failed linter cannot skip another language's lint. The overall workflow can therefore be red while CI is green. Configure branch protection/rulesets to require **CI**, not the advisory lint jobs or the entire workflow; this PR does not change repository protection settings.
+GitHub Actions runs optional, path-aware checks on every PR and pushes to `main` / `interactive-app`. **Changed paths** always tests the selector; reusable **Test** and **Lint** jobs run only relevant application/tooling checks. Backend, frontend, intake contracts/HTTP and intake PostgreSQL/process checks remain separately visible; frontend retains its typecheck/build. Intake-only code does not select the Python importer or the currently disconnected frontend; docs-only changes select Markdown, not server/backend tests. Workspace dependencies and CI changes conservatively select their consumers. The intake PG job uses a fresh CI-only PostgreSQL service and explicit fake/sandbox settings, never Docker development credentials or root `.env`. See [testing tiers](intake-server/TESTING.md) and the [T00 selection contract](docs/handovers/bench-intake-T00-ci.md).
+
+There is no aggregate required **CI** gate, `continue-on-error` or success-forcing job: every selected failure remains a workflow failure; unselected jobs skip natively. The coordinator removed only required status checks from repository ruleset 26298509, preserving history protection (recorded provenance in T00). Optional branch checks do not waive this initiative's review/merge process: selected relevant checks must pass before coordinator merge. Do not reinstate the obsolete required aggregate or count skips as passing coverage. No application tests run in the local pre-commit hook.
 
 ## Initiative and contributions
 
-`interactive-app` is the user-named integration trunk for this initiative, starting from the reviewed main base. Target this restructuring PR and subsequent initiative PRs there, using separate conventional feature branches and independent review before publication. No merge into main is part of this work.
+`interactive-app` is the user-named integration trunk for this initiative, starting from the reviewed main base. Target initiative PRs there on separate conventional feature branches. The approved [Bench Intake workflow](docs/bench-intake/08-implementation-plan.md#owner-reviewer-and-merge-protocol) publishes a ready PR first, then requires fresh independent review and passing selected checks before coordinator merge. No merge into main is part of this work.
 
-Read the shared and owning app guidelines/architecture before changes. Keep future product/workflow plans explicitly labeled until implemented; this scaffold does not establish a backend API, database, runner or deployment design. The [relocation handover](docs/handovers/repository-layout.md) records decisions, validation, review and the documentation split.
+Read the shared and owning app guidelines/architecture before changes. Keep future product/workflow plans explicitly labeled until implemented; the file-picker scaffold is not capture/approval, and the separate intake foundation is not an inventory executor or release-qualified deployment. The [relocation handover](docs/handovers/repository-layout.md) records historical layout decisions; the [T01 handover](docs/handovers/bench-intake-T01.md) records the new implemented boundary and evidence.
 
 Licensed under [GPLv3](LICENSE); see [third-party notices](THIRD-PARTY-NOTICES.md). DigiKey/InvenTree are their respective owners' trademarks; this independent tool is not affiliated with or endorsed by them. Vendor API obligations and credential handling are described in the [backend guide](backend/README.md#using-the-digikey-api).

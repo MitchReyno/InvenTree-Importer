@@ -1,0 +1,728 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bench Intake foundation",
+    "version": "bench-intake-app/1"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Health",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bootstrap": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Bootstrap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Bootstrap"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BatchCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "note"
+        ],
+        "properties": {
+          "title": {
+            "minLength": 1,
+            "maxLength": 256,
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 8192,
+            "type": "string"
+          }
+        }
+      },
+      "LotCreate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_batch_revision",
+          "label",
+          "note",
+          "part_subject_id"
+        ],
+        "properties": {
+          "expected_batch_revision": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "maxLength": 256,
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 8192,
+            "type": "string"
+          },
+          "part_subject_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "PartSelection": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_revision",
+          "choice"
+        ],
+        "properties": {
+          "expected_revision": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "choice": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "target_context_id",
+              "model",
+              "pk",
+              "observation_id"
+            ],
+            "properties": {
+              "target_context_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "model": {
+                "const": "part",
+                "type": "string"
+              },
+              "pk": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "observation_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "LotSelection": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_revision"
+        ],
+        "properties": {
+          "expected_revision": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "mode"
+                ],
+                "properties": {
+                  "mode": {
+                    "const": "inherit",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "mode"
+                ],
+                "properties": {
+                  "mode": {
+                    "const": "clear",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "mode",
+                  "value"
+                ],
+                "properties": {
+                  "mode": {
+                    "const": "set",
+                    "type": "string"
+                  },
+                  "value": {
+                    "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
+          "location": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "mode"
+                ],
+                "properties": {
+                  "mode": {
+                    "const": "inherit",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "mode"
+                ],
+                "properties": {
+                  "mode": {
+                    "const": "clear",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "mode",
+                  "value"
+                ],
+                "properties": {
+                  "mode": {
+                    "const": "set",
+                    "type": "string"
+                  },
+                  "value": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "target_context_id",
+                      "model",
+                      "pk",
+                      "observation_id"
+                    ],
+                    "properties": {
+                      "target_context_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "model": {
+                        "const": "location",
+                        "type": "string"
+                      },
+                      "pk": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      },
+                      "observation_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "Preparation": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_batch_revision",
+          "selected_lot_ids"
+        ],
+        "properties": {
+          "expected_batch_revision": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "selected_lot_ids": {
+            "minItems": 1,
+            "maxItems": 100,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Approval": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "preparation_id",
+          "expected_plan_sha256",
+          "expected_review_fingerprint",
+          "selected_lot_ids",
+          "expected_target_revision"
+        ],
+        "properties": {
+          "preparation_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "expected_plan_sha256": {
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+            "type": "string"
+          },
+          "expected_review_fingerprint": {
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+            "type": "string"
+          },
+          "selected_lot_ids": {
+            "minItems": 1,
+            "maxItems": 100,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+              "type": "string"
+            }
+          },
+          "expected_target_revision": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          }
+        }
+      },
+      "Cancellation": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_run_revision"
+        ],
+        "properties": {
+          "expected_run_revision": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          }
+        }
+      },
+      "RunSnapshot": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "run_id",
+          "revision",
+          "state",
+          "effect_certainty",
+          "confirmed_stock_ids",
+          "cursor"
+        ],
+        "properties": {
+          "run_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "revision": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "const": "queued",
+                "type": "string"
+              },
+              {
+                "const": "running",
+                "type": "string"
+              },
+              {
+                "const": "stopping",
+                "type": "string"
+              },
+              {
+                "const": "settled_complete",
+                "type": "string"
+              },
+              {
+                "const": "settled_incomplete",
+                "type": "string"
+              },
+              {
+                "const": "recovery_required",
+                "type": "string"
+              }
+            ]
+          },
+          "effect_certainty": {
+            "anyOf": [
+              {
+                "const": "none",
+                "type": "string"
+              },
+              {
+                "const": "confirmed",
+                "type": "string"
+              },
+              {
+                "const": "unknown",
+                "type": "string"
+              },
+              {
+                "const": "mixed",
+                "type": "string"
+              }
+            ]
+          },
+          "confirmed_stock_ids": {
+            "type": "array",
+            "items": {
+              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+              "format": "int64",
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "stream_id",
+              "sequence"
+            ],
+            "properties": {
+              "stream_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "sequence": {
+                "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "WorkerEnvelope": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "command_id",
+              "attempt_id",
+              "input_sha256",
+              "handler_version",
+              "sequence",
+              "kind",
+              "payload"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-worker/1",
+                "type": "string"
+              },
+              "command_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "input_sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "handler_version": {
+                "minLength": 1,
+                "maxLength": 256,
+                "type": "string"
+              },
+              "sequence": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "kind": {
+                "const": "progress",
+                "type": "string"
+              },
+              "payload": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "state"
+                ],
+                "properties": {
+                  "state": {
+                    "const": "running",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "command_id",
+              "attempt_id",
+              "input_sha256",
+              "handler_version",
+              "sequence",
+              "kind",
+              "payload"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-worker/1",
+                "type": "string"
+              },
+              "command_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "input_sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "handler_version": {
+                "minLength": 1,
+                "maxLength": 256,
+                "type": "string"
+              },
+              "sequence": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "kind": {
+                "const": "terminal",
+                "type": "string"
+              },
+              "payload": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "state"
+                ],
+                "properties": {
+                  "state": {
+                    "anyOf": [
+                      {
+                        "const": "interrupted",
+                        "type": "string"
+                      },
+                      {
+                        "const": "completed",
+                        "type": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ErrorDto": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "recovery",
+          "correlation_id"
+        ],
+        "properties": {
+          "code": {
+            "pattern": "^[a-z_]{1,64}$",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "recovery": {
+            "anyOf": [
+              {
+                "const": "refresh",
+                "type": "string"
+              },
+              {
+                "const": "wait",
+                "type": "string"
+              },
+              {
+                "const": "review",
+                "type": "string"
+              },
+              {
+                "const": "none",
+                "type": "string"
+              }
+            ]
+          },
+          "correlation_id": {
+            "maxLength": 64,
+            "type": "string"
+          }
+        }
+      },
+      "Bootstrap": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mode",
+          "banner",
+          "status",
+          "actor_id",
+          "target_id",
+          "target_context_id",
+          "mutation_enabled",
+          "permission_gate",
+          "csrf_token"
+        ],
+        "properties": {
+          "mode": {
+            "const": "development-key",
+            "type": "string"
+          },
+          "banner": {
+            "const": "Single-operator development mode — not a verified human session",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "const": "configured",
+                "type": "string"
+              },
+              {
+                "const": "setup_required",
+                "type": "string"
+              }
+            ]
+          },
+          "actor_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "target_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "target_context_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "mutation_enabled": {
+            "const": false,
+            "type": "boolean"
+          },
+          "permission_gate": {
+            "const": "deferred_T11",
+            "type": "string"
+          },
+          "csrf_token": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Health": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "api_version"
+        ],
+        "properties": {
+          "status": {
+            "const": "ok",
+            "type": "string"
+          },
+          "api_version": {
+            "const": "bench-intake-app/1",
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
