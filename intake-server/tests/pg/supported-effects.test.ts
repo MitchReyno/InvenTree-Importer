@@ -579,6 +579,7 @@ test('a Part attachment on a media-only deployment is a typed issue, never a sil
     }
     const reviewed = await fixture.http(`/batches/${capture.batch.id}/reviews`, scope)
     assert.equal(reviewed.status, 409, JSON.stringify(reviewed.value))
+    assert.equal(reviewed.value.code, 'unsupported_part_attachment')
     const prepared = await fixture.http(`/batches/${capture.batch.id}/preparations`, scope)
     assert.equal(prepared.status, 200, JSON.stringify(prepared.value))
     assert.equal(prepared.value.status, 'blocked')

@@ -12,6 +12,7 @@ import type { InventoryModelDto, InventoryMappingDto } from '@invimport/contract
 import {
   MAX_PLAN_BYTES,
   MAX_PLAN_EFFECTS,
+  MAX_PLAN_OPERATIONS,
   MAX_PLAN_PARTS,
   type PartBinding,
 } from '../execution/effects-plan.ts'
@@ -61,21 +62,23 @@ function normalized(input: ManualScopeDto) {
   return { ...input, selected_lot_ids: [...input.selected_lot_ids].sort() }
 }
 
-/** A warning blocks review and preparation until fixed or dismissed with a reason. */
 /** Report an oversized selection as a typed issue before the plan decoder refuses it. */
 export function planCapacityIssue(plan: ExecutablePlan) {
   const effectsExceeded =
     plan.version === 'bench-effects-plan/1' &&
-    (plan.parts.length > MAX_PLAN_PARTS || plan.effects.length > MAX_PLAN_EFFECTS)
+    (plan.parts.length > MAX_PLAN_PARTS ||
+      plan.effects.length > MAX_PLAN_EFFECTS ||
+      plan.operations.length > MAX_PLAN_OPERATIONS)
   if (effectsExceeded || Buffer.byteLength(canonical(plan)) > MAX_PLAN_BYTES) {
     return issue(
       'effects_capacity',
-      `Choose fewer lots, Parts or parameters: one preparation supports at most ${MAX_PLAN_PARTS} new or existing Parts, ${MAX_PLAN_EFFECTS} inventory effects and 256 KiB of approved plan.`,
+      `Choose fewer lots, Parts or parameters: one preparation supports at most ${MAX_PLAN_OPERATIONS} lots, ${MAX_PLAN_PARTS} Parts created by this intake, ${MAX_PLAN_EFFECTS} inventory effects and 256 KiB of approved plan.`,
     )
   }
   return null
 }
 
+/** A warning blocks review and preparation until fixed or dismissed with a reason. */
 export function warningIssues(material: ManualMaterial) {
   return unresolvedWarnings(material).map((warning) =>
     issue('warning_unresolved', warning.message, warning.lotId),

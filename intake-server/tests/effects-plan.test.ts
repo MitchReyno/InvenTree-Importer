@@ -406,6 +406,8 @@ test('an oversized supported-effects selection is a typed capacity issue, not a 
   assert.equal(planCapacityIssue(plan), null)
   const effects = Array.from({ length: 101 }, () => plan.effects[0])
   assert.equal(planCapacityIssue({ ...plan, effects })?.code, 'effects_capacity')
+  const operations = Array.from({ length: 11 }, () => plan.operations[0])
+  assert.equal(planCapacityIssue({ ...plan, operations })?.code, 'effects_capacity')
   const parts = Array.from({ length: 11 }, () => plan.parts[0])
   assert.equal(planCapacityIssue({ ...plan, parts })?.code, 'effects_capacity')
   const oversized = { ...plan.parts[0].spec, name: 'x'.repeat(270000) }

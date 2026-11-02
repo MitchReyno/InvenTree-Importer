@@ -49,7 +49,7 @@ export function validatePartSpec(
       throw new PartSpecError('parameter_category_incompatible')
     }
     if (observed.mapping.kind === 'category_parameter') {
-      // Every parameter citing this observation must use its template, not just the first.
+      // Every parameter citing this observation must use its template.
       const parameters = spec.parameters.filter(
         (item) => item.category_mapping.observation_id === reference.observation_id,
       )
