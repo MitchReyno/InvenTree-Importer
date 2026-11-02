@@ -36,6 +36,14 @@ Run focused tests, server types and owned readability/format/Markdown checks. Ro
 
 Implemented and frozen for integration. The adapter, protocol guards, controlled transport and deterministic fixtures are complete. Code-intelligence is unavailable; its checks are skipped, not passed. No source outside this subtask is owned, and no shared service or credential was used.
 
+## Prospective review correction plan
+
+Independent review found two blocking gaps after initial integration: the adapter's cached broker reply bypasses the broker's replay currentness check, and an unresolved publication callback can prevent cancellation/deadline cleanup. Record this correction plan before runtime edits.
+
+First add failing offline regressions through the actual broker for revoked inventory and literal-PNG replay, plus stalled-publication tests that observe close before releasing the callback. Retain one host UUID per exact broker call, but replay through `broker.call` so authority is rechecked without repeating reads or receipt publication. Keep semantic proposal acknowledgements separately idempotent.
+
+Make each publication check activity before invoking the callback and bound its wait by the attempt cancellation/deadline. Keep the deadline active through cleanup and final publication, while preserving reap before question/terminal delivery. Cancellation does not undo a callback already started: its result is uncertain, late rejection must be observed, and no later callback may start. Reap independently of the stalled callback. Run focused protocol/child tests, server types and owned lint/format/Markdown checks, then request the index before committing only owned paths. No models, inventory service, PG or shared services are needed.
+
 ## Implemented boundaries
 
 The host validates input hashes, semantic arguments/results and proposal/question schemas. It binds each wire call to its exact thread, turn, call ID, namespace, tool and payload. Native IDs remain opaque; receipt request IDs are separate host-generated UUIDs. Cached duplicate calls cannot create another broker effect or change their payload. Extra private broker fields cannot cross the protocol boundary.
@@ -46,7 +54,7 @@ The child transport uses strict UTF-8 NDJSON, bounded frames and combined output
 
 ## Verification evidence
 
-The final focused run passed **14/14**, with zero failures or skips: nine injected protocol cases and five real controlled-child cases. Run with:
+The initial pre-review focused run passed **14/14**, with zero failures or skips: nine injected protocol cases and five real controlled-child cases. It did not catch the two gaps recorded below. Run with:
 
 ```sh
 pnpm --filter @invimport/intake-server exec tsx --test --test-concurrency=1 \
@@ -64,3 +72,19 @@ Server typecheck and targeted runtime readability lint passed. Owned formatting,
 This is `restricted-research-stub/1`, qualified only as `fixture_only`. The trusted Node fixture verifies byte transport, protocol binding and process lifecycle; it does not interpret PNG/PDF contents. It does not prove native App Server acceptance, arbitrary-script sandboxing, credential/tool/network isolation or provider multimodal support. Unsupported native methods, notifications and ordering fail closed. Actual provider qualification remains blocked by the user's no-model-usage instruction.
 
 The main T07 owner owns combined Processing/receipt integration; the coordinator owns current-image qualification and fresh independent review. Focused protocol/child results must remain distinct from those broader proofs. Request the exclusive index before staging only this subtask's seven paths.
+
+## Independent review corrections and evidence
+
+Independent reviewers reproduced two blockers on the integrated implementation. Broker-tool duplicates reused an adapter-cached result without passing through the broker's currentness check. Also, an unresolved proposal publication prevented timeout cleanup, and final question/terminal publication ran after the attempt deadline had been cleared.
+
+The correction retains a host UUID with each exact native call. Broker replay now calls the actual broker again with that same UUID; the broker rechecks authority and reuses its own immutable cached result without another external read or receipt publication. Semantic proposal acknowledgement replay remains idempotent. Changed payloads still fail before replay.
+
+Publication now checks activity before invoking a callback and races its wait against the overall attempt signal. That deadline remains active during resource cleanup and final publication. A separate resource signal stops protocol operations without disabling the final publication deadline. Cleanup confirms reap independently of a stalled callback. An already-started publication remains an uncertain effect: cancellation cannot undo it. Its late rejection is observed, the callback is never reused and no later question/terminal callback starts. Question/terminal publication still begins only after confirmed reap.
+
+Behavioral red evidence was recorded before runtime edits: four actual-broker subcases showed missing replay currentness checks, including revoked inventory and literal-PNG results being returned again. Three stalled-publication subcases remained pending beyond 150 ms despite a 30 ms deadline. An initial regression setup error, a missing hash import, was corrected before these behavioral results were recorded.
+
+The corrected focused run passed **24/24**, zero failures/skips, in approximately 4.1 seconds. This includes 17 top-level cases and seven replay/publication subcases. Actual-broker current replays perform one read and at most one receipt publication; revoked replays publish no duplicate response or application envelope. All three stalled proposal/question/terminal waits stop on deadline, and late callback rejection remains handled.
+
+A further actual controlled-child regression exercises both deadline and explicit cancellation while proposal publication stays unresolved. It observes successful physical close before releasing the callback, then proves the already-started callback can still finish without any additional publication. This adds process evidence to the injected-session close markers. It uses only the existing trusted fixture, one child at a time and no services.
+
+After these corrections, server typecheck, targeted adapter readability lint, owned Prettier, handover Markdown and whitespace checks passed. No model/provider/inventory calls or PG/Docker/browser services were used. The coordinator owns combined qualification and fresh reviewer rechecks of the corrected head; the `fixture_only` limitations above remain unchanged.

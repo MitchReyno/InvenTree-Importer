@@ -56,6 +56,7 @@ type FinalOutcome =
 interface CompletedCall {
   fingerprint: string
   result: unknown
+  requestId: string | null
 }
 
 const argumentSchemas = {
@@ -149,6 +150,7 @@ class ProtocolReader {
 }
 
 async function sendFrame(session: ResearchProtocolSession, frame: unknown, signal: AbortSignal) {
+  assertResearchActive(signal)
   await awaitResearchResult(session.send(frame), signal)
 }
 
@@ -205,6 +207,7 @@ async function brokerResult(
   }
   validate(argumentSchemas[call.tool], call.args)
   const schema = resultSchemas[call.tool]
+  assertResearchActive(signal)
   const result = await awaitResearchResult(
     broker.call(call.tool, call.args, requestId, signal),
     signal,
@@ -264,9 +267,12 @@ class ProtocolCalls {
     return { kind: 'question', payload: question }
   }
 
-  private async execute(call: ResearchToolCall): Promise<unknown> {
+  private async execute(call: ResearchToolCall, requestId: string | null): Promise<unknown> {
     if (call.tool !== 'submit_proposal') {
-      return brokerResult(this.context.broker, call, randomUUID(), this.context.signal)
+      if (requestId === null) {
+        refuseResearch('research_protocol_invalid')
+      }
+      return brokerResult(this.context.broker, call, requestId, this.context.signal)
     }
     validate('ProcessingProposalV3', call.args)
     const proposal = call.args as ProcessingProposalV3Dto
@@ -285,18 +291,19 @@ class ProtocolCalls {
       if (previous.fingerprint !== call.fingerprint) {
         refuseResearch('research_protocol_invalid')
       }
-      await sendFrame(
-        this.context.session,
-        toolResponse(call.id, previous.result),
-        this.context.signal,
-      )
+      const result =
+        previous.requestId === null
+          ? previous.result
+          : await brokerResult(this.context.broker, call, previous.requestId, this.context.signal)
+      await sendFrame(this.context.session, toolResponse(call.id, result), this.context.signal)
       return
     }
     if (call.tool === 'ask_question') {
       return this.question(call)
     }
-    const result = await this.execute(call)
-    this.completed.set(call.callId, { fingerprint: call.fingerprint, result })
+    const requestId = isResearchBrokerTool(call.tool) ? randomUUID() : null
+    const result = await this.execute(call, requestId)
+    this.completed.set(call.callId, { fingerprint: call.fingerprint, result, requestId })
     await sendFrame(this.context.session, toolResponse(call.id, result), this.context.signal)
   }
 }
@@ -366,9 +373,11 @@ async function confirmedClose(session: ResearchProtocolSession): Promise<void> {
 function envelopeEmitter(
   input: ResearchInput,
   emit: (message: ProcessingEnvelopeDto) => Promise<void>,
+  signal: AbortSignal,
 ) {
   let sequence = 0n
   return async (message: HostEmission) => {
+    assertResearchActive(signal)
     sequence += 1n
     const envelope = {
       ...message,
@@ -382,7 +391,15 @@ function envelopeEmitter(
       sequence: sequence.toString(),
     } as const
     validate('ProcessingEnvelopeV3', envelope)
-    await emit(envelope)
+    // A callback already started may still commit. Stop waiting, never reuse it,
+    // and observe its late rejection while independent session cleanup proceeds.
+    await awaitResearchResult(
+      Promise.resolve().then(() => {
+        assertResearchActive(signal)
+        return emit(envelope)
+      }),
+      signal,
+    )
   }
 }
 
@@ -423,6 +440,33 @@ async function openSession(
   }
 }
 
+async function runSessionAttempt(
+  input: ResearchInput,
+  options: RestrictedResearchRunnerOptions,
+  attemptSignal: AbortSignal,
+  send: (message: HostEmission) => Promise<void>,
+): Promise<FinalOutcome> {
+  const operations = new AbortController()
+  const signal = AbortSignal.any([attemptSignal, operations.signal])
+  let session: ResearchProtocolSession | undefined
+  let broker: ResearchToolBroker | undefined
+  try {
+    assertResearchActive(signal)
+    broker = await openBroker(input, signal, options.createBroker)
+    session = await openSession(input, signal, options.createSession)
+    return await runProtocol(input, session, broker, signal, send)
+  } finally {
+    operations.abort()
+    try {
+      broker?.close()
+    } finally {
+      if (session) {
+        await confirmedClose(session)
+      }
+    }
+  }
+}
+
 async function runRestrictedAttempt(
   input: ResearchInput,
   options: RestrictedResearchRunnerOptions,
@@ -434,43 +478,19 @@ async function runRestrictedAttempt(
   const deadline = setTimeout(() => lifetime.abort(), timeout)
   const signals = options.signal ? [lifetime.signal, options.signal] : [lifetime.signal]
   const signal = AbortSignal.any(signals)
-  const send = envelopeEmitter(input, emit)
-  let session: ResearchProtocolSession | undefined
-  let broker: ResearchToolBroker | undefined
-  let outcome: FinalOutcome | undefined
-  let failure: unknown
+  const send = envelopeEmitter(input, emit, signal)
   try {
-    assertResearchActive(signal)
-    broker = await openBroker(input, signal, options.createBroker)
-    session = await openSession(input, signal, options.createSession)
-    outcome = await runProtocol(input, session, broker, signal, send)
+    const outcome = await runSessionAttempt(input, options, signal, send)
+    await send(outcome)
   } catch (error) {
-    failure = error
+    if (error instanceof ResearchError) {
+      throw error
+    }
+    throw new ResearchError('research_protocol_invalid', { cause: error })
   } finally {
     clearTimeout(deadline)
     lifetime.abort()
-    try {
-      broker?.close()
-    } catch (error) {
-      failure ??= error
-    }
-    if (session) {
-      await confirmedClose(session)
-    }
   }
-  if (failure) {
-    if (failure instanceof ResearchError) {
-      throw failure
-    }
-    throw new ResearchError('research_protocol_invalid', { cause: failure })
-  }
-  if (!outcome) {
-    refuseResearch('research_protocol_interrupted')
-  }
-  if (options.signal?.aborted) {
-    refuseResearch('research_cancelled')
-  }
-  await send(outcome)
 }
 
 /** Only an explicitly injected fixture session is supported; no native launcher is constructed. */

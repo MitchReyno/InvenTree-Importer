@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { PassThrough } from 'node:stream'
 import type { ProcessingEnvelopeDto, ProcessingProposalV3Dto } from '@invimport/contracts'
 import { researchTrustedInstructions } from '../src/processing/policy.ts'
@@ -9,6 +9,9 @@ import type { ResearchInput } from '../src/processing/runner.ts'
 import { restrictedResearchRunner } from '../src/research/adapter.ts'
 import type { ResearchProtocolSession } from '../src/research/protocol.ts'
 import { ResearchReapPendingError } from '../src/research/errors.ts'
+import { assertResearchActive, refuseResearch } from '../src/research/errors.ts'
+import { researchBroker } from '../src/research/broker.ts'
+import { researchInputFixture } from './support/research-input.ts'
 import { emptyProcessingMedia, manualInputFixture } from './support/processing-input.ts'
 
 function inputFixture(): ResearchInput {
@@ -145,7 +148,8 @@ test('exact opaque calls reuse one broker UUID and host constructs source-bound 
     }
     messages.push(message)
   })
-  assert.equal(brokerCalls.length, 1)
+  assert.equal(brokerCalls.length, 2)
+  assert.equal(brokerCalls[0].requestId, brokerCalls[1].requestId)
   assert.match(brokerCalls[0].requestId, /^[a-f0-9-]{36}$/)
   assert.notEqual(brokerCalls[0].requestId, 'opaque-call/part')
   assert.deepEqual(
@@ -394,5 +398,183 @@ test('wire-request reuse and private broker fields cannot cross the protocol bou
     await assert.rejects(() => runner.run(input, async () => assert.fail('no invalid publication')))
     assert.equal(JSON.stringify(fake.sent).includes('synthetic-private-canary'), false)
     assert.equal(fake.isClosed(), true)
+  }
+})
+
+test('actual broker rechecks authority on opaque-call replay without repeating reads or receipts', async (t) => {
+  for (const tool of ['lookup_inventory', 'read_evidence']) {
+    for (const revoke of [false, true]) {
+      await t.test(`${tool}: ${revoke ? 'revoked' : 'current'}`, async () => {
+        const fixture = researchInputFixture()
+        const artifact = fixture.artifacts[0]
+        const args =
+          tool === 'lookup_inventory'
+            ? { model: 'part', pk: '93' }
+            : {
+                version_id: artifact.versionId,
+                sha256: artifact.digest,
+                offset: '0',
+                length: '98304',
+              }
+        let current = true
+        let checks = 0
+        let checksBeforeReplay = 0
+        let reads = 0
+        let publications = 0
+        const fake = scriptedSession({
+          ready(push) {
+            push(call('first', 'opaque-replay', tool, args))
+            push(call('repeat', 'opaque-replay', tool, args))
+            push(call('proposal', 'proposal', 'submit_proposal', proposal(fixture.input)))
+            push(completed())
+          },
+        })
+        const originalSend = fake.session.send
+        fake.session.send = async (frame) => {
+          await originalSend(frame)
+          if ((frame as { id?: string }).id === 'first') {
+            checksBeforeReplay = checks
+            current = !revoke
+          }
+        }
+        const broker = researchBroker({
+          access: {
+            manifest: fixture.manifest,
+            scope: {
+              actorId: fixture.capture.actor_id,
+              targetId: randomUUID(),
+              targetContextId: fixture.capture.target_context_id,
+              batchId: fixture.manifest.batch_id,
+              attemptId: fixture.input.payload.attempt_id,
+              commandId: fixture.input.payload.command_id,
+              inputSha256: fixture.input.payload.input_sha256,
+              sourceUrls: fixture.manifest.source_urls,
+            },
+            async ensureCurrent(signal) {
+              assertResearchActive(signal)
+              checks += 1
+              if (!current) {
+                refuseResearch('research_attempt_unavailable')
+              }
+            },
+          },
+          receipts: {
+            read: async () => assert.fail('no receipt read'),
+            async publish(_requestId, _request, source) {
+              publications += 1
+              return {
+                id: randomUUID(),
+                kind: source.kind,
+                sha256: createHash('sha256').update(source.bytes).digest('hex'),
+                byte_size: String(source.bytes.length),
+                media_type: source.mediaType,
+              }
+            },
+          },
+          async readEvidence(versionId) {
+            assert.equal(versionId, artifact.versionId)
+            reads += 1
+            return artifact.bytes
+          },
+          async readInventory() {
+            reads += 1
+            return new Response(JSON.stringify({ pk: '93', name: 'Fixture part' }))
+          },
+          protectedOrigins: [],
+        })
+        const runner = restrictedResearchRunner({
+          createSession: async () => fake.session,
+          createBroker: async () => broker,
+        })
+        const published: ProcessingEnvelopeDto[] = []
+        const run = runner.run(fixture.input, async (message) => {
+          published.push(message)
+        })
+        if (revoke) {
+          await assert.rejects(run, /research_attempt_unavailable/)
+          assert.equal(
+            fake.sent.some((frame) => frame.id === 'repeat'),
+            false,
+          )
+          assert.equal(published.length, 0)
+        } else {
+          await run
+          const replies = fake.sent.filter((frame) => frame.id === 'first' || frame.id === 'repeat')
+          assert.equal(replies.length, 2)
+          assert.deepEqual(replies[0].result, replies[1].result)
+        }
+        assert.ok(checks > checksBeforeReplay, 'replay must recheck currentness')
+        assert.equal(reads, 1)
+        assert.equal(publications, tool === 'lookup_inventory' ? 1 : 0)
+        assert.equal(fake.isClosed(), true)
+      })
+    }
+  }
+})
+
+function deferred() {
+  let resolve: () => void = () => assert.fail('not initialized')
+  let reject: (error: Error) => void = () => assert.fail('not initialized')
+  const promise = new Promise<void>((onResolve, onReject) => {
+    resolve = onResolve
+    reject = onReject
+  })
+  return { promise, resolve, reject }
+}
+
+test('publication deadlines reap before a stalled callback settles and never start a later callback', async (t) => {
+  for (const kind of ['proposal', 'question', 'terminal']) {
+    await t.test(kind, async () => {
+      const input = inputFixture()
+      const blocked = deferred()
+      const started = deferred()
+      const fake = scriptedSession({
+        ready(push) {
+          if (kind === 'question') {
+            push(
+              call('question', 'question', 'ask_question', {
+                kind: 'clarification',
+                subject_id: input.manifest.subject_id,
+                prompt: 'Fixture',
+                reason: 'Fixture',
+              }),
+            )
+          } else {
+            push(call('proposal', 'proposal', 'submit_proposal', proposal(input)))
+            push(completed())
+          }
+        },
+      })
+      const runner = restrictedResearchRunner({
+        sessionTimeoutMs: 30,
+        createSession: async () => fake.session,
+        createBroker: async () => ({ call: async () => assert.fail(), close() {} }),
+      })
+      const published: string[] = []
+      const running = runner.run(input, async (message) => {
+        published.push(message.kind)
+        if (message.kind === kind) {
+          started.resolve()
+          await blocked.promise
+        }
+      })
+      const settled = running.then(
+        () => 'resolved',
+        (error: unknown) => error,
+      )
+      try {
+        await started.promise
+        const result = await Promise.race([
+          settled,
+          new Promise<string>((resolve) => setTimeout(() => resolve('still pending'), 150)),
+        ])
+        assert.match(String(result), /research_cancelled/)
+        assert.equal(fake.isClosed(), true, 'cleanup precedes callback release')
+        assert.deepEqual(published, kind === 'terminal' ? ['proposal', 'terminal'] : [kind])
+      } finally {
+        blocked.reject(new Error('late publication failure remains observed'))
+        await settled
+      }
+    })
   }
 })

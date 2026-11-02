@@ -7,6 +7,71 @@ import { researchInputFixture } from '../support/research-input.ts'
 
 const fixtureScript = new URL('../fixtures/research-protocol-child.cjs', import.meta.url)
 
+test(
+  'stalled publication cannot prevent actual child reap on deadline or cancellation',
+  { timeout: 5000 },
+  async () => {
+    for (const cancel of [false, true]) {
+      const fixture = researchInputFixture()
+      const controller = new AbortController()
+      let release: () => void = () => assert.fail('callback not initialized')
+      const blocked = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      let reaped = false
+      let callbackSettled = false
+      const publications: string[] = []
+      const runner = restrictedResearchRunner({
+        signal: controller.signal,
+        sessionTimeoutMs: cancel ? 2000 : 150,
+        createSession: async () => {
+          const session = child('proposal')
+          return {
+            messages: session.messages,
+            send: session.send,
+            async close() {
+              await session.close()
+              reaped = true
+            },
+          }
+        },
+        createBroker: async () => ({ call: async () => assert.fail('no broker call'), close() {} }),
+      })
+      const running = runner.run(fixture.input, async (message) => {
+        publications.push(message.kind)
+        if (cancel) {
+          controller.abort()
+        }
+        await blocked
+        callbackSettled = true
+      })
+      const settled = running.then(
+        () => 'resolved',
+        (error: unknown) => error,
+      )
+      let guard: ReturnType<typeof setTimeout> | undefined
+      try {
+        const result = await Promise.race([
+          settled,
+          new Promise<string>((resolve) => {
+            guard = setTimeout(() => resolve('still pending'), 500)
+          }),
+        ])
+        assert.match(String(result), /research_cancelled/)
+        assert.equal(reaped, true, 'physical cleanup precedes callback release')
+        assert.equal(callbackSettled, false)
+        assert.deepEqual(publications, ['proposal'])
+      } finally {
+        clearTimeout(guard)
+        release()
+        await settled
+      }
+      assert.equal(callbackSettled, true, 'an already-started callback remains an uncertain effect')
+      assert.deepEqual(publications, ['proposal'])
+    }
+  },
+)
+
 function child(mode: string, timeoutMs = 2000, artifactIndex = 0) {
   return controlledResearchSession({
     qualification: 'fixture_only',
