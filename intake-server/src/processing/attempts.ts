@@ -2,6 +2,9 @@ import { randomUUID, createHmac } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import { validate, type CaptureSnapshotDto } from '@invimport/contracts'
 import type { CaptureBinding } from '../capture/repository.ts'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { commands, outbox } from '../db/schema.ts'
+import { processingAttempts, processingDependencies, processingInputs } from './schema.ts'
 import { MIN_CHANNEL_SECRET_BYTES, MAX_PROCESSING_SNAPSHOT_BYTES } from './limits.ts'
 import {
   fail,
@@ -68,10 +71,17 @@ export async function createAttempt(
   if (manifest.bytes.length > MAX_PROCESSING_SNAPSHOT_BYTES) {
     fail('processing_input_capacity', 422)
   }
-  await client.query(
-    `INSERT INTO processing_input(id,batch_id,parent_id,capture_revision,manifest_bytes,manifest_digest)
-     VALUES($1,$2,$3,$4,$5,$6)`,
-    [inputId, snapshot.id, parentId, snapshot.revision, manifest.bytes, manifest.digest],
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .insert(processingInputs)
+      .values({
+        id: inputId,
+        batchId: snapshot.id,
+        parentId,
+        captureRevision: BigInt(snapshot.revision),
+        manifestBytes: manifest.bytes,
+        manifestDigest: manifest.digest,
+      }),
   )
   const payload = sealed({
     schema_version: restricted
@@ -85,34 +95,48 @@ export async function createAttempt(
     handler_version: actualHandlerVersion,
     command_id: commandId,
   })
-  await client.query(
-    `INSERT INTO command(id,actor_id,target_id,target_context_id,kind,handler_version,workflow_id,queue_name,payload_bytes,payload_digest)
-     VALUES($1,$2,$3,$4,$5,$6,$7,'bench-research',$8,$9)`,
-    [
-      commandId,
-      config.actorId,
-      config.targetId,
-      config.targetContextId,
-      answerId ? 'continue' : 'process',
-      actualHandlerVersion,
-      `processing:${attemptId}`,
-      payload.bytes,
-      payload.digest,
-    ],
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .insert(commands)
+      .values({
+        id: commandId,
+        actorId: config.actorId,
+        targetId: config.targetId,
+        targetContextId: config.targetContextId,
+        kind: answerId ? 'continue' : 'process',
+        handlerVersion: actualHandlerVersion,
+        workflowId: `processing:${attemptId}`,
+        queueName: 'bench-research',
+        payloadBytes: payload.bytes,
+        payloadDigest: payload.digest,
+      }),
   )
   await media.pinCommand(commandId)
   const channel = sealed(channelToken(config, attemptId))
-  await client.query(
-    `INSERT INTO processing_attempt(id,batch_id,job_id,number,input_id,profile_id,command_id,channel_digest,state)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8,'queued')`,
-    [attemptId, snapshot.id, job.id, number, inputId, selectedProfile, commandId, channel.digest],
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .insert(processingAttempts)
+      .values({
+        id: attemptId,
+        batchId: snapshot.id,
+        jobId: job.id,
+        number: BigInt(number),
+        inputId,
+        profileId: selectedProfile,
+        commandId,
+        channelDigest: channel.digest,
+        state: 'queued',
+      }),
   )
   for (const dependency of dependencies) {
-    await client.query(
-      'INSERT INTO processing_dependency(batch_id,attempt_id,dependency_attempt_id) VALUES($1,$2,$3)',
-      [snapshot.id, attemptId, dependency],
+    await executeDatabaseQuery(
+      queryDatabase(client).insert(processingDependencies).values({
+        batchId: snapshot.id,
+        attemptId,
+        dependencyAttemptId: dependency,
+      }),
     )
   }
-  await client.query('INSERT INTO outbox(command_id) VALUES($1)', [commandId])
+  await executeDatabaseQuery(queryDatabase(client).insert(outbox).values({ commandId }))
   return { attemptId, inputId, commandId }
 }

@@ -1,6 +1,10 @@
 import type { DBOSClient } from '@dbos-inc/dbos-sdk'
 import type { Pool } from 'pg'
-import { transaction } from '../db/database.ts'
+import { and, eq, isNull, ne, notExists, or } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
+import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
+import { commands, outbox } from '../db/schema.ts'
+import { processingAttempts, processingDependencies, processingJobs } from './schema.ts'
 import { prepareMediaTransaction } from '../media/transaction.ts'
 import { deliverCommand } from '../workers/delivery.ts'
 import { acceptEnvelope } from './messages.ts'
@@ -27,33 +31,57 @@ export async function dispatchProcessingCommands(
 ) {
   const actualHandlerVersion =
     config.profileId === researchProfileId ? researchHandlerVersion : mediaHandlerVersion
-  const commands = await transaction(pool, async (client) => {
+  const pending = await transaction(pool, async (client) => {
     await prepareMediaTransaction(client)
-    const retained = await client.query<{ command_id: string }>(
-      `SELECT attempt.command_id
-     FROM processing_attempt attempt
-     JOIN processing_job job ON job.current_attempt_id=attempt.id
-     JOIN command command ON command.id=attempt.command_id
-     JOIN outbox outbox ON outbox.command_id=command.id
-     WHERE command.actor_id=$1 AND command.target_id=$2 AND command.target_context_id=$3
-       AND command.handler_version=$4 AND attempt.state='queued' AND outbox.acked_at IS NULL AND outbox.conflict_code IS NULL
-       AND NOT EXISTS (
-         SELECT 1 FROM processing_dependency dependency
-         JOIN processing_attempt predecessor ON predecessor.id=dependency.dependency_attempt_id
-         JOIN processing_job predecessor_job ON predecessor_job.id=predecessor.job_id
-         WHERE dependency.attempt_id=attempt.id
-           AND (predecessor.state<>'ready' OR predecessor_job.current_attempt_id<>predecessor.id))
-     ORDER BY command.created_at,command.id LIMIT 10`,
-      [config.actorId, config.targetId, config.targetContextId, actualHandlerVersion],
+    const predecessorAttempts = alias(processingAttempts, 'predecessor')
+    const predecessorJobs = alias(processingJobs, 'predecessor_job')
+    return executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ commandId: processingAttempts.commandId })
+        .from(processingAttempts)
+        .innerJoin(processingJobs, eq(processingJobs.currentAttemptId, processingAttempts.id))
+        .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
+        .innerJoin(outbox, eq(outbox.commandId, commands.id))
+        .where(
+          and(
+            eq(commands.actorId, config.actorId),
+            eq(commands.targetId, config.targetId),
+            eq(commands.targetContextId, config.targetContextId),
+            eq(commands.handlerVersion, actualHandlerVersion),
+            eq(processingAttempts.state, 'queued'),
+            isNull(outbox.ackedAt),
+            isNull(outbox.conflictCode),
+            notExists(
+              queryDatabase(client)
+                .select({ attemptId: processingDependencies.attemptId })
+                .from(processingDependencies)
+                .innerJoin(
+                  predecessorAttempts,
+                  eq(predecessorAttempts.id, processingDependencies.dependencyAttemptId),
+                )
+                .innerJoin(predecessorJobs, eq(predecessorJobs.id, predecessorAttempts.jobId))
+                .where(
+                  and(
+                    eq(processingDependencies.attemptId, processingAttempts.id),
+                    or(
+                      ne(predecessorAttempts.state, 'ready'),
+                      ne(predecessorJobs.currentAttemptId, predecessorAttempts.id),
+                    ),
+                  ),
+                ),
+            ),
+          ),
+        )
+        .orderBy(commands.createdAt, commands.id)
+        .limit(10),
     )
-    return retained.rows
   })
 
-  for (const command of commands) {
-    await deliverCommand(pool, scheduler, command.command_id)
+  for (const command of pending) {
+    await deliverCommand(pool, scheduler, command.commandId)
   }
 
-  return commands.length
+  return pending.length
 }
 
 /** No provider is constructed here. The caller supplies one already-qualified restricted adapter. */

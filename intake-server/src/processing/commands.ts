@@ -1,10 +1,12 @@
 import type { Pool, PoolClient } from 'pg'
+import { eq } from 'drizzle-orm'
 import {
   validate,
   type ProcessingStartDto,
   type ProcessingCancellationDto,
 } from '@invimport/contracts'
-import { transaction } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
+import { processingAttempts } from './schema.ts'
 import { appendEvent, idempotent } from '../db/authority.ts'
 import { captureInTransaction, lockCaptureForInputs } from '../capture/repository.ts'
 import { prepareMediaTransaction } from '../media/transaction.ts'
@@ -128,9 +130,12 @@ export async function cancelProcessing(
           fail('attempt_terminal')
         }
         await supersedeJobAttempts(client, jobId)
-        await client.query("UPDATE processing_attempt SET state='cancelled' WHERE id=$1", [
-          input.attempt_id,
-        ])
+        await executeDatabaseQuery(
+          queryDatabase(client)
+            .update(processingAttempts)
+            .set({ state: 'cancelled' })
+            .where(eq(processingAttempts.id, input.attempt_id)),
+        )
         await client.query(
           "UPDATE processing_job SET state='cancelled',revision=revision+1 WHERE id=$1",
           [jobId],

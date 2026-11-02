@@ -1,5 +1,5 @@
 import { eq, getTableColumns } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/node-postgres'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import {
   processingQuestions,
   processingAttempts,
@@ -86,21 +86,22 @@ export async function loadRetainedQuestionSpec(
   questionId: string,
   subjectId: string,
 ) {
-  const database = drizzle(client)
-  const questions = await database
-    .select({
-      ...getTableColumns(processingQuestions),
-      commandId: processingAttempts.commandId,
-      manifestDigest: processingInputs.manifestDigest,
-      envelopeBytes: processingMessages.envelopeBytes,
-      envelopeDigest: processingMessages.envelopeDigest,
-      disposition: processingMessages.disposition,
-    })
-    .from(processingQuestions)
-    .innerJoin(processingAttempts, eq(processingAttempts.id, processingQuestions.attemptId))
-    .innerJoin(processingInputs, eq(processingInputs.id, processingQuestions.inputId))
-    .innerJoin(processingMessages, eq(processingMessages.id, processingQuestions.messageId))
-    .where(eq(processingQuestions.id, questionId))
+  const questions = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        ...getTableColumns(processingQuestions),
+        commandId: processingAttempts.commandId,
+        manifestDigest: processingInputs.manifestDigest,
+        envelopeBytes: processingMessages.envelopeBytes,
+        envelopeDigest: processingMessages.envelopeDigest,
+        disposition: processingMessages.disposition,
+      })
+      .from(processingQuestions)
+      .innerJoin(processingAttempts, eq(processingAttempts.id, processingQuestions.attemptId))
+      .innerJoin(processingInputs, eq(processingInputs.id, processingQuestions.inputId))
+      .innerJoin(processingMessages, eq(processingMessages.id, processingQuestions.messageId))
+      .where(eq(processingQuestions.id, questionId)),
+  )
   const question = questions[0] ?? fail('question_not_found', 404)
   return retainedQuestionSpec(question, subjectId)
 }

@@ -1,6 +1,9 @@
 import type { PoolClient } from 'pg'
+import { eq } from 'drizzle-orm'
 import type { ProcessingStateDto } from '@invimport/contracts'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { fail, type Stage } from './model.ts'
+import { processingAttempts } from './schema.ts'
 
 type State = ProcessingStateDto
 
@@ -72,7 +75,12 @@ export async function transitionAttempt(
   attempt: ProcessingAttemptRow,
   state: State,
 ) {
-  await client.query('UPDATE processing_attempt SET state=$2 WHERE id=$1', [attempt.id, state])
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(processingAttempts)
+      .set({ state })
+      .where(eq(processingAttempts.id, attempt.id)),
+  )
 
   if (job.current_attempt_id === attempt.id) {
     await client.query('UPDATE processing_job SET state=$2,revision=revision+1 WHERE id=$1', [

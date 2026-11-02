@@ -1,8 +1,15 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
+import { and, eq } from 'drizzle-orm'
 import { validate, type ProcessingEnvelopeDto } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
-import { transaction } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
+import {
+  processingAttempts,
+  processingMessages,
+  processingProposals,
+  processingQuestions,
+} from './schema.ts'
 import { appendEvent, sha256, verifyBytes } from '../db/authority.ts'
 import { lockCaptureForInputSettlement } from '../capture/repository.ts'
 import { lockLane } from './scope.ts'
@@ -25,16 +32,16 @@ function authenticateEnvelope(
   envelope: ProcessingEnvelopeDto,
 ) {
   const tokenDigest = sha256(Buffer.from(canonical(token)))
-  if (!timingSafeEqual(tokenDigest, authority.row.channel_digest)) {
+  if (!timingSafeEqual(tokenDigest, authority.row.channelDigest)) {
     fail('runner_authentication_failed', 403)
   }
 
   const bindingMatches =
-    envelope.job_id === authority.row.job_id &&
-    envelope.command_id === authority.row.command_id &&
-    envelope.input_sha256 === authority.row.manifest_digest.toString('hex') &&
-    envelope.profile_id === authority.row.profile_id &&
-    envelope.handler_version === authority.row.handler_version
+    envelope.job_id === authority.row.jobId &&
+    envelope.command_id === authority.row.commandId &&
+    envelope.input_sha256 === authority.row.manifestDigest.toString('hex') &&
+    envelope.profile_id === authority.row.profileId &&
+    envelope.handler_version === authority.row.handlerVersion
 
   if (!bindingMatches) {
     fail('runner_binding_mismatch', 422)
@@ -69,20 +76,27 @@ async function messageAlreadyRetained(
   envelope: ProcessingEnvelopeDto,
   bytes: Buffer,
 ) {
-  const messages = await client.query<{
-    envelope_bytes: Buffer
-    envelope_digest: Buffer
-  }>(
-    'SELECT envelope_bytes,envelope_digest FROM processing_message WHERE attempt_id=$1 AND sequence=$2',
-    [envelope.attempt_id, envelope.sequence],
+  const messages = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        envelopeBytes: processingMessages.envelopeBytes,
+        envelopeDigest: processingMessages.envelopeDigest,
+      })
+      .from(processingMessages)
+      .where(
+        and(
+          eq(processingMessages.attemptId, envelope.attempt_id),
+          eq(processingMessages.sequence, BigInt(envelope.sequence)),
+        ),
+      ),
   )
-  const priorMessage = messages.rows[0]
+  const priorMessage = messages[0]
   if (!priorMessage) {
     return false
   }
 
-  verifyBytes(priorMessage.envelope_bytes, priorMessage.envelope_digest)
-  if (!priorMessage.envelope_bytes.equals(bytes)) {
+  verifyBytes(priorMessage.envelopeBytes, priorMessage.envelopeDigest)
+  if (!priorMessage.envelopeBytes.equals(bytes)) {
     fail('payload_conflict')
   }
 
@@ -97,32 +111,32 @@ async function retainAcceptedPayload(
 ) {
   if (envelope.kind === 'proposal') {
     const proposal = sealed(envelope.payload)
-    await client.query('INSERT INTO processing_proposal VALUES($1,$2,$3,$4,$5)', [
-      randomUUID(),
-      authority.row.id,
-      messageId,
-      proposal.bytes,
-      proposal.digest,
-    ])
+    await executeDatabaseQuery(
+      queryDatabase(client).insert(processingProposals).values({
+        id: randomUUID(),
+        attemptId: authority.row.id,
+        messageId,
+        valueBytes: proposal.bytes,
+        valueDigest: proposal.digest,
+      }),
+    )
     return
   }
 
   if (envelope.kind === 'question') {
     const spec = sealed(envelope.payload)
-    await client.query(
-      `INSERT INTO processing_question(
-         id,batch_id,job_id,attempt_id,message_id,input_id,state,spec_bytes,spec_digest)
-       VALUES($1,$2,$3,$4,$5,$6,'open',$7,$8)`,
-      [
-        randomUUID(),
-        authority.row.batch_id,
-        authority.row.job_id,
-        authority.row.id,
+    await executeDatabaseQuery(
+      queryDatabase(client).insert(processingQuestions).values({
+        id: randomUUID(),
+        batchId: authority.row.batchId,
+        jobId: authority.row.jobId,
+        attemptId: authority.row.id,
         messageId,
-        authority.row.input_id,
-        spec.bytes,
-        spec.digest,
-      ],
+        inputId: authority.row.inputId,
+        state: 'open',
+        specBytes: spec.bytes,
+        specDigest: spec.digest,
+      }),
     )
   }
 }
@@ -145,7 +159,7 @@ export async function acceptEnvelope(
     const authority = await loadProcessingAuthority(client, config, envelope.attempt_id)
     authenticateEnvelope(authority, token, envelope)
 
-    const capture = await lockCaptureForInputSettlement(client, config, authority.row.batch_id)
+    const capture = await lockCaptureForInputSettlement(client, config, authority.row.batchId)
     const media = await lockProcessingMediaCurrency(
       client,
       config,
@@ -155,7 +169,7 @@ export async function acceptEnvelope(
     await lockLane(client, config.actorId)
     const { job, attempt } = await lockProcessingAttempt(
       client,
-      authority.row.job_id,
+      authority.row.jobId,
       authority.row.id,
     )
 
@@ -176,8 +190,8 @@ export async function acceptEnvelope(
         authority.manifest,
         {
           attemptId: authority.row.id,
-          commandId: authority.row.command_id,
-          inputSha256: authority.row.manifest_digest.toString('hex'),
+          commandId: authority.row.commandId,
+          inputSha256: authority.row.manifestDigest.toString('hex'),
         },
         envelope.payload,
       )
@@ -198,18 +212,24 @@ export async function acceptEnvelope(
       )
 
     const messageId = randomUUID()
-    await client.query('INSERT INTO processing_message VALUES($1,$2,$3,$4,$5,$6)', [
-      messageId,
-      attempt.id,
-      envelope.sequence,
-      retainedMessage.bytes,
-      retainedMessage.digest,
-      stale ? 'stale' : 'accepted',
-    ])
-    await client.query('UPDATE processing_attempt SET last_sequence=$2 WHERE id=$1', [
-      attempt.id,
-      envelope.sequence,
-    ])
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .insert(processingMessages)
+        .values({
+          id: messageId,
+          attemptId: attempt.id,
+          sequence: BigInt(envelope.sequence),
+          envelopeBytes: retainedMessage.bytes,
+          envelopeDigest: retainedMessage.digest,
+          disposition: stale ? 'stale' : 'accepted',
+        }),
+    )
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .update(processingAttempts)
+        .set({ lastSequence: BigInt(envelope.sequence) })
+        .where(eq(processingAttempts.id, attempt.id)),
+    )
 
     if (stale) {
       // Authenticated stale bytes remain inspectable without creating a current proposal or question.
