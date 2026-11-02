@@ -66,3 +66,10 @@ export const events = pgTable(
 )
 
 export type CommandRow = typeof commands.$inferSelect
+
+export const targets = pgTable('target', {
+  id: uuid('id').primaryKey(),
+  currentContextId: uuid('current_context_id'),
+  revision: bigint('revision', { mode: 'bigint' }).notNull().default(1n),
+  profile: text('profile').notNull(),
+})

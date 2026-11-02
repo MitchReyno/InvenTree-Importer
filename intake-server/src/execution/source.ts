@@ -1,4 +1,14 @@
 import type { PoolClient } from 'pg'
+import { and, asc, eq, inArray } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { targets } from '../db/schema.ts'
+import {
+  executorDeployments,
+  executorSources,
+  executorGuards,
+  executorRuns,
+  executorOperations,
+} from './schema.ts'
 import { id, CAPABILITY, EXECUTOR_BUILD } from './plan.ts'
 import { snapshot, type StockSnapshot } from './authority.ts'
 
@@ -21,11 +31,18 @@ export async function lockStockSource(client: PoolClient, source: OriginalSource
   if (!target) {
     throw new Error('target_authority_missing')
   }
-  const sourceResult = await client.query(
-    'SELECT original_key FROM executor_source WHERE target_id=$1 AND source_id=$2',
-    [source.targetId, source.sourceId],
+  const sourceResult = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ originalKey: executorSources.originalKey })
+      .from(executorSources)
+      .where(
+        and(
+          eq(executorSources.targetId, source.targetId),
+          eq(executorSources.sourceId, source.sourceId),
+        ),
+      ),
   )
-  if (sourceResult.rows[0]?.original_key !== source.originalSourceKey) {
+  if (sourceResult[0]?.originalKey !== source.originalSourceKey) {
     throw new Error('original_source_authority_missing')
   }
   await client.query(
@@ -45,26 +62,51 @@ export async function stockSourceHistory(
   source: OriginalSource,
   contributionKeys: string[],
 ) {
-  const previousResult = await client.query<{ id: string }>(
-    'SELECT id FROM executor_run WHERE target_id=$1 AND original_key=$2 ORDER BY id',
-    [source.targetId, source.originalSourceKey],
+  const previousResult = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ id: executorRuns.id })
+      .from(executorRuns)
+      .where(
+        and(
+          eq(executorRuns.targetId, source.targetId),
+          eq(executorRuns.originalKey, source.originalSourceKey),
+        ),
+      )
+      .orderBy(asc(executorRuns.id)),
   )
   const runs: StockSnapshot[] = []
-  for (const previous of previousResult.rows) {
+  for (const previous of previousResult) {
     runs.push(await snapshot(client, previous.id))
   }
-  const contributionsResult = await client.query<{ contribution_key: string; run_id: string }>(
-    'SELECT contribution_key,run_id FROM executor_operation WHERE target_id=$1 AND contribution_key=ANY($2::uuid[])',
-    [source.targetId, contributionKeys],
+  const contributionsResult = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        contribution_key: executorOperations.contributionKey,
+        run_id: executorOperations.runId,
+      })
+      .from(executorOperations)
+      .where(
+        and(
+          eq(executorOperations.targetId, source.targetId),
+          inArray(executorOperations.contributionKey, contributionKeys),
+        ),
+      ),
   )
-  const guardResult = await client.query<{ active_run: string | null }>(
-    'SELECT active_run FROM executor_guard WHERE target_id=$1 AND original_key=$2',
-    [source.targetId, source.originalSourceKey],
+  const guardResult = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ activeRun: executorGuards.activeRun })
+      .from(executorGuards)
+      .where(
+        and(
+          eq(executorGuards.targetId, source.targetId),
+          eq(executorGuards.originalKey, source.originalSourceKey),
+        ),
+      ),
   )
   return {
     runs,
-    contributions: contributionsResult.rows,
-    activeRunId: guardResult.rows[0]?.active_run ?? null,
+    contributions: contributionsResult,
+    activeRunId: guardResult[0]?.activeRun ?? null,
   }
 }
 
@@ -84,13 +126,32 @@ export async function stockDeployment(
   client: PoolClient,
   input: { deploymentId: string; targetId: string; contextId: string; origin: string },
 ): Promise<StockDeployment | null> {
-  const result = await client.query(
-    `SELECT d.*,t.revision,t.current_context_id,t.profile
-     FROM executor_deployment d JOIN target t ON t.id=d.target_id
-     WHERE d.id=$1 AND d.target_id=$2 AND d.context_id=$3`,
-    [input.deploymentId, input.targetId, input.contextId],
+  const result = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        id: executorDeployments.id,
+        epoch: executorDeployments.epoch,
+        target_id: executorDeployments.targetId,
+        context_id: executorDeployments.contextId,
+        origin: executorDeployments.origin,
+        continuity: executorDeployments.continuity,
+        build: executorDeployments.build,
+        capability: executorDeployments.capability,
+        revision: targets.revision,
+        current_context_id: targets.currentContextId,
+        profile: targets.profile,
+      })
+      .from(executorDeployments)
+      .innerJoin(targets, eq(targets.id, executorDeployments.targetId))
+      .where(
+        and(
+          eq(executorDeployments.id, input.deploymentId),
+          eq(executorDeployments.targetId, input.targetId),
+          eq(executorDeployments.contextId, input.contextId),
+        ),
+      ),
   )
-  const row = result.rows[0]
+  const row = result[0]
   if (
     !row ||
     row.origin !== input.origin ||
@@ -109,6 +170,6 @@ export async function stockDeployment(
     continuity: row.continuity,
     build: EXECUTOR_BUILD,
     capability: CAPABILITY,
-    targetRevision: row.revision,
+    targetRevision: row.revision.toString(),
   }
 }

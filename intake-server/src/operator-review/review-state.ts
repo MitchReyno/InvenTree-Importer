@@ -1,4 +1,7 @@
 import type { PoolClient } from 'pg'
+import { eq } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { manualReviews } from '../review/schema.ts'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { verifyBytes } from '../db/authority.ts'
 import type { ManualConfig } from '../review/authority.ts'
@@ -41,27 +44,27 @@ export async function batchDependencies(
   return { lots, subjects }
 }
 
-interface ReviewRow {
-  subject_id: string
-  dependency_bytes: Buffer
-  dependency_digest: Buffer
-}
-
 /** Subject → every retained review's exact dependency bytes. */
 export async function retainedReviews(
   client: PoolClient,
   batchId: string,
 ): Promise<Map<string, Buffer[]>> {
-  const result = await client.query<ReviewRow>(
-    'SELECT subject_id,dependency_bytes,dependency_digest FROM manual_review WHERE batch_id=$1',
-    [batchId],
+  const result = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        subjectId: manualReviews.subjectId,
+        dependencyBytes: manualReviews.dependencyBytes,
+        dependencyDigest: manualReviews.dependencyDigest,
+      })
+      .from(manualReviews)
+      .where(eq(manualReviews.batchId, batchId)),
   )
   const reviews = new Map<string, Buffer[]>()
-  for (const row of result.rows) {
-    verifyBytes(row.dependency_bytes, row.dependency_digest)
-    const existing = reviews.get(row.subject_id) ?? []
-    existing.push(row.dependency_bytes)
-    reviews.set(row.subject_id, existing)
+  for (const row of result) {
+    verifyBytes(row.dependencyBytes, row.dependencyDigest)
+    const existing = reviews.get(row.subjectId) ?? []
+    existing.push(row.dependencyBytes)
+    reviews.set(row.subjectId, existing)
   }
   return reviews
 }

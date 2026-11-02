@@ -3,7 +3,7 @@ import { SupportedEffectResult } from './SupportedEffectResult'
 import { AttachmentResult } from './AttachmentResult'
 import type { RunRecoverySelection } from '../../manual/types'
 import styled from 'styled-components'
-import type { ManualRunDto } from '@invimport/contracts'
+import type { ManualRunDto, PartOutputDto } from '@invimport/contracts'
 import {
   Button,
   Heading,
@@ -34,9 +34,25 @@ const states: Record<ManualRunDto['state'], string> = {
   recovery_required: 'Original run needs inspection',
 }
 
+function partOutputStatus(output: PartOutputDto, unstarted: boolean) {
+  if (output.usable) {
+    return `Part #${output.remote_pks[0]} is known and usable`
+  }
+  if (
+    unstarted &&
+    output.certainty === 'none' &&
+    output.remote_pks.length === 0 &&
+    output.verification === null
+  ) {
+    return 'Part creation is planned · not queued'
+  }
+  return 'Part identity needs inspection'
+}
+
 export function RunResult({ run, busy, command }: Props) {
   const untouched = run.operations.filter((value) => value.recovery_allowed)
   const cancellable = ['queued', 'running', 'stopping'].includes(run.state)
+  const unstarted = run.state === 'queued' && run.dispatch_state === 'not_requested'
   return (
     <Panel id={`run-${run.run_id}`}>
       <Outcome $confirmed={run.state === 'settled_complete'}>
@@ -75,11 +91,7 @@ export function RunResult({ run, busy, command }: Props) {
       {run.part_outputs?.map((output) => (
         <Operation key={output.operation_key}>
           <strong>{output.label}</strong>
-          <Paragraph>
-            {output.usable
-              ? `Part #${output.remote_pks[0]} is known and usable`
-              : 'Part identity needs inspection'}
-          </Paragraph>
+          <Paragraph>{partOutputStatus(output, unstarted)}</Paragraph>
           {output.remote_pks.length > 0 && (
             <Small>Retained attributable IDs: {output.remote_pks.join(', ')}</Small>
           )}
@@ -92,6 +104,7 @@ export function RunResult({ run, busy, command }: Props) {
           key={effect.operation_key}
           effect={effect}
           busy={busy}
+          unstarted={unstarted}
           recover={() =>
             command(run, 'recover', {
               kind: effect.recovery_action === 'verify_effect' ? 'assessment' : 'effect',

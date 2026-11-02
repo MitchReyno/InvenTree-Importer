@@ -1,4 +1,7 @@
 import type { PoolClient } from 'pg'
+import { and, asc, eq } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { manualPreparationMedia } from './schema.ts'
 import { canonical } from '@invimport/contracts/json'
 import { decodeMediaInputs, type MediaInputs } from '../media/inputs.ts'
 import type { ExecutablePlan } from '../execution/media-plan.ts'
@@ -13,10 +16,15 @@ export async function retainPreparationMedia(
   material: ManualMaterial,
 ) {
   for (const [subjectId, inputs] of material.mediaInputs ?? []) {
-    await client.query(
-      `INSERT INTO manual_preparation_media(batch_id,preparation_id,subject_id,actor_id,manifest_bytes,manifest_digest)
-       VALUES($1,$2,$3,$4,$5,$6)`,
-      [batchId, preparationId, subjectId, actorId, inputs.bytes, inputs.digest],
+    await executeDatabaseQuery(
+      queryDatabase(client).insert(manualPreparationMedia).values({
+        batchId,
+        preparationId,
+        subjectId,
+        actorId,
+        manifestBytes: inputs.bytes,
+        manifestDigest: inputs.digest,
+      }),
     )
   }
 }
@@ -32,28 +40,35 @@ export async function requirePreparationMedia(
   if (plan.version === 'bench-stock-plan/1') {
     return
   }
-  const result = await client.query<{
-    subject_id: string
-    manifest_bytes: Buffer
-    manifest_digest: Buffer
-  }>(
-    `SELECT subject_id,manifest_bytes,manifest_digest FROM manual_preparation_media
-     WHERE batch_id=$1 AND preparation_id=$2 ORDER BY subject_id`,
-    [batchId, preparationId],
+  const result = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        subjectId: manualPreparationMedia.subjectId,
+        manifestBytes: manualPreparationMedia.manifestBytes,
+        manifestDigest: manualPreparationMedia.manifestDigest,
+      })
+      .from(manualPreparationMedia)
+      .where(
+        and(
+          eq(manualPreparationMedia.batchId, batchId),
+          eq(manualPreparationMedia.preparationId, preparationId),
+        ),
+      )
+      .orderBy(asc(manualPreparationMedia.subjectId)),
   )
   const inputsBySubject = new Map<string, MediaInputs>()
-  for (const retained of result.rows) {
-    const inputs = decodeMediaInputs(retained.manifest_bytes, retained.manifest_digest)
+  for (const retained of result) {
+    const inputs = decodeMediaInputs(retained.manifestBytes, retained.manifestDigest)
     const sameSubject =
-      inputs.subjectIds.length === 1 && inputs.subjectIds[0] === retained.subject_id
+      inputs.subjectIds.length === 1 && inputs.subjectIds[0] === retained.subjectId
     if (
       inputs.batchId !== batchId ||
       !sameSubject ||
-      !reviewedSubjectIds.includes(retained.subject_id)
+      !reviewedSubjectIds.includes(retained.subjectId)
     ) {
       throw new Error('prepared_media_scope_mismatch')
     }
-    inputsBySubject.set(retained.subject_id, inputs)
+    inputsBySubject.set(retained.subjectId, inputs)
   }
   const sameManifest = mediaManifestDigest(inputsBySubject) === plan.mediaInputsDigest
   const sameEvidence = canonical(retainedEvidence(inputsBySubject)) === canonical(plan.evidence)

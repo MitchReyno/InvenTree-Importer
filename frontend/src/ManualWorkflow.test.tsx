@@ -167,6 +167,94 @@ const run: ManualRunDto = {
   cursor: { stream_id: stream, sequence: '10' },
 }
 
+test('unstarted effects offer initial dispatch instead of recovery, preserving later uncertainty', async () => {
+  const user = userEvent.setup()
+  const command = vi.fn()
+  const waiting: ManualRunDto = {
+    ...run,
+    part_outputs: [
+      {
+        label: 'Shared Part output',
+        operation_key: partId,
+        part_subject_id: partId,
+        spec_sha256: 'a'.repeat(64),
+        certainty: 'none',
+        remote_pks: [],
+        usable: false,
+        verification: null,
+      },
+    ],
+    supported_effects: [
+      {
+        operation_key: partId,
+        part_subject_id: partId,
+        kind: 'create_part',
+        label: 'Create shared Part',
+        dependencies: [],
+        inputs: { name: 'Shared resistor' },
+        certainty: 'none',
+        remote_pks: [],
+        verification: null,
+        recovery_action: 'resume_effect',
+      },
+    ],
+  }
+  const { rerender } = render(
+    <ResultsWorkspace batchId={batchId} runs={[waiting]} busy={false} command={command} />,
+  )
+  expect(screen.getByText('Part creation is planned · not queued')).toBeVisible()
+  expect(screen.getByText('Planned effect · not queued')).toBeVisible()
+  expect(
+    screen.queryByRole('button', { name: /Resume selected original effect/ }),
+  ).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Queue supervised apply' }))
+  expect(command).toHaveBeenCalledWith(waiting, 'start')
+
+  const incomplete: ManualRunDto = {
+    ...waiting,
+    state: 'settled_incomplete',
+    dispatch_state: 'finished',
+  }
+  rerender(
+    <ResultsWorkspace batchId={batchId} runs={[incomplete]} busy={false} command={command} />,
+  )
+  await user.click(
+    screen.getByRole('button', { name: 'Resume selected original effect: Create shared Part' }),
+  )
+  expect(command).toHaveBeenLastCalledWith(incomplete, 'recover', {
+    kind: 'effect',
+    keys: [partId],
+  })
+
+  const uncertain: ManualRunDto = {
+    ...waiting,
+    state: 'recovery_required',
+    dispatch_state: 'finished',
+    part_outputs: [{ ...waiting.part_outputs![0], certainty: 'unknown', remote_pks: ['8101'] }],
+    supported_effects: [
+      {
+        ...waiting.supported_effects![0],
+        certainty: 'unknown',
+        remote_pks: ['8101'],
+        recovery_action: 'verify_effect',
+      },
+    ],
+  }
+  rerender(<ResultsWorkspace batchId={batchId} runs={[uncertain]} busy={false} command={command} />)
+  expect(screen.getByText('Part identity needs inspection')).toBeVisible()
+  expect(screen.getByText('Effect is unknown; no create retry is allowed')).toBeVisible()
+  expect(
+    screen.queryByRole('button', { name: /Resume selected original effect/ }),
+  ).not.toBeInTheDocument()
+  await user.click(
+    screen.getByRole('button', { name: 'Inspect known original effect: Create shared Part' }),
+  )
+  expect(command).toHaveBeenLastCalledWith(uncertain, 'recover', {
+    kind: 'assessment',
+    keys: [partId],
+  })
+})
+
 function checked<T>(schema: Parameters<typeof validate>[0], value: unknown): T {
   validate(schema, value)
   return value as T

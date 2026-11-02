@@ -34,6 +34,8 @@ Protected-host classification uses WHATWG URL's validated canonical hostname, re
 
 Processing and capture review use that adapter for ordinary reads, inserts and plain keyed updates on the caller's existing client. Locks, compare-and-set, in-place revision increments, the dependency-closure CTE, grants and `public.`-qualified pool reads stay explicit SQL. Capture review projects bigint revisions and instruction versions as exact decimal strings.
 
+Drizzle phase 2 adds ACKed driver mappings for existing target, observation, executor and manual-review tables in their owning schema modules. Ordinary executor journal/reservation reads and inserts, deployment readers, observation reads/inserts, operator-review reads and retained preparation-media access use the same adapter and original transaction. Explicit projections preserve established boundary field names; bigint revisions/cancellation versions return exact decimal strings. Observation timestamp insertion binds the original text through a PostgreSQL timestamptz cast to avoid JavaScript Date truncating submillisecond input. SQL migrations remain untouched. The executor's query-only deployment gate stays explicit SQL rather than widening its deliberately narrow connection port.
+
 Reviewed SQL remains the DDL authority. Explicit parameterized SQL retains the absent-key advisory lock and atomic stream-head allocation where it makes PostgreSQL locking semantics clearest. Neither inferred row types nor verified hashes validate retained JSON structure; consumers retain their runtime boundary validation.
 
 `db/authority.ts` exposes payload-bound idempotency inside the caller-owned transaction, byte verification and commit-ordered event allocation. Idempotency serializes absent as well as present keys using a transaction advisory lock; exact canonical bytes are compared as well as their digest. Different property order is equivalent; changed semantic payload conflicts. Domain writes and dedup result must commit together. A lost commit acknowledgement is **not automatically retried**; consuming features must inspect stable keys read-only and retain uncertainty. No network call belongs inside a retried database transaction.
@@ -87,7 +89,6 @@ explicit reads only; positive no-effect repair never creates extra stock. Remove
 attachments remain historical effects and cannot be replaced. Actual InvenTree mutation
 profiles, providers and production access remain unqualified. See the current
 [T05 handover](../docs/handovers/bench-intake-T05.md) for observations and remaining gates.
-
 
 ## Operator review and unapproved restructuring
 

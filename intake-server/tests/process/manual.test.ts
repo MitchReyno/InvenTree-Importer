@@ -13,6 +13,7 @@ import { database } from '../../src/db/database.ts'
 import { approvePreparation } from '../../src/review/preparations.ts'
 import { executeManualDispatch } from '../../src/review/runner.ts'
 import { ExternalGate } from '../../src/execution/ownership.ts'
+import { seedPartAttachment, PART_ATTACHMENT_PNG } from '../support/part-attachment.ts'
 
 async function prepared(
   fixture: Awaited<ReturnType<typeof manualFixture>>,
@@ -35,6 +36,129 @@ function approval(preview: ManualPreviewDto) {
     expected_target_revision: preview.target_revision,
   }
 }
+
+test(
+  'separate web and runner retain a selected Part attachment across inspection, restart and a later round',
+  { timeout: 90000 },
+  async () => {
+    const image = process.env.INTAKE_MEDIA_DECODER_IMAGE
+    assert.ok(image, 'Full process qualification requires the explicit decoder image')
+    const fixture = await manualProcess(undefined, { media: true, effects: true })
+    try {
+      await fixture.startWeb()
+      const captured = await seedPartAttachment(fixture, image)
+      const preview = await prepared(
+        fixture,
+        captured.batch.id,
+        captured.batch.revision,
+        captured.a.id,
+      )
+      const accepted = await fixture.http(
+        `/preparations/${preview.id}/approvals`,
+        approval(preview),
+      )
+      assert.equal(accepted.status, 200, JSON.stringify(accepted.value))
+      const runId = accepted.value.run_id as string
+      let run = (await fixture.http(`/runs/${runId}`)).value as ManualRunDto
+      assert.equal(run.dispatch_state, 'not_requested')
+      assert.equal((await fixture.fake.records()).filter((row) => row.method === 'POST').length, 0)
+      await fixture.fake.fault('part_attachment_incomplete')
+      assert.equal(
+        (await fixture.http(`/runs/${runId}/start`, { expected_run_revision: run.revision }))
+          .status,
+        200,
+      )
+      await fixture.startRunner()
+      run = await until(
+        async () => (await fixture.http(`/runs/${runId}`)).value as ManualRunDto,
+        (value) => value.state === 'recovery_required' && value.dispatch_state === 'finished',
+      )
+      const originalAttachment = run.supported_effects!.find(
+        (effect) => effect.kind === 'part_attachment',
+      )!
+      assert.equal(originalAttachment.certainty, 'unknown')
+      assert.equal(originalAttachment.recovery_action, 'verify_effect')
+      assert.deepEqual(originalAttachment.remote_pks, ['13001'])
+      await fixture.stopRunner()
+      await fixture.stopWeb()
+      await fixture.restartFake()
+      await fixture.startWeb()
+      await fixture.fake.fault('none')
+      await fixture.startRunner()
+      const restored = (await fixture.http(`/runs/${runId}`)).value as ManualRunDto
+      assert.deepEqual(restored, run)
+      assert.equal(
+        (
+          await fixture.http(`/runs/${runId}/recover`, {
+            expected_run_revision: restored.revision,
+            assessment_keys: [originalAttachment.operation_key],
+          })
+        ).status,
+        200,
+      )
+      run = await until(
+        async () => (await fixture.http(`/runs/${runId}`)).value as ManualRunDto,
+        (value) =>
+          value.dispatch_state === 'finished' &&
+          value.supported_effects!.some(
+            (effect) =>
+              effect.operation_key === originalAttachment.operation_key &&
+              effect.certainty === 'confirmed',
+          ),
+      )
+      const stock = run.supported_effects!.find((effect) => effect.kind === 'create_stock')!
+      assert.equal(stock.certainty, 'none')
+      assert.equal(
+        (
+          await fixture.http(`/runs/${runId}/recover`, {
+            expected_run_revision: run.revision,
+            effect_keys: [stock.operation_key],
+          })
+        ).status,
+        200,
+      )
+      run = await until(
+        async () => (await fixture.http(`/runs/${runId}`)).value as ManualRunDto,
+        (value) => value.state === 'settled_complete' && value.dispatch_state === 'finished',
+      )
+      assert.equal(run.approval_id, accepted.value.approval_id)
+
+      const next = await prepared(
+        fixture,
+        captured.batch.id,
+        captured.batch.revision,
+        captured.b.id,
+      )
+      const second = await fixture.http(`/preparations/${next.id}/approvals`, approval(next))
+      assert.equal(second.status, 200, JSON.stringify(second.value))
+      const nextRun = (await fixture.http(`/runs/${second.value.run_id}`)).value as ManualRunDto
+      assert.equal(
+        (
+          await fixture.http(`/runs/${nextRun.run_id}/start`, {
+            expected_run_revision: nextRun.revision,
+          })
+        ).status,
+        200,
+      )
+      await until(
+        async () => (await fixture.http(`/runs/${nextRun.run_id}`)).value as ManualRunDto,
+        (value) => value.state === 'settled_complete' && value.dispatch_state === 'finished',
+      )
+      const posts = (await fixture.fake.records()).filter((row) => row.method === 'POST')
+      assert.equal(posts.filter((row) => row.path === '/api/part/?tags=true').length, 1)
+      assert.equal(posts.filter((row) => row.path === '/api/attachment/').length, 1)
+      assert.equal(posts.filter((row) => row.path === '/api/stock/').length, 2)
+      const attachment = await fixture.db.pool.query<{ bytes: Buffer; part: string }>(
+        'SELECT bytes,part FROM fake_part_attachment',
+      )
+      assert.equal(attachment.rows.length, 1)
+      assert.equal(attachment.rows[0].part, '8101')
+      assert.ok(attachment.rows[0].bytes.equals(PART_ATTACHMENT_PNG))
+    } finally {
+      await fixture.dispose()
+    }
+  },
+)
 
 test(
   'actual web and separately launched DBOS runner: approval-before-enqueue, restart/results/later round, original IDs and exact POST counts',

@@ -5,26 +5,35 @@ interface Props {
   effect: SupportedEffectResultDto
   busy: boolean
   recover: () => void
+  unstarted?: boolean
 }
 
-export function SupportedEffectResult({ effect, busy, recover }: Props) {
+export function SupportedEffectResult({ effect, busy, recover, unstarted = false }: Props) {
+  const planned =
+    unstarted &&
+    effect.certainty === 'none' &&
+    effect.remote_pks.length === 0 &&
+    effect.verification === null &&
+    effect.recovery_action !== 'verify_effect'
+  let status = 'No effect confirmed'
+  if (planned) {
+    status = 'Planned effect · not queued'
+  } else if (effect.certainty === 'confirmed') {
+    status = 'Historical effect confirmed'
+  } else if (effect.certainty === 'unknown') {
+    status = 'Effect is unknown; no create retry is allowed'
+  }
   return (
     <Field>
       <strong>{effect.label}</strong>
-      <Paragraph>
-        {effect.certainty === 'confirmed'
-          ? 'Historical effect confirmed'
-          : effect.certainty === 'unknown'
-            ? 'Effect is unknown; no create retry is allowed'
-            : 'No effect confirmed'}
-      </Paragraph>
+      <Paragraph>{status}</Paragraph>
       {effect.remote_pks.length > 0 && (
         <Small>Attributed IDs: {effect.remote_pks.join(', ')}</Small>
       )}
       {effect.verification && (
         <Small>Latest inspection: {effect.verification.replaceAll('_', ' ')}</Small>
       )}
-      {effect.recovery_action && (
+      {!planned && effect.recovery_action && (
         <Button disabled={busy} onClick={recover}>
           {effect.recovery_action === 'verify_effect'
             ? 'Inspect known original effect'

@@ -148,3 +148,143 @@ export const transferReadResults = pgTable('manual_transfer_read_result', {
   receiptBytes: bytea('receipt_bytes').notNull(),
   receiptDigest: bytea('receipt_digest').notNull(),
 })
+
+export const executorDeployments = pgTable('executor_deployment', {
+  id: uuid('id').primaryKey(),
+  epoch: uuid('epoch').notNull(),
+  targetId: uuid('target_id').notNull(),
+  contextId: uuid('context_id').notNull(),
+  origin: text('origin').notNull(),
+  continuity: text('continuity').notNull(),
+  build: text('build').notNull(),
+  capability: text('capability').notNull(),
+})
+
+export const executorSources = pgTable(
+  'executor_source',
+  {
+    targetId: uuid('target_id').notNull(),
+    sourceId: uuid('source_id').notNull(),
+    originalKey: uuid('original_key').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.targetId, table.sourceId] })],
+)
+
+export const executorGuards = pgTable(
+  'executor_guard',
+  {
+    targetId: uuid('target_id').notNull(),
+    originalKey: uuid('original_key').notNull(),
+    activeRun: uuid('active_run'),
+  },
+  (table) => [primaryKey({ columns: [table.targetId, table.originalKey] })],
+)
+
+export const executorApprovals = pgTable('executor_approval', {
+  id: uuid('id').primaryKey(),
+  preparationId: uuid('preparation_id').notNull(),
+  actorId: uuid('actor_id').notNull(),
+  deploymentId: uuid('deployment_id').notNull(),
+  targetId: uuid('target_id').notNull(),
+  contextId: uuid('context_id').notNull(),
+  sourceId: uuid('source_id').notNull(),
+  originalKey: uuid('original_key').notNull(),
+  planBytes: bytea('plan_bytes').notNull(),
+  planDigest: bytea('plan_digest').notNull(),
+})
+
+export const executorRuns = pgTable('executor_run', {
+  id: uuid('id').primaryKey(),
+  approvalId: uuid('approval_id').notNull(),
+  commandId: uuid('command_id').notNull(),
+  targetId: uuid('target_id').notNull(),
+  originalKey: uuid('original_key').notNull(),
+})
+
+export const executorOperations = pgTable(
+  'executor_operation',
+  {
+    runId: uuid('run_id').notNull(),
+    operationKey: uuid('operation_key').notNull(),
+    targetId: uuid('target_id').notNull(),
+    originalKey: uuid('original_key').notNull(),
+    contributionKey: uuid('contribution_key').notNull(),
+    requestBytes: bytea('request_bytes').notNull(),
+    requestDigest: bytea('request_digest').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.runId, table.operationKey] })],
+)
+
+export const executorCancels = pgTable('executor_cancel', {
+  id: bigint('id', { mode: 'bigint' }).primaryKey().generatedAlwaysAsIdentity(),
+  runId: uuid('run_id').notNull(),
+  actorId: uuid('actor_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const executorRecoveries = pgTable('executor_recovery', {
+  id: uuid('id').primaryKey(),
+  runId: uuid('run_id').notNull(),
+  operationKey: uuid('operation_key').notNull(),
+  actorId: uuid('actor_id').notNull(),
+  cancelVersion: bigint('cancel_version', { mode: 'bigint' }).notNull(),
+  kind: text('kind').notNull(),
+})
+
+export const executorIntents = pgTable('executor_intent', {
+  id: uuid('id').primaryKey(),
+  runId: uuid('run_id').notNull(),
+  operationKey: uuid('operation_key').notNull(),
+  attempt: integer('attempt').notNull(),
+  recoveryId: uuid('recovery_id'),
+  kind: text('kind').notNull(),
+  requestBytes: bytea('request_bytes').notNull(),
+  requestDigest: bytea('request_digest').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const executorResults = pgTable('executor_result', {
+  intentId: uuid('intent_id').primaryKey(),
+  outcome: text('outcome').notNull(),
+  status: integer('status'),
+  responseBytes: bytea('response_bytes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const executorEffects = pgTable('executor_effect', {
+  intentId: uuid('intent_id').primaryKey(),
+  runId: uuid('run_id').notNull(),
+  operationKey: uuid('operation_key').notNull(),
+  certainty: text('certainty').notNull(),
+  remotePk: text('remote_pk'),
+})
+
+export const executorVerifications = pgTable('executor_verification', {
+  intentId: uuid('intent_id').primaryKey(),
+  effectIntentId: uuid('effect_intent_id').notNull(),
+  runId: uuid('run_id').notNull(),
+  operationKey: uuid('operation_key').notNull(),
+  outcome: text('outcome').notNull(),
+})
+
+export const executorAttachments = pgTable(
+  'executor_attachment',
+  {
+    runId: uuid('run_id').notNull(),
+    artifactKey: uuid('artifact_key').notNull(),
+    stockOperationKey: uuid('stock_operation_key').notNull(),
+    requestBytes: bytea('request_bytes').notNull(),
+    requestDigest: bytea('request_digest').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.runId, table.artifactKey] })],
+)
+
+export const executorAttachmentRecoveries = pgTable('executor_attachment_recovery', {
+  id: uuid('id').primaryKey(),
+  runId: uuid('run_id').notNull(),
+  artifactKey: uuid('artifact_key').notNull(),
+  actorId: uuid('actor_id').notNull(),
+  cancelVersion: bigint('cancel_version', { mode: 'bigint' }).notNull(),
+  kind: text('kind').$type<'repair_attachment' | 'verify_attachment'>().notNull(),
+  createIntentId: uuid('create_intent_id'),
+})

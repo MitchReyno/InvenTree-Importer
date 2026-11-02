@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
+import { and, asc, eq, sql } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { captureObservations } from './schema.ts'
 import {
   validate,
   type CaptureEditDto,
@@ -124,14 +127,21 @@ ORDER BY created_at,id`,
     [id],
   )
   const notes = notesResult.rows
-  const observationsResult = await client.query(
-    `SELECT id,model,pk,target_context_id,label,observed_at,mapping
-FROM capture_observation
-WHERE batch_id=$1
-ORDER BY observed_at,id`,
-    [id],
+  const observations = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        id: captureObservations.id,
+        model: captureObservations.model,
+        pk: captureObservations.pk,
+        target_context_id: captureObservations.targetContextId,
+        label: captureObservations.label,
+        observed_at: captureObservations.observedAt,
+        mapping: captureObservations.mapping,
+      })
+      .from(captureObservations)
+      .where(eq(captureObservations.batchId, id))
+      .orderBy(asc(captureObservations.observedAt), asc(captureObservations.id)),
   )
-  const observations = observationsResult.rows
   const cursor = (
     await client.query<{ head: string }>('SELECT head FROM ui_stream WHERE id=$1', [b.stream_id])
   ).rows[0].head
@@ -312,13 +322,22 @@ async function insertSelection(
     ) {
       fail('invalid_reference')
     }
-    const found = await c.query(
-      `SELECT 1
-FROM capture_observation
-WHERE batch_id=$1 AND id=$2 AND target_id=$3 AND target_context_id=$4 AND model=$5 AND pk=$6`,
-      [b.id, ref.observation_id, b.target_id, ref.target_context_id, ref.model, ref.pk],
+    const found = await executeDatabaseQuery(
+      queryDatabase(c)
+        .select({ id: captureObservations.id })
+        .from(captureObservations)
+        .where(
+          and(
+            eq(captureObservations.batchId, b.id),
+            eq(captureObservations.id, ref.observation_id),
+            eq(captureObservations.targetId, b.target_id),
+            eq(captureObservations.targetContextId, ref.target_context_id),
+            eq(captureObservations.model, ref.model),
+            eq(captureObservations.pk, ref.pk),
+          ),
+        ),
     )
-    if (!found.rowCount) {
+    if (!found.length) {
       fail('invalid_reference')
     }
     observation = ref.observation_id
@@ -727,20 +746,20 @@ VALUES($1,$2,$3,$4,$5,$6,$7)`,
           if (BigInt(count.rows[0].count) >= 100n) {
             fail('capture_capacity', 409)
           }
-          await c.query(
-            `INSERT INTO capture_observation(id,batch_id,target_id,target_context_id,model,pk,label,observed_at,mapping)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-            [
-              observation.id,
-              id,
-              b.target_id,
-              b.target_context_id,
-              observation.model,
-              observation.pk,
-              observation.label,
-              observation.observed_at,
-              observation.mapping ?? null,
-            ],
+          await executeDatabaseQuery(
+            queryDatabase(c)
+              .insert(captureObservations)
+              .values({
+                id: observation.id,
+                batchId: id,
+                targetId: b.target_id,
+                targetContextId: b.target_context_id,
+                model: observation.model,
+                pk: observation.pk,
+                label: observation.label,
+                observedAt: sql`${observation.observed_at}::timestamptz`,
+                mapping: observation.mapping ?? null,
+              }),
           )
           await appendEvent(c, b.stream_id, 'capture_observation', {
             batch_id: id,
