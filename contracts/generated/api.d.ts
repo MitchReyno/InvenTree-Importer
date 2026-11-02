@@ -131,6 +131,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    archived?: "include" | "exclude";
+                    offset?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description InboxList */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InboxList"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/batches": {
         parameters: {
             query?: never;
@@ -140,7 +188,11 @@ export interface paths {
         };
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    q?: string;
+                    archived?: "include" | "exclude";
+                    offset?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -2516,6 +2568,63 @@ export interface components {
             status: "ok";
             /** @constant */
             api_version: "bench-intake-app/1";
+        };
+        CaptureListQuery: {
+            q?: string;
+            archived?: "include" | "exclude";
+            offset?: string;
+        };
+        InboxWorkflow: {
+            lots: number;
+            ready: number;
+            needs_review: number;
+            blocked: number;
+            approved: number;
+            open_questions: number;
+            active_jobs: number;
+            latest_round: null | {
+                run_id: string;
+                /** Format: int64 */
+                round_number: string;
+                state: string;
+                confirmed_stock: number;
+            };
+            thumbnail: null | {
+                preview_id: string;
+                label: string;
+            };
+        };
+        InboxList: {
+            batches: {
+                id: string;
+                source_id: string;
+                title: string;
+                /** Format: int64 */
+                revision: string;
+                archived: boolean;
+                updated_at: string;
+                workflow: {
+                    lots: number;
+                    ready: number;
+                    needs_review: number;
+                    blocked: number;
+                    approved: number;
+                    open_questions: number;
+                    active_jobs: number;
+                    latest_round: null | {
+                        run_id: string;
+                        /** Format: int64 */
+                        round_number: string;
+                        state: string;
+                        confirmed_stock: number;
+                    };
+                    thumbnail: null | {
+                        preview_id: string;
+                        label: string;
+                    };
+                };
+            }[];
+            truncated: boolean;
         };
         CaptureRef: {
             observation_id: string;
@@ -7543,6 +7652,9 @@ export type WorkerEnvelope = components['schemas']['WorkerEnvelope']
 export type ErrorDto = components['schemas']['ErrorDto']
 export type Bootstrap = components['schemas']['Bootstrap']
 export type Health = components['schemas']['Health']
+export type CaptureListQuery = components['schemas']['CaptureListQuery']
+export type InboxWorkflow = components['schemas']['InboxWorkflow']
+export type InboxList = components['schemas']['InboxList']
 export type CaptureRef = components['schemas']['CaptureRef']
 export type CaptureQuantity = components['schemas']['CaptureQuantity']
 export type CaptureLocation = components['schemas']['CaptureLocation']

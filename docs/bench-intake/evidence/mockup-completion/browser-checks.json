@@ -1,0 +1,77 @@
+{
+  "environment": "Owned synthetic 4330 preview; browser-harness; recordings disabled",
+  "viewports_css_pixels": [
+    1440,
+    390,
+    360
+  ],
+  "document_horizontal_overflow": false,
+  "native_zoom": {
+    "percent": 200,
+    "device_pixel_ratio": 2,
+    "viewport_css_pixels": [
+      648,
+      450
+    ],
+    "horizontal_overflow": false,
+    "restored_percent": 90
+  },
+  "inbox_search": {
+    "typed": "receipt",
+    "reads_before_typing": 4,
+    "reads_after_typing": 4,
+    "reads_after_submission": 5,
+    "result": "Saved receipt \u00b7 October"
+  },
+  "evidence_reload": {
+    "source": "Synthetic two-page source.pdf",
+    "page": 2,
+    "exact_source_version_page_preview_in_url": true,
+    "page_after_document_reload": 2,
+    "authorized_preview_loaded": true
+  },
+  "images": {
+    "original_previews_loaded": 2,
+    "documentary_crop_available": true,
+    "selected_attachment_by_gallery": false
+  },
+  "approval": {
+    "selected": [
+      "Packet A"
+    ],
+    "excluded": [
+      "Packet B"
+    ],
+    "quantity": "17",
+    "round": "1",
+    "state": "queued",
+    "dispatch_requested": false,
+    "confirmed_stock": 0
+  },
+  "dirty_capture": {
+    "unsaved_title": "UNSAVED mockup check",
+    "all_five_stages_disabled": true,
+    "explicit_discard_restored_navigation": true,
+    "saved_title": "Two physical packets"
+  },
+  "limits": [
+    "No provider calls or real InvenTree requests",
+    "No deployment",
+    "200 percent zoom checked for Images only",
+    "No screen-reader certification",
+    "Unavailable selected preview and malformed link cases covered by component tests rather than database mutation in Chrome"
+  ],
+  "review_fixes": {
+    "filtered_count_link_selected_stage": "Review",
+    "same_document_page_sequence": [
+      "1",
+      "2"
+    ],
+    "same_time_origin_across_navigation": true,
+    "unavailable_live_preview_images": 0,
+    "malformed_live_link_images": 0,
+    "both_invalid_states_refused_replacement": true,
+    "long_unbroken_title_390_overflow": false,
+    "long_unbroken_filename_390_overflow": false
+  }
+}

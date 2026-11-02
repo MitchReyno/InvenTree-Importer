@@ -397,3 +397,32 @@ export async function processingActivity(
   validate('ProcessingActivity', activity)
   return activity
 }
+
+/** Inbox observations reuse the destination's exact currentness and supersession policy. */
+export async function inboxProcessing(
+  client: PoolClient,
+  config: ProcessingConfig,
+  capture: CaptureSnapshotDto,
+) {
+  const activeSubjects = new Set(
+    [...capture.lots.filter((lot) => !lot.retired), ...capture.parts].map((subject) => subject.id),
+  )
+  const retained = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ id: processingJobs.id })
+      .from(processingJobs)
+      .where(eq(processingJobs.batchId, capture.id))
+      .limit(1),
+  )
+  if (!retained.length) {
+    return { open_questions: 0, active_jobs: 0 }
+  }
+  const snapshot = await processingSnapshot(client, config, capture)
+  const jobs = snapshot.jobs.filter((job) => activeSubjects.has(job.subject_id))
+  return {
+    open_questions: jobs
+      .flatMap((job) => job.questions)
+      .filter((question) => question.state === 'open').length,
+    active_jobs: jobs.filter((job) => job.state === 'running' || job.state === 'queued').length,
+  }
+}

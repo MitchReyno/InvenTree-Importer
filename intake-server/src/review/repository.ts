@@ -2,7 +2,7 @@ import { and, desc, eq, isNull } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { manualRuns, manualApprovals, manualPreparations, manualPrepareCommands } from './schema.ts'
 import type { ManualAttachmentRead } from './part-attachments.ts'
-import type { Pool } from 'pg'
+import type { Pool, PoolClient } from 'pg'
 import { validate, type ManualPreviewDto, type ManualWorkspaceDto } from '@invimport/contracts'
 import { transaction } from '../db/database.ts'
 import { captureInTransaction, fail } from '../capture/repository.ts'
@@ -228,5 +228,28 @@ export function manualRepository(
         return result
       })
     },
+  }
+}
+
+/** Latest original round for an already scoped batch; retained outcome, never replay authority. */
+export async function latestInboxRound(client: PoolClient, config: ManualConfig, batchId: string) {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ id: manualRuns.id })
+      .from(manualRuns)
+      .innerJoin(manualApprovals, eq(manualApprovals.id, manualRuns.approvalId))
+      .where(and(eq(manualRuns.batchId, batchId), eq(manualApprovals.actorId, config.actorId)))
+      .orderBy(desc(manualApprovals.roundNumber))
+      .limit(1),
+  )
+  if (!rows[0]) {
+    return null
+  }
+  const run = await manualRunSnapshot(client, config, rows[0].id)
+  return {
+    run_id: run.run_id,
+    round_number: run.round_number,
+    state: run.state,
+    confirmed_stock: run.confirmed_stock_ids.length,
   }
 }

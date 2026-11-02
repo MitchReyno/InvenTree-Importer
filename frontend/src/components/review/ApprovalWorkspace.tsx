@@ -13,6 +13,7 @@ import {
   Field,
   Summary,
   Select,
+  Link,
   Label,
 } from '../ui/primitives'
 
@@ -97,7 +98,9 @@ export function ApprovalWorkspace({
               <ul>
                 {preview.remaining_lot_ids.map((id) => (
                   <li key={id}>
-                    {batch.lots.find((value) => value.id === id)?.label ?? 'Another physical lot'}
+                    <Link href={`#${batch.id}/review/${id}`}>
+                      {batch.lots.find((value) => value.id === id)?.label ?? 'Another physical lot'}
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -198,6 +201,22 @@ export function ApprovalWorkspace({
             selection.
           </Notice>
         )}
+        {preview && (
+          <ScopeSummary aria-label="Exact prepared scope">
+            <strong>
+              {preview.effects.length} stock lot{preview.effects.length === 1 ? '' : 's'}
+            </strong>
+            <span>
+              {preview.supported_effects?.filter((effect) => effect.kind !== 'part_attachment')
+                .length ?? 0}{' '}
+              shared Part operations
+            </span>
+            <span>
+              {preview.remaining_lot_ids.length} lot
+              {preview.remaining_lot_ids.length === 1 ? '' : 's'} outside this approval
+            </span>
+          </ScopeSummary>
+        )}
         <ApproveFoot>
           <Small>
             Approval retains one original run. A separate supervised runner performs only explicitly
@@ -236,4 +255,16 @@ const ApproveFoot = styled.div`
   border-top: 1px solid #d5dce5;
   padding-top: 16px;
   margin-top: 16px;
+`
+
+const ScopeSummary = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px;
+  margin-top: 14px;
+  background: #edf3fc;
+  border: 1px solid #b9cde7;
+  border-radius: 5px;
+  font-size: 13px;
 `

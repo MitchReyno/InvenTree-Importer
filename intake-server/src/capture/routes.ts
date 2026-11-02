@@ -6,6 +6,7 @@ import {
   schemas,
   validate,
   type CaptureEditDto,
+  type CaptureListQueryDto,
   type CaptureObserveDto,
   type InventoryMappingDto,
 } from '@invimport/contracts'
@@ -65,8 +66,10 @@ export function registerCapture(
         correlation_id: req.id,
       })
     })
-    scope.get('/api/v1/batches', { schema: { response: { 200: schemas.CaptureList } } }, () =>
-      repo.list(),
+    scope.get<{ Querystring: CaptureListQueryDto }>(
+      '/api/v1/batches',
+      { schema: { querystring: schemas.CaptureListQuery, response: { 200: schemas.CaptureList } } },
+      (req) => repo.list(req.query),
     )
     scope.get(
       '/api/v1/batches/:id',

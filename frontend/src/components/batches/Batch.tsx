@@ -41,7 +41,8 @@ export function Batch({
   route: string
   onDirtyChange: (dirty: boolean) => void
 }) {
-  const segment = route.split('/')[1]
+  const segments = route.split('?')[0].split('/')
+  const segment = segments[1]
   const processingSelected = segment === 'processing' && processing !== undefined
   const stage: ManualStage =
     segment === 'review' || segment === 'approve' || segment === 'results' ? segment : 'capture'
@@ -216,6 +217,7 @@ export function Batch({
         key={`${batch.id}:${batch.revision}:${reset}`}
         batch={batch}
         client={processing}
+        media={media}
         route={route}
         disabled={readOrCommandBusy || readUnavailable}
         edit={edit}
@@ -232,8 +234,8 @@ export function Batch({
         batch={batch}
         client={manual}
         stage={stage}
-        runId={stage === 'results' ? route.split('/')[2] : undefined}
-        preparationId={stage === 'approve' ? route.split('/')[2] : undefined}
+        runId={stage === 'results' ? segments[2] : undefined}
+        preparationId={stage === 'approve' ? segments[2] : undefined}
         edit={edit}
         navigate={navigate}
         reload={reloadSavedValues}

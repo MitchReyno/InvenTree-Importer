@@ -1,6 +1,6 @@
 import styled from 'styled-components'
 import type { ManualRunDto } from '@invimport/contracts'
-import { Heading, Panel, Paragraph, Link } from '../ui/primitives'
+import { Heading, Panel, Paragraph, Link, Notice } from '../ui/primitives'
 import type { RunRecoverySelection } from '../../manual/types'
 import { RunResult } from './RunResult'
 
@@ -42,7 +42,13 @@ export function ResultsWorkspace({ batchId, runs, focusedRunId, busy, command }:
           <Link href={`#${batchId}/review`}>Review exact saved lots</Link>
         </Panel>
       )}
-      {(focused ? [focused] : runs).map((run) => (
+      {focusedRunId && !focused && (
+        <Notice role="status">
+          The selected approval round is unavailable. No other round has been substituted.{' '}
+          <Link href={`#${batchId}/results`}>Show all retained rounds</Link>
+        </Notice>
+      )}
+      {(focusedRunId ? (focused ? [focused] : []) : runs).map((run) => (
         <RunResult key={run.run_id} run={run} busy={busy} command={command} />
       ))}
     </Results>
@@ -56,5 +62,9 @@ const Results = styled.div`
 const RoundLink = styled(Link)`
   display: inline-block;
   margin: 0 12px 8px 0;
-  min-height: 36px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #d5dce5;
+  border-radius: 5px;
+  text-decoration: none;
 `

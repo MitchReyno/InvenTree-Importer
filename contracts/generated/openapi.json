@@ -95,6 +95,70 @@
         }
       }
     },
+    "/api/v1/inbox": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 45000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "InboxList",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "include",
+                  "type": "string"
+                },
+                {
+                  "const": "exclude",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "pattern": "^(0|[1-9][0-9]{0,5})$",
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/api/v1/batches": {
       "get": {
         "x-intake-client": {
@@ -122,7 +186,41 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "include",
+                  "type": "string"
+                },
+                {
+                  "const": "exclude",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "pattern": "^(0|[1-9][0-9]{0,5})$",
+              "type": "string"
+            }
+          }
+        ]
       },
       "post": {
         "x-intake-client": {
@@ -3040,6 +3138,301 @@
           "api_version": {
             "const": "bench-intake-app/1",
             "type": "string"
+          }
+        }
+      },
+      "CaptureListQuery": {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "q": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "archived": {
+            "anyOf": [
+              {
+                "const": "include",
+                "type": "string"
+              },
+              {
+                "const": "exclude",
+                "type": "string"
+              }
+            ]
+          },
+          "offset": {
+            "pattern": "^(0|[1-9][0-9]{0,5})$",
+            "type": "string"
+          }
+        }
+      },
+      "InboxWorkflow": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "lots",
+          "ready",
+          "needs_review",
+          "blocked",
+          "approved",
+          "open_questions",
+          "active_jobs",
+          "latest_round",
+          "thumbnail"
+        ],
+        "properties": {
+          "lots": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "ready": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "needs_review": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "blocked": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "approved": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "open_questions": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "active_jobs": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "latest_round": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "run_id",
+                  "round_number",
+                  "state",
+                  "confirmed_stock"
+                ],
+                "properties": {
+                  "run_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "round_number": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  "state": {
+                    "maxLength": 64,
+                    "type": "string"
+                  },
+                  "confirmed_stock": {
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                }
+              }
+            ]
+          },
+          "thumbnail": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "preview_id",
+                  "label"
+                ],
+                "properties": {
+                  "preview_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "label": {
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "InboxList": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "batches",
+          "truncated"
+        ],
+        "properties": {
+          "batches": {
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "id",
+                "source_id",
+                "title",
+                "revision",
+                "archived",
+                "updated_at",
+                "workflow"
+              ],
+              "properties": {
+                "id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "source_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "title": {
+                  "minLength": 1,
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "revision": {
+                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                  "format": "int64",
+                  "type": "string"
+                },
+                "archived": {
+                  "type": "boolean"
+                },
+                "updated_at": {
+                  "type": "string"
+                },
+                "workflow": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "lots",
+                    "ready",
+                    "needs_review",
+                    "blocked",
+                    "approved",
+                    "open_questions",
+                    "active_jobs",
+                    "latest_round",
+                    "thumbnail"
+                  ],
+                  "properties": {
+                    "lots": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "ready": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "needs_review": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "blocked": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "approved": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "open_questions": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "active_jobs": {
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "latest_round": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "run_id",
+                            "round_number",
+                            "state",
+                            "confirmed_stock"
+                          ],
+                          "properties": {
+                            "run_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "round_number": {
+                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                              "format": "int64",
+                              "type": "string"
+                            },
+                            "state": {
+                              "maxLength": 64,
+                              "type": "string"
+                            },
+                            "confirmed_stock": {
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "thumbnail": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "preview_id",
+                            "label"
+                          ],
+                          "properties": {
+                            "preview_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "label": {
+                              "minLength": 1,
+                              "maxLength": 256,
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "truncated": {
+            "type": "boolean"
           }
         }
       },

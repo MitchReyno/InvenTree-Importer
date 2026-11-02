@@ -741,3 +741,23 @@ test('a cached preparation remains visible but cannot be approved before the mou
   )
   expect(client.approve).not.toHaveBeenCalled()
 })
+
+test('an unavailable pinned approval round never substitutes another retained round', () => {
+  const command = vi.fn()
+  render(
+    <ResultsWorkspace
+      batchId={batchId}
+      runs={[run]}
+      focusedRunId="unavailable"
+      busy={false}
+      command={command}
+    />,
+  )
+  expect(screen.getByRole('status')).toHaveTextContent('No other round has been substituted')
+  expect(screen.queryByRole('button', { name: 'Queue supervised apply' })).not.toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Show all retained rounds' })).toHaveAttribute(
+    'href',
+    `#${batchId}/results`,
+  )
+  expect(command).not.toHaveBeenCalled()
+})

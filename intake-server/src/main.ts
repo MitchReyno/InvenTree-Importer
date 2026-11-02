@@ -88,7 +88,8 @@ async function main() {
           )
         : undefined
       await registerCapture(server, db.pool, config, read)
-      registerProcessing(server, db.pool, processingConfig(config, process.env), lockCaptureForEdit)
+      const processing = processingConfig(config, process.env)
+      registerProcessing(server, db.pool, processing, lockCaptureForEdit)
       if (mediaStore) {
         registerMediaRoutes(server, db.pool, config, mediaStore)
       }
@@ -116,6 +117,7 @@ async function main() {
                 ),
             }
           : undefined,
+        processing,
       )
     }
     const assets = fileURLToPath(new URL('../../frontend/dist/', import.meta.url))
