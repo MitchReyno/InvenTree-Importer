@@ -678,3 +678,13 @@ test('a batch-list refresh cannot unmount an automatically opened form with huma
   expect(dirty).toHaveBeenLastCalledWith(true)
   expect(reads).toBe(2)
 })
+
+test('following an inbox workflow filter opens Review through the actual App router', async () => {
+  navigationServer()
+  const user = userEvent.setup()
+  render(<App />)
+  await user.click(await screen.findByRole('link', { name: '1 need review' }))
+  expect(await screen.findByRole('heading', { name: 'Review selected lots' })).toBeVisible()
+  expect(location.hash).toBe(`#${batchId}/review?filter=needs_review`)
+  expect(screen.getByRole('button', { name: 'Review' })).toHaveAttribute('aria-current', 'page')
+})

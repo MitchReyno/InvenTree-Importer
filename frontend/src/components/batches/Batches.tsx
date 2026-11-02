@@ -230,6 +230,7 @@ const ContinueCard = styled(Panel)`
   --thumbnail-size: 180px;
   > div:last-child {
     min-width: 0;
+    overflow-wrap: anywhere;
   }
   @media (max-width: 700px) {
     --thumbnail-size: 76px;

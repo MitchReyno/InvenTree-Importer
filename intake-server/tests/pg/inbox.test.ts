@@ -167,3 +167,103 @@ test('inbox publishes only a ready retained original preview and never sends an 
     await fixture.dispose()
   }
 })
+
+test('inbox question and active-job totals match Processing currentness after human dependency edits', async () => {
+  const { processingFixture } = await import('../support/processing.ts')
+  const { claimProcessingCommand, acceptEnvelope } = await import('../../src/processing/runner.ts')
+  const { inboxProjection } = await import('../../src/inbox/projection.ts')
+  const { strictJson } = await import('@invimport/contracts/json')
+  const fixture = await processingFixture()
+  try {
+    const capture = await fixture.seedCapture()
+    assert.equal(
+      (
+        await fixture.http(`/batches/${capture.batch.id}/processing`, {
+          schema_version: 'bench-intake-processing/1',
+          expected_capture_revision: capture.batch.revision,
+          subject_ids: [capture.packetA.id, capture.packetB.id],
+          stages: ['reading'],
+        })
+      ).status,
+      202,
+    )
+    const initial = (await fixture.http(`/batches/${capture.batch.id}/processing`)).value
+    const job = initial.jobs.find(
+      (value: { subject_id: string }) => value.subject_id === capture.packetA.id,
+    )
+    const retained = await fixture.db.pool.query(
+      'SELECT c.workflow_id,c.payload_bytes FROM command c JOIN processing_attempt a ON a.command_id=c.id WHERE a.id=$1',
+      [job.attempt_id],
+    )
+    const command = await claimProcessingCommand(
+      fixture.runner.pool,
+      fixture.config,
+      retained.rows[0].workflow_id,
+      strictJson(retained.rows[0].payload_bytes.toString('utf8')),
+      'processing/2',
+    )
+    assert.ok(command)
+    assert.equal(
+      await acceptEnvelope(fixture.runner.pool, fixture.config, command.channelToken, {
+        schema_version: 'bench-intake-runner/2',
+        job_id: command.payload.job_id,
+        attempt_id: command.payload.attempt_id,
+        command_id: command.payload.command_id,
+        input_sha256: command.payload.input_sha256,
+        profile_id: 'synthetic-research/2',
+        handler_version: 'processing/2',
+        sequence: '1',
+        kind: 'question',
+        payload: {
+          kind: 'quantity',
+          subject_id: capture.packetA.id,
+          prompt: 'Count Packet A?',
+          reason: 'Retained approximate count needs human input.',
+        },
+      }),
+      'accepted',
+    )
+    async function compare() {
+      const destination = (await fixture.http(`/batches/${capture.batch.id}/processing`)).value
+      const inbox = await inboxProjection(fixture.db.pool, fixture.config, {}, fixture.config)
+      const workflow = inbox.batches[0].workflow
+      assert.equal(
+        workflow.open_questions,
+        destination.jobs
+          .flatMap((value: { questions: { state: string }[] }) => value.questions)
+          .filter((value: { state: string }) => value.state === 'open').length,
+      )
+      assert.equal(
+        workflow.active_jobs,
+        destination.jobs.filter(
+          (value: { state: string }) => value.state === 'queued' || value.state === 'running',
+        ).length,
+      )
+      return workflow
+    }
+    assert.equal((await compare()).open_questions, 1)
+    await capture.edit({
+      kind: 'lot',
+      id: capture.packetA.id,
+      quantity: { mode: 'set', value: '19' },
+    })
+    assert.equal((await compare()).open_questions, 0)
+    const raw = await fixture.db.pool.query(
+      'SELECT state FROM processing_question WHERE job_id=$1',
+      [job.id],
+    )
+    assert.equal(
+      raw.rows[0].state,
+      'open',
+      'The inbox must apply logical supersession, not count this raw row',
+    )
+    await capture.edit({
+      kind: 'note',
+      subject_id: null,
+      text: 'New shared human evidence supersedes the old input.',
+    })
+    assert.equal((await compare()).active_jobs, 0)
+  } finally {
+    await fixture.dispose()
+  }
+})

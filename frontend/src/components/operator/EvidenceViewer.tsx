@@ -78,6 +78,48 @@ export function EvidenceViewer({ batchId, lotId, evidence, unavailable = false }
     }
   }, [batchId, lotId, selected])
 
+  useEffect(() => {
+    if (!lotId) {
+      return
+    }
+
+    function acceptInspectionRoute() {
+      // The application guard restores a protected draft URL synchronously first.
+      queueMicrotask(() => {
+        if (location.hash.split('?')[0] !== `#${batchId}/review/${lotId}`) {
+          return
+        }
+        const linked = evidenceFromHash(location.hash)
+        let next = linked ?? null
+        if (linked === undefined) {
+          for (const item of evidence) {
+            const page = firstPage(item)
+            if (page) {
+              next = page
+              break
+            }
+          }
+        }
+        if (linked === undefined && next) {
+          history.replaceState(null, '', withEvidence(location.hash, next))
+        }
+        setInvalidLink(linked === null)
+        if (JSON.stringify(next) !== JSON.stringify(selected)) {
+          setSelected(next)
+          setZoom(1)
+          setFailedPreview(null)
+        }
+      })
+    }
+
+    addEventListener('hashchange', acceptInspectionRoute)
+    addEventListener('popstate', acceptInspectionRoute)
+    return () => {
+      removeEventListener('hashchange', acceptInspectionRoute)
+      removeEventListener('popstate', acceptInspectionRoute)
+    }
+  }, [batchId, lotId, evidence, selected])
+
   function selectPage(selection: Selection) {
     setSelected(selection)
     setInvalidLink(false)
@@ -124,6 +166,7 @@ export function EvidenceViewer({ batchId, lotId, evidence, unavailable = false }
         <>
           <Preview tabIndex={0} aria-label="Evidence image; scroll to inspect when zoomed">
             <PreviewImage
+              loading="lazy"
               key={`${page.preview_id}:${loadAttempt}`}
               $zoom={zoom}
               src={mediaResource(batchId, 'previews', page.preview_id)}

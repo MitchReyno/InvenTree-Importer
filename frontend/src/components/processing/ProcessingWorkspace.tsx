@@ -11,7 +11,16 @@ import type {
   ProcessingStartDto,
 } from '@invimport/contracts'
 import type { ProcessingClient, ProcessingView } from '../../processing/types'
-import { Button, ErrorNotice, Heading, Notice, Paragraph, Panel, Small } from '../ui/primitives'
+import {
+  Button,
+  ErrorNotice,
+  Heading,
+  Notice,
+  Paragraph,
+  Panel,
+  Small,
+  Summary,
+} from '../ui/primitives'
 import type { MediaClient } from '../../media/types'
 import { ProcessingImages } from './ProcessingImages'
 import { ProcessingStageSummary } from './ProcessingStageSummary'
@@ -269,7 +278,7 @@ export function ProcessingWorkspace({
               One research lane per account. A waiting question frees the lane for other lots.
             </Small>
             <details>
-              <summary>Queue work for selected saved subjects</summary>
+              <Summary>Queue work for selected saved subjects</Summary>
               <Selection
                 disabled={batch.archived}
                 aria-label="Select saved subjects for a new processing attempt"

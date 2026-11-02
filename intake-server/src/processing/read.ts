@@ -398,48 +398,31 @@ export async function processingActivity(
   return activity
 }
 
-/** Saved current-attempt status, not permission to answer or restart work. */
-export async function inboxProcessing(client: PoolClient, snapshot: CaptureSnapshotDto) {
-  const activeSubjects = [...snapshot.lots.filter((lot) => !lot.retired), ...snapshot.parts].map(
-    (subject) => subject.id,
+/** Inbox observations reuse the destination's exact currentness and supersession policy. */
+export async function inboxProcessing(
+  client: PoolClient,
+  config: ProcessingConfig,
+  capture: CaptureSnapshotDto,
+) {
+  const activeSubjects = new Set(
+    [...capture.lots.filter((lot) => !lot.retired), ...capture.parts].map((subject) => subject.id),
   )
-  if (!activeSubjects.length) {
+  const retained = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ id: processingJobs.id })
+      .from(processingJobs)
+      .where(eq(processingJobs.batchId, capture.id))
+      .limit(1),
+  )
+  if (!retained.length) {
     return { open_questions: 0, active_jobs: 0 }
   }
-  const jobs = await executeDatabaseQuery(
-    queryDatabase(client)
-      .select({
-        id: processingJobs.id,
-        attemptId: processingJobs.currentAttemptId,
-        state: processingJobs.state,
-      })
-      .from(processingJobs)
-      .where(
-        and(
-          eq(processingJobs.batchId, snapshot.id),
-          inArray(processingJobs.subjectId, activeSubjects),
-        ),
-      ),
-  )
-  const waitingAttempts = jobs
-    .filter((job) => job.state === 'waiting_for_user')
-    .map((job) => job.attemptId)
-  const questions = waitingAttempts.length
-    ? await executeDatabaseQuery(
-        queryDatabase(client)
-          .select({ id: processingQuestions.id })
-          .from(processingQuestions)
-          .where(
-            and(
-              eq(processingQuestions.batchId, snapshot.id),
-              eq(processingQuestions.state, 'open'),
-              inArray(processingQuestions.attemptId, waitingAttempts),
-            ),
-          ),
-      )
-    : []
+  const snapshot = await processingSnapshot(client, config, capture)
+  const jobs = snapshot.jobs.filter((job) => activeSubjects.has(job.subject_id))
   return {
-    open_questions: questions.length,
+    open_questions: jobs
+      .flatMap((job) => job.questions)
+      .filter((question) => question.state === 'open').length,
     active_jobs: jobs.filter((job) => job.state === 'running' || job.state === 'queued').length,
   }
 }

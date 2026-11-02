@@ -79,6 +79,7 @@ const Gallery = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
   gap: 16px;
   margin-top: 14px;
+  overflow-wrap: anywhere;
 `
 const Versions = styled.div`
   display: flex;

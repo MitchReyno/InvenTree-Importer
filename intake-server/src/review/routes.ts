@@ -7,6 +7,7 @@ import type { CaptureRead } from '../capture/routes.ts'
 import type { ApprovalInput } from './preparations.ts'
 import type { ManualConfig } from './authority.ts'
 import { manualRepository } from './repository.ts'
+import type { ProcessingConfig } from '../processing/attempts.ts'
 import { inboxProjection } from '../inbox/projection.ts'
 import { registerOperatorReview } from '../operator-review/routes.ts'
 
@@ -45,6 +46,7 @@ export function registerManual(
   config: ManualConfig,
   read?: CaptureRead,
   attachmentRead?: ManualAttachmentRead,
+  processing: ProcessingConfig = { ...config, channelSecret: '' },
 ) {
   const repository = manualRepository(pool, config, read, attachmentRead)
   registerOperatorReview(app, pool, config)
@@ -73,7 +75,7 @@ export function registerManual(
     scope.get<{ Querystring: CaptureListQueryDto }>(
       '/api/v1/inbox',
       { schema: { querystring: schemas.CaptureListQuery, response: { 200: schemas.InboxList } } },
-      (request) => inboxProjection(pool, config, request.query),
+      (request) => inboxProjection(pool, config, request.query, processing),
     )
     scope.get('/api/v1/activity', { schema: { response: { 200: schemas.ManualActivity } } }, () =>
       repository.activity(),

@@ -3,6 +3,7 @@ import { validate, type CaptureListQueryDto, type InboxListDto } from '@invimpor
 import { captureInTransaction, listCaptureBatches } from '../capture/repository.ts'
 import { transaction } from '../db/database.ts'
 import { operatorReview } from '../operator-review/projection.ts'
+import type { ProcessingConfig } from '../processing/attempts.ts'
 import { inboxProcessing } from '../processing/read.ts'
 import { prepareMediaTransaction } from '../media/transaction.ts'
 import { inboxThumbnail } from '../media/read.ts'
@@ -16,6 +17,7 @@ export async function inboxProjection(
   pool: Pool,
   config: ManualConfig,
   query: CaptureListQueryDto,
+  processingConfig: ProcessingConfig,
 ): Promise<InboxListDto> {
   return transaction(pool, async (client) => {
     await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
@@ -32,7 +34,7 @@ export async function inboxProjection(
       const ready = pending.filter(
         (lot) => lot.review_state === 'reviewed' && !blocked.includes(lot),
       )
-      const processing = await inboxProcessing(client, capture.snapshot)
+      const processing = await inboxProcessing(client, processingConfig, capture.snapshot)
       batches.push({
         ...batch,
         workflow: {

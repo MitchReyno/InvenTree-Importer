@@ -1,4 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { useEffect } from 'react'
+import { useNavigationGuard } from '../../navigation/useNavigationGuard'
+import { withEvidence } from '../../operator/evidence-location'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test } from 'vitest'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
@@ -189,5 +192,86 @@ test('partial or malformed evidence links cannot fall back to the first ready so
   render(<EvidenceViewer batchId="batch" lotId="lot" evidence={[evidence]} />)
   expect(screen.queryByRole('img')).not.toBeInTheDocument()
   expect(screen.getByText(/link is incomplete or invalid/)).toBeVisible()
+  history.replaceState(null, '', '#')
+})
+
+test('same-document same-lot navigation follows exact pages and refuses unavailable or malformed links', async () => {
+  const path = '#batch/review/lot'
+  const first = {
+    evidenceId: evidence.id,
+    versionId: original.id,
+    page: 1,
+    previewId: original.pages[0].preview_id,
+  }
+  history.replaceState(null, '', withEvidence(path, first))
+  render(<EvidenceViewer batchId="batch" lotId="lot" evidence={[evidence]} />)
+  await act(async () => {
+    location.hash = withEvidence(path, {
+      ...first,
+      page: 2,
+      previewId: original.pages[1].preview_id,
+    })
+  })
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute(
+      'src',
+      expect.stringContaining(original.pages[1].preview_id),
+    ),
+  )
+  await act(async () => {
+    location.hash = withEvidence(path, { ...first, previewId: replacement.pages[0].preview_id })
+  })
+  await waitFor(() => expect(screen.queryByRole('img')).not.toBeInTheDocument())
+  expect(screen.getByText(/no replacement has been substituted/)).toBeVisible()
+  await act(async () => {
+    location.hash = path + '?source=invalid'
+  })
+  await waitFor(() => expect(screen.getByText(/link is incomplete or invalid/)).toBeVisible())
+  await act(async () => {
+    location.hash = path
+  })
+  await waitFor(() =>
+    expect(new URLSearchParams(location.hash.split('?')[1]).get('preview')).toBe(
+      original.pages[0].preview_id,
+    ),
+  )
+  expect(screen.getByRole('img')).toHaveAttribute(
+    'src',
+    expect.stringContaining(original.pages[0].preview_id),
+  )
+  history.replaceState(null, '', '#')
+})
+
+function GuardedEvidence() {
+  const { onDirtyChange } = useNavigationGuard()
+  useEffect(() => {
+    onDirtyChange(true)
+  }, [onDirtyChange])
+  return <EvidenceViewer batchId="batch" lotId="lot" evidence={[evidence]} />
+}
+
+test('same-lot inspection navigation cannot bypass the real application dirty-URL guard', async () => {
+  const path = '#batch/review/lot'
+  const first = {
+    evidenceId: evidence.id,
+    versionId: original.id,
+    page: 1,
+    previewId: original.pages[0].preview_id,
+  }
+  const protectedHash = withEvidence(path, first)
+  history.replaceState(null, '', protectedHash)
+  render(<GuardedEvidence />)
+  await act(async () => {
+    location.hash = withEvidence(path, {
+      ...first,
+      page: 2,
+      previewId: original.pages[1].preview_id,
+    })
+  })
+  await waitFor(() => expect(location.hash).toBe(protectedHash))
+  expect(screen.getByRole('img')).toHaveAttribute(
+    'src',
+    expect.stringContaining(original.pages[0].preview_id),
+  )
   history.replaceState(null, '', '#')
 })
