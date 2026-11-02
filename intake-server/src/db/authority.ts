@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import type { PoolClient } from 'pg'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { canonical } from '@invimport/contracts/json'
 import { executeDatabaseQuery, queryDatabase } from './database.ts'
 import { events, idempotencyRecords } from './schema.ts'
@@ -33,7 +33,11 @@ export interface CommandScope {
 async function lockCommandScope(client: PoolClient, scope: CommandScope): Promise<void> {
   const identity = [scope.actorId, scope.action, scope.resourceKey, scope.key]
   // Unlike a row lock, this serializes the exact logical scope even when the key is absent.
-  await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [canonical(identity)])
+  await executeDatabaseQuery(
+    queryDatabase(client).execute(
+      sql`SELECT pg_advisory_xact_lock(hashtextextended(${canonical(identity)}, 0))`,
+    ),
+  )
 }
 
 async function findIdempotencyRecord(client: PoolClient, scope: CommandScope) {

@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { createAttempt, type ProcessingConfig } from './attempts.ts'
 import { processingAttempts, processingJobs } from './schema.ts'
 import { MAX_JOBS_PER_BATCH } from './limits.ts'
 import { fail, type Stage } from './model.ts'
-import type { ProcessingJobRow } from './state.ts'
+import { processingJobColumns } from './state.ts'
 import type { LockedMediaInputs } from '../media/locked-inputs.ts'
 
 /** Caller holds the actor lane and selected job lock before invalidating attempts/questions. */
@@ -35,11 +35,20 @@ export async function queueJob(
   dependencies: string[],
   media: LockedMediaInputs,
 ) {
-  const jobs = await client.query<ProcessingJobRow>(
-    'SELECT * FROM processing_job WHERE batch_id=$1 AND subject_id=$2 AND stage=$3 FOR UPDATE',
-    [snapshot.id, subjectId, stage],
+  const jobs = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select(processingJobColumns)
+      .from(processingJobs)
+      .where(
+        and(
+          eq(processingJobs.batchId, snapshot.id),
+          eq(processingJobs.subjectId, subjectId),
+          eq(processingJobs.stage, stage),
+        ),
+      )
+      .for('update'),
   )
-  const priorJob = jobs.rows[0]
+  const priorJob = jobs[0]
   const job = priorJob ?? { id: randomUUID(), subject_id: subjectId, stage }
   let parentInputId: string | null = null
   let attemptNumber = '1'

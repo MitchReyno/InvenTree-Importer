@@ -5,6 +5,8 @@ import { link, lstat, mkdir, open, realpath, unlink } from 'node:fs/promises'
 import { createHash, randomUUID } from 'node:crypto'
 import { dirname, join, resolve } from 'node:path'
 import type { PoolClient } from 'pg'
+import { sql } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 
 export const MAX_UPLOAD_BYTES = MEDIA_SOURCE_MAX_BYTES
 export const MIN_GC_AGE_MS = 24 * 60 * 60 * 1000
@@ -40,7 +42,11 @@ export function blobLockCoordinates(digest: string) {
 
 /** Publication and GC retain this transaction lock through their DB decision. */
 export async function lockBlob(client: PoolClient, digest: string) {
-  await client.query('SELECT pg_advisory_xact_lock($1::bigint)', [digestLockKey(digest).toString()])
+  await executeDatabaseQuery(
+    queryDatabase(client).execute(
+      sql`SELECT pg_advisory_xact_lock(${digestLockKey(digest).toString()}::bigint)`,
+    ),
+  )
 }
 
 async function syncDirectory(path: string) {

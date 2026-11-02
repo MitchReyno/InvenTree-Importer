@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { captureObservations } from './schema.ts'
+import { captureBatches, captureSubjects, captureObservations } from './schema.ts'
 import {
   validate,
   type CaptureEditDto,
@@ -57,11 +57,30 @@ async function batch(
   id: string,
   lock = false,
 ): Promise<Batch> {
-  const result = await client.query<Batch>(
-    `SELECT * FROM capture_batch WHERE id=$1 AND actor_id=$2 AND target_id=$3 AND target_context_id=$4 ${lock ? 'FOR UPDATE' : ''}`,
-    [id, config.actorId, config.targetId, config.targetContextId],
-  )
-  return result.rows[0] ?? fail('not_found', 404)
+  const query = queryDatabase(client)
+    .select({
+      id: captureBatches.id,
+      source_id: captureBatches.sourceId,
+      actor_id: captureBatches.actorId,
+      target_id: captureBatches.targetId,
+      target_context_id: captureBatches.targetContextId,
+      title: captureBatches.title,
+      revision: sql<string>`${captureBatches.revision}::text`,
+      archived: captureBatches.archived,
+      stream_id: captureBatches.streamId,
+      updated_at: captureBatches.updatedAt,
+    })
+    .from(captureBatches)
+    .where(
+      and(
+        eq(captureBatches.id, id),
+        eq(captureBatches.actorId, config.actorId),
+        eq(captureBatches.targetId, config.targetId),
+        eq(captureBatches.targetContextId, config.targetContextId),
+      ),
+    )
+  const rows = await executeDatabaseQuery(lock ? query.for('update') : query)
+  return rows[0] ?? fail('not_found', 404)
 }
 
 const summary = (b: Batch) => ({
@@ -239,11 +258,19 @@ export async function captureInTransaction(
 }
 
 async function lockCaptureSubjectHeads(client: PoolClient, batchId: string): Promise<Subject[]> {
-  const result = await client.query<Subject>(
-    'SELECT id,label,revision,kind FROM capture_subject WHERE batch_id=$1 ORDER BY id FOR UPDATE',
-    [batchId],
+  return executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        id: captureSubjects.id,
+        label: captureSubjects.label,
+        revision: sql<string>`${captureSubjects.revision}::text`,
+        kind: captureSubjects.kind,
+      })
+      .from(captureSubjects)
+      .where(eq(captureSubjects.batchId, batchId))
+      .orderBy(captureSubjects.id)
+      .for('update'),
   )
-  return result.rows
 }
 
 /** Lock live capture facts before media or job locks without opening an edit/publication lifecycle. */

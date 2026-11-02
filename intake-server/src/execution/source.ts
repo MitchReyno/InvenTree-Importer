@@ -23,11 +23,14 @@ export async function lockStockSource(client: PoolClient, source: OriginalSource
   id(source.targetId)
   id(source.sourceId)
   id(source.originalSourceKey)
-  const targetResult = await client.query<{ revision: string }>(
-    'SELECT revision FROM target WHERE id=$1 FOR UPDATE',
-    [source.targetId],
+  const targetResult = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ revision: targets.revision })
+      .from(targets)
+      .where(eq(targets.id, source.targetId))
+      .for('update'),
   )
-  const target = targetResult.rows[0]
+  const target = targetResult[0]
   if (!target) {
     throw new Error('target_authority_missing')
   }
@@ -49,11 +52,19 @@ export async function lockStockSource(client: PoolClient, source: OriginalSource
     'INSERT INTO executor_guard(target_id,original_key) VALUES($1,$2) ON CONFLICT DO NOTHING',
     [source.targetId, source.originalSourceKey],
   )
-  const guardResult = await client.query<{ active_run: string | null }>(
-    'SELECT active_run FROM executor_guard WHERE target_id=$1 AND original_key=$2 FOR UPDATE',
-    [source.targetId, source.originalSourceKey],
+  const guardResult = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ activeRun: executorGuards.activeRun })
+      .from(executorGuards)
+      .where(
+        and(
+          eq(executorGuards.targetId, source.targetId),
+          eq(executorGuards.originalKey, source.originalSourceKey),
+        ),
+      )
+      .for('update'),
   )
-  return { targetRevision: target.revision, activeRunId: guardResult.rows[0].active_run }
+  return { targetRevision: target.revision.toString(), activeRunId: guardResult[0].activeRun }
 }
 
 /** Cumulative history is observed under the retained source guard, never inferred from an idle pointer. */

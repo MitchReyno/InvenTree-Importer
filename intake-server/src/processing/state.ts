@@ -1,9 +1,9 @@
 import type { PoolClient } from 'pg'
-import { eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { ProcessingStateDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { fail, type Stage } from './model.ts'
-import { processingAttempts } from './schema.ts'
+import { processingAttempts, processingJobs } from './schema.ts'
 
 type State = ProcessingStateDto
 
@@ -51,19 +51,46 @@ export interface ProcessingAttemptRow {
   last_sequence: string
 }
 
+export const processingJobColumns = {
+  id: processingJobs.id,
+  batch_id: processingJobs.batchId,
+  subject_id: processingJobs.subjectId,
+  stage: processingJobs.stage,
+  revision: sql<string>`${processingJobs.revision}::text`,
+  current_attempt_id: processingJobs.currentAttemptId,
+  state: processingJobs.state,
+}
+
+const processingAttemptColumns = {
+  id: processingAttempts.id,
+  batch_id: processingAttempts.batchId,
+  job_id: processingAttempts.jobId,
+  number: sql<string>`${processingAttempts.number}::text`,
+  input_id: processingAttempts.inputId,
+  command_id: processingAttempts.commandId,
+  state: processingAttempts.state,
+  last_sequence: sql<string>`${processingAttempts.lastSequence}::text`,
+}
+
 /** Caller already owns batch and actor lane locks. Jobs precede attempts and questions. */
 export async function lockProcessingAttempt(client: PoolClient, jobId: string, attemptId: string) {
-  const jobs = await client.query<ProcessingJobRow>(
-    'SELECT * FROM processing_job WHERE id=$1 FOR UPDATE',
-    [jobId],
+  const jobs = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select(processingJobColumns)
+      .from(processingJobs)
+      .where(eq(processingJobs.id, jobId))
+      .for('update'),
   )
-  const job = jobs.rows[0] ?? fail('job_not_found', 404)
+  const job = jobs[0] ?? fail('job_not_found', 404)
 
-  const attempts = await client.query<ProcessingAttemptRow>(
-    'SELECT * FROM processing_attempt WHERE job_id=$1 AND id=$2 FOR UPDATE',
-    [jobId, attemptId],
+  const attempts = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select(processingAttemptColumns)
+      .from(processingAttempts)
+      .where(and(eq(processingAttempts.jobId, jobId), eq(processingAttempts.id, attemptId)))
+      .for('update'),
   )
-  const attempt = attempts.rows[0] ?? fail('attempt_not_found', 404)
+  const attempt = attempts[0] ?? fail('attempt_not_found', 404)
 
   return { job, attempt }
 }

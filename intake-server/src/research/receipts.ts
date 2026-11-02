@@ -192,9 +192,11 @@ export function researchReceiptStore(
       await prepareMediaTransaction(client)
       await captureInTransaction(client, scope, scope.batchId)
       // Only this audit repository takes the budget lock; it acquires no later domain lock.
-      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
-        `research-receipt/1:${scope.attemptId}`,
-      ])
+      await executeDatabaseQuery(
+        queryDatabase(client).execute(
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`research-receipt/1:${scope.attemptId}`},0))`,
+        ),
+      )
       const priorRows = await executeDatabaseQuery(
         queryDatabase(client)
           .select()

@@ -1,4 +1,5 @@
 import {
+  boolean,
   jsonb,
   bigint,
   customType,
@@ -66,4 +67,25 @@ export const captureObservations = pgTable('capture_observation', {
   label: text('label').notNull(),
   observedAt: timestamp('observed_at', { withTimezone: true }).notNull().defaultNow(),
   mapping: jsonb('mapping'),
+})
+
+export const captureBatches = pgTable('capture_batch', {
+  id: uuid().primaryKey(),
+  sourceId: uuid('source_id').notNull(),
+  actorId: uuid('actor_id').notNull(),
+  targetId: uuid('target_id').notNull(),
+  targetContextId: uuid('target_context_id').notNull(),
+  streamId: uuid('stream_id').notNull(),
+  title: text().notNull(),
+  revision: bigint({ mode: 'bigint' }).notNull().default(1n),
+  archived: boolean().notNull().default(false),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const captureSubjects = pgTable('capture_subject', {
+  batchId: uuid('batch_id').notNull(),
+  id: uuid().primaryKey(),
+  kind: text().$type<'lot' | 'part'>().notNull(),
+  label: text().notNull(),
+  revision: bigint({ mode: 'bigint' }).notNull().default(1n),
 })

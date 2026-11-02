@@ -52,7 +52,6 @@ Logical cancellation/supersession of a held attempt retains physical lane owners
 
 All actual agent/model/provider usage is prohibited until explicit later user authorization. Deterministic fixtures exercise coordination and descriptor provenance only. Corrected qualification passed 64 PostgreSQL and 25 process cases without skips; independent domain review reran the original predecessor-replacement reproduction and all eight new scenarios. Independent desktop/phone checks observed multi-stage progression and exact human-answer continuation. The [T06 handover](../../../../docs/handovers/bench-intake-T06.md) and [dependency correction](../../../../docs/handovers/bench-intake-T06-dependency-currency.md) record evidence and limits. These fixture results do not establish actual provider support.
 
-
 ## Exact predecessor lineage and fresh consumer input
 
 Dependency authority has two parts: the immutable exact predecessor graph and the current consumer input. Every graph node verifies its retained command, input, profile and media pins; every edge must match the sealed manifest, remain in the same batch and advance through stage order. Replaced, cancelled, interrupted or inconsistently projected predecessors invalidate consumers transitively. No read or settlement redirects an old predecessor ID to its replacement.
@@ -70,3 +69,7 @@ The additive `bench-intake-input/3` / `processing/3` authority selects `restrict
 The owning research access seam validates current command/input/dependencies/media and held lane in a read-only transaction. Proposal receipt sources are verified against complete retained attempt/command/input scope before publication and retained display. Public projections expose opaque receipt IDs/digests only. See [restricted research](../research/ARCHITECTURE.md) for source isolation, budgets and explicit native qualification limits.
 
 A restricted adapter must reap its controlled child before emitting an application question or terminal. A distinguished unconfirmed-reap error prevents delivery from interrupting/releasing the lane. No native provider process is constructed automatically; all live model usage remains prohibited.
+
+## Locking-query mapping
+
+Lane, job, attempt and question row locks use Drizzle on the original checked-out transaction client, preserving capture→media→lane→job→attempt→question ordering and exact scope predicates. Explicit PostgreSQL text casts retain revision, attempt number and message sequence strings at the existing domain boundary. Shared job-column selection is a query projection, not state or revision authority. Insert-before-lock lane establishment, compare-and-set updates and publication order remain unchanged.
