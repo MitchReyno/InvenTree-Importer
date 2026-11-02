@@ -1889,6 +1889,442 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{id}/operator-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OperatorReview */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OperatorReview"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/issue-dispositions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["IssueDisposition"];
+                };
+            };
+            responses: {
+                /** @description OperatorReview */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OperatorReview"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/bulk-edits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BulkEdit"];
+                };
+            };
+            responses: {
+                /** @description BulkEditResult */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BulkEditResult"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/restructures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["Restructure"];
+                };
+            };
+            responses: {
+                /** @description RestructureResult */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RestructureResult"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/instructions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["InstructionEdit"];
+                };
+            };
+            responses: {
+                /** @description OperatorReview */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OperatorReview"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4144,6 +4580,275 @@ export interface components {
             capture_revision: string;
             command_id: string;
         };
+        OperatorIssueSeverity: "blocking" | "warning";
+        OperatorIssueDisposition: {
+            id: string;
+            reason: string;
+            actor_id: string;
+            created_at: string;
+        };
+        OperatorIssue: {
+            code: string;
+            severity: "blocking" | "warning";
+            message: string;
+            subject_id: string | null;
+            lot_id: string | null;
+            run_id: string | null;
+            dependency_digest: string | null;
+            disposition: {
+                id: string;
+                reason: string;
+                actor_id: string;
+                created_at: string;
+            } | null;
+        };
+        OperatorReviewState: "unreviewed" | "reviewed" | "changed_after_review";
+        OperatorLot: {
+            lot_id: string;
+            label: string;
+            part_subject_id: string | null;
+            shared_lot_ids: string[];
+            review_state: "unreviewed" | "reviewed" | "changed_after_review";
+            approved: boolean;
+            issues: {
+                code: string;
+                severity: "blocking" | "warning";
+                message: string;
+                subject_id: string | null;
+                lot_id: string | null;
+                run_id: string | null;
+                dependency_digest: string | null;
+                disposition: {
+                    id: string;
+                    reason: string;
+                    actor_id: string;
+                    created_at: string;
+                } | null;
+            }[];
+            predecessor_lot_ids: string[];
+        };
+        OperatorRetiredLot: {
+            lot_id: string;
+            label: string;
+            action: "split" | "merge";
+            /** Format: int64 */
+            retired_revision: string;
+            successor_lot_ids: string[];
+        };
+        OperatorInstruction: {
+            group_id: string | null;
+            /** Format: int64 */
+            version: string;
+            text: string;
+            actor_id: string;
+            created_at: string;
+        };
+        OperatorReview: {
+            batch_id: string;
+            /** Format: int64 */
+            revision: string;
+            lots: {
+                lot_id: string;
+                label: string;
+                part_subject_id: string | null;
+                shared_lot_ids: string[];
+                review_state: "unreviewed" | "reviewed" | "changed_after_review";
+                approved: boolean;
+                issues: {
+                    code: string;
+                    severity: "blocking" | "warning";
+                    message: string;
+                    subject_id: string | null;
+                    lot_id: string | null;
+                    run_id: string | null;
+                    dependency_digest: string | null;
+                    disposition: {
+                        id: string;
+                        reason: string;
+                        actor_id: string;
+                        created_at: string;
+                    } | null;
+                }[];
+                predecessor_lot_ids: string[];
+            }[];
+            retired_lots: {
+                lot_id: string;
+                label: string;
+                action: "split" | "merge";
+                /** Format: int64 */
+                retired_revision: string;
+                successor_lot_ids: string[];
+            }[];
+            instructions: {
+                group_id: string | null;
+                /** Format: int64 */
+                version: string;
+                text: string;
+                actor_id: string;
+                created_at: string;
+            }[];
+            cursor: {
+                stream_id: string;
+                /** Format: int64 */
+                sequence: string;
+            };
+        };
+        IssueDisposition: {
+            /** Format: int64 */
+            expected_batch_revision: string;
+            subject_id: string;
+            code: string;
+            dependency_digest: string;
+            reason: string;
+        };
+        BulkEdit: {
+            /** Format: int64 */
+            expected_revision: string;
+            preview: boolean;
+            lot_ids: string[];
+            change: {
+                quantity?: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location?: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+        };
+        OperatorImpact: {
+            invalidated_review_subject_ids: string[];
+            affected_lot_ids: string[];
+            affected_part_ids: string[];
+            stale_preparation_ids: string[];
+            retired_lot_ids: string[];
+            created_lots: {
+                lot_id: string | null;
+                label: string;
+            }[];
+            created_part: {
+                part_id: string | null;
+                label: string;
+            } | null;
+        };
+        BulkEditResult: {
+            status: "previewed" | "applied";
+            /** Format: int64 */
+            revision: string;
+            impact: {
+                invalidated_review_subject_ids: string[];
+                affected_lot_ids: string[];
+                affected_part_ids: string[];
+                stale_preparation_ids: string[];
+                retired_lot_ids: string[];
+                created_lots: {
+                    lot_id: string | null;
+                    label: string;
+                }[];
+                created_part: {
+                    part_id: string | null;
+                    label: string;
+                } | null;
+            };
+        };
+        Restructure: {
+            /** Format: int64 */
+            expected_revision: string;
+            preview: boolean;
+            change: {
+                /** @constant */
+                kind: "split_lot";
+                lot_id: string;
+                children: {
+                    label: string;
+                    quantity: string;
+                }[];
+            } | {
+                /** @constant */
+                kind: "merge_lots";
+                lot_ids: string[];
+                label: string;
+                quantity: string;
+                part_subject_id: string | null;
+                /** @constant */
+                confirm_same_physical_contribution: true;
+            } | {
+                /** @constant */
+                kind: "move_lots";
+                lot_ids: string[];
+                destination: {
+                    /** @constant */
+                    kind: "existing";
+                    part_subject_id: string;
+                } | {
+                    /** @constant */
+                    kind: "new";
+                    label: string;
+                } | {
+                    /** @constant */
+                    kind: "none";
+                };
+            };
+        };
+        RestructureResult: {
+            status: "previewed" | "applied";
+            /** Format: int64 */
+            revision: string;
+            impact: {
+                invalidated_review_subject_ids: string[];
+                affected_lot_ids: string[];
+                affected_part_ids: string[];
+                stale_preparation_ids: string[];
+                retired_lot_ids: string[];
+                created_lots: {
+                    lot_id: string | null;
+                    label: string;
+                }[];
+                created_part: {
+                    part_id: string | null;
+                    label: string;
+                } | null;
+            };
+        };
+        InstructionEdit: {
+            /** Format: int64 */
+            expected_revision: string;
+            group_id: string | null;
+            text: string;
+        };
         MediaRecipe: {
             /** @constant */
             version: "documentary-crop/1";
@@ -4532,6 +5237,21 @@ export type ProcessingJob = components['schemas']['ProcessingJob']
 export type ProcessingSnapshot = components['schemas']['ProcessingSnapshot']
 export type ProcessingReceipt = components['schemas']['ProcessingReceipt']
 export type ProcessingAnswerReceipt = components['schemas']['ProcessingAnswerReceipt']
+export type OperatorIssueSeverity = components['schemas']['OperatorIssueSeverity']
+export type OperatorIssueDisposition = components['schemas']['OperatorIssueDisposition']
+export type OperatorIssue = components['schemas']['OperatorIssue']
+export type OperatorReviewState = components['schemas']['OperatorReviewState']
+export type OperatorLot = components['schemas']['OperatorLot']
+export type OperatorRetiredLot = components['schemas']['OperatorRetiredLot']
+export type OperatorInstruction = components['schemas']['OperatorInstruction']
+export type OperatorReview = components['schemas']['OperatorReview']
+export type IssueDisposition = components['schemas']['IssueDisposition']
+export type BulkEdit = components['schemas']['BulkEdit']
+export type OperatorImpact = components['schemas']['OperatorImpact']
+export type BulkEditResult = components['schemas']['BulkEditResult']
+export type Restructure = components['schemas']['Restructure']
+export type RestructureResult = components['schemas']['RestructureResult']
+export type InstructionEdit = components['schemas']['InstructionEdit']
 export type MediaRecipe = components['schemas']['MediaRecipe']
 export type MediaVersion = components['schemas']['MediaVersion']
 export type MediaSnapshot = components['schemas']['MediaSnapshot']

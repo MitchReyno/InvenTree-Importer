@@ -1,0 +1,196 @@
+import { randomUUID } from 'node:crypto'
+import type { PoolClient } from 'pg'
+import type {
+  BulkEditDto,
+  InstructionEditDto,
+  OperatorImpactDto,
+  RestructureDto,
+} from '@invimport/contracts'
+import { fail, type OperatorCommandScope } from './repository.ts'
+
+type RestructureChange = RestructureDto['change']
+type SplitLot = Extract<RestructureChange, { kind: 'split_lot' }>
+type MergeLots = Extract<RestructureChange, { kind: 'merge_lots' }>
+type MoveLots = Extract<RestructureChange, { kind: 'move_lots' }>
+
+export interface StructuralOutcome {
+  retiredLotIds: string[]
+  createdLots: OperatorImpactDto['created_lots']
+  createdPart: OperatorImpactDto['created_part']
+}
+
+const NO_STRUCTURE: StructuralOutcome = { retiredLotIds: [], createdLots: [], createdPart: null }
+
+/** Active, same-batch lots only; retired lots keep history but accept no further edits. */
+function requireActiveLots(scope: OperatorCommandScope, lotIds: readonly string[]) {
+  for (const lotId of lotIds) {
+    if (!scope.snapshot.lots.some((lot) => lot.id === lotId)) {
+      fail('subject_not_found', 404)
+    }
+    if (scope.retiredLotIds.has(lotId)) {
+      fail('lot_retired', 409)
+    }
+  }
+}
+
+function requirePart(scope: OperatorCommandScope, partId: string) {
+  if (!scope.snapshot.parts.some((part) => part.id === partId)) {
+    fail('subject_not_found', 404)
+  }
+}
+
+function lot(scope: OperatorCommandScope, lotId: string) {
+  return scope.snapshot.lots.find((value) => value.id === lotId)!
+}
+
+export async function applyBulkEdit(scope: OperatorCommandScope, input: BulkEditDto) {
+  requireActiveLots(scope, input.lot_ids)
+  for (const lotId of input.lot_ids) {
+    await scope.setSelection(lotId, 'quantity', input.change.quantity)
+    await scope.setSelection(lotId, 'location', input.change.location)
+    await scope.touchSubject(lotId)
+  }
+  return NO_STRUCTURE
+}
+
+async function recordLineage(
+  client: PoolClient,
+  scope: OperatorCommandScope,
+  predecessors: readonly string[],
+  successors: readonly string[],
+  action: 'split' | 'merge',
+) {
+  for (const predecessor of predecessors) {
+    for (const successor of successors) {
+      await client.query(
+        `INSERT INTO capture_lot_lineage(batch_id,predecessor_lot_id,successor_lot_id,action,revision,actor_id)
+VALUES($1,$2,$3,$4,$5,$6)`,
+        [scope.batchId, predecessor, successor, action, scope.nextRevision, scope.actorId],
+      )
+    }
+  }
+  for (const predecessor of predecessors) {
+    await client.query(
+      `INSERT INTO capture_lot_retirement(batch_id,lot_id,revision,actor_id)
+VALUES($1,$2,$3,$4)`,
+      [scope.batchId, predecessor, scope.nextRevision, scope.actorId],
+    )
+  }
+}
+
+/** Children keep the Part proposal and location selection; each quantity is an explicit human value. */
+async function splitLot(client: PoolClient, scope: OperatorCommandScope, change: SplitLot) {
+  requireActiveLots(scope, [change.lot_id])
+  const original = lot(scope, change.lot_id)
+  const created: OperatorImpactDto['created_lots'] = []
+  for (const child of change.children) {
+    const childId = await scope.addLot(child.label, original.part_subject_id)
+    await scope.setSelection(childId, 'quantity', { mode: 'set', value: child.quantity })
+    if (original.location.mode !== 'inherit') {
+      await scope.setSelection(childId, 'location', original.location)
+    }
+    created.push({ lot_id: childId, label: child.label })
+  }
+  const successorIds = created.map((value) => value.lot_id!)
+  await recordLineage(client, scope, [change.lot_id], successorIds, 'split')
+  return { retiredLotIds: [change.lot_id], createdLots: created, createdPart: null }
+}
+
+async function mergeLots(client: PoolClient, scope: OperatorCommandScope, change: MergeLots) {
+  requireActiveLots(scope, change.lot_ids)
+  if (change.part_subject_id !== null) {
+    requirePart(scope, change.part_subject_id)
+  }
+  const mergedId = await scope.addLot(change.label, change.part_subject_id)
+  await scope.setSelection(mergedId, 'quantity', { mode: 'set', value: change.quantity })
+  const locations = change.lot_ids.map((lotId) => JSON.stringify(lot(scope, lotId).location))
+  const sharedLocation =
+    new Set(locations).size === 1 ? lot(scope, change.lot_ids[0]).location : null
+  if (sharedLocation && sharedLocation.mode !== 'inherit') {
+    await scope.setSelection(mergedId, 'location', sharedLocation)
+  }
+  await recordLineage(client, scope, change.lot_ids, [mergedId], 'merge')
+  return {
+    retiredLotIds: [...change.lot_ids],
+    createdLots: [{ lot_id: mergedId, label: change.label }],
+    createdPart: null,
+  }
+}
+
+async function moveLots(scope: OperatorCommandScope, change: MoveLots) {
+  requireActiveLots(scope, change.lot_ids)
+  let destination: string | null = null
+  let createdPart: OperatorImpactDto['created_part'] = null
+  if (change.destination.kind === 'existing') {
+    requirePart(scope, change.destination.part_subject_id)
+    destination = change.destination.part_subject_id
+  } else if (change.destination.kind === 'new') {
+    destination = await scope.addPart(change.destination.label)
+    createdPart = { part_id: destination, label: change.destination.label }
+  }
+  for (const lotId of change.lot_ids) {
+    await scope.setLotPart(lotId, destination)
+    await scope.touchSubject(lotId)
+  }
+  return { retiredLotIds: [], createdLots: [], createdPart }
+}
+
+export async function applyRestructure(
+  client: PoolClient,
+  scope: OperatorCommandScope,
+  input: RestructureDto,
+): Promise<StructuralOutcome> {
+  switch (input.change.kind) {
+    case 'split_lot':
+      return splitLot(client, scope, input.change)
+    case 'merge_lots':
+      return mergeLots(client, scope, input.change)
+    case 'move_lots':
+      return moveLots(scope, input.change)
+  }
+}
+
+export async function recordDisposition(
+  client: PoolClient,
+  scope: OperatorCommandScope,
+  input: { subjectId: string; code: string; dependencyDigest: string; reason: string },
+) {
+  await client.query(
+    `INSERT INTO capture_issue_disposition(id,batch_id,subject_id,code,dependency_digest,reason,revision,actor_id)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+    [
+      randomUUID(),
+      scope.batchId,
+      input.subjectId,
+      input.code,
+      Buffer.from(input.dependencyDigest, 'hex'),
+      input.reason,
+      scope.nextRevision,
+      scope.actorId,
+    ],
+  )
+}
+
+export async function recordInstruction(
+  client: PoolClient,
+  scope: OperatorCommandScope,
+  input: InstructionEditDto,
+) {
+  try {
+    await client.query(
+      `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
+VALUES($1,$2,$3,$4,$5,$6)`,
+      [randomUUID(), scope.batchId, input.group_id, scope.nextRevision, input.text, scope.actorId],
+    )
+  } catch (error) {
+    // The composite FK proves the evidence group belongs to this batch without reading media tables.
+    if (input.group_id !== null && isForeignKeyViolation(error)) {
+      fail('group_not_found', 404)
+    }
+    throw error
+  }
+}
+
+function isForeignKeyViolation(error: unknown) {
+  return error instanceof Error && (error as Error & { code?: string }).code === '23503'
+}

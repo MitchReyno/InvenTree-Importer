@@ -227,6 +227,13 @@ async function main() {
       '/api/v1/runs/{id}/start': { post: post('ManualRunCommand', 'ManualAccepted') },
       '/api/v1/runs/{id}/cancel': { post: post('ManualRunCommand', 'ManualAccepted') },
       '/api/v1/runs/{id}/recover': { post: post('ManualRecoveryCommand', 'ManualAccepted') },
+      '/api/v1/batches/{id}/operator-review': { get: get('OperatorReview') },
+      '/api/v1/batches/{id}/issue-dispositions': {
+        post: post('IssueDisposition', 'OperatorReview'),
+      },
+      '/api/v1/batches/{id}/bulk-edits': { post: post('BulkEdit', 'BulkEditResult') },
+      '/api/v1/batches/{id}/restructures': { post: post('Restructure', 'RestructureResult') },
+      '/api/v1/batches/{id}/instructions': { post: post('InstructionEdit', 'OperatorReview') },
     },
     components: { schemas },
   }
@@ -251,6 +258,7 @@ export const clientOperations = new Map<string, ClientOperation>(${JSON.stringif
 export { captureClient, manualClient, intakeClient, IntakeRequestError } from '../src/client.ts'
 export { processingClient } from '../src/client-processing.ts'
 export { mediaClient } from '../src/client-media.ts'
+export { operatorReviewClient } from '../src/client-operator-review.ts'
 `,
   }
   await writeArtifacts(files)

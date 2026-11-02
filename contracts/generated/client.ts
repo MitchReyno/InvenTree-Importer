@@ -2,3 +2,4 @@
 export { captureClient, manualClient, intakeClient, IntakeRequestError } from '../src/client.ts'
 export { processingClient } from '../src/client-processing.ts'
 export { mediaClient } from '../src/client-media.ts'
+export { operatorReviewClient } from '../src/client-operator-review.ts'
