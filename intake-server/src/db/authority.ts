@@ -3,7 +3,7 @@ import type { PoolClient } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'
 import { canonical } from '@invimport/contracts/json'
 import { executeDatabaseQuery, queryDatabase } from './database.ts'
-import { events, idempotencyRecords } from './schema.ts'
+import { events, idempotencyRecords, streams } from './schema.ts'
 
 const SHA256_BYTES = 32
 
@@ -110,17 +110,17 @@ export async function appendEvent(
   kind: string,
   payload: unknown,
 ): Promise<string> {
-  const result = await client.query<{ head: string }>(
-    `UPDATE ui_stream
-     SET head = head + 1
-     WHERE id = $1
-     RETURNING head`,
-    [streamId],
+  const result = await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(streams)
+      .set({ head: sql`${streams.head}+1` })
+      .where(eq(streams.id, streamId))
+      .returning({ head: streams.head }),
   )
-  if (result.rowCount !== 1) {
+  if (result.length !== 1) {
     throw new Error('stream_missing')
   }
-  const sequence = result.rows[0].head
+  const sequence = result[0].head.toString()
   await executeDatabaseQuery(
     queryDatabase(client)
       .insert(events)

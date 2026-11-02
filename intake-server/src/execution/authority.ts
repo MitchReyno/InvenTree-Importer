@@ -1,3 +1,4 @@
+import { cancellationVersion } from './cancellation.ts'
 import { stockIndexBytes } from './effects-output.ts'
 import { supportedStates } from './effects-state.ts'
 import { retainSupportedIndex, requireSupportedIndex } from './effects-index.ts'
@@ -83,11 +84,16 @@ export async function retainOriginalSource(
   id(input.targetId)
   id(input.sourceId)
   id(input.originalSourceKey)
-  await client.query('INSERT INTO executor_source VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [
-    input.targetId,
-    input.sourceId,
-    input.originalSourceKey,
-  ])
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .insert(executorSources)
+      .values({
+        targetId: input.targetId,
+        sourceId: input.sourceId,
+        originalKey: input.originalSourceKey,
+      })
+      .onConflictDoNothing(),
+  )
   const stored = (
     await executeDatabaseQuery(
       queryDatabase(client)
@@ -162,9 +168,11 @@ export async function reserveApprovedStock(
   if (!source.length) {
     throw new Error('original_source_authority_missing')
   }
-  await client.query(
-    'INSERT INTO executor_guard(target_id,original_key) VALUES ($1,$2) ON CONFLICT DO NOTHING',
-    [plan.targetId, plan.originalSourceKey],
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .insert(executorGuards)
+      .values({ targetId: plan.targetId, originalKey: plan.originalSourceKey })
+      .onConflictDoNothing(),
   )
   const guardRows = await executeDatabaseQuery(
     queryDatabase(client)
@@ -506,12 +514,7 @@ export async function selectRecovery(
     throw new Error('create_not_recoverable')
   }
   const recoveryId = randomUUID()
-  const cancelVersion = (
-    await client.query(
-      'SELECT COALESCE(max(id),0) AS version FROM executor_cancel WHERE run_id=$1',
-      [runId],
-    )
-  ).rows[0].version
+  const cancelVersion = await cancellationVersion(client, runId)
   await executeDatabaseQuery(
     queryDatabase(client)
       .insert(executorRecoveries)

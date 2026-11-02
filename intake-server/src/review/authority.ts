@@ -1,3 +1,6 @@
+import { and, desc, eq } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { manualReviews } from './schema.ts'
 import { effectsDeployment, type EffectsDeployment } from '../execution/effects-source.ts'
 import type { PoolClient } from 'pg'
 import type { ManualIssueDto } from '@invimport/contracts'
@@ -107,12 +110,20 @@ export async function currentReviews(
 ): Promise<ReviewBinding[]> {
   const bindings: ReviewBinding[] = []
   for (const subject of material.subjects) {
-    const result = await client.query(
-      `SELECT id,dependency_bytes,dependency_digest FROM manual_review
-       WHERE batch_id=$1 AND subject_id=$2 ORDER BY created_at DESC,id DESC`,
-      [batchId, subject.subjectId],
+    const result = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({
+          id: manualReviews.id,
+          dependency_bytes: manualReviews.dependencyBytes,
+          dependency_digest: manualReviews.dependencyDigest,
+        })
+        .from(manualReviews)
+        .where(
+          and(eq(manualReviews.batchId, batchId), eq(manualReviews.subjectId, subject.subjectId)),
+        )
+        .orderBy(desc(manualReviews.createdAt), desc(manualReviews.id)),
     )
-    const matching = result.rows.find((row) => {
+    const matching = result.find((row) => {
       verifyBytes(row.dependency_bytes, row.dependency_digest)
       return row.dependency_bytes.equals(subject.bytes)
     })

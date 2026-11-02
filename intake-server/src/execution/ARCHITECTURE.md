@@ -30,7 +30,7 @@ Runtime never creates/enables deployment activation. Missing, disabled, corrupt,
 
 ## Intent, cancellation, certainty and verification
 
-Routine source/deployment lookups, reservation/journal inserts and known-output reads use the existing Drizzle adapter with executor-owned schema declarations on the caller's same pool or borrowed client. Migrations own constraints and immutable authority. Ordered target/source/run row locks now use Drizzle's explicit `for('update')` on that same borrowed client. Guard-establishing upserts, cancellation/attempt aggregates and compare-and-set release stay explicit SQL; the query-only `checkDeployment` gate is unchanged. Nullable left joins retain unresolved attempts, and cancellation versions stay BigInt internally with exact decimal text at the original attachment/recovery interfaces. No transaction, retry, checkout, dispatch order or authority rule is added by this mapping layer.
+Routine source/deployment lookups, reservation/journal inserts and known-output reads use the existing Drizzle adapter with executor-owned schema declarations on the caller's same pool or borrowed client. Migrations own constraints and immutable authority. Ordered target/source/run row locks now use Drizzle's explicit `for('update')` on that same borrowed client. Guard-establishing upserts, exact cancellation/attempt aggregates and compare-and-set release now use Drizzle while preserving their statement order and predicates; the query-only `checkDeployment` gate stays explicit SQL and unchanged. Nullable left joins retain unresolved attempts, and cancellation versions stay BigInt internally with exact decimal text at the original attachment/recovery interfaces. No transaction, retry, checkout, dispatch order or authority rule is added by this mapping layer.
 
 `apply.ts` revalidates bytes, command/build/deployment, source ownership, cancellation version and selected recovery under ordered target → source → run locks. Each Part/location precondition read and stock create has an immutable committed request intent. Failed/lost COMMIT ACK propagates without a send. After intent, health/witness checks precede a single physical HTTP call. A known local refusal before dispatch may commit `proven_not_sent`/`none`; a crash with only an intent is unknown. Already authorized/in-flight work can finish after cancellation/connection loss; no subsequent request is authorized. T04 owns command-level semantic idempotency around cancellation/recovery selection; a later distinct cancellation version revokes older recovery selections.
 
@@ -66,8 +66,8 @@ stock and media bytes stay on their own versions. `applySupportedEffects` only o
 `effects-journal` commits one intent, result, effect or assessment; `effects-request` sends
 at most once and checkpoints; `effects-body` builds the create payload; `effects-preconditions`
 completes catalogue reads; `effects-evidence` attributes every trustworthy PK. Part
-attachments go through `applyPartAttachmentEffect`. Guard reads, cancel-version aggregates
-and the source-hold release stay explicit SQL.
+attachments go through `applyPartAttachmentEffect`. Guard reads, exact cancel-version aggregates
+and source-hold updates use Drizzle on the same caller-owned client.
 
 A new Part is one `POST /api/part/?tags=true` whose body is name, category, the approved tag
 names and `copy_category_parameters: false`. Extra observed tags still confirm. Missing
@@ -78,3 +78,5 @@ Consumed or deleted stock can be verified and cannot authorize a replacement. Un
 media cannot carry evidence, lot attachments or Part attachments.
 
 These checks use the owned inventory fake. They do not prove a live InvenTree mutation.
+
+Attachment journal/state/recovery reads and writes now use explicit driver mappings, preserving nullable left joins, exact cancellation strings, Buffer receipts and response-size bigints. A shared cancellation-version reader performs the same one aggregate at each original call site. The two internal attachment readers accept the actual Pool/PoolClient types their existing callers already supply; no public command or transaction authority changes. Dedicated writer-session ownership and its query-only deployment check are unchanged.

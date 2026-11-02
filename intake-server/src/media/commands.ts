@@ -44,7 +44,12 @@ export async function lockMediaBatch(
 }
 
 export async function advanceMediaRevision(client: PoolClient, batchId: string) {
-  await client.query('UPDATE media_batch SET revision=revision+1 WHERE batch_id=$1', [batchId])
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(mediaBatches)
+      .set({ revision: sql`${mediaBatches.revision}+1` })
+      .where(eq(mediaBatches.batchId, batchId)),
+  )
 }
 
 export async function requireUploadCapacity(client: PoolClient, batchId: string) {

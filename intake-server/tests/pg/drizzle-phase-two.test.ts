@@ -1,7 +1,31 @@
+import {
+  executorAttachmentIntents,
+  executorAttachmentResults,
+  executorAttachmentEffects,
+  executorAttachmentVerifications,
+} from '../../src/execution/schema.ts'
+import {
+  manualPrepareCommands,
+  manualReadIntents,
+  manualReadResults,
+  manualPreparationReviews,
+  manualPrepareOutcomes,
+  manualRuns,
+  manualDispatches,
+} from '../../src/review/schema.ts'
+import {
+  captureSources,
+  captureParts,
+  captureLots,
+  captureNotes,
+  captureSelections,
+  captureRevisions,
+  captureEditPublications,
+} from '../../src/capture/schema.ts'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { getTableConfig } from 'drizzle-orm/pg-core'
-import { targets } from '../../src/db/schema.ts'
+import { targets, streams } from '../../src/db/schema.ts'
 import { captureObservations, captureBatches, captureSubjects } from '../../src/capture/schema.ts'
 import {
   executorDeployments,
@@ -30,11 +54,30 @@ import { isolatedDatabase } from '../support/database.ts'
 import { manualFixture } from '../support/manual.ts'
 import { stockDeployment } from '../../src/execution/source.ts'
 
-test('phase two driver mappings match the migrated PostgreSQL columns, keys and defaults', async () => {
+test('domain driver mappings match the migrated PostgreSQL columns, keys and defaults', async () => {
   const db = await isolatedDatabase()
   try {
     const tables = [
       targets,
+      streams,
+      captureSources,
+      captureParts,
+      captureLots,
+      captureNotes,
+      captureSelections,
+      captureRevisions,
+      captureEditPublications,
+      manualPrepareCommands,
+      manualReadIntents,
+      manualReadResults,
+      manualPreparationReviews,
+      manualPrepareOutcomes,
+      manualRuns,
+      manualDispatches,
+      executorAttachmentIntents,
+      executorAttachmentResults,
+      executorAttachmentEffects,
+      executorAttachmentVerifications,
       captureObservations,
       captureBatches,
       captureSubjects,

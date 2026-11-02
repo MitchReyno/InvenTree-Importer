@@ -1,3 +1,6 @@
+import { and, desc, eq, isNull } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { manualRuns, manualApprovals, manualPreparations, manualPrepareCommands } from './schema.ts'
 import type { ManualAttachmentRead } from './part-attachments.ts'
 import type { Pool } from 'pg'
 import { validate, type ManualPreviewDto, type ManualWorkspaceDto } from '@invimport/contracts'
@@ -28,21 +31,34 @@ export function manualRepository(
     async activity() {
       return transaction(pool, async (client) => {
         await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
-        const rows = await client.query(
-          `SELECT r.id FROM manual_run r JOIN manual_approval a ON a.id=r.approval_id
-           JOIN manual_preparation p ON p.id=a.preparation_id
-           JOIN manual_prepare_command c ON c.id=p.prepare_command_id
-           WHERE a.actor_id=$1 AND c.target_id=$2 AND c.context_id=$3 ORDER BY r.id LIMIT 101`,
-          [config.actorId, config.targetId, config.targetContextId],
+        const rows = await executeDatabaseQuery(
+          queryDatabase(client)
+            .select({ id: manualRuns.id })
+            .from(manualRuns)
+            .innerJoin(manualApprovals, eq(manualApprovals.id, manualRuns.approvalId))
+            .innerJoin(manualPreparations, eq(manualPreparations.id, manualApprovals.preparationId))
+            .innerJoin(
+              manualPrepareCommands,
+              eq(manualPrepareCommands.id, manualPreparations.prepareCommandId),
+            )
+            .where(
+              and(
+                eq(manualApprovals.actorId, config.actorId),
+                eq(manualPrepareCommands.targetId, config.targetId),
+                eq(manualPrepareCommands.contextId, config.targetContextId),
+              ),
+            )
+            .orderBy(manualRuns.id)
+            .limit(101),
         )
         const runs = []
-        for (const row of rows.rows.slice(0, 100)) {
+        for (const row of rows.slice(0, 100)) {
           const run = await manualRunSnapshot(client, config, row.id)
           if (run.state !== 'settled_complete') {
             runs.push({ batch_id: run.batch_id, run_id: run.run_id, state: run.state })
           }
         }
-        return { runs, truncated: rows.rows.length > 100 }
+        return { runs, truncated: rows.length > 100 }
       })
     },
     review: (batchId: string, key: string, input: Parameters<typeof markReviewed>[4]) =>
@@ -138,21 +154,35 @@ export function manualRepository(
             issues,
           })
         }
-        const runsResult = await client.query(
-          'SELECT r.id FROM manual_run r JOIN manual_approval a ON a.id=r.approval_id WHERE r.batch_id=$1 ORDER BY a.round_number',
-          [batchId],
+        const runsResult = await executeDatabaseQuery(
+          queryDatabase(client)
+            .select({ id: manualRuns.id })
+            .from(manualRuns)
+            .innerJoin(manualApprovals, eq(manualApprovals.id, manualRuns.approvalId))
+            .where(eq(manualRuns.batchId, batchId))
+            .orderBy(manualApprovals.roundNumber),
         )
         const runs: ManualWorkspaceDto['runs'] = []
-        for (const row of runsResult.rows) {
+        for (const row of runsResult) {
           runs.push(await manualRunSnapshot(client, config, row.id))
         }
-        const preparationsResult = await client.query(
-          `SELECT p.id FROM manual_preparation p LEFT JOIN manual_approval a ON a.preparation_id=p.id
-           WHERE p.batch_id=$1 AND p.actor_id=$2 AND a.id IS NULL ORDER BY p.created_at DESC,p.id DESC LIMIT 21`,
-          [batchId, config.actorId],
+        const preparationsResult = await executeDatabaseQuery(
+          queryDatabase(client)
+            .select({ id: manualPreparations.id })
+            .from(manualPreparations)
+            .leftJoin(manualApprovals, eq(manualApprovals.preparationId, manualPreparations.id))
+            .where(
+              and(
+                eq(manualPreparations.batchId, batchId),
+                eq(manualPreparations.actorId, config.actorId),
+                isNull(manualApprovals.id),
+              ),
+            )
+            .orderBy(desc(manualPreparations.createdAt), desc(manualPreparations.id))
+            .limit(21),
         )
         const preparations: ManualPreviewDto[] = []
-        for (const row of preparationsResult.rows.slice(0, 20)) {
+        for (const row of preparationsResult.slice(0, 20)) {
           const retained = await retainedPreparation(client, config, row.id)
           const material = await materializeWithMedia(
             client,
@@ -188,7 +218,7 @@ export function manualRepository(
           lots,
           runs,
           preparations,
-          preparations_truncated: preparationsResult.rows.length > 20,
+          preparations_truncated: preparationsResult.length > 20,
           cursor: capture.snapshot.cursor,
         }
         validate('ManualWorkspace', result)

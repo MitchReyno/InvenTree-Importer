@@ -1,4 +1,11 @@
-import type { PoolClient } from 'pg'
+import { and, eq } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import {
+  executorAttachmentIntents,
+  executorAttachmentEffects,
+  executorAttachmentVerifications,
+} from './schema.ts'
+import type { Pool, PoolClient } from 'pg'
 import { attachmentOperations, type ExecutablePlan } from './media-plan.ts'
 
 export interface KnownStockOutput {
@@ -19,13 +26,6 @@ export interface AttachmentState {
   verification: 'matches' | 'missing_or_changed' | 'unavailable' | null
 }
 
-interface CreateRow {
-  id: string
-  artifact_key: string
-  certainty: 'unknown' | 'none' | null
-  remote_pk: string | null
-}
-
 interface VerificationRow {
   create_intent_id: string
   artifact_key: string
@@ -38,7 +38,7 @@ interface VerificationRow {
 
 /** A later missing file never erases the originally verified historical effect. */
 export async function attachmentStates(
-  client: Pick<PoolClient, 'query'>,
+  client: Pool | PoolClient,
   runId: string,
   plan: ExecutablePlan,
   stocks: readonly KnownStockOutput[],
@@ -46,27 +46,46 @@ export async function attachmentStates(
   if (plan.version === 'bench-stock-plan/1') {
     return []
   }
-  const creates = await client.query<CreateRow>(
-    `SELECT i.id,i.artifact_key,e.certainty,e.remote_pk
-     FROM executor_attachment_intent i
-     LEFT JOIN executor_attachment_effect e ON e.intent_id=i.id
-     WHERE i.run_id=$1 AND i.kind='create_attachment' ORDER BY i.created_at,i.id`,
-    [runId],
+  const creates = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        id: executorAttachmentIntents.id,
+        artifact_key: executorAttachmentIntents.artifactKey,
+        certainty: executorAttachmentEffects.certainty,
+        remote_pk: executorAttachmentEffects.remotePk,
+      })
+      .from(executorAttachmentIntents)
+      .leftJoin(
+        executorAttachmentEffects,
+        eq(executorAttachmentEffects.intentId, executorAttachmentIntents.id),
+      )
+      .where(
+        and(
+          eq(executorAttachmentIntents.runId, runId),
+          eq(executorAttachmentIntents.kind, 'create_attachment'),
+        ),
+      )
+      .orderBy(executorAttachmentIntents.createdAt, executorAttachmentIntents.id),
   )
-  const verified = await client.query<VerificationRow>(
-    `SELECT create_intent_id,artifact_key,outcome,remote_pk,verified_digest,
-            observed_stock_pk,observed_artifact_key
-     FROM executor_attachment_verification WHERE run_id=$1 ORDER BY created_at,id`,
-    [runId],
+  const verified = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        create_intent_id: executorAttachmentVerifications.createIntentId,
+        artifact_key: executorAttachmentVerifications.artifactKey,
+        outcome: executorAttachmentVerifications.outcome,
+        remote_pk: executorAttachmentVerifications.remotePk,
+        verified_digest: executorAttachmentVerifications.verifiedDigest,
+        observed_stock_pk: executorAttachmentVerifications.observedStockPk,
+        observed_artifact_key: executorAttachmentVerifications.observedArtifactKey,
+      })
+      .from(executorAttachmentVerifications)
+      .where(eq(executorAttachmentVerifications.runId, runId))
+      .orderBy(executorAttachmentVerifications.createdAt, executorAttachmentVerifications.id),
   )
   return attachmentOperations(plan).map((attachment) => {
     const stock = stocks.find((output) => output.operationKey === attachment.stockOperationKey)
-    const attempts = creates.rows.filter(
-      (attempt) => attempt.artifact_key === attachment.artifactKey,
-    )
-    const receipts = verified.rows.filter(
-      (receipt) => receipt.artifact_key === attachment.artifactKey,
-    )
+    const attempts = creates.filter((attempt) => attempt.artifact_key === attachment.artifactKey)
+    const receipts = verified.filter((receipt) => receipt.artifact_key === attachment.artifactKey)
     const positiveByIntent = new Map<string, VerificationRow>()
     for (const receipt of receipts) {
       const attempt = attempts.find((candidate) => candidate.id === receipt.create_intent_id)

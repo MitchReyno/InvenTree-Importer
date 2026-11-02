@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from 'pg'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import {
   validate,
   type ProcessingStartDto,
@@ -139,9 +139,11 @@ export async function cancelProcessing(
             .set({ state: 'cancelled' })
             .where(eq(processingAttempts.id, input.attempt_id)),
         )
-        await client.query(
-          "UPDATE processing_job SET state='cancelled',revision=revision+1 WHERE id=$1",
-          [jobId],
+        await executeDatabaseQuery(
+          queryDatabase(client)
+            .update(processingJobs)
+            .set({ state: 'cancelled', revision: sql`${processingJobs.revision}+1` })
+            .where(eq(processingJobs.id, jobId)),
         )
         await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: batchId })
         return { batch_id: batchId, job_ids: [jobId], attempt_ids: [input.attempt_id] }

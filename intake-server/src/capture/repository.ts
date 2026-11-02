@@ -1,8 +1,21 @@
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { captureBatches, captureSubjects, captureObservations } from './schema.ts'
+import { streams } from '../db/schema.ts'
+import {
+  captureBatches,
+  captureSubjects,
+  captureObservations,
+  captureSources,
+  captureParts,
+  captureLots,
+  captureNotes,
+  captureSelections,
+  captureRevisions,
+  captureEditPublications,
+  captureLotRetirements,
+} from './schema.ts'
 import {
   validate,
   type CaptureEditDto,
@@ -50,6 +63,19 @@ type Selection =
 const unset = { mode: 'unset' } as const
 const inherit = { mode: 'inherit' } as const
 
+const batchColumns = {
+  id: captureBatches.id,
+  source_id: captureBatches.sourceId,
+  actor_id: captureBatches.actorId,
+  target_id: captureBatches.targetId,
+  target_context_id: captureBatches.targetContextId,
+  title: captureBatches.title,
+  revision: sql<string>`${captureBatches.revision}::text`,
+  archived: captureBatches.archived,
+  stream_id: captureBatches.streamId,
+  updated_at: captureBatches.updatedAt,
+}
+
 /** Every lookup is actor AND fixed target/context scoped, including archived reads. */
 async function batch(
   client: PoolClient,
@@ -58,18 +84,7 @@ async function batch(
   lock = false,
 ): Promise<Batch> {
   const query = queryDatabase(client)
-    .select({
-      id: captureBatches.id,
-      source_id: captureBatches.sourceId,
-      actor_id: captureBatches.actorId,
-      target_id: captureBatches.targetId,
-      target_context_id: captureBatches.targetContextId,
-      title: captureBatches.title,
-      revision: sql<string>`${captureBatches.revision}::text`,
-      archived: captureBatches.archived,
-      stream_id: captureBatches.streamId,
-      updated_at: captureBatches.updatedAt,
-    })
+    .select(batchColumns)
     .from(captureBatches)
     .where(
       and(
@@ -98,54 +113,68 @@ async function snapshot(
   id: string,
 ): Promise<CaptureSnapshotDto> {
   const b = await batch(client, config, id)
-  const subjectsResult = await client.query<Subject>(
-    'SELECT id,label,revision,kind FROM capture_subject WHERE batch_id=$1 ORDER BY id',
-    [id],
+  const subjects = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        id: captureSubjects.id,
+        label: captureSubjects.label,
+        revision: sql<string>`${captureSubjects.revision}::text`,
+        kind: captureSubjects.kind,
+      })
+      .from(captureSubjects)
+      .where(eq(captureSubjects.batchId, id))
+      .orderBy(captureSubjects.id),
   )
-  const subjects = subjectsResult.rows
-  const selectionsResult = await client.query<{
-    subject_id: string | null
-    field: string
-    value: Selection
-  }>(
-    `SELECT DISTINCT ON (subject_id,field) subject_id,field,value
-FROM capture_selection
-WHERE batch_id=$1
-ORDER BY subject_id,field,version DESC`,
-    [id],
+  const selections = await executeDatabaseQuery(
+    queryDatabase(client)
+      .selectDistinctOn([captureSelections.subjectId, captureSelections.field], {
+        subject_id: captureSelections.subjectId,
+        field: captureSelections.field,
+        value: captureSelections.value,
+      })
+      .from(captureSelections)
+      .where(eq(captureSelections.batchId, id))
+      .orderBy(
+        captureSelections.subjectId,
+        captureSelections.field,
+        desc(captureSelections.version),
+      ),
   )
-  const selections = selectionsResult.rows
 
   const value = (subject: string | null, field: string, fallback: Selection) =>
     selections.find((s) => s.subject_id === subject && s.field === field)?.value ?? fallback
 
-  const lotsResult = await client.query<{
-    id: string
-    contribution_key: string
-    part_subject_id: string | null
-  }>('SELECT id,contribution_key,part_subject_id FROM capture_lot WHERE batch_id=$1 ORDER BY id', [
-    id,
-  ])
-  const lots = lotsResult.rows
-  const retiredResult = await client.query<{ lot_id: string }>(
-    'SELECT lot_id FROM capture_lot_retirement WHERE batch_id=$1',
-    [id],
+  const lots = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        id: captureLots.id,
+        contribution_key: captureLots.contributionKey,
+        part_subject_id: captureLots.partSubjectId,
+      })
+      .from(captureLots)
+      .where(eq(captureLots.batchId, id))
+      .orderBy(captureLots.id),
   )
-  const retiredLots = new Set(retiredResult.rows.map((row) => row.lot_id))
-  const notesResult = await client.query<{
-    id: string
-    subject_id: string | null
-    text: string
-    actor_id: string
-    created_at: Date
-  }>(
-    `SELECT id,subject_id,text,actor_id,created_at
-FROM capture_note
-WHERE batch_id=$1
-ORDER BY created_at,id`,
-    [id],
+  const retiredResult = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ lot_id: captureLotRetirements.lotId })
+      .from(captureLotRetirements)
+      .where(eq(captureLotRetirements.batchId, id)),
   )
-  const notes = notesResult.rows
+  const retiredLots = new Set(retiredResult.map((row) => row.lot_id))
+  const notes = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        id: captureNotes.id,
+        subject_id: captureNotes.subjectId,
+        text: captureNotes.text,
+        actor_id: captureNotes.actorId,
+        created_at: captureNotes.createdAt,
+      })
+      .from(captureNotes)
+      .where(eq(captureNotes.batchId, id))
+      .orderBy(captureNotes.createdAt, captureNotes.id),
+  )
   const observations = await executeDatabaseQuery(
     queryDatabase(client)
       .select({
@@ -161,9 +190,13 @@ ORDER BY created_at,id`,
       .where(eq(captureObservations.batchId, id))
       .orderBy(asc(captureObservations.observedAt), asc(captureObservations.id)),
   )
-  const cursor = (
-    await client.query<{ head: string }>('SELECT head FROM ui_stream WHERE id=$1', [b.stream_id])
-  ).rows[0].head
+  const streamRows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ head: streams.head })
+      .from(streams)
+      .where(eq(streams.id, b.stream_id)),
+  )
+  const cursor = streamRows[0].head.toString()
   const result = {
     ...summary(b),
     actor_id: b.actor_id,
@@ -210,10 +243,16 @@ ORDER BY created_at,id`,
 
 async function retainRevision(c: PoolClient, b: Batch, payload: unknown, publish = true) {
   const bytes = Buffer.from(canonical(payload))
-  await c.query(
-    `INSERT INTO capture_revision(batch_id,revision,actor_id,command_bytes,command_digest)
-VALUES($1,$2,$3,$4,$5)`,
-    [b.id, b.revision, b.actor_id, bytes, sha256(bytes)],
+  await executeDatabaseQuery(
+    queryDatabase(c)
+      .insert(captureRevisions)
+      .values({
+        batchId: b.id,
+        revision: BigInt(b.revision),
+        actorId: b.actor_id,
+        commandBytes: bytes,
+        commandDigest: sha256(bytes),
+      }),
   )
   if (publish) {
     await appendEvent(c, b.stream_id, 'capture_changed', { batch_id: b.id, revision: b.revision })
@@ -221,9 +260,10 @@ VALUES($1,$2,$3,$4,$5)`,
 }
 
 async function note(c: PoolClient, b: Batch, subject: string | null, text: string) {
-  await c.query(
-    'INSERT INTO capture_note(id,batch_id,subject_id,text,actor_id) VALUES($1,$2,$3,$4,$5)',
-    [randomUUID(), b.id, subject, text, b.actor_id],
+  await executeDatabaseQuery(
+    queryDatabase(c)
+      .insert(captureNotes)
+      .values({ id: randomUUID(), batchId: b.id, subjectId: subject, text, actorId: b.actor_id }),
   )
 }
 
@@ -237,11 +277,13 @@ export async function captureInTransaction(
   lock = false,
 ) {
   const retained = await batch(client, config, batchId, lock)
-  const sourceResult = await client.query(
-    'SELECT namespace_key,created_by FROM capture_source WHERE id=$1',
-    [retained.source_id],
+  const sourceResult = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ namespace_key: captureSources.namespaceKey, created_by: captureSources.createdBy })
+      .from(captureSources)
+      .where(eq(captureSources.id, retained.source_id)),
   )
-  const source = sourceResult.rows[0]
+  const source = sourceResult[0]
   if (
     !source ||
     source.namespace_key !== `native_batch:${retained.source_id}` ||
@@ -369,10 +411,19 @@ async function insertSelection(
     }
     observation = ref.observation_id
   }
-  await c.query(
-    `INSERT INTO capture_selection(id,batch_id,subject_id,field,version,value,observation_id,actor_id)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
-    [randomUUID(), b.id, subjectId, field, version, value, observation, b.actor_id],
+  await executeDatabaseQuery(
+    queryDatabase(c)
+      .insert(captureSelections)
+      .values({
+        id: randomUUID(),
+        batchId: b.id,
+        subjectId,
+        field,
+        version: BigInt(version),
+        value,
+        observationId: observation,
+        actorId: b.actor_id,
+      }),
   )
 }
 
@@ -392,11 +443,13 @@ async function applyLockedCaptureEdit(
     subjects.find((s) => s.id === subjectId && (!kind || s.kind === kind)) ??
     fail('subject_not_found', 404)
 
-  const retiredResult = await c.query<{ lot_id: string }>(
-    'SELECT lot_id FROM capture_lot_retirement WHERE batch_id=$1',
-    [id],
+  const retiredResult = await executeDatabaseQuery(
+    queryDatabase(c)
+      .select({ lot_id: captureLotRetirements.lotId })
+      .from(captureLotRetirements)
+      .where(eq(captureLotRetirements.batchId, id)),
   )
-  const retired = new Set(retiredResult.rows.map((row) => row.lot_id))
+  const retired = new Set(retiredResult.map((row) => row.lot_id))
   const editedSubject =
     change.kind === 'lot' ? change.id : change.kind === 'note' ? change.subject_id : null
   if (editedSubject !== null && retired.has(editedSubject)) {
@@ -416,9 +469,14 @@ async function applyLockedCaptureEdit(
 
   switch (change.kind) {
     case 'batch':
-      await c.query(
-        'UPDATE capture_batch SET title=COALESCE($2,title),archived=COALESCE($3,archived) WHERE id=$1',
-        [id, change.title, change.archived],
+      await executeDatabaseQuery(
+        queryDatabase(c)
+          .update(captureBatches)
+          .set({
+            title: sql`coalesce(${change.title ?? null}, ${captureBatches.title})`,
+            archived: sql`coalesce(${change.archived ?? null}, ${captureBatches.archived})`,
+          })
+          .where(eq(captureBatches.id, id)),
       )
       break
     case 'add_part':
@@ -428,20 +486,25 @@ async function applyLockedCaptureEdit(
       }
       const sid = randomUUID()
       const kind = change.kind === 'add_part' ? 'part' : 'lot'
-      await c.query('INSERT INTO capture_subject(batch_id,id,kind,label) VALUES($1,$2,$3,$4)', [
-        id,
-        sid,
-        kind,
-        change.label,
-      ])
+      await executeDatabaseQuery(
+        queryDatabase(c)
+          .insert(captureSubjects)
+          .values({ batchId: id, id: sid, kind, label: change.label }),
+      )
       if (change.kind === 'add_part') {
-        await c.query('INSERT INTO capture_part(batch_id,id) VALUES($1,$2)', [id, sid])
+        await executeDatabaseQuery(
+          queryDatabase(c).insert(captureParts).values({ batchId: id, id: sid }),
+        )
       } else {
         checkPart(change.part_subject_id)
-        await c.query(
-          `INSERT INTO capture_lot(batch_id,id,source_id,contribution_key,part_subject_id)
-VALUES($1,$2,$3,$4,$5)`,
-          [id, sid, b.source_id, randomUUID(), change.part_subject_id],
+        await executeDatabaseQuery(
+          queryDatabase(c).insert(captureLots).values({
+            batchId: id,
+            id: sid,
+            sourceId: b.source_id,
+            contributionKey: randomUUID(),
+            partSubjectId: change.part_subject_id,
+          }),
         )
         await note(c, b, sid, change.note)
       }
@@ -451,24 +514,36 @@ VALUES($1,$2,$3,$4,$5)`,
       subject(change.id, 'lot')
       if (change.part_subject_id !== undefined) {
         checkPart(change.part_subject_id)
-        await c.query('UPDATE capture_lot SET part_subject_id=$2 WHERE id=$1', [
-          change.id,
-          change.part_subject_id,
-        ])
+        await executeDatabaseQuery(
+          queryDatabase(c)
+            .update(captureLots)
+            .set({ partSubjectId: change.part_subject_id })
+            .where(eq(captureLots.id, change.id)),
+        )
       }
       await select(change.id, 'quantity', change.quantity)
       await select(change.id, 'location', change.location)
-      await c.query(
-        'UPDATE capture_subject SET label=COALESCE($2,label),revision=revision+1 WHERE id=$1',
-        [change.id, change.label],
+      await executeDatabaseQuery(
+        queryDatabase(c)
+          .update(captureSubjects)
+          .set({
+            label: sql`coalesce(${change.label ?? null}, ${captureSubjects.label})`,
+            revision: sql`${captureSubjects.revision}+1`,
+          })
+          .where(eq(captureSubjects.id, change.id)),
       )
       break
     case 'part':
       subject(change.id, 'part')
       await select(change.id, 'choice', change.choice)
-      await c.query(
-        'UPDATE capture_subject SET label=COALESCE($2,label),revision=revision+1 WHERE id=$1',
-        [change.id, change.label],
+      await executeDatabaseQuery(
+        queryDatabase(c)
+          .update(captureSubjects)
+          .set({
+            label: sql`coalesce(${change.label ?? null}, ${captureSubjects.label})`,
+            revision: sql`${captureSubjects.revision}+1`,
+          })
+          .where(eq(captureSubjects.id, change.id)),
       )
       break
     case 'defaults':
@@ -483,10 +558,12 @@ VALUES($1,$2,$3,$4,$5)`,
       break
   }
   b.revision = nextRevision
-  await c.query('UPDATE capture_batch SET revision=$2,updated_at=now() WHERE id=$1', [
-    id,
-    b.revision,
-  ])
+  await executeDatabaseQuery(
+    queryDatabase(c)
+      .update(captureBatches)
+      .set({ revision: BigInt(b.revision), updatedAt: sql`now()` })
+      .where(eq(captureBatches.id, id)),
+  )
   await retainRevision(c, b, input, false)
 }
 
@@ -528,10 +605,11 @@ export async function lockCaptureForEdit(
         fail('revision_conflict', 412)
       }
       await applyLockedCaptureEdit(client, retained, subjects, input)
-      await client.query('INSERT INTO capture_edit_publication VALUES($1,$2)', [
-        publicationId,
-        batchId,
-      ])
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .insert(captureEditPublications)
+          .values({ id: publicationId, batchId }),
+      )
       phase = 'applied'
       return snapshot(client, config, batchId)
     },
@@ -544,7 +622,11 @@ export async function lockCaptureForEdit(
         batch_id: batchId,
         revision: retained.revision,
       })
-      await client.query('DELETE FROM capture_edit_publication WHERE id=$1', [publicationId])
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .delete(captureEditPublications)
+          .where(eq(captureEditPublications.id, publicationId)),
+      )
       phase = 'published'
     },
 
@@ -598,9 +680,11 @@ export async function lockCaptureForOperatorCommand(
     fail('batch_archived', 409)
   }
   const subjects = await lockCaptureSubjectHeads(client, batchId)
-  const retiredResult = await client.query<{ lot_id: string }>(
-    'SELECT lot_id FROM capture_lot_retirement WHERE batch_id=$1',
-    [batchId],
+  const retiredResult = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ lot_id: captureLotRetirements.lotId })
+      .from(captureLotRetirements)
+      .where(eq(captureLotRetirements.batchId, batchId)),
   )
   const nextRevision = (BigInt(retained.revision) + 1n).toString()
   let subjectCount = subjects.length
@@ -610,12 +694,9 @@ export async function lockCaptureForOperatorCommand(
       fail('capture_capacity', 409)
     }
     const id = randomUUID()
-    await client.query('INSERT INTO capture_subject(batch_id,id,kind,label) VALUES($1,$2,$3,$4)', [
-      batchId,
-      id,
-      kind,
-      label,
-    ])
+    await executeDatabaseQuery(
+      queryDatabase(client).insert(captureSubjects).values({ batchId, id, kind, label }),
+    )
     subjectCount += 1
     return id
   }
@@ -627,7 +708,7 @@ export async function lockCaptureForOperatorCommand(
     streamId: retained.stream_id,
     nextRevision,
     snapshot: await snapshot(client, config, batchId),
-    retiredLotIds: new Set(retiredResult.rows.map((row) => row.lot_id)),
+    retiredLotIds: new Set(retiredResult.map((row) => row.lot_id)),
     get subjectCount() {
       return subjectCount
     },
@@ -637,41 +718,50 @@ export async function lockCaptureForOperatorCommand(
 
     async addLot(label, partSubjectId) {
       const id = await addSubject('lot', label)
-      await client.query(
-        `INSERT INTO capture_lot(batch_id,id,source_id,contribution_key,part_subject_id)
-VALUES($1,$2,$3,$4,$5)`,
-        [batchId, id, retained.source_id, randomUUID(), partSubjectId],
+      await executeDatabaseQuery(
+        queryDatabase(client).insert(captureLots).values({
+          batchId,
+          id,
+          sourceId: retained.source_id,
+          contributionKey: randomUUID(),
+          partSubjectId,
+        }),
       )
       return id
     },
 
     async addPart(label) {
       const id = await addSubject('part', label)
-      await client.query('INSERT INTO capture_part(batch_id,id) VALUES($1,$2)', [batchId, id])
+      await executeDatabaseQuery(queryDatabase(client).insert(captureParts).values({ batchId, id }))
       return id
     },
 
     async setLotPart(lotId, partSubjectId) {
-      await client.query('UPDATE capture_lot SET part_subject_id=$2 WHERE id=$1 AND batch_id=$3', [
-        lotId,
-        partSubjectId,
-        batchId,
-      ])
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .update(captureLots)
+          .set({ partSubjectId })
+          .where(and(eq(captureLots.id, lotId), eq(captureLots.batchId, batchId))),
+      )
     },
 
     async touchSubject(subjectId) {
-      await client.query(
-        'UPDATE capture_subject SET revision=revision+1 WHERE id=$1 AND batch_id=$2',
-        [subjectId, batchId],
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .update(captureSubjects)
+          .set({ revision: sql`${captureSubjects.revision}+1` })
+          .where(and(eq(captureSubjects.id, subjectId), eq(captureSubjects.batchId, batchId))),
       )
     },
 
     async commit(command) {
       retained.revision = nextRevision
-      await client.query('UPDATE capture_batch SET revision=$2,updated_at=now() WHERE id=$1', [
-        batchId,
-        nextRevision,
-      ])
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .update(captureBatches)
+          .set({ revision: BigInt(nextRevision), updatedAt: sql`now()` })
+          .where(eq(captureBatches.id, batchId)),
+      )
       await retainRevision(client, retained, command)
       return snapshot(client, config, batchId)
     },
@@ -696,15 +786,20 @@ export function captureRepository(pool: Pool, config: Binding) {
 
   return {
     async list() {
-      const rows = (
-        await pool.query<Batch>(
-          `SELECT *
-FROM capture_batch
-WHERE actor_id=$1 AND target_id=$2 AND target_context_id=$3
-ORDER BY updated_at DESC,id LIMIT 101`,
-          [config.actorId, config.targetId, config.targetContextId],
-        )
-      ).rows
+      const rows = await executeDatabaseQuery(
+        queryDatabase(pool)
+          .select(batchColumns)
+          .from(captureBatches)
+          .where(
+            and(
+              eq(captureBatches.actorId, config.actorId),
+              eq(captureBatches.targetId, config.targetId),
+              eq(captureBatches.targetContextId, config.targetContextId),
+            ),
+          )
+          .orderBy(desc(captureBatches.updatedAt), captureBatches.id)
+          .limit(101),
+      )
       return { batches: rows.slice(0, 100).map(summary), truncated: rows.length > 100 }
     },
     async read(id: string) {
@@ -718,27 +813,30 @@ ORDER BY updated_at DESC,id LIMIT 101`,
         const id = randomUUID()
         const source = randomUUID()
         const stream = randomUUID()
-        await c.query('INSERT INTO capture_source(id,namespace_key,created_by) VALUES($1,$2,$3)', [
-          source,
-          `native_batch:${source}`,
-          config.actorId,
-        ])
-        await c.query('INSERT INTO ui_stream(id,stream_key) VALUES($1,$2)', [
-          stream,
-          `capture:${id}`,
-        ])
-        await c.query(
-          `INSERT INTO capture_batch(id,source_id,actor_id,target_id,target_context_id,stream_id,title)
-VALUES($1,$2,$3,$4,$5,$6,$7)`,
-          [
+        await executeDatabaseQuery(
+          queryDatabase(c)
+            .insert(captureSources)
+            .values({
+              id: source,
+              namespaceKey: `native_batch:${source}`,
+              createdBy: config.actorId,
+            }),
+        )
+        await executeDatabaseQuery(
+          queryDatabase(c)
+            .insert(streams)
+            .values({ id: stream, streamKey: `capture:${id}` }),
+        )
+        await executeDatabaseQuery(
+          queryDatabase(c).insert(captureBatches).values({
             id,
-            source,
-            config.actorId,
-            config.targetId,
-            config.targetContextId,
-            stream,
-            input.title,
-          ],
+            sourceId: source,
+            actorId: config.actorId,
+            targetId: config.targetId,
+            targetContextId: config.targetContextId,
+            streamId: stream,
+            title: input.title,
+          }),
         )
         const b = await batch(c, config, id)
         await note(c, b, null, input.note)
@@ -766,11 +864,13 @@ VALUES($1,$2,$3,$4,$5,$6,$7)`,
           if (b.archived) {
             fail('batch_archived', 409)
           }
-          const count = await c.query<{ count: string }>(
-            'SELECT count(*) FROM capture_observation WHERE batch_id=$1',
-            [id],
+          const count = await executeDatabaseQuery(
+            queryDatabase(c)
+              .select({ count: sql<string>`count(*)::text` })
+              .from(captureObservations)
+              .where(eq(captureObservations.batchId, id)),
           )
-          if (BigInt(count.rows[0].count) >= 100n) {
+          if (BigInt(count[0].count) >= 100n) {
             fail('capture_capacity', 409)
           }
           await executeDatabaseQuery(

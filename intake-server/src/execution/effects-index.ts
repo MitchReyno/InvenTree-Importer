@@ -5,6 +5,8 @@ import { sha256, verifyBytes } from '../db/authority.ts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { retainPartTransfers, requirePartTransfers } from './part-attachment-index.ts'
 import {
+  executorRuns,
+  executorApprovals,
   partIdentities,
   supportedAssessments,
   supportedEffects,
@@ -110,11 +112,17 @@ export async function requirePriorPart(
   ) {
     throw new Error('prior_part_binding_invalid')
   }
-  const approved = await client.query(
-    'SELECT a.plan_bytes,a.plan_digest FROM executor_run r JOIN executor_approval a ON a.id=r.approval_id WHERE r.id=$1',
-    [prior.runId],
+  const approved = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        plan_bytes: executorApprovals.planBytes,
+        plan_digest: executorApprovals.planDigest,
+      })
+      .from(executorRuns)
+      .innerJoin(executorApprovals, eq(executorApprovals.id, executorRuns.approvalId))
+      .where(eq(executorRuns.id, prior.runId)),
   )
-  const retained = approved.rows[0]
+  const retained = approved[0]
   if (!retained) {
     throw new Error('prior_part_authority_missing')
   }

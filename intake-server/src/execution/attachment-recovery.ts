@@ -1,3 +1,12 @@
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import {
+  executorAttachmentRecoveries,
+  executorAttachmentIntents,
+  executorAttachmentEffects,
+  executorGuards,
+} from './schema.ts'
+import { cancellationVersion } from './cancellation.ts'
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import { lockRun, snapshot } from './authority.ts'
@@ -9,6 +18,16 @@ export interface AttachmentRecovery {
   kind: 'repair_attachment' | 'verify_attachment'
   create_intent_id: string | null
   cancel_version: string
+}
+
+export const attachmentRecoveryColumns = {
+  id: executorAttachmentRecoveries.id,
+  run_id: executorAttachmentRecoveries.runId,
+  artifact_key: executorAttachmentRecoveries.artifactKey,
+  actor_id: executorAttachmentRecoveries.actorId,
+  cancel_version: sql<string>`${executorAttachmentRecoveries.cancelVersion}::text`,
+  kind: executorAttachmentRecoveries.kind,
+  create_intent_id: executorAttachmentRecoveries.createIntentId,
 }
 
 /** Selection binds original child and create intent; no current media pointer is consulted. */
@@ -36,48 +55,81 @@ export async function selectAttachmentRecovery(
   }
   let createIntentId: string | null = null
   if (kind === 'verify_attachment') {
-    const creates = await client.query<{ id: string; certainty: string | null }>(
-      `SELECT i.id,e.certainty FROM executor_attachment_intent i
-       LEFT JOIN executor_attachment_effect e ON e.intent_id=i.id
-       WHERE i.run_id=$1 AND i.artifact_key=$2 AND i.kind='create_attachment' ORDER BY i.attempt DESC`,
-      [runId, artifactKey],
+    const creates = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({
+          id: executorAttachmentIntents.id,
+          certainty: executorAttachmentEffects.certainty,
+        })
+        .from(executorAttachmentIntents)
+        .leftJoin(
+          executorAttachmentEffects,
+          eq(executorAttachmentEffects.intentId, executorAttachmentIntents.id),
+        )
+        .where(
+          and(
+            eq(executorAttachmentIntents.runId, runId),
+            eq(executorAttachmentIntents.artifactKey, artifactKey),
+            eq(executorAttachmentIntents.kind, 'create_attachment'),
+          ),
+        )
+        .orderBy(desc(executorAttachmentIntents.attempt)),
     )
-    createIntentId = creates.rows.find((attempt) => attempt.certainty !== 'none')?.id ?? null
+    createIntentId = creates.find((attempt) => attempt.certainty !== 'none')?.id ?? null
     if (!createIntentId) {
       throw new Error('attachment_create_authority_missing')
     }
   }
-  const cancellation = await client.query<{ version: string }>(
-    'SELECT COALESCE(max(id),0) AS version FROM executor_cancel WHERE run_id=$1',
-    [runId],
-  )
+  const cancelVersion = await cancellationVersion(client, runId)
   const recoveryId = randomUUID()
-  await client.query(
-    `INSERT INTO executor_attachment_recovery(id,run_id,artifact_key,actor_id,cancel_version,kind,create_intent_id)
-     VALUES($1,$2,$3,$4,$5,$6,$7)`,
-    [recoveryId, runId, artifactKey, actorId, cancellation.rows[0].version, kind, createIntentId],
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .insert(executorAttachmentRecoveries)
+      .values({
+        id: recoveryId,
+        runId,
+        artifactKey,
+        actorId,
+        cancelVersion: BigInt(cancelVersion),
+        kind,
+        createIntentId,
+      }),
   )
-  await client.query(
-    'UPDATE executor_guard SET active_run=$3 WHERE target_id=$1 AND original_key=$2',
-    [authority.plan.targetId, authority.plan.originalSourceKey, runId],
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(executorGuards)
+      .set({ activeRun: runId })
+      .where(
+        and(
+          eq(executorGuards.targetId, authority.plan.targetId),
+          eq(executorGuards.originalKey, authority.plan.originalSourceKey),
+        ),
+      ),
   )
   return recoveryId
 }
 
 export async function attachmentVerificationOnly(
-  client: Pick<PoolClient, 'query'>,
+  client: PoolClient,
   runId: string,
   recoveryIds: readonly string[],
 ): Promise<boolean> {
   if (!recoveryIds.length) {
     return false
   }
-  const selected = await client.query<AttachmentRecovery>(
-    'SELECT * FROM executor_attachment_recovery WHERE run_id=$1 AND id=ANY($2::uuid[])',
-    [runId, recoveryIds],
+  const selected = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select(attachmentRecoveryColumns)
+      .from(executorAttachmentRecoveries)
+      .where(
+        and(
+          eq(executorAttachmentRecoveries.runId, runId),
+          inArray(executorAttachmentRecoveries.id, recoveryIds),
+        ),
+      ),
   )
   return (
-    selected.rows.length === recoveryIds.length &&
-    selected.rows.every((recovery) => recovery.kind === 'verify_attachment')
+    selected.length === recoveryIds.length &&
+    selected.every((recovery) => recovery.kind === 'verify_attachment')
   )
 }

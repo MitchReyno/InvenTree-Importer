@@ -51,7 +51,7 @@ export const idempotencyRecords = pgTable(
 export const streams = pgTable('ui_stream', {
   id: uuid().primaryKey(),
   streamKey: text('stream_key').notNull(),
-  head: bigint({ mode: 'bigint' }).notNull(),
+  head: bigint({ mode: 'bigint' }).notNull().default(0n),
 })
 
 export const events = pgTable(

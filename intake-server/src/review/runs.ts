@@ -1,3 +1,21 @@
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { streams } from '../db/schema.ts'
+import { mediaEvidence } from '../media/schema.ts'
+import {
+  manualPreparations,
+  manualPrepareOutcomes,
+  manualPreparationReviews,
+  manualReviews,
+  manualPreparationLots,
+  manualPrepareCommands,
+  manualReadIntents,
+  manualReadResults,
+  manualRuns,
+  manualApprovals,
+  manualDispatches,
+} from './schema.ts'
+import { preparationColumns, prepareCommandColumns, runColumns } from './row-projections.ts'
 import { partIdentitySatisfies } from '../inventory/part-identity.ts'
 import { supportedEffectsPreview, partAttachmentsPreview } from './effects-preview.ts'
 import { requirePartTransferReads } from './part-attachments.ts'
@@ -44,11 +62,18 @@ export async function retainedPreparation(
   config: ManualConfig,
   preparationId: string,
 ) {
-  const result = await client.query(
-    'SELECT * FROM manual_preparation WHERE id=$1 AND actor_id=$2',
-    [preparationId, config.actorId],
+  const result = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select(preparationColumns)
+      .from(manualPreparations)
+      .where(
+        and(
+          eq(manualPreparations.id, preparationId),
+          eq(manualPreparations.actorId, config.actorId),
+        ),
+      ),
   )
-  const row = result.rows[0]
+  const row = result[0]
   if (!row) {
     fail('not_found', 404)
   }
@@ -58,11 +83,17 @@ export async function retainedPreparation(
   }
   verifyBytes(row.review_bytes, row.review_digest)
   verifyBytes(row.dependency_bytes, row.dependency_digest)
-  const outcomeResult = await client.query(
-    'SELECT command_id,response_bytes,response_digest FROM manual_prepare_outcome WHERE command_id=$1',
-    [row.prepare_command_id],
+  const outcomeResult = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        command_id: manualPrepareOutcomes.commandId,
+        response_bytes: manualPrepareOutcomes.responseBytes,
+        response_digest: manualPrepareOutcomes.responseDigest,
+      })
+      .from(manualPrepareOutcomes)
+      .where(eq(manualPrepareOutcomes.commandId, row.prepare_command_id)),
   )
-  const outcome = outcomeResult.rows[0]
+  const outcome = outcomeResult[0]
   if (!outcome || outcome.command_id !== row.prepare_command_id) {
     fail('retained_preparation_corrupt', 409)
   }
@@ -99,11 +130,21 @@ export async function retainedPreparation(
     ) {
       fail('retained_preparation_corrupt', 409)
     }
-    const labels = await client.query<{ id: string; label: string }>(
-      'SELECT id,label FROM media_evidence WHERE batch_id=$1 AND id=ANY($2::uuid[])',
-      [row.batch_id, plan.attachments.map((attachment) => attachment.evidenceId)],
+    const labels = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ id: mediaEvidence.id, label: mediaEvidence.label })
+        .from(mediaEvidence)
+        .where(
+          and(
+            eq(mediaEvidence.batchId, row.batch_id),
+            inArray(
+              mediaEvidence.id,
+              plan.attachments.map((attachment) => attachment.evidenceId),
+            ),
+          ),
+        ),
     )
-    const evidenceLabels = new Map(labels.rows.map((evidence) => [evidence.id, evidence.label]))
+    const evidenceLabels = new Map(labels.map((evidence) => [evidence.id, evidence.label]))
     for (const attachment of plan.attachments) {
       const shown = checked.attachments.find(
         (candidate) => candidate.artifact_key === attachment.artifactKey,
@@ -179,18 +220,36 @@ export async function retainedPreparation(
   ) {
     fail('retained_preparation_corrupt', 409)
   }
-  const indexedReviews = await client.query(
-    `SELECT p.subject_id,p.review_id,r.actor_id,r.dependency_bytes,r.dependency_digest
-     FROM manual_preparation_review p JOIN manual_review r
-       ON r.batch_id=p.batch_id AND r.subject_id=p.subject_id AND r.id=p.review_id
-     WHERE p.batch_id=$1 AND p.preparation_id=$2`,
-    [row.batch_id, row.id],
+  const indexedReviews = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        subject_id: manualPreparationReviews.subjectId,
+        review_id: manualPreparationReviews.reviewId,
+        actor_id: manualReviews.actorId,
+        dependency_bytes: manualReviews.dependencyBytes,
+        dependency_digest: manualReviews.dependencyDigest,
+      })
+      .from(manualPreparationReviews)
+      .innerJoin(
+        manualReviews,
+        and(
+          eq(manualReviews.batchId, manualPreparationReviews.batchId),
+          eq(manualReviews.subjectId, manualPreparationReviews.subjectId),
+          eq(manualReviews.id, manualPreparationReviews.reviewId),
+        ),
+      )
+      .where(
+        and(
+          eq(manualPreparationReviews.batchId, row.batch_id),
+          eq(manualPreparationReviews.preparationId, row.id),
+        ),
+      ),
   )
-  if (indexedReviews.rows.length !== reviews.length) {
+  if (indexedReviews.length !== reviews.length) {
     fail('retained_preparation_corrupt', 409)
   }
   for (const binding of reviews) {
-    const indexed = indexedReviews.rows.find(
+    const indexed = indexedReviews.find(
       (value) => value.subject_id === binding.subjectId && value.review_id === binding.reviewId,
     )
     if (!indexed || indexed.actor_id !== config.actorId) {
@@ -201,13 +260,27 @@ export async function retainedPreparation(
       fail('retained_preparation_corrupt', 409)
     }
   }
-  const indexedLots = await client.query(
-    'SELECT * FROM manual_preparation_lot WHERE batch_id=$1 AND preparation_id=$2',
-    [row.batch_id, row.id],
+  const indexedLots = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        batch_id: manualPreparationLots.batchId,
+        preparation_id: manualPreparationLots.preparationId,
+        lot_id: manualPreparationLots.lotId,
+        review_id: manualPreparationLots.reviewId,
+        source_id: manualPreparationLots.sourceId,
+        contribution_key: manualPreparationLots.contributionKey,
+      })
+      .from(manualPreparationLots)
+      .where(
+        and(
+          eq(manualPreparationLots.batchId, row.batch_id),
+          eq(manualPreparationLots.preparationId, row.id),
+        ),
+      ),
   )
   if (
-    indexedLots.rows.length !== plan.operations.length ||
-    indexedLots.rows.some(
+    indexedLots.length !== plan.operations.length ||
+    indexedLots.some(
       (value) =>
         value.source_id !== plan.sourceId ||
         !plan.operations.some(
@@ -229,11 +302,19 @@ export async function retainedPreparation(
     plan,
     reviews.map((review) => review.subjectId),
   )
-  const commandResult = await client.query(
-    'SELECT * FROM manual_prepare_command WHERE id=$1 AND batch_id=$2 AND actor_id=$3',
-    [row.prepare_command_id, row.batch_id, config.actorId],
+  const commandResult = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select(prepareCommandColumns)
+      .from(manualPrepareCommands)
+      .where(
+        and(
+          eq(manualPrepareCommands.id, row.prepare_command_id),
+          eq(manualPrepareCommands.batchId, row.batch_id),
+          eq(manualPrepareCommands.actorId, config.actorId),
+        ),
+      ),
   )
-  const command = commandResult.rows[0]
+  const command = commandResult[0]
   if (
     !command ||
     command.deployment_id !== plan.deploymentId ||
@@ -308,16 +389,28 @@ export async function retainedPreparation(
       }
     }
   }
-  const reads = await client.query(
-    `SELECT i.model,i.pk,r.outcome,r.receipt_bytes,r.receipt_digest
-     FROM manual_read_intent i LEFT JOIN manual_read_result r ON r.intent_id=i.id
-     WHERE i.batch_id=$1 AND i.prepare_command_id=$2`,
-    [row.batch_id, row.prepare_command_id],
+  const reads = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        model: manualReadIntents.model,
+        pk: manualReadIntents.pk,
+        outcome: manualReadResults.outcome,
+        receipt_bytes: manualReadResults.receiptBytes,
+        receipt_digest: manualReadResults.receiptDigest,
+      })
+      .from(manualReadIntents)
+      .leftJoin(manualReadResults, eq(manualReadResults.intentId, manualReadIntents.id))
+      .where(
+        and(
+          eq(manualReadIntents.batchId, row.batch_id),
+          eq(manualReadIntents.prepareCommandId, row.prepare_command_id),
+        ),
+      ),
   )
-  if (reads.rows.length !== expectedReads.size) {
+  if (reads.length !== expectedReads.size) {
     fail('retained_preparation_corrupt', 409)
   }
-  for (const receipt of reads.rows) {
+  for (const receipt of reads) {
     const expected = expectedReads.get(`${receipt.model}:${receipt.pk}`)
     if (
       !expected ||
@@ -353,13 +446,25 @@ export async function retainedPreparation(
 }
 
 export async function runIdentity(client: PoolClient, config: ManualConfig, runId: string) {
-  const result = await client.query(
-    `SELECT r.*,a.preparation_id,a.actor_id,a.round_number
-     FROM manual_run r JOIN manual_approval a ON a.id=r.approval_id AND a.batch_id=r.batch_id
-     WHERE r.id=$1 AND a.actor_id=$2`,
-    [runId, config.actorId],
+  const result = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        ...runColumns,
+        preparation_id: manualApprovals.preparationId,
+        actor_id: manualApprovals.actorId,
+        round_number: sql<string>`${manualApprovals.roundNumber}::text`,
+      })
+      .from(manualRuns)
+      .innerJoin(
+        manualApprovals,
+        and(
+          eq(manualApprovals.id, manualRuns.approvalId),
+          eq(manualApprovals.batchId, manualRuns.batchId),
+        ),
+      )
+      .where(and(eq(manualRuns.id, runId), eq(manualApprovals.actorId, config.actorId))),
   )
-  const row = result.rows[0]
+  const row = result[0]
   if (!row) {
     fail('not_found', 404)
   }
@@ -374,11 +479,15 @@ export async function manualRunSnapshot(
 ): Promise<ManualRunDto> {
   const { row, preparation } = await runIdentity(client, config, runId)
   const journal = await snapshot(client, runId)
-  const dispatchResult = await client.query<{ state: ManualRunDto['dispatch_state'] }>(
-    'SELECT state FROM manual_dispatch WHERE run_id=$1 ORDER BY sequence DESC LIMIT 1',
-    [runId],
+  const dispatchResult = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ state: manualDispatches.state })
+      .from(manualDispatches)
+      .where(eq(manualDispatches.runId, runId))
+      .orderBy(desc(manualDispatches.sequence))
+      .limit(1),
   )
-  const dispatchState = dispatchResult.rows[0]?.state ?? 'not_requested'
+  const dispatchState = dispatchResult[0]?.state ?? 'not_requested'
   let state: ManualRunDto['state'] = journal.state
   if (journal.state !== 'recovery_required' && journal.state !== 'settled_complete') {
     if (dispatchState === 'running') {
@@ -444,9 +553,11 @@ export async function manualRunSnapshot(
   })
   const certainties = new Set([...operations, ...attachments].map((value) => value.certainty))
   const effectCertainty = certainties.size > 1 ? 'mixed' : (operations[0]?.certainty ?? 'none')
-  const streamResult = await client.query<{ head: string }>(
-    'SELECT head FROM ui_stream WHERE id=$1',
-    [row.stream_id],
+  const streamResult = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ head: sql<string>`${streams.head}::text` })
+      .from(streams)
+      .where(eq(streams.id, row.stream_id)),
   )
   const supported =
     preparation.plan.version === 'bench-effects-plan/1'
@@ -532,7 +643,7 @@ export async function manualRunSnapshot(
       ? { part_outputs: partOutputs, supported_effects: supportedEffects }
       : {}),
     ...(preparation.plan.version !== 'bench-stock-plan/1' ? { attachments } : {}),
-    cursor: { stream_id: row.stream_id, sequence: streamResult.rows[0].head },
+    cursor: { stream_id: row.stream_id, sequence: streamResult[0].head },
   }
   validate('ManualRun', result)
   return result
