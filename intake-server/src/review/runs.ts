@@ -1,3 +1,8 @@
+import {partIdentitySatisfies} from '../inventory/part-identity.ts'
+import { supportedEffectsPreview,partAttachmentsPreview } from './effects-preview.ts'
+import { requirePartTransferReads } from './part-attachments.ts'
+import { supportedStates } from '../execution/effects-state.ts'
+import { logicalEffectKey } from '../execution/effects-plan.ts'
 import type { PoolClient } from 'pg'
 import {
   validate,
@@ -8,7 +13,9 @@ import {
 } from '@invimport/contracts'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import { verifyBytes } from '../db/authority.ts'
-import { fail } from '../capture/repository.ts'
+import { fail, captureInTransaction } from '../capture/repository.ts'
+import { partSpecReferences } from '../capture/part-spec.ts'
+import type { InventoryMappingDto } from '@invimport/contracts'
 import { decodeExecutablePlan } from '../execution/media-plan.ts'
 import { requirePreparationMedia } from './media-preparation.ts'
 import { evidencePreview } from './media-preview.ts'
@@ -71,10 +78,11 @@ export async function retainedPreparation(
     fail('retained_preparation_corrupt', 409)
   }
   const checked = response.preparation
+  if(plan.version==='bench-effects-plan/1'&&(canonical(checked.supported_effects)!==canonical(supportedEffectsPreview(plan))||canonical(checked.part_attachments)!==canonical(partAttachmentsPreview(plan,checked.effects)))) {fail('retained_preparation_corrupt',409)}
   if (checked.capability !== plan.capability) {
     fail('retained_preparation_corrupt', 409)
   }
-  if (plan.version === 'bench-media-plan/1') {
+  if (plan.version !== 'bench-stock-plan/1') {
     const evidence = plan.evidence.map(evidencePreview)
     if (
       checked.media_inputs_sha256 !== plan.mediaInputsDigest ||
@@ -126,6 +134,11 @@ export async function retainedPreparation(
       operation.contributionKey !== effect.contribution_key ||
       operation.quantity !== effect.quantity ||
       operation.part !== effect.part_id ||
+      (plan.version === 'bench-effects-plan/1' &&
+        operation.part === null &&
+        (!('part_operation_key' in effect) ||
+          !('partOperationKey' in operation) ||
+          operation.partOperationKey !== effect.part_operation_key)) ||
       operation.location !== effect.location_id ||
       operation.barcode !== effect.barcode
     ) {
@@ -150,6 +163,7 @@ export async function retainedPreparation(
     fail('retained_preparation_corrupt', 409)
   }
   const reviews = parsedReviews
+  if(plan.version==='bench-effects-plan/1'&&(plan.parts.some(part=>!reviews.some(review=>review.subjectId===part.subjectId))||plan.partAttachments.some(transfer=>!reviews.some(review=>review.subjectId===transfer.partSubjectId)))) {fail('retained_preparation_corrupt',409)}
   const indexedReviews = await client.query(
     `SELECT p.subject_id,p.review_id,r.actor_id,r.dependency_bytes,r.dependency_digest
      FROM manual_preparation_review p JOIN manual_review r
@@ -219,15 +233,24 @@ export async function retainedPreparation(
   verifyBytes(command.review_bytes, command.review_digest)
   const expectedReads = new Map<
     string,
-    { model: string; pk: string; outcome: string; label: string }
+    {
+      model: string
+      pk: string
+      outcome: string
+      label: string
+      mapping?: InventoryMappingDto
+      partIdentity?: { category_id: string;tags?:string[] }
+    }
   >()
   for (const effect of checked.effects) {
-    expectedReads.set(`part:${effect.part_id}`, {
-      model: 'part',
-      pk: effect.part_id,
-      outcome: 'found',
-      label: effect.part_label,
-    })
+    if (effect.part_id !== null) {
+      expectedReads.set(`part:${effect.part_id}`, {
+        model: 'part',
+        pk: effect.part_id,
+        outcome: 'found',
+        label: effect.part_label,
+      })
+    }
     if (effect.location_id) {
       expectedReads.set(`location:${effect.location_id}`, {
         model: 'location',
@@ -235,6 +258,39 @@ export async function retainedPreparation(
         outcome: 'found',
         label: effect.location_label,
       })
+    }
+  }
+  if (plan.version === 'bench-effects-plan/1') {
+    const capture = await captureInTransaction(client, config, row.batch_id)
+    for (const part of plan.parts) {
+      for (const reference of partSpecReferences(part.spec)) {
+        const observation = capture.snapshot.observations.find(
+          (item) =>
+            item.id === reference.observation_id &&
+            item.pk === reference.pk &&
+            item.model === reference.model &&
+            item.target_context_id === plan.contextId,
+        )
+        if (!observation?.mapping) {
+          fail('retained_preparation_corrupt', 409)
+        }
+        expectedReads.set(`${reference.model}:${reference.pk}`, {
+          model: reference.model,
+          pk: reference.pk,
+          outcome: 'found',
+          label: observation.label,
+          mapping: observation.mapping,
+        })
+      }
+      if (part.prior) {
+        expectedReads.set(`part:${part.prior.pk}`, {
+          model: 'part',
+          pk: part.prior.pk,
+          outcome: 'found',
+          label: part.spec.name,
+          partIdentity: { category_id: part.spec.category.pk,tags:part.spec.tags },
+        })
+      }
     }
   }
   const reads = await client.query(
@@ -257,10 +313,17 @@ export async function retainedPreparation(
       fail('retained_preparation_corrupt', 409)
     }
     verifyBytes(receipt.receipt_bytes, receipt.receipt_digest)
-    if (receipt.receipt_bytes.toString('utf8') !== canonical(expected)) {
+    let expectedReceipt:unknown=expected
+    if(expected.partIdentity) {
+      const value:unknown=strictJson(receipt.receipt_bytes.toString('utf8'))
+      if(!value||typeof value!=='object'||Array.isArray(value)||!('partIdentity' in value)||!partIdentitySatisfies(value.partIdentity,expected.partIdentity)) {fail('retained_preparation_corrupt',409)}
+      expectedReceipt={...expected,partIdentity:value.partIdentity}
+    }
+    if (receipt.receipt_bytes.toString('utf8') !== canonical(expectedReceipt)) {
       fail('retained_preparation_corrupt', 409)
     }
   }
+  if(plan.version==='bench-effects-plan/1') {await requirePartTransferReads(client,row.batch_id,row.prepare_command_id,plan)}
   return { row, plan, preview: checked }
 }
 
@@ -315,7 +378,10 @@ export async function manualRunSnapshot(
       quantity: effect.quantity,
       certainty: operation.certainty,
       remote_pk: operation.remotePk,
-      recovery_allowed: state === 'settled_incomplete' && operation.certainty === 'none',
+      recovery_allowed:
+        preparation.plan.version !== 'bench-effects-plan/1' &&
+        state === 'settled_incomplete' &&
+        operation.certainty === 'none',
     }
   })
   const attachments = journal.attachments.map((attachment) => {
@@ -357,6 +423,60 @@ export async function manualRunSnapshot(
     'SELECT head FROM ui_stream WHERE id=$1',
     [row.stream_id],
   )
+  const supported =
+    preparation.plan.version === 'bench-effects-plan/1'
+      ? await supportedStates(client, runId, preparation.plan)
+      : null
+  const inactive = dispatchState !== 'running' && dispatchState !== 'queued'
+  const partOutputs =
+    preparation.plan.version === 'bench-effects-plan/1'
+      ? preparation.plan.parts.map((part) => {
+          const output = supported!.find(
+            (item) => item.operationKey === logicalEffectKey(part.subjectId, 'create_part'),
+          )
+          return {
+            label:part.spec.name,
+          operation_key: logicalEffectKey(part.subjectId, 'create_part'),
+            part_subject_id: part.subjectId,
+            spec_sha256: part.specDigest,
+            certainty: part.prior ? ('confirmed' as const) : output!.certainty,
+            remote_pks: part.prior ? [part.prior.pk] : output!.remotePks,
+            usable: part.prior!==null || (output?.certainty==='confirmed'&&output.verification!=='missing_or_changed'&&output.verification!=='unavailable'),
+            verification: output?.verification ?? null,
+          }
+        })
+      : null
+  const supportedEffects = supported?.map((item) => {
+    const effect =
+      preparation.plan.version === 'bench-effects-plan/1'
+        ? preparation.plan.effects.find((effect) => effect.operationKey === item.operationKey)
+        : undefined
+    const stock = preparation.preview.effects.find((stock) => stock.lot_id === item.operationKey)
+    return {
+      operation_key: item.operationKey,
+      part_subject_id: effect?.partSubjectId ?? stock?.lot_id ?? item.operationKey,
+      kind: item.kind as
+        | 'create_part'
+        | 'parameter'
+        | 'manufacturer'
+        | 'supplier'
+        | 'part_attachment'
+        | 'create_stock',
+      label:preparation.preview.supported_effects?.find(effect=>effect.operation_key===item.operationKey)?.label??stock?.lot_label??item.kind,
+      dependencies: effect?.dependencies ?? [],
+      inputs: effect?.input ?? {},
+      certainty: item.certainty,
+      remote_pks: item.remotePks,
+      verification: item.verification,
+      recovery_action: inactive
+        ? item.certainty !== 'none' && item.remotePks.length === 1
+          ? ('verify_effect' as const)
+          : item.certainty === 'none' && journal.state !== 'recovery_required'
+            ? ('resume_effect' as const)
+            : null
+        : null,
+    }
+  })
   const result: ManualRunDto = {
     run_id: runId,
     batch_id: row.batch_id,
@@ -371,7 +491,11 @@ export async function manualRunSnapshot(
     cancellation_requested: journal.cancellationRequested,
     dispatch_state: dispatchState,
     operations,
-    ...(preparation.plan.version === 'bench-media-plan/1' ? { attachments } : {}),
+    ...(preparation.plan.version==='bench-effects-plan/1'?{part_attachments:preparation.preview.part_attachments}:{}),
+    ...(partOutputs && supportedEffects
+      ? { part_outputs: partOutputs, supported_effects: supportedEffects }
+      : {}),
+    ...(preparation.plan.version !== 'bench-stock-plan/1' ? { attachments } : {}),
     cursor: { stream_id: row.stream_id, sequence: streamResult.rows[0].head },
   }
   validate('ManualRun', result)

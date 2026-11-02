@@ -18,6 +18,11 @@ export async function grantManual(pool: Pool, role: string, purpose: 'api' | 'ru
       await pool.query(`GRANT INSERT ON manual_preparation_media TO ${role}`)
     }
   }
+  const transfers=await pool.query("SELECT to_regclass('public.manual_transfer_read_intent') AS relation")
+  if(transfers.rows[0].relation) {
+    await pool.query(`GRANT SELECT ON manual_transfer_read_intent,manual_transfer_read_result TO ${role}`)
+    if(purpose==='api') {await pool.query(`GRANT INSERT ON manual_transfer_read_intent,manual_transfer_read_result TO ${role}`)}
+  }
   if (purpose === 'api') {
     const media = await pool.query("SELECT to_regclass('public.media_batch') AS relation")
     if (media.rows[0].relation) {

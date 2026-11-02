@@ -7,11 +7,19 @@ import {
   validate,
   type CaptureEditDto,
   type CaptureObserveDto,
+  type InventoryMappingDto,
 } from '@invimport/contracts'
 import type { DevConfig } from '../config.ts'
 import { CaptureError, captureRepository, fail } from './repository.ts'
 
-export type CaptureRead = (operation: CaptureObserveDto) => Promise<{ label: string }>
+export type CaptureReadOperation=CaptureObserveDto&{includeTags?:true}
+export type CaptureRead = (
+  operation: CaptureReadOperation,
+) => Promise<{
+  label: string
+  mapping?: InventoryMappingDto
+  partIdentity?: { category_id: string;tags?:string[] }
+}>
 
 const resourceId = (request: FastifyRequest) => {
   const id = (request.params as { id: string }).id
@@ -95,6 +103,7 @@ export function registerCapture(
           id: randomUUID(),
           ...req.body,
           label: observed.label,
+          ...(observed.mapping ? { mapping: observed.mapping } : {}),
           target_context_id: config.targetContextId,
           observed_at: new Date().toISOString(),
         }

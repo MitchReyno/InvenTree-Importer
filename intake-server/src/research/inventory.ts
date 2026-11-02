@@ -3,6 +3,7 @@ import {
   type ResearchInventoryLookupDto,
   type ResearchInventoryObservationDto,
 } from '@invimport/contracts'
+import type { ReadOperation } from '../inventory/transport.ts'
 import { captureRead } from '../capture/read.ts'
 import { awaitResearchResult } from './abort.ts'
 import { assertResearchActive, ResearchError } from './errors.ts'
@@ -14,7 +15,7 @@ export type ResearchInventoryRead = (operation: {
 
 /** This closure contains no mutation methods or credentials; parsing reuses qualified capture reads. */
 export function researchInventoryReader(read: ResearchInventoryRead) {
-  const observe = captureRead(read)
+  const observe = captureRead(researchInventoryReadAdapter(read))
   return async function lookupInventory(
     request: ResearchInventoryLookupDto,
     signal: AbortSignal,
@@ -33,5 +34,13 @@ export function researchInventoryReader(read: ResearchInventoryRead) {
       }
       throw new ResearchError('research_inventory_unavailable', { cause: error })
     }
+  }
+}
+
+/** The research vocabulary stays narrow when capture adds catalogue reads. */
+export function researchInventoryReadAdapter(read:ResearchInventoryRead) {
+  return (operation:ReadOperation) => {
+    if(operation.kind!=='get_part'&&operation.kind!=='get_location') {throw new ResearchError('research_inventory_unavailable')}
+    return read({kind:operation.kind,pk:operation.pk})
   }
 }

@@ -1,0 +1,297 @@
+import { SUPPORTED_EFFECTS_MANIFEST } from '../src/execution/effects-capability.ts'
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
+import { canonical } from '@invimport/contracts/json'
+import { validate, type InventoryPartSpecDto } from '@invimport/contracts'
+import { sha256 } from '../src/db/authority.ts'
+import {
+  decodeEffectsPlan,
+  logicalEffectKey,
+  partEffects,
+  partSpecDigest,
+  EFFECTS_BUILD,
+  EFFECTS_CAPABILITY,
+  type EffectsPlan,
+} from '../src/execution/effects-plan.ts'
+import { attributedPks, supportedResponseEvidence } from '../src/execution/effects-apply.ts'
+import { contributionBarcode } from '../src/execution/plan.ts'
+import { validatePartSpec } from '../src/capture/part-spec.ts'
+
+function fixture() {
+  const context = randomUUID()
+  const source = randomUUID()
+  const subject = randomUUID()
+  const category = {
+    observation_id: randomUUID(),
+    target_context_id: context,
+    model: 'category' as const,
+    pk: '81',
+  }
+  const spec: InventoryPartSpecDto = {
+    name: 'Counted resistor',
+    category,
+    parameters: [],
+    manufacturer: null,
+    supplier: null,
+    tags: [],
+  }
+  const part = { subjectId: subject, spec, specDigest: partSpecDigest(spec), prior: null }
+  const contribution = randomUUID()
+  const plan: EffectsPlan = {
+    version: 'bench-effects-plan/1',
+    build: EFFECTS_BUILD,
+    capability: EFFECTS_CAPABILITY,
+    deploymentId: randomUUID(),
+    targetId: randomUUID(),
+    contextId: context,
+    epoch: randomUUID(),
+    continuity: 'owned-test',
+    sourceId: source,
+    originalSourceKey: source,
+    mediaConfigured: false,
+    manifestDigest: sha256(canonical(SUPPORTED_EFFECTS_MANIFEST)).toString('hex'),
+    parts: [part],
+    partAttachments: [],
+    effects: partEffects(part),
+    operations: [
+      {
+        operationKey: randomUUID(),
+        contributionKey: contribution,
+        part: null,
+        partOperationKey: logicalEffectKey(subject, 'create_part'),
+        location: null,
+        quantity: '9007199254740.123456',
+        barcode: contributionBarcode(source, contribution),
+      },
+    ],
+    evidence: [],
+    attachments: [],
+    mediaInputsDigest: 'a'.repeat(64),
+  }
+  return { plan, spec, context, category }
+}
+
+function decode(plan: unknown) {
+  const bytes = Buffer.from(canonical(plan))
+  return decodeEffectsPlan(bytes, sha256(bytes))
+}
+
+test('versioned effects plan retains one logical Part output and exact stock strings', () => {
+  const { plan } = fixture()
+  assert.deepEqual(decode(plan), plan)
+  const invalid = [
+    { ...plan, extra: true },
+    { ...plan, effects: [] },
+    { ...plan, operations: [{ ...plan.operations[0], partOperationKey: randomUUID() }] },
+    { ...plan, operations: [{ ...plan.operations[0], part: '93' }] },
+    { ...plan, operations: [plan.operations[0], plan.operations[0]] },
+    {
+      ...plan,
+      parts: [{ ...plan.parts[0], spec: { ...plan.parts[0].spec, tags: ['SMD', 'smd'] } }],
+    },
+  ]
+  for (const changed of invalid) {
+    assert.throws(() => decode(changed))
+  }
+})
+
+test('public stock preview rejects impossible null/producer unions', () => {
+  const effect = {
+    lot_id: randomUUID(),
+    lot_label: 'A',
+    part_label: 'New Part',
+    quantity: '1',
+    location_id: null,
+    location_label: 'No location',
+    contribution_key: randomUUID(),
+    barcode: 'literal',
+  }
+  assert.throws(() => validate('ManualEffect', { ...effect, part_id: null }))
+  assert.throws(() =>
+    validate('ManualEffect', { ...effect, part_id: '93', part_operation_key: randomUUID() }),
+  )
+  validate('ManualEffect', { ...effect, part_id: null, part_operation_key: randomUUID() })
+  validate('ManualEffect', { ...effect, part_id: '93' })
+})
+
+test('malformed sibling identities cannot discard attributable exact PKs', () => {
+  assert.deepEqual(
+    attributedPks([
+      { pk: '9007199254740993' },
+      { pk: 0 },
+      { pk: '17' },
+      { pk: '9007199254740993' },
+      { pk: 'not-an-id' },
+      { pk: 9007199254740992 },
+    ]),
+    ['9007199254740993', '17'],
+  )
+})
+
+test('mapped observations require exact context, category and company semantic role', () => {
+  const { spec, context, category } = fixture()
+  const observed = {
+    id: category.observation_id,
+    model: 'category' as const,
+    pk: category.pk,
+    target_context_id: context,
+    label: 'Resistors',
+    observed_at: 'fixture',
+    mapping: { kind: 'category' as const },
+  }
+  validatePartSpec(spec, context, [observed])
+  assert.throws(() => validatePartSpec(spec, randomUUID(), [observed]))
+  assert.throws(() =>
+    validatePartSpec(
+      {
+        ...spec,
+        manufacturer: {
+          company: {
+            observation_id: observed.id,
+            target_context_id: context,
+            model: 'company',
+            pk: '81',
+          },
+          mpn: 'R1',
+        },
+      },
+      context,
+      [observed],
+    ),
+  )
+})
+
+test('exact response bytes retain more than32 attributable IDs and unsafe siblings never confirm', async () => {
+  const { supportedResponseEvidence } = await import('../src/execution/effects-apply.ts')
+  const pks = Array.from({ length: 100 }, (_, index) => String(index + 1))
+  const bytes = Buffer.from(
+    `[${pks.map((pk) => `{"pk":"${pk}"}`).join(',')},{"pk":9007199254740993},{"pk":0}]`,
+  )
+  assert.deepEqual(supportedResponseEvidence(201, bytes, { name: 'Resistor' }), {
+    pks,
+    confirmed: false,
+  })
+  assert.deepEqual(
+    supportedResponseEvidence(
+      201,
+      Buffer.from('{"pk":"9007199254740993","name":"Resistor","unsafe":9007199254740993}'),
+      { name: 'Resistor' },
+    ),
+    { pks: ['9007199254740993'], confirmed: false },
+  )
+  assert.deepEqual(
+    supportedResponseEvidence(201, Buffer.from('{"pk":"9007199254740993","name":"Resistor"}'), {
+      name: 'Resistor',
+    }),
+    { pks: ['9007199254740993'], confirmed: true },
+  )
+  assert.throws(() =>
+    supportedResponseEvidence(201, Buffer.from('{"pk":"17","p\\u006b":"18"}'), {}),
+  )
+})
+
+test('selected Part attachment freezes exact media and destination without pulling another subject or primary image', async () => {
+  const { partDestinationKey, partTransferEffects } =
+    await import('../src/execution/part-attachment-plan.ts')
+  const { plan } = fixture()
+  const part = plan.parts[0]
+  const versionId = randomUUID()
+  const version = {
+    versionId,
+    evidenceId: randomUUID(),
+    blobDigest: 'b'.repeat(64),
+    byteSize: '73',
+    mediaType: 'image/png' as const,
+    kind: 'original' as const,
+    originalVersionId: versionId,
+    originalDigest: 'b'.repeat(64),
+    recipeDigest: null,
+  }
+  const transfer = {
+    artifactKey: randomUUID(),
+    partSubjectId: part.subjectId,
+    destinationKey: partDestinationKey(part.subjectId, null, part),
+    part: null,
+    partOperationKey: logicalEffectKey(part.subjectId, 'create_part'),
+    version,
+    prior: null,
+  }
+  const selected = {
+    ...plan,
+    mediaConfigured: true,
+    evidence: [version],
+    partAttachments: [transfer],
+    effects: [...plan.effects, ...partTransferEffects([transfer])],
+  }
+  assert.deepEqual(decode(selected), selected)
+  assert.throws(() =>
+    decode({ ...selected, partAttachments: [{ ...transfer, partSubjectId: randomUUID() }] }),
+  )
+  assert.throws(() =>
+    decode({ ...selected, partAttachments: [{ ...transfer, part: '93', partOperationKey: null }] }),
+  )
+  assert.throws(() =>
+    decode({ ...selected, partAttachments: [{ ...transfer, destinationKey: 'primary_image' }] }),
+  )
+  assert.throws(() => decode({ ...selected, evidence: [] }))
+  assert.throws(() => decode({ ...selected, mediaConfigured: false }))
+})
+
+test('native new tag names are part of the create spec; case-duplicate ASCII names refuse', () => {
+  const { plan, spec, context, category } = fixture()
+  const named = { ...spec, tags: ['SMD', 'Bench intake new tag'] }
+  validate('InventoryPartSpec', named)
+  validatePartSpec(named, context, [
+    {
+      id: category.observation_id,
+      model: 'category',
+      pk: '81',
+      target_context_id: context,
+      observed_at: '2020-01-01T00:00:00.000Z',
+      label: 'Resistors',
+      mapping: { kind: 'category' },
+    },
+  ])
+  const duplicate = { ...spec, tags: ['SMD', 'smd'] }
+  const part = { ...plan.parts[0], spec: duplicate, specDigest: partSpecDigest(duplicate) }
+  assert.throws(() => decode({ ...plan, parts: [part], effects: partEffects(part) }))
+})
+
+test('create confirmation keeps extra observed tags and every trustworthy identity', () => {
+  const body = {
+    name: 'Shared resistor Ω',
+    category: '81',
+    tags: ['SMD', 'Bench intake new tag'],
+    copy_category_parameters: false,
+  }
+  const confirmed = Buffer.from(
+    JSON.stringify({
+      pk: 8101,
+      name: body.name,
+      category: body.category,
+      tags: [...body.tags, 'added-later'],
+      copy_category_parameters: false,
+    }),
+  )
+  assert.deepEqual(supportedResponseEvidence(201, confirmed, body), {
+    pks: ['8101'],
+    confirmed: true,
+  })
+  const missing = Buffer.from(
+    JSON.stringify({
+      pk: 8101,
+      name: body.name,
+      category: body.category,
+      copy_category_parameters: false,
+    }),
+  )
+  assert.deepEqual(supportedResponseEvidence(201, missing, body), {
+    pks: ['8101'],
+    confirmed: false,
+  })
+  assert.deepEqual(attributedPks([{ pk: '8101' }, { pk: 'invalid' }, { pk: '7777' }]), [
+    '8101',
+    '7777',
+  ])
+})

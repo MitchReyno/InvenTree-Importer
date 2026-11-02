@@ -89,6 +89,13 @@ function captureInputFields(
       note.subject_id === subjectId ||
       note.subject_id === linkedPart?.id,
   )
+  // /1–/3 stay frozen. A create choice is scoped to this subject; newer observation
+  // models and mapping fields stay out of the sealed document.
+  for (const scoped of [lot ?? part, linkedPart]) {
+    if (scoped && 'choice' in scoped && scoped.choice.mode === 'create') {
+      fail('unsupported_processing_input')
+    }
+  }
   return {
     batch_id: snapshot.id,
     source_id: snapshot.source_id,
@@ -101,7 +108,13 @@ function captureInputFields(
     subject: (lot ?? part)!,
     linked_part: linkedPart ?? null,
     notes,
-    observations: snapshot.observations,
+    observations: snapshot.observations.flatMap((observation) => {
+      if (observation.model !== 'part' && observation.model !== 'location') {
+        return []
+      }
+      const { mapping: _mapping, ...frozen } = observation
+      return [frozen]
+    }),
   }
 }
 
@@ -164,6 +177,10 @@ export function mediaInputManifest(
     Buffer.from(media.manifest, 'utf8'),
     Buffer.from(media.sha256, 'hex'),
   )
+  const mediaVersion = strictJson(media.manifest) as { version?: string }
+  if (mediaVersion.version !== 'media-inputs/1') {
+    fail('unsupported_processing_input')
+  }
   const expectedSubjectIds = processingSubjectScope(snapshot, subjectId)
   const subjectScopeMatches = canonical(decodedMedia.subjectIds) === canonical(expectedSubjectIds)
   if (decodedMedia.batchId !== snapshot.id || !subjectScopeMatches) {

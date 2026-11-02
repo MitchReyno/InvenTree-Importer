@@ -1,4 +1,4 @@
-import type { CaptureEditDto } from '@invimport/contracts'
+import type { CaptureEditDto, InventoryPartSpecDto } from '@invimport/contracts'
 import type { Snapshot, Quantity, Reference } from './types'
 
 const empty = { mode: 'unset' } as const
@@ -8,6 +8,15 @@ export type CaptureEditorValues = {
   quantity: Quantity
   location: Reference
   choice: Reference
+  partMode: 'reuse' | 'create'
+  partName: string
+  categoryId: string
+  parameters: { templateId: string; mappingId: string; value: string }[]
+  manufacturerId: string
+  mpn: string
+  supplierId: string
+  sku: string
+  tags: string
   partId: string
   text: string
   noteSubject: string
@@ -18,11 +27,26 @@ export function captureEditorDefaults(batch: Snapshot, selected: string): Captur
   const part = batch.parts.find((candidate) => candidate.id === selected)
   const defaults = selected === 'defaults'
 
+  const spec = part?.choice.mode === 'create' ? part.choice.spec : null
   return {
+    partMode: spec ? 'create' : 'reuse',
+    partName: spec?.name ?? '',
+    categoryId: spec?.category.observation_id ?? '',
+    parameters:
+      spec?.parameters.map((parameter) => ({
+        templateId: parameter.template.observation_id,
+        mappingId: parameter.category_mapping.observation_id,
+        value: parameter.value,
+      })) ?? [],
+    manufacturerId: spec?.manufacturer?.company.observation_id ?? '',
+    mpn: spec?.manufacturer?.mpn ?? '',
+    supplierId: spec?.supplier?.company.observation_id ?? '',
+    sku: spec?.supplier?.sku ?? '',
+    tags: spec?.tags.join(', ') ?? '',
     label: lot?.label ?? part?.label ?? (selected === 'batch' ? batch.title : ''),
     quantity: lot?.quantity ?? (defaults ? batch.defaults.quantity : empty),
     location: lot?.location ?? (defaults ? batch.defaults.location : empty),
-    choice: part?.choice ?? empty,
+    choice: part?.choice.mode === 'create' ? empty : (part?.choice ?? empty),
     partId: lot?.part_subject_id ?? '',
     text: '',
     noteSubject: '',
@@ -50,7 +74,12 @@ export function captureEditorChange(
       kind: 'part',
       id: part.id,
       label,
-      choice: choice.mode === 'inherit' ? empty : choice,
+      choice:
+        values.partMode === 'create'
+          ? { mode: 'create', spec: partSpecFromValues(batch, values) }
+          : choice.mode === 'inherit'
+            ? empty
+            : choice,
     }
   }
   if (selected === 'add_part') {
@@ -63,4 +92,44 @@ export function captureEditorChange(
     return { kind: 'note', subject_id: noteSubject || null, text }
   }
   return { kind: 'batch', title: label }
+}
+
+export function partSpecFromValues(
+  batch: Snapshot,
+  values: CaptureEditorValues,
+): InventoryPartSpecDto {
+  function reference<
+    M extends 'category' | 'parameter_template' | 'category_parameter' | 'company',
+  >(id: string, model: M) {
+    const observed = batch.observations.find((item) => item.id === id && item.model === model)
+    if (!observed) {
+      throw new Error('Read and select each mapped record before saving.')
+    }
+    return {
+      observation_id: observed.id,
+      target_context_id: observed.target_context_id,
+      model,
+      pk: observed.pk,
+    }
+  }
+
+  return {
+    name: values.partName,
+    category: reference(values.categoryId, 'category'),
+    parameters: values.parameters.map((parameter) => ({
+      template: reference(parameter.templateId, 'parameter_template'),
+      category_mapping: reference(parameter.mappingId, 'category_parameter'),
+      value: parameter.value,
+    })),
+    manufacturer: values.manufacturerId
+      ? { company: reference(values.manufacturerId, 'company'), mpn: values.mpn }
+      : null,
+    supplier: values.supplierId
+      ? { company: reference(values.supplierId, 'company'), sku: values.sku }
+      : null,
+    tags: values.tags
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean),
+  }
 }

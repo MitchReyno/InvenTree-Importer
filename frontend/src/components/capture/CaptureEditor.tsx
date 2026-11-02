@@ -6,6 +6,7 @@ import {
   captureEditorChange,
   type CaptureEditorValues,
 } from '../../capture/editor-model'
+import { PartCreationFields } from './PartCreationFields'
 import { QuantityField } from './QuantityField'
 import { ReferenceField } from './ReferenceField'
 
@@ -39,7 +40,7 @@ export function CaptureEditor({
   }
 
   // Defaults belong to this selected editor's lifetime. Polling does not reset human input.
-  const { register, control, handleSubmit, formState } = useForm<CaptureEditorValues>({
+  const { register, control, handleSubmit, formState, watch } = useForm<CaptureEditorValues>({
     defaultValues: captureEditorDefaults(batch, selected),
   })
 
@@ -99,6 +100,24 @@ export function CaptureEditor({
           </>
         )}
         {part && (
+          <Label>
+            Part action
+            <Select {...register('partMode')}>
+              <option value="reuse">Reuse an observed existing Part</option>
+              <option value="create">Create one shared Part</option>
+            </Select>
+          </Label>
+        )}
+        {part && watch('partMode') === 'create' && (
+          <PartCreationFields
+            batch={batch}
+            control={control}
+            register={register}
+            observe={observe}
+            onDirty={() => onDirty(true)}
+          />
+        )}
+        {part && watch('partMode') === 'reuse' && (
           <Controller
             name="choice"
             control={control}

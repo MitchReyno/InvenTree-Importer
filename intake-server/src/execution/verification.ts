@@ -1,3 +1,4 @@
+import { resolvedStockOperation } from './effects-output.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
 import { canonical } from '@invimport/contracts/json'
@@ -121,7 +122,15 @@ export async function verifyKnownStock(
       const value = responseObject(bytes)
       outcome =
         responsePk(value.pk) === retained.effect.remote_pk &&
-        stockMatches(value, retained.operation)
+        stockMatches(
+          value,
+          await resolvedStockOperation(
+            pool,
+            input.runId,
+            retained.authority.plan,
+            retained.operation,
+          ),
+        )
           ? 'matches'
           : 'missing_or_changed'
     }

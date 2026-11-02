@@ -12,6 +12,8 @@ import { mediaRepository } from '../../src/media/repository.ts'
 import { editMedia } from '../../src/media/edit.ts'
 import { CaptureError, captureRepository } from '../../src/capture/repository.ts'
 import { operatorRepository } from '../../src/operator-review/repository.ts'
+import { createServer } from '../../src/api/server.ts'
+import { registerMediaRoutes } from '../../src/media/routes.ts'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
 
 function captureValue(value: unknown): CaptureSnapshotDto {
@@ -27,6 +29,7 @@ function receiptValue(value: unknown): MediaReceiptDto {
 test('retired lots refuse new media links and attachment selections', async () => {
   const db = await isolatedDatabase()
   const root = await realpath(await mkdtemp(join(tmpdir(), 'intake-retired-media-')))
+  let app: ReturnType<typeof createServer> | undefined
   try {
     const identity = await seedAuthority(db.pool)
     const binding = {
@@ -71,6 +74,41 @@ test('retired lots refuse new media links and attachment selections', async () =
     assert.ok(active.every((lot) => lot.retired === undefined))
 
     const mediaRevision = (await media.snapshot(batch.id)).revision
+    const config = { ...operatorConfig, apiKey: 'fake-only' }
+    app = createServer(config, { mediaEnabled: true })
+    registerMediaRoutes(app, db.pool, config, store)
+    config.origin = await app.listen({ host: '127.0.0.1', port: 0 })
+    const bootstrap = await (await fetch(`${config.origin}/api/v1/bootstrap`)).json()
+    const changes = [
+      { kind: 'link', evidence_id: receipt.evidence_id, subject_id: lotId, linked: true },
+      { kind: 'link', evidence_id: receipt.evidence_id, subject_id: lotId, linked: false },
+      {
+        kind: 'select_attachment',
+        subject_id: lotId,
+        mode: 'declined',
+        version_id: null,
+        destination: 'lot_attachment',
+      },
+    ]
+    for (const change of changes) {
+      const response = await fetch(`${config.origin}/api/v1/batches/${batch.id}/media/commands`, {
+        method: 'POST',
+        headers: {
+          origin: config.origin,
+          'content-type': 'application/json',
+          'x-intake-csrf': bootstrap.csrf_token,
+          'idempotency-key': randomUUID(),
+        },
+        body: JSON.stringify({ expected_revision: mediaRevision, change }),
+      })
+      assert.equal(response.status, 409)
+      const error = await response.json()
+      assert.equal(error.code, 'lot_retired')
+      assert.match(error.message, /active successor lot/)
+      const unchanged = await media.snapshot(batch.id)
+      assert.equal(unchanged.revision, mediaRevision)
+      assert.deepEqual(unchanged.evidence[0].linked_subject_ids, [])
+    }
     const refusedLink = editMedia(db.pool, binding, batch.id, randomUUID(), {
       expected_revision: mediaRevision,
       change: { kind: 'link', evidence_id: receipt.evidence_id, subject_id: lotId, linked: true },
@@ -110,6 +148,7 @@ test('retired lots refuse new media links and attachment selections', async () =
       [successor],
     )
   } finally {
+    await app?.close()
     await rm(root, { recursive: true, force: true })
     await db.dispose()
   }

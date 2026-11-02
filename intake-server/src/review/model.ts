@@ -1,3 +1,6 @@
+import { validatePartSpec,PartSpecError } from '../capture/part-spec.ts'
+import { logicalEffectKey } from '../execution/effects-plan.ts'
+import type { InventoryPartSpecDto } from '@invimport/contracts'
 import type { CaptureSnapshotDto, ManualEffectDto, ManualIssueDto } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
 import { sha256 } from '../db/authority.ts'
@@ -31,12 +34,15 @@ export interface ReviewWarning {
 
 export interface ManualMaterial {
   selected: string[]
+  parts: { subjectId: string; spec: InventoryPartSpecDto }[]
+  partDestinations:Map<string,string|null>
   effects: ManualEffectDto[]
   subjects: SubjectDependency[]
   issues: ManualIssueDto[]
   warnings: ReviewWarning[]
   bytes: Buffer
   digest: Buffer
+  mediaConfigured?:true
   mediaInputs?: ReadonlyMap<string, MediaInputs>
 }
 
@@ -158,6 +164,8 @@ export function materialize(
   const selected = [...selectedIds].sort()
   const issues: ManualIssueDto[] = []
   const effects: ManualEffectDto[] = []
+  const newParts = new Map<string, InventoryPartSpecDto>()
+  const partDestinations=new Map<string,string|null>()
   const subjects = new Map<string, SubjectDependency>()
   const warnings = new Map<string, ReviewWarning>()
 
@@ -235,9 +243,13 @@ export function materialize(
     const part = snapshot.parts.find((value) => value.id === lot.part_subject_id)
     const quantity = lot.quantity.mode === 'inherit' ? snapshot.defaults.quantity : lot.quantity
     const location = lot.location.mode === 'inherit' ? snapshot.defaults.location : lot.location
-    if (!part || part.choice.mode !== 'set') {
+    if (!part || (part.choice.mode !== 'set' && part.choice.mode !== 'create')) {
       issues.push(
-        issue('part_choice_required', 'Choose an observed existing Part for this lot.', lotId),
+        issue(
+          'part_choice_required',
+          'Explicitly choose a new Part or an observed existing Part for this lot.',
+          lotId,
+        ),
       )
     }
     if (quantity.mode !== 'set') {
@@ -258,6 +270,8 @@ export function materialize(
       (value) =>
         value.subject_id === null || value.subject_id === lotId || value.subject_id === part?.id,
     )
+    if(part?.choice.mode==='create') {partDestinations.set(part.id,null)}
+    else if(part?.choice.mode==='set') {partDestinations.set(part.id,part.choice.value.pk)}
     if (part) {
       const partFacts = {
         version: mediaDigests.has(part.id) ? 'manual-part-review/2' : 'manual-part-review/1',
@@ -306,6 +320,55 @@ export function materialize(
       context.predecessors.get(lotId) ?? [],
       lotDismissalFacts,
     )
+    if (part?.choice.mode === 'create') {
+      try {
+        validatePartSpec(part.choice.spec, snapshot.target_context_id, snapshot.observations)
+      } catch(error) {
+        if(!(error instanceof PartSpecError)) {throw error}
+        issues.push(
+          issue(
+            error.code,
+            'Mapped category, parameter or company observations are incompatible.',
+            lotId,
+          ),
+        )
+      }
+      newParts.set(part.id, part.choice.spec)
+      if (quantity.mode === 'set' && (location.mode === 'set' || location.mode === 'clear')) {
+        const ref = location.mode === 'set' ? location.value : null
+        const observed = ref
+          ? snapshot.observations.find((item) => item.id === ref.observation_id)
+          : null
+        if (
+          ref &&
+          (!observed ||
+            observed.model !== 'location' ||
+            observed.pk !== ref.pk ||
+            ref.target_context_id !== snapshot.target_context_id)
+        ) {
+          issues.push(
+            issue(
+              'observation_binding_invalid',
+              'The location observation is incompatible.',
+              lotId,
+            ),
+          )
+        } else {
+          effects.push({
+            lot_id: lotId,
+            lot_label: lot.label,
+            part_id: null,
+            part_operation_key: logicalEffectKey(part.id, 'create_part'),
+            part_label: part.choice.spec.name,
+            quantity: quantity.value,
+            location_id: ref?.pk ?? null,
+            location_label: observed?.label ?? 'No location',
+            contribution_key: lot.contribution_key,
+            barcode: contributionBarcode(snapshot.source_id, lot.contribution_key),
+          })
+        }
+      }
+    }
     if (
       part?.choice.mode === 'set' &&
       quantity.mode === 'set' &&
@@ -374,6 +437,8 @@ export function materialize(
   )
   return {
     selected,
+    partDestinations,
+    parts: [...newParts.entries()].map(([subjectId, spec]) => ({ subjectId, spec })),
     effects,
     subjects: retainedSubjects,
     issues,

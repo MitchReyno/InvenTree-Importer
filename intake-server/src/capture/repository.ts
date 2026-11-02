@@ -9,6 +9,7 @@ import {
 import { canonical } from '@invimport/contracts/json'
 import type { DevConfig } from '../config.ts'
 import { transaction } from '../db/database.ts'
+import { validatePartSpec,PartSpecError } from './part-spec.ts'
 import { appendEvent, idempotent, sha256 } from '../db/authority.ts'
 
 export class CaptureError extends Error {
@@ -40,7 +41,9 @@ type Batch = {
 }
 type Subject = { id: string; label: string; revision: string; kind: 'lot' | 'part' }
 type Selection =
-  CaptureSnapshotDto['lots'][number]['location'] | CaptureSnapshotDto['lots'][number]['quantity']
+  | CaptureSnapshotDto['lots'][number]['location']
+  | CaptureSnapshotDto['lots'][number]['quantity']
+  | CaptureSnapshotDto['parts'][number]['choice']
 const unset = { mode: 'unset' } as const
 const inherit = { mode: 'inherit' } as const
 
@@ -122,7 +125,7 @@ ORDER BY created_at,id`,
   )
   const notes = notesResult.rows
   const observationsResult = await client.query(
-    `SELECT id,model,pk,target_context_id,label,observed_at
+    `SELECT id,model,pk,target_context_id,label,observed_at,mapping
 FROM capture_observation
 WHERE batch_id=$1
 ORDER BY observed_at,id`,
@@ -161,7 +164,11 @@ ORDER BY observed_at,id`,
       }
     }),
     notes: notes.map((n) => ({ ...n, created_at: n.created_at.toISOString(), producer: 'human' })),
-    observations: observations.map((o) => ({ ...o, observed_at: o.observed_at.toISOString() })),
+    observations: observations.map(({ mapping, ...o }) => ({
+      ...o,
+      ...(mapping ? { mapping } : {}),
+      observed_at: o.observed_at.toISOString(),
+    })),
     cursor: { stream_id: b.stream_id, sequence: cursor },
   }
   validate('CaptureSnapshot', result)
@@ -274,6 +281,22 @@ async function insertSelection(
   }
   if (subjectId === null && value.mode === 'inherit') {
     fail('default_cannot_inherit')
+  }
+  if (value.mode === 'create') {
+    if (field !== 'choice') {
+      fail('invalid_part_creation')
+    }
+    const current = await snapshot(
+      c,
+      { actorId: b.actor_id, targetId: b.target_id, targetContextId: b.target_context_id },
+      b.id,
+    )
+    try {
+      validatePartSpec(value.spec, b.target_context_id, current.observations)
+    } catch(error) {
+      if(error instanceof PartSpecError) {fail(error.code)}
+      throw error
+    }
   }
   let observation: string | null = null
   if (value.mode === 'set' && field !== 'quantity') {
@@ -703,8 +726,8 @@ VALUES($1,$2,$3,$4,$5,$6,$7)`,
             fail('capture_capacity', 409)
           }
           await c.query(
-            `INSERT INTO capture_observation(id,batch_id,target_id,target_context_id,model,pk,label,observed_at)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+            `INSERT INTO capture_observation(id,batch_id,target_id,target_context_id,model,pk,label,observed_at,mapping)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
             [
               observation.id,
               id,
@@ -714,6 +737,7 @@ VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
               observation.pk,
               observation.label,
               observation.observed_at,
+              observation.mapping ?? null,
             ],
           )
           await appendEvent(c, b.stream_id, 'capture_observation', {

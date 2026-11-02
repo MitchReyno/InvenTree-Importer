@@ -97,6 +97,7 @@ export async function materializeWithMedia(
   }
   const linkedMediaSubjects = new Set(media.evidence.flatMap((value) => value.linked_subject_ids))
   const material = materialize(snapshot, selectedIds, digests, context, linkedMediaSubjects)
+  material.mediaConfigured=true
   material.mediaInputs = inputsBySubject
   return material
 }

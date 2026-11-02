@@ -1,3 +1,4 @@
+import type { ManualAttachmentRead } from './part-attachments.ts'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Pool } from 'pg'
 import { Id, schemas, type ManualScopeDto } from '@invimport/contracts'
@@ -42,8 +43,9 @@ export function registerManual(
   pool: Pool,
   config: ManualConfig,
   read?: CaptureRead,
+  attachmentRead?:ManualAttachmentRead,
 ) {
-  const repository = manualRepository(pool, config, read)
+  const repository = manualRepository(pool, config, read,attachmentRead)
   registerOperatorReview(app, pool, config)
   app.register(async (scope) => {
     scope.addHook('preHandler', async () => {

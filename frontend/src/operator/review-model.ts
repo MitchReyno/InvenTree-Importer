@@ -175,6 +175,7 @@ export function lotProvenance(
 export function partProvenance(choice: CaptureSnapshotDto['parts'][number]['choice']): Provenance {
   switch (choice.mode) {
     case 'set':
+    case 'create':
       return 'human'
     case 'unknown':
       return 'unknown'

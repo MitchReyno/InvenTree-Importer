@@ -6,7 +6,7 @@ Status: prospective owner plan, written 2026-11-02 before implementation. Base: 
 
 Deliver the approved T09 slice from [the implementation plan](../bench-intake/08-implementation-plan.md): explicit create-or-reuse Part choices; existing mapped category/parameter/company relationships and tags; selected retained media destinations; a tested capability manifest; original-run selected assessment and repair; useful known Part outputs even when dependent work fails. Preserve exact approved bytes, source/contribution identity, physical owner/witness gates and cumulative history.
 
-No taxonomy creation, purchase-order booking, arbitrary overwrites, primary-image replacement, live model calls, real-target mutation, identity redesign, service restart, main merge or deployment. All HTTP mutations use owned loopback fakes. Tests inject settings and never load the original repository environment. Actual InvenTree mutation compatibility remains unqualified.
+No category/template/company creation, purchase-order booking, arbitrary overwrites, primary-image replacement, live model calls, real-target mutation, identity redesign, service restart, main merge or deployment. All HTTP mutations use owned loopback fakes. Tests inject settings and never load the original repository environment. Actual InvenTree mutation compatibility remains unqualified.
 
 ## Current boundaries and affected paths
 
@@ -69,7 +69,7 @@ This section records development observations, not completed acceptance. The non
 
 The first shared implementation adds typed create choices and observed category/template/category-parameter/company mappings, an additive effects plan/index/journal, original source/Part-subject attribution, checked known-output reuse and selected original-run inspection/repair. Part creation explicitly disables category-parameter copying; independent wire assertions require exactly name/category/copy=false, without initial stock/supplier/duplicate/image/tag side effects. Stock and attachment legacy bytes remain separate versions.
 
-Mitch explicitly answered the coordinator's tag scope question: **require an existing-only tag API first**. Existing InvenTree string-tag writes can implicitly create taxonomy. T09 therefore keeps nonempty requested tags typed-blocked while a separate owner supplies the prerequisite; this is not permission to defer tags or declare T09 complete. No unmerged prerequisite source is consumed.
+Historical decision, now superseded: Mitch initially answered the coordinator's tag scope question **require an existing-only tag API first**. Existing InvenTree string-tag writes can implicitly create taxonomy. T09 therefore keeps nonempty requested tags typed-blocked while a separate owner supplies the prerequisite; this is not permission to defer tags or declare T09 complete. No unmerged prerequisite source is consumed. **This existing-only decision was subsequently superseded by the native-tag decision below; it is retained only as chronology.**
 
 ### Setup and checks observed so far
 
@@ -94,3 +94,38 @@ The handler policy is grounded in the InvenTree `1.5.0` tagged upstream serializ
 - [Official tags API documentation](https://docs.inventree.org/en/1.5.x/plugins/tags/): string-list POST/PATCH can create missing tags implicitly. Reading first cannot establish atomic existing-only assignment.
 
 The inspected installed Python client is 0.13.5; its historical Part parameter/attachment paths are not authoritative for InvenTree 1.5.0. New category-parameter observations use the mapping row's category/template identity and a derived safe label, because that serializer has no generic name field.
+
+
+### Current tag scope supersedes the earlier prerequisite
+
+Mitch clarified: “Ohhh, no we should allow any tags, including tags which don't already exist”. Ordinary tag names and implicit native tag creation are now explicitly within T09. The earlier existing-only API/plugin prerequisite is superseded; no plugin is imported, enabled or deployed. Category/template/company creation stays excluded. The coordinator's corresponding implementation-plan amendment is retained with this task. Native tag request/preservation semantics are being resolved before implementation; current tag blocking in the unfinished code is temporary, not an accepted completed feature or deferred gate.
+
+The owner proposed native tags only as initial fields of explicitly created Parts: `POST /api/part/?tags=true` with exact approved names plus category/name/copy=false. The pinned Part serializer's atomic create can apply initial tags before the new Part becomes visible; no later collection-replacement PATCH is proposed. Existing Part reuse remains read-only. The final supported capability and any remaining existing-Part append/concurrency limitation must be explicit before completion.
+
+### Generic attachment model correction and current qualification
+
+Tagged upstream common attachment validators use the model class's lower-case name (`part`), while generic Parameter uses `ContentTypeField` (`part.part`). The earlier proposed attachment spelling was corrected from primary source before wire qualification. Multipart file requests, metadata validation and tests use `part`; parameter requests retain `part.part`. The attachment storage model's `rename_attachment` records `attachments/<model_type>/<model_id>/<filename>`, grounding the narrow same-origin `/media/attachments/` read policy. Custom/signed/external storage is unsupported and fails closed.
+
+The five focused effects adverse cases now pass, including the corrected multiple-output fake fault. The serialized manual-client union regression passes 1/1; focused frontend create/assessment cases pass 2/2. Additional exact-byte parser tests prove 100 valid returned IDs survive malformed/unsafe siblings, while evidence-only parsing cannot confirm an effect. Strict parser duplicate/reserved/depth/size guards and canonical rules remain unchanged. Source-current full qualification and Part-attachment HTTP/PG/process tests remain pending.
+
+T09 released its first PG/process lease after exact fixture cleanup. Only retained preview PID60739 remained among the reserved ports. The coordinator has now offered the next safe window; acquisition still must be atomic before any new heavy tests or image build.
+
+### Continuation housekeeping after the handover stop
+
+The continuation owner verified the worktree was byte-identical to the stop snapshot before editing. The new files already follow the execution module's flat, prefix-named layout (`effects-*`, `part-attachment-*`), so no module was renamed.
+
+`inventory/tags.ts` mixed tag-name policy with the Part identity read-receipt check. The check moved to `inventory/part-identity.ts`; review preparation and run reconstruction import it from there. The duplicated tag-name rule became one `validTagName` predicate with named name-length and tag-count limits. Refusal behaviour is unchanged.
+
+The readability autofix and Prettier were applied to the new runtime and test TypeScript. Fixtures and migration 0010 keep their byte policy. Modified tracked files are not yet formatted. Afterwards, readability lint on the new files and contracts, server and frontend typechecks passed.
+
+### Apply split and tag audit
+
+`applySupportedEffects` mixed journal authorization, physical send, body materialization, catalogue preconditions and Part-attachment handling in one 700-line function. It now orchestrates named phases, matching the existing attachment apply split: `effects-journal` (intent/result/effect/assessment), `effects-request` (one intent, at most one send, checkpoint), `effects-body` (create payload and confirmed Part PK), `effects-preconditions` (catalogue reads before create), `effects-evidence` (attribution and confirmation), and `applyPartAttachmentEffect` in `part-attachment-apply`. Guard reads, cancel-version aggregates and the source-hold release stay explicit SQL.
+
+Native tags belong to the new-Part create: `POST /api/part/?tags=true` and tagged GET of that instance. The leftover public `tag` effect kind was removed; contracts were regenerated and `contracts:check` is current. Extra observed tags still confirm; missing requested tags do not. Case-duplicate ASCII names refuse. Fast server tests pass 116/116. The five PG two-lot journeys still fail as they did on the pre-conversion snapshot; they need the next PG window.
+
+### Supported-effects journeys and frozen Processing inputs
+
+After the apply split and tagged Part URLs, all six `tests/pg/supported-effects.test.ts` journeys pass, including the shared Part, malformed and multiple attribution, catalogue-incomplete preparation, original-run repair and consumed or deleted stock. The earlier five failures were from that partial tag and Part-output work, not the Drizzle conversion.
+
+Processing `/1`–`/3` inputs no longer embed newer catalogue observations or mapping fields. A create choice on the processing subject or its linked Part, and a `media-inputs/2` descriptor, fail with `unsupported_processing_input`. A currentness check treats that refusal as stale. An unrelated Part's create choice and a category observation do not change another subject's sealed input. Processing model, provenance and research-model tests pass 12/12. History, cancel, exact replay, stale-question ordering, retirement and V3 source admission were not re-run at PostgreSQL in this step.

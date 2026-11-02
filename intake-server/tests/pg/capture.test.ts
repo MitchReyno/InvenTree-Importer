@@ -106,15 +106,20 @@ test('capture public HTTP/PG: distinct contributions, history, revisions, observ
     const loc4 = await observe('location', '104')
     const loc8 = await observe('location', '108')
     const loc5 = await observe('location', '105')
-    const ref = (o: CaptureObservationDto) => ({
-      mode: 'set' as const,
-      value: {
-        observation_id: o.id,
-        target_context_id: o.target_context_id,
-        model: o.model,
-        pk: o.pk,
-      },
-    })
+    const ref = (o: CaptureObservationDto) => {
+      if (o.model !== 'part' && o.model !== 'location') {
+        throw new Error('unexpected_fixture_model')
+      }
+      return {
+        mode: 'set' as const,
+        value: {
+          observation_id: o.id,
+          target_context_id: o.target_context_id,
+          model: o.model,
+          pk: o.pk,
+        },
+      }
+    }
     await edit({ kind: 'part', id: partId, choice: ref(part) })
     await edit({ kind: 'defaults', quantity: { mode: 'unknown' }, location: ref(loc4) })
     await edit({ kind: 'lot', id: a.id, quantity: { mode: 'set', value: '0.000001' } })

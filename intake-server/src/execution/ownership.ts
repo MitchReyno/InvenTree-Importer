@@ -106,7 +106,20 @@ export class ExternalGate {
         FROM executor_attachment_intent i JOIN executor_run r ON r.id=i.run_id
         JOIN executor_approval a ON a.id=r.approval_id
         WHERE i.id=$1 AND i.kind='create_attachment'`
-      const query = plan.version === 'bench-media-plan/1' ? mediaWitness : stockWitness
+      const effectsWitness = `${mediaWitness}
+        UNION ALL
+        SELECT i.request_digest,a.deployment_id,a.plan_digest
+        FROM executor_supported_intent i JOIN executor_run r ON r.id=i.run_id
+        JOIN executor_approval a ON a.id=r.approval_id
+        WHERE i.id=$1 AND i.kind='create'`
+      const families = await pool.query(
+        "SELECT to_regclass('public.executor_attachment_intent') AS media,to_regclass('public.executor_supported_intent') AS supported",
+      )
+      const query = families.rows[0].supported
+        ? effectsWitness
+        : families.rows[0].media
+          ? mediaWitness
+          : stockWitness
       const retained = await pool.query(query, [intentId])
       if (retained.rows.length !== 1) {
         throw new Error('restore_history_missing')

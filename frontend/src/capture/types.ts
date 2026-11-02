@@ -3,6 +3,7 @@ import type {
   CaptureEditDto,
   CaptureSnapshotDto,
   CaptureObservationDto,
+  InventoryModelDto,
 } from '@invimport/contracts'
 
 import type { MediaClient } from '../media/types'
@@ -16,7 +17,7 @@ export type CaptureWorkspaceProps = {
   busy: boolean
   media?: MediaClient
   edit: (change: CaptureEditDto['change']) => Promise<void>
-  observe: (model: 'part' | 'location', pk: string) => Promise<CaptureObservationDto | null>
+  observe: (model: InventoryModelDto, pk: string) => Promise<CaptureObservationDto | null>
   onDirtyChange?: (dirty: boolean) => void
   onProcessing?: () => void
   onStage?: (stage: 'capture' | 'review' | 'approve' | 'results') => void

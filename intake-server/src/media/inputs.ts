@@ -205,7 +205,7 @@ export function scopeMediaInputs(
   versions.sort((left, right) => left.versionId.localeCompare(right.versionId))
   const bytes = Buffer.from(
     canonicalMedia({
-      version: 'media-inputs/1',
+      version: selectedAttachments.some(selection=>selection.destination==='part_attachment')?'media-inputs/2':'media-inputs/1',
       batchId: snapshot.batch_id,
       subjectIds: selectedSubjects,
       attachments: selectedAttachments,

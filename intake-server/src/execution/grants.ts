@@ -28,6 +28,24 @@ export async function grantExecutor(
         executor_attachment_effect,executor_attachment_verification TO ${role}`)
     }
   }
+  const supported = await pool.query(
+    "SELECT to_regclass('public.executor_supported_operation') AS relation",
+  )
+  if (supported.rows[0].relation) {
+    await pool.query(
+      `GRANT SELECT ON executor_supported_operation,executor_part_transfer,executor_part_identity,executor_supported_recovery,executor_supported_intent,executor_supported_result,executor_supported_effect,executor_supported_assessment TO ${role}`,
+    )
+    if (purpose === 'approval') {
+      await pool.query(
+        `GRANT INSERT ON executor_supported_operation,executor_part_transfer,executor_part_identity,executor_supported_recovery TO ${role}`,
+      )
+    }
+    if (purpose === 'apply') {
+      await pool.query(
+        `GRANT INSERT ON executor_supported_intent,executor_supported_result,executor_supported_effect,executor_supported_assessment TO ${role}`,
+      )
+    }
+  }
   if (purpose === 'delivery') {
     await pool.query(`GRANT UPDATE(delivery_attempts,acked_at,conflict_code) ON outbox TO ${role}`)
     return

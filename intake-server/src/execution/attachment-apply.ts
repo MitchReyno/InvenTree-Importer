@@ -1,5 +1,6 @@
 import type { AttachmentWire, inventoryTransport } from '../inventory/transport.ts'
 import type { ApplyDependencies } from './apply.ts'
+import { resolvedStockOperation } from './effects-output.ts'
 import { loadRun, snapshot } from './authority.ts'
 import { attachmentOperations } from './media-plan.ts'
 import {
@@ -268,7 +269,13 @@ export async function applyAttachments(
     }
     try {
       const value = responseObject(destination.bytes)
-      if (responsePk(value.pk) !== stock.remotePk || !stockMatches(value, stockOperation)) {
+      if (
+        responsePk(value.pk) !== stock.remotePk ||
+        !stockMatches(
+          value,
+          await resolvedStockOperation(deps.pool, runId, authority.plan, stockOperation),
+        )
+      ) {
         continue
       }
     } catch {

@@ -31,7 +31,11 @@ function versionMatches(expected: MediaPlanEvidence, retained: RetainedVersion) 
 }
 
 /** Acquire capture/media/digest locks before reserving the v2 run's immutable journal. */
-export async function lockApprovedMedia(client: PoolClient, actorId: string, plan: MediaPlan) {
+export async function lockApprovedMedia(
+  client: PoolClient,
+  actorId: string,
+  plan: Pick<MediaPlan, 'sourceId' | 'targetId' | 'contextId' | 'originalSourceKey' | 'evidence'>,
+) {
   await prepareMediaTransaction(client)
   const batch = await client.query<{ id: string }>(
     `SELECT id FROM capture_batch
@@ -79,7 +83,7 @@ export async function retainApprovedMediaPins(
   client: PoolClient,
   approvalId: string,
   batchId: string,
-  plan: MediaPlan,
+  plan: Pick<MediaPlan, 'sourceId' | 'targetId' | 'contextId' | 'originalSourceKey' | 'evidence'>,
 ) {
   for (const version of plan.evidence) {
     await client.query(
@@ -102,7 +106,7 @@ export async function retainApprovedMediaPins(
 export async function requireApprovedMediaPins(
   client: Pick<PoolClient, 'query'>,
   approvalId: string,
-  plan: MediaPlan,
+  plan: Pick<MediaPlan, 'sourceId' | 'targetId' | 'contextId' | 'originalSourceKey' | 'evidence'>,
 ) {
   const result = await client.query<RetainedVersion>(
     `SELECT v.id,v.evidence_id,v.kind,v.blob_digest,b.byte_size,v.media_type,

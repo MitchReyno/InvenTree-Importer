@@ -1,10 +1,13 @@
 import type { Snapshot, Quantity, Reference } from './types'
 
 export function display(
-  value: Quantity | Reference,
+  value: Quantity | Reference | Snapshot['parts'][number]['choice'],
   batch: Snapshot,
   field: 'quantity' | 'location',
 ): string {
+  if (value.mode === 'create') {
+    return `Create Part · ${value.spec.name} · Human choice`
+  }
   if (value.mode === 'inherit') {
     return `Inherited · ${display(batch.defaults[field], batch, field)}`
   }

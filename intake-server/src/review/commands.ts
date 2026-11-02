@@ -1,3 +1,4 @@
+import { selectSupportedRecovery } from '../execution/effects-recovery.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
 import { canonical } from '@invimport/contracts/json'
@@ -14,11 +15,19 @@ export async function runCommand(
   config: ManualConfig,
   runId: string,
   key: string,
-  input: { expected_run_revision: string; operation_keys?: string[]; attachment_keys?: string[] },
+  input: {
+    expected_run_revision: string
+    operation_keys?: string[]
+    attachment_keys?: string[]
+    effect_keys?: string[]
+    assessment_keys?: string[]
+  },
   action: 'start' | 'cancel' | 'recover',
 ) {
   const payload = {
     ...input,
+    ...(input.effect_keys ? { effect_keys: [...input.effect_keys].sort() } : {}),
+    ...(input.assessment_keys ? { assessment_keys: [...input.assessment_keys].sort() } : {}),
     ...(input.operation_keys ? { operation_keys: [...input.operation_keys].sort() } : {}),
     ...(input.attachment_keys ? { attachment_keys: [...input.attachment_keys].sort() } : {}),
   }
@@ -70,11 +79,28 @@ export async function runCommand(
           )
           return accepted
         }
+        const selectedEffects = payload.effect_keys ?? []
+        const selectedAssessments = payload.assessment_keys ?? []
         const selected = payload.operation_keys ?? []
         const selectedAttachments = payload.attachment_keys ?? []
         if (
-          (!selected.length && !selectedAttachments.length) ||
-          (selected.length > 0 && selectedAttachments.length > 0) ||
+          (!selected.length &&
+            !selectedAttachments.length &&
+            !selectedEffects.length &&
+            !selectedAssessments.length) ||
+          [selected, selectedAttachments, selectedEffects, selectedAssessments].filter(
+            (keys) => keys.length,
+          ).length !== 1 ||
+          selectedEffects.some(
+            (key) =>
+              current.supported_effects?.find((effect) => effect.operation_key === key)
+                ?.recovery_action !== 'resume_effect',
+          ) ||
+          selectedAssessments.some(
+            (key) =>
+              current.supported_effects?.find((effect) => effect.operation_key === key)
+                ?.recovery_action !== 'verify_effect',
+          ) ||
           selectedAttachments.some(
             (artifactKey) =>
               !current.attachments?.find((attachment) => attachment.artifact_key === artifactKey)
@@ -89,6 +115,28 @@ export async function runCommand(
           fail('create_not_recoverable', 409)
         }
         const recoveryIds: string[] = []
+        for (const effectKey of selectedEffects) {
+          recoveryIds.push(
+            await selectSupportedRecovery(
+              client,
+              runId,
+              effectKey,
+              config.actorId,
+              'resume_effect',
+            ),
+          )
+        }
+        for (const effectKey of selectedAssessments) {
+          recoveryIds.push(
+            await selectSupportedRecovery(
+              client,
+              runId,
+              effectKey,
+              config.actorId,
+              'verify_effect',
+            ),
+          )
+        }
         for (const operationKey of selected) {
           recoveryIds.push(await selectRecovery(client, runId, operationKey, config.actorId))
         }

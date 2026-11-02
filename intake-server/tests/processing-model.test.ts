@@ -3,8 +3,11 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { validate } from '@invimport/contracts'
 import { retainedQuestionSpec } from '../src/processing/retained.ts'
-import { inputManifest, sealed, unseal } from '../src/processing/model.ts'
+import { inputManifest, mediaInputManifest, sealed, unseal } from '../src/processing/model.ts'
 import { processingInputIsCurrent } from '../src/processing/authority.ts'
+import { canonicalMedia } from '../src/media/encoding.ts'
+import { decodeMediaInputs } from '../src/media/inputs.ts'
+import { sha256 } from '../src/db/authority.ts'
 import { manualInputFixture, emptyProcessingMedia } from './support/processing-input.ts'
 
 test('immutable manual input retains exact human values and explicit stage dependencies', () => {
@@ -134,5 +137,102 @@ test('a valid spec hash alone cannot change the displayed question from its seal
   assert.throws(
     () => retainedQuestionSpec({ ...row, commandId: randomUUID() }, subjectId),
     /retained_message_binding_invalid/,
+  )
+})
+
+test('old processing inputs freeze new catalogue observations and reject a scoped create choice', () => {
+  const capture = manualInputFixture()
+  const partId = randomUUID()
+  capture.parts.push({
+    id: partId,
+    label: 'Unrelated',
+    revision: '1',
+    choice: {
+      mode: 'create',
+      spec: {
+        name: 'New',
+        category: {
+          observation_id: randomUUID(),
+          target_context_id: capture.target_context_id,
+          model: 'category',
+          pk: '1',
+        },
+        parameters: [],
+        manufacturer: null,
+        supplier: null,
+        tags: [],
+      },
+    },
+  })
+  capture.observations.push(
+    {
+      id: randomUUID(),
+      model: 'category',
+      pk: '9',
+      target_context_id: capture.target_context_id,
+      label: 'Resistors',
+      observed_at: '2026-11-01T00:00:00Z',
+    },
+    {
+      id: randomUUID(),
+      model: 'part',
+      mapping: { kind: 'category' },
+      pk: '8',
+      target_context_id: capture.target_context_id,
+      label: 'Known',
+      observed_at: '2026-11-01T00:00:00Z',
+    },
+  )
+  const manifest = inputManifest(capture, capture.lots[0].id, 'reading', [], null)
+  assert.deepEqual(
+    manifest.observations.map((observation) => observation.model),
+    ['part'],
+  )
+  assert.equal('mapping' in manifest.observations[0], false)
+
+  capture.lots[0].part_subject_id = partId
+  assert.throws(
+    () => inputManifest(capture, capture.lots[0].id, 'reading', [], null),
+    /unsupported_processing_input/,
+  )
+})
+
+test('media-inputs/2 is not a current processing input', () => {
+  const capture = manualInputFixture()
+  const subjectId = capture.lots[0].id
+  const fields = {
+    batchId: capture.id,
+    subjectIds: [subjectId],
+    evidence: [],
+    attachments: [],
+    versions: [],
+  }
+  const version1 = canonicalMedia({ version: 'media-inputs/1', ...fields })
+  const descriptor = { manifest: version1, sha256: sha256(version1).toString('hex') }
+  const retained = mediaInputManifest(capture, subjectId, 'reading', [], null, descriptor)
+  const version2 = canonicalMedia({ version: 'media-inputs/2', ...fields })
+  assert.throws(
+    () =>
+      mediaInputManifest(capture, subjectId, 'reading', [], null, {
+        manifest: version2,
+        sha256: sha256(version2).toString('hex'),
+      }),
+    /unsupported_processing_input/,
+  )
+  assert.equal(
+    processingInputIsCurrent(
+      retained,
+      capture,
+      decodeMediaInputs(Buffer.from(version2), sha256(version2)),
+    ),
+    false,
+  )
+  assert.equal(
+    processingInputIsCurrent(
+      retained,
+      capture,
+      decodeMediaInputs(Buffer.from(version1), sha256(version1)),
+    ),
+    true,
   )
 })

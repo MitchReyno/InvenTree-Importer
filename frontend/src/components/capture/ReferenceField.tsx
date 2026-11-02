@@ -31,7 +31,7 @@ export function ReferenceField({
       value: {
         observation_id: o.id,
         target_context_id: o.target_context_id,
-        model: o.model,
+        model,
         pk: o.pk,
       },
     })

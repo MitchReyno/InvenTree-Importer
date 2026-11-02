@@ -70,6 +70,7 @@ if (db) {
       readOrigin: process.env.INTAKE_READ_ORIGIN,
     },
     read,
+    transport?{metadata:(pk)=>transport.readPartAttachmentMetadata({targetId:config.targetId,contextId:config.targetContextId},pk),file:(input)=>transport.readPartAttachmentFile({targetId:config.targetId,contextId:config.targetContextId},input)}:undefined,
   )
 }
 const assets = fileURLToPath(new URL('../../frontend/dist/', import.meta.url))

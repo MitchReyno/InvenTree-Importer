@@ -1,5 +1,6 @@
 import { Type, type Static, type TProperties, type TSchema } from '@sinclair/typebox'
 import { Id, PositivePk, Quantity, Revision } from './scalars.ts'
+import { InventoryModel, InventoryPartSpec, InventoryMapping } from './effects.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -26,7 +27,10 @@ const inheritable = <T extends TSchema>(value: T) =>
 
 export const CaptureQuantity = inheritable(Quantity)
 export const CaptureLocation = inheritable(CaptureRef)
-export const CapturePartChoice = selection(CaptureRef)
+export const CapturePartChoice = Type.Union([
+  ...selection(CaptureRef).anyOf,
+  object({ mode: Type.Literal('create'), spec: InventoryPartSpec }),
+])
 export const CaptureDefaults = object({ quantity: CaptureQuantity, location: CaptureLocation })
 export const CaptureEdit = object({
   expected_revision: Revision,
@@ -66,12 +70,13 @@ export const CaptureEdit = object({
   ]),
 })
 export const CaptureObserve = object({
-  model: Type.Union([Type.Literal('part'), Type.Literal('location')]),
+  model: InventoryModel,
   pk: PositivePk,
 })
 export const CaptureObservation = object({
   id: Id,
-  model: Type.Union([Type.Literal('part'), Type.Literal('location')]),
+  model: InventoryModel,
+  mapping: Type.Optional(InventoryMapping),
   pk: PositivePk,
   target_context_id: Id,
   label,

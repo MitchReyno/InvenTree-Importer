@@ -128,7 +128,7 @@ export function Batch({
   }
 
   async function observe(
-    model: 'part' | 'location',
+    model: import('@invimport/contracts').InventoryModelDto,
     pk: string,
   ): Promise<CaptureObservationDto | null> {
     setBusy(true)
@@ -197,7 +197,7 @@ export function Batch({
       batch && retired.size
         ? { ...batch, lots: batch.lots.filter((lot) => !retired.has(lot.id)) }
         : batch,
-    // `retired` is derived from the same projection object.
+    // Retirement comes from both the operator projection and capture history.
     [batch, operatorReview],
   )
 
