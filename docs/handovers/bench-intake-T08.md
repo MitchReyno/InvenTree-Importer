@@ -221,3 +221,30 @@ A fresh read-only reviewer checked head `88ff863`. It found no critical issues a
 The warning gate also applies to lots created before T08. A lot with no nonempty note and no linked media on itself, its Part proposal or its predecessors now needs evidence or a reasoned dismissal before review. An unapproved preparation retained from before T08 for such a lot will refuse approval with `warning_unresolved`, even though its bytes are unchanged. The fix is to add evidence or dismiss the warning, then review and prepare again. Already approved runs and their recovery are unaffected.
 
 Not yet tested: concurrent approval racing a restructure (the batch row lock serializes them by design), and upgrading a populated 0007 database.
+
+## Retirement qualification
+
+`intake-server/tests/pg/operator-retirement.test.ts` provides the evidence promised to Codex in the shared `claude-T08-retirement-semantics.md` proposal. It retires lots through the real operator split command (trusted owner pool) and drives Processing through its public HTTP routes plus the existing direct runner seams (`claimProcessingCommand`, `acceptEnvelope`). It uses deterministic synthetic envelopes only, with no provider or model.
+
+| Case | Result |
+| --- | --- |
+| Retired subject start, alone or mixed with an active lot | 409 `subject_retired`, no job created; the active lot alone still starts and claims |
+| Queued attempt for a lot retired before claim | Claim returns nothing, attempt `superseded`, lane not occupied, job reads `superseded` |
+| Open question on a lot retired afterwards | Answer 412 `stale_question` with no capture write; job and question read `superseded`; the retained proposal stays listed |
+| Start and answer committed before retirement, redelivered with the same key and body | Original receipts returned; attempt count unchanged |
+| Running attempt with a held lane | Still `running`, `occupies_lane: true`, `input_current: false` after retirement; released only by its exact terminal envelope (accepted as `stale`) |
+
+Mutation checks showed which code the tests depend on, and restored the files from backups:
+
+- **Explicit check disabled:** with the retired check in `processingInputIsCurrent` disabled, all five still pass. The snapshot's `retired: true` already changes that lot's recomputed input manifest, so the explicit check is a defensive duplicate.
+- **Snapshot flag removed:** with the projected `retired` flag removed (and the helper's own assertion bypassed), cases 1, 2, 3 and 5 fail. Case 4 passes either way, as it guards adoption rather than retirement.
+
+All runs held the exclusive `pg-docker` lease, used decoder `sha256:877516742f7b760d12937fdaebe7086edc1b9e227c875bc68b9b24fa910c10cb` and probe `sha256:2d13d4364b84e22bdeb7aee36ebafc6fc15d80a5111aeecc9fac5c1466f61c70`, and had Docker's CLI on the command `PATH`.
+
+| Command | Result |
+| --- | --- |
+| `NODE_OPTIONS=--test-name-pattern=retire pnpm db:intake test` | 20/20 passed, including the 5 new cases |
+| `pnpm db:intake test` (full PG tier) | 75/75 passed, 0 skipped |
+| `pnpm db:intake test:process` | 25/25 passed, 0 skipped |
+
+Afterwards no test databases, processes or containers from these runs remained; only the two pre-existing 2026-11-01 test databases are present. Five `intake_<hex>` roles exist in the cluster; fixture disposal drops its own roles, but no baseline was taken, so their origin is not attributed and they were left alone.
