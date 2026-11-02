@@ -10,6 +10,14 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/readiness",
+    {
+      "timeoutMs": 5000,
+      "errorMode": "setup",
+      "responseSchema": "Readiness"
+    }
+  ],
+  [
     "GET /api/v1/bootstrap",
     {
       "timeoutMs": 5000,

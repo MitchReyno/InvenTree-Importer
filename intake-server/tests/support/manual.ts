@@ -1,3 +1,4 @@
+import { registerLive } from '../../src/live/routes.ts'
 import { EFFECTS_BUILD, EFFECTS_CAPABILITY } from '../../src/execution/effects-plan.ts'
 import { readMediaStoreIdentity } from '../../src/media/store-identity.ts'
 import { realpath } from 'node:fs/promises'
@@ -152,6 +153,7 @@ export async function manualFixture(options: { media?: boolean; effects?: boolea
   let token = ''
   async function start() {
     app = createServer(config, { mediaEnabled: Boolean(store) })
+    registerLive(app, api.pool, config)
     registerCapture(app, api.pool, config, read)
     registerManual(app, api.pool, config, read, {
       metadata: (pk) =>

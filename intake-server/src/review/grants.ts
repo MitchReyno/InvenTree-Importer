@@ -1,4 +1,5 @@
 import type { Pool } from 'pg'
+import { grantProjection } from '../operations/grants.ts'
 import { grantExecutor } from '../execution/grants.ts'
 
 /** Trusted provisioning only. API may approve, scheduler may dispatch, apply may only journal. */
@@ -43,6 +44,7 @@ export async function grantManual(pool: Pool, role: string, purpose: 'api' | 'ru
     await grantExecutor(pool, role, 'apply')
   } else {
     await grantExecutor(pool, role, 'delivery')
+    await grantProjection(pool, role)
     await pool.query(`GRANT UPDATE(state,safe_code) ON manual_dispatch TO ${role}`)
   }
 }

@@ -16,11 +16,13 @@
     "media:decode": "tsx src/media/worker-main.ts",
     "media:gc": "tsx src/media/gc-main.ts",
     "preview:manual": "tsx tests/fixtures/manual-browser.ts",
-    "preview:attachments": "tsx tests/fixtures/part-attachment-browser.ts"
+    "preview:attachments": "tsx tests/fixtures/part-attachment-browser.ts",
+    "operations": "tsx src/operations/main.ts"
   },
   "dependencies": {
     "@dbos-inc/dbos-sdk": "5.4.0",
     "@fastify/static": "10.1.8",
+    "@fastify/websocket": "11.3.6",
     "@invimport/contracts": "workspace:*",
     "@napi-rs/canvas": "1.1.0",
     "drizzle-orm": "0.45.4",
@@ -28,11 +30,13 @@
     "ipaddr.js": "2.5.0",
     "pdfjs-dist": "6.4.299",
     "pg": "8.16.3",
-    "sharp": "0.35.5"
+    "sharp": "0.35.5",
+    "ws": "8.22.1"
   },
   "devDependencies": {
     "@types/node": "24.19.2",
     "@types/pg": "8.15.6",
+    "@types/ws": "8.18.2",
     "tsx": "4.23.15",
     "typescript": "6.0.3"
   }

@@ -1,5 +1,5 @@
 import { Button, PageTitle, Panel, Paragraph, Notice } from './components/ui/primitives'
-import { useMemo, type ReactNode } from 'react'
+import { useCallback, useMemo, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   captureClient,
@@ -10,11 +10,13 @@ import {
   processingClient,
 } from '@invimport/contracts/client'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
+import { LiveUpdates } from './components/operations/LiveUpdates'
 import { serverScopeIdentity } from './queries/scope'
 import { Batches } from './components/batches/Batches'
 import { Batch } from './components/batches/Batch'
 import { GlobalStyle } from './components/GlobalStyle'
 import styled from 'styled-components'
+import { Diagnostics } from './components/operations/Diagnostics'
 import { ActivityIndicator } from './components/ui/ActivityIndicator'
 import { Masthead } from './components/masthead/Masthead'
 import { useNavigationGuard } from './navigation/useNavigationGuard'
@@ -27,16 +29,26 @@ export default function App() {
     staleTime: Infinity,
     refetchOnMount: false,
   })
+  const refreshBootstrap = useCallback(() => {
+    void bootstrapQuery.refetch()
+  }, [bootstrapQuery.refetch])
   const bootstrapUnavailable = bootstrapQuery.isError || bootstrapQuery.fetchStatus === 'paused'
   const bootstrap = bootstrapQuery.data
-  const scope = bootstrap
-    ? {
-        origin: location.origin,
-        actorId: bootstrap.actor_id,
-        targetId: bootstrap.target_id,
-        targetContextId: bootstrap.target_context_id,
-      }
-    : undefined
+  const actorId = bootstrap?.actor_id
+  const targetId = bootstrap?.target_id
+  const targetContextId = bootstrap?.target_context_id
+  const scope = useMemo(
+    () =>
+      actorId && targetId && targetContextId
+        ? {
+            origin: location.origin,
+            actorId,
+            targetId,
+            targetContextId,
+          }
+        : undefined,
+    [actorId, targetId, targetContextId],
+  )
   const client = useMemo(
     () => (bootstrap?.csrf_token ? captureClient(location.origin, bootstrap.csrf_token) : null),
     [bootstrap],
@@ -113,20 +125,27 @@ export default function App() {
         {bootstrap?.banner ?? 'Connecting to local application…'}
       </DevelopmentBanner>
       <ServerStateProvider key={scope ? serverScopeIdentity(scope) : 'setup'} scope={scope}>
-        {manual && <ActivityIndicator client={manual} processing={processing} />}
-        {bootstrapUnavailable && bootstrap && (
-          <Notice role="alert">
-            Application connection unavailable. Showing the last development context; retained views
-            report their own freshness. Unsaved input is preserved.
-          </Notice>
-        )}
-        {navigationBlocked && (
-          <Notice role="alert">
-            Your unsaved input is preserved. Save this form or discard its unsaved input before
-            navigating, then choose the destination again.
-          </Notice>
-        )}
-        <Main>{content}</Main>
+        <LiveUpdates
+          csrfToken={bootstrap?.csrf_token ?? null}
+          batchId={route?.split('/')[0] || null}
+          refreshBootstrap={refreshBootstrap}
+        >
+          {manual && <ActivityIndicator client={manual} processing={processing} />}
+          {bootstrapUnavailable && bootstrap && (
+            <Notice role="alert">
+              Application connection unavailable. Showing the last development context; retained
+              views report their own freshness. Unsaved input is preserved.
+            </Notice>
+          )}
+          {navigationBlocked && (
+            <Notice role="alert">
+              Your unsaved input is preserved. Save this form or discard its unsaved input before
+              navigating, then choose the destination again.
+            </Notice>
+          )}
+          <Main>{content}</Main>
+          {manual && <Diagnostics />}
+        </LiveUpdates>
       </ServerStateProvider>
       <Footer>
         Saved in the application database. Exact manual approvals can queue the separately

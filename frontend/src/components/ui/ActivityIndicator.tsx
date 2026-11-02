@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
+import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import styled from 'styled-components'
 import type { processingClient } from '@invimport/contracts/client'
 import { ProcessingActivity } from '../processing/ProcessingActivity'
@@ -14,11 +14,12 @@ export function ActivityIndicator({
   client: ManualClient
   processing?: ReturnType<typeof processingClient>
 }) {
+  const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const activityQuery = useQuery({
     queryKey: serverQueryKey(scope, 'activity'),
     queryFn: () => client.activity(),
-    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+    refetchInterval: pollInterval,
   })
   const activity = activityQuery.isFetchedAfterMount ? activityQuery.data : undefined
   const unavailable = activityQuery.isError || activityQuery.fetchStatus === 'paused'

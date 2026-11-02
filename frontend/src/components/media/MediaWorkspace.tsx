@@ -1,7 +1,7 @@
 import { mediaIdentityLabels } from '../../media/identity-labels'
 import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
+import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type { CaptureSnapshotDto, MediaEditDto, MediaVersionDto } from '@invimport/contracts'
@@ -21,13 +21,14 @@ interface Props {
 }
 
 export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDirtyChange }: Props) {
+  const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const attachmentControlId = useId()
   const attachmentDescriptionId = `${attachmentControlId}-selection`
   const mediaQuery = useQuery({
     queryKey: serverQueryKey(scope, 'media', batch.id),
     queryFn: () => client.snapshot(batch.id),
-    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+    refetchInterval: pollInterval,
   })
   const snapshot = mediaQuery.data
   const readUnavailable =

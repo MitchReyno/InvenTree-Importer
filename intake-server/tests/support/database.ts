@@ -4,7 +4,7 @@ import { database } from '../../src/db/database.ts'
 import { migrate } from '../../src/operations/migrate.ts'
 
 /** Historical-upgrade fixtures may provision an empty random database explicitly. */
-export async function isolatedDatabase(options: { migrate?: boolean } = {}) {
+export async function isolatedDatabase(options: { migrate?: boolean; restore?: true } = {}) {
   const url = process.env.INTAKE_TEST_ADMIN_URL
   if (!url || process.env.INTAKE_TEST_ALLOW_CREATE_DATABASE !== 'owned-sandbox')
     throw new Error('explicit_owned_test_database_required')
@@ -14,7 +14,7 @@ export async function isolatedDatabase(options: { migrate?: boolean } = {}) {
     parsed.pathname !== '/postgres'
   )
     throw new Error('test_database_must_be_local_admin')
-  const name = `intake_test_${randomUUID().replaceAll('-', '')}`
+  const name = `${options.restore ? 'intake_restore' : 'intake_test'}_${randomUUID().replaceAll('-', '')}`
   const admin = new Pool({ connectionString: url, max: 1 })
   await admin.query(`CREATE DATABASE ${name}`)
   parsed.pathname = `/${name}`

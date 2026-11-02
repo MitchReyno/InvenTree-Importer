@@ -35,6 +35,36 @@
         }
       }
     },
+    "/api/v1/readiness": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 5000,
+          "errorMode": "setup"
+        },
+        "responses": {
+          "200": {
+            "description": "Readiness",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/bootstrap": {
       "get": {
         "x-intake-client": {
@@ -29567,6 +29597,248 @@
                 }
               }
             ]
+          }
+        }
+      },
+      "LiveCursor": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "stream_id",
+          "sequence"
+        ],
+        "properties": {
+          "stream_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "sequence": {
+            "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          }
+        }
+      },
+      "LiveSubscribe": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "protocol",
+          "csrf_token",
+          "batch_id",
+          "cursors"
+        ],
+        "properties": {
+          "type": {
+            "const": "subscribe",
+            "type": "string"
+          },
+          "protocol": {
+            "const": "bench-intake-live/1",
+            "type": "string"
+          },
+          "csrf_token": {
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+            "type": "string"
+          },
+          "batch_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cursors": {
+            "maxItems": 100,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "stream_id",
+                "sequence"
+              ],
+              "properties": {
+                "stream_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "sequence": {
+                  "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+                  "format": "int64",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "LiveFrame": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "type",
+              "protocol",
+              "cursors",
+              "truncated"
+            ],
+            "properties": {
+              "type": {
+                "const": "ready",
+                "type": "string"
+              },
+              "protocol": {
+                "const": "bench-intake-live/1",
+                "type": "string"
+              },
+              "cursors": {
+                "maxItems": 100,
+                "uniqueItems": true,
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "stream_id",
+                    "sequence"
+                  ],
+                  "properties": {
+                    "stream_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "sequence": {
+                      "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "truncated": {
+                "type": "boolean"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "type",
+              "protocol",
+              "batch_id",
+              "stream_id",
+              "sequence",
+              "reset"
+            ],
+            "properties": {
+              "type": {
+                "const": "changed",
+                "type": "string"
+              },
+              "protocol": {
+                "const": "bench-intake-live/1",
+                "type": "string"
+              },
+              "batch_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "stream_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "sequence": {
+                "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "reset": {
+                "type": "boolean"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "type",
+              "protocol"
+            ],
+            "properties": {
+              "type": {
+                "const": "heartbeat",
+                "type": "string"
+              },
+              "protocol": {
+                "const": "bench-intake-live/1",
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "Readiness": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "api_version",
+          "deployment",
+          "identity",
+          "research",
+          "media",
+          "updates",
+          "apply"
+        ],
+        "properties": {
+          "status": {
+            "const": "ready",
+            "type": "string"
+          },
+          "api_version": {
+            "const": "bench-intake-app/1",
+            "type": "string"
+          },
+          "deployment": {
+            "const": "restricted-local-development",
+            "type": "string"
+          },
+          "identity": {
+            "const": "deferred_T11",
+            "type": "string"
+          },
+          "research": {
+            "const": "unqualified",
+            "type": "string"
+          },
+          "media": {
+            "anyOf": [
+              {
+                "const": "configured",
+                "type": "string"
+              },
+              {
+                "const": "disabled",
+                "type": "string"
+              }
+            ]
+          },
+          "updates": {
+            "const": "websocket-with-polling-fallback",
+            "type": "string"
+          },
+          "apply": {
+            "const": "separately-supervised-owned-fake-only",
+            "type": "string"
           }
         }
       }

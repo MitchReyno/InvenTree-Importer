@@ -1,8 +1,11 @@
 import { visit } from 'jsonc-parser'
 
+const DEFAULT_MAX_BYTES = 262144
+const MAX_EXPLICIT_BYTES = 2 * 1024 * 1024
+
 /** Reject duplicates (including escaped aliases), unsafe numbers and non-JSON syntax. */
-export function strictJson(text: string): unknown {
-  return parsedJson(text, true)
+export function strictJson(text: string, maxBytes = DEFAULT_MAX_BYTES): unknown {
+  return parsedJson(text, true, maxBytes)
 }
 
 /** Evidence extraction only. Unsafe numbers never establish identities or usable outputs. */
@@ -10,8 +13,11 @@ export function attributionJson(text: string): unknown {
   return parsedJson(text, false)
 }
 
-function parsedJson(text: string, exactNumbers: boolean): unknown {
-  if (Buffer.byteLength(text, 'utf8') > 262144) {
+function parsedJson(text: string, exactNumbers: boolean, maxBytes = DEFAULT_MAX_BYTES): unknown {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > MAX_EXPLICIT_BYTES) {
+    throw new Error('invalid_json_limit')
+  }
+  if (text.length > maxBytes || new TextEncoder().encode(text).byteLength > maxBytes) {
     throw new Error('json_too_large')
   }
   const stack: (Set<string> | null)[] = []

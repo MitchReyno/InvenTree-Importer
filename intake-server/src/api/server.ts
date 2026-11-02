@@ -4,6 +4,12 @@ import { schemas, validate } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
 import { bootstrap, type DevConfig, type RuntimeFeatures } from '../config.ts'
 
+const liveAuthorities = new WeakMap<FastifyInstance, (token: string) => boolean>()
+
+export function authorizeLive(app: FastifyInstance, token: string): boolean {
+  return liveAuthorities.get(app)?.(token) === true
+}
+
 /** Shared production parser/validator/serializer; fixture routes exercise this exact installation. */
 export function installContracts(app: FastifyInstance) {
   app.removeContentTypeParser('application/json')
@@ -64,6 +70,13 @@ export function createServer(
   })
   const csrfToken = randomBytes(32).toString('hex')
   const configured = bootstrap(config).status === 'configured'
+  liveAuthorities.set(
+    app,
+    (token) =>
+      configured &&
+      /^[a-f0-9]{64}$/.test(token) &&
+      timingSafeEqual(Buffer.from(token), Buffer.from(csrfToken)),
+  )
   installContracts(app)
   app.addHook('onRequest', async (req, reply) => {
     reply.header('cache-control', 'no-store').header('x-content-type-options', 'nosniff')
@@ -95,6 +108,12 @@ export function createServer(
           correlation_id: req.id,
         })
       }
+    }
+  })
+  app.addHook('onResponse', async (req) => {
+    // Refused upgrades leave the normal HTTP lifecycle before the socket plugin's hooks.
+    if (req.headers.upgrade?.toLowerCase() === 'websocket') {
+      req.raw.socket.destroy()
     }
   })
   app.setErrorHandler((error, req, reply) => {

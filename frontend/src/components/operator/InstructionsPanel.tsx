@@ -7,7 +7,7 @@ import type { MediaClient } from '../../media/types'
 import type { OperatorReviewClient } from '../../operator/types'
 import { useRetainedCommand } from '../../operator/useRetainedCommand'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
+import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { Button, ErrorNotice, Form, Label, Small, Subheading, TextArea } from '../ui/primitives'
 
 const MAX_INSTRUCTION_LENGTH = 8192
@@ -134,12 +134,13 @@ export function InstructionsPanel({
   reload,
   onDirtyChange,
 }: Props) {
+  const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const mediaQuery = useQuery({
     queryKey: serverQueryKey(scope, 'media', batch.id),
     queryFn: () => media!.snapshot(batch.id),
     enabled: media !== undefined,
-    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+    refetchInterval: pollInterval,
   })
   const dirtyForms = useRef(new Set<string>())
   const [, setVersion] = useState(0)

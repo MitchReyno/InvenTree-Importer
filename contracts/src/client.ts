@@ -125,6 +125,8 @@ export function intakeClient(baseUrl: string, transport: typeof fetch = fetch) {
   return {
     health: () => successfulData(client.GET('/api/v1/health')),
 
+    readiness: () => successfulData(client.GET('/api/v1/readiness')),
+
     bootstrap: () => successfulData(client.GET('/api/v1/bootstrap')),
   }
 }
