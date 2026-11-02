@@ -48,10 +48,9 @@ afterEach(() => {
   refreshBootstrap.mockClear()
 })
 
-function setup() {
+function setup(read = vi.fn(async () => 'Retained state')) {
   vi.useFakeTimers()
   vi.stubGlobal('WebSocket', Socket)
-  const read = vi.fn(async () => 'Retained state')
   const client = createServerQueryClient()
 
   function Probe() {
@@ -183,5 +182,42 @@ test('server restart requests new bootstrap authorization and truncated subscrip
   act(() => socket.onclose?.({ code: 1012 }))
   expect(refreshBootstrap).toHaveBeenCalledTimes(1)
   expect(screen.getByLabelText('Poll interval')).toHaveTextContent('2000')
+  view.unmount()
+})
+
+test('a live hint during the initial read forces a newer snapshot and ignores the old late result', async () => {
+  let finishOld: (value: string) => void = () => {
+    throw new Error('not_initialized')
+  }
+
+  const old = new Promise<string>((resolve) => {
+    finishOld = resolve
+  })
+  const read = vi.fn(async () => 'Fresh snapshot').mockImplementationOnce(() => old)
+  const { socket, view } = setup(read)
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1)
+  })
+  expect(read).toHaveBeenCalledTimes(1)
+  act(() =>
+    socket.frame({
+      type: 'ready',
+      protocol: LIVE_PROTOCOL,
+      cursors: [{ stream_id: stream, sequence: '12' }],
+      truncated: false,
+    }),
+  )
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(110)
+  })
+  expect(read).toHaveBeenCalledTimes(2)
+  expect(screen.getByText('Fresh snapshot')).toBeInTheDocument()
+  await act(async () => {
+    finishOld('Older initial snapshot')
+    await vi.advanceTimersByTimeAsync(1)
+  })
+  expect(screen.queryByText('Older initial snapshot')).not.toBeInTheDocument()
+  expect(screen.getByText('Fresh snapshot')).toBeInTheDocument()
+  expect(screen.getByLabelText('Poll interval')).toHaveTextContent('false')
   view.unmount()
 })

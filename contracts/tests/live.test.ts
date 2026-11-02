@@ -47,3 +47,12 @@ test('strict JSON limits UTF-8 bytes consistently for non-ASCII browser input', 
   assert.equal(strictJson(JSON.stringify('é'.repeat(100))), 'é'.repeat(100))
   assert.throws(() => strictJson(JSON.stringify('é'.repeat(131072))), /json_too_large/)
 })
+
+test('explicit larger JSON budgets keep the default HTTP limit and every structural refusal', () => {
+  const large = JSON.stringify('x'.repeat(300000))
+  assert.throws(() => strictJson(large), /json_too_large/)
+  assert.equal(strictJson(large, 2 * 1024 * 1024), 'x'.repeat(300000))
+  assert.throws(() => strictJson('{"same":1,"same":2}', 2 * 1024 * 1024), /duplicate_json_key/)
+  assert.throws(() => strictJson('{"id":9007199254740993}', 2 * 1024 * 1024), /unsafe_json_number/)
+  assert.throws(() => strictJson('{}', 3 * 1024 * 1024), /invalid_json_limit/)
+})

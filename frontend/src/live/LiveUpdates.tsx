@@ -41,17 +41,39 @@ export function LiveUpdates({ csrfToken, batchId, refreshBootstrap, children }: 
     let retry: ReturnType<typeof setTimeout> | undefined
     let deadline: ReturnType<typeof setInterval> | undefined
     let invalidate: ReturnType<typeof setTimeout> | undefined
+    let reconcileQueued = false
+    let reconciling = false
     let attempt = 0
     let lastFrame = Date.now()
 
     const reconcile = () => {
-      if (stopped || invalidate !== undefined) {
+      if (stopped) {
+        return
+      }
+      reconcileQueued = true
+      if (invalidate !== undefined || reconciling) {
         return
       }
       invalidate = setTimeout(() => {
         invalidate = undefined
-        void queryClient.invalidateQueries({ queryKey: serverQueryKey(scope) })
+        void refreshRetainedReads()
       }, 100)
+    }
+
+    const refreshRetainedReads = async () => {
+      reconciling = true
+      try {
+        while (reconcileQueued && !stopped) {
+          reconcileQueued = false
+          // Invalidation alone can adopt an initial read that predates the hint.
+          await queryClient.cancelQueries({ queryKey: serverQueryKey(scope) }, { silent: true })
+          if (!stopped) {
+            await queryClient.invalidateQueries({ queryKey: serverQueryKey(scope) })
+          }
+        }
+      } finally {
+        reconciling = false
+      }
     }
 
     const connect = () => {

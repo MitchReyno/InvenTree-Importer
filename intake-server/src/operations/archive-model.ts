@@ -1,8 +1,10 @@
 import { Id, Digest } from '@invimport/contracts'
+import { strictJson } from '@invimport/contracts/json'
 import { MEDIA_SOURCE_MAX_BYTES } from '@invimport/contracts/media'
 
 export const MAX_ARCHIVE_BYTES = 8 * 1024 * 1024 * 1024
 export const MAX_ARCHIVE_BLOBS = 10000
+export const MAX_MANIFEST_BYTES = 2 * 1024 * 1024
 export interface ArchiveManifest {
   format: 'bench-intake-archive/1'
   database_sha256: string
@@ -89,4 +91,9 @@ export function archiveManifest(value: unknown): ArchiveManifest {
     }
   }
   return row as unknown as ArchiveManifest
+}
+
+export function decodeArchiveManifest(bytes: Uint8Array): ArchiveManifest {
+  const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  return archiveManifest(strictJson(text, MAX_MANIFEST_BYTES))
 }

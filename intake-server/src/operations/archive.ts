@@ -3,7 +3,7 @@ import { open } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { join, resolve } from 'node:path'
 import type { Pool } from 'pg'
-import { canonical, strictJson } from '@invimport/contracts/json'
+import { canonical } from '@invimport/contracts/json'
 import { BlobStore } from '../media/blob-store.ts'
 import { readMediaStoreIdentity } from '../media/store-identity.ts'
 import { compatibleSchema, expectedMigrations } from './compatibility.ts'
@@ -11,6 +11,8 @@ import { privateDirectory, privateFile, newDirectory, writeExclusive } from './f
 import { requireDisabledGate } from './quiescence.ts'
 import {
   archiveManifest,
+  decodeArchiveManifest,
+  MAX_MANIFEST_BYTES,
   MAX_ARCHIVE_BYTES,
   MAX_ARCHIVE_BLOBS,
   type ArchiveManifest,
@@ -136,7 +138,9 @@ export async function backupArchive(
       throw new Error('external_activation_changed')
     }
     await client.query('COMMIT')
-    await writeExclusive(join(archive, 'manifest.json'), canonical(manifest) + '\n')
+    const manifestBytes = Buffer.from(canonical(manifest) + '\n')
+    decodeArchiveManifest(manifestBytes)
+    await writeExclusive(join(archive, 'manifest.json'), manifestBytes)
     return {
       status: 'archived' as const,
       blobs: manifest.blobs.length,
@@ -152,10 +156,8 @@ export async function backupArchive(
 
 async function inspectArchive(path: string) {
   const archive = await privateDirectory(path)
-  const manifest = archiveManifest(
-    strictJson(
-      (await privateFile(join(archive, 'manifest.json'), 2 * 1024 * 1024)).toString('utf8'),
-    ),
+  const manifest = decodeArchiveManifest(
+    await privateFile(join(archive, 'manifest.json'), MAX_MANIFEST_BYTES),
   )
   if (canonical(manifest.migrations) !== canonical(await expectedMigrations())) {
     throw new Error('archive_version_quarantined')
