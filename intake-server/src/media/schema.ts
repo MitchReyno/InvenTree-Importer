@@ -106,7 +106,7 @@ export const mediaAttachmentSelections = pgTable('media_attachment_selection', {
   subjectId: uuid('subject_id').notNull(),
   mode: text().$type<'selected' | 'declined' | 'unset'>().notNull(),
   versionId: uuid('version_id'),
-  destination: text().$type<'lot_attachment'|'part_attachment'>().notNull(),
+  destination: text().$type<'lot_attachment' | 'part_attachment'>().notNull(),
   revision: decimalInteger().notNull(),
   actorId: uuid('actor_id').notNull(),
 })

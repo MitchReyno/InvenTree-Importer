@@ -86,7 +86,7 @@ export function RunResult({ run, busy, command }: Props) {
           <Small>Dependent failures do not erase this output.</Small>
         </Operation>
       ))}
-      {run.part_attachments&&<PreparedPartAttachments attachments={run.part_attachments}/>}
+      {run.part_attachments && <PreparedPartAttachments attachments={run.part_attachments} />}
       {run.supported_effects?.map((effect) => (
         <SupportedEffectResult
           key={effect.operation_key}

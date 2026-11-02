@@ -1,5 +1,5 @@
-import {partIdentitySatisfies} from '../inventory/part-identity.ts'
-import { supportedEffectsPreview,partAttachmentsPreview } from './effects-preview.ts'
+import { partIdentitySatisfies } from '../inventory/part-identity.ts'
+import { supportedEffectsPreview, partAttachmentsPreview } from './effects-preview.ts'
 import { requirePartTransferReads } from './part-attachments.ts'
 import { supportedStates } from '../execution/effects-state.ts'
 import { logicalEffectKey } from '../execution/effects-plan.ts'
@@ -78,7 +78,14 @@ export async function retainedPreparation(
     fail('retained_preparation_corrupt', 409)
   }
   const checked = response.preparation
-  if(plan.version==='bench-effects-plan/1'&&(canonical(checked.supported_effects)!==canonical(supportedEffectsPreview(plan))||canonical(checked.part_attachments)!==canonical(partAttachmentsPreview(plan,checked.effects)))) {fail('retained_preparation_corrupt',409)}
+  if (
+    plan.version === 'bench-effects-plan/1' &&
+    (canonical(checked.supported_effects) !== canonical(supportedEffectsPreview(plan)) ||
+      canonical(checked.part_attachments) !==
+        canonical(partAttachmentsPreview(plan, checked.effects)))
+  ) {
+    fail('retained_preparation_corrupt', 409)
+  }
   if (checked.capability !== plan.capability) {
     fail('retained_preparation_corrupt', 409)
   }
@@ -163,7 +170,15 @@ export async function retainedPreparation(
     fail('retained_preparation_corrupt', 409)
   }
   const reviews = parsedReviews
-  if(plan.version==='bench-effects-plan/1'&&(plan.parts.some(part=>!reviews.some(review=>review.subjectId===part.subjectId))||plan.partAttachments.some(transfer=>!reviews.some(review=>review.subjectId===transfer.partSubjectId)))) {fail('retained_preparation_corrupt',409)}
+  if (
+    plan.version === 'bench-effects-plan/1' &&
+    (plan.parts.some((part) => !reviews.some((review) => review.subjectId === part.subjectId)) ||
+      plan.partAttachments.some(
+        (transfer) => !reviews.some((review) => review.subjectId === transfer.partSubjectId),
+      ))
+  ) {
+    fail('retained_preparation_corrupt', 409)
+  }
   const indexedReviews = await client.query(
     `SELECT p.subject_id,p.review_id,r.actor_id,r.dependency_bytes,r.dependency_digest
      FROM manual_preparation_review p JOIN manual_review r
@@ -239,7 +254,7 @@ export async function retainedPreparation(
       outcome: string
       label: string
       mapping?: InventoryMappingDto
-      partIdentity?: { category_id: string;tags?:string[] }
+      partIdentity?: { category_id: string; tags?: string[] }
     }
   >()
   for (const effect of checked.effects) {
@@ -288,7 +303,7 @@ export async function retainedPreparation(
           pk: part.prior.pk,
           outcome: 'found',
           label: part.spec.name,
-          partIdentity: { category_id: part.spec.category.pk,tags:part.spec.tags },
+          partIdentity: { category_id: part.spec.category.pk, tags: part.spec.tags },
         })
       }
     }
@@ -313,17 +328,27 @@ export async function retainedPreparation(
       fail('retained_preparation_corrupt', 409)
     }
     verifyBytes(receipt.receipt_bytes, receipt.receipt_digest)
-    let expectedReceipt:unknown=expected
-    if(expected.partIdentity) {
-      const value:unknown=strictJson(receipt.receipt_bytes.toString('utf8'))
-      if(!value||typeof value!=='object'||Array.isArray(value)||!('partIdentity' in value)||!partIdentitySatisfies(value.partIdentity,expected.partIdentity)) {fail('retained_preparation_corrupt',409)}
-      expectedReceipt={...expected,partIdentity:value.partIdentity}
+    let expectedReceipt: unknown = expected
+    if (expected.partIdentity) {
+      const value: unknown = strictJson(receipt.receipt_bytes.toString('utf8'))
+      if (
+        !value ||
+        typeof value !== 'object' ||
+        Array.isArray(value) ||
+        !('partIdentity' in value) ||
+        !partIdentitySatisfies(value.partIdentity, expected.partIdentity)
+      ) {
+        fail('retained_preparation_corrupt', 409)
+      }
+      expectedReceipt = { ...expected, partIdentity: value.partIdentity }
     }
     if (receipt.receipt_bytes.toString('utf8') !== canonical(expectedReceipt)) {
       fail('retained_preparation_corrupt', 409)
     }
   }
-  if(plan.version==='bench-effects-plan/1') {await requirePartTransferReads(client,row.batch_id,row.prepare_command_id,plan)}
+  if (plan.version === 'bench-effects-plan/1') {
+    await requirePartTransferReads(client, row.batch_id, row.prepare_command_id, plan)
+  }
   return { row, plan, preview: checked }
 }
 
@@ -435,13 +460,17 @@ export async function manualRunSnapshot(
             (item) => item.operationKey === logicalEffectKey(part.subjectId, 'create_part'),
           )
           return {
-            label:part.spec.name,
-          operation_key: logicalEffectKey(part.subjectId, 'create_part'),
+            label: part.spec.name,
+            operation_key: logicalEffectKey(part.subjectId, 'create_part'),
             part_subject_id: part.subjectId,
             spec_sha256: part.specDigest,
             certainty: part.prior ? ('confirmed' as const) : output!.certainty,
             remote_pks: part.prior ? [part.prior.pk] : output!.remotePks,
-            usable: part.prior!==null || (output?.certainty==='confirmed'&&output.verification!=='missing_or_changed'&&output.verification!=='unavailable'),
+            usable:
+              part.prior !== null ||
+              (output?.certainty === 'confirmed' &&
+                output.verification !== 'missing_or_changed' &&
+                output.verification !== 'unavailable'),
             verification: output?.verification ?? null,
           }
         })
@@ -462,7 +491,12 @@ export async function manualRunSnapshot(
         | 'supplier'
         | 'part_attachment'
         | 'create_stock',
-      label:preparation.preview.supported_effects?.find(effect=>effect.operation_key===item.operationKey)?.label??stock?.lot_label??item.kind,
+      label:
+        preparation.preview.supported_effects?.find(
+          (effect) => effect.operation_key === item.operationKey,
+        )?.label ??
+        stock?.lot_label ??
+        item.kind,
       dependencies: effect?.dependencies ?? [],
       inputs: effect?.input ?? {},
       certainty: item.certainty,
@@ -491,7 +525,9 @@ export async function manualRunSnapshot(
     cancellation_requested: journal.cancellationRequested,
     dispatch_state: dispatchState,
     operations,
-    ...(preparation.plan.version==='bench-effects-plan/1'?{part_attachments:preparation.preview.part_attachments}:{}),
+    ...(preparation.plan.version === 'bench-effects-plan/1'
+      ? { part_attachments: preparation.preview.part_attachments }
+      : {}),
     ...(partOutputs && supportedEffects
       ? { part_outputs: partOutputs, supported_effects: supportedEffects }
       : {}),

@@ -135,9 +135,9 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
     )
   }
 
-  const selectedPart=batch.parts.find(part=>part.id===selectedSubject)
-  const subject = batch.lots.find((lot) => lot.id === selectedSubject)??selectedPart
-  const destination=selectedPart?'part_attachment' as const:'lot_attachment' as const
+  const selectedPart = batch.parts.find((part) => part.id === selectedSubject)
+  const subject = batch.lots.find((lot) => lot.id === selectedSubject) ?? selectedPart
+  const destination = selectedPart ? ('part_attachment' as const) : ('lot_attachment' as const)
   const selection = snapshot?.attachments.find((item) => item.subject_id === selectedSubject)
   const identityLabels = mediaIdentityLabels(snapshot?.evidence ?? [])
   let attachmentDescription = 'Not chosen'
@@ -145,7 +145,9 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
     attachmentDescription =
       identityLabels.versions.get(selection.version_id) ?? `Saved version ${selection.version_id}`
   } else if (selection?.mode === 'declined') {
-    attachmentDescription = selectedPart?'No attachment for this Part':'No attachment for this lot'
+    attachmentDescription = selectedPart
+      ? 'No attachment for this Part'
+      : 'No attachment for this lot'
   }
   const frozen = disabled || busy || !snapshot || readUnavailable
 
@@ -200,7 +202,9 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
                 }}
               >
                 <option value="unset">Not chosen</option>
-                <option value="declined">No attachment for this {selectedPart?'Part':'lot'}</option>
+                <option value="declined">
+                  No attachment for this {selectedPart ? 'Part' : 'lot'}
+                </option>
                 {snapshot.evidence.flatMap((evidence) =>
                   evidence.versions
                     .filter((version) => version.state === 'ready')

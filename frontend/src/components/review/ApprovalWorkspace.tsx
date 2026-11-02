@@ -127,19 +127,21 @@ export function ApprovalWorkspace({
                 <Paragraph>
                   <strong>Shared Part operations · {preview.supported_effects.length}</strong>
                 </Paragraph>
-                {preview.supported_effects.filter(effect=>effect.kind!=='part_attachment').map((effect) => (
-                  <Effect key={effect.operation_key}>
-                    <strong>{effect.label}</strong>
-                    {Object.entries(effect.inputs).map(([field, value]) => (
-                      <Small key={field}>
-                        {field}: {value}
+                {preview.supported_effects
+                  .filter((effect) => effect.kind !== 'part_attachment')
+                  .map((effect) => (
+                    <Effect key={effect.operation_key}>
+                      <strong>{effect.label}</strong>
+                      {Object.entries(effect.inputs).map(([field, value]) => (
+                        <Small key={field}>
+                          {field}: {value}
+                        </Small>
+                      ))}
+                      <Small>
+                        Only this selected operation is approved. Dependent results stay separate.
                       </Small>
-                    ))}
-                    <Small>
-                      Only this selected operation is approved. Dependent results stay separate.
-                    </Small>
-                  </Effect>
-                ))}
+                    </Effect>
+                  ))}
               </>
             ) : null}
             <Paragraph>
@@ -172,7 +174,9 @@ export function ApprovalWorkspace({
               </Effect>
             ))}
             <PreparedMediaEffects preview={preview} />
-            {preview.part_attachments&&<PreparedPartAttachments attachments={preview.part_attachments}/>}
+            {preview.part_attachments && (
+              <PreparedPartAttachments attachments={preview.part_attachments} />
+            )}
             <details>
               <Summary>Exact approval binding and original keys</Summary>
               <Binding>

@@ -77,15 +77,7 @@ export async function performSupportedRequest(
         /* Retain uncertainty when complete output validation fails. */
       }
     }
-    await checkpointSupportedRequest(
-      context,
-      step,
-      kind,
-      intent.intentId,
-      recorded,
-      body,
-      evidence,
-    )
+    await checkpointSupportedRequest(context, step, kind, intent.intentId, recorded, body, evidence)
     await deps.checkpoint?.('result_committed', kind, intent.intentId)
   }
 }

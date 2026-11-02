@@ -221,11 +221,13 @@ async function selectAttachment(
   change: Extract<Change, { kind: 'select_attachment' }>,
   capture: CaptureSnapshotDto,
 ) {
-  const subjects=change.destination==='lot_attachment'?capture.lots:capture.parts
+  const subjects = change.destination === 'lot_attachment' ? capture.lots : capture.parts
   if (!subjects.some((subject) => subject.id === change.subject_id)) {
     fail('not_found', 404)
   }
-  if(change.destination==='lot_attachment') {requireActiveLot(capture, change.subject_id)}
+  if (change.destination === 'lot_attachment') {
+    requireActiveLot(capture, change.subject_id)
+  }
   if ((change.mode === 'selected') !== (change.version_id !== null)) {
     fail('invalid_attachment_selection')
   }

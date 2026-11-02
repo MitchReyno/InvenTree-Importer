@@ -43,9 +43,9 @@ export function registerManual(
   pool: Pool,
   config: ManualConfig,
   read?: CaptureRead,
-  attachmentRead?:ManualAttachmentRead,
+  attachmentRead?: ManualAttachmentRead,
 ) {
-  const repository = manualRepository(pool, config, read,attachmentRead)
+  const repository = manualRepository(pool, config, read, attachmentRead)
   registerOperatorReview(app, pool, config)
   app.register(async (scope) => {
     scope.addHook('preHandler', async () => {

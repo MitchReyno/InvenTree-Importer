@@ -1,4 +1,4 @@
-import { EFFECTS_BUILD,EFFECTS_CAPABILITY } from '../execution/effects-plan.ts'
+import { EFFECTS_BUILD, EFFECTS_CAPABILITY } from '../execution/effects-plan.ts'
 import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { lstat, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
@@ -85,8 +85,10 @@ async function readConfig(): Promise<ManualRunnerConfig> {
   ) {
     throw new Error('owned_fake_manual_runner_required')
   }
-  const effects=profile.effectsCapability===EFFECTS_CAPABILITY
-  if(profile.effectsCapability!==undefined&&!effects) {throw new Error('unsupported_effects_capability')}
+  const effects = profile.effectsCapability === EFFECTS_CAPABILITY
+  if (profile.effectsCapability !== undefined && !effects) {
+    throw new Error('unsupported_effects_capability')
+  }
   const media = profile.attachmentCapability === MEDIA_CAPABILITY
   if (profile.attachmentCapability !== undefined && !media) {
     throw new Error('unsupported_attachment_capability')
@@ -116,7 +118,7 @@ async function readConfig(): Promise<ManualRunnerConfig> {
       credential: profile.credential,
       protectedOrigins,
       ...(media ? { attachmentCapability: MEDIA_CAPABILITY } : {}),
-      ...(effects?{effectsCapability:EFFECTS_CAPABILITY}:{}),
+      ...(effects ? { effectsCapability: EFFECTS_CAPABILITY } : {}),
     },
   }
 }
@@ -125,7 +127,11 @@ async function main() {
   const config = await readConfig()
   const db = database(config.runnerDatabaseUrl)
   const build =
-    config.profile.effectsCapability===EFFECTS_CAPABILITY?EFFECTS_BUILD:config.profile.attachmentCapability === MEDIA_CAPABILITY ? MEDIA_EXECUTOR_BUILD : EXECUTOR_BUILD
+    config.profile.effectsCapability === EFFECTS_CAPABILITY
+      ? EFFECTS_BUILD
+      : config.profile.attachmentCapability === MEDIA_CAPABILITY
+        ? MEDIA_EXECUTOR_BUILD
+        : EXECUTOR_BUILD
   DBOS.setConfig({
     name: 'bench-intake-apply',
     systemDatabaseUrl: config.schedulerDatabaseUrl,

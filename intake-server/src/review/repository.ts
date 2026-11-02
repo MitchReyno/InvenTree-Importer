@@ -18,7 +18,12 @@ import {
 } from './preparations.ts'
 import { runCommand } from './commands.ts'
 
-export function manualRepository(pool: Pool, config: ManualConfig, read?: CaptureRead, attachmentRead?:ManualAttachmentRead) {
+export function manualRepository(
+  pool: Pool,
+  config: ManualConfig,
+  read?: CaptureRead,
+  attachmentRead?: ManualAttachmentRead,
+) {
   return {
     async activity() {
       return transaction(pool, async (client) => {
@@ -43,7 +48,7 @@ export function manualRepository(pool: Pool, config: ManualConfig, read?: Captur
     review: (batchId: string, key: string, input: Parameters<typeof markReviewed>[4]) =>
       markReviewed(pool, config, batchId, key, input),
     prepare: (batchId: string, key: string, input: Parameters<typeof prepareSelection>[5]) =>
-      prepareSelection(pool, config, read, batchId, key, input,attachmentRead),
+      prepareSelection(pool, config, read, batchId, key, input, attachmentRead),
     approve: (key: string, input: Parameters<typeof approvePreparation>[3]) =>
       approvePreparation(pool, config, key, input),
     command: (

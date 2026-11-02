@@ -52,8 +52,19 @@ export const ManualAttachment = object({
   evidence_label: text,
   destination: Type.Literal('stock_attachment'),
 })
-const partAttachmentFields={...ManualMediaEvidence.properties,artifact_key:Id,part_subject_id:Id,part_label:text,destination:Type.Literal('part_attachment'),prior_run_id:Type.Union([Id,Type.Null()]),prior_remote_pk:Type.Union([PositivePk,Type.Null()])}
-export const ManualPartAttachment=Type.Union([object({...partAttachmentFields,part_id:PositivePk}),object({...partAttachmentFields,part_id:Type.Null(),part_operation_key:Id})])
+const partAttachmentFields = {
+  ...ManualMediaEvidence.properties,
+  artifact_key: Id,
+  part_subject_id: Id,
+  part_label: text,
+  destination: Type.Literal('part_attachment'),
+  prior_run_id: Type.Union([Id, Type.Null()]),
+  prior_remote_pk: Type.Union([PositivePk, Type.Null()]),
+}
+export const ManualPartAttachment = Type.Union([
+  object({ ...partAttachmentFields, part_id: PositivePk }),
+  object({ ...partAttachmentFields, part_id: Type.Null(), part_operation_key: Id }),
+])
 const capability = Type.Union([
   Type.Literal('owned-fake-stock/1'),
   Type.Literal('owned-fake-media/1'),
@@ -69,7 +80,7 @@ export const ManualPreview = object({
   target_revision: Revision,
   capability,
   attachments: Type.Optional(Type.Array(ManualAttachment, { maxItems: 10 })),
-  part_attachments:Type.Optional(Type.Array(ManualPartAttachment,{maxItems:10})),
+  part_attachments: Type.Optional(Type.Array(ManualPartAttachment, { maxItems: 10 })),
   evidence: Type.Optional(Type.Array(ManualMediaEvidence, { maxItems: 64 })),
   media_inputs_sha256: Type.Optional(Digest),
   supported_effects: Type.Optional(Type.Array(SupportedEffectPreview, { maxItems: 100 })),
@@ -113,7 +124,7 @@ export const ManualRun = object({
   effect_certainty: Type.Union(
     (['none', 'confirmed', 'unknown', 'mixed'] as const).map((value) => Type.Literal(value)),
   ),
-  part_attachments:Type.Optional(Type.Array(ManualPartAttachment,{maxItems:10})),
+  part_attachments: Type.Optional(Type.Array(ManualPartAttachment, { maxItems: 10 })),
   part_outputs: Type.Optional(Type.Array(PartOutput, { maxItems: 10 })),
   supported_effects: Type.Optional(Type.Array(SupportedEffectResult, { maxItems: 100 })),
   confirmed_stock_ids: Type.Array(PositivePk),
@@ -220,4 +231,4 @@ export type ManualAcceptedDto = Static<typeof ManualAccepted>
 export type ManualReviewResultDto = Static<typeof ManualReviewResult>
 export type ManualActivityDto = Static<typeof ManualActivity>
 
-export type ManualPartAttachmentDto=Static<typeof ManualPartAttachment>
+export type ManualPartAttachmentDto = Static<typeof ManualPartAttachment>

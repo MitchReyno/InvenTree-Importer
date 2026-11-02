@@ -12,13 +12,11 @@ import {
 import type { DevConfig } from '../config.ts'
 import { CaptureError, captureRepository, fail } from './repository.ts'
 
-export type CaptureReadOperation=CaptureObserveDto&{includeTags?:true}
-export type CaptureRead = (
-  operation: CaptureReadOperation,
-) => Promise<{
+export type CaptureReadOperation = CaptureObserveDto & { includeTags?: true }
+export type CaptureRead = (operation: CaptureReadOperation) => Promise<{
   label: string
   mapping?: InventoryMappingDto
-  partIdentity?: { category_id: string;tags?:string[] }
+  partIdentity?: { category_id: string; tags?: string[] }
 }>
 
 const resourceId = (request: FastifyRequest) => {

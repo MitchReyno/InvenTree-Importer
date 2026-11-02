@@ -152,7 +152,8 @@ export async function reserveApprovedStock(
     throw new Error('original_contribution_already_approved')
   }
   const mediaBatchId =
-    (plan.version==='bench-media-plan/1'||(plan.version==='bench-effects-plan/1'&&plan.mediaConfigured))
+    plan.version === 'bench-media-plan/1' ||
+    (plan.version === 'bench-effects-plan/1' && plan.mediaConfigured)
       ? await lockApprovedMedia(client, input.actorId, plan)
       : null
   await client.query('INSERT INTO executor_approval VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [
@@ -212,7 +213,7 @@ export async function reserveApprovedStock(
   }
   if (plan.version !== 'bench-stock-plan/1') {
     await retainAttachmentIndex(client, input.runId, plan)
-    if (!mediaBatchId && (plan.version==='bench-media-plan/1'||plan.mediaConfigured)) {
+    if (!mediaBatchId && (plan.version === 'bench-media-plan/1' || plan.mediaConfigured)) {
       throw new Error('media_source_authority_missing')
     }
     if (mediaBatchId) {
@@ -227,10 +228,7 @@ export async function reserveApprovedStock(
 }
 
 /** Every start/adopt and authorization rechecks ALL retained bindings, not just a run status. */
-export async function loadRun(
-  client: Pool | PoolClient,
-  runId: string,
-): Promise<RunAuthority> {
+export async function loadRun(client: Pool | PoolClient, runId: string): Promise<RunAuthority> {
   id(runId)
   const result = await client.query(
     `SELECT a.*,r.command_id,c.payload_bytes,c.payload_digest,c.handler_version,c.actor_id AS command_actor,c.target_id AS command_target,c.target_context_id,c.kind,c.workflow_id,c.queue_name
@@ -394,10 +392,7 @@ export interface StockSnapshot {
   }[]
 }
 
-export async function snapshot(
-  client: Pool | PoolClient,
-  runId: string,
-): Promise<StockSnapshot> {
+export async function snapshot(client: Pool | PoolClient, runId: string): Promise<StockSnapshot> {
   const authority = await loadRun(client, runId)
   if (authority.plan.version === 'bench-effects-plan/1') {
     const states = await supportedStates(client, runId, authority.plan)

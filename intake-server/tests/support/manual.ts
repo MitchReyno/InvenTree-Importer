@@ -153,7 +153,18 @@ export async function manualFixture(options: { media?: boolean; effects?: boolea
   async function start() {
     app = createServer(config, { mediaEnabled: Boolean(store) })
     registerCapture(app, api.pool, config, read)
-    registerManual(app, api.pool, config, read,{metadata:pk=>transport.readPartAttachmentMetadata({targetId:identity.target,contextId:identity.context},pk),file:input=>transport.readPartAttachmentFile({targetId:identity.target,contextId:identity.context},input)})
+    registerManual(app, api.pool, config, read, {
+      metadata: (pk) =>
+        transport.readPartAttachmentMetadata(
+          { targetId: identity.target, contextId: identity.context },
+          pk,
+        ),
+      file: (input) =>
+        transport.readPartAttachmentFile(
+          { targetId: identity.target, contextId: identity.context },
+          input,
+        ),
+    })
     if (store) {
       registerMediaRoutes(app, api.pool, config, store)
     }

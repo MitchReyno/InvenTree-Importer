@@ -38,9 +38,11 @@ export function researchInventoryReader(read: ResearchInventoryRead) {
 }
 
 /** The research vocabulary stays narrow when capture adds catalogue reads. */
-export function researchInventoryReadAdapter(read:ResearchInventoryRead) {
-  return (operation:ReadOperation) => {
-    if(operation.kind!=='get_part'&&operation.kind!=='get_location') {throw new ResearchError('research_inventory_unavailable')}
-    return read({kind:operation.kind,pk:operation.pk})
+export function researchInventoryReadAdapter(read: ResearchInventoryRead) {
+  return (operation: ReadOperation) => {
+    if (operation.kind !== 'get_part' && operation.kind !== 'get_location') {
+      throw new ResearchError('research_inventory_unavailable')
+    }
+    return read({ kind: operation.kind, pk: operation.pk })
   }
 }

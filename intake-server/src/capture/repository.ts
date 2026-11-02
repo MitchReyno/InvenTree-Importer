@@ -9,7 +9,7 @@ import {
 import { canonical } from '@invimport/contracts/json'
 import type { DevConfig } from '../config.ts'
 import { transaction } from '../db/database.ts'
-import { validatePartSpec,PartSpecError } from './part-spec.ts'
+import { validatePartSpec, PartSpecError } from './part-spec.ts'
 import { appendEvent, idempotent, sha256 } from '../db/authority.ts'
 
 export class CaptureError extends Error {
@@ -293,8 +293,10 @@ async function insertSelection(
     )
     try {
       validatePartSpec(value.spec, b.target_context_id, current.observations)
-    } catch(error) {
-      if(error instanceof PartSpecError) {fail(error.code)}
+    } catch (error) {
+      if (error instanceof PartSpecError) {
+        fail(error.code)
+      }
       throw error
     }
   }

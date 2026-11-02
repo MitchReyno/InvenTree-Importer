@@ -1,4 +1,4 @@
-import { validatePartSpec,PartSpecError } from '../capture/part-spec.ts'
+import { validatePartSpec, PartSpecError } from '../capture/part-spec.ts'
 import { logicalEffectKey } from '../execution/effects-plan.ts'
 import type { InventoryPartSpecDto } from '@invimport/contracts'
 import type { CaptureSnapshotDto, ManualEffectDto, ManualIssueDto } from '@invimport/contracts'
@@ -35,14 +35,14 @@ export interface ReviewWarning {
 export interface ManualMaterial {
   selected: string[]
   parts: { subjectId: string; spec: InventoryPartSpecDto }[]
-  partDestinations:Map<string,string|null>
+  partDestinations: Map<string, string | null>
   effects: ManualEffectDto[]
   subjects: SubjectDependency[]
   issues: ManualIssueDto[]
   warnings: ReviewWarning[]
   bytes: Buffer
   digest: Buffer
-  mediaConfigured?:true
+  mediaConfigured?: true
   mediaInputs?: ReadonlyMap<string, MediaInputs>
 }
 
@@ -165,7 +165,7 @@ export function materialize(
   const issues: ManualIssueDto[] = []
   const effects: ManualEffectDto[] = []
   const newParts = new Map<string, InventoryPartSpecDto>()
-  const partDestinations=new Map<string,string|null>()
+  const partDestinations = new Map<string, string | null>()
   const subjects = new Map<string, SubjectDependency>()
   const warnings = new Map<string, ReviewWarning>()
 
@@ -270,8 +270,11 @@ export function materialize(
       (value) =>
         value.subject_id === null || value.subject_id === lotId || value.subject_id === part?.id,
     )
-    if(part?.choice.mode==='create') {partDestinations.set(part.id,null)}
-    else if(part?.choice.mode==='set') {partDestinations.set(part.id,part.choice.value.pk)}
+    if (part?.choice.mode === 'create') {
+      partDestinations.set(part.id, null)
+    } else if (part?.choice.mode === 'set') {
+      partDestinations.set(part.id, part.choice.value.pk)
+    }
     if (part) {
       const partFacts = {
         version: mediaDigests.has(part.id) ? 'manual-part-review/2' : 'manual-part-review/1',
@@ -323,8 +326,10 @@ export function materialize(
     if (part?.choice.mode === 'create') {
       try {
         validatePartSpec(part.choice.spec, snapshot.target_context_id, snapshot.observations)
-      } catch(error) {
-        if(!(error instanceof PartSpecError)) {throw error}
+      } catch (error) {
+        if (!(error instanceof PartSpecError)) {
+          throw error
+        }
         issues.push(
           issue(
             error.code,
