@@ -32,6 +32,8 @@ Protected-host classification uses WHATWG URL's validated canonical hostname, re
 
 `executeDatabaseQuery` preserves the original pg failure/SQLSTATE by unwrapping only Drizzle's query-error cause, avoiding its additional SQL/parameter-bearing message.
 
+Processing and capture review use that adapter for ordinary reads, inserts and plain keyed updates on the caller's existing client. Locks, compare-and-set, in-place revision increments, the dependency-closure CTE, grants and `public.`-qualified pool reads stay explicit SQL. Capture review projects bigint revisions and instruction versions as exact decimal strings.
+
 Reviewed SQL remains the DDL authority. Explicit parameterized SQL retains the absent-key advisory lock and atomic stream-head allocation where it makes PostgreSQL locking semantics clearest. Neither inferred row types nor verified hashes validate retained JSON structure; consumers retain their runtime boundary validation.
 
 `db/authority.ts` exposes payload-bound idempotency inside the caller-owned transaction, byte verification and commit-ordered event allocation. Idempotency serializes absent as well as present keys using a transaction advisory lock; exact canonical bytes are compared as well as their digest. Different property order is equivalent; changed semantic payload conflicts. Domain writes and dedup result must commit together. A lost commit acknowledgement is **not automatically retried**; consuming features must inspect stable keys read-only and retain uncertainty. No network call belongs inside a retried database transaction.
@@ -89,7 +91,7 @@ profiles, providers and production access remain unqualified. See the current
 
 ## Operator review and unapproved restructuring
 
-T08 adds `src/operator-review/`, registered from `registerManual`. It composes the capture and review modules and reads media through the existing public media snapshot; it does not query Processing or media tables. The one schema-level dependency is `capture_instruction`'s composite foreign key to the evidence group table, which proves a group belongs to the batch without reading it. Migration `0008_operator_review.sql` adds append-only capture tables: lot lineage, lot retirement, warning dispositions and versioned batch/evidence-group instructions.
+T08 adds `src/operator-review/`, registered from `registerManual`. It composes the capture and review modules and reads media through the existing public media snapshot; it does not query Processing or media tables. The one schema-level dependency is `capture_instruction`'s composite foreign key to the evidence group table, which proves a group belongs to the batch without reading it. Migration `0008_operator_review.sql` adds append-only capture tables: lot lineage, lot retirement, warning dispositions and versioned batch/evidence-group instructions. Those four writes, and the review-context reads, use Drizzle on the caller-owned client. An unknown evidence group still fails as `group_not_found` from SQLSTATE `23503`.
 
 `GET /api/v1/batches/:id/operator-review` is a repeatable-read projection. It returns each active lot's review state (`unreviewed`, `reviewed`, `changed_after_review`), typed blocking issues and warnings with any current dismissal, lineage, retired lots and the latest instructions. Review state uses the same exact-bytes rule as preparation.
 

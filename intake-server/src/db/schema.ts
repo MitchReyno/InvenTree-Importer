@@ -23,13 +23,13 @@ export const commands = pgTable('command', {
   queueName: text('queue_name').notNull(),
   payloadBytes: bytea('payload_bytes').notNull(),
   payloadDigest: bytea('payload_digest').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
 export const outbox = pgTable('outbox', {
   commandId: uuid('command_id').primaryKey(),
-  availableAt: timestamp('available_at', { withTimezone: true }).notNull(),
-  deliveryAttempts: integer('delivery_attempts').notNull(),
+  availableAt: timestamp('available_at', { withTimezone: true }).notNull().defaultNow(),
+  deliveryAttempts: integer('delivery_attempts').notNull().default(0),
   ackedAt: timestamp('acked_at', { withTimezone: true }),
   conflictCode: text('conflict_code'),
 })

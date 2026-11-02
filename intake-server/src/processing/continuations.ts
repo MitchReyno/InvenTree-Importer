@@ -1,6 +1,9 @@
 import type { PoolClient } from 'pg'
+import { and, eq } from 'drizzle-orm'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { createAttempt, type ProcessingConfig } from './attempts.ts'
+import { processingAttempts, processingDependencies, processingJobs } from './schema.ts'
 import { supersedeJobAttempts } from './jobs.ts'
 import { MAX_JOBS_PER_BATCH } from './limits.ts'
 import { fail } from './model.ts'
@@ -23,17 +26,22 @@ export async function continueDependentJobs(
 
   while (pending.length) {
     const completedParent = pending.shift()!
-    const dependents = await client.query<{ id: string; job_id: string }>(
-      `SELECT attempt.id,attempt.job_id
-       FROM processing_dependency dependency
-       JOIN processing_attempt attempt ON attempt.id=dependency.attempt_id
-       JOIN processing_job job ON job.current_attempt_id=attempt.id
-       WHERE dependency.dependency_attempt_id=$1 AND job.batch_id=$2
-       ORDER BY job.id`,
-      [completedParent, snapshot.id],
+    const dependents = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ id: processingAttempts.id, jobId: processingAttempts.jobId })
+        .from(processingDependencies)
+        .innerJoin(processingAttempts, eq(processingAttempts.id, processingDependencies.attemptId))
+        .innerJoin(processingJobs, eq(processingJobs.currentAttemptId, processingAttempts.id))
+        .where(
+          and(
+            eq(processingDependencies.dependencyAttemptId, completedParent),
+            eq(processingJobs.batchId, snapshot.id),
+          ),
+        )
+        .orderBy(processingJobs.id),
     )
 
-    for (const dependent of dependents.rows) {
+    for (const dependent of dependents) {
       if (replacements.has(dependent.id)) {
         continue
       }
@@ -41,14 +49,17 @@ export async function continueDependentJobs(
         fail('processing_dependency_cycle')
       }
 
-      const { job, attempt } = await lockProcessingAttempt(client, dependent.job_id, dependent.id)
-      const dependencyRows = await client.query<{ dependency_attempt_id: string }>(
-        'SELECT dependency_attempt_id FROM processing_dependency WHERE attempt_id=$1 ORDER BY dependency_attempt_id',
-        [attempt.id],
+      const { job, attempt } = await lockProcessingAttempt(client, dependent.jobId, dependent.id)
+      const dependencyRows = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({ dependencyAttemptId: processingDependencies.dependencyAttemptId })
+          .from(processingDependencies)
+          .where(eq(processingDependencies.attemptId, attempt.id))
+          .orderBy(processingDependencies.dependencyAttemptId),
       )
-      const dependencies = dependencyRows.rows.map(
+      const dependencies = dependencyRows.map(
         (dependency) =>
-          replacements.get(dependency.dependency_attempt_id) ?? dependency.dependency_attempt_id,
+          replacements.get(dependency.dependencyAttemptId) ?? dependency.dependencyAttemptId,
       )
 
       await supersedeJobAttempts(client, job.id)

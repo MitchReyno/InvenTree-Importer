@@ -1,11 +1,14 @@
 import type { Pool } from 'pg'
+import { eq } from 'drizzle-orm'
 import type {
   ProcessingEnvelopeDto,
   ProcessingInputDto,
   ProcessingCommandDto,
 } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
-import { transaction } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
+import { commands } from '../db/schema.ts'
+import { processingAttempts, processingLanes } from './schema.ts'
 import { appendEvent } from '../db/authority.ts'
 import { lockCaptureForInputSettlement } from '../capture/repository.ts'
 import { lockLane } from './scope.ts'
@@ -57,15 +60,23 @@ export async function claimProcessingCommand(
   }
   return transaction(pool, async (client) => {
     await prepareMediaTransaction(client)
-    const commands = await client.query('SELECT id FROM command WHERE workflow_id=$1', [workflowId])
-    const found = commands.rows[0]
+    const matchingCommands = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ id: commands.id })
+        .from(commands)
+        .where(eq(commands.workflowId, workflowId)),
+    )
+    const found = matchingCommands[0]
     if (!found) {
       fail('command_missing', 404)
     }
-    const attempts = await client.query('SELECT id FROM processing_attempt WHERE command_id=$1', [
-      found.id,
-    ])
-    const ref = attempts.rows[0]
+    const attempts = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ id: processingAttempts.id })
+        .from(processingAttempts)
+        .where(eq(processingAttempts.commandId, found.id)),
+    )
+    const ref = attempts[0]
     if (!ref) {
       fail('attempt_not_found', 404)
     }
@@ -80,11 +91,11 @@ export async function claimProcessingCommand(
       fail('worker_version_conflict')
     }
     const token = channelToken(config, ref.id)
-    const channelMatches = sealed(token).digest.equals(retained.row.channel_digest)
+    const channelMatches = sealed(token).digest.equals(retained.row.channelDigest)
     if (!channelMatches) {
       fail('processing_channel_binding_mismatch', 503)
     }
-    const capture = await lockCaptureForInputSettlement(client, config, retained.row.batch_id)
+    const capture = await lockCaptureForInputSettlement(client, config, retained.row.batchId)
     const media = await lockProcessingMediaCurrency(
       client,
       config,
@@ -92,7 +103,7 @@ export async function claimProcessingCommand(
       retained.manifest.subject_id,
     )
     const lane = await lockLane(client, config.actorId)
-    const { job, attempt } = await lockProcessingAttempt(client, retained.row.job_id, ref.id)
+    const { job, attempt } = await lockProcessingAttempt(client, retained.row.jobId, ref.id)
     if (job.current_attempt_id !== attempt.id || attempt.state !== 'queued') {
       return null
     }
@@ -115,16 +126,18 @@ export async function claimProcessingCommand(
     if (lane.attempt_id || !dependencies.ready) {
       return null
     }
-    await client.query('UPDATE processing_lane SET attempt_id=$2 WHERE actor_id=$1', [
-      config.actorId,
-      attempt.id,
-    ])
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .update(processingLanes)
+        .set({ attemptId: attempt.id })
+        .where(eq(processingLanes.actorId, config.actorId)),
+    )
     await transitionAttempt(client, job, attempt, 'running')
     await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: job.batch_id })
     return {
       payload: retained.payload,
       manifest: retained.manifest,
-      instructions: retained.row.instruction_bytes.toString('utf8'),
+      instructions: retained.row.instructionBytes.toString('utf8'),
       channelToken: token,
     }
   })
@@ -135,9 +148,9 @@ export async function interruptProcessing(pool: Pool, config: ProcessingConfig, 
   return transaction(pool, async (client) => {
     await prepareMediaTransaction(client)
     const { row } = await loadProcessingAuthority(client, config, attemptId)
-    const capture = await lockCaptureForInputSettlement(client, config, row.batch_id)
+    const capture = await lockCaptureForInputSettlement(client, config, row.batchId)
     const lane = await lockLane(client, config.actorId)
-    const { job, attempt } = await lockProcessingAttempt(client, row.job_id, row.id)
+    const { job, attempt } = await lockProcessingAttempt(client, row.jobId, row.id)
     if (attempt.state !== 'running' && lane.attempt_id !== attempt.id) {
       return
     }
@@ -146,7 +159,7 @@ export async function interruptProcessing(pool: Pool, config: ProcessingConfig, 
     } else {
       await releaseProcessingLane(client, attempt.id)
     }
-    await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: row.batch_id })
+    await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: row.batchId })
   })
 }
 

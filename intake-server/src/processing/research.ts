@@ -53,7 +53,7 @@ export async function researchAttemptAccess(
       const sameInput =
         canonical(authority.payload) === canonical(input.payload) &&
         canonical(authority.manifest) === canonical(manifest) &&
-        authority.row.instruction_bytes.toString('utf8') === input.instructions
+        authority.row.instructionBytes.toString('utf8') === input.instructions
       if (!sameInput) {
         refuseResearch('research_input_invalid')
       }
@@ -76,9 +76,9 @@ export async function researchAttemptAccess(
       )
       const current =
         !capture.snapshot.archived &&
-        authority.row.current_attempt_id === scope.attemptId &&
+        authority.row.currentAttemptId === scope.attemptId &&
         authority.row.state === 'running' &&
-        authority.row.job_state === 'running' &&
+        authority.row.jobState === 'running' &&
         lanes.length === 1 &&
         dependencies.current &&
         dependencies.ready &&

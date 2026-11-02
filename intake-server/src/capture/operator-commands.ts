@@ -6,12 +6,21 @@ import type {
   OperatorImpactDto,
   RestructureDto,
 } from '@invimport/contracts'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { fail, type OperatorCommandScope } from './repository.ts'
+import {
+  captureInstructions,
+  captureIssueDispositions,
+  captureLotLineages,
+  captureLotRetirements,
+} from './schema.ts'
 
 type RestructureChange = RestructureDto['change']
 type SplitLot = Extract<RestructureChange, { kind: 'split_lot' }>
 type MergeLots = Extract<RestructureChange, { kind: 'merge_lots' }>
 type MoveLots = Extract<RestructureChange, { kind: 'move_lots' }>
+/** The scope fields a retained-row insert stamps on each row. */
+type RevisionScope = Pick<OperatorCommandScope, 'batchId' | 'actorId' | 'nextRevision'>
 
 export interface StructuralOutcome {
   retiredLotIds: string[]
@@ -55,25 +64,34 @@ export async function applyBulkEdit(scope: OperatorCommandScope, input: BulkEdit
 
 async function recordLineage(
   client: PoolClient,
-  scope: OperatorCommandScope,
+  scope: RevisionScope,
   predecessors: readonly string[],
   successors: readonly string[],
   action: 'split' | 'merge',
 ) {
+  const revision = BigInt(scope.nextRevision)
   for (const predecessor of predecessors) {
     for (const successor of successors) {
-      await client.query(
-        `INSERT INTO capture_lot_lineage(batch_id,predecessor_lot_id,successor_lot_id,action,revision,actor_id)
-VALUES($1,$2,$3,$4,$5,$6)`,
-        [scope.batchId, predecessor, successor, action, scope.nextRevision, scope.actorId],
+      await executeDatabaseQuery(
+        queryDatabase(client).insert(captureLotLineages).values({
+          batchId: scope.batchId,
+          predecessorLotId: predecessor,
+          successorLotId: successor,
+          action,
+          revision,
+          actorId: scope.actorId,
+        }),
       )
     }
   }
   for (const predecessor of predecessors) {
-    await client.query(
-      `INSERT INTO capture_lot_retirement(batch_id,lot_id,revision,actor_id)
-VALUES($1,$2,$3,$4)`,
-      [scope.batchId, predecessor, scope.nextRevision, scope.actorId],
+    await executeDatabaseQuery(
+      queryDatabase(client).insert(captureLotRetirements).values({
+        batchId: scope.batchId,
+        lotId: predecessor,
+        revision,
+        actorId: scope.actorId,
+      }),
     )
   }
 }
@@ -152,35 +170,42 @@ export async function applyRestructure(
 
 export async function recordDisposition(
   client: PoolClient,
-  scope: OperatorCommandScope,
+  scope: RevisionScope,
   input: { subjectId: string; code: string; dependencyDigest: string; reason: string },
 ) {
-  await client.query(
-    `INSERT INTO capture_issue_disposition(id,batch_id,subject_id,code,dependency_digest,reason,revision,actor_id)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
-    [
-      randomUUID(),
-      scope.batchId,
-      input.subjectId,
-      input.code,
-      Buffer.from(input.dependencyDigest, 'hex'),
-      input.reason,
-      scope.nextRevision,
-      scope.actorId,
-    ],
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .insert(captureIssueDispositions)
+      .values({
+        id: randomUUID(),
+        batchId: scope.batchId,
+        subjectId: input.subjectId,
+        code: input.code,
+        dependencyDigest: Buffer.from(input.dependencyDigest, 'hex'),
+        reason: input.reason,
+        revision: BigInt(scope.nextRevision),
+        actorId: scope.actorId,
+      }),
   )
 }
 
 export async function recordInstruction(
   client: PoolClient,
-  scope: OperatorCommandScope,
+  scope: RevisionScope,
   input: InstructionEditDto,
 ) {
   try {
-    await client.query(
-      `INSERT INTO capture_instruction(id,batch_id,group_id,version,text,actor_id)
-VALUES($1,$2,$3,$4,$5,$6)`,
-      [randomUUID(), scope.batchId, input.group_id, scope.nextRevision, input.text, scope.actorId],
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .insert(captureInstructions)
+        .values({
+          id: randomUUID(),
+          batchId: scope.batchId,
+          groupId: input.group_id,
+          version: BigInt(scope.nextRevision),
+          text: input.text,
+          actorId: scope.actorId,
+        }),
     )
   } catch (error) {
     // The composite FK proves the evidence group belongs to this batch without reading media tables.
