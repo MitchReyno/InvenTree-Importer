@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
 import { processingClient, IntakeRequestError } from '../generated/client.ts'
+import { validate } from '../src/index.ts'
 import type { ProcessingAnswerDto, ProcessingStartDto } from '../src/processing.ts'
 
 const id = '10000000-0000-4000-8000-000000000001'
@@ -197,5 +198,88 @@ test('Activity rejects missing occupancy flags and private cross-context facts',
   ]) {
     const client = processingClient('http://127.0.0.1:4310', '', async () => json(payload))
     await assert.rejects(client.activity(), /invalid_contract/)
+  }
+})
+
+test('research receipts require the additive proposal and exact runner profile', () => {
+  const source = { kind: 'research_receipt', receipt_id: id, sha256: 'b'.repeat(64) }
+  const proposal = {
+    schema_version: 'bench-intake-proposal/3',
+    subject_id: id,
+    summary: 'Synthetic retained source receipt; no actual inference.',
+    sources: [source],
+  }
+  validate('ProcessingProposal', proposal)
+  assert.throws(() =>
+    validate('ProcessingProposalV2', {
+      ...proposal,
+      schema_version: 'bench-intake-proposal/2',
+    }),
+  )
+  const envelope = {
+    schema_version: 'bench-intake-runner/3',
+    profile_id: 'restricted-research-stub/1',
+    handler_version: 'processing/3',
+    job_id: id,
+    attempt_id: id,
+    command_id: id,
+    input_sha256: 'a'.repeat(64),
+    sequence: '1',
+    kind: 'proposal',
+    payload: proposal,
+  }
+  validate('ProcessingEnvelope', envelope)
+  for (const changedBinding of [
+    { profile_id: 'synthetic-research/2' },
+    { handler_version: 'processing/2' },
+    { schema_version: 'bench-intake-runner/2' },
+  ]) {
+    assert.throws(() => validate('ProcessingEnvelope', { ...envelope, ...changedBinding }))
+  }
+  for (const extra of [{ source_url: 'https://example.com/private' }, { bytes: 'private' }]) {
+    assert.throws(() => validate('ResearchReceiptSource', { ...source, ...extra }))
+  }
+})
+
+test('validated Processing reads expose receipt identity without private broker content', async () => {
+  const proposal = {
+    schema_version: 'bench-intake-proposal/3',
+    subject_id: id,
+    summary: 'Synthetic source-bound result.',
+    sources: [{ kind: 'research_receipt', receipt_id: id, sha256: 'b'.repeat(64) }],
+  }
+  const job = {
+    id,
+    subject_id: id,
+    stage: 'research',
+    revision,
+    state: 'ready',
+    attempt_id: id,
+    input_sha256: 'a'.repeat(64),
+    attempt_number: '1',
+    qualification: 'fixture_only',
+    proposals: [{ id, message_id: id, value: proposal }],
+    questions: [],
+  }
+  const snapshot = {
+    runner_status: 'fixture_only',
+    batch_id: id,
+    capture_revision: revision,
+    jobs: [job],
+    cursor: { stream_id: id, sequence: revision },
+  }
+  const client = processingClient('http://127.0.0.1:4310', 'owned-csrf', async () => json(snapshot))
+  assert.deepEqual(await client.read(id), snapshot)
+  for (const privateField of [{ raw_body: 'private' }, { provider_thread_id: 'native-handle' }]) {
+    const invalid = {
+      ...snapshot,
+      jobs: [
+        { ...job, proposals: [{ id, message_id: id, value: { ...proposal, ...privateField } }] },
+      ],
+    }
+    const invalidClient = processingClient('http://127.0.0.1:4310', 'owned-csrf', async () =>
+      json(invalid),
+    )
+    await assert.rejects(() => invalidClient.read(id))
   }
 })

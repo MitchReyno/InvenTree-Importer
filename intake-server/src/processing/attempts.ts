@@ -8,14 +8,21 @@ import {
   mediaHandlerVersion,
   mediaInputManifest,
   mediaProfileId,
+  researchProfileId,
+  researchHandlerVersion,
+  researchInputManifest,
   sealed,
   type Stage,
+  type SelectedProcessingProfile,
 } from './model.ts'
 import type { LockedMediaInputs } from '../media/locked-inputs.ts'
 
 export interface ProcessingConfig extends CaptureBinding {
   /** Separate private runner-channel root, never a target/provider credential or DTO. */
   channelSecret: string
+  profileId?: SelectedProcessingProfile
+  approvedSourceUrls?: readonly string[]
+  sourceProtectedOrigins?: readonly string[]
 }
 
 export function channelToken(config: ProcessingConfig, attemptId: string): string {
@@ -41,17 +48,21 @@ export async function createAttempt(
   const attemptId = randomUUID()
   const inputId = randomUUID()
   const commandId = randomUUID()
-  const manifestValue = mediaInputManifest(
+  const selectedProfile = config.profileId ?? mediaProfileId
+  const restricted = selectedProfile === researchProfileId
+  const actualHandlerVersion = restricted ? researchHandlerVersion : mediaHandlerVersion
+  const mediaDescriptor = { manifest: media.manifest, sha256: media.manifestDigest }
+  const argumentsForInput = [
     snapshot,
     job.subject_id,
     job.stage,
     dependencies,
     answerId,
-    {
-      manifest: media.manifest,
-      sha256: media.manifestDigest,
-    },
-  )
+    mediaDescriptor,
+  ] as const
+  const manifestValue = restricted
+    ? researchInputManifest(...argumentsForInput, config.approvedSourceUrls ?? [])
+    : mediaInputManifest(...argumentsForInput)
   validate('ProcessingInput', manifestValue)
   const manifest = sealed(manifestValue)
   if (manifest.bytes.length > MAX_PROCESSING_SNAPSHOT_BYTES) {
@@ -63,13 +74,15 @@ export async function createAttempt(
     [inputId, snapshot.id, parentId, snapshot.revision, manifest.bytes, manifest.digest],
   )
   const payload = sealed({
-    schema_version: 'bench-intake-processing-command/2',
+    schema_version: restricted
+      ? 'bench-intake-processing-command/3'
+      : 'bench-intake-processing-command/2',
     job_id: job.id,
     attempt_id: attemptId,
     input_id: inputId,
     input_sha256: manifest.digest.toString('hex'),
-    profile_id: mediaProfileId,
-    handler_version: mediaHandlerVersion,
+    profile_id: selectedProfile,
+    handler_version: actualHandlerVersion,
     command_id: commandId,
   })
   await client.query(
@@ -81,7 +94,7 @@ export async function createAttempt(
       config.targetId,
       config.targetContextId,
       answerId ? 'continue' : 'process',
-      mediaHandlerVersion,
+      actualHandlerVersion,
       `processing:${attemptId}`,
       payload.bytes,
       payload.digest,
@@ -92,7 +105,7 @@ export async function createAttempt(
   await client.query(
     `INSERT INTO processing_attempt(id,batch_id,job_id,number,input_id,profile_id,command_id,channel_digest,state)
      VALUES($1,$2,$3,$4,$5,$6,$7,$8,'queued')`,
-    [attemptId, snapshot.id, job.id, number, inputId, mediaProfileId, commandId, channel.digest],
+    [attemptId, snapshot.id, job.id, number, inputId, selectedProfile, commandId, channel.digest],
   )
   for (const dependency of dependencies) {
     await client.query(

@@ -1,6 +1,6 @@
 # Processing authority
 
-This module implements durable coordination for the explicit synthetic research fixture. It does not qualify a native provider, personal account entitlement, tool sandbox, OAuth permission gate or actual AI result. T07 owns that later integration. The web process registers routes explicitly and never starts a worker.
+This module implements durable coordination for the explicit synthetic research fixture. It does not qualify a native provider, personal account entitlement, tool sandbox, OAuth permission gate or actual AI result. The additive T07 restricted profile remains fixture-only; native qualification is still pending. The web process registers routes explicitly and never starts a worker.
 
 ## Inputs and attempts
 
@@ -12,7 +12,7 @@ A logical job is unique by batch, subject and stage. Its selected attempt is an 
 
 Browser commands use the existing server-bound development actor/target/context and origin/CSRF checks. Idempotency compares the full normalized payload and retains the original response. The deployment must explicitly configure a persistent private processing-channel secret; no ephemeral fallback is generated. Missing configuration permits retained inspection and cancellation while blocking new starts/answers.
 
-DBOS delivers immutable commands through the existing complete workflow-name/class/config/queue/version/argument comparison. Worker claims recheck the actual build, command bytes, input bytes, profile, retained media binding and current attempt. The V2 worker never executes a retained V1 command as its own build; a queued legacy attempt exposes a version blocker and needs an explicit fresh attempt. Legacy accepted messages and compatible human-answer continuations retain their original authority. A durable lane serializes research for the server actor in the synthetic single-owner profile. That is not proof of a real personal provider account binding; T07 must qualify the native account route.
+DBOS delivers immutable commands through the existing complete workflow-name/class/config/queue/version/argument comparison. Worker claims recheck the actual build, command bytes, input bytes, profile, retained media binding and current attempt. The V2 worker never executes a retained V1 command as its own build; a queued legacy attempt exposes a version blocker and needs an explicit fresh attempt. Legacy accepted messages and compatible human-answer continuations retain their original authority. A durable lane serializes research for the server actor in the synthetic single-owner profile. That is not proof of a real personal provider account binding; The native account route remains unqualified and cannot be started by this module.
 
 The coordinator authenticates each versioned envelope with a private capability scoped to its attempt. The injected research adapter receives staged input and trusted instructions with a bound result callback; it receives no channel capability, database connection, inventory credential or apply interface. Unknown envelope kinds, wrong parent/context, sequence gaps and conflicting duplicate payloads fail. Authenticated stale messages remain retained but cannot publish a current proposal or question.
 
@@ -62,3 +62,11 @@ Historical predecessor inputs are not recomputed against the newest capture/medi
 ## Retired subjects
 
 A lot split or merged before approval is marked `retired: true` in the capture snapshot. `startProcessing` refuses it with `subject_retired` (409) inside the idempotency closure, so an earlier committed start still adopts its receipt. `processingInputIsCurrent` treats a retired subject as stale, which the existing stale policy then applies everywhere: a queued claim becomes `superseded` without new work, an answer fails with `stale_question`, and reads project the job and open questions as `superseded` while retained proposals stay listed. Retirement never releases a held lane; only its exact terminal settlement or reap does. The [T08 handover](../../../docs/handovers/bench-intake-T08.md) records the PG evidence.
+
+## Restricted fixture profile
+
+The additive `bench-intake-input/3` / `processing/3` authority selects `restricted-research-stub/1` with immutable `restricted-research-tools/1` policy. Its manifest seals exact server-admitted source URLs; removal makes a running input noncurrent while preserving its physical lane until command-ending settlement or confirmed reap. Defaults and byte authority for earlier profiles remain unchanged.
+
+The owning research access seam validates current command/input/dependencies/media and held lane in a read-only transaction. Proposal receipt sources are verified against complete retained attempt/command/input scope before publication and retained display. Public projections expose opaque receipt IDs/digests only. See [restricted research](../research/ARCHITECTURE.md) for source isolation, budgets and explicit native qualification limits.
+
+A restricted adapter must reap its controlled child before emitting an application question or terminal. A distinguished unconfirmed-reap error prevents delivery from interrupting/releasing the lane. No native provider process is constructed automatically; all live model usage remains prohibited.

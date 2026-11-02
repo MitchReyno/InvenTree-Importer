@@ -3635,6 +3635,191 @@ export interface components {
                 sha256: string;
             };
         };
+        ProcessingInputV3: {
+            /** @constant */
+            schema_version: "bench-intake-input/3";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            subject_id: string;
+            stage: "reading" | "identifying" | "research" | "images" | "inventory";
+            dependencies: string[];
+            answer_id: string | null;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            subject: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                contribution_key: string;
+                part_subject_id: string | null;
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                /** @constant */
+                retired?: true;
+            } | {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            };
+            linked_part: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            } | null;
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location";
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            /** @constant */
+            profile_id: "restricted-research-stub/1";
+            /** @constant */
+            instruction_version: "restricted-research-stub/1";
+            instruction_sha256: string;
+            /** @constant */
+            tool_profile_version: "restricted-research-tools/1";
+            media: {
+                manifest: string;
+                sha256: string;
+            };
+            source_urls: string[];
+        };
         ProcessingCommandV1: {
             /** @constant */
             schema_version: "bench-intake-processing-command/1";
@@ -3661,6 +3846,19 @@ export interface components {
             handler_version: "processing/2";
             command_id: string;
         };
+        ProcessingCommandV3: {
+            /** @constant */
+            schema_version: "bench-intake-processing-command/3";
+            job_id: string;
+            attempt_id: string;
+            input_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "restricted-research-stub/1";
+            /** @constant */
+            handler_version: "processing/3";
+            command_id: string;
+        };
         ProcessingProposalV1: {
             subject_id: string;
             summary: string;
@@ -3684,6 +3882,29 @@ export interface components {
                 sha256: string;
             })[];
         };
+        ProcessingProposalV3: {
+            /** @constant */
+            schema_version: "bench-intake-proposal/3";
+            subject_id: string;
+            summary: string;
+            sources: (({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            }) | {
+                /** @constant */
+                kind: "research_receipt";
+                receipt_id: string;
+                sha256: string;
+            })[];
+        };
         ProcessingSource: {
             /** @constant */
             kind: "note";
@@ -3694,6 +3915,23 @@ export interface components {
             kind: "media_version";
             evidence_id: string;
             version_id: string;
+            sha256: string;
+        };
+        ProcessingSourceV3: ({
+            /** @constant */
+            kind: "note";
+            note_id: string;
+            text_sha256: string;
+        } | {
+            /** @constant */
+            kind: "media_version";
+            evidence_id: string;
+            version_id: string;
+            sha256: string;
+        }) | {
+            /** @constant */
+            kind: "research_receipt";
+            receipt_id: string;
             sha256: string;
         };
         ProcessingEnvelopeV1: {
@@ -3821,6 +4059,84 @@ export interface components {
             profile_id: "synthetic-research/2";
             /** @constant */
             handler_version: "processing/2";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "terminal";
+            payload: {
+                state: "ready" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "interrupted";
+            };
+        };
+        ProcessingEnvelopeV3: {
+            /** @constant */
+            schema_version: "bench-intake-runner/3";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "restricted-research-stub/1";
+            /** @constant */
+            handler_version: "processing/3";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "proposal";
+            payload: {
+                /** @constant */
+                schema_version: "bench-intake-proposal/3";
+                subject_id: string;
+                summary: string;
+                sources: (({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                }) | {
+                    /** @constant */
+                    kind: "research_receipt";
+                    receipt_id: string;
+                    sha256: string;
+                })[];
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/3";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "restricted-research-stub/1";
+            /** @constant */
+            handler_version: "processing/3";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "question";
+            payload: {
+                kind: "quantity" | "clarification";
+                subject_id: string;
+                prompt: string;
+                reason: string;
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/3";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "restricted-research-stub/1";
+            /** @constant */
+            handler_version: "processing/3";
             /** Format: int64 */
             sequence: string;
             /** @constant */
@@ -4193,6 +4509,190 @@ export interface components {
                 manifest: string;
                 sha256: string;
             };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-input/3";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            subject_id: string;
+            stage: "reading" | "identifying" | "research" | "images" | "inventory";
+            dependencies: string[];
+            answer_id: string | null;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            subject: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                contribution_key: string;
+                part_subject_id: string | null;
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                /** @constant */
+                retired?: true;
+            } | {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            };
+            linked_part: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            } | null;
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location";
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            /** @constant */
+            profile_id: "restricted-research-stub/1";
+            /** @constant */
+            instruction_version: "restricted-research-stub/1";
+            instruction_sha256: string;
+            /** @constant */
+            tool_profile_version: "restricted-research-tools/1";
+            media: {
+                manifest: string;
+                sha256: string;
+            };
+            source_urls: string[];
         };
         ProcessingCommand: {
             /** @constant */
@@ -4217,6 +4717,18 @@ export interface components {
             profile_id: "synthetic-research/2";
             /** @constant */
             handler_version: "processing/2";
+            command_id: string;
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-processing-command/3";
+            job_id: string;
+            attempt_id: string;
+            input_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "restricted-research-stub/1";
+            /** @constant */
+            handler_version: "processing/3";
             command_id: string;
         };
         ProcessingActivity: {
@@ -4302,6 +4814,28 @@ export interface components {
                 kind: "media_version";
                 evidence_id: string;
                 version_id: string;
+                sha256: string;
+            })[];
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-proposal/3";
+            subject_id: string;
+            summary: string;
+            sources: (({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            }) | {
+                /** @constant */
+                kind: "research_receipt";
+                receipt_id: string;
                 sha256: string;
             })[];
         };
@@ -4436,6 +4970,83 @@ export interface components {
             payload: {
                 state: "ready" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "interrupted";
             };
+        }) | ({
+            /** @constant */
+            schema_version: "bench-intake-runner/3";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "restricted-research-stub/1";
+            /** @constant */
+            handler_version: "processing/3";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "proposal";
+            payload: {
+                /** @constant */
+                schema_version: "bench-intake-proposal/3";
+                subject_id: string;
+                summary: string;
+                sources: (({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                }) | {
+                    /** @constant */
+                    kind: "research_receipt";
+                    receipt_id: string;
+                    sha256: string;
+                })[];
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/3";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "restricted-research-stub/1";
+            /** @constant */
+            handler_version: "processing/3";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "question";
+            payload: {
+                kind: "quantity" | "clarification";
+                subject_id: string;
+                prompt: string;
+                reason: string;
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/3";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "restricted-research-stub/1";
+            /** @constant */
+            handler_version: "processing/3";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "terminal";
+            payload: {
+                state: "ready" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "interrupted";
+            };
         });
         ProcessingQuestion: {
             id: string;
@@ -4489,6 +5100,28 @@ export interface components {
                         kind: "media_version";
                         evidence_id: string;
                         version_id: string;
+                        sha256: string;
+                    })[];
+                } | {
+                    /** @constant */
+                    schema_version: "bench-intake-proposal/3";
+                    subject_id: string;
+                    summary: string;
+                    sources: (({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    }) | {
+                        /** @constant */
+                        kind: "research_receipt";
+                        receipt_id: string;
                         sha256: string;
                     })[];
                 };
@@ -4551,6 +5184,28 @@ export interface components {
                             kind: "media_version";
                             evidence_id: string;
                             version_id: string;
+                            sha256: string;
+                        })[];
+                    } | {
+                        /** @constant */
+                        schema_version: "bench-intake-proposal/3";
+                        subject_id: string;
+                        summary: string;
+                        sources: (({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        }) | {
+                            /** @constant */
+                            kind: "research_receipt";
+                            receipt_id: string;
                             sha256: string;
                         })[];
                     };
@@ -4858,6 +5513,113 @@ export interface components {
             expected_revision: string;
             group_id: string | null;
             text: string;
+        };
+        ResearchReceiptSource: {
+            /** @constant */
+            kind: "research_receipt";
+            receipt_id: string;
+            sha256: string;
+        };
+        ResearchEvidenceRead: {
+            version_id: string;
+            sha256: string;
+            /** Format: int64 */
+            offset: string;
+            length: string;
+        };
+        ResearchSourceFetch: {
+            url: string;
+        };
+        ResearchReceiptRead: {
+            receipt_id: string;
+            sha256: string;
+            /** Format: int64 */
+            offset: string;
+            length: string;
+        };
+        ResearchInventoryLookup: {
+            model: "part" | "location";
+            /** Format: int64 */
+            pk: string;
+        };
+        ResearchReceipt: {
+            id: string;
+            kind: "web" | "inventory";
+            sha256: string;
+            /** Format: int64 */
+            byte_size: string;
+            media_type: "image/png" | "image/jpeg" | "application/pdf" | "text/html" | "text/plain" | "application/json";
+            source_url?: string;
+        };
+        ResearchReceiptDescriptor: {
+            /** @constant */
+            schema_version: "bench-intake-research-receipt/1";
+            batch_id: string;
+            attempt_id: string;
+            command_id: string;
+            actor_id: string;
+            target_id: string;
+            target_context_id: string;
+            input_sha256: string;
+            request_id: string;
+            request_sha256: string;
+            receipt: {
+                id: string;
+                kind: "web" | "inventory";
+                sha256: string;
+                /** Format: int64 */
+                byte_size: string;
+                media_type: "image/png" | "image/jpeg" | "application/pdf" | "text/html" | "text/plain" | "application/json";
+                source_url?: string;
+            };
+        };
+        ResearchEvidenceChunk: {
+            evidence_id: string;
+            version_id: string;
+            sha256: string;
+            /** Format: int64 */
+            byte_size: string;
+            media_type: "image/png" | "image/jpeg" | "application/pdf" | "text/html" | "text/plain" | "application/json";
+            /** Format: int64 */
+            offset: string;
+            bytes_base64: string;
+        };
+        ResearchSourceChunk: {
+            receipt: {
+                id: string;
+                kind: "web" | "inventory";
+                sha256: string;
+                /** Format: int64 */
+                byte_size: string;
+                media_type: "image/png" | "image/jpeg" | "application/pdf" | "text/html" | "text/plain" | "application/json";
+                source_url?: string;
+            };
+            /** Format: int64 */
+            offset: string;
+            bytes_base64: string;
+        };
+        ResearchInventoryObservation: {
+            model: "part" | "location";
+            /** Format: int64 */
+            pk: string;
+            label: string;
+        };
+        ResearchInventoryResult: {
+            receipt: {
+                id: string;
+                kind: "web" | "inventory";
+                sha256: string;
+                /** Format: int64 */
+                byte_size: string;
+                media_type: "image/png" | "image/jpeg" | "application/pdf" | "text/html" | "text/plain" | "application/json";
+                source_url?: string;
+            };
+            observation: {
+                model: "part" | "location";
+                /** Format: int64 */
+                pk: string;
+                label: string;
+            };
         };
         MediaRecipe: {
             /** @constant */
@@ -5222,13 +5984,18 @@ export type ManualWorkspace = components['schemas']['ManualWorkspace']
 export type ManualActivity = components['schemas']['ManualActivity']
 export type ProcessingInputV1 = components['schemas']['ProcessingInputV1']
 export type ProcessingInputV2 = components['schemas']['ProcessingInputV2']
+export type ProcessingInputV3 = components['schemas']['ProcessingInputV3']
 export type ProcessingCommandV1 = components['schemas']['ProcessingCommandV1']
 export type ProcessingCommandV2 = components['schemas']['ProcessingCommandV2']
+export type ProcessingCommandV3 = components['schemas']['ProcessingCommandV3']
 export type ProcessingProposalV1 = components['schemas']['ProcessingProposalV1']
 export type ProcessingProposalV2 = components['schemas']['ProcessingProposalV2']
+export type ProcessingProposalV3 = components['schemas']['ProcessingProposalV3']
 export type ProcessingSource = components['schemas']['ProcessingSource']
+export type ProcessingSourceV3 = components['schemas']['ProcessingSourceV3']
 export type ProcessingEnvelopeV1 = components['schemas']['ProcessingEnvelopeV1']
 export type ProcessingEnvelopeV2 = components['schemas']['ProcessingEnvelopeV2']
+export type ProcessingEnvelopeV3 = components['schemas']['ProcessingEnvelopeV3']
 export type ProcessingBlocker = components['schemas']['ProcessingBlocker']
 export type ProcessingInput = components['schemas']['ProcessingInput']
 export type ProcessingCommand = components['schemas']['ProcessingCommand']
@@ -5262,6 +6029,17 @@ export type BulkEditResult = components['schemas']['BulkEditResult']
 export type Restructure = components['schemas']['Restructure']
 export type RestructureResult = components['schemas']['RestructureResult']
 export type InstructionEdit = components['schemas']['InstructionEdit']
+export type ResearchReceiptSource = components['schemas']['ResearchReceiptSource']
+export type ResearchEvidenceRead = components['schemas']['ResearchEvidenceRead']
+export type ResearchSourceFetch = components['schemas']['ResearchSourceFetch']
+export type ResearchReceiptRead = components['schemas']['ResearchReceiptRead']
+export type ResearchInventoryLookup = components['schemas']['ResearchInventoryLookup']
+export type ResearchReceipt = components['schemas']['ResearchReceipt']
+export type ResearchReceiptDescriptor = components['schemas']['ResearchReceiptDescriptor']
+export type ResearchEvidenceChunk = components['schemas']['ResearchEvidenceChunk']
+export type ResearchSourceChunk = components['schemas']['ResearchSourceChunk']
+export type ResearchInventoryObservation = components['schemas']['ResearchInventoryObservation']
+export type ResearchInventoryResult = components['schemas']['ResearchInventoryResult']
 export type MediaRecipe = components['schemas']['MediaRecipe']
 export type MediaVersion = components['schemas']['MediaVersion']
 export type MediaSnapshot = components['schemas']['MediaSnapshot']

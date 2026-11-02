@@ -21,7 +21,7 @@ import {
   processingMediaFor,
   type ProcessingMediaAvailability,
 } from './media.ts'
-import { decodeProcessingInput, fail } from './model.ts'
+import { decodeProcessingInput, fail, mediaProfileId } from './model.ts'
 import {
   MAX_JOB_RESULTS,
   MAX_JOBS_PER_BATCH,
@@ -30,6 +30,7 @@ import {
   MAX_ACTIVITY_BATCHES,
 } from './limits.ts'
 import { retainedQuestionSpec, retainedProposalValue } from './retained.ts'
+import { verifyRetainedResearchSources } from './research-sources.ts'
 import { canCancelProcessingAttempt } from './state.ts'
 import {
   processingJobs,
@@ -98,10 +99,11 @@ async function inputCurrency(
     !capture.archived &&
     dependencies.current &&
     (job.attemptState === 'queued' || dependencies.ready) &&
-    processingInputIsCurrent(manifest, capture, media.inputs)
-  const legacyQueued =
-    manifest.schema_version === 'bench-intake-input/1' && job.attemptState === 'queued'
-  return legacyQueued ? { current, blockedCode: 'worker_version_conflict' } : { current }
+    processingInputIsCurrent(manifest, capture, media.inputs, config.approvedSourceUrls)
+  const selectedProfile = config.profileId ?? mediaProfileId
+  const incompatibleQueued =
+    job.attemptState === 'queued' && manifest.profile_id !== selectedProfile
+  return incompatibleQueued ? { current, blockedCode: 'worker_version_conflict' } : { current }
 }
 
 function currentJobState(job: SelectedJob, currency: InputCurrency): ProcessingStateDto {
@@ -110,6 +112,7 @@ function currentJobState(job: SelectedJob, currency: InputCurrency): ProcessingS
 
 async function proposalsForJob(
   client: PoolClient,
+  config: ProcessingConfig,
   job: SelectedJob,
 ): Promise<ProcessingJobDto['proposals']> {
   const manifest = decodeProcessingInput(job.inputBytes, job.inputDigest)
@@ -133,11 +136,23 @@ async function proposalsForJob(
   if (proposals.length > MAX_JOB_RESULTS) {
     fail('processing_capacity')
   }
-  return proposals.map((proposal) => ({
-    id: proposal.id,
-    message_id: proposal.messageId,
-    value: retainedProposalValue(proposal, job.subjectId, manifest),
-  }))
+  const projected: ProcessingJobDto['proposals'] = []
+  for (const proposal of proposals) {
+    const value = retainedProposalValue(proposal, job.subjectId, manifest)
+    await verifyRetainedResearchSources(
+      client,
+      config,
+      manifest,
+      {
+        attemptId: proposal.attemptId,
+        commandId: proposal.commandId,
+        inputSha256: proposal.manifestDigest.toString('hex'),
+      },
+      value,
+    )
+    projected.push({ id: proposal.id, message_id: proposal.messageId, value })
+  }
+  return projected
 }
 
 async function questionsForJob(
@@ -203,7 +218,7 @@ export async function processingSnapshot(
       processingMediaFor(media, job.subjectId),
     )
     const state = currentJobState(job, currency)
-    const proposals = await proposalsForJob(client, job)
+    const proposals = await proposalsForJob(client, config, job)
     const questions = await questionsForJob(client, job, state)
     jobs.push({
       id: job.id,

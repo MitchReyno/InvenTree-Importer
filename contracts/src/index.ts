@@ -6,10 +6,12 @@ import { manualSchemas } from './manual.ts'
 import { mediaSchemas } from './media.ts'
 import { processingSchemas } from './processing.ts'
 import { operatorReviewSchemas } from './operator-review.ts'
+import { researchSchemas } from './research.ts'
 export * from './scalars.ts'
 export * from './capture.ts'
 export * from './manual.ts'
 export * from './processing.ts'
+export * from './research.ts'
 export * from './media.ts'
 export * from './operator-review.ts'
 
@@ -142,6 +144,7 @@ export const schemas = {
   ...manualSchemas,
   ...processingSchemas,
   ...operatorReviewSchemas,
+  ...researchSchemas,
   ...mediaSchemas,
 }
 export type BootstrapDto = Static<typeof Bootstrap>

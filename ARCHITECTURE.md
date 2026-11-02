@@ -49,6 +49,11 @@ Processing UI exposes the approved subviews, pinned React Hook Form questions, s
 ## Operator review
 
 T08 turns Review into an evidence workspace and table over the same retained facts. The [intake-server operator review boundary](intake-server/ARCHITECTURE.md#operator-review-and-unapproved-restructuring) adds reasoned warning dismissals, atomic bulk edits, unapproved lot split/merge/move with lineage and server dry-run impact previews, and versioned human instructions. Retired lots remain capture history. Instructions are not consumed by the current fixture-only Processing profiles. The [T08 handover](docs/handovers/bench-intake-T08.md) records evidence and limits.
+## Restricted research fixture
+
+T07 adds an explicit `restricted-research-stub/1` profile with version3 Processing authority. The [research boundary](intake-server/src/research/ARCHITECTURE.md) owns scoped staged-evidence reads, semantic inventory reads, exact admitted public-source fetching and immutable receipt provenance. The controlled protocol child receives bounded tool results through the broker; source credentials, private storage paths and application authority remain host-owned.
+
+The default metadata-only profile remains unchanged. No web startup creates a provider process, and public qualification remains `fixture_only`. Actual retained PNG/PDF, DBOS, question continuation and restart are exercised with a deterministic Node child; native inference, entitlement and native host/tool isolation remain unqualified. See the [T07 handover](docs/handovers/bench-intake-T07.md) for evidence and limits.
 
 ## Workspace and data ownership
 
