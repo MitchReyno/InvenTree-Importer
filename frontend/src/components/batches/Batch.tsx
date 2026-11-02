@@ -1,8 +1,11 @@
 import { ErrorNotice } from '../ui/primitives'
 import { Button, Paragraph, Summary } from '../ui/primitives'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
+import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
+import type { OperatorReviewClient } from '../../operator/types'
+import { retiredLotIds } from '../../operator/review-model'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type {
   CaptureEditDto,
@@ -24,6 +27,7 @@ export function Batch({
   manual,
   processing,
   media,
+  operator,
   route,
   onDirtyChange,
 }: {
@@ -32,6 +36,7 @@ export function Batch({
   manual: ManualClient
   processing?: ProcessingClient
   media?: MediaClient
+  operator?: OperatorReviewClient
   route: string
   onDirtyChange: (dirty: boolean) => void
 }) {
@@ -54,6 +59,13 @@ export function Batch({
   const queryClient = useQueryClient()
   const queryKey = serverQueryKey(scope, 'capture', id)
   const captureQuery = useQuery({ queryKey, queryFn: () => client.read(id) })
+  const operatorKey = serverQueryKey(scope, 'operator-review', id)
+  const operatorQuery = useQuery({
+    queryKey: operatorKey,
+    queryFn: () => operator!.read(id),
+    enabled: operator !== undefined,
+    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+  })
   // This is accepted edit authority, not a mirror of the latest cache value.
   const [batch, setBatch] = useState<CaptureSnapshotDto | null>(null)
   const [error, setError] = useState('')
@@ -142,6 +154,7 @@ export function Batch({
   }
 
   async function reloadSavedValues() {
+    void queryClient.invalidateQueries({ queryKey: operatorKey })
     try {
       const result = await captureQuery.refetch({ throwOnError: true })
       if (!result.data) {
@@ -155,6 +168,19 @@ export function Batch({
       setError('Saved values still unavailable. Local inputs remain unchanged.')
     }
   }
+
+  // A projection for another revision is not shown as current review state.
+  const operatorReview =
+    batch && operatorQuery.data?.revision === batch.revision ? operatorQuery.data : undefined
+  const retired = retiredLotIds(operatorReview)
+  const activeBatch = useMemo(
+    () =>
+      batch && retired.size
+        ? { ...batch, lots: batch.lots.filter((lot) => !retired.has(lot.id)) }
+        : batch,
+    // `retired` is derived from the same projection object.
+    [batch, operatorReview],
+  )
 
   const readUnavailable = captureQuery.isError || captureQuery.fetchStatus === 'paused'
   const visibleError =
@@ -175,6 +201,7 @@ export function Batch({
         navigate={navigate}
         reload={reloadSavedValues}
         onDirtyChange={onDirtyChange}
+        retiredLotIds={retired}
       />
     )
   } else if (batch && stage !== 'capture') {
@@ -190,13 +217,21 @@ export function Batch({
         navigate={navigate}
         reload={reloadSavedValues}
         onProcessing={onProcessing}
+        operatorReview={operatorReview}
+        operator={operator}
+        media={media}
+        processing={processing}
+        onDirtyChange={onDirtyChange}
       />
     )
-  } else if (batch) {
+  } else if (batch && activeBatch) {
     content = (
       <CaptureWorkspace
         key={`${batch.id}:${batch.revision}:${reset}`}
-        batch={batch}
+        batch={activeBatch}
+        operatorReview={operatorReview}
+        operator={operator}
+        reload={reloadSavedValues}
         media={media}
         busy={readOrCommandBusy || readUnavailable}
         edit={edit}

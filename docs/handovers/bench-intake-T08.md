@@ -36,13 +36,13 @@ Non-goals: no provider inference or T07 provider/read-broker/runner changes; no 
 
 A new contracts module, `contracts/src/operator-review.ts`, adds these schemas. Existing capture/manual/media/processing contracts stay unchanged.
 
-| Route | Schema | Behaviour |
-| --- | --- | --- |
-| `GET /api/v1/batches/:id/operator-review` | `OperatorReview` | Repeatable-read projection: per active lot review state (`unreviewed`, `reviewed`, `changed_after_review`), typed issues with `severity` and current disposition, lineage, retired lots and instructions, plus the capture cursor |
-| `POST /api/v1/batches/:id/issue-dispositions` | `IssueDisposition` → `OperatorReview` | Dismiss one current warning with a 1–1024 character reason, bound to its subject dependency digest and batch revision. Blocking codes are rejected |
-| `POST /api/v1/batches/:id/bulk-edits` | `BulkEdit` → `BulkEditResult` | `preview: true` returns the exact impact without committing; `preview: false` applies one revision atomically to 1–100 lots |
-| `POST /api/v1/batches/:id/restructures` | `Restructure` → `RestructureResult` | `split_lot`, `merge_lots` (explicit same-contribution confirmation) and `move_lots`; dry-run preview or atomic apply |
-| `POST /api/v1/batches/:id/instructions` | `InstructionEdit` → `OperatorReview` | Append a batch or evidence-group instruction version |
+| Route                                         | Schema                                | Behaviour                                                                                                                                                                                                                         |
+| --------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v1/batches/:id/operator-review`     | `OperatorReview`                      | Repeatable-read projection: per active lot review state (`unreviewed`, `reviewed`, `changed_after_review`), typed issues with `severity` and current disposition, lineage, retired lots and instructions, plus the capture cursor |
+| `POST /api/v1/batches/:id/issue-dispositions` | `IssueDisposition` → `OperatorReview` | Dismiss one current warning with a 1–1024 character reason, bound to its subject dependency digest and batch revision. Blocking codes are rejected                                                                                |
+| `POST /api/v1/batches/:id/bulk-edits`         | `BulkEdit` → `BulkEditResult`         | `preview: true` returns the exact impact without committing; `preview: false` applies one revision atomically to 1–100 lots                                                                                                       |
+| `POST /api/v1/batches/:id/restructures`       | `Restructure` → `RestructureResult`   | `split_lot`, `merge_lots` (explicit same-contribution confirmation) and `move_lots`; dry-run preview or atomic apply                                                                                                              |
+| `POST /api/v1/batches/:id/instructions`       | `InstructionEdit` → `OperatorReview`  | Append a batch or evidence-group instruction version                                                                                                                                                                              |
 
 All mutations require `Idempotency-Key`, CSRF and the expected batch revision, and return the existing safe error DTO. A 412/`revision_conflict` keeps the browser draft.
 
@@ -90,3 +90,86 @@ Existing migrations 0001–0007 stay immutable.
 Claude owns the frontend, capture/review domain and the new contracts module. Codex integrates `contracts/src/index.ts`, generated artifacts, migrations numbering, root manifests/lock/CI and main wiring; requests go through the shared proposal files. New routes register inside the existing capture/review registration functions, so `api/server.ts` wiring is unchanged.
 
 PG/browser work runs only under the exclusive `pg-docker` lease on the sole owned PostgreSQL service, using random isolated databases. Tests use owned fakes and never load the root `.env`. The real InvenTree stays strictly read-only and receives no requests. No application model or provider is called. The user preview stays stopped and the retained 4310 service is untouched. This initiative is exempt from feature flags by Mitch's decision.
+
+## Server stream results
+
+Implemented by the T08 server-stream subagent in the shared T08 worktree, on top of baseline `fe00229`. No contract or generated file changed in this stream.
+
+### Implementation and adjustments
+
+- `intake-server/src/operator-review/` adds the projection, review states, impact measurement, repository and routes. `registerManual` registers the routes, so `api/server.ts` and `main.ts` are unchanged.
+- Previews lock the batch, run the command inside a savepoint, measure exact before/after dependency digests, then roll back. They keep no idempotency record and return no new identities. Applied commands use the ordinary `idempotent()` scope with `operator_*` action names.
+- Retired lots stay in `CaptureSnapshot`, as recorded in the coordinator status. Capture edits and notes on a retired lot return `lot_retired` (409). Review, preparation and approval treat it as a blocking issue.
+- Restructuring takes the batch lock before reading source history, then refuses any lot with an approved original contribution (`lot_already_approved`, 409). A concurrent approval needs the same batch lock, so the check cannot race it.
+- Unresolved warnings block review, preparation and approval (`warning_unresolved`). Preparation and approval need the check too: a sibling Part's change can raise `possible_duplicate_part` without changing this Part's reviewed facts.
+- Dismissal rules: only warning codes can be dismissed (`issue_not_dismissible`), the warning must currently exist (`issue_not_found`), and its fact digest must match (`stale_issue`).
+- An instruction for an unknown or foreign evidence group is refused through the composite FK (`group_not_found`), so capture never reads media tables.
+
+### Checks run
+
+| Command                                                                                                                                    | Result                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| `pnpm --filter @invimport/intake-server test`                                                                                              | 64/64 passed, including 6 new model tests              |
+| `pnpm db:intake test` with the retained decoder/probe image digests and Docker's CLI on the command `PATH`                                 | 70/70 passed, including 6 new operator-review PG tests |
+| `pnpm db:intake test:process`                                                                                                              | 25/25 passed                                           |
+| `tsc --noEmit` (intake-server), ESLint readability on `intake-server/src` and `contracts/src`, Prettier check, `contracts check:generated` | Clean                                                  |
+
+Two earlier full-tier runs were environment failures, not code regressions:
+
+- **Run 1:** no decoder image variable was set, so one test failed and five were skipped.
+- **Run 2:** the decoder could not find `docker` on `PATH`, so six media tests ended `interrupted`.
+
+Every PG/process window held the exclusive `pg-docker` lease, which was released after each run. No new containers, root `.env`, real InvenTree requests or model calls were used.
+
+### Observed versus not tested
+
+- **Observed** over real HTTP and PG:
+  - A shared Part choice invalidates A and B; a lot-only edit invalidates only B; a default change spares an explicit override.
+  - Bulk edits are atomic (a bad ID applies nothing), keep exact decimal strings and keep unnamed fields. A stale revision returns 412.
+  - Previews commit nothing and report `stale_preparation_ids`.
+  - Split, merge and move record lineage and retirement, and refuse retired, approved, duplicate, unconfirmed and cross-batch lots.
+  - Dismissals survive a server restart and go stale after an edit. Instruction versions are retained.
+- **Not tested:**
+  - A Processing answer that targets a retired lot. It reaches the same capture guard but has no dedicated test.
+  - Concurrent operator commands racing each other. The shared batch row lock serializes them, but no competing-transaction test exists.
+  - Upgrade from a populated 0007 database.
+- **Known cost:** impact and projection materialize each active lot separately, including one media read each. That is acceptable at the 100-lot capacity but is unmeasured.
+
+## Frontend stream results
+
+Implemented by the T08 frontend-stream subagent in the shared T08 worktree, on top of baseline `fe00229`. Only `frontend/**` and this section changed; contracts were consumed as published.
+
+### Implementation and adjustments
+
+- `App` creates `operatorReviewClient`; `Batch` polls the `OperatorReview` projection and shows it only when its revision matches the accepted batch revision. Capture and new Processing attempts hide retired lots; Processing job history for them stays visible.
+- Review evolves in place rather than becoming a parallel path. `ReviewWorkspace` adds Evidence/Table modes and URL filters, and keeps the existing labels and scope bar, so the T04 journey tests run unchanged.
+- New components live in `frontend/src/components/operator/`: evidence, decision panel, fact rows, issue panel and dismissal, compare matches, quick lot edit, table, bulk edit, restructure dialog, impact summary, retired history, instructions and the modal. Pure rules live in `frontend/src/operator/`.
+- `useRetainedCommand` binds each apply to one payload and key. Previews use a fresh key because the server retains no preview record.
+- The table selection is separate from the evidence view's approval scope (at most 10 lots). This keeps bulk edits up to 100 lots without changing the preparation limit.
+- Group instructions read the evidence groups through the shared `media` query key; there is no new media endpoint.
+
+### Checks run
+
+| Command                                                                                       | Result                                                                                                       |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `pnpm exec vitest run` (frontend)                                                             | 18 files, 99/99 passed: 86 existing plus 13 new in `OperatorReview.test.tsx` and `OperatorSurfaces.test.tsx` |
+| `tsc --noEmit` (frontend), `pnpm lint:frontend`, `pnpm lint:readability`, `pnpm format:check` | Clean                                                                                                        |
+| `pnpm build`                                                                                  | Succeeded; Vite reported a chunk-size warning, not compared against the baseline build                       |
+
+### Observed versus not tested
+
+- **Observed** in jsdom with injected fakes:
+  - Filters persist in the URL. Retired lots show only as history and cannot be selected.
+  - Predecessor notes appear on successor lots.
+  - A dismissal requires a reason and sends the exact digest.
+  - Mark reviewed is disabled while a selected lot has an open warning.
+  - A shared Part choice lists every affected lot before saving.
+  - A bulk preview and its apply send the same change. An uncertain apply retries with the identical key, and a 412 keeps local input without reapplying.
+  - J/K/R/E do nothing while typing.
+  - Split sends exact decimal strings. Merge refuses to preview without the same-contribution confirmation.
+  - Instructions save against the loaded revision.
+- **Not tested (left for the coordinator's native pass):**
+  - Real browser layout at 360/390 px.
+  - Native `<dialog>` focus trapping (jsdom has no `showModal`; the component falls back to `open`).
+  - Visual comparison against the original screenshots.
+  - The full Batch → Review → reload flow against the live server routes.

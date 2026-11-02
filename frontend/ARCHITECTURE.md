@@ -64,6 +64,24 @@ From repository root, `pnpm dev`, `pnpm typecheck`, `pnpm lint:frontend`, `pnpm 
 
 Native provider inference, content-inspecting research, broader effects/shared metadata and final InvenTree authentication/access qualification remain future work, not hidden features. Manual execution is qualified only against an owned persistent fake; no actual InvenTree mutation profile is supported. Existing capture source/contribution identities, immutable human notes and exact selection histories are the future integration seam; do not replace them with a disposable browser draft or copy historical prototype timers/localStorage. Capture and review use reviewed public contracts and owning repository seams, not sibling SQL internals. Normal remote/phone deployment is not enabled by changing the loopback bind.
 
+## Operator review workspace
+
+Review is an evidence workspace over the same retained facts; it adds no second truth model. `Batch` reads the `OperatorReview` projection through `operatorReviewClient` beside the capture snapshot, and shows it only when its revision matches the accepted batch revision. Retired lots stay in the capture snapshot for history, but Capture, Review selection and new Processing attempts hide them. Processing job history for a retired lot stays visible.
+
+`components/review/ReviewWorkspace.tsx` coordinates the Evidence and Table modes. The URL holds the focused lot, the mode and the filter (`#<batch>/review/<lot>?view=table&filter=warnings`); transient selections do not. The queue groups active lots by urgency: blocking, warnings, changed after review, needs review, reviewed, approved. Pure filter, grouping, URL and provenance rules live in `src/operator/review-model.ts`.
+
+Components under `components/operator/` own focused responsibilities:
+
+- `LotEvidence` shows lot, Part, batch and predecessor-lot notes, linked media previews and Processing proposals labelled fixture-only. Proposals are candidates, never chosen values.
+- `DecisionPanel` shows fact rows with provenance (human set, inherited default, override, unknown, cleared, unset), the lots sharing a Part proposal, blocking problems and warnings. `CompareMatches` sets observed Part candidates side by side and confirms the shared edit with the exact affected lots before the capture edit. `QuickLotEdit` makes lot-only quantity/location edits.
+- `IssuePanel` and `DismissWarning` record a reasoned dismissal bound to the warning's dependency digest. Blocking issues have no dismissal control.
+- `TableWorkspace`, `ReviewTable` and `BulkEditPanel` provide the table projection, explicit row selection and bulk quantity/location edits. `RestructureDialog` splits, merges (with explicit same-contribution confirmation) and moves lots between Part proposals. Every bulk or structural change shows the server dry-run `ImpactSummary` first, then applies the same change.
+- `InstructionsPanel` keeps versioned batch and evidence-group instructions in Capture's shared details. Current fixture-only Processing does not consume them.
+
+`operator/useRetainedCommand.ts` binds one payload to one idempotency key. An uncertain outcome keeps the exact payload and key for retry; a definite refusal or a revision conflict releases them. A conflict keeps local form input and requires explicit reload. Dirty dismissal, bulk, restructure and instruction forms register with the navigation guard.
+
+Keyboard shortcuts (J/K move, R mark the focused lot reviewed, E edit quantity, V focus evidence) are ignored inside form fields, with modifier keys or while a dialog is open. Dialogs use native modal `<dialog>` and restore focus to the opener. Narrow screens keep the list → focused lot flow, and the table scrolls inside a labelled region rather than the page. `OperatorReview.test.tsx` and `OperatorSurfaces.test.tsx` cover these behaviours with injected fakes; native browser evidence is recorded in the [T08 handover](../docs/handovers/bench-intake-T08.md).
+
 ## Processing workspace
 
 Batch routing keeps Processing separate from the manual inventory stages. Its

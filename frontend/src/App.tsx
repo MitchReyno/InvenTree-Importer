@@ -6,6 +6,7 @@ import {
   intakeClient,
   manualClient,
   mediaClient,
+  operatorReviewClient,
   processingClient,
 } from '@invimport/contracts/client'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
@@ -49,6 +50,13 @@ export default function App() {
       bootstrap?.csrf_token ? processingClient(location.origin, bootstrap.csrf_token) : undefined,
     [bootstrap],
   )
+  const operator = useMemo(
+    () =>
+      bootstrap?.csrf_token
+        ? operatorReviewClient(location.origin, bootstrap.csrf_token)
+        : undefined,
+    [bootstrap],
+  )
   const media = useMemo(
     () =>
       bootstrap?.csrf_token && bootstrap.media_enabled === true
@@ -88,6 +96,7 @@ export default function App() {
         manual={manual}
         processing={processing}
         media={media}
+        operator={operator}
         route={route}
         onDirtyChange={onDirtyChange}
       />

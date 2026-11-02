@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
 import type {
@@ -7,7 +7,11 @@ import type {
   CaptureEditDto,
   ManualPreviewDto,
   ManualRunDto,
+  OperatorReviewDto,
 } from '@invimport/contracts'
+import type { MediaClient } from '../../media/types'
+import type { ProcessingClient } from '../../processing/types'
+import type { OperatorReviewClient } from '../../operator/types'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type { ManualClient, ManualStage, RunRecoverySelection } from '../../manual/types'
 import { CaptureHeader } from '../capture/CaptureHeader'
@@ -28,6 +32,12 @@ interface Props {
   navigate: (stage: ManualStage, resourceId?: string) => void
   reload: () => Promise<void>
   onProcessing?: () => void
+  /** Present only when its revision matches `batch`; stale projections are not shown. */
+  operatorReview?: OperatorReviewDto
+  operator?: OperatorReviewClient
+  media?: MediaClient
+  processing?: ProcessingClient
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 function commandMessage(error: unknown) {
@@ -61,8 +71,26 @@ export function ManualWorkspace({
   navigate,
   reload,
   onProcessing,
+  operatorReview,
+  operator,
+  media,
+  processing,
+  onDirtyChange,
 }: Props) {
   const scope = useServerScope()
+  const queryClient = useQueryClient()
+  const mediaQuery = useQuery({
+    queryKey: serverQueryKey(scope, 'media', batch.id),
+    queryFn: () => media!.snapshot(batch.id),
+    enabled: stage === 'review' && media !== undefined,
+    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+  })
+  const processingQuery = useQuery({
+    queryKey: serverQueryKey(scope, 'processing', batch.id),
+    queryFn: () => processing!.read(batch.id),
+    enabled: stage === 'review' && processing !== undefined,
+    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+  })
   const workspaceQuery = useQuery({
     queryKey: serverQueryKey(scope, 'manual', batch.id),
     queryFn: () => client.workspace(batch.id),
@@ -145,6 +173,9 @@ export function ManualWorkspace({
       setError(commandMessage(error))
     }
 
+    void queryClient.invalidateQueries({
+      queryKey: serverQueryKey(scope, 'operator-review', batch.id),
+    })
     try {
       await refresh()
     } catch {
@@ -168,14 +199,18 @@ export function ManualWorkspace({
     })
   }
 
-  function review() {
+  function reviewLots(ids: string[]) {
     void perform('Retaining exact review…', async () => {
       await client.review(
         batch.id,
-        { expected_batch_revision: batch.revision, selected_lot_ids: selected },
+        { expected_batch_revision: batch.revision, selected_lot_ids: ids },
         crypto.randomUUID(),
       )
     })
+  }
+
+  function review() {
+    reviewLots(selected)
   }
 
   function prepare() {
@@ -245,12 +280,21 @@ export function ManualWorkspace({
       <ReviewWorkspace
         batch={batch}
         workspace={workspace}
+        operatorReview={operatorReview}
+        operator={operator}
+        media={mediaQuery.data}
+        processing={processingQuery.data}
         selected={selected}
+        maxSelected={MAX_SELECTED_LOTS}
         busy={disabled}
         stale={stale}
         toggle={toggle}
         review={review}
+        reviewLots={reviewLots}
         prepare={prepare}
+        edit={edit}
+        reload={reload}
+        onDirtyChange={onDirtyChange}
       />
     )
   } else if (stage === 'approve') {

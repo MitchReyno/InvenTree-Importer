@@ -12,6 +12,7 @@ import type {
 import type { ProcessingClient, ProcessingView } from '../../processing/types'
 import { Button, ErrorNotice, Heading, Notice, Paragraph, Panel, Small } from '../ui/primitives'
 import { ProcessingJobCard } from './ProcessingJobCard'
+import { ProcessingNeedsYou } from './ProcessingNeedsYou'
 import { QuestionAnswer } from './QuestionAnswer'
 
 const views: ProcessingView[] = [
@@ -31,6 +32,7 @@ interface Props {
   navigate: (view: ProcessingView, questionId?: string) => void
   onDirtyChange: (dirty: boolean) => void
   onSaved: () => Promise<void>
+  retiredLotIds?: ReadonlySet<string>
 }
 
 type PinnedQuestion = {
@@ -46,6 +48,7 @@ export function ProcessingWorkspace({
   navigate,
   onDirtyChange,
   onSaved,
+  retiredLotIds = NO_RETIRED_LOTS,
 }: Props) {
   const scope = useServerScope()
   const queryKey = serverQueryKey(scope, 'processing', batch.id)
@@ -207,6 +210,11 @@ export function ProcessingWorkspace({
             href={`#${batch.id}/processing/${value}`}
           >
             {value[0].toUpperCase() + value.slice(1)}
+            {snapshot && stageAttention(snapshot, value) > 0 && (
+              <Count aria-label={`${stageAttention(snapshot, value)} need attention`}>
+                {stageAttention(snapshot, value)}
+              </Count>
+            )}
           </Tab>
         ))}
       </Tabs>
@@ -254,22 +262,24 @@ export function ProcessingWorkspace({
               disabled={batch.archived}
               aria-label="Select saved subjects for a new processing attempt"
             >
-              {[...batch.lots, ...batch.parts].map((subject) => (
-                <label key={subject.id}>
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(subject.id)}
-                    onChange={() =>
-                      setSelected((previous) =>
-                        previous.includes(subject.id)
-                          ? previous.filter((id) => id !== subject.id)
-                          : [...previous, subject.id],
-                      )
-                    }
-                  />
-                  {subject.label}
-                </label>
-              ))}
+              {[...batch.lots.filter((lot) => !retiredLotIds.has(lot.id)), ...batch.parts].map(
+                (subject) => (
+                  <label key={subject.id}>
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(subject.id)}
+                      onChange={() =>
+                        setSelected((previous) =>
+                          previous.includes(subject.id)
+                            ? previous.filter((id) => id !== subject.id)
+                            : [...previous, subject.id],
+                        )
+                      }
+                    />
+                    {subject.label}
+                  </label>
+                ),
+              )}
             </Selection>
             <Button
               disabled={
@@ -281,6 +291,7 @@ export function ProcessingWorkspace({
             </Button>
             <Small>New attempts preserve saved human values and previous results.</Small>
           </Panel>
+          {view === 'overview' && <ProcessingNeedsYou batch={batch} snapshot={snapshot} />}
           {questionId && pinned?.question.id === questionId ? (
             <QuestionAnswer
               key={pinned.question.id}
@@ -308,29 +319,62 @@ export function ProcessingWorkspace({
             </Paragraph>
           )}
           {jobs.map((job) => (
-            <ProcessingJobCard
-              key={job.id}
-              job={job}
-              batch={batch}
-              disabled={disabled}
-              chooseQuestion={(id) => navigate(view, id)}
-              cancel={() => {
-                void perform(() =>
-                  client.cancel(
-                    batch.id,
-                    job.id,
-                    { expected_revision: job.revision, attempt_id: job.attempt_id },
-                    crypto.randomUUID(),
-                  ),
-                ).catch(() => {})
-              }}
-            />
+            <div key={job.id}>
+              <ProcessingJobCard
+                key={job.id}
+                job={job}
+                batch={batch}
+                disabled={disabled}
+                chooseQuestion={(id) => navigate(view, id)}
+                cancel={() => {
+                  void perform(() =>
+                    client.cancel(
+                      batch.id,
+                      job.id,
+                      { expected_revision: job.revision, attempt_id: job.attempt_id },
+                      crypto.randomUUID(),
+                    ),
+                  ).catch(() => {})
+                }}
+              />
+              {batch.lots.some((lot) => lot.id === job.subject_id) &&
+                !retiredLotIds.has(job.subject_id) && (
+                  <ReviewLink href={`#${batch.id}/review/${job.subject_id}`}>
+                    Open this lot in Review
+                  </ReviewLink>
+                )}
+            </div>
           ))}
         </>
       )}
     </Workspace>
   )
 }
+
+const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
+
+/** Open questions plus failed or interrupted attempts in one stage (or all, for Overview). */
+function stageAttention(snapshot: ProcessingSnapshotDto, view: ProcessingView) {
+  const jobs = snapshot.jobs.filter((job) => view === 'overview' || job.stage === view)
+  const questions = jobs.flatMap((job) => job.questions).filter((q) => q.state === 'open').length
+  const failed = jobs.filter((job) => job.state === 'failed' || job.state === 'interrupted').length
+  return questions + failed
+}
+
+const Count = styled.span`
+  margin-left: 6px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #fff4d9;
+  color: #7a5410;
+  font-size: 12px;
+`
+
+const ReviewLink = styled.a`
+  display: inline-block;
+  margin: 4px 0 8px;
+  color: #164a93;
+`
 
 const Workspace = styled.section`
   display: grid;

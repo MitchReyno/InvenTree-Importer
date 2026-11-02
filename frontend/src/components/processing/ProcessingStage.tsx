@@ -14,6 +14,8 @@ interface Props {
   navigate: (stage: ManualStage, resourceId?: string) => void
   reload: () => Promise<void>
   onDirtyChange: (dirty: boolean) => void
+  /** Retired lots keep their job history but cannot start new attempts. */
+  retiredLotIds?: ReadonlySet<string>
 }
 
 function selectedView(segment: string | undefined): ProcessingView {
@@ -38,6 +40,7 @@ export function ProcessingStage({
   navigate,
   reload,
   onDirtyChange,
+  retiredLotIds,
 }: Props) {
   const [dirty, setDirty] = useState(false)
   const reportDirty = useCallback(
@@ -73,6 +76,7 @@ export function ProcessingStage({
         navigate={navigateProcessing}
         onDirtyChange={reportDirty}
         onSaved={reload}
+        retiredLotIds={retiredLotIds}
       />
     </>
   )
