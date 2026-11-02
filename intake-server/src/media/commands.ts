@@ -1,5 +1,5 @@
 import { prepareMediaTransaction } from './transaction.ts'
-import { count, eq } from 'drizzle-orm'
+import { count, eq, sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { mediaBatches, mediaEvidence } from './schema.ts'
 import type { PoolClient } from 'pg'
@@ -7,9 +7,10 @@ import { captureInTransaction, fail, type CaptureBinding } from '../capture/repo
 
 /** Shared media publishers/readers serialize without granting decoders mutable draft rights. */
 export async function lockMediaRevision(client: PoolClient, batchId: string) {
-  await client.query(
-    "SELECT pg_advisory_xact_lock(hashtextextended('bench-media-batch/1:' || $1,0))",
-    [batchId],
+  await executeDatabaseQuery(
+    queryDatabase(client).execute(
+      sql`SELECT pg_advisory_xact_lock(hashtextextended('bench-media-batch/1:' || ${batchId},0))`,
+    ),
   )
 }
 
@@ -29,11 +30,14 @@ export async function lockMediaBatch(
   await executeDatabaseQuery(
     queryDatabase(client).insert(mediaBatches).values({ batchId }).onConflictDoNothing(),
   )
-  const current = await client.query<{ revision: string }>(
-    'SELECT revision FROM media_batch WHERE batch_id=$1 FOR UPDATE',
-    [batchId],
+  const current = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ revision: mediaBatches.revision })
+      .from(mediaBatches)
+      .where(eq(mediaBatches.batchId, batchId))
+      .for('update'),
   )
-  if (current.rows[0].revision !== expectedRevision) {
+  if (current[0].revision.toString() !== expectedRevision) {
     fail('revision_conflict', 412)
   }
   return capture

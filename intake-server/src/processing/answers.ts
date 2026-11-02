@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { validate, type CaptureEditDto, type ProcessingAnswerDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
 import {
@@ -102,11 +102,23 @@ async function lockCurrentQuestion(
   )
   const reference = references[0] ?? fail('question_not_found', 404)
   const { job, attempt } = await lockProcessingAttempt(client, reference.jobId, input.attempt_id)
-  const questions = await client.query<QuestionRow>(
-    'SELECT * FROM processing_question WHERE batch_id=$1 AND id=$2 FOR UPDATE',
-    [batchId, questionId],
+  const questions = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        id: processingQuestions.id,
+        job_id: processingQuestions.jobId,
+        attempt_id: processingQuestions.attemptId,
+        input_id: processingQuestions.inputId,
+        revision: sql<string>`${processingQuestions.revision}::text`,
+        state: processingQuestions.state,
+        spec_bytes: processingQuestions.specBytes,
+        spec_digest: processingQuestions.specDigest,
+      })
+      .from(processingQuestions)
+      .where(and(eq(processingQuestions.batchId, batchId), eq(processingQuestions.id, questionId)))
+      .for('update'),
   )
-  const question = questions.rows[0]
+  const question = questions[0]
   const currentQuestion =
     question.state === 'open' &&
     question.revision === input.expected_question_revision &&

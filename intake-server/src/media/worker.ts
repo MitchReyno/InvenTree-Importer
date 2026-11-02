@@ -1,9 +1,18 @@
 import { prepareMediaTransaction } from './transaction.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
+import { and, eq, notExists } from 'drizzle-orm'
+import { captureBatches } from '../capture/schema.ts'
 import type { MediaRecipeDto } from '@invimport/contracts'
 import { assertMediaRecipe } from '@invimport/contracts/media'
-import { mediaDecodeClaims, mediaDecodeResults, mediaPreviews, mediaVersions } from './schema.ts'
+import {
+  mediaDecodeClaims,
+  mediaDecodeCommands,
+  mediaDecodeResults,
+  mediaPreviews,
+  mediaVersions,
+  mediaDerivations,
+} from './schema.ts'
 import { strictJson } from '@invimport/contracts/json'
 import { appendEvent, sha256, verifyBytes } from '../db/authority.ts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
@@ -30,19 +39,49 @@ interface MediaCommand {
 async function claimCommand(pool: Pool, binding: CaptureBinding): Promise<MediaCommand | null> {
   return transaction(pool, async (client) => {
     await prepareMediaTransaction(client)
-    const commands = await client.query<MediaCommand>(
-      `SELECT c.id,c.batch_id,c.version_id,c.derivation_id,
-              v.evidence_id,v.blob_digest,v.actor_id,d.recipe_bytes,d.recipe_digest
-       FROM media_decode_command c
-       JOIN media_version v ON v.id=c.version_id AND v.batch_id=c.batch_id
-       JOIN capture_batch b ON b.id=c.batch_id
-       LEFT JOIN media_derivation d ON d.id=c.derivation_id
-       WHERE c.build=$1 AND b.actor_id=$2 AND b.target_id=$3 AND b.target_context_id=$4
-         AND NOT EXISTS(SELECT 1 FROM media_decode_claim claim WHERE claim.command_id=c.id)
-       ORDER BY c.created_at,c.id LIMIT 1 FOR UPDATE OF c SKIP LOCKED`,
-      [DECODER_BUILD, binding.actorId, binding.targetId, binding.targetContextId],
+    const db = queryDatabase(client)
+    const commands = await executeDatabaseQuery(
+      db
+        .select({
+          id: mediaDecodeCommands.id,
+          batch_id: mediaDecodeCommands.batchId,
+          version_id: mediaDecodeCommands.versionId,
+          derivation_id: mediaDecodeCommands.derivationId,
+          evidence_id: mediaVersions.evidenceId,
+          blob_digest: mediaVersions.blobDigest,
+          actor_id: mediaVersions.actorId,
+          recipe_bytes: mediaDerivations.recipeBytes,
+          recipe_digest: mediaDerivations.recipeDigest,
+        })
+        .from(mediaDecodeCommands)
+        .innerJoin(
+          mediaVersions,
+          and(
+            eq(mediaVersions.id, mediaDecodeCommands.versionId),
+            eq(mediaVersions.batchId, mediaDecodeCommands.batchId),
+          ),
+        )
+        .innerJoin(captureBatches, eq(captureBatches.id, mediaDecodeCommands.batchId))
+        .leftJoin(mediaDerivations, eq(mediaDerivations.id, mediaDecodeCommands.derivationId))
+        .where(
+          and(
+            eq(mediaDecodeCommands.build, DECODER_BUILD),
+            eq(captureBatches.actorId, binding.actorId),
+            eq(captureBatches.targetId, binding.targetId),
+            eq(captureBatches.targetContextId, binding.targetContextId),
+            notExists(
+              db
+                .select({ commandId: mediaDecodeClaims.commandId })
+                .from(mediaDecodeClaims)
+                .where(eq(mediaDecodeClaims.commandId, mediaDecodeCommands.id)),
+            ),
+          ),
+        )
+        .orderBy(mediaDecodeCommands.createdAt, mediaDecodeCommands.id)
+        .limit(1)
+        .for('update', { of: mediaDecodeCommands, skipLocked: true }),
     )
-    const command = commands.rows[0]
+    const command = commands[0]
     if (!command) {
       return null
     }

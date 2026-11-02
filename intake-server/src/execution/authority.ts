@@ -21,7 +21,7 @@ import {
   executorResults,
   executorEffects,
 } from './schema.ts'
-import { commands, outbox } from '../db/schema.ts'
+import { commands, outbox, targets } from '../db/schema.ts'
 import { stockBytes, id } from './plan.ts'
 import { decodeExecutablePlan, type ExecutablePlan } from './media-plan.ts'
 import { attachmentStates, type AttachmentState } from './attachment-state.ts'
@@ -139,7 +139,13 @@ export async function reserveApprovedStock(
     id(input[key])
   }
   const plan = decodeExecutablePlan(input.bytes, input.digest)
-  await client.query('SELECT id FROM target WHERE id=$1 FOR UPDATE', [plan.targetId])
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ id: targets.id })
+      .from(targets)
+      .where(eq(targets.id, plan.targetId))
+      .for('update'),
+  )
   await checkDeployment(client, plan)
   const source = await executeDatabaseQuery(
     queryDatabase(client)
@@ -160,12 +166,19 @@ export async function reserveApprovedStock(
     'INSERT INTO executor_guard(target_id,original_key) VALUES ($1,$2) ON CONFLICT DO NOTHING',
     [plan.targetId, plan.originalSourceKey],
   )
-  const guard = (
-    await client.query(
-      'SELECT active_run FROM executor_guard WHERE target_id=$1 AND original_key=$2 FOR UPDATE',
-      [plan.targetId, plan.originalSourceKey],
-    )
-  ).rows[0]
+  const guardRows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ active_run: executorGuards.activeRun })
+      .from(executorGuards)
+      .where(
+        and(
+          eq(executorGuards.targetId, plan.targetId),
+          eq(executorGuards.originalKey, plan.originalSourceKey),
+        ),
+      )
+      .for('update'),
+  )
+  const guard = guardRows[0]
   const prior = await executeDatabaseQuery(
     queryDatabase(client)
       .select({ ...approvalColumns, run_id: executorRuns.id, command_id: executorRuns.commandId })
@@ -410,20 +423,39 @@ export async function loadRun(client: Pool | PoolClient, runId: string): Promise
 
 export async function lockRun(client: PoolClient, runId: string): Promise<RunAuthority> {
   const authority = await loadRun(client, runId)
-  await client.query('SELECT id FROM target WHERE id=$1 FOR UPDATE', [authority.plan.targetId])
-  const guard = (
-    await client.query(
-      'SELECT active_run FROM executor_guard WHERE target_id=$1 AND original_key=$2 FOR UPDATE',
-      [authority.plan.targetId, authority.plan.originalSourceKey],
-    )
-  ).rows[0]
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ id: targets.id })
+      .from(targets)
+      .where(eq(targets.id, authority.plan.targetId))
+      .for('update'),
+  )
+  const guardRows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ active_run: executorGuards.activeRun })
+      .from(executorGuards)
+      .where(
+        and(
+          eq(executorGuards.targetId, authority.plan.targetId),
+          eq(executorGuards.originalKey, authority.plan.originalSourceKey),
+        ),
+      )
+      .for('update'),
+  )
+  const guard = guardRows[0]
   if (!guard) {
     throw new Error('source_guard_missing')
   }
   if (guard.active_run && guard.active_run !== runId) {
     throw new Error('source_reserved')
   }
-  await client.query('SELECT id FROM executor_run WHERE id=$1 FOR UPDATE', [runId])
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ id: executorRuns.id })
+      .from(executorRuns)
+      .where(eq(executorRuns.id, runId))
+      .for('update'),
+  )
   await loadRun(client, runId)
   return authority
 }

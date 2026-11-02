@@ -3,7 +3,8 @@ import { publishManualRun } from './events.ts'
 import type { DBOSClient } from '@dbos-inc/dbos-sdk'
 import { supportedVerificationOnly } from '../execution/effects-recovery.ts'
 import { canonical, strictJson } from '@invimport/contracts/json'
-import { transaction } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
+import { sql } from 'drizzle-orm'
 import { verifyBytes } from '../db/authority.ts'
 import { loadRun, snapshot } from '../execution/authority.ts'
 import { attachmentVerificationOnly } from '../execution/attachment-recovery.ts'
@@ -44,6 +45,25 @@ export async function dispatchManualCommands(
   return result.rows.length
 }
 
+type ManualDispatchRow = {
+  id: string
+  run_id: string
+  command_id: string
+  actor_id: string
+  recovery_bytes: Buffer
+  recovery_digest: Buffer
+  state: string
+  payload_bytes: Buffer
+  payload_digest: Buffer
+  command_actor: string
+  target_id: string
+  target_context_id: string
+  kind: string
+  handler_version: string
+  queue_name: string
+  workflow_id: string
+}
+
 /** A resumed scheduler step is inspection-only once a dispatch was claimed.
  * Only a new explicit original-run recovery selection can authorize further attempts.
  */
@@ -54,12 +74,13 @@ export async function executeManualDispatch(
   payload: unknown,
 ) {
   const retained = await transaction(pool, async (client) => {
-    const result = await client.query(
-      `SELECT d.*,c.payload_bytes,c.payload_digest,c.actor_id AS command_actor,c.target_id,c.target_context_id,
-         c.kind,c.handler_version,c.queue_name,c.workflow_id
-       FROM manual_dispatch d JOIN command c ON c.id=d.command_id
-       WHERE c.workflow_id=$1 FOR UPDATE OF d`,
-      [workflowId],
+    const result = await executeDatabaseQuery(
+      queryDatabase(client).execute<ManualDispatchRow>(sql`
+        SELECT d.*,c.payload_bytes,c.payload_digest,c.actor_id AS command_actor,c.target_id,c.target_context_id,
+          c.kind,c.handler_version,c.queue_name,c.workflow_id
+        FROM manual_dispatch d JOIN command c ON c.id=d.command_id
+        WHERE c.workflow_id=${workflowId} FOR UPDATE OF d
+      `),
     )
     const row = result.rows[0]
     if (!row) {

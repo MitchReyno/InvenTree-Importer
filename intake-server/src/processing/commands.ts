@@ -1,12 +1,12 @@
 import type { Pool, PoolClient } from 'pg'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import {
   validate,
   type ProcessingStartDto,
   type ProcessingCancellationDto,
 } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
-import { processingAttempts } from './schema.ts'
+import { processingAttempts, processingJobs } from './schema.ts'
 import { appendEvent, idempotent } from '../db/authority.ts'
 import { captureInTransaction, lockCaptureForInputs } from '../capture/repository.ts'
 import { prepareMediaTransaction } from '../media/transaction.ts'
@@ -15,7 +15,7 @@ import type { ProcessingConfig } from './attempts.ts'
 import { checkJobCapacity, queueJob, supersedeJobAttempts } from './jobs.ts'
 import { fail, stageOrder } from './model.ts'
 import { commandScope, lockLane } from './scope.ts'
-import { canCancelProcessingAttempt, lockProcessingAttempt } from './state.ts'
+import { canCancelProcessingAttempt, lockProcessingAttempt, processingJobColumns } from './state.ts'
 
 async function lockedSnapshot(
   client: PoolClient,
@@ -114,11 +114,14 @@ export async function cancelProcessing(
       async () => {
         const capture = await lockedSnapshot(client, config, batchId)
         await lockLane(client, config.actorId)
-        const result = await client.query(
-          'SELECT * FROM processing_job WHERE batch_id=$1 AND id=$2 FOR UPDATE',
-          [batchId, jobId],
+        const result = await executeDatabaseQuery(
+          queryDatabase(client)
+            .select(processingJobColumns)
+            .from(processingJobs)
+            .where(and(eq(processingJobs.batchId, batchId), eq(processingJobs.id, jobId)))
+            .for('update'),
         )
-        const job = result.rows[0] ?? fail('not_found', 404)
+        const job = result[0] ?? fail('not_found', 404)
         if (
           job.revision !== input.expected_revision ||
           job.current_attempt_id !== input.attempt_id

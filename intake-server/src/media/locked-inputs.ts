@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
+import { sql } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { Id } from '@invimport/contracts'
 import { canonicalMedia } from './encoding.ts'
 import { blobLockCoordinates, lockBlob } from './blob-store.ts'
@@ -69,7 +71,11 @@ async function retainHandleLifetime(client: PoolClient) {
     .update(`bench-media-input-handle/1:${randomUUID()}`)
     .digest()
     .readBigInt64BE()
-  await client.query('SELECT pg_catalog.pg_advisory_xact_lock($1::bigint)', [key.toString()])
+  await executeDatabaseQuery(
+    queryDatabase(client).execute(
+      sql`SELECT pg_catalog.pg_advisory_xact_lock(${key.toString()}::bigint)`,
+    ),
+  )
   const unsignedKey = BigInt.asUintN(64, key)
   return {
     classId: (unsignedKey >> 32n).toString(),
@@ -102,9 +108,10 @@ async function pinCapturedCommand(
     throw new Error('invalid_media_command_id')
   }
   // This is a later command lock, never a new digest/batch/lane lock.
-  await client.query(
-    "SELECT pg_advisory_xact_lock(hashtextextended('bench-media-command-pin/1:' || $1,0))",
-    [commandId],
+  await executeDatabaseQuery(
+    queryDatabase(client).execute(
+      sql`SELECT pg_advisory_xact_lock(hashtextextended('bench-media-command-pin/1:' || ${commandId},0))`,
+    ),
   )
   const command = await client.query(
     `SELECT 1 FROM public.command WHERE id=$1 AND actor_id=$2 AND target_id=$3 AND target_context_id=$4`,

@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { getTableConfig } from 'drizzle-orm/pg-core'
 import { targets } from '../../src/db/schema.ts'
-import { captureObservations } from '../../src/capture/schema.ts'
+import { captureObservations, captureBatches, captureSubjects } from '../../src/capture/schema.ts'
 import {
   executorDeployments,
   executorSources,
@@ -36,6 +36,8 @@ test('phase two driver mappings match the migrated PostgreSQL columns, keys and 
     const tables = [
       targets,
       captureObservations,
+      captureBatches,
+      captureSubjects,
       executorDeployments,
       executorSources,
       executorGuards,
