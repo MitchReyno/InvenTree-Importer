@@ -56,12 +56,12 @@ export function visibleQueueLotIds(
   filter: ReviewFilter,
 ): string[] {
   if (!operatorReview) {
-    return batch.lots.map((lot) => lot.id)
+    return batch.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
   }
   const active = new Map(operatorReview.lots.map((lot) => [lot.lot_id, lot]))
   const lots = batch.lots.filter((lot) => {
     const operatorLot = active.get(lot.id)
-    return operatorLot !== undefined && matchesFilter(operatorLot, filter)
+    return !lot.retired && operatorLot !== undefined && matchesFilter(operatorLot, filter)
   })
   return groupsFor(lots, operatorReview).flatMap((group) => group.lots.map((lot) => lot.id))
 }

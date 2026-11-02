@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
@@ -48,6 +48,7 @@ function InstructionForm({
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isDirty },
   } = useForm({ defaultValues: { text: latest?.text ?? '' } })
   const command = useRetainedCommand((input: { text: string; revision: string }, key: string) =>
@@ -78,7 +79,11 @@ function InstructionForm({
   }
 
   return (
-    <Form onSubmit={handleSubmit(save)} aria-label={`${label} instructions`}>
+    <Form
+      onChange={() => onDirtyChange(formKey, true)}
+      onSubmit={handleSubmit(save)}
+      aria-label={`${label} instructions`}
+    >
       <Label>
         {label}
         <TextArea
@@ -95,6 +100,17 @@ function InstructionForm({
           : 'No instructions saved yet.'}
       </Small>
       {command.message && <ErrorNotice role="alert">{command.message}</ErrorNotice>}
+      <Button
+        type="button"
+        disabled={disabled || command.busy || (!isDirty && !command.pending)}
+        onClick={() => {
+          command.discard()
+          reset()
+          onDirtyChange(formKey, false)
+        }}
+      >
+        Discard instruction edits
+      </Button>
       {command.pending ? (
         <Button type="button" disabled={command.busy} onClick={() => void retry()}>
           Retry exact save
@@ -128,18 +144,21 @@ export function InstructionsPanel({
   const dirtyForms = useRef(new Set<string>())
   const [, setVersion] = useState(0)
 
-  function reportDirty(key: string, dirty: boolean) {
-    const before = dirtyForms.current.size
-    if (dirty) {
-      dirtyForms.current.add(key)
-    } else {
-      dirtyForms.current.delete(key)
-    }
-    if (before !== dirtyForms.current.size) {
-      setVersion((value) => value + 1)
-      onDirtyChange(dirtyForms.current.size > 0)
-    }
-  }
+  const reportDirty = useCallback(
+    (key: string, dirty: boolean) => {
+      const before = dirtyForms.current.size
+      if (dirty) {
+        dirtyForms.current.add(key)
+      } else {
+        dirtyForms.current.delete(key)
+      }
+      if (before !== dirtyForms.current.size) {
+        setVersion((value) => value + 1)
+        onDirtyChange(dirtyForms.current.size > 0)
+      }
+    },
+    [onDirtyChange],
+  )
 
   useEffect(() => () => onDirtyChange(false), [onDirtyChange])
 
@@ -157,7 +176,7 @@ export function InstructionsPanel({
         client={client}
         groupId={null}
         label="Batch instructions"
-        disabled={disabled}
+        disabled={disabled || (dirtyForms.current.size > 0 && !dirtyForms.current.has('batch'))}
         reload={reload}
         onDirtyChange={reportDirty}
       />
@@ -169,7 +188,7 @@ export function InstructionsPanel({
           client={client}
           groupId={group.id}
           label={`Group “${group.label}”`}
-          disabled={disabled}
+          disabled={disabled || (dirtyForms.current.size > 0 && !dirtyForms.current.has(group.id))}
           reload={reload}
           onDirtyChange={reportDirty}
         />

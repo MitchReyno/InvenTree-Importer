@@ -51,7 +51,7 @@ export function useRetainedCommand<I, R>(
     busy,
     failure,
     message: failure ? failureMessage(failure) : '',
-    pending: intent.current !== null && failure?.kind === 'uncertain',
+    pending: intent.current !== null,
 
     submit(input) {
       if (intent.current) {

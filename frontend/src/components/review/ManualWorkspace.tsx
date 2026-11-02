@@ -15,6 +15,7 @@ import type { OperatorReviewClient } from '../../operator/types'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type { ManualClient, ManualStage, RunRecoverySelection } from '../../manual/types'
 import { CaptureHeader } from '../capture/CaptureHeader'
+import { useDirtySources } from '../../operator/useDirtySources'
 import { retiredLotIds } from '../../operator/review-model'
 import { Button, ErrorNotice, Notice, Paragraph, Small, Heading } from '../ui/primitives'
 import { ReviewWorkspace } from './ReviewWorkspace'
@@ -100,6 +101,7 @@ export function ManualWorkspace({
   const workspace = workspaceQuery.data
   const connectionLost = workspaceQuery.isError || workspaceQuery.fetchStatus === 'paused'
   const waitingForFirstRead = !workspaceQuery.isFetchedAfterMount
+  const drafts = useDirtySources(onDirtyChange)
   const [selected, setSelected] = useState<string[]>([])
   const [lastPreview, setLastPreview] = useState<ManualPreviewDto | null>(null)
   const initialChoiceMade = useRef(false)
@@ -295,7 +297,7 @@ export function ManualWorkspace({
         prepare={prepare}
         edit={edit}
         reload={reload}
-        onDirtyChange={onDirtyChange}
+        onDirtyChange={drafts.forSource('review')}
       />
     )
   } else if (stage === 'approve') {
@@ -327,7 +329,7 @@ export function ManualWorkspace({
       <CaptureHeader
         batch={batch}
         busy={disabled}
-        dirty={false}
+        dirty={drafts.dirty}
         edit={edit}
         stage={stage}
         retiredLotIds={retiredLotIds(operatorReview, batch)}

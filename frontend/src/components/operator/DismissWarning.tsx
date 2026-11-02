@@ -69,7 +69,11 @@ export function DismissWarning({
   }
 
   return (
-    <Form onSubmit={handleSubmit(submit)} aria-label={`Dismiss ${issue.code}`}>
+    <Form
+      onChange={() => onDirtyChange?.(true)}
+      onSubmit={handleSubmit(submit)}
+      aria-label={`Dismiss ${issue.code}`}
+    >
       <Label>
         Why is this acceptable?
         <TextArea
@@ -91,7 +95,7 @@ export function DismissWarning({
       {command.message && <ErrorNotice role="alert">{command.message}</ErrorNotice>}
       <span>
         {command.pending ? (
-          <Button type="button" disabled={disabled || command.busy} onClick={() => void retry()}>
+          <Button type="button" disabled={command.busy} onClick={() => void retry()}>
             Retry exact dismissal
           </Button>
         ) : (

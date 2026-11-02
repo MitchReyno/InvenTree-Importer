@@ -21,6 +21,7 @@ import {
   type ReviewView,
 } from '../../operator/review-model'
 import type { OperatorReviewClient } from '../../operator/types'
+import { useDirtySources } from '../../operator/useDirtySources'
 import { useReviewKeyboard } from '../../operator/useReviewKeyboard'
 import { ReviewFilters } from '../operator/ReviewFilters'
 import { LotEvidence } from '../operator/LotEvidence'
@@ -100,7 +101,7 @@ function scopeReviewed(
 export function ReviewWorkspace({
   batch,
   workspace,
-  operatorReview,
+  operatorReview: observedOperatorReview,
   operator,
   media,
   processing,
@@ -116,6 +117,20 @@ export function ReviewWorkspace({
   reload,
   onDirtyChange,
 }: Props) {
+  const [acceptedOperatorReview, setAcceptedOperatorReview] = useState(
+    observedOperatorReview?.revision === batch.revision ? observedOperatorReview : undefined,
+  )
+  const currentOperatorReview =
+    observedOperatorReview?.revision === batch.revision ? observedOperatorReview : undefined
+  const operatorReview = currentOperatorReview ?? acceptedOperatorReview
+  const reviewUnavailable = operator !== undefined && currentOperatorReview === undefined
+  useEffect(() => {
+    if (currentOperatorReview) {
+      setAcceptedOperatorReview(currentOperatorReview)
+    }
+  }, [currentOperatorReview])
+  const drafts = useDirtySources(onDirtyChange)
+  const [navigationBlocked, setNavigationBlocked] = useState(false)
   const [route, setRoute] = useState(() => initialLocation(batch))
   const [editSignal, setEditSignal] = useState(0)
   const evidenceRef = useRef<HTMLElement>(null)
@@ -136,6 +151,11 @@ export function ReviewWorkspace({
   }, [focused])
 
   function navigate(next: Partial<ReviewLocation>) {
+    if (drafts.isDirty()) {
+      setNavigationBlocked(true)
+      return
+    }
+    setNavigationBlocked(false)
     const value = { ...route, ...next }
     setRoute(value)
     history.replaceState(null, '', reviewHash(batch.id, value))
@@ -159,7 +179,13 @@ export function ReviewWorkspace({
       next: () => move(1),
       previous: () => move(-1),
       markReviewed: () => {
-        if (focused && !busy && !stale && !selectionProblem([focused], workspace, operatorReview)) {
+        if (
+          focused &&
+          !drafts.isDirty() &&
+          !busy &&
+          !stale &&
+          !selectionProblem([focused], workspace, operatorReview)
+        ) {
           reviewLots([focused])
         }
       },
@@ -180,16 +206,42 @@ export function ReviewWorkspace({
   const reviewed = scopeReviewed(selected, workspace, operatorReview)
   return (
     <>
+      {navigationBlocked && drafts.dirty && (
+        <Notice role="status">
+          Save or explicitly discard local edits before switching lots or views.
+        </Notice>
+      )}
+      {reviewUnavailable && (
+        <Notice role="status">
+          Current operator review is unavailable or changed. Local drafts and exact retry intents
+          are retained; reload saved values deliberately before new commands.
+        </Notice>
+      )}
       <ScopeBar>
         <div>
           <strong>{selected.length} selected</strong>
           <Small>{activeLotIds.length - selected.length} remain outside this scope.</Small>
           {problem && <Small role="status">{problem}</Small>}
         </div>
-        <Button disabled={busy || stale || Boolean(problem) || !selected.length} onClick={review}>
+        <Button
+          disabled={
+            drafts.dirty ||
+            reviewUnavailable ||
+            busy ||
+            stale ||
+            Boolean(problem) ||
+            !selected.length
+          }
+          onClick={review}
+        >
           Mark selected reviewed
         </Button>
-        <Button disabled={busy || stale || Boolean(problem) || !reviewed} onClick={prepare}>
+        <Button
+          disabled={
+            drafts.dirty || reviewUnavailable || busy || stale || Boolean(problem) || !reviewed
+          }
+          onClick={prepare}
+        >
           Prepare exact selected effects
         </Button>
       </ScopeBar>
@@ -231,12 +283,12 @@ export function ReviewWorkspace({
           client={operator}
           lotIds={route.filter === 'retired' ? [] : visibleIds}
           activeLotIds={activeLotIds}
-          disabled={busy || stale}
+          disabled={busy || stale || reviewUnavailable}
           maxReviewLots={maxSelected}
           inspect={inspect}
           reviewLots={reviewLots}
           reload={reload}
-          onDirtyChange={onDirtyChange}
+          onDirtyChange={drafts.forSource('workspace')}
         />
       ) : (
         <ReviewGrid $focused={Boolean(lot)}>
@@ -249,7 +301,7 @@ export function ReviewWorkspace({
               lotIds={visibleIds}
               selected={selected}
               focused={focused}
-              busy={busy}
+              busy={busy || reviewUnavailable}
               maxSelected={maxSelected}
               toggle={toggle}
               inspect={inspect}
@@ -287,12 +339,12 @@ export function ReviewWorkspace({
                 operatorLot={operatorLot}
                 activeLotIds={activeLotIds}
                 operator={operator}
-                disabled={busy || stale || batch.archived}
+                disabled={busy || stale || reviewUnavailable || batch.archived}
                 edit={edit}
                 reload={reload}
                 inspect={inspect}
                 editSignal={editSignal}
-                onDirtyChange={onDirtyChange}
+                onDirtyChange={drafts.forSource('workspace')}
               />
             ) : (
               <Paragraph>

@@ -28,7 +28,7 @@ import {
 } from '../capture/operator-commands.ts'
 import type { ManualConfig } from '../review/authority.ts'
 import { materializeWithMedia } from '../review/media-material.ts'
-import { WARNING_CODES, type ReviewWarningCode } from '../review/model.ts'
+import { unresolvedWarnings, WARNING_CODES, type ReviewWarningCode } from '../review/model.ts'
 import { operatorImpact, pendingPreparations, type PendingPreparation } from './impact.ts'
 import { operatorReview, sourceHistory } from './projection.ts'
 import { batchDependencies, retainedReviews } from './review-state.ts'
@@ -65,7 +65,10 @@ async function preparationCurrency(
   const currency = new Map<string, boolean>()
   for (const preparation of preparations) {
     const material = await materializeWithMedia(client, config, snapshot, preparation.lotIds, false)
-    const current = !material.issues.length && material.bytes.equals(preparation.dependencyBytes)
+    const current =
+      !material.issues.length &&
+      !unresolvedWarnings(material).length &&
+      material.bytes.equals(preparation.dependencyBytes)
     currency.set(preparation.id, current)
   }
   return currency

@@ -14,6 +14,9 @@ export interface CommandFailure {
 
 export function classifyFailure(error: unknown): CommandFailure {
   if (error instanceof IntakeRequestError) {
+    if (error.status >= 500) {
+      return { kind: 'uncertain', code: error.code }
+    }
     if (error.status === 412 || error.code === 'revision_conflict') {
       return { kind: 'conflict', code: error.code }
     }

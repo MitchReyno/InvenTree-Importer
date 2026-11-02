@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import styled from 'styled-components'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
+import { useDirtySources } from '../../operator/useDirtySources'
 import { blockingIssues, openWarnings } from '../../operator/review-model'
 import type { OperatorReviewClient } from '../../operator/types'
 import { Button, Small } from '../ui/primitives'
@@ -49,6 +50,7 @@ export function TableWorkspace({
   reload,
   onDirtyChange,
 }: Props) {
+  const drafts = useDirtySources(onDirtyChange)
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set())
   const [dialog, setDialog] = useState<'merge' | 'move' | null>(null)
   const selected = activeLotIds.filter((id) => selection.has(id))
@@ -92,21 +94,25 @@ export function TableWorkspace({
       />
       <Actions aria-label="Selected lot actions">
         <Button
-          disabled={disabled || !selected.length || Boolean(blocker)}
+          disabled={disabled || drafts.dirty || !selected.length || Boolean(blocker)}
           onClick={() => reviewLots(selected)}
         >
           Mark {selected.length} reviewed
         </Button>
         <Button
           disabled={
-            disabled || selected.length < 2 || selected.length > MAX_MERGE_LOTS || approvedSelected
+            disabled ||
+            drafts.dirty ||
+            selected.length < 2 ||
+            selected.length > MAX_MERGE_LOTS ||
+            approvedSelected
           }
           onClick={() => setDialog('merge')}
         >
           Merge selected…
         </Button>
         <Button
-          disabled={disabled || !selected.length || approvedSelected}
+          disabled={disabled || drafts.dirty || !selected.length || approvedSelected}
           onClick={() => setDialog('move')}
         >
           Move selected to Part proposal…
@@ -119,9 +125,9 @@ export function TableWorkspace({
         selectedIds={selected}
         activeLotIds={activeLotIds}
         client={client}
-        disabled={disabled}
+        disabled={disabled || drafts.isDirty('restructure')}
         reload={reload}
-        onDirtyChange={onDirtyChange}
+        onDirtyChange={drafts.forSource('bulk')}
       />
       {dialog && (
         <RestructureDialog
@@ -133,7 +139,7 @@ export function TableWorkspace({
           disabled={disabled}
           reload={reload}
           onClose={() => setDialog(null)}
-          onDirtyChange={onDirtyChange}
+          onDirtyChange={drafts.forSource('restructure')}
         />
       )}
     </>

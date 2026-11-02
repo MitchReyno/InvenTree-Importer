@@ -6,6 +6,7 @@ import type {
   ManualWorkspaceDto,
   OperatorLotDto,
 } from '@invimport/contracts'
+import { useDirtySources } from '../../operator/useDirtySources'
 import { display } from '../../capture/display'
 import { lotProvenance, partProvenance } from '../../operator/review-model'
 import type { OperatorReviewClient } from '../../operator/types'
@@ -69,6 +70,7 @@ export function DecisionPanel({
   editSignal = 0,
   onDirtyChange,
 }: Props) {
+  const drafts = useDirtySources(onDirtyChange)
   const [comparing, setComparing] = useState(false)
   const [editing, setEditing] = useState(false)
   const [restructure, setRestructure] = useState<RestructureKind | null>(null)
@@ -90,7 +92,7 @@ export function DecisionPanel({
     return () => cancelAnimationFrame(frame)
   }, [editSignal])
 
-  const restructureLocked = disabled || !operator || Boolean(operatorLot?.approved)
+  const restructureLocked = disabled || drafts.dirty || !operator || Boolean(operatorLot?.approved)
   return (
     <>
       <Heading>{lot.label}</Heading>
@@ -116,7 +118,7 @@ export function DecisionPanel({
           )}
           {part && (
             <span>
-              <Button disabled={disabled} onClick={() => setComparing(true)}>
+              <Button disabled={disabled || drafts.dirty} onClick={() => setComparing(true)}>
                 Compare matches
               </Button>
             </span>
@@ -141,9 +143,14 @@ export function DecisionPanel({
             (id) => batch.lots.find((value) => value.id === id)?.label ?? id,
           )}
           client={operator}
-          disabled={disabled}
+          disabled={
+            disabled ||
+            drafts.isDirty('quick') ||
+            drafts.isDirty('restructure') ||
+            drafts.isDirty('compare')
+          }
           reload={reload}
-          onDirtyChange={onDirtyChange}
+          onDirtyChange={drafts.forSource('warning')}
         />
       ) : (
         legacyIssues(workspace, lot).map((problem, index) => (
@@ -160,7 +167,11 @@ export function DecisionPanel({
       )}
       <Paragraph>{reviewSentence(operatorLot, workspace, lot)}</Paragraph>
       <Actions>
-        <Button disabled={disabled} aria-expanded={editing} onClick={() => setEditing(!editing)}>
+        <Button
+          disabled={disabled || (editing ? drafts.isDirty('quick') : drafts.dirty)}
+          aria-expanded={editing}
+          onClick={() => setEditing(!editing)}
+        >
           {editing ? 'Close lot editor' : 'Edit lot values'}
         </Button>
         {operator && (
@@ -182,9 +193,14 @@ export function DecisionPanel({
         <QuickLotEdit
           batch={batch}
           lot={lot}
-          disabled={disabled}
+          disabled={
+            disabled ||
+            drafts.isDirty('warning') ||
+            drafts.isDirty('restructure') ||
+            drafts.isDirty('compare')
+          }
           edit={edit}
-          onDirtyChange={onDirtyChange}
+          onDirtyChange={drafts.forSource('quick')}
         />
       )}
       {comparing && part && (
@@ -195,6 +211,7 @@ export function DecisionPanel({
           disabled={disabled}
           edit={edit}
           onClose={() => setComparing(false)}
+          onDirtyChange={drafts.forSource('compare')}
         />
       )}
       {restructure && operator && (
@@ -207,7 +224,7 @@ export function DecisionPanel({
           disabled={disabled}
           reload={reload}
           onClose={() => setRestructure(null)}
-          onDirtyChange={onDirtyChange}
+          onDirtyChange={drafts.forSource('restructure')}
         />
       )}
     </>

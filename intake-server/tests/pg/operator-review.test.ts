@@ -667,3 +667,57 @@ for (const duringReads of [false, true]) {
     }
   })
 }
+
+test('move preview reports a preparation blocked only by a new sibling duplicate warning and rolls back', async () => {
+  const fixture = await manualFixture()
+  try {
+    const seeded = await fixture.seedCapture()
+    const batchId = seeded.batch.id
+    assert.equal(
+      (await edit(fixture, batchId, { kind: 'add_part', label: 'Unused proposal' })).status,
+      200,
+    )
+    const original = (await capture(fixture, batchId)).parts.find(
+      (part) => part.id === seeded.partId,
+    )!
+    const other = (await capture(fixture, batchId)).parts.find((part) => part.id !== seeded.partId)!
+    assert.equal(
+      (await edit(fixture, batchId, { kind: 'part', id: other.id, choice: original.choice }))
+        .status,
+      200,
+    )
+    assert.equal((await review(fixture, batchId, [seeded.a.id])).status, 200)
+    const prepared = await fixture.http(`/batches/${batchId}/preparations`, {
+      expected_batch_revision: (await capture(fixture, batchId)).revision,
+      selected_lot_ids: [seeded.a.id],
+    })
+    assert.equal(prepared.value.status, 'prepared', JSON.stringify(prepared.value))
+    const previewId = prepared.value.preparation.id
+    const before = await capture(fixture, batchId)
+    const change = {
+      kind: 'move_lots',
+      lot_ids: [seeded.b.id],
+      destination: { kind: 'existing', part_subject_id: other.id },
+    }
+    const preview = await restructure(fixture, batchId, change, true)
+    assert.equal(preview.status, 200, JSON.stringify(preview.value))
+    assert.deepEqual(preview.value.impact.stale_preparation_ids, [previewId])
+    assert.deepEqual(await capture(fixture, batchId), before)
+    assert.deepEqual(
+      (await fixture.http(`/batches/${batchId}/manual`)).value.preparations.map(
+        (value: ManualPreviewDto) => value.id,
+      ),
+      [previewId],
+    )
+    const applied = await restructure(fixture, batchId, change)
+    assert.equal(applied.status, 200, JSON.stringify(applied.value))
+    assert.deepEqual(applied.value.impact.stale_preparation_ids, [previewId])
+    assert.deepEqual((await fixture.http(`/batches/${batchId}/manual`)).value.preparations, [])
+    assert.equal(
+      (await fixture.fake.records()).filter((record) => record.method === 'POST').length,
+      0,
+    )
+  } finally {
+    await fixture.dispose()
+  }
+})

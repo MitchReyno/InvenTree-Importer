@@ -11,6 +11,7 @@ import type {
   CaptureEditDto,
   CaptureSnapshotDto,
   CaptureObservationDto,
+  OperatorReviewDto,
 } from '@invimport/contracts'
 import type { Client } from '../../capture/client'
 import type { MediaClient } from '../../media/types'
@@ -169,9 +170,27 @@ export function Batch({
     }
   }
 
-  // A projection for another revision is not shown as current review state.
+  const [acceptedOperatorReview, setAcceptedOperatorReview] = useState<OperatorReviewDto>()
+  const currentOperatorReview =
+    batch &&
+    operatorQuery.isFetchedAfterMount &&
+    operatorQuery.isSuccess &&
+    operatorQuery.fetchStatus !== 'paused' &&
+    operatorQuery.data?.revision === batch.revision
+      ? operatorQuery.data
+      : undefined
+  useEffect(() => {
+    if (currentOperatorReview) {
+      setAcceptedOperatorReview(currentOperatorReview)
+    }
+  }, [currentOperatorReview])
+  // Keep draft owners mounted, but fence new commands when the latest projection is unavailable.
   const operatorReview =
-    batch && operatorQuery.data?.revision === batch.revision ? operatorQuery.data : undefined
+    currentOperatorReview ??
+    (acceptedOperatorReview?.revision === batch?.revision ? acceptedOperatorReview : undefined)
+  const operatorUnavailable =
+    operator !== undefined &&
+    (!currentOperatorReview || operatorQuery.isError || operatorQuery.fetchStatus === 'paused')
   const retired = retiredLotIds(operatorReview, batch ?? undefined)
   const activeBatch = useMemo(
     () =>
@@ -217,7 +236,7 @@ export function Batch({
         navigate={navigate}
         reload={reloadSavedValues}
         onProcessing={onProcessing}
-        operatorReview={operatorReview}
+        operatorReview={currentOperatorReview}
         operator={operator}
         media={media}
         processing={processing}
@@ -233,7 +252,11 @@ export function Batch({
         operator={operator}
         reload={reloadSavedValues}
         media={media}
-        busy={readOrCommandBusy || readUnavailable}
+        busy={
+          readOrCommandBusy ||
+          readUnavailable ||
+          (acceptedOperatorReview !== undefined && operatorUnavailable)
+        }
         edit={edit}
         observe={observe}
         onStage={navigate}

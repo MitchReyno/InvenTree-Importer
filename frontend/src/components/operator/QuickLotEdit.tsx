@@ -71,6 +71,7 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
     register,
     handleSubmit,
     watch,
+    reset,
     formState: { errors, isDirty, dirtyFields },
   } = useForm<Values>({ defaultValues: initialValues(lot) })
   const quantityMode = watch('quantityMode')
@@ -93,7 +94,11 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
   }
 
   return (
-    <Form onSubmit={handleSubmit(save)} aria-label={`Edit ${lot.label}`}>
+    <Form
+      onChange={() => onDirtyChange?.(true)}
+      onSubmit={handleSubmit(save)}
+      aria-label={`Edit ${lot.label}`}
+    >
       <Fieldset disabled={disabled}>
         <Label>
           Quantity
@@ -136,6 +141,16 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
           </Select>
         </Label>
         <Small>Affects only this lot. Read another location in Capture to add it here.</Small>
+        <Button
+          type="button"
+          disabled={!isDirty}
+          onClick={() => {
+            reset(initialValues(lot))
+            onDirtyChange?.(false)
+          }}
+        >
+          Discard lot edits
+        </Button>
         <Button type="submit" disabled={!isDirty}>
           Save lot values
         </Button>

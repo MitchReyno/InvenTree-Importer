@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
 import type { BulkEditDto, CaptureSnapshotDto, OperatorImpactDto } from '@invimport/contracts'
@@ -86,6 +86,7 @@ export function BulkEditPanel({
     register,
     handleSubmit,
     watch,
+    reset,
     formState: { errors, isDirty },
   } = useForm<Values>({ defaultValues: { quantityMode: 'keep', quantity: '', location: 'keep' } })
   const [retainedPreview, setPreview] = useState<{
@@ -95,6 +96,7 @@ export function BulkEditPanel({
     /** The revision the preview described; apply sends exactly this revision. */
     revision: string
   } | null>(null)
+  const draftGeneration = useRef(0)
   const [previewError, setPreviewError] = useState('')
   const [previewBusy, setPreviewBusy] = useState(false)
   const apply = useRetainedCommand(
@@ -127,7 +129,10 @@ export function BulkEditPanel({
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
 
   useEffect(() => {
-    const subscription = watch(() => setPreview(null))
+    const subscription = watch(() => {
+      draftGeneration.current += 1
+      setPreview(null)
+    })
     return () => subscription.unsubscribe()
   }, [watch])
 
@@ -138,6 +143,7 @@ export function BulkEditPanel({
       return
     }
     const lotIds = [...selectedIds]
+    const generation = draftGeneration.current
     setPreviewBusy(true)
     setPreviewError('')
     try {
@@ -146,7 +152,9 @@ export function BulkEditPanel({
         { expected_revision: batch.revision, preview: true, lot_ids: lotIds, change },
         crypto.randomUUID(),
       )
-      setPreview({ lotIds, change, impact: result.impact, revision: batch.revision })
+      if (generation === draftGeneration.current) {
+        setPreview({ lotIds, change, impact: result.impact, revision: batch.revision })
+      }
     } catch (error) {
       setPreviewError(failureMessage(classifyFailure(error)))
     } finally {
@@ -167,8 +175,20 @@ export function BulkEditPanel({
         <strong>{selectedIds.length} selected</strong> · bulk edits apply to every selected lot or
         to none.
       </Paragraph>
-      <Form onSubmit={handleSubmit(runPreview)}>
-        <Row disabled={disabled || locked || !selectedIds.length}>
+      <Button
+        type="button"
+        disabled={disabled || locked || !isDirty}
+        onClick={() => {
+          reset()
+          setPreview(null)
+          apply.discard()
+          onDirtyChange?.(false)
+        }}
+      >
+        Discard bulk edits
+      </Button>
+      <Form onChange={() => onDirtyChange?.(true)} onSubmit={handleSubmit(runPreview)}>
+        <Row disabled={disabled || locked || previewBusy || !selectedIds.length}>
           <Label>
             Quantity
             <Select {...register('quantityMode')}>

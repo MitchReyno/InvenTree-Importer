@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFieldArray, useForm, type FieldErrors } from 'react-hook-form'
 import styled from 'styled-components'
 import type { CaptureSnapshotDto, OperatorImpactDto, RestructureDto } from '@invimport/contracts'
@@ -142,6 +142,7 @@ export function RestructureDialog({
     impact: OperatorImpactDto
     revision: string
   } | null>(null)
+  const draftGeneration = useRef(0)
   const [previewError, setPreviewError] = useState('')
   const [previewBusy, setPreviewBusy] = useState(false)
   // Apply sends the revision the preview described, so a retry stays byte-identical.
@@ -163,12 +164,16 @@ export function RestructureDialog({
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
 
   useEffect(() => {
-    const subscription = watch(() => setPreview(null))
+    const subscription = watch(() => {
+      draftGeneration.current += 1
+      setPreview(null)
+    })
     return () => subscription.unsubscribe()
   }, [watch])
 
   async function runPreview(values: Values) {
     const change = restructureChange(kind, lotIds, values)
+    const generation = draftGeneration.current
     setPreviewBusy(true)
     setPreviewError('')
     try {
@@ -177,7 +182,9 @@ export function RestructureDialog({
         { expected_revision: batch.revision, preview: true, change },
         crypto.randomUUID(),
       )
-      setPreview({ change, impact: result.impact, revision: batch.revision })
+      if (generation === draftGeneration.current) {
+        setPreview({ change, impact: result.impact, revision: batch.revision })
+      }
     } catch (error) {
       setPreviewError(failureMessage(classifyFailure(error)))
     } finally {
@@ -189,6 +196,7 @@ export function RestructureDialog({
     if (!preview) {
       return
     }
+    onDirtyChange?.(true)
     const result = await apply.submit({ change: preview.change, revision: preview.revision })
     if (result) {
       onDirtyChange?.(false)
@@ -216,7 +224,7 @@ export function RestructureDialog({
   }
 
   return (
-    <Modal title={TITLES[kind]} onClose={onClose} closeDisabled={locked}>
+    <Modal title={TITLES[kind]} onClose={onClose} closeDisabled={locked || isDirty}>
       <Paragraph>
         {kind === 'split' &&
           `Split ${lotLabels(batch, lotIds)[0]} into separate physical lots. The original is retired and kept as history.`}
@@ -225,8 +233,18 @@ export function RestructureDialog({
         {kind === 'move' &&
           `Move ${lotLabels(batch, lotIds).join(', ')} to another Part proposal. Each lot stays a separate physical lot.`}
       </Paragraph>
-      <Form onSubmit={handleSubmit(runPreview)}>
-        <Fieldset disabled={disabled || locked}>
+      <Button
+        type="button"
+        disabled={locked || !isDirty}
+        onClick={() => {
+          onDirtyChange?.(false)
+          onClose()
+        }}
+      >
+        Discard restructure edits
+      </Button>
+      <Form onChange={() => onDirtyChange?.(true)} onSubmit={handleSubmit(runPreview)}>
+        <Fieldset disabled={disabled || locked || previewBusy}>
           {kind === 'split' && (
             <>
               {children.fields.map((field, index) => (

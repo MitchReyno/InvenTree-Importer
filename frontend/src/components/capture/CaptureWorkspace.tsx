@@ -111,7 +111,7 @@ export function CaptureWorkspace({
           batch={batch}
           selected={selected}
           dirty={dirty}
-          frozen={frozen}
+          frozen={frozen || instructionsDirty}
           setSelected={setSelected}
         />
 
@@ -120,7 +120,7 @@ export function CaptureWorkspace({
           selected={selected}
           dirty={editorDirty}
           navigationDirty={dirty}
-          frozen={frozen}
+          frozen={frozen || instructionsDirty}
           setSelected={setSelected}
           media={media}
           onMediaDirtyChange={reportMediaDirty}
@@ -153,7 +153,7 @@ export function CaptureWorkspace({
             key={selected}
             batch={batch}
             selected={selected}
-            frozen={frozen || mediaDirty}
+            frozen={frozen || mediaDirty || instructionsDirty}
             dirty={editorDirty}
             onDirty={reportDirty}
             edit={edit}
@@ -165,7 +165,7 @@ export function CaptureWorkspace({
               review={operatorReview}
               client={operator}
               media={media}
-              disabled={frozen}
+              disabled={frozen || editorDirty || mediaDirty}
               reload={reload}
               onDirtyChange={reportInstructionsDirty}
             />

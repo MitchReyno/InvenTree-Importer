@@ -8,6 +8,7 @@ import {
   type ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import { render } from './test/render'
+import { CaptureWorkspace } from './components/capture/CaptureWorkspace'
 import { CaptureHeader } from './components/capture/CaptureHeader'
 import { InstructionsPanel } from './components/operator/InstructionsPanel'
 import { IssuePanel } from './components/operator/IssuePanel'
@@ -244,4 +245,34 @@ test('retired lots come from the snapshot flag even without the operator project
 
   expect([...retiredLotIds(undefined, flagged)]).toEqual([retired])
   expect([...retiredLotIds(undefined, batch)]).toEqual([])
+})
+
+test('instruction drafts and capture edits cannot erase each other through a sibling save', async () => {
+  history.replaceState(null, '', `#${batchId}`)
+  const user = userEvent.setup()
+  const operator = { instruct: vi.fn() } as unknown as OperatorReviewClient
+  const edit = vi.fn()
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      edit={edit}
+      observe={vi.fn()}
+      operator={operator}
+      operatorReview={review}
+      reload={vi.fn()}
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  const instructions = screen.getByLabelText('Batch instructions')
+  await user.type(instructions, ' Local draft')
+  expect(screen.getByLabelText('Quantity mode')).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Save shared defaults' })).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Discard instruction edits' }))
+  await user.selectOptions(screen.getByLabelText('Quantity mode'), 'set')
+  await user.type(screen.getByRole('textbox', { name: /^Exact quantity \(pieces\)/ }), '7')
+  expect(instructions).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Save batch instructions' })).toBeDisabled()
+  expect(edit).not.toHaveBeenCalled()
+  expect(operator.instruct).not.toHaveBeenCalled()
 })

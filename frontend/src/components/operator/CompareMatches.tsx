@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { Button, Link, Paragraph, Small } from '../ui/primitives'
@@ -15,6 +15,7 @@ interface Props {
   disabled: boolean
   edit: (change: CaptureEditDto['change']) => Promise<void>
   onClose: () => void
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 /** Latest observation per existing Part PK; older reads stay retained but are not repeated. */
@@ -37,13 +38,23 @@ function lotLabels(batch: CaptureSnapshotDto, ids: string[]) {
 }
 
 /** Existing Part candidates side by side; choosing one is a separate, confirmed shared edit. */
-export function CompareMatches({ batch, part, affectedLotIds, disabled, edit, onClose }: Props) {
+export function CompareMatches({
+  batch,
+  part,
+  affectedLotIds,
+  disabled,
+  edit,
+  onClose,
+  onDirtyChange,
+}: Props) {
   const [pending, setPending] = useState<Observation | null>(null)
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
   const candidates = partCandidates(batch)
   const current = part.choice.mode === 'set' ? part.choice.value.pk : null
   const partNotes = batch.notes.filter((note) => note.subject_id === part.id)
 
   async function confirm(observation: Observation) {
+    // A saved revision remounts the dialog; a resolved refusal keeps the local choice.
     await edit({
       kind: 'part',
       id: part.id,
@@ -57,11 +68,14 @@ export function CompareMatches({ batch, part, affectedLotIds, disabled, edit, on
         },
       },
     })
-    onClose()
   }
 
   return (
-    <Modal title={`Compare matches · ${part.label}`} onClose={onClose}>
+    <Modal
+      title={`Compare matches · ${part.label}`}
+      onClose={onClose}
+      closeDisabled={pending !== null}
+    >
       <Paragraph>
         Candidates are existing Parts read from the fixed target. ≠ marks a candidate another Part
         proposal in this batch already uses.
@@ -122,7 +136,10 @@ export function CompareMatches({ batch, part, affectedLotIds, disabled, edit, on
                   <td key={candidate.id}>
                     <Button
                       disabled={disabled || candidate.pk === current}
-                      onClick={() => setPending(candidate)}
+                      onClick={() => {
+                        setPending(candidate)
+                        onDirtyChange?.(true)
+                      }}
                     >
                       Use #{candidate.pk}
                     </Button>
@@ -148,7 +165,14 @@ export function CompareMatches({ batch, part, affectedLotIds, disabled, edit, on
               Use #{pending.pk} for {affectedLotIds.length} lot
               {affectedLotIds.length === 1 ? '' : 's'}
             </Button>{' '}
-            <Button onClick={() => setPending(null)}>Back to candidates</Button>
+            <Button
+              onClick={() => {
+                setPending(null)
+                onDirtyChange?.(false)
+              }}
+            >
+              Discard Part choice
+            </Button>
           </span>
         </Confirm>
       )}
