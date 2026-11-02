@@ -3,12 +3,8 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { isolatedDatabase, seedAuthority } from '../support/database.ts'
 import { transaction } from '../../src/db/database.ts'
-import { CaptureError, type OperatorCommandScope } from '../../src/capture/repository.ts'
-import {
-  recordDisposition,
-  recordInstruction,
-  recordLineage,
-} from '../../src/capture/operator-commands.ts'
+import { CaptureError } from '../../src/capture/repository.ts'
+import { recordDisposition, recordInstruction } from '../../src/capture/operator-commands.ts'
 import { latestInstructions, loadReviewContext } from '../../src/capture/review-context.ts'
 
 const ABOVE_SAFE_INTEGER = '9007199254740993'
@@ -30,7 +26,7 @@ test('review context keeps exact bigint strings, latest instructions and retirem
       batchId,
       actorId: actor,
       nextRevision: ABOVE_SAFE_INTEGER,
-    } as OperatorCommandScope
+    }
 
     await transaction(db.pool, async (client) => {
       await client.query('INSERT INTO ui_stream(id,stream_key) VALUES($1,$2)', [
@@ -60,7 +56,16 @@ test('review context keeps exact bigint strings, latest instructions and retirem
         'INSERT INTO media_group(id,batch_id,label,actor_id) VALUES($1,$2,$3,$4)',
         [groupId, batchId, 'Packets', actor],
       )
-      await recordLineage(client, scope, [lotB, lotA], [lotC], 'merge')
+      await client.query(
+        `INSERT INTO capture_lot_lineage(batch_id,predecessor_lot_id,successor_lot_id,action,revision,actor_id)
+         VALUES($1,$2,$4,'merge',$5,$6),($1,$3,$4,'merge',$5,$6)`,
+        [batchId, lotB, lotA, lotC, ABOVE_SAFE_INTEGER, actor],
+      )
+      await client.query(
+        `INSERT INTO capture_lot_retirement(batch_id,lot_id,revision,actor_id)
+         VALUES($1,$2,$4,$5),($1,$3,$4,$5)`,
+        [batchId, lotB, lotA, ABOVE_SAFE_INTEGER, actor],
+      )
       await recordDisposition(client, scope, {
         subjectId: lotC,
         code: 'possible_duplicate',
@@ -71,7 +76,9 @@ test('review context keeps exact bigint strings, latest instructions and retirem
         `INSERT INTO capture_issue_disposition(
            id,batch_id,subject_id,code,dependency_digest,reason,revision,actor_id,created_at)
          VALUES($1,$2,$3,'possible_duplicate',$4,'newer',$5,$6,'2001-06-01T00:00:00Z'),
-                ($7,$2,$3,'possible_duplicate',$4,'older',$5,$6,'2001-01-01T00:00:00Z')`,
+                ($7,$2,$3,'possible_duplicate',$4,'older',$5,$6,'2001-01-01T00:00:00Z'),
+                ($8,$2,$3,'possible_duplicate',$4,'tie lower id',$5,$6,'2000-01-01T00:00:00Z'),
+                ($9,$2,$3,'possible_duplicate',$4,'tie higher id',$5,$6,'2000-01-01T00:00:00Z')`,
         [
           '00000000-0000-4000-8000-0000000000a2',
           batchId,
@@ -80,6 +87,8 @@ test('review context keeps exact bigint strings, latest instructions and retirem
           ABOVE_SAFE_INTEGER,
           actor,
           '00000000-0000-4000-8000-0000000000a1',
+          '00000000-0000-4000-8000-0000000000a3',
+          '00000000-0000-4000-8000-0000000000a4',
         ],
       )
       await client.query(
@@ -118,7 +127,7 @@ test('review context keeps exact bigint strings, latest instructions and retirem
       const recorded = review.dispositions.get(lotC) ?? []
       assert.deepEqual(
         recorded.map((row) => row.reason),
-        ['drizzle insert', 'newer', 'older'],
+        ['drizzle insert', 'newer', 'older', 'tie higher id', 'tie lower id'],
       )
       assert.equal(recorded[0]?.dependencyDigest, digest)
       assert.equal(recorded[1]?.createdAt, '2001-06-01T00:00:00.000Z')

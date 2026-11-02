@@ -19,6 +19,8 @@ type RestructureChange = RestructureDto['change']
 type SplitLot = Extract<RestructureChange, { kind: 'split_lot' }>
 type MergeLots = Extract<RestructureChange, { kind: 'merge_lots' }>
 type MoveLots = Extract<RestructureChange, { kind: 'move_lots' }>
+/** The scope fields a retained-row insert stamps on each row. */
+type RevisionScope = Pick<OperatorCommandScope, 'batchId' | 'actorId' | 'nextRevision'>
 
 export interface StructuralOutcome {
   retiredLotIds: string[]
@@ -60,9 +62,9 @@ export async function applyBulkEdit(scope: OperatorCommandScope, input: BulkEdit
   return NO_STRUCTURE
 }
 
-export async function recordLineage(
+async function recordLineage(
   client: PoolClient,
-  scope: OperatorCommandScope,
+  scope: RevisionScope,
   predecessors: readonly string[],
   successors: readonly string[],
   action: 'split' | 'merge',
@@ -168,7 +170,7 @@ export async function applyRestructure(
 
 export async function recordDisposition(
   client: PoolClient,
-  scope: OperatorCommandScope,
+  scope: RevisionScope,
   input: { subjectId: string; code: string; dependencyDigest: string; reason: string },
 ) {
   await executeDatabaseQuery(
@@ -189,7 +191,7 @@ export async function recordDisposition(
 
 export async function recordInstruction(
   client: PoolClient,
-  scope: OperatorCommandScope,
+  scope: RevisionScope,
   input: InstructionEditDto,
 ) {
   try {

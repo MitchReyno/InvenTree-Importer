@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg'
 import { and, eq, getTableColumns, inArray } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/node-postgres'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { canonical } from '@invimport/contracts/json'
 import {
   validate,
@@ -59,19 +59,21 @@ const jobColumns = {
 }
 
 async function selectedJobs(client: PoolClient, batchId: string) {
-  return drizzle(client)
-    .select(jobColumns)
-    .from(processingJobs)
-    .innerJoin(
-      processingAttempts,
-      and(
-        eq(processingAttempts.id, processingJobs.currentAttemptId),
-        eq(processingAttempts.jobId, processingJobs.id),
-      ),
-    )
-    .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
-    .where(eq(processingJobs.batchId, batchId))
-    .orderBy(processingJobs.subjectId, processingJobs.stage)
+  return executeDatabaseQuery(
+    queryDatabase(client)
+      .select(jobColumns)
+      .from(processingJobs)
+      .innerJoin(
+        processingAttempts,
+        and(
+          eq(processingAttempts.id, processingJobs.currentAttemptId),
+          eq(processingAttempts.jobId, processingJobs.id),
+        ),
+      )
+      .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
+      .where(eq(processingJobs.batchId, batchId))
+      .orderBy(processingJobs.subjectId, processingJobs.stage),
+  )
 }
 
 type SelectedJob = Awaited<ReturnType<typeof selectedJobs>>[number]
@@ -116,23 +118,25 @@ async function proposalsForJob(
   job: SelectedJob,
 ): Promise<ProcessingJobDto['proposals']> {
   const manifest = decodeProcessingInput(job.inputBytes, job.inputDigest)
-  const proposals = await drizzle(client)
-    .select({
-      ...getTableColumns(processingProposals),
-      jobId: processingAttempts.jobId,
-      commandId: processingAttempts.commandId,
-      manifestDigest: processingInputs.manifestDigest,
-      envelopeBytes: processingMessages.envelopeBytes,
-      envelopeDigest: processingMessages.envelopeDigest,
-      disposition: processingMessages.disposition,
-    })
-    .from(processingProposals)
-    .innerJoin(processingAttempts, eq(processingAttempts.id, processingProposals.attemptId))
-    .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
-    .innerJoin(processingMessages, eq(processingMessages.id, processingProposals.messageId))
-    .where(eq(processingProposals.attemptId, job.attemptId))
-    .orderBy(processingProposals.id)
-    .limit(MAX_JOB_RESULTS + 1)
+  const proposals = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        ...getTableColumns(processingProposals),
+        jobId: processingAttempts.jobId,
+        commandId: processingAttempts.commandId,
+        manifestDigest: processingInputs.manifestDigest,
+        envelopeBytes: processingMessages.envelopeBytes,
+        envelopeDigest: processingMessages.envelopeDigest,
+        disposition: processingMessages.disposition,
+      })
+      .from(processingProposals)
+      .innerJoin(processingAttempts, eq(processingAttempts.id, processingProposals.attemptId))
+      .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
+      .innerJoin(processingMessages, eq(processingMessages.id, processingProposals.messageId))
+      .where(eq(processingProposals.attemptId, job.attemptId))
+      .orderBy(processingProposals.id)
+      .limit(MAX_JOB_RESULTS + 1),
+  )
   if (proposals.length > MAX_JOB_RESULTS) {
     fail('processing_capacity')
   }
@@ -160,22 +164,24 @@ async function questionsForJob(
   job: SelectedJob,
   currentState: ProcessingStateDto,
 ): Promise<ProcessingJobDto['questions']> {
-  const questions = await drizzle(client)
-    .select({
-      ...getTableColumns(processingQuestions),
-      commandId: processingAttempts.commandId,
-      manifestDigest: processingInputs.manifestDigest,
-      envelopeBytes: processingMessages.envelopeBytes,
-      envelopeDigest: processingMessages.envelopeDigest,
-      disposition: processingMessages.disposition,
-    })
-    .from(processingQuestions)
-    .innerJoin(processingAttempts, eq(processingAttempts.id, processingQuestions.attemptId))
-    .innerJoin(processingInputs, eq(processingInputs.id, processingQuestions.inputId))
-    .innerJoin(processingMessages, eq(processingMessages.id, processingQuestions.messageId))
-    .where(eq(processingQuestions.jobId, job.id))
-    .orderBy(processingQuestions.id)
-    .limit(MAX_JOB_RESULTS + 1)
+  const questions = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        ...getTableColumns(processingQuestions),
+        commandId: processingAttempts.commandId,
+        manifestDigest: processingInputs.manifestDigest,
+        envelopeBytes: processingMessages.envelopeBytes,
+        envelopeDigest: processingMessages.envelopeDigest,
+        disposition: processingMessages.disposition,
+      })
+      .from(processingQuestions)
+      .innerJoin(processingAttempts, eq(processingAttempts.id, processingQuestions.attemptId))
+      .innerJoin(processingInputs, eq(processingInputs.id, processingQuestions.inputId))
+      .innerJoin(processingMessages, eq(processingMessages.id, processingQuestions.messageId))
+      .where(eq(processingQuestions.jobId, job.id))
+      .orderBy(processingQuestions.id)
+      .limit(MAX_JOB_RESULTS + 1),
+  )
   if (questions.length > MAX_JOB_RESULTS) {
     fail('processing_capacity')
   }
@@ -265,20 +271,22 @@ const activeStates = new Set<ProcessingStateDto>([
 ])
 
 async function heldLaneJob(client: PoolClient, config: ProcessingConfig, attemptId: string) {
-  const jobs = await drizzle(client)
-    .select(jobColumns)
-    .from(processingJobs)
-    .innerJoin(processingAttempts, eq(processingAttempts.jobId, processingJobs.id))
-    .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
-    .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
-    .where(
-      and(
-        eq(processingAttempts.id, attemptId),
-        eq(commands.actorId, config.actorId),
-        eq(commands.targetId, config.targetId),
-        eq(commands.targetContextId, config.targetContextId),
+  const jobs = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select(jobColumns)
+      .from(processingJobs)
+      .innerJoin(processingAttempts, eq(processingAttempts.jobId, processingJobs.id))
+      .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
+      .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
+      .where(
+        and(
+          eq(processingAttempts.id, attemptId),
+          eq(commands.actorId, config.actorId),
+          eq(commands.targetId, config.targetId),
+          eq(commands.targetContextId, config.targetContextId),
+        ),
       ),
-    )
+  )
   return jobs[0]
 }
 
@@ -303,10 +311,12 @@ export async function processingActivity(
   client: PoolClient,
   config: ProcessingConfig,
 ): Promise<ProcessingActivityDto> {
-  const laneRows = await drizzle(client)
-    .select({ attemptId: processingLanes.attemptId })
-    .from(processingLanes)
-    .where(eq(processingLanes.actorId, config.actorId))
+  const laneRows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ attemptId: processingLanes.attemptId })
+      .from(processingLanes)
+      .where(eq(processingLanes.actorId, config.actorId)),
+  )
   const heldAttemptId = laneRows[0]?.attemptId ?? null
   const jobs: ProcessingActivityDto['jobs'] = []
 
@@ -330,21 +340,23 @@ export async function processingActivity(
     }
   }
 
-  const batches = await drizzle(client)
-    .selectDistinct({ batchId: processingJobs.batchId })
-    .from(processingJobs)
-    .innerJoin(processingAttempts, eq(processingAttempts.id, processingJobs.currentAttemptId))
-    .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
-    .where(
-      and(
-        inArray(processingJobs.state, [...activeStates]),
-        eq(commands.actorId, config.actorId),
-        eq(commands.targetId, config.targetId),
-        eq(commands.targetContextId, config.targetContextId),
-      ),
-    )
-    .orderBy(processingJobs.batchId)
-    .limit(MAX_ACTIVITY_BATCHES + 1)
+  const batches = await executeDatabaseQuery(
+    queryDatabase(client)
+      .selectDistinct({ batchId: processingJobs.batchId })
+      .from(processingJobs)
+      .innerJoin(processingAttempts, eq(processingAttempts.id, processingJobs.currentAttemptId))
+      .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
+      .where(
+        and(
+          inArray(processingJobs.state, [...activeStates]),
+          eq(commands.actorId, config.actorId),
+          eq(commands.targetId, config.targetId),
+          eq(commands.targetContextId, config.targetContextId),
+        ),
+      )
+      .orderBy(processingJobs.batchId)
+      .limit(MAX_ACTIVITY_BATCHES + 1),
+  )
   let truncated = batches.length > MAX_ACTIVITY_BATCHES
 
   for (const batch of batches.slice(0, MAX_ACTIVITY_BATCHES)) {

@@ -36,7 +36,7 @@ The T06 handover records current PostgreSQL, HTTP, DBOS process, browser and nor
 
 ## Read models and occupied capacity
 
-Ordinary reads, inserts and plain keyed updates use Drizzle on the existing checked-out client. Row locks, compare-and-set, revision increments, the dependency closure and transaction isolation stay explicit SQL. Reviewed migration SQL remains the schema authority. Snapshot authorization, input freshness and cursor share one repeatable-read transaction. Question/proposal projections validate the complete accepted producer envelope before returning displayed payloads.
+Ordinary reads, inserts and plain keyed updates use Drizzle on the existing checked-out client. Row locks, compare-and-set, revision increments, the lane upsert, the dependency closure, `public.`-qualified pool reads and transaction isolation stay explicit SQL. Reviewed migration SQL remains the schema authority. Snapshot authorization, input freshness and cursor share one repeatable-read transaction. Question/proposal projections validate the complete accepted producer envelope before returning displayed payloads.
 
 Logical freshness and occupied capacity are separate. The workspace may label changed input superseded while global activity retains a running attempt's recorded state with `input_current=false` and `occupies_lane=true`. A held lane is included before truncation; a held command outside the configured target/context contributes only the aggregate `lane_occupied` flag. Occupancy requires terminal settlement or explicit interruption after reaping, and does not itself prove native process liveness.
 

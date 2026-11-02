@@ -8,7 +8,7 @@ import type {
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' })
 
 // Reviewed migration SQL owns constraints, lineage, cycles and triggers; these are driver row types.
-export const processingProfiles = pgTable('processing_profile', {
+export const processingProfileRecords = pgTable('processing_profile', {
   id: text().primaryKey(),
   qualification: text().$type<'fixture_only'>().notNull(),
   handlerVersion: text('handler_version').notNull(),

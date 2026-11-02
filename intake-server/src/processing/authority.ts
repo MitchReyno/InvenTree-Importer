@@ -1,6 +1,5 @@
 import type { PoolClient } from 'pg'
 import { and, eq, getTableColumns } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/node-postgres'
 import type { CaptureSnapshotDto, ProcessingInputDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { commands } from '../db/schema.ts'
@@ -26,7 +25,7 @@ import {
   processingDependencies,
   processingInputs,
   processingJobs,
-  processingProfiles as processingProfileTable,
+  processingProfileRecords,
 } from './schema.ts'
 
 async function verifyDependencyBinding(
@@ -34,12 +33,14 @@ async function verifyDependencyBinding(
   attemptId: string,
   manifest: ProcessingInputDto,
 ) {
-  const dependencies = await drizzle(client)
-    .select({ attemptId: processingDependencies.dependencyAttemptId })
-    .from(processingDependencies)
-    .where(eq(processingDependencies.attemptId, attemptId))
-    .orderBy(processingDependencies.dependencyAttemptId)
-    .limit(manifest.dependencies.length + 1)
+  const dependencies = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ attemptId: processingDependencies.dependencyAttemptId })
+      .from(processingDependencies)
+      .where(eq(processingDependencies.attemptId, attemptId))
+      .orderBy(processingDependencies.dependencyAttemptId)
+      .limit(manifest.dependencies.length + 1),
+  )
   const retainedIds = dependencies.map((dependency) => dependency.attemptId)
   const manifestIds = [...manifest.dependencies].sort()
   if (canonical(retainedIds) !== canonical(manifestIds)) {
@@ -68,9 +69,9 @@ export async function loadProcessingAuthority(
         workflowId: commands.workflowId,
         queueName: commands.queueName,
         kind: commands.kind,
-        instructionBytes: processingProfileTable.instructionBytes,
-        instructionDigest: processingProfileTable.instructionDigest,
-        toolProfileVersion: processingProfileTable.toolProfileVersion,
+        instructionBytes: processingProfileRecords.instructionBytes,
+        instructionDigest: processingProfileRecords.instructionDigest,
+        toolProfileVersion: processingProfileRecords.toolProfileVersion,
         subjectId: processingJobs.subjectId,
         stage: processingJobs.stage,
         currentAttemptId: processingJobs.currentAttemptId,
@@ -80,8 +81,8 @@ export async function loadProcessingAuthority(
       .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
       .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
       .innerJoin(
-        processingProfileTable,
-        eq(processingProfileTable.id, processingAttempts.profileId),
+        processingProfileRecords,
+        eq(processingProfileRecords.id, processingAttempts.profileId),
       )
       .innerJoin(
         processingJobs,

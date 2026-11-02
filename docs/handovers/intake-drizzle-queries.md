@@ -88,7 +88,7 @@ New regression cases (real PostgreSQL):
 - Processing records retaining bigint attempt number, capture revision and message sequence above the safe integer range through the converted reads and inserts.
 - Existing processing, operator-review, compatibility, dependency, media and research PG/process suites cover lock order, stale refusal, replay and dedup behaviour.
 
-Adverse cases: a duplicate retained message sequence still fails with the original pg SQLSTATE (`23505`) rather than a Drizzle wrapper; the instruction foreign-key violation still maps to `group_not_found` 404 through the preserved SQLSTATE `23503`.
+Adverse cases: a duplicate message-sequence insert through `executeDatabaseQuery` still fails with the original pg SQLSTATE (`23505`) rather than a Drizzle wrapper (adapter evidence; `acceptEnvelope` dedups a duplicate before inserting); the instruction foreign-key violation still maps to `group_not_found` 404 through the preserved SQLSTATE `23503`.
 
 ## Phase 2 (not implemented)
 
@@ -100,9 +100,11 @@ Verified `processing/schema.ts` against migrations 0006, 0007 and 0009 before co
 
 `processing_question.batch_id` was missing from the previous declaration. Adding it makes `getTableColumns(processingQuestions)` in `retained.ts` and `read.ts` select that column too. The joined projections do not alias-clash, and both consumers ignore the extra field. No DTO change.
 
-Phase 1 statement counts, reconciled with the diff: **35 converted**, **70 kept** explicit in the phase 1 modules (locks, compare-and-set, increments, recursive closure, `SET TRANSACTION`, grants, migration bookkeeping, advisory locks and `public.`-qualified reads). Phase 2's 27 statements stay unimplemented. No `executor_*`, `capture_observation` or `manual_*` declarations, and no edits under T09's dirty paths or `src/media/schema.ts`.
+Drizzle reads that already existed in `processing/read.ts`, `processing/retained.ts` and `verifyDependencyBinding` now also run through `executeDatabaseQuery`, so their pg failures surface without the SQL-bearing wrapper. Lineage and retirement inserts stay private to `operator-commands.ts`; the existing operator-review and retirement PG suites drive them through `applyRestructure`.
 
-No product behaviour defect. `executeDatabaseQuery` kept SQLSTATE `23505` on a duplicate message sequence and `23503` on an unknown instruction group (`group_not_found` 404). Bigint attempt number, capture revision and message sequence above `Number.MAX_SAFE_INTEGER` round-trip as exact decimal strings. Review context keeps that exact revision text, `DISTINCT ON` latest instructions for a null group and a group (`NULLS FIRST`), disposition order, and `capture_retirement_without_lineage`.
+Phase 1 statement counts, reconciled with the diff: **35 converted**, **73 kept** explicit in the phase 1 modules (locks, compare-and-set, increments, recursive closure, `SET TRANSACTION`, grants, migration bookkeeping, advisory locks and `public.`-qualified reads). Phase 2's 27 statements stay unimplemented. No `executor_*`, `capture_observation` or `manual_*` declarations, and no edits under T09's dirty paths or `src/media/schema.ts`.
+
+No product behaviour defect. `executeDatabaseQuery` kept SQLSTATE `23505` on a duplicate message sequence and `23503` on an unknown instruction group (`group_not_found` 404). Bigint attempt number, capture revision and message sequence above `Number.MAX_SAFE_INTEGER` round-trip as exact decimal strings. Review context keeps that exact revision text, `DISTINCT ON` latest instructions for a null group and a group (`NULLS FIRST`), disposition order including the id tiebreak for equal timestamps, and `capture_retirement_without_lineage`.
 
 Timestamptz reads still agree with pg for whole-minute offsets and can differ only for historical offsets that include seconds. `now()` defaults cannot produce those. `inArray([])` was not introduced.
 
