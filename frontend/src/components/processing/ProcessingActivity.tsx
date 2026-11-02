@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { processingClient } from '@invimport/contracts/client'
-import { useRetainedPollInterval } from '../../live/LiveUpdates'
+import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { Link, Small } from '../ui/primitives'
 

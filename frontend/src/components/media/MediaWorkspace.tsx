@@ -1,7 +1,7 @@
 import { mediaIdentityLabels } from '../../media/identity-labels'
 import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { useRetainedPollInterval } from '../../live/LiveUpdates'
+import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type { CaptureSnapshotDto, MediaEditDto, MediaVersionDto } from '@invimport/contracts'

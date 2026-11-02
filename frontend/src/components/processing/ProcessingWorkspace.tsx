@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { useRetainedPollInterval } from '../../live/LiveUpdates'
+import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import type {
   CaptureSnapshotDto,
   ProcessingAnswerDto,

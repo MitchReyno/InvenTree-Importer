@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { useRetainedPollInterval } from '../../live/LiveUpdates'
+import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import type {
   CaptureSnapshotDto,
   CaptureEditDto,

@@ -10,7 +10,7 @@ import {
   processingClient,
 } from '@invimport/contracts/client'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
-import { LiveUpdates } from './live/LiveUpdates'
+import { LiveUpdates } from './components/operations/LiveUpdates'
 import { serverScopeIdentity } from './queries/scope'
 import { Batches } from './components/batches/Batches'
 import { Batch } from './components/batches/Batch'

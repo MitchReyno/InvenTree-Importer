@@ -7,7 +7,7 @@ import type { MediaClient } from '../../media/types'
 import type { OperatorReviewClient } from '../../operator/types'
 import { useRetainedCommand } from '../../operator/useRetainedCommand'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { useRetainedPollInterval } from '../../live/LiveUpdates'
+import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { Button, ErrorNotice, Form, Label, Small, Subheading, TextArea } from '../ui/primitives'
 
 const MAX_INSTRUCTION_LENGTH = 8192
