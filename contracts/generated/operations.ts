@@ -206,5 +206,49 @@ export const clientOperations = new Map<string, ClientOperation>([
       "responseSchema": "ManualAccepted",
       "requestSchema": "ManualRecoveryCommand"
     }
+  ],
+  [
+    "GET /api/v1/batches/{id}/operator-review",
+    {
+      "timeoutMs": 45000,
+      "errorMode": "typed",
+      "responseSchema": "OperatorReview"
+    }
+  ],
+  [
+    "POST /api/v1/batches/{id}/issue-dispositions",
+    {
+      "timeoutMs": 45000,
+      "errorMode": "typed",
+      "responseSchema": "OperatorReview",
+      "requestSchema": "IssueDisposition"
+    }
+  ],
+  [
+    "POST /api/v1/batches/{id}/bulk-edits",
+    {
+      "timeoutMs": 45000,
+      "errorMode": "typed",
+      "responseSchema": "BulkEditResult",
+      "requestSchema": "BulkEdit"
+    }
+  ],
+  [
+    "POST /api/v1/batches/{id}/restructures",
+    {
+      "timeoutMs": 45000,
+      "errorMode": "typed",
+      "responseSchema": "RestructureResult",
+      "requestSchema": "Restructure"
+    }
+  ],
+  [
+    "POST /api/v1/batches/{id}/instructions",
+    {
+      "timeoutMs": 45000,
+      "errorMode": "typed",
+      "responseSchema": "OperatorReview",
+      "requestSchema": "InstructionEdit"
+    }
   ]
 ])

@@ -104,6 +104,8 @@ export const CaptureSnapshot = object({
       part_subject_id: Type.Union([Id, Type.Null()]),
       quantity: CaptureQuantity,
       location: CaptureLocation,
+      /** Server-projected: split or merged before approval; kept as history. Active lots omit it. */
+      retired: Type.Optional(Type.Literal(true)),
     }),
   ),
   notes: Type.Array(

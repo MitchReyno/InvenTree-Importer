@@ -1,13 +1,17 @@
 import { ErrorNotice } from '../ui/primitives'
 import { Button, Paragraph, Summary } from '../ui/primitives'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
+import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
+import type { OperatorReviewClient } from '../../operator/types'
+import { retiredLotIds } from '../../operator/review-model'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type {
   CaptureEditDto,
   CaptureSnapshotDto,
   CaptureObservationDto,
+  OperatorReviewDto,
 } from '@invimport/contracts'
 import type { Client } from '../../capture/client'
 import type { MediaClient } from '../../media/types'
@@ -24,6 +28,7 @@ export function Batch({
   manual,
   processing,
   media,
+  operator,
   route,
   onDirtyChange,
 }: {
@@ -32,6 +37,7 @@ export function Batch({
   manual: ManualClient
   processing?: ProcessingClient
   media?: MediaClient
+  operator?: OperatorReviewClient
   route: string
   onDirtyChange: (dirty: boolean) => void
 }) {
@@ -54,6 +60,13 @@ export function Batch({
   const queryClient = useQueryClient()
   const queryKey = serverQueryKey(scope, 'capture', id)
   const captureQuery = useQuery({ queryKey, queryFn: () => client.read(id) })
+  const operatorKey = serverQueryKey(scope, 'operator-review', id)
+  const operatorQuery = useQuery({
+    queryKey: operatorKey,
+    queryFn: () => operator!.read(id),
+    enabled: operator !== undefined,
+    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+  })
   // This is accepted edit authority, not a mirror of the latest cache value.
   const [batch, setBatch] = useState<CaptureSnapshotDto | null>(null)
   const [error, setError] = useState('')
@@ -142,6 +155,7 @@ export function Batch({
   }
 
   async function reloadSavedValues() {
+    void queryClient.invalidateQueries({ queryKey: operatorKey })
     try {
       const result = await captureQuery.refetch({ throwOnError: true })
       if (!result.data) {
@@ -155,6 +169,37 @@ export function Batch({
       setError('Saved values still unavailable. Local inputs remain unchanged.')
     }
   }
+
+  const [acceptedOperatorReview, setAcceptedOperatorReview] = useState<OperatorReviewDto>()
+  const currentOperatorReview =
+    batch &&
+    operatorQuery.isFetchedAfterMount &&
+    operatorQuery.isSuccess &&
+    operatorQuery.fetchStatus !== 'paused' &&
+    operatorQuery.data?.revision === batch.revision
+      ? operatorQuery.data
+      : undefined
+  useEffect(() => {
+    if (currentOperatorReview) {
+      setAcceptedOperatorReview(currentOperatorReview)
+    }
+  }, [currentOperatorReview])
+  // Keep draft owners mounted, but fence new commands when the latest projection is unavailable.
+  const operatorReview =
+    currentOperatorReview ??
+    (acceptedOperatorReview?.revision === batch?.revision ? acceptedOperatorReview : undefined)
+  const operatorUnavailable =
+    operator !== undefined &&
+    (!currentOperatorReview || operatorQuery.isError || operatorQuery.fetchStatus === 'paused')
+  const retired = retiredLotIds(operatorReview, batch ?? undefined)
+  const activeBatch = useMemo(
+    () =>
+      batch && retired.size
+        ? { ...batch, lots: batch.lots.filter((lot) => !retired.has(lot.id)) }
+        : batch,
+    // `retired` is derived from the same projection object.
+    [batch, operatorReview],
+  )
 
   const readUnavailable = captureQuery.isError || captureQuery.fetchStatus === 'paused'
   const visibleError =
@@ -175,6 +220,7 @@ export function Batch({
         navigate={navigate}
         reload={reloadSavedValues}
         onDirtyChange={onDirtyChange}
+        retiredLotIds={retired}
       />
     )
   } else if (batch && stage !== 'capture') {
@@ -190,15 +236,27 @@ export function Batch({
         navigate={navigate}
         reload={reloadSavedValues}
         onProcessing={onProcessing}
+        operatorReview={currentOperatorReview}
+        operator={operator}
+        media={media}
+        processing={processing}
+        onDirtyChange={onDirtyChange}
       />
     )
-  } else if (batch) {
+  } else if (batch && activeBatch) {
     content = (
       <CaptureWorkspace
         key={`${batch.id}:${batch.revision}:${reset}`}
-        batch={batch}
+        batch={activeBatch}
+        operatorReview={operatorReview}
+        operator={operator}
+        reload={reloadSavedValues}
         media={media}
-        busy={readOrCommandBusy || readUnavailable}
+        busy={
+          readOrCommandBusy ||
+          readUnavailable ||
+          (acceptedOperatorReview !== undefined && operatorUnavailable)
+        }
         edit={edit}
         observe={observe}
         onStage={navigate}
@@ -212,6 +270,20 @@ export function Batch({
 
   return (
     <>
+      {operatorUnavailable && acceptedOperatorReview && !visibleError && (
+        <ErrorNotice role="status">
+          <Paragraph>
+            Current operator review is unavailable or changed. Local input is retained until exact
+            retry or explicit discard.
+          </Paragraph>
+          <Button
+            disabled={busy || captureQuery.isFetching}
+            onClick={() => void reloadSavedValues()}
+          >
+            Discard local edits and load saved values
+          </Button>
+        </ErrorNotice>
+      )}
       {visibleError && (
         <ErrorNotice role="alert">
           <Paragraph>{visibleError}</Paragraph>

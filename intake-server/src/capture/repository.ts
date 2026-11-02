@@ -102,6 +102,11 @@ ORDER BY subject_id,field,version DESC`,
     id,
   ])
   const lots = lotsResult.rows
+  const retiredResult = await client.query<{ lot_id: string }>(
+    'SELECT lot_id FROM capture_lot_retirement WHERE batch_id=$1',
+    [id],
+  )
+  const retiredLots = new Set(retiredResult.rows.map((row) => row.lot_id))
   const notesResult = await client.query<{
     id: string
     subject_id: string | null
@@ -151,6 +156,8 @@ ORDER BY observed_at,id`,
         revision: s.revision,
         quantity: value(l.id, 'quantity', inherit),
         location: value(l.id, 'location', inherit),
+        // Active lots omit the field so their snapshot bytes are unchanged.
+        ...(retiredLots.has(l.id) ? { retired: true as const } : {}),
       }
     }),
     notes: notes.map((n) => ({ ...n, created_at: n.created_at.toISOString(), producer: 'human' })),
@@ -251,6 +258,53 @@ export async function lockCaptureForInputSettlement(
   return capture
 }
 
+type SelectionField = 'quantity' | 'location' | 'choice'
+
+/** Omission is not unset, unknown, clear or inherit; references must match a retained observation. */
+async function insertSelection(
+  c: PoolClient,
+  b: Batch,
+  subjectId: string | null,
+  field: SelectionField,
+  value: Selection | undefined,
+  version: string,
+) {
+  if (value === undefined) {
+    return
+  }
+  if (subjectId === null && value.mode === 'inherit') {
+    fail('default_cannot_inherit')
+  }
+  let observation: string | null = null
+  if (value.mode === 'set' && field !== 'quantity') {
+    if (typeof value.value !== 'object' || value.value === null) {
+      fail('invalid_reference')
+    }
+    const ref = value.value
+    if (
+      ref.model !== (field === 'choice' ? 'part' : 'location') ||
+      ref.target_context_id !== b.target_context_id
+    ) {
+      fail('invalid_reference')
+    }
+    const found = await c.query(
+      `SELECT 1
+FROM capture_observation
+WHERE batch_id=$1 AND id=$2 AND target_id=$3 AND target_context_id=$4 AND model=$5 AND pk=$6`,
+      [b.id, ref.observation_id, b.target_id, ref.target_context_id, ref.model, ref.pk],
+    )
+    if (!found.rowCount) {
+      fail('invalid_reference')
+    }
+    observation = ref.observation_id
+  }
+  await c.query(
+    `INSERT INTO capture_selection(id,batch_id,subject_id,field,version,value,observation_id,actor_id)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+    [randomUUID(), b.id, subjectId, field, version, value, observation, b.actor_id],
+  )
+}
+
 async function applyLockedCaptureEdit(
   c: PoolClient,
   b: Batch,
@@ -267,6 +321,17 @@ async function applyLockedCaptureEdit(
     subjects.find((s) => s.id === subjectId && (!kind || s.kind === kind)) ??
     fail('subject_not_found', 404)
 
+  const retiredResult = await c.query<{ lot_id: string }>(
+    'SELECT lot_id FROM capture_lot_retirement WHERE batch_id=$1',
+    [id],
+  )
+  const retired = new Set(retiredResult.rows.map((row) => row.lot_id))
+  const editedSubject =
+    change.kind === 'lot' ? change.id : change.kind === 'note' ? change.subject_id : null
+  if (editedSubject !== null && retired.has(editedSubject)) {
+    fail('lot_retired', 409)
+  }
+
   const checkPart = (partId: string | null) => {
     if (partId !== null) {
       subject(partId, 'part')
@@ -275,42 +340,8 @@ async function applyLockedCaptureEdit(
 
   const nextRevision = (BigInt(b.revision) + 1n).toString()
 
-  const select = async (subjectId: string | null, field: string, value: Selection | undefined) => {
-    if (value === undefined) {
-      return
-    } // Omission is not unset, unknown, clear or inherit.
-    if (subjectId === null && value.mode === 'inherit') {
-      fail('default_cannot_inherit')
-    }
-    let observation: string | null = null
-    if (value.mode === 'set' && field !== 'quantity') {
-      if (typeof value.value !== 'object' || value.value === null) {
-        fail('invalid_reference')
-      }
-      const ref = value.value
-      if (
-        ref.model !== (field === 'choice' ? 'part' : 'location') ||
-        ref.target_context_id !== b.target_context_id
-      ) {
-        fail('invalid_reference')
-      }
-      const found = await c.query(
-        `SELECT 1
-FROM capture_observation
-WHERE batch_id=$1 AND id=$2 AND target_id=$3 AND target_context_id=$4 AND model=$5 AND pk=$6`,
-        [id, ref.observation_id, b.target_id, ref.target_context_id, ref.model, ref.pk],
-      )
-      if (!found.rowCount) {
-        fail('invalid_reference')
-      }
-      observation = ref.observation_id
-    }
-    await c.query(
-      `INSERT INTO capture_selection(id,batch_id,subject_id,field,version,value,observation_id,actor_id)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [randomUUID(), id, subjectId, field, nextRevision, value, observation, b.actor_id],
-    )
-  }
+  const select = (subjectId: string | null, field: SelectionField, value: Selection | undefined) =>
+    insertSelection(c, b, subjectId, field, value, nextRevision)
 
   switch (change.kind) {
     case 'batch':
@@ -450,6 +481,127 @@ export async function lockCaptureForEdit(
       if (phase !== 'published') {
         fail('capture_edit_publication_required')
       }
+      return snapshot(client, config, batchId)
+    },
+  }
+}
+
+/** Facts an operator command may change while it holds the batch and subject locks. */
+export interface OperatorCommandScope {
+  batchId: string
+  sourceId: string
+  actorId: string
+  streamId: string
+  nextRevision: string
+  snapshot: CaptureSnapshotDto
+  retiredLotIds: ReadonlySet<string>
+  /** Every subject, including retired lots, counts toward the batch capacity. */
+  subjectCount: number
+  setSelection(
+    subjectId: string,
+    field: 'quantity' | 'location',
+    value: Selection | undefined,
+  ): Promise<void>
+  addLot(label: string, partSubjectId: string | null): Promise<string>
+  addPart(label: string): Promise<string>
+  setLotPart(lotId: string, partSubjectId: string | null): Promise<void>
+  touchSubject(subjectId: string): Promise<void>
+  /** Bumps the batch revision, retains exact command bytes and publishes one event. */
+  commit(command: unknown): Promise<CaptureSnapshotDto>
+}
+
+const MAX_CAPTURE_SUBJECTS = 100
+
+/** Lock a batch for a T08 operator command with the same revision and archive rules as edits. */
+export async function lockCaptureForOperatorCommand(
+  client: PoolClient,
+  config: CaptureBinding,
+  batchId: string,
+  expectedRevision: string,
+): Promise<OperatorCommandScope> {
+  const retained = await batch(client, config, batchId, true)
+  if (retained.revision !== expectedRevision) {
+    fail('revision_conflict', 412)
+  }
+  if (retained.archived) {
+    fail('batch_archived', 409)
+  }
+  const subjects = await lockCaptureSubjectHeads(client, batchId)
+  const retiredResult = await client.query<{ lot_id: string }>(
+    'SELECT lot_id FROM capture_lot_retirement WHERE batch_id=$1',
+    [batchId],
+  )
+  const nextRevision = (BigInt(retained.revision) + 1n).toString()
+  let subjectCount = subjects.length
+
+  async function addSubject(kind: 'lot' | 'part', label: string) {
+    if (subjectCount >= MAX_CAPTURE_SUBJECTS) {
+      fail('capture_capacity', 409)
+    }
+    const id = randomUUID()
+    await client.query('INSERT INTO capture_subject(batch_id,id,kind,label) VALUES($1,$2,$3,$4)', [
+      batchId,
+      id,
+      kind,
+      label,
+    ])
+    subjectCount += 1
+    return id
+  }
+
+  return {
+    batchId,
+    sourceId: retained.source_id,
+    actorId: retained.actor_id,
+    streamId: retained.stream_id,
+    nextRevision,
+    snapshot: await snapshot(client, config, batchId),
+    retiredLotIds: new Set(retiredResult.rows.map((row) => row.lot_id)),
+    get subjectCount() {
+      return subjectCount
+    },
+
+    setSelection: (subjectId, field, value) =>
+      insertSelection(client, retained, subjectId, field, value, nextRevision),
+
+    async addLot(label, partSubjectId) {
+      const id = await addSubject('lot', label)
+      await client.query(
+        `INSERT INTO capture_lot(batch_id,id,source_id,contribution_key,part_subject_id)
+VALUES($1,$2,$3,$4,$5)`,
+        [batchId, id, retained.source_id, randomUUID(), partSubjectId],
+      )
+      return id
+    },
+
+    async addPart(label) {
+      const id = await addSubject('part', label)
+      await client.query('INSERT INTO capture_part(batch_id,id) VALUES($1,$2)', [batchId, id])
+      return id
+    },
+
+    async setLotPart(lotId, partSubjectId) {
+      await client.query('UPDATE capture_lot SET part_subject_id=$2 WHERE id=$1 AND batch_id=$3', [
+        lotId,
+        partSubjectId,
+        batchId,
+      ])
+    },
+
+    async touchSubject(subjectId) {
+      await client.query(
+        'UPDATE capture_subject SET revision=revision+1 WHERE id=$1 AND batch_id=$2',
+        [subjectId, batchId],
+      )
+    },
+
+    async commit(command) {
+      retained.revision = nextRevision
+      await client.query('UPDATE capture_batch SET revision=$2,updated_at=now() WHERE id=$1', [
+        batchId,
+        nextRevision,
+      ])
+      await retainRevision(client, retained, command)
       return snapshot(client, config, batchId)
     },
   }

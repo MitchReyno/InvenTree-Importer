@@ -52,6 +52,12 @@ export async function startProcessing(
           batchId,
           input.expected_capture_revision,
         )
+        const retired = capture.snapshot.lots.filter(
+          (lot) => lot.retired === true && input.subject_ids.includes(lot.id),
+        )
+        if (retired.length) {
+          fail('subject_retired', 409)
+        }
         const media = await reserveProcessingMedia(
           client,
           config,

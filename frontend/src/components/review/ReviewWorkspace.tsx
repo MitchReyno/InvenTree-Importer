@@ -1,38 +1,146 @@
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import type { CaptureSnapshotDto, ManualWorkspaceDto } from '@invimport/contracts'
-import { Button, Heading, Panel, Paragraph, Small, Link, Notice, Field } from '../ui/primitives'
-import { ReviewQueue } from './ReviewQueue'
-import { display } from '../../capture/display'
+import type {
+  CaptureEditDto,
+  CaptureSnapshotDto,
+  ManualWorkspaceDto,
+  MediaSnapshotDto,
+  OperatorReviewDto,
+  ProcessingSnapshotDto,
+} from '@invimport/contracts'
+import { Button, Panel, Paragraph, Small, Notice } from '../ui/primitives'
+import { ReviewQueue, visibleQueueLotIds } from './ReviewQueue'
+import {
+  blockingIssues,
+  openWarnings,
+  parseReviewLocation,
+  reviewHash,
+  retiredLotIds,
+  type ReviewFilter,
+  type ReviewLocation,
+  type ReviewView,
+} from '../../operator/review-model'
+import type { OperatorReviewClient } from '../../operator/types'
+import { useDirtySources } from '../../operator/useDirtySources'
+import { useReviewKeyboard } from '../../operator/useReviewKeyboard'
+import { ReviewFilters } from '../operator/ReviewFilters'
+import { LotEvidence } from '../operator/LotEvidence'
+import { DecisionPanel } from '../operator/DecisionPanel'
+import { TableWorkspace } from '../operator/TableWorkspace'
 
 interface Props {
   batch: CaptureSnapshotDto
   workspace: ManualWorkspaceDto
+  operatorReview?: OperatorReviewDto
+  operator?: OperatorReviewClient
+  media?: MediaSnapshotDto
+  processing?: ProcessingSnapshotDto
   selected: string[]
+  maxSelected: number
   busy: boolean
   stale: boolean
   toggle: (id: string) => void
   review: () => void
+  reviewLots: (ids: string[]) => void
   prepare: () => void
+  edit: (change: CaptureEditDto['change']) => Promise<void>
+  reload: () => Promise<void>
+  onDirtyChange?: (dirty: boolean) => void
+}
+
+function initialLocation(batch: CaptureSnapshotDto): ReviewLocation {
+  const parsed = parseReviewLocation(location.hash)
+  const known = batch.lots.some((lot) => lot.id === parsed.lotId)
+  return { ...parsed, lotId: known ? parsed.lotId : null }
+}
+
+/** Why the selected scope cannot be marked reviewed yet, if anything. */
+function selectionProblem(
+  selected: string[],
+  workspace: ManualWorkspaceDto,
+  operatorReview?: OperatorReviewDto,
+) {
+  if (!selected.length) {
+    return null
+  }
+  if (operatorReview) {
+    const lots = operatorReview.lots.filter((lot) => selected.includes(lot.lot_id))
+    if (lots.length !== selected.length) {
+      return 'A selected lot was split or merged; reselect from the current lots.'
+    }
+    if (lots.some((lot) => blockingIssues(lot).length)) {
+      return 'Fix blocking problems in the selected lots first.'
+    }
+    if (lots.some((lot) => openWarnings(lot).length)) {
+      return 'Fix or dismiss warnings in the selected lots first.'
+    }
+    return null
+  }
+  const statuses = workspace.lots.filter((value) => selected.includes(value.lot_id))
+  return statuses.some((value) => value.issues.length > 0)
+    ? 'Fix blocking problems in the selected lots first.'
+    : null
+}
+
+function scopeReviewed(
+  selected: string[],
+  workspace: ManualWorkspaceDto,
+  operatorReview?: OperatorReviewDto,
+) {
+  if (!selected.length) {
+    return false
+  }
+  if (operatorReview) {
+    const lots = operatorReview.lots.filter((lot) => selected.includes(lot.lot_id))
+    return lots.length === selected.length && lots.every((lot) => lot.review_state === 'reviewed')
+  }
+  const statuses = workspace.lots.filter((value) => selected.includes(value.lot_id))
+  return statuses.length === selected.length && statuses.every((value) => value.reviewed)
 }
 
 export function ReviewWorkspace({
   batch,
   workspace,
+  operatorReview: observedOperatorReview,
+  operator,
+  media,
+  processing,
   selected,
+  maxSelected,
   busy,
   stale,
   toggle,
   review,
+  reviewLots,
   prepare,
+  edit,
+  reload,
+  onDirtyChange,
 }: Props) {
-  const initial = location.hash.split('/')[2]
-  const [focused, setFocused] = useState<string | null>(() =>
-    batch.lots.some((value) => value.id === initial) ? initial : null,
+  const [acceptedOperatorReview, setAcceptedOperatorReview] = useState(
+    observedOperatorReview?.revision === batch.revision ? observedOperatorReview : undefined,
   )
+  const currentOperatorReview =
+    observedOperatorReview?.revision === batch.revision ? observedOperatorReview : undefined
+  const operatorReview = currentOperatorReview ?? acceptedOperatorReview
+  const reviewUnavailable = operator !== undefined && currentOperatorReview === undefined
+  useEffect(() => {
+    if (currentOperatorReview) {
+      setAcceptedOperatorReview(currentOperatorReview)
+    }
+  }, [currentOperatorReview])
+  const drafts = useDirtySources(onDirtyChange)
+  const [navigationBlocked, setNavigationBlocked] = useState(false)
+  const [route, setRoute] = useState(() => initialLocation(batch))
+  const [editSignal, setEditSignal] = useState(0)
   const evidenceRef = useRef<HTMLElement>(null)
   const queueRef = useRef<HTMLDivElement>(null)
-  const previousFocus = useRef(focused)
+  const previousFocus = useRef(route.lotId)
+  const retired = retiredLotIds(operatorReview, batch)
+  const activeLotIds = batch.lots.filter((lot) => !retired.has(lot.id)).map((lot) => lot.id)
+  const visibleIds = visibleQueueLotIds(batch, operatorReview, route.filter)
+  const focused = route.lotId && activeLotIds.includes(route.lotId) ? route.lotId : null
+
   useEffect(() => {
     if (focused) {
       evidenceRef.current?.focus({ preventScroll: true })
@@ -41,37 +149,100 @@ export function ReviewWorkspace({
     }
     previousFocus.current = focused
   }, [focused])
-  const lot = batch.lots.find((value) => value.id === focused)
-  const part = batch.parts.find((value) => value.id === lot?.part_subject_id)
-  const partChoice = part?.choice.mode === 'set' ? part.choice.value : null
-  const status = workspace.lots.find((value) => value.lot_id === lot?.id)
-  const selectedStatus = workspace.lots.filter((value) => selected.includes(value.lot_id))
-  const blocked = selectedStatus.some((value) => value.issues.length > 0)
-  const reviewed =
-    selected.length > 0 &&
-    selectedStatus.length === selected.length &&
-    selectedStatus.every((value) => value.reviewed)
 
-  function inspect(id: string) {
-    setFocused(id)
-    history.replaceState(null, '', `#${batch.id}/review/${id}`)
+  function navigate(next: Partial<ReviewLocation>) {
+    if (drafts.isDirty()) {
+      setNavigationBlocked(true)
+      return
+    }
+    setNavigationBlocked(false)
+    const value = { ...route, ...next }
+    setRoute(value)
+    history.replaceState(null, '', reviewHash(batch.id, value))
   }
 
-  const notes = batch.notes.filter(
-    (value) =>
-      value.subject_id === null || value.subject_id === lot?.id || value.subject_id === part?.id,
+  function inspect(id: string | null) {
+    navigate({ lotId: id, view: id ? 'evidence' : route.view })
+  }
+
+  function move(offset: number) {
+    if (!visibleIds.length) {
+      return
+    }
+    const index = focused ? visibleIds.indexOf(focused) : -1
+    const nextIndex = Math.min(Math.max(index + offset, 0), visibleIds.length - 1)
+    inspect(visibleIds[nextIndex])
+  }
+
+  useReviewKeyboard(
+    {
+      next: () => move(1),
+      previous: () => move(-1),
+      markReviewed: () => {
+        if (
+          focused &&
+          !drafts.isDirty() &&
+          !reviewUnavailable &&
+          !busy &&
+          !stale &&
+          !selectionProblem([focused], workspace, operatorReview)
+        ) {
+          reviewLots([focused])
+        }
+      },
+      editQuantity: () => {
+        if (focused) {
+          setEditSignal((value) => value + 1)
+        }
+      },
+      viewEvidence: () => evidenceRef.current?.focus(),
+    },
+    route.view === 'evidence',
   )
+
+  const lot = batch.lots.find((value) => value.id === focused)
+  const part = batch.parts.find((value) => value.id === lot?.part_subject_id)
+  const operatorLot = operatorReview?.lots.find((value) => value.lot_id === lot?.id)
+  const problem = selectionProblem(selected, workspace, operatorReview)
+  const reviewed = scopeReviewed(selected, workspace, operatorReview)
   return (
     <>
+      {navigationBlocked && drafts.dirty && (
+        <Notice role="status">
+          Save or explicitly discard local edits before switching lots or views.
+        </Notice>
+      )}
+      {reviewUnavailable && (
+        <Notice role="status">
+          Current operator review is unavailable or changed. Local drafts and exact retry intents
+          are retained; reload saved values deliberately before new commands.
+        </Notice>
+      )}
       <ScopeBar>
         <div>
           <strong>{selected.length} selected</strong>
-          <Small>{batch.lots.length - selected.length} remain outside this scope.</Small>
+          <Small>{activeLotIds.length - selected.length} remain outside this scope.</Small>
+          {problem && <Small role="status">{problem}</Small>}
         </div>
-        <Button disabled={busy || stale || blocked || !selected.length} onClick={review}>
+        <Button
+          disabled={
+            drafts.dirty ||
+            reviewUnavailable ||
+            busy ||
+            stale ||
+            Boolean(problem) ||
+            !selected.length
+          }
+          onClick={review}
+        >
           Mark selected reviewed
         </Button>
-        <Button disabled={busy || stale || blocked || !reviewed} onClick={prepare}>
+        <Button
+          disabled={
+            drafts.dirty || reviewUnavailable || busy || stale || Boolean(problem) || !reviewed
+          }
+          onClick={prepare}
+        >
           Prepare exact selected effects
         </Button>
       </ScopeBar>
@@ -81,108 +252,110 @@ export function ReviewWorkspace({
           qualified; the real inventory stays read-only.
         </Notice>
       )}
-      <ReviewGrid $focused={Boolean(lot)}>
-        <QueueFocus ref={queueRef} tabIndex={-1} data-area="queue">
-          <ReviewQueue
-            batch={batch}
-            workspace={workspace}
-            selected={selected}
-            focused={focused}
-            busy={busy}
-            toggle={toggle}
-            inspect={inspect}
-          />
-        </QueueFocus>
-        {lot && (
-          <BackButton
-            data-area="back"
-            onClick={() => {
-              setFocused(null)
-              history.replaceState(null, '', `#${batch.id}/review`)
-            }}
-          >
-            ← Physical lots and selection
-          </BackButton>
-        )}
-        <Panel data-area="evidence" ref={evidenceRef} tabIndex={-1} aria-label="Human evidence">
-          <Heading>Human evidence</Heading>
-          <Small>
-            Original notes are retained evidence. No automated inference or uploads are enabled.
-          </Small>
-          {lot ? (
-            <>
-              <Paragraph>
-                <strong>{lot.label}</strong> · {part?.label ?? 'No shared Part chosen'}
-              </Paragraph>
-              {notes.map((note) => (
-                <Field key={note.id}>
-                  <strong>
-                    {note.subject_id === null
-                      ? 'Batch note'
-                      : note.subject_id === part?.id
-                        ? 'Shared Part note'
-                        : 'Physical lot note'}
-                  </strong>
-                  <OriginalNote>{note.text || 'Empty original note'}</OriginalNote>
-                  <Small>Human · {new Date(note.created_at).toLocaleString()}</Small>
-                </Field>
-              ))}
-            </>
-          ) : (
-            <Paragraph>
-              Inspect a physical lot to compare its retained evidence and saved choices.
-            </Paragraph>
+      {operatorReview && (
+        <Toolbar>
+          <ModeSwitch role="tablist" aria-label="Review view">
+            {(['evidence', 'table'] as ReviewView[]).map((view) => (
+              <ModeTab
+                key={view}
+                type="button"
+                role="tab"
+                aria-selected={route.view === view}
+                onClick={() => navigate({ view })}
+              >
+                {view === 'evidence' ? 'Evidence' : 'Table'}
+              </ModeTab>
+            ))}
+          </ModeSwitch>
+          <Small>J/K move · R mark reviewed · E edit quantity · V view evidence</Small>
+        </Toolbar>
+      )}
+      {operatorReview && (
+        <ReviewFilters
+          review={operatorReview}
+          filter={route.filter}
+          choose={(filter: ReviewFilter) => navigate({ filter })}
+        />
+      )}
+      {operatorReview && operator && route.view === 'table' ? (
+        <TableWorkspace
+          batch={batch}
+          review={operatorReview}
+          client={operator}
+          lotIds={route.filter === 'retired' ? [] : visibleIds}
+          activeLotIds={activeLotIds}
+          disabled={busy || stale || reviewUnavailable}
+          maxReviewLots={maxSelected}
+          inspect={inspect}
+          reviewLots={reviewLots}
+          reload={reload}
+          onDirtyChange={drafts.forSource('workspace')}
+        />
+      ) : (
+        <ReviewGrid $focused={Boolean(lot)}>
+          <QueueFocus ref={queueRef} tabIndex={-1} data-area="queue">
+            <ReviewQueue
+              batch={batch}
+              workspace={workspace}
+              operatorReview={operatorReview}
+              filter={route.filter}
+              lotIds={visibleIds}
+              selected={selected}
+              focused={focused}
+              busy={busy || reviewUnavailable}
+              maxSelected={maxSelected}
+              toggle={toggle}
+              inspect={inspect}
+            />
+          </QueueFocus>
+          {lot && (
+            <BackButton data-area="back" onClick={() => inspect(null)}>
+              ← Physical lots and selection
+            </BackButton>
           )}
-        </Panel>
-        <Panel data-area="details">
-          <Heading>{lot ? lot.label : 'Exact saved choices'}</Heading>
-          {lot ? (
-            <>
-              <Field>
-                <strong>Existing Part</strong>
-                <Paragraph>
-                  {partChoice
-                    ? `${batch.observations.find((value) => value.id === partChoice.observation_id)?.label ?? 'Observed Part'} (#${partChoice.pk})`
-                    : 'Not selected'}
-                </Paragraph>
-                <Small>{part?.label ?? 'No shared proposal'} · shared prerequisite only</Small>
-              </Field>
-              <Field>
-                <strong>Quantity</strong>
-                <Paragraph>{display(lot.quantity, batch, 'quantity')}</Paragraph>
-              </Field>
-              <Field>
-                <strong>Location</strong>
-                <Paragraph>{display(lot.location, batch, 'location')}</Paragraph>
-              </Field>
-              {status?.issues.map((problem, index) => (
-                <Notice key={`${problem.code}:${index}`}>
-                  {problem.message}
-                  {problem.run_id && (
-                    <>
-                      <br />
-                      <Link href={`#${batch.id}/results/${problem.run_id}`}>
-                        Inspect original run
-                      </Link>
-                    </>
-                  )}
-                </Notice>
-              ))}
+          <Panel data-area="evidence" ref={evidenceRef} tabIndex={-1} aria-label="Human evidence">
+            {lot ? (
+              <LotEvidence
+                batch={batch}
+                lot={lot}
+                part={part}
+                operatorLot={operatorLot}
+                media={media}
+                processing={processing}
+              />
+            ) : (
               <Paragraph>
-                {status?.reviewed
-                  ? 'Reviewed exact current dependencies.'
-                  : 'Review binds these saved choices and relevant human notes.'}
+                Inspect a physical lot to compare its retained evidence and saved choices.
               </Paragraph>
-              <Link href={`#${batch.id}/${lot.id}`}>Edit saved choices in Capture</Link>
-            </>
-          ) : (
-            <Paragraph>
-              Marking reviewed changes no inventory. Preparation performs bounded read-only checks,
-              then freezes the selected effects.
-            </Paragraph>
-          )}
-        </Panel>
-      </ReviewGrid>
+            )}
+          </Panel>
+          <Panel data-area="details" aria-label="Decision">
+            {lot ? (
+              <DecisionPanel
+                key={lot.id}
+                batch={batch}
+                lot={lot}
+                part={part}
+                workspace={workspace}
+                operatorLot={operatorLot}
+                activeLotIds={activeLotIds}
+                operator={operator}
+                disabled={busy || stale || reviewUnavailable || batch.archived}
+                edit={edit}
+                reload={reload}
+                inspect={inspect}
+                editSignal={editSignal}
+                onDirtyChange={drafts.forSource('workspace')}
+              />
+            ) : (
+              <Paragraph>
+                Marking reviewed changes no inventory. Preparation performs bounded read-only
+                checks, then freezes the selected effects.
+              </Paragraph>
+            )}
+          </Panel>
+        </ReviewGrid>
+      )}
     </>
   )
 }
@@ -199,6 +372,33 @@ const ScopeBar = styled.div`
   border-radius: 6px;
   > div {
     margin-right: auto;
+  }
+`
+const Toolbar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 10px;
+`
+const ModeSwitch = styled.div`
+  display: inline-flex;
+  border: 1px solid #c8d3e1;
+  border-radius: 6px;
+  overflow: hidden;
+`
+const ModeTab = styled.button`
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 0;
+  background: white;
+  color: #3c4b61;
+  cursor: pointer;
+  &[aria-selected='true'] {
+    background: #e0eafa;
+    color: #164a93;
+    font-weight: 600;
   }
 `
 const ReviewGrid = styled.div<{ $focused: boolean }>`
@@ -236,11 +436,6 @@ const BackButton = styled(Button)`
     display: block;
     margin-bottom: 12px;
   }
-`
-
-const OriginalNote = styled(Paragraph)`
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 `
 const QueueFocus = styled.div`
   min-width: 0;

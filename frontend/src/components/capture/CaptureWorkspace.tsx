@@ -7,6 +7,7 @@ import { CaptureHeader } from './CaptureHeader'
 import { CaptureQueue } from './CaptureQueue'
 import { EvidencePanel } from './EvidencePanel'
 import { CaptureEditor } from './CaptureEditor'
+import { InstructionsPanel } from '../operator/InstructionsPanel'
 
 export function CaptureWorkspace({
   batch,
@@ -17,19 +18,32 @@ export function CaptureWorkspace({
   onStage,
   onProcessing,
   onDirtyChange,
+  operatorReview,
+  operator,
+  reload,
 }: CaptureWorkspaceProps) {
   const [selected, select] = useState(() => location.hash.split('/')[1] || 'defaults')
   const [focused, setFocused] = useState(() => Boolean(location.hash.split('/')[1]))
   const [editorDirty, setDirty] = useState(false)
   const [mediaDirty, setMediaDirty] = useState(false)
-  const dirtyFlags = useRef({ editor: false, media: false })
-  const dirty = editorDirty || mediaDirty
+  const [instructionsDirty, setInstructionsDirty] = useState(false)
+  const dirtyFlags = useRef({ editor: false, media: false, instructions: false })
+  const dirty = editorDirty || mediaDirty || instructionsDirty
 
   const reportMediaDirty = useCallback(
     (value: boolean) => {
       dirtyFlags.current.media = value
       setMediaDirty(value)
-      onDirtyChange?.(dirtyFlags.current.editor || dirtyFlags.current.media)
+      onDirtyChange?.(anyDirty(dirtyFlags.current))
+    },
+    [onDirtyChange],
+  )
+
+  const reportInstructionsDirty = useCallback(
+    (value: boolean) => {
+      dirtyFlags.current.instructions = value
+      setInstructionsDirty(value)
+      onDirtyChange?.(anyDirty(dirtyFlags.current))
     },
     [onDirtyChange],
   )
@@ -39,7 +53,7 @@ export function CaptureWorkspace({
   function reportDirty(value: boolean) {
     dirtyFlags.current.editor = value
     setDirty(value)
-    onDirtyChange?.(dirtyFlags.current.editor || dirtyFlags.current.media)
+    onDirtyChange?.(anyDirty(dirtyFlags.current))
   }
 
   function setSelected(value: string) {
@@ -97,7 +111,7 @@ export function CaptureWorkspace({
           batch={batch}
           selected={selected}
           dirty={dirty}
-          frozen={frozen}
+          frozen={frozen || instructionsDirty}
           setSelected={setSelected}
         />
 
@@ -106,7 +120,7 @@ export function CaptureWorkspace({
           selected={selected}
           dirty={editorDirty}
           navigationDirty={dirty}
-          frozen={frozen}
+          frozen={frozen || instructionsDirty}
           setSelected={setSelected}
           media={media}
           onMediaDirtyChange={reportMediaDirty}
@@ -139,16 +153,31 @@ export function CaptureWorkspace({
             key={selected}
             batch={batch}
             selected={selected}
-            frozen={frozen || mediaDirty}
+            frozen={frozen || mediaDirty || instructionsDirty}
             dirty={editorDirty}
             onDirty={reportDirty}
             edit={edit}
             observe={observe}
           />
+          {selected === 'defaults' && operator && operatorReview && reload && (
+            <InstructionsPanel
+              batch={batch}
+              review={operatorReview}
+              client={operator}
+              media={media}
+              disabled={frozen || editorDirty || mediaDirty}
+              reload={reload}
+              onDirtyChange={reportInstructionsDirty}
+            />
+          )}
         </EditorPanel>
       </CaptureGrid>
     </>
   )
+}
+
+function anyDirty(flags: { editor: boolean; media: boolean; instructions: boolean }) {
+  return flags.editor || flags.media || flags.instructions
 }
 
 const CaptureGrid = styled.div<{ $focused: boolean }>`

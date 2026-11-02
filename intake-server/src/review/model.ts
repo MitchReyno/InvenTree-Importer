@@ -3,21 +3,57 @@ import { canonical } from '@invimport/contracts/json'
 import { sha256 } from '../db/authority.ts'
 import type { MediaInputs } from '../media/inputs.ts'
 import { contributionBarcode } from '../execution/plan.ts'
+import {
+  EMPTY_REVIEW_CONTEXT,
+  type CaptureReviewContext,
+  type IssueDispositionRecord,
+} from '../capture/review-context.ts'
 
 export interface SubjectDependency {
   subjectId: string
   bytes: Buffer
   digest: Buffer
+  /** Digest of the subject's facts alone; warning dismissals bind to it. */
+  factDigest: Buffer
 }
+
+/** Deterministic warnings: each needs a fix or a recorded reasoned dismissal before review. */
+export type ReviewWarningCode = 'no_supporting_evidence' | 'possible_duplicate_part'
+
+export interface ReviewWarning {
+  code: ReviewWarningCode
+  message: string
+  subjectId: string
+  lotId: string | null
+  factDigest: string
+  disposition: IssueDispositionRecord | null
+}
+
 export interface ManualMaterial {
   selected: string[]
   effects: ManualEffectDto[]
   subjects: SubjectDependency[]
   issues: ManualIssueDto[]
+  warnings: ReviewWarning[]
   bytes: Buffer
   digest: Buffer
   mediaInputs?: ReadonlyMap<string, MediaInputs>
 }
+
+export const WARNING_CODES: readonly ReviewWarningCode[] = [
+  'no_supporting_evidence',
+  'possible_duplicate_part',
+]
+
+const WARNING_MESSAGES: Record<ReviewWarningCode, string> = {
+  no_supporting_evidence:
+    'No note or linked media on this lot, its Part proposal or its predecessors supports it.',
+  possible_duplicate_part:
+    'Another Part proposal in this batch chooses the same existing Part. Share one proposal unless they differ.',
+}
+
+/** Successors inherit predecessor evidence; lineage depth is bounded by subject capacity. */
+const MAX_LINEAGE_DEPTH = 100
 
 export function issue(
   code: string,
@@ -28,20 +64,155 @@ export function issue(
   return { code, message, lot_id: lotId, run_id: runId }
 }
 
+type Lot = CaptureSnapshotDto['lots'][number]
+type Part = CaptureSnapshotDto['parts'][number]
+
+export function ancestorLotIds(context: CaptureReviewContext, lotId: string): string[] {
+  const found = new Set<string>()
+  let frontier = context.predecessors.get(lotId) ?? []
+  for (let depth = 0; frontier.length && depth < MAX_LINEAGE_DEPTH; depth += 1) {
+    const next: string[] = []
+    for (const id of frontier) {
+      if (!found.has(id)) {
+        found.add(id)
+        next.push(...(context.predecessors.get(id) ?? []))
+      }
+    }
+    frontier = next
+  }
+  return [...found].sort()
+}
+
+function activePartIds(snapshot: CaptureSnapshotDto, context: CaptureReviewContext) {
+  const ids = new Set<string>()
+  for (const lot of snapshot.lots) {
+    if (lot.part_subject_id && !context.retiredLotIds.has(lot.id)) {
+      ids.add(lot.part_subject_id)
+    }
+  }
+  return ids
+}
+
+function duplicatesExistingPart(
+  snapshot: CaptureSnapshotDto,
+  context: CaptureReviewContext,
+  part: Part,
+) {
+  if (part.choice.mode !== 'set') {
+    return false
+  }
+  const pk = part.choice.value.pk
+  const active = activePartIds(snapshot, context)
+  return snapshot.parts.some(
+    (other) =>
+      other.id !== part.id &&
+      active.has(other.id) &&
+      other.choice.mode === 'set' &&
+      other.choice.value.pk === pk,
+  )
+}
+
+function hasSupportingEvidence(
+  snapshot: CaptureSnapshotDto,
+  context: CaptureReviewContext,
+  lot: Lot,
+  mediaDigests: ReadonlyMap<string, string>,
+  linkedMediaSubjects: ReadonlySet<string>,
+) {
+  const evidenceSubjects = new Set([lot.id, ...ancestorLotIds(context, lot.id)])
+  if (lot.part_subject_id) {
+    evidenceSubjects.add(lot.part_subject_id)
+  }
+  const noted = snapshot.notes.some(
+    (note) =>
+      note.subject_id !== null && evidenceSubjects.has(note.subject_id) && note.text.trim() !== '',
+  )
+  const linked = [...evidenceSubjects].some(
+    (subjectId) => mediaDigests.has(subjectId) || linkedMediaSubjects.has(subjectId),
+  )
+  return noted || linked
+}
+
+function currentDisposition(
+  context: CaptureReviewContext,
+  subjectId: string,
+  code: ReviewWarningCode,
+  factDigest: string,
+) {
+  const records = context.dispositions.get(subjectId) ?? []
+  const matching = records.find(
+    (record) => record.code === code && record.dependencyDigest === factDigest,
+  )
+  return matching ?? null
+}
+
 /** Exact selected dependency closure: explicit overrides exclude irrelevant default changes. */
 export function materialize(
   snapshot: CaptureSnapshotDto,
   selectedIds: string[],
   mediaDigests: ReadonlyMap<string, string> = new Map(),
+  context: CaptureReviewContext = EMPTY_REVIEW_CONTEXT,
+  /** Subjects with linked media, including retired predecessors; presence only, never sealed. */
+  linkedMediaSubjects: ReadonlySet<string> = new Set(),
 ): ManualMaterial {
   const selected = [...selectedIds].sort()
   const issues: ManualIssueDto[] = []
   const effects: ManualEffectDto[] = []
   const subjects = new Map<string, SubjectDependency>()
+  const warnings = new Map<string, ReviewWarning>()
 
-  function retain(subjectId: string, value: unknown) {
-    const bytes = Buffer.from(canonical(value))
-    subjects.set(subjectId, { subjectId, bytes, digest: sha256(bytes) })
+  /**
+   * Retained /1 and /2 bytes are unchanged when a subject has no lineage or dismissal.
+   * Otherwise /3 wraps the same facts with current dispositions and predecessor IDs.
+   */
+  function retain(
+    subjectId: string,
+    lotId: string | null,
+    facts: unknown,
+    raised: ReviewWarningCode[],
+    predecessorLotIds: string[] = [],
+    dismissalFacts: unknown = facts,
+  ) {
+    const factBytes = Buffer.from(canonical(facts))
+    const factDigest = sha256(Buffer.from(canonical(dismissalFacts)))
+    const factHex = factDigest.toString('hex')
+    const dispositions: IssueDispositionRecord[] = []
+    for (const code of raised) {
+      const disposition = currentDisposition(context, subjectId, code, factHex)
+      if (disposition) {
+        dispositions.push(disposition)
+      }
+      warnings.set(`${subjectId}:${code}`, {
+        code,
+        message: WARNING_MESSAGES[code],
+        subjectId,
+        lotId,
+        factDigest: factHex,
+        disposition,
+      })
+    }
+    if (!dispositions.length && !predecessorLotIds.length) {
+      subjects.set(subjectId, {
+        subjectId,
+        bytes: factBytes,
+        digest: sha256(factBytes),
+        factDigest,
+      })
+      return
+    }
+    const bytes = Buffer.from(
+      canonical({
+        version: 'manual-subject-review/3',
+        facts,
+        dispositions: dispositions.map((value) => ({
+          id: value.id,
+          code: value.code,
+          reason: value.reason,
+        })),
+        predecessorLotIds,
+      }),
+    )
+    subjects.set(subjectId, { subjectId, bytes, digest: sha256(bytes), factDigest })
   }
 
   if (snapshot.archived) {
@@ -52,6 +223,12 @@ export function materialize(
     if (!lot) {
       issues.push(
         issue('lot_not_found', 'The selected physical lot does not belong to this batch.', lotId),
+      )
+      continue
+    }
+    if (context.retiredLotIds.has(lotId)) {
+      issues.push(
+        issue('lot_retired', 'This lot was split or merged; review its successor lots.', lotId),
       )
       continue
     }
@@ -82,7 +259,7 @@ export function materialize(
         value.subject_id === null || value.subject_id === lotId || value.subject_id === part?.id,
     )
     if (part) {
-      retain(part.id, {
+      const partFacts = {
         version: mediaDigests.has(part.id) ? 'manual-part-review/2' : 'manual-part-review/1',
         ...(mediaDigests.has(part.id) ? { mediaDigest: mediaDigests.get(part.id) } : {}),
         batchId: snapshot.id,
@@ -92,9 +269,14 @@ export function materialize(
         notes: snapshot.notes.filter(
           (value) => value.subject_id === null || value.subject_id === part.id,
         ),
-      })
+      }
+      const partWarnings: ReviewWarningCode[] = []
+      if (duplicatesExistingPart(snapshot, context, part)) {
+        partWarnings.push('possible_duplicate_part')
+      }
+      retain(part.id, null, partFacts, partWarnings)
     }
-    retain(lotId, {
+    const lotFacts = {
       version: mediaDigests.has(lotId) ? 'manual-lot-review/2' : 'manual-lot-review/1',
       ...(mediaDigests.has(lotId) ? { mediaDigest: mediaDigests.get(lotId) } : {}),
       batchId: snapshot.id,
@@ -106,7 +288,24 @@ export function materialize(
       effectiveLocation: location,
       partDigest: part ? subjects.get(part.id)!.digest.toString('hex') : null,
       notes,
-    })
+    }
+    const lotWarnings: ReviewWarningCode[] = []
+    if (!hasSupportingEvidence(snapshot, context, lot, mediaDigests, linkedMediaSubjects)) {
+      lotWarnings.push('no_supporting_evidence')
+    }
+    // A lot dismissal binds to the Part's facts, not to the Part's own dismissals.
+    const lotDismissalFacts = {
+      ...lotFacts,
+      partDigest: part ? subjects.get(part.id)!.factDigest.toString('hex') : null,
+    }
+    retain(
+      lotId,
+      lotId,
+      lotFacts,
+      lotWarnings,
+      context.predecessors.get(lotId) ?? [],
+      lotDismissalFacts,
+    )
     if (
       part?.choice.mode === 'set' &&
       quantity.mode === 'set' &&
@@ -173,5 +372,18 @@ export function materialize(
       effects,
     }),
   )
-  return { selected, effects, subjects: retainedSubjects, issues, bytes, digest: sha256(bytes) }
+  return {
+    selected,
+    effects,
+    subjects: retainedSubjects,
+    issues,
+    warnings: [...warnings.values()],
+    bytes,
+    digest: sha256(bytes),
+  }
+}
+
+/** Warnings without a current dismissal; they block marking the scope reviewed. */
+export function unresolvedWarnings(material: ManualMaterial): ReviewWarning[] {
+  return material.warnings.filter((warning) => warning.disposition === null)
 }

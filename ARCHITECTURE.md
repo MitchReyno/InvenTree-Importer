@@ -46,6 +46,10 @@ PostgreSQL owns logical attempts and actor-lane reservations; DBOS provides boun
 
 Processing UI exposes the approved subviews, pinned React Hook Form questions, scoped retained reads and separate global lane activity. The injected research adapter is fixture-only and has no inventory mutation capability. Native inference, entitlement, content inspection and final identity remain future qualification; application model tests use stubs until explicit authorization.
 
+## Operator review
+
+T08 turns Review into an evidence workspace and table over the same retained facts. The [intake-server operator review boundary](intake-server/ARCHITECTURE.md#operator-review-and-unapproved-restructuring) adds reasoned warning dismissals, atomic bulk edits, unapproved lot split/merge/move with lineage and server dry-run impact previews, and versioned human instructions. Retired lots remain capture history. Instructions are not consumed by the current fixture-only Processing profiles. The [T08 handover](docs/handovers/bench-intake-T08.md) records evidence and limits.
+
 ## Restricted research fixture
 
 T07 adds an explicit `restricted-research-stub/1` profile with version3 Processing authority. The [research boundary](intake-server/src/research/ARCHITECTURE.md) owns scoped staged-evidence reads, semantic inventory reads, exact admitted public-source fetching and immutable receipt provenance. The controlled protocol child receives bounded tool results through the broker; source credentials, private storage paths and application authority remain host-owned.

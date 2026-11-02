@@ -17,7 +17,7 @@ import { encodeExecutablePlan } from '../execution/media-plan.ts'
 import { mediaPreview } from './media-preview.ts'
 import { retainPreparationMedia } from './media-preparation.ts'
 import { preparedPlan } from './media-plan.ts'
-import { issue, type ManualMaterial } from './model.ts'
+import { issue, unresolvedWarnings, type ManualMaterial } from './model.ts'
 import {
   lockedCapture,
   deploymentBinding,
@@ -44,6 +44,13 @@ function normalized(input: ManualScopeDto) {
   return { ...input, selected_lot_ids: [...input.selected_lot_ids].sort() }
 }
 
+/** A warning blocks review and preparation until fixed or dismissed with a reason. */
+export function warningIssues(material: ManualMaterial) {
+  return unresolvedWarnings(material).map((warning) =>
+    issue('warning_unresolved', warning.message, warning.lotId),
+  )
+}
+
 async function checkedSelection(
   client: PoolClient,
   config: ManualConfig,
@@ -61,7 +68,7 @@ async function checkedSelection(
     input.selected_lot_ids,
   )
   const binding = await deploymentBinding(client, config)
-  const issues = [...material.issues]
+  const issues = [...material.issues, ...warningIssues(material)]
   if (!binding) {
     issues.push(
       issue(
@@ -332,7 +339,7 @@ export async function prepareSelection(
     )
     const binding = await deploymentBinding(client, config)
     const reviews = await currentReviews(client, batchId, material)
-    const issues = [...readIssues, ...material.issues]
+    const issues = [...readIssues, ...material.issues, ...warningIssues(material)]
     issues.push(
       ...(await historyIssues(client, capture.source, material, capture.guard.activeRunId)),
     )
@@ -509,6 +516,7 @@ export async function approvePreparation(
         const reviews = await currentReviews(client, preview.batch_id, material)
         const problems = [
           ...material.issues,
+          ...warningIssues(material),
           ...(await historyIssues(client, capture.source, material, capture.guard.activeRunId)),
         ]
         if (problems.length) {

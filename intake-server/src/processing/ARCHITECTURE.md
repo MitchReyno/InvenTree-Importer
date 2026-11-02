@@ -59,6 +59,9 @@ Dependency authority has two parts: the immutable exact predecessor graph and th
 
 Historical predecessor inputs are not recomputed against the newest capture/media snapshot. An explicit accepted research answer deliberately creates a fresh research/downstream input while retaining its selected ready reading predecessor. The consumer itself still compares its complete own capture/media closure against current authority, so an unaccepted edit cannot become current by preserving an old dependency ID. Current-but-unfinished predecessors keep queued work visible without permitting a claim; stale nonterminal output retains bytes and physical lane occupancy until exact terminal settlement or confirmed reap.
 
+## Retired subjects
+
+A lot split or merged before approval is marked `retired: true` in the capture snapshot. `startProcessing` refuses it with `subject_retired` (409) inside the idempotency closure, so an earlier committed start still adopts its receipt. `processingInputIsCurrent` treats a retired subject as stale, which the existing stale policy then applies everywhere: a queued claim becomes `superseded` without new work, an answer fails with `stale_question`, and reads project the job and open questions as `superseded` while retained proposals stay listed. Retirement never releases a held lane; only its exact terminal settlement or reap does. The [T08 handover](../../../docs/handovers/bench-intake-T08.md) records the PG evidence.
 
 ## Restricted fixture profile
 

@@ -5,6 +5,7 @@ import { lockMediaRevision } from '../media/commands.ts'
 import { mediaSnapshot } from '../media/read.ts'
 import { scopeMediaInputs, type MediaInputs } from '../media/inputs.ts'
 import { materialize, issue, type ManualMaterial } from './model.ts'
+import { loadReviewContext } from '../capture/review-context.ts'
 import type { ManualConfig } from './authority.ts'
 
 const MAX_APPROVED_MEDIA_VERSIONS = 64
@@ -53,7 +54,8 @@ export async function materializeWithMedia(
   selectedIds: string[],
   lock = true,
 ): Promise<ManualMaterial> {
-  const base = materialize(snapshot, selectedIds)
+  const context = await loadReviewContext(client, snapshot.id)
+  const base = materialize(snapshot, selectedIds, new Map(), context)
   if (!config.mediaEnabled) {
     return unavailableMedia(client, config, snapshot, base)
   }
@@ -93,7 +95,8 @@ export async function materializeWithMedia(
     )
     return base
   }
-  const material = materialize(snapshot, selectedIds, digests)
+  const linkedMediaSubjects = new Set(media.evidence.flatMap((value) => value.linked_subject_ids))
+  const material = materialize(snapshot, selectedIds, digests, context, linkedMediaSubjects)
   material.mediaInputs = inputsBySubject
   return material
 }
