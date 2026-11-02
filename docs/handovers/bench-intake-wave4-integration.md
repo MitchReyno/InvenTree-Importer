@@ -2,7 +2,7 @@
 
 ## Current status and authority
 
-T05 and T06 are merged into `interactive-app` through PRs #53 and #54. The actual T06 squash is `be3be4c2f11c031813e841cc105c01f665116dc0`. This record is prospective: no T07 runtime/shared-contract integration is implemented at this checkpoint.
+T05 and T06 are merged into `interactive-app` through PRs #53 and #54. The actual T06 squash is `be3be4c2f11c031813e841cc105c01f665116dc0`. T07 runtime/shared-contract integration is implemented on its isolated feature branch; publication and exact-head hosted CI remain pending. The initial prospective plan below is retained alongside observed qualification.
 
 Mitch assigned T07 to Codex and T08 to a separate Claude Code session. The [approved implementation plan](../bench-intake/08-implementation-plan.md) governs both tasks, subsequent eligibility and merge gates. A local Claude handover supplies live owner status, interface proposals and exclusive test-service leases; its machine-specific locations are not repository contracts.
 
@@ -55,12 +55,26 @@ Pinned `ipaddr.js`2.5.0 is a zero-runtime-dependency MIT address parser, verifie
 
 ### Schema and verification chronology
 
-T08's concrete proposal received a bounded registration/generator handoff and draft migration0008. T07 uses draft0009; no migration imports unmerged sibling tables. The first isolated T07 PG run exposed the inherited no-tools constraint. The coordinator corrected only0009 to enforce exact profile/handler/tool triples; old migration bytes were untouched, failed random fixtures were disposed, and the focused seven-case rerun passed before the owner's last selected-profile guard. That final guard assertion still needs the combined rerun.
+T08's concrete proposal received a bounded registration/generator handoff and draft migration0008. T07 uses draft0009; no migration imports unmerged sibling tables. The first isolated T07 PG run exposed the inherited no-tools constraint. The coordinator corrected only0009 to enforce exact profile/handler/tool triples; old migration bytes were untouched, failed random fixtures were disposed, and the focused seven-case rerun passed before the owner's last selected-profile guard. The subsequent eight-case focused PG run passed, including the selected-profile assertion and uncertain-reap lane retention.
 
 The protocol sibling independently authored bounded framed transport, opaque wire identity/application UUID mapping and confirmed reap before question/terminal publication. Its focused14 cases passed (nine injected protocol, five actual controlled Node children), with actual native mode unsupported. A macOS-added process metadata variable required a narrow test expectation correction; synthetic parent secret canaries remained absent.
 
-The next acceptance extension combines real retained PNG/PDF bytes, actual DBOS/public HTTP, the controlled protocol child, receipt-backed proposal, persisted question, restart and fresh exact human-answer continuation. Its prospective plan/test files were added before execution; no source-image claim or passing result is made before that run. Current-source image/full-tier work waits for the shared lease held by T08 retirement qualification.
+The acceptance extension passed against current-source decoder/probe images: real retained PNG/PDF bytes, actual DBOS/public HTTP, controlled protocol child, receipt-backed proposal, persisted question, restart and fresh exact human-answer continuation. Its plan/test files preceded execution. All child PIDs were confirmed gone and owned database/role/file/listener fixtures disposed. Full-tier qualification is recorded below when complete; actual model usage remains prohibited.
 
 ### T08 retirement integration
 
 Keeping retired subjects in capture history is correct. Retirement also needs semantic Processing invalidation: a global revision alone is intentionally insufficient for scoped input comparison. The coordinator requested a pre-merge owning projection/interface and tests for new-work refusal, stale outputs/questions, preserved exact old receipt adoption and held physical lanes. No unmerged capture API is imported by T07; the second-merging task must qualify combined consumers against actual trunk.
+
+## Independent review corrections
+
+The first local independent review of6bcc861 found two material issues: cached protocol tool replies bypassed revoked broker authority, and a stalled publication callback delayed deadline cleanup. Correction83fd852 retains the host request UUID but routes broker replays through current authority checks. It also bounds publication waiting independently from resource cleanup and observes late callback failure.
+
+Red regressions reproduced both issues before correction. The corrected focused protocol/controlled-child suite passed24 cases; a reviewer independently reran18 in-memory protocol cases and cleared both fixes. The actual-child regression proves confirmed close occurs while publication remains blocked. Already-started publication is explicitly uncertain, not treated as cancelled or rolled back. The PG uncertainty regression retains a held lane until known-reaped interruption; it does not claim to reproduce an OS reap failure.
+
+## Coordinator full-tier qualification
+
+On frozen runtime843a060, the maintained full tiers passed with zero failures or skips:86 frontend,28 contracts,93 server,72 PostgreSQL and32 process tests. Types, generated-contract drift, runtime readability lint, frontend lint, complete Prettier check and frontend build passed. The T07 owning handover records exact current-source decoder/probe digests; changes since image-build source6bcc861 do not touch their COPY inputs. The full process tier also observed actual PDF/image decoding, sandbox filesystem/network/resource limits and kernel OOM behavior.
+
+Two independent local reviewers cleared the corrected source authority and protocol boundary. The protocol reviewer independently ran18 cases; the authority reviewer ran25 broker/model/protocol and6 pure source cases. Their first CLI attempts encountered sandbox IPC restrictions; direct pinned Node runs passed. Reviewers did not call providers or the real inventory. The coordinator's full suites used isolated owned fakes/fixtures and the existing PG service under an exclusive lease; final cleanup released that lease. Native provider acceptance remains deferred.
+
+The root and server architecture maps now link the implemented restricted research boundary. Ready-PR publication, a fresh independent exact-head review and selected hosted CI remain required before the authorized merge. No GitHub approval is implied by local review. T08 integration applies only after actual trunk contains its changes.
