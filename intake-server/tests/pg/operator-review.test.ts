@@ -545,3 +545,125 @@ test('instructions keep versions and refuse unknown evidence groups', async () =
     await fixture.dispose()
   }
 })
+
+for (const duringReads of [false, true]) {
+  test(`duplicate warnings ${duringReads ? 'block publication after target reads' : 'hide retained preparations until dismissed'}`, async () => {
+    const fixture = await manualFixture()
+    let pending: ReturnType<typeof fixture.http> | undefined
+    try {
+      const seeded = await fixture.seedCapture()
+      const batchId = seeded.batch.id
+      assert.equal(
+        (await edit(fixture, batchId, { kind: 'add_part', label: 'Separate proposal' })).status,
+        200,
+      )
+      const separate = (await capture(fixture, batchId)).parts.find(
+        (part) => part.id !== seeded.partId,
+      )!
+      assert.equal(
+        (
+          await edit(fixture, batchId, {
+            kind: 'lot',
+            id: seeded.b.id,
+            part_subject_id: separate.id,
+          })
+        ).status,
+        200,
+      )
+      assert.equal((await review(fixture, batchId, [seeded.a.id])).status, 200)
+      const scope = {
+        expected_batch_revision: (await capture(fixture, batchId)).revision,
+        selected_lot_ids: [seeded.a.id],
+      }
+      let preview: ManualPreviewDto | undefined
+      if (duringReads) {
+        await fixture.fake.fault('hold_reads')
+        const count = (await fixture.fake.records()).length
+        pending = fixture.http(`/batches/${batchId}/preparations`, scope)
+        for (let attempt = 0; attempt < 100; attempt++) {
+          if ((await fixture.fake.records()).length >= count + 2) {
+            break
+          }
+          await new Promise((resolve) => setTimeout(resolve, 20))
+        }
+        assert.equal((await fixture.fake.records()).length, count + 2)
+      } else {
+        const prepared = await fixture.http(`/batches/${batchId}/preparations`, scope)
+        assert.equal(prepared.value.status, 'prepared', JSON.stringify(prepared.value))
+        preview = prepared.value.preparation as ManualPreviewDto
+        assert.deepEqual(
+          (await fixture.http(`/batches/${batchId}/manual`)).value.preparations.map(
+            (item: ManualPreviewDto) => item.id,
+          ),
+          [preview.id],
+        )
+      }
+      const original = (await capture(fixture, batchId)).parts.find(
+        (part) => part.id === seeded.partId,
+      )!
+      assert.equal(
+        (
+          await edit(fixture, batchId, {
+            kind: 'part',
+            id: separate.id,
+            choice: original.choice,
+          })
+        ).status,
+        200,
+      )
+      if (duringReads) {
+        await fixture.fake.fault('none')
+        const blocked = await pending!
+        assert.equal(blocked.value.status, 'blocked', JSON.stringify(blocked.value))
+        assert.equal(
+          blocked.value.issues.some((item: { code: string }) => item.code === 'warning_unresolved'),
+          true,
+        )
+        assert.equal(
+          blocked.value.issues.some((item: { code: string }) => item.code === 'stale_preparation'),
+          false,
+        )
+        assert.equal(
+          (await fixture.db.pool.query('SELECT count(*)::int AS n FROM manual_preparation')).rows[0]
+            .n,
+          0,
+        )
+      } else {
+        assert.deepEqual((await fixture.http(`/batches/${batchId}/manual`)).value.preparations, [])
+        const current = await operator(fixture, batchId)
+        const warning = current.lots
+          .find((lot) => lot.lot_id === seeded.a.id)!
+          .issues.find((item) => item.code === 'possible_duplicate_part')!
+        const dismissed = await fixture.http(`/batches/${batchId}/issue-dispositions`, {
+          expected_batch_revision: (await capture(fixture, batchId)).revision,
+          subject_id: seeded.partId,
+          code: 'possible_duplicate_part',
+          dependency_digest: warning.dependency_digest,
+          reason: 'Separate proposals intentionally reference the same existing Part.',
+        })
+        assert.equal(dismissed.status, 200, JSON.stringify(dismissed.value))
+        const rereviewed = await review(fixture, batchId, [seeded.a.id])
+        assert.equal(rereviewed.status, 200, JSON.stringify(rereviewed.value))
+        const prepared = await fixture.http(`/batches/${batchId}/preparations`, {
+          expected_batch_revision: (await capture(fixture, batchId)).revision,
+          selected_lot_ids: [seeded.a.id],
+        })
+        assert.equal(prepared.value.status, 'prepared', JSON.stringify(prepared.value))
+        assert.deepEqual(
+          (await fixture.http(`/batches/${batchId}/manual`)).value.preparations.map(
+            (item: ManualPreviewDto) => item.id,
+          ),
+          [prepared.value.preparation.id],
+        )
+      }
+      assert.equal(
+        (await fixture.fake.records()).filter((record) => record.method === 'POST').length,
+        0,
+      )
+    } finally {
+      await fixture.fake.fault('none')
+      await pending?.catch(() => undefined)
+      await fixture.dispose()
+    }
+  })
+}

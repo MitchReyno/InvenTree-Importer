@@ -267,3 +267,28 @@ A third fresh reviewer checked `d9cd6ae` (delta from `7e3c0db`) and found no new
 - `frontend/src/components/media/MediaWorkspace.tsx`: a `lot_retired` refusal from a stale view shows the generic "Media change was not confirmed" text; map it through `operator/command-failure.ts`.
 - `intake-server/tests/pg/operator-media-retirement.test.ts`: also assert status 409, an unchanged media revision after the refusals, and an unlink (`linked: false`) case.
 - `frontend/src/components/batches/Batch.tsx`: the `useMemo` comment should say the retired set comes from `batch` and `operatorReview`.
+
+## Continuation plan — warning gates and independent review
+
+Mitch assigned continuation to Codex GPT-6 on 2026-11-02. Before changes: add warningIssues to the publication transaction and filter unresolved warnings from workspace preparations. Extend operator-review PG coverage with an initially valid selected scope and a separate active Part whose later choice creates a duplicate warning without changing selected dependency bytes. Assert held-read publication blocks without a preparation, existing preparations disappear, and dismissal restores eligibility. Reuse the owned fake and existing transaction seams; no dependency or interface change is needed. Qualify fast/frontend/types/generation/lint/format/build, then focused and full PG under the shared lease. Push before a fresh independent read-only exact-head review covering the previously unreviewed frontend, HTTP/contracts/generator, immutable vectors, docs and these fixes; merge only into interactive-app with green selected CI and reviewed SHA pinned.
+
+### Continuation implementation and qualification
+
+Both partial-review Minor findings are corrected. The final preparation transaction rechecks `warningIssues(material)` after target reads; workspace preparations also require no unresolved warnings. No contracts, migrations or shared currentness predicates changed.
+
+Two actual HTTP/PG regressions create a separate active Part proposal and move deferred B to it before reviewing A. Choosing A's existing Part on B's proposal then creates a duplicate warning without changing A's retained dependency bytes. The held-read case asserts blocked publication, `warning_unresolved`, no `stale_preparation` fallback, no preparation row and zero fake POSTs. The listing case first sees the prepared preview, then sees none after the sibling change; reasoned dismissal, explicit re-review and a new preparation restore a visible valid preview. Removing either gate temporarily made its regression fail at the intended assertion (prepared instead of blocked; visible preview instead of empty list). Exact source bytes were restored in `finally` before final qualification.
+
+Observed on the continuation source, using deterministic fakes only:
+
+| Check | Result |
+| --- | --- |
+| `pnpm test:intake` | Contracts 28/28 and server 68/68 on isolated rerun; the initial concurrent run had two five-second startup readiness timeouts, recorded rather than hidden |
+| `pnpm test:frontend` | 103/103 |
+| `pnpm typecheck`, `pnpm contracts:check` | Pass |
+| `pnpm lint:readability`, `pnpm lint:frontend`, `pnpm format:check` | Pass |
+| `pnpm build` | Pass; existing large-chunk advisory remains |
+| `pnpm db:intake test` | 78/78, zero failures/skips, retained decoder/probe image IDs from the earlier evidence |
+| `NODE_OPTIONS=--test-name-pattern='retire\|duplicate warnings' pnpm db:intake test` | 23/23, zero failures/skips, after both negative controls were restored |
+| `git diff --check` | Pass |
+
+Logs are retained locally under `.temp/t08-continuation/`. The exclusive PG/Docker lease was held for PG and negative controls, with no shared-service restart, preview restart or 4310 changes. Browser-harness reports recordings off and no active recording; no new native UI claim is made for these server-only fixes. Code intelligence is unavailable, so its checks are skipped. Process-tier evidence from the previous head remains historical; new-head selected CI and a fresh independent read-only review are still required before merge. Actual model/provider usage and real inventory requests remain absent and unqualified.

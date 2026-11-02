@@ -339,7 +339,7 @@ export async function prepareSelection(
     )
     const binding = await deploymentBinding(client, config)
     const reviews = await currentReviews(client, batchId, material)
-    const issues = [...readIssues, ...material.issues]
+    const issues = [...readIssues, ...material.issues, ...warningIssues(material)]
     issues.push(
       ...(await historyIssues(client, capture.source, material, capture.guard.activeRunId)),
     )

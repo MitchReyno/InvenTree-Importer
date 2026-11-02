@@ -9,7 +9,12 @@ import { deploymentBinding, currentReviews, type ManualConfig } from './authorit
 import { issue } from './model.ts'
 import { materializeWithMedia } from './media-material.ts'
 import { manualRunSnapshot, retainedPreparation } from './runs.ts'
-import { markReviewed, prepareSelection, approvePreparation } from './preparations.ts'
+import {
+  markReviewed,
+  prepareSelection,
+  approvePreparation,
+  warningIssues,
+} from './preparations.ts'
 import { runCommand } from './commands.ts'
 
 export function manualRepository(pool: Pool, config: ManualConfig, read?: CaptureRead) {
@@ -161,6 +166,7 @@ export function manualRepository(pool: Pool, config: ManualConfig, read?: Captur
             !blockingRunId &&
             !previouslyApproved &&
             !material.issues.length &&
+            !warningIssues(material).length &&
             binding.targetRevision === retained.preview.target_revision &&
             material.bytes.equals(retained.row.dependency_bytes) &&
             canonical(reviews) === retained.row.review_bytes.toString('utf8')
