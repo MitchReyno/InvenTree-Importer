@@ -120,7 +120,13 @@ export function processingInputIsCurrent(
   snapshot: CaptureSnapshotDto,
   media: MediaInputs,
 ) {
-  // The dependency closure is retained; unrelated batch changes do not invalidate this subject.
+  // A retired lot's work is stale; unrelated batch changes still do not invalidate this subject.
+  const retiredSubject = snapshot.lots.some(
+    (lot) => lot.id === manifest.subject_id && lot.retired === true,
+  )
+  if (retiredSubject) {
+    return false
+  }
   if (
     manifest.schema_version === 'bench-intake-input/1' &&
     (media.versions.length > 0 || media.attachments.length > 0)

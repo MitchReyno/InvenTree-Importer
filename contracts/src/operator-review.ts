@@ -17,7 +17,7 @@ export const OperatorIssueSeverity = Type.Union([Type.Literal('blocking'), Type.
 
 export const OperatorIssueDisposition = object({
   id: Id,
-  reason: Type.String({ minLength: 1, maxLength: 1024 }),
+  reason: Type.String({ minLength: 1, maxLength: 1024, pattern: '\\S' }),
   actor_id: Id,
   created_at: Type.String(),
 })
@@ -85,7 +85,7 @@ export const IssueDisposition = object({
   subject_id: Id,
   code: Type.String({ pattern: '^[a-z_]{1,64}$' }),
   dependency_digest: Digest,
-  reason: Type.String({ minLength: 1, maxLength: 1024 }),
+  reason: Type.String({ minLength: 1, maxLength: 1024, pattern: '\\S' }),
 })
 
 const lotIds = (minItems: number, maxItems: number) =>
@@ -202,4 +202,6 @@ export type BulkEditDto = Static<typeof BulkEdit>
 export type BulkEditResultDto = Static<typeof BulkEditResult>
 export type RestructureDto = Static<typeof Restructure>
 export type RestructureResultDto = Static<typeof RestructureResult>
+/** Bulk edits and restructures share one previewed/applied outcome shape. */
+export type OperatorOutcomeDto = Static<typeof operatorOutcome>
 export type InstructionEditDto = Static<typeof InstructionEdit>

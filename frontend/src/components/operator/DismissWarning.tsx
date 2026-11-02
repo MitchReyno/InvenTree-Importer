@@ -32,15 +32,16 @@ export function DismissWarning({
     handleSubmit,
     formState: { errors, isDirty },
   } = useForm({ defaultValues: { reason: '' } })
-  const command = useRetainedCommand((reason: string, key: string) =>
+  // The retained intent freezes the revision it was first sent with, so a retry is exact.
+  const command = useRetainedCommand((input: { reason: string; revision: string }, key: string) =>
     client.dismiss(
       batch.id,
       {
-        expected_batch_revision: batch.revision,
+        expected_batch_revision: input.revision,
         subject_id: issue.subject_id!,
         code: issue.code,
         dependency_digest: issue.dependency_digest!,
-        reason,
+        reason: input.reason,
       },
       key,
     ),
@@ -52,12 +53,19 @@ export function DismissWarning({
 
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
 
-  async function submit(values: { reason: string }) {
-    const result = await command.submit(values.reason.trim())
+  async function finish(result: unknown) {
     if (result) {
       onDirtyChange?.(false)
       await onDismissed()
     }
+  }
+
+  async function submit(values: { reason: string }) {
+    await finish(await command.submit({ reason: values.reason.trim(), revision: batch.revision }))
+  }
+
+  async function retry() {
+    await finish(await command.retry())
   }
 
   return (
@@ -83,11 +91,7 @@ export function DismissWarning({
       {command.message && <ErrorNotice role="alert">{command.message}</ErrorNotice>}
       <span>
         {command.pending ? (
-          <Button
-            type="button"
-            disabled={disabled || command.busy}
-            onClick={() => void command.retry()}
-          >
+          <Button type="button" disabled={disabled || command.busy} onClick={() => void retry()}>
             Retry exact dismissal
           </Button>
         ) : (

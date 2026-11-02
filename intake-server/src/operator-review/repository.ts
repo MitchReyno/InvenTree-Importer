@@ -6,6 +6,7 @@ import {
   type CaptureSnapshotDto,
   type InstructionEditDto,
   type IssueDispositionDto,
+  type OperatorOutcomeDto,
   type OperatorReviewDto,
   type RestructureDto,
   type RestructureResultDto,
@@ -149,11 +150,17 @@ async function measuredCommand(
   })
 
   if (!input.preview) {
-    return { status: 'applied', revision: afterSnapshot.revision, impact }
+    const applied: OperatorOutcomeDto = {
+      status: 'applied',
+      revision: afterSnapshot.revision,
+      impact,
+    }
+    validate('RestructureResult', applied)
+    return applied
   }
   await client.query(`ROLLBACK TO SAVEPOINT ${PREVIEW_SAVEPOINT}`)
   // A preview has no identities: nothing it describes exists.
-  return {
+  const previewed: OperatorOutcomeDto = {
     status: 'previewed',
     revision: input.expected_revision,
     impact: {
@@ -162,6 +169,8 @@ async function measuredCommand(
       created_part: impact.created_part && { part_id: null, label: impact.created_part.label },
     },
   }
+  validate('RestructureResult', previewed)
+  return previewed
 }
 
 function isWarningCode(code: string): code is ReviewWarningCode {

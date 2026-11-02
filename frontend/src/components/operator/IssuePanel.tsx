@@ -8,6 +8,8 @@ import { DismissWarning } from './DismissWarning'
 interface Props {
   batch: CaptureSnapshotDto
   issues: OperatorIssueDto[]
+  /** Active lots sharing the focused lot's Part proposal, including the focused lot. */
+  partLotLabels: string[]
   client?: OperatorReviewClient
   disabled: boolean
   reload: () => Promise<void>
@@ -18,13 +20,25 @@ function issueKey(issue: OperatorIssueDto) {
   return `${issue.subject_id ?? 'batch'}:${issue.code}`
 }
 
-function subjectNote(batch: CaptureSnapshotDto, issue: OperatorIssueDto) {
+function subjectNote(batch: CaptureSnapshotDto, issue: OperatorIssueDto, partLotLabels: string[]) {
   const part = batch.parts.find((value) => value.id === issue.subject_id)
-  return part ? `On shared Part proposal ${part.label}; affects every lot sharing it.` : null
+  if (!part) {
+    return null
+  }
+  const count = partLotLabels.length
+  return `On shared Part proposal ${part.label}. Dismissing it affects ${count} lot${count === 1 ? '' : 's'} (${partLotLabels.join(', ')}); their current reviews will need renewing.`
 }
 
 /** Blocking problems cannot be dismissed; warnings need a fix or a recorded reason. */
-export function IssuePanel({ batch, issues, client, disabled, reload, onDirtyChange }: Props) {
+export function IssuePanel({
+  batch,
+  issues,
+  partLotLabels,
+  client,
+  disabled,
+  reload,
+  onDirtyChange,
+}: Props) {
   const [dismissing, setDismissing] = useState<string | null>(null)
   const blocking = issues.filter((issue) => issue.severity === 'blocking')
   const warnings = issues.filter((issue) => issue.severity === 'warning')
@@ -59,7 +73,9 @@ export function IssuePanel({ batch, issues, client, disabled, reload, onDirtyCha
           {warnings.map((issue) => (
             <Item key={issueKey(issue)}>
               <Paragraph>{issue.message}</Paragraph>
-              {subjectNote(batch, issue) && <Small>{subjectNote(batch, issue)}</Small>}
+              {subjectNote(batch, issue, partLotLabels) && (
+                <Small>{subjectNote(batch, issue, partLotLabels)}</Small>
+              )}
               <WarningAction
                 batch={batch}
                 issue={issue}

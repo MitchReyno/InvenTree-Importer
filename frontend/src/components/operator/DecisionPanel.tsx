@@ -137,6 +137,9 @@ export function DecisionPanel({
         <IssuePanel
           batch={batch}
           issues={operatorLot.issues}
+          partLotLabels={[lot.id, ...operatorLot.shared_lot_ids].map(
+            (id) => batch.lots.find((value) => value.id === id)?.label ?? id,
+          )}
           client={operator}
           disabled={disabled}
           reload={reload}

@@ -50,20 +50,31 @@ function InstructionForm({
     handleSubmit,
     formState: { errors, isDirty },
   } = useForm({ defaultValues: { text: latest?.text ?? '' } })
-  const command = useRetainedCommand((text: string, key: string) =>
-    client.instruct(batch.id, { expected_revision: batch.revision, group_id: groupId, text }, key),
+  const command = useRetainedCommand((input: { text: string; revision: string }, key: string) =>
+    client.instruct(
+      batch.id,
+      { expected_revision: input.revision, group_id: groupId, text: input.text },
+      key,
+    ),
   )
 
   useEffect(() => {
     onDirtyChange(formKey, isDirty || command.pending)
   }, [formKey, isDirty, command.pending, onDirtyChange])
 
-  async function save(values: { text: string }) {
-    const result = await command.submit(values.text)
+  async function finish(result: unknown) {
     if (result) {
       onDirtyChange(formKey, false)
       await reload()
     }
+  }
+
+  async function save(values: { text: string }) {
+    await finish(await command.submit({ text: values.text, revision: batch.revision }))
+  }
+
+  async function retry() {
+    await finish(await command.retry())
   }
 
   return (
@@ -85,7 +96,7 @@ function InstructionForm({
       </Small>
       {command.message && <ErrorNotice role="alert">{command.message}</ErrorNotice>}
       {command.pending ? (
-        <Button type="button" disabled={command.busy} onClick={() => void command.retry()}>
+        <Button type="button" disabled={command.busy} onClick={() => void retry()}>
           Retry exact save
         </Button>
       ) : (

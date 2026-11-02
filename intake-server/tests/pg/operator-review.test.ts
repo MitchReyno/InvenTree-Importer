@@ -74,6 +74,19 @@ async function edit(fixture: Fixture, batchId: string, change: Record<string, un
   })
 }
 
+/** Every durable trace an operator command can leave for one batch and key. */
+async function commandTraces(fixture: Fixture, batchId: string, key: string) {
+  const result = await fixture.db.pool.query(
+    `SELECT
+  (SELECT count(*)::int FROM capture_revision WHERE batch_id=$1) AS revisions,
+  (SELECT count(*)::int FROM capture_selection WHERE batch_id=$1) AS selections,
+  (SELECT s.head::text FROM ui_stream s JOIN capture_batch b ON b.stream_id=s.id WHERE b.id=$1) AS head,
+  (SELECT count(*)::int FROM idempotency_record WHERE key=$2) AS idempotency`,
+    [batchId, key],
+  )
+  return result.rows[0]
+}
+
 async function selectionCount(fixture: Fixture, batchId: string) {
   const result = await fixture.db.pool.query(
     'SELECT count(*)::int AS count FROM capture_selection WHERE batch_id=$1',
@@ -95,12 +108,17 @@ test('shared Part edits invalidate A and B; lot-only and default edits stay scop
     assert.equal(lotState(current, b.id), 'reviewed')
     assert.deepEqual(current.lots.find((lot) => lot.lot_id === a.id)?.shared_lot_ids, [b.id])
 
-    const previewed = await bulk(
-      fixture,
-      batchId,
-      [b.id],
-      { quantity: { mode: 'set', value: '24' } },
-      true,
+    const sharedKey = randomUUID()
+    const traces = await commandTraces(fixture, batchId, sharedKey)
+    const bulkInput = {
+      expected_revision: (await capture(fixture, batchId)).revision,
+      lot_ids: [b.id],
+      change: { quantity: { mode: 'set', value: '24' } },
+    }
+    const previewed = await fixture.http(
+      `/batches/${batchId}/bulk-edits`,
+      { ...bulkInput, preview: true },
+      sharedKey,
     )
     assert.equal(previewed.status, 200, JSON.stringify(previewed.value))
     const preview = previewed.value as BulkEditResultDto
@@ -109,15 +127,16 @@ test('shared Part edits invalidate A and B; lot-only and default edits stay scop
     assert.deepEqual(preview.impact.affected_lot_ids, [b.id])
     assert.equal((await capture(fixture, batchId)).revision, seeded.batch.revision)
     assert.equal(lotState(await operator(fixture, batchId), b.id), 'reviewed')
+    // A preview leaves no revision, event, selection or idempotency record behind.
+    assert.deepEqual(await commandTraces(fixture, batchId, sharedKey), traces)
 
-    const applied = await bulk(
-      fixture,
-      batchId,
-      [b.id],
-      { quantity: { mode: 'set', value: '24' } },
-      false,
+    const applied = await fixture.http(
+      `/batches/${batchId}/bulk-edits`,
+      { ...bulkInput, preview: false },
+      sharedKey,
     )
-    assert.equal(applied.status, 200)
+    assert.equal(applied.status, 200, JSON.stringify(applied.value))
+    assert.equal((applied.value as BulkEditResultDto).status, 'applied')
     current = await operator(fixture, batchId)
     assert.equal(lotState(current, a.id), 'reviewed')
     assert.equal(lotState(current, b.id), 'changed_after_review')

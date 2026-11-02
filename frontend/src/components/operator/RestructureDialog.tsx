@@ -140,15 +140,18 @@ export function RestructureDialog({
   const [preview, setPreview] = useState<{
     change: RestructureDto['change']
     impact: OperatorImpactDto
+    revision: string
   } | null>(null)
   const [previewError, setPreviewError] = useState('')
   const [previewBusy, setPreviewBusy] = useState(false)
-  const apply = useRetainedCommand((change: RestructureDto['change'], key: string) =>
-    client.restructure(
-      batch.id,
-      { expected_revision: batch.revision, preview: false, change },
-      key,
-    ),
+  // Apply sends the revision the preview described, so a retry stays byte-identical.
+  const apply = useRetainedCommand(
+    (input: { change: RestructureDto['change']; revision: string }, key: string) =>
+      client.restructure(
+        batch.id,
+        { expected_revision: input.revision, preview: false, change: input.change },
+        key,
+      ),
   )
   const destination = watch('destination')
   const locked = apply.busy || apply.pending
@@ -174,7 +177,7 @@ export function RestructureDialog({
         { expected_revision: batch.revision, preview: true, change },
         crypto.randomUUID(),
       )
-      setPreview({ change, impact: result.impact })
+      setPreview({ change, impact: result.impact, revision: batch.revision })
     } catch (error) {
       setPreviewError(failureMessage(classifyFailure(error)))
     } finally {
@@ -186,7 +189,7 @@ export function RestructureDialog({
     if (!preview) {
       return
     }
-    const result = await apply.submit(preview.change)
+    const result = await apply.submit({ change: preview.change, revision: preview.revision })
     if (result) {
       onDirtyChange?.(false)
       onClose()

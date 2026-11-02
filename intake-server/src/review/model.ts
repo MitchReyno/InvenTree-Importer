@@ -117,6 +117,7 @@ function hasSupportingEvidence(
   context: CaptureReviewContext,
   lot: Lot,
   mediaDigests: ReadonlyMap<string, string>,
+  linkedMediaSubjects: ReadonlySet<string>,
 ) {
   const evidenceSubjects = new Set([lot.id, ...ancestorLotIds(context, lot.id)])
   if (lot.part_subject_id) {
@@ -126,7 +127,9 @@ function hasSupportingEvidence(
     (note) =>
       note.subject_id !== null && evidenceSubjects.has(note.subject_id) && note.text.trim() !== '',
   )
-  const linked = [...evidenceSubjects].some((subjectId) => mediaDigests.has(subjectId))
+  const linked = [...evidenceSubjects].some(
+    (subjectId) => mediaDigests.has(subjectId) || linkedMediaSubjects.has(subjectId),
+  )
   return noted || linked
 }
 
@@ -149,6 +152,8 @@ export function materialize(
   selectedIds: string[],
   mediaDigests: ReadonlyMap<string, string> = new Map(),
   context: CaptureReviewContext = EMPTY_REVIEW_CONTEXT,
+  /** Subjects with linked media, including retired predecessors; presence only, never sealed. */
+  linkedMediaSubjects: ReadonlySet<string> = new Set(),
 ): ManualMaterial {
   const selected = [...selectedIds].sort()
   const issues: ManualIssueDto[] = []
@@ -166,9 +171,10 @@ export function materialize(
     facts: unknown,
     raised: ReviewWarningCode[],
     predecessorLotIds: string[] = [],
+    dismissalFacts: unknown = facts,
   ) {
     const factBytes = Buffer.from(canonical(facts))
-    const factDigest = sha256(factBytes)
+    const factDigest = sha256(Buffer.from(canonical(dismissalFacts)))
     const factHex = factDigest.toString('hex')
     const dispositions: IssueDispositionRecord[] = []
     for (const code of raised) {
@@ -186,7 +192,12 @@ export function materialize(
       })
     }
     if (!dispositions.length && !predecessorLotIds.length) {
-      subjects.set(subjectId, { subjectId, bytes: factBytes, digest: factDigest, factDigest })
+      subjects.set(subjectId, {
+        subjectId,
+        bytes: factBytes,
+        digest: sha256(factBytes),
+        factDigest,
+      })
       return
     }
     const bytes = Buffer.from(
@@ -279,10 +290,22 @@ export function materialize(
       notes,
     }
     const lotWarnings: ReviewWarningCode[] = []
-    if (!hasSupportingEvidence(snapshot, context, lot, mediaDigests)) {
+    if (!hasSupportingEvidence(snapshot, context, lot, mediaDigests, linkedMediaSubjects)) {
       lotWarnings.push('no_supporting_evidence')
     }
-    retain(lotId, lotId, lotFacts, lotWarnings, context.predecessors.get(lotId) ?? [])
+    // A lot dismissal binds to the Part's facts, not to the Part's own dismissals.
+    const lotDismissalFacts = {
+      ...lotFacts,
+      partDigest: part ? subjects.get(part.id)!.factDigest.toString('hex') : null,
+    }
+    retain(
+      lotId,
+      lotId,
+      lotFacts,
+      lotWarnings,
+      context.predecessors.get(lotId) ?? [],
+      lotDismissalFacts,
+    )
     if (
       part?.choice.mode === 'set' &&
       quantity.mode === 'set' &&

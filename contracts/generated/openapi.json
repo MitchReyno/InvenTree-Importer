@@ -4923,6 +4923,10 @@
                       }
                     }
                   ]
+                },
+                "retired": {
+                  "const": true,
+                  "type": "boolean"
                 }
               }
             }
@@ -7954,6 +7958,10 @@
                         }
                       }
                     ]
+                  },
+                  "retired": {
+                    "const": true,
+                    "type": "boolean"
                   }
                 }
               },
@@ -8835,6 +8843,10 @@
                         }
                       }
                     ]
+                  },
+                  "retired": {
+                    "const": true,
+                    "type": "boolean"
                   }
                 }
               },
@@ -10608,6 +10620,10 @@
                             }
                           }
                         ]
+                      },
+                      "retired": {
+                        "const": true,
+                        "type": "boolean"
                       }
                     }
                   },
@@ -11489,6 +11505,10 @@
                             }
                           }
                         ]
+                      },
+                      "retired": {
+                        "const": true,
+                        "type": "boolean"
                       }
                     }
                   },
@@ -14131,6 +14151,7 @@
           "reason": {
             "minLength": 1,
             "maxLength": 1024,
+            "pattern": "\\S",
             "type": "string"
           },
           "actor_id": {
@@ -14239,6 +14260,7 @@
                   "reason": {
                     "minLength": 1,
                     "maxLength": 1024,
+                    "pattern": "\\S",
                     "type": "string"
                   },
                   "actor_id": {
@@ -14434,6 +14456,7 @@
                         "reason": {
                           "minLength": 1,
                           "maxLength": 1024,
+                          "pattern": "\\S",
                           "type": "string"
                         },
                         "actor_id": {
@@ -14736,6 +14759,7 @@
                               "reason": {
                                 "minLength": 1,
                                 "maxLength": 1024,
+                                "pattern": "\\S",
                                 "type": "string"
                               },
                               "actor_id": {
@@ -14914,6 +14938,7 @@
           "reason": {
             "minLength": 1,
             "maxLength": 1024,
+            "pattern": "\\S",
             "type": "string"
           }
         }

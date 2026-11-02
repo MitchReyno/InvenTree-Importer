@@ -357,6 +357,26 @@ async function openTableAndSelect(user: ReturnType<typeof userEvent.setup>) {
   await user.click(within(table).getByRole('checkbox', { name: 'Select Packet B' }))
 }
 
+test('an uncertain dismissal retries the exact intent, then closes and reloads', async () => {
+  const user = userEvent.setup()
+  const operator = operatorClient()
+  const dismiss = vi.mocked(operator.dismiss)
+  dismiss.mockImplementationOnce(async () => {
+    throw new TypeError('connection reset')
+  })
+  const { reload } = renderReview({ operator })
+  await user.click(await screen.findByRole('button', { name: 'Inspect Packet B' }))
+  await user.click(screen.getByRole('button', { name: 'Dismiss…' }))
+  await user.type(screen.getByLabelText('Why is this acceptable?'), 'Checked on the bench.')
+  await user.click(screen.getByRole('button', { name: 'Dismiss with this reason' }))
+  await user.click(await screen.findByRole('button', { name: 'Retry exact dismissal' }))
+  await waitFor(() => expect(dismiss).toHaveBeenCalledTimes(2))
+  expect(dismiss.mock.calls[1][1]).toEqual(dismiss.mock.calls[0][1])
+  expect(dismiss.mock.calls[1][2]).toBe(dismiss.mock.calls[0][2])
+  await waitFor(() => expect(reload).toHaveBeenCalled())
+  expect(screen.queryByLabelText('Why is this acceptable?')).toBeNull()
+})
+
 test('bulk edit previews then applies the exact same change with one retained key', async () => {
   const user = userEvent.setup()
   const operator = operatorClient()

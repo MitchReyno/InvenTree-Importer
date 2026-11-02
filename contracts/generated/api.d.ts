@@ -2881,6 +2881,8 @@ export interface components {
                     /** @constant */
                     mode: "inherit";
                 };
+                /** @constant */
+                retired?: true;
             }[];
             notes: {
                 id: string;
@@ -3368,6 +3370,8 @@ export interface components {
                     /** @constant */
                     mode: "inherit";
                 };
+                /** @constant */
+                retired?: true;
             } | {
                 id: string;
                 label: string;
@@ -3547,6 +3551,8 @@ export interface components {
                     /** @constant */
                     mode: "inherit";
                 };
+                /** @constant */
+                retired?: true;
             } | {
                 id: string;
                 label: string;
@@ -3924,6 +3930,8 @@ export interface components {
                     /** @constant */
                     mode: "inherit";
                 };
+                /** @constant */
+                retired?: true;
             } | {
                 id: string;
                 label: string;
@@ -4102,6 +4110,8 @@ export interface components {
                     /** @constant */
                     mode: "inherit";
                 };
+                /** @constant */
+                retired?: true;
             } | {
                 id: string;
                 label: string;

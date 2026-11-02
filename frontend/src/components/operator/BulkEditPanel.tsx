@@ -92,20 +92,23 @@ export function BulkEditPanel({
     lotIds: string[]
     change: BulkChange
     impact: OperatorImpactDto
+    /** The revision the preview described; apply sends exactly this revision. */
+    revision: string
   } | null>(null)
   const [previewError, setPreviewError] = useState('')
   const [previewBusy, setPreviewBusy] = useState(false)
-  const apply = useRetainedCommand((input: { lotIds: string[]; change: BulkChange }, key: string) =>
-    client.bulkEdit(
-      batch.id,
-      {
-        expected_revision: batch.revision,
-        preview: false,
-        lot_ids: input.lotIds,
-        change: input.change,
-      },
-      key,
-    ),
+  const apply = useRetainedCommand(
+    (input: { lotIds: string[]; change: BulkChange; revision: string }, key: string) =>
+      client.bulkEdit(
+        batch.id,
+        {
+          expected_revision: input.revision,
+          preview: false,
+          lot_ids: input.lotIds,
+          change: input.change,
+        },
+        key,
+      ),
   )
   const quantityMode = watch('quantityMode')
   const locations = batch.observations.filter((item) => item.model === 'location')
@@ -143,7 +146,7 @@ export function BulkEditPanel({
         { expected_revision: batch.revision, preview: true, lot_ids: lotIds, change },
         crypto.randomUUID(),
       )
-      setPreview({ lotIds, change, impact: result.impact })
+      setPreview({ lotIds, change, impact: result.impact, revision: batch.revision })
     } catch (error) {
       setPreviewError(failureMessage(classifyFailure(error)))
     } finally {
@@ -234,7 +237,13 @@ export function BulkEditPanel({
             <Button
               disabled={disabled || apply.busy}
               onClick={() =>
-                void apply.submit({ lotIds: preview.lotIds, change: preview.change }).then(finish)
+                void apply
+                  .submit({
+                    lotIds: preview.lotIds,
+                    change: preview.change,
+                    revision: preview.revision,
+                  })
+                  .then(finish)
               }
             >
               Apply to {preview.lotIds.length} lot{preview.lotIds.length === 1 ? '' : 's'}

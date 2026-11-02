@@ -57,9 +57,9 @@ Existing migrations 0001–0007 stay immutable.
 
 ### Design decisions and alternatives
 
-- **Warnings gate review, not preparation.** "Mark reviewed" rejects a scope with an undismissed warning, and preparation already requires current reviews. Dispositions enter the lot dependency bytes under a new `manual-lot-review/3` version only when one exists, so retained `/1` and `/2` preparations keep their exact bytes. The alternative of a separate preparation gate would duplicate review authority.
+- **Warnings gate review, not preparation.** *(Superseded during implementation: warnings gate review, preparation and approval, and the wrapper is `manual-subject-review/3`; see the coordinator adjustments below.)* "Mark reviewed" rejects a scope with an undismissed warning, and preparation already requires current reviews. Dispositions enter the lot dependency bytes under a new `manual-lot-review/3` version only when one exists, so retained `/1` and `/2` preparations keep their exact bytes. The alternative of a separate preparation gate would duplicate review authority.
 - **Deterministic warnings only.** `possible_duplicate_part` (two Part proposals choose the same existing Part), `no_supporting_evidence` (no nonempty note or linked media on the lot, its Part or its predecessors) and `location_cleared` (stock would have no location). Each has a reason a human can judge. No warning comes from simulated research.
-- **Retired lots leave the active list instead of adding a field to `CaptureSnapshot`.** The capture repository filters them, so Review, Approve, Processing starts and media attachment cannot select them. Lineage and retired history appear in `OperatorReview`. Changing the shared snapshot contract was rejected because it touches every consumer.
+- **Retired lots leave the active list instead of adding a field to `CaptureSnapshot`.** *(Superseded: retired lots stay in the snapshot as history; see the coordinator adjustments below.)* The capture repository filters them, so Review, Approve, Processing starts and media attachment cannot select them. Lineage and retired history appear in `OperatorReview`. Changing the shared snapshot contract was rejected because it touches every consumer.
 - **Server dry run for impact previews.** The command runs in a transaction that is rolled back, then reports exact invalidated subjects, retired/created lots and stale preparations. A browser-side diff would guess at server dependency rules.
 - **Split children start from explicit human values.** Each child gets a new contribution key, the predecessor's Part proposal, a copied location selection and an explicit quantity. Predecessor notes and media links stay on the predecessor and are shown through lineage; media links are not silently copied.
 - **Instructions are retained human context.** Processing remains fixture-only, so the UI says instructions are retained for research and not yet consumed. Feeding them into Processing inputs is a T07 interface proposal.
@@ -205,3 +205,19 @@ Full-page screenshots leave elements below the viewport inside scroll layers bla
 ### Not tested natively
 
 Warning dismissal, compare matches, bulk edit preview/apply, merge/move dialogs, keyboard shortcuts, conflict-retained drafts and native `<dialog>` focus trapping were not driven in the browser. They are covered by component tests (jsdom) and PG tests only. No real InvenTree request, provider or model call was made.
+
+## Local review round 1 fixes
+
+A fresh read-only reviewer checked head `88ff863`. It found no critical issues and confirmed byte stability, invalidation scope, lock order, preview rollback and retired-lot blocking. Fixes:
+
+- **Predecessor media counts as evidence.** Linked media on any subject, including retired predecessors, now satisfies `no_supporting_evidence`. This is a presence check only, so it never enters sealed bytes.
+- **Lot dismissals bind to Part facts, not Part dismissals.** Dismissing a Part warning still invalidates the dependent lot reviews, as review binds dispositions. It no longer silently brings back lot warnings that were already dismissed. Part warnings now state the affected lots and that their reviews need renewing.
+- **Retries are exact and finish properly.** Bulk, restructure, dismissal and instruction intents freeze the revision they were first sent with. Dismissal and instruction retries now close and reload on success.
+- **Server-side checks.** Dismissal reasons must contain a non-whitespace character (contract pattern, regenerated). Operator command outcomes are validated before they are returned.
+- **Tests.** `tests/review-vectors.test.ts` freezes the selection and subject digests produced by the pre-T08 `materialize` at `be3be4c` for `/1` and `/2` fixtures; the current code reproduces them exactly. The PG preview test now asserts that a preview leaves no capture revision, selection, stream event or idempotency record, and that the same key then applies.
+
+### Existing data under the warning gate
+
+The warning gate also applies to lots created before T08. A lot with no nonempty note and no linked media on itself, its Part proposal or its predecessors now needs evidence or a reasoned dismissal before review. An unapproved preparation retained from before T08 for such a lot will refuse approval with `warning_unresolved`, even though its bytes are unchanged. The fix is to add evidence or dismiss the warning, then review and prepare again. Already approved runs and their recovery are unaffected.
+
+Not yet tested: concurrent approval racing a restructure (the batch row lock serializes them by design), and upgrading a populated 0007 database.

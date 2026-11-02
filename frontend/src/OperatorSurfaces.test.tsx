@@ -10,6 +10,7 @@ import {
 import { render } from './test/render'
 import { CaptureHeader } from './components/capture/CaptureHeader'
 import { InstructionsPanel } from './components/operator/InstructionsPanel'
+import { IssuePanel } from './components/operator/IssuePanel'
 import { ProcessingWorkspace } from './components/processing/ProcessingWorkspace'
 import type { OperatorReviewClient } from './operator/types'
 import type { ProcessingClient } from './processing/types'
@@ -202,4 +203,34 @@ test('the batch header counts active lots and states retired history separately'
   )
 
   expect(screen.getByText(/1 physical lots \(1 retired\)/)).toBeTruthy()
+})
+
+test('a shared Part warning states every affected lot before dismissal', () => {
+  const partId = '20000000-0000-4000-8000-000000000002'
+  const withPart: CaptureSnapshotDto = {
+    ...batch,
+    parts: [{ id: partId, label: 'Shared resistor', revision: '1', choice: { mode: 'unset' } }],
+  }
+  render(
+    <IssuePanel
+      batch={withPart}
+      issues={[
+        {
+          code: 'possible_duplicate_part',
+          severity: 'warning',
+          message: 'Another Part proposal chooses the same existing Part.',
+          subject_id: partId,
+          lot_id: null,
+          run_id: null,
+          dependency_digest: 'c'.repeat(64),
+          disposition: null,
+        },
+      ]}
+      partLotLabels={['Packet A', 'Packet B']}
+      disabled={false}
+      reload={vi.fn()}
+    />,
+  )
+
+  expect(screen.getByText(/affects 2 lots \(Packet A, Packet B\)/)).toBeTruthy()
 })

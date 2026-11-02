@@ -102,6 +102,11 @@ ORDER BY subject_id,field,version DESC`,
     id,
   ])
   const lots = lotsResult.rows
+  const retiredResult = await client.query<{ lot_id: string }>(
+    'SELECT lot_id FROM capture_lot_retirement WHERE batch_id=$1',
+    [id],
+  )
+  const retiredLots = new Set(retiredResult.rows.map((row) => row.lot_id))
   const notesResult = await client.query<{
     id: string
     subject_id: string | null
@@ -151,6 +156,8 @@ ORDER BY observed_at,id`,
         revision: s.revision,
         quantity: value(l.id, 'quantity', inherit),
         location: value(l.id, 'location', inherit),
+        // Active lots omit the field so their snapshot bytes are unchanged.
+        ...(retiredLots.has(l.id) ? { retired: true as const } : {}),
       }
     }),
     notes: notes.map((n) => ({ ...n, created_at: n.created_at.toISOString(), producer: 'human' })),
