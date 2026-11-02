@@ -238,6 +238,48 @@ test('selected Part attachment freezes exact media and destination without pulli
   assert.throws(() => decode({ ...selected, mediaConfigured: false }))
 })
 
+test('blank, control, overlong and excessive tag names refuse; distinct Unicode names remain distinct', () => {
+  const { plan, spec, context, category } = fixture()
+  const observations = [
+    {
+      id: category.observation_id,
+      model: 'category' as const,
+      pk: '81',
+      target_context_id: context,
+      observed_at: '2020-01-01T00:00:00.000Z',
+      label: 'Resistors',
+      mapping: { kind: 'category' as const },
+    },
+  ]
+  const planned = (tags: string[]) => {
+    const next = { ...spec, tags }
+    const part = { ...plan.parts[0], spec: next, specDigest: partSpecDigest(next) }
+    return { ...plan, parts: [part], effects: partEffects(part) }
+  }
+  for (const tags of [[], ['SMD']] as const) {
+    validatePartSpec({ ...spec, tags: [...tags] }, context, observations)
+    assert.deepEqual(decode(planned([...tags])), planned([...tags]))
+  }
+  for (const tags of [
+    [''],
+    [' '],
+    ['\n'],
+    ['a'.repeat(101)],
+    Array.from({ length: 33 }, (_, index) => `tag-${index}`),
+  ]) {
+    assert.throws(() => validate('InventoryPartSpec', { ...spec, tags }))
+  }
+  const { tags: _absent, ...withoutTags } = spec
+  assert.throws(() => validate('InventoryPartSpec', withoutTags))
+  for (const tags of [['\u0001'], ['safe\u0001'], ['\u007f']]) {
+    validate('InventoryPartSpec', { ...spec, tags })
+    assert.throws(() => decode(planned(tags)), /unsupported_part_spec/)
+    assert.throws(() => validatePartSpec({ ...spec, tags }, context, observations))
+  }
+  const distinct = planned(['Ω', 'ω'])
+  assert.deepEqual(decode(distinct), distinct)
+})
+
 test('native new tag names are part of the create spec; case-duplicate ASCII names refuse', () => {
   const { plan, spec, context, category } = fixture()
   const named = { ...spec, tags: ['SMD', 'Bench intake new tag'] }
