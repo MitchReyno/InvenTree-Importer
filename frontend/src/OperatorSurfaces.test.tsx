@@ -276,3 +276,29 @@ test('instruction drafts and capture edits cannot erase each other through a sib
   expect(edit).not.toHaveBeenCalled()
   expect(operator.instruct).not.toHaveBeenCalled()
 })
+
+test('instruction edits can be discarded locally when current commands become disabled', async () => {
+  const user = userEvent.setup()
+  const client = { instruct: vi.fn() } as unknown as OperatorReviewClient
+  const dirty = vi.fn()
+
+  const element = (disabled: boolean) => (
+    <InstructionsPanel
+      batch={batch}
+      review={review}
+      client={client}
+      disabled={disabled}
+      reload={vi.fn()}
+      onDirtyChange={dirty}
+    />
+  )
+
+  const view = render(element(false))
+  await user.type(screen.getByLabelText('Batch instructions'), ' Unsent')
+  view.rerender(element(true))
+  expect(screen.getByRole('button', { name: 'Discard instruction edits' })).toBeEnabled()
+  await user.click(screen.getByRole('button', { name: 'Discard instruction edits' }))
+  expect(screen.getByLabelText('Batch instructions')).toHaveValue('Same order, separate packets.')
+  expect(dirty).toHaveBeenLastCalledWith(false)
+  expect(client.instruct).not.toHaveBeenCalled()
+})

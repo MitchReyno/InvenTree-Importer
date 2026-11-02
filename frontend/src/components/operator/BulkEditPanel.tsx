@@ -177,7 +177,7 @@ export function BulkEditPanel({
       </Paragraph>
       <Button
         type="button"
-        disabled={disabled || locked || !isDirty}
+        disabled={locked || !isDirty}
         onClick={() => {
           reset()
           setPreview(null)

@@ -47,6 +47,7 @@ export function CompareMatches({
   onClose,
   onDirtyChange,
 }: Props) {
+  const [saving, setSaving] = useState(false)
   const [pending, setPending] = useState<Observation | null>(null)
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
   const candidates = partCandidates(batch)
@@ -55,26 +56,31 @@ export function CompareMatches({
 
   async function confirm(observation: Observation) {
     // A saved revision remounts the dialog; a resolved refusal keeps the local choice.
-    await edit({
-      kind: 'part',
-      id: part.id,
-      choice: {
-        mode: 'set',
-        value: {
-          observation_id: observation.id,
-          target_context_id: observation.target_context_id,
-          model: 'part',
-          pk: observation.pk,
+    setSaving(true)
+    try {
+      await edit({
+        kind: 'part',
+        id: part.id,
+        choice: {
+          mode: 'set',
+          value: {
+            observation_id: observation.id,
+            target_context_id: observation.target_context_id,
+            model: 'part',
+            pk: observation.pk,
+          },
         },
-      },
-    })
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <Modal
       title={`Compare matches · ${part.label}`}
       onClose={onClose}
-      closeDisabled={pending !== null}
+      closeDisabled={pending !== null || saving}
     >
       <Paragraph>
         Candidates are existing Parts read from the fixed target. ≠ marks a candidate another Part
@@ -135,7 +141,7 @@ export function CompareMatches({
                 {candidates.map((candidate) => (
                   <td key={candidate.id}>
                     <Button
-                      disabled={disabled || candidate.pk === current}
+                      disabled={disabled || saving || candidate.pk === current}
                       onClick={() => {
                         setPending(candidate)
                         onDirtyChange?.(true)
@@ -161,11 +167,12 @@ export function CompareMatches({
           </Paragraph>
           <Small>Their current reviews will no longer match and must be repeated.</Small>
           <span>
-            <Button disabled={disabled} onClick={() => void confirm(pending)}>
+            <Button disabled={disabled || saving} onClick={() => void confirm(pending)}>
               Use #{pending.pk} for {affectedLotIds.length} lot
               {affectedLotIds.length === 1 ? '' : 's'}
             </Button>{' '}
             <Button
+              disabled={saving}
               onClick={() => {
                 setPending(null)
                 onDirtyChange?.(false)

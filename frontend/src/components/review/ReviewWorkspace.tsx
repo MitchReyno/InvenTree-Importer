@@ -182,6 +182,7 @@ export function ReviewWorkspace({
         if (
           focused &&
           !drafts.isDirty() &&
+          !reviewUnavailable &&
           !busy &&
           !stale &&
           !selectionProblem([focused], workspace, operatorReview)

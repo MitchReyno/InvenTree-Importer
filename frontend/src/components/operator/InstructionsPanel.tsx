@@ -102,7 +102,7 @@ function InstructionForm({
       {command.message && <ErrorNotice role="alert">{command.message}</ErrorNotice>}
       <Button
         type="button"
-        disabled={disabled || command.busy || (!isDirty && !command.pending)}
+        disabled={command.busy || (!isDirty && !command.pending)}
         onClick={() => {
           command.discard()
           reset()

@@ -72,7 +72,7 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
     handleSubmit,
     watch,
     reset,
-    formState: { errors, isDirty, dirtyFields },
+    formState: { errors, isDirty, dirtyFields, isSubmitting },
   } = useForm<Values>({ defaultValues: initialValues(lot) })
   const quantityMode = watch('quantityMode')
   const locations = batch.observations.filter((item) => item.model === 'location')
@@ -141,20 +141,20 @@ export function QuickLotEdit({ batch, lot, disabled, edit, onDirtyChange }: Prop
           </Select>
         </Label>
         <Small>Affects only this lot. Read another location in Capture to add it here.</Small>
-        <Button
-          type="button"
-          disabled={!isDirty}
-          onClick={() => {
-            reset(initialValues(lot))
-            onDirtyChange?.(false)
-          }}
-        >
-          Discard lot edits
-        </Button>
         <Button type="submit" disabled={!isDirty}>
           Save lot values
         </Button>
       </Fieldset>
+      <Button
+        type="button"
+        disabled={!isDirty || isSubmitting}
+        onClick={() => {
+          reset(initialValues(lot))
+          onDirtyChange?.(false)
+        }}
+      >
+        Discard lot edits
+      </Button>
     </Form>
   )
 }

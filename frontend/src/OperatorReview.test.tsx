@@ -1,5 +1,10 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ReactNode } from 'react'
+import { ServerStateProvider } from './components/query/ServerStateProvider'
+import { createServerQueryClient } from './queries/client'
+import { serverQueryKey } from './queries/scope'
+import { fixtureScope } from './test/render'
 import { beforeEach, expect, test, vi } from 'vitest'
 import {
   validate,
@@ -737,4 +742,122 @@ test('an actual Batch revision conflict retains the compared shared Part choice'
   await user.click(screen.getByRole('button', { name: 'Discard Part choice' }))
   await user.click(screen.getByRole('button', { name: 'Close' }))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+test.each(['quick', 'bulk'] as const)(
+  'an unavailable projection permits explicit local %s discard without sending',
+  async (kind) => {
+    const user = userEvent.setup()
+    const manual = manualClient()
+    const operator = operatorClient()
+    const edit = vi.fn()
+
+    const element = (projection: OperatorReviewDto | undefined) => (
+      <ManualWorkspace
+        batch={batch}
+        client={manual}
+        stage="review"
+        edit={edit}
+        navigate={vi.fn()}
+        reload={vi.fn()}
+        operatorReview={projection}
+        operator={operator}
+      />
+    )
+
+    const view = render(element(operatorReview))
+    if (kind === 'quick') {
+      await user.click(await screen.findByRole('button', { name: 'Inspect Packet A' }))
+      await user.click(screen.getByRole('button', { name: 'Edit lot values' }))
+      await user.type(screen.getByLabelText('Exact pieces'), '3')
+    } else {
+      await openTableAndSelect(user)
+      await user.selectOptions(screen.getByLabelText('Quantity'), 'set')
+      await user.type(screen.getByLabelText('Exact pieces for every selected lot'), '123')
+    }
+    view.rerender(element(undefined))
+    const discard = screen.getByRole('button', {
+      name: kind === 'quick' ? 'Discard lot edits' : 'Discard bulk edits',
+    })
+    expect(discard).toBeEnabled()
+    await user.click(discard)
+    await user.click(screen.getByRole('tab', { name: kind === 'quick' ? 'Table' : 'Evidence' }))
+    expect(edit).not.toHaveBeenCalled()
+    expect(operator.bulkEdit).not.toHaveBeenCalled()
+    expect(screen.queryByText(/Save or explicitly discard local edits/)).not.toBeInTheDocument()
+  },
+)
+
+test('keyboard review cannot bypass an unavailable current operator projection', async () => {
+  const user = userEvent.setup()
+  const manual = manualClient()
+  const operator = operatorClient()
+
+  const element = (projection: OperatorReviewDto | undefined) => (
+    <ManualWorkspace
+      batch={batch}
+      client={manual}
+      stage="review"
+      edit={vi.fn()}
+      navigate={vi.fn()}
+      reload={vi.fn()}
+      operatorReview={projection}
+      operator={operator}
+    />
+  )
+
+  const view = render(element(operatorReview))
+  await user.click(await screen.findByRole('button', { name: 'Inspect Packet A' }))
+  view.rerender(element(undefined))
+  await user.keyboard('r')
+  expect(manual.review).not.toHaveBeenCalled()
+})
+
+test('Batch retains instruction drafts after a polled revision mismatch and offers explicit reload recovery', async () => {
+  history.replaceState(null, '', `#${batchId}`)
+  const cache = createServerQueryClient()
+  const user = userEvent.setup()
+  const client = { read: vi.fn(async () => batch), edit: vi.fn() } as unknown as Client
+  const operator = operatorClient()
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerStateProvider scope={fixtureScope} client={cache}>
+        {children}
+      </ServerStateProvider>
+    )
+  }
+
+  render(
+    <Batch
+      id={batchId}
+      route={batchId}
+      client={client}
+      manual={manualClient()}
+      operator={operator}
+      onDirtyChange={vi.fn()}
+    />,
+    { wrapper: Wrapper },
+  )
+  const input = await screen.findByLabelText('Batch instructions')
+  await user.type(input, 'Retain instructions')
+  vi.mocked(operator.read).mockResolvedValue({ ...operatorReview, revision: '13' })
+  vi.mocked(client.read).mockResolvedValue({ ...batch, revision: '13' })
+  await act(async () => {
+    cache.setQueryData(serverQueryKey(fixtureScope, 'operator-review', batchId), {
+      ...operatorReview,
+      revision: '13',
+    })
+  })
+  expect(input).toHaveValue('Retain instructions')
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Save batch instructions' })).toBeDisabled(),
+  )
+  await user.click(screen.getByRole('button', { name: 'Discard instruction edits' }))
+  expect(input).toHaveValue('')
+  const reload = screen.getByRole('button', { name: 'Discard local edits and load saved values' })
+  expect(reload).toBeEnabled()
+  await user.click(reload)
+  await screen.findByText('Saved · revision 13')
+  expect(operator.instruct).not.toHaveBeenCalled()
 })

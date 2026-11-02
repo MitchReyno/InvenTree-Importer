@@ -270,6 +270,20 @@ export function Batch({
 
   return (
     <>
+      {operatorUnavailable && acceptedOperatorReview && !visibleError && (
+        <ErrorNotice role="status">
+          <Paragraph>
+            Current operator review is unavailable or changed. Local input is retained until exact
+            retry or explicit discard.
+          </Paragraph>
+          <Button
+            disabled={busy || captureQuery.isFetching}
+            onClick={() => void reloadSavedValues()}
+          >
+            Discard local edits and load saved values
+          </Button>
+        </ErrorNotice>
+      )}
       {visibleError && (
         <ErrorNotice role="alert">
           <Paragraph>{visibleError}</Paragraph>
