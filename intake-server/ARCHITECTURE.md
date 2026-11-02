@@ -87,6 +87,18 @@ profiles, providers and production access remain unqualified. See the current
 [T05 handover](../docs/handovers/bench-intake-T05.md) for observations and remaining gates.
 
 
+## Operator review and unapproved restructuring
+
+T08 adds `src/operator-review/`, registered from `registerManual`. It composes the capture and review modules and reads media through the existing public media snapshot; it does not query Processing or media tables. Migration `0008_operator_review.sql` adds append-only capture tables: lot lineage, lot retirement, warning dispositions and versioned batch/evidence-group instructions.
+
+`GET /api/v1/batches/:id/operator-review` is a repeatable-read projection. It returns each active lot's review state (`unreviewed`, `reviewed`, `changed_after_review`), typed blocking issues and warnings with any current dismissal, lineage, retired lots and the latest instructions. Review state uses the same exact-bytes rule as preparation.
+
+Warnings are deterministic: `no_supporting_evidence` and `possible_duplicate_part`. A dismissal needs a reason and binds to the subject's fact digest, so it stops counting once those facts change. When a subject has a dismissal or predecessors, its review bytes use `manual-subject-review/3`; otherwise the retained `/1` and `/2` bytes are unchanged. Unresolved warnings block review, preparation and approval. Blocking issues cannot be dismissed.
+
+Bulk edits, restructures (split, merge with explicit same-contribution confirmation, move between Part proposals) and instructions lock the batch, check the expected revision and commit one capture revision. Restructures refuse lots with an original contribution approval. With `preview: true` the server applies the command inside a savepoint, reports the exact impact and rolls back; previews keep no idempotency record and return no new IDs.
+
+Retired lots stay in `CaptureSnapshot.lots` so Processing and media history remain readable. Capture edits and notes refuse them with `lot_retired`, and selection treats them as blocking. Refusing new Processing starts on a retired lot is a proposed Processing follow-up.
+
 ## Retained research coordination
 
 T06 explicitly registers `processing/routes.ts` when a database is configured. A persistent private channel secret enables new synthetic-profile starts/answers; missing configuration remains an honest unconfigured state and retained inspection/cancellation remain available. No web/import/migration path starts a research worker or constructs a provider transport. The injected runner and actual DBOS child qualification use deterministic fixtures only.
