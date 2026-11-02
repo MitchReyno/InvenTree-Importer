@@ -6,6 +6,7 @@ import type { CaptureRead } from '../capture/routes.ts'
 import type { ApprovalInput } from './preparations.ts'
 import type { ManualConfig } from './authority.ts'
 import { manualRepository } from './repository.ts'
+import { registerOperatorReview } from '../operator-review/routes.ts'
 
 function parameter(request: FastifyRequest) {
   const id = (request.params as { id: string }).id
@@ -43,6 +44,7 @@ export function registerManual(
   read?: CaptureRead,
 ) {
   const repository = manualRepository(pool, config, read)
+  registerOperatorReview(app, pool, config)
   app.register(async (scope) => {
     scope.addHook('preHandler', async () => {
       if (!config.apiKey?.trim() || config.credentialRef === 'unconfigured') {
