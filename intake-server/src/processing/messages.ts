@@ -15,6 +15,7 @@ import { validateProposalSources } from './provenance.ts'
 import { prepareMediaTransaction } from '../media/transaction.ts'
 import { lockProcessingMediaCurrency } from './media.ts'
 import { processingDependencyStatus } from './dependencies.ts'
+import { verifyRetainedResearchSources } from './research-sources.ts'
 
 type Authority = Awaited<ReturnType<typeof loadProcessingAuthority>>
 
@@ -168,6 +169,19 @@ export async function acceptEnvelope(
     }
 
     validatePayloadReferences(authority, job.subject_id, envelope)
+    if (envelope.kind === 'proposal') {
+      await verifyRetainedResearchSources(
+        client,
+        config,
+        authority.manifest,
+        {
+          attemptId: authority.row.id,
+          commandId: authority.row.command_id,
+          inputSha256: authority.row.manifest_digest.toString('hex'),
+        },
+        envelope.payload,
+      )
+    }
     const dependencies = await processingDependencyStatus(client, config, authority)
     const stale =
       job.current_attempt_id !== attempt.id ||
@@ -176,7 +190,12 @@ export async function acceptEnvelope(
       !dependencies.current ||
       !dependencies.ready ||
       !media.available ||
-      !processingInputIsCurrent(authority.manifest, capture.snapshot, media.inputs)
+      !processingInputIsCurrent(
+        authority.manifest,
+        capture.snapshot,
+        media.inputs,
+        config.approvedSourceUrls,
+      )
 
     const messageId = randomUUID()
     await client.query('INSERT INTO processing_message VALUES($1,$2,$3,$4,$5,$6)', [

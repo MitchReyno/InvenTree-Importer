@@ -8,12 +8,14 @@ import {
   ProcessingError,
   inputManifest,
   mediaInputManifest,
+  researchInputManifest,
+  approvedResearchSources,
   decodeProcessingInput,
   decodeProcessingCommand,
   type Stage,
 } from './model.ts'
 import { verifyBytes } from '../db/authority.ts'
-import { processingProfiles, toolProfileVersion } from './policy.ts'
+import { processingProfiles } from './policy.ts'
 import type { MediaInputs } from '../media/inputs.ts'
 import { verifyRetainedProcessingMedia } from './media.ts'
 import type { ProcessingConfig } from './attempts.ts'
@@ -74,7 +76,7 @@ export async function loadProcessingAuthority(
   const profileMatches =
     row.instruction_digest.toString('hex') === profile.instructionDigest &&
     row.instruction_bytes.toString('utf8') === profile.instructions &&
-    row.tool_profile_version === toolProfileVersion
+    row.tool_profile_version === profile.toolProfileVersion
   if (!profileMatches) {
     fail('processing_profile_version_conflict')
   }
@@ -82,10 +84,7 @@ export async function loadProcessingAuthority(
   const manifest = decodeProcessingInput(row.manifest_bytes, row.manifest_digest)
   const payload = decodeProcessingCommand(row.payload_bytes, row.payload_digest)
   const expected = {
-    schema_version:
-      manifest.schema_version === 'bench-intake-input/1'
-        ? 'bench-intake-processing-command/1'
-        : 'bench-intake-processing-command/2',
+    schema_version: profile.commandSchemaVersion,
     job_id: row.job_id,
     attempt_id: row.id,
     input_id: row.input_id,
@@ -106,7 +105,7 @@ export async function loadProcessingAuthority(
     manifest.stage !== row.stage ||
     manifest.instruction_version !== profile.instructionVersion ||
     manifest.instruction_sha256 !== profile.instructionDigest ||
-    manifest.tool_profile_version !== toolProfileVersion
+    manifest.tool_profile_version !== profile.toolProfileVersion
   ) {
     fail('processing_authority_corrupt')
   }
@@ -119,6 +118,7 @@ export function processingInputIsCurrent(
   manifest: ProcessingInputDto,
   snapshot: CaptureSnapshotDto,
   media: MediaInputs,
+  approvedSourceUrls: readonly string[] = [],
 ) {
   // The dependency closure is retained; unrelated batch changes do not invalidate this subject.
   if (
@@ -126,6 +126,12 @@ export function processingInputIsCurrent(
     (media.versions.length > 0 || media.attachments.length > 0)
   ) {
     return false
+  }
+  if (manifest.schema_version === 'bench-intake-input/3') {
+    const admitted = new Set(approvedResearchSources(approvedSourceUrls))
+    if (manifest.source_urls.some((url) => !admitted.has(url))) {
+      return false
+    }
   }
   const argumentsForInput = [
     snapshot,
@@ -136,13 +142,17 @@ export function processingInputIsCurrent(
   ] as const
   let current: ProcessingInputDto
   try {
-    current =
-      manifest.schema_version === 'bench-intake-input/1'
-        ? inputManifest(...argumentsForInput)
-        : mediaInputManifest(...argumentsForInput, {
-            manifest: media.bytes.toString('utf8'),
-            sha256: media.digest.toString('hex'),
-          })
+    const descriptor = {
+      manifest: media.bytes.toString('utf8'),
+      sha256: media.digest.toString('hex'),
+    }
+    if (manifest.schema_version === 'bench-intake-input/1') {
+      current = inputManifest(...argumentsForInput)
+    } else if (manifest.schema_version === 'bench-intake-input/3') {
+      current = researchInputManifest(...argumentsForInput, descriptor, manifest.source_urls)
+    } else {
+      current = mediaInputManifest(...argumentsForInput, descriptor)
+    }
   } catch (error) {
     const evidenceRemoved =
       error instanceof ProcessingError &&

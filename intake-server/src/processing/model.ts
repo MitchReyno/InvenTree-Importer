@@ -5,6 +5,7 @@ import {
   type ProcessingInputDto,
   type ProcessingInputV1Dto,
   type ProcessingInputV2Dto,
+  type ProcessingInputV3Dto,
   type ProcessingCommandDto,
   type ProcessingQuestionSpecDto,
   type ProcessingProposalDto,
@@ -15,9 +16,14 @@ import {
   toolProfileVersion,
   mediaInstructionVersion,
   mediaInstructionDigest,
+  researchInstructionVersion,
+  researchInstructionDigest,
+  researchToolProfileVersion,
 } from './policy.ts'
 import { decodeMediaInputs } from '../media/inputs.ts'
 import { sha256, verifyBytes } from '../db/authority.ts'
+import { canonicalSourceUrl } from '../research/source-policy.ts'
+import { MAX_RESEARCH_SOURCE_URLS } from '../research/limits.ts'
 
 export const handlerVersion = 'processing/1'
 
@@ -26,6 +32,12 @@ export const profileId = 'synthetic-research/1'
 export const mediaHandlerVersion = 'processing/2'
 
 export const mediaProfileId = 'synthetic-research/2'
+
+export const researchHandlerVersion = 'processing/3'
+
+export const researchProfileId = 'restricted-research-stub/1'
+
+export type SelectedProcessingProfile = typeof mediaProfileId | typeof researchProfileId
 
 export const stageOrder = ['reading', 'identifying', 'research', 'images', 'inventory'] as const
 
@@ -171,6 +183,38 @@ export function mediaInputManifest(
     instruction_sha256: mediaInstructionDigest,
     tool_profile_version: toolProfileVersion,
     media: { ...media },
+  }
+}
+
+export function approvedResearchSources(values: readonly string[]): string[] {
+  if (values.length > MAX_RESEARCH_SOURCE_URLS) {
+    fail('processing_source_policy_invalid', 503)
+  }
+  try {
+    return [...new Set(values.map((value) => canonicalSourceUrl(value).href))].sort()
+  } catch {
+    return fail('processing_source_policy_invalid', 503)
+  }
+}
+
+export function researchInputManifest(
+  snapshot: CaptureSnapshotDto,
+  subjectId: string,
+  stage: Stage,
+  dependencies: string[],
+  answerId: string | null,
+  media: RetainedMediaDescriptor,
+  sourceUrls: readonly string[],
+): ProcessingInputV3Dto {
+  const fields = mediaInputManifest(snapshot, subjectId, stage, dependencies, answerId, media)
+  return {
+    ...fields,
+    schema_version: 'bench-intake-input/3',
+    profile_id: researchProfileId,
+    instruction_version: researchInstructionVersion,
+    instruction_sha256: researchInstructionDigest,
+    tool_profile_version: researchToolProfileVersion,
+    source_urls: approvedResearchSources(sourceUrls),
   }
 }
 

@@ -10,7 +10,14 @@ import {
   type RestrictedResearchRunner,
 } from './runner.ts'
 import type { ProcessingConfig } from './attempts.ts'
-import { fail, mediaHandlerVersion, mediaProfileId } from './model.ts'
+import {
+  fail,
+  mediaHandlerVersion,
+  mediaProfileId,
+  researchProfileId,
+  researchHandlerVersion,
+} from './model.ts'
+import { ResearchReapPendingError } from '../research/errors.ts'
 
 /** Scheduler delivery is payload-bound; account/attempt authority is checked again by the worker. */
 export async function dispatchProcessingCommands(
@@ -18,6 +25,8 @@ export async function dispatchProcessingCommands(
   scheduler: DBOSClient,
   config: ProcessingConfig,
 ) {
+  const actualHandlerVersion =
+    config.profileId === researchProfileId ? researchHandlerVersion : mediaHandlerVersion
   const commands = await transaction(pool, async (client) => {
     await prepareMediaTransaction(client)
     const retained = await client.query<{ command_id: string }>(
@@ -35,7 +44,7 @@ export async function dispatchProcessingCommands(
          WHERE dependency.attempt_id=attempt.id
            AND (predecessor.state<>'ready' OR predecessor_job.current_attempt_id<>predecessor.id))
      ORDER BY command.created_at,command.id LIMIT 10`,
-      [config.actorId, config.targetId, config.targetContextId, mediaHandlerVersion],
+      [config.actorId, config.targetId, config.targetContextId, actualHandlerVersion],
     )
     return retained.rows
   })
@@ -55,16 +64,21 @@ export async function executeProcessingCommand(
   payload: unknown,
   runner: RestrictedResearchRunner,
 ) {
-  if (runner.profileId !== mediaProfileId || runner.qualification !== 'fixture_only') {
+  if (
+    ![mediaProfileId, researchProfileId].includes(runner.profileId) ||
+    runner.qualification !== 'fixture_only'
+  ) {
     fail('unsupported_runner_profile', 422)
   }
+  const actualHandlerVersion =
+    runner.profileId === researchProfileId ? researchHandlerVersion : mediaHandlerVersion
 
   const command = await claimProcessingCommand(
     pool,
     config,
     workflowId,
     payload,
-    mediaHandlerVersion,
+    actualHandlerVersion,
   )
   if (!command) {
     // Recovery never replays an already claimed native session or substitutes a newer attempt.
@@ -76,7 +90,10 @@ export async function executeProcessingCommand(
     await runner.run(runnerInput, async (message) => {
       await acceptEnvelope(pool, config, channelToken, message)
     })
-  } catch {
+  } catch (error) {
+    if (error instanceof ResearchReapPendingError) {
+      fail('research_reap_unconfirmed', 503)
+    }
     // The adapter has returned/failed. Raw provider errors and source text stay out of public errors.
     await interruptProcessing(pool, config, command.payload.attempt_id)
     fail('research_runner_interrupted')

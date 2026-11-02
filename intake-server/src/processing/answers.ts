@@ -173,7 +173,12 @@ export async function answerQuestion(
       const questionCurrent =
         dependencyStatus.current &&
         dependencyStatus.ready &&
-        processingInputIsCurrent(authority.manifest, capture.snapshot, currentMedia)
+        processingInputIsCurrent(
+          authority.manifest,
+          capture.snapshot,
+          currentMedia,
+          config.approvedSourceUrls,
+        )
       if (!questionCurrent) {
         fail('stale_question', 412)
       }
