@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { createAttempt, type ProcessingConfig } from './attempts.ts'
-import { processingAttempts, processingJobs } from './schema.ts'
+import { processingAttempts, processingJobs, processingQuestions } from './schema.ts'
 import { MAX_JOBS_PER_BATCH } from './limits.ts'
 import { fail, type Stage } from './model.ts'
 import { processingJobColumns } from './state.ts'
@@ -12,16 +12,29 @@ import type { LockedMediaInputs } from '../media/locked-inputs.ts'
 
 /** Caller holds the actor lane and selected job lock before invalidating attempts/questions. */
 export async function supersedeJobAttempts(client: PoolClient, jobId: string) {
-  await client.query(
-    `UPDATE processing_attempt SET state='superseded'
-     WHERE job_id=$1 AND state IN (
-       'queued','running','waiting_for_user','waiting_for_login','waiting_for_capacity','interrupted')`,
-    [jobId],
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(processingAttempts)
+      .set({ state: 'superseded' })
+      .where(
+        and(
+          eq(processingAttempts.jobId, jobId),
+          inArray(processingAttempts.state, [
+            'queued',
+            'running',
+            'waiting_for_user',
+            'waiting_for_login',
+            'waiting_for_capacity',
+            'interrupted',
+          ]),
+        ),
+      ),
   )
-  await client.query(
-    `UPDATE processing_question SET state='superseded',revision=revision+1
-     WHERE job_id=$1 AND state='open'`,
-    [jobId],
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(processingQuestions)
+      .set({ state: 'superseded', revision: sql`${processingQuestions.revision}+1` })
+      .where(and(eq(processingQuestions.jobId, jobId), eq(processingQuestions.state, 'open'))),
   )
   // Logical supersession does not prove that a held worker command ended.
 }
@@ -80,9 +93,15 @@ export async function queueJob(
     parentInputId,
   )
   if (priorJob) {
-    await client.query(
-      "UPDATE processing_job SET current_attempt_id=$2,state='queued',revision=revision+1 WHERE id=$1",
-      [job.id, attempt.attemptId],
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .update(processingJobs)
+        .set({
+          currentAttemptId: attempt.attemptId,
+          state: 'queued',
+          revision: sql`${processingJobs.revision}+1`,
+        })
+        .where(eq(processingJobs.id, job.id)),
     )
   } else {
     await executeDatabaseQuery(

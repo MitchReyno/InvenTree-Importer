@@ -1,3 +1,7 @@
+import { eq } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { commands, outbox } from '../db/schema.ts'
+import { manualDispatches } from './schema.ts'
 import { selectSupportedRecovery } from '../execution/effects-recovery.ts'
 import { publishManualRun } from './events.ts'
 import { randomUUID } from 'node:crypto'
@@ -64,20 +68,30 @@ export async function runCommand(
           return accepted
         }
         if (action === 'start') {
-          const existing = await client.query(
-            'SELECT id FROM manual_dispatch WHERE command_id=$1',
-            [authority.commandId],
+          const existing = await executeDatabaseQuery(
+            queryDatabase(client)
+              .select({ id: manualDispatches.id })
+              .from(manualDispatches)
+              .where(eq(manualDispatches.commandId, authority.commandId)),
           )
-          if (existing.rows[0] || current.state === 'settled_complete') {
+          if (existing[0] || current.state === 'settled_complete') {
             return accepted
           }
           if (current.state !== 'queued') {
             fail('original_recovery_required', 409)
           }
           const bytes = Buffer.from(canonical([]))
-          await client.query(
-            'INSERT INTO manual_dispatch(id,run_id,actor_id,command_id,recovery_bytes,recovery_digest) VALUES($1,$2,$3,$4,$5,$6)',
-            [randomUUID(), runId, config.actorId, authority.commandId, bytes, sha256(bytes)],
+          await executeDatabaseQuery(
+            queryDatabase(client)
+              .insert(manualDispatches)
+              .values({
+                id: randomUUID(),
+                runId,
+                actorId: config.actorId,
+                commandId: authority.commandId,
+                recoveryBytes: bytes,
+                recoveryDigest: sha256(bytes),
+              }),
           )
           await publishManualRun(client, runId)
           return accepted
@@ -159,25 +173,35 @@ export async function runCommand(
             recoveryIds,
           }),
         )
-        await client.query(
-          `INSERT INTO command(id,actor_id,target_id,target_context_id,kind,handler_version,workflow_id,queue_name,payload_bytes,payload_digest)
-       VALUES($1,$2,$3,$4,'recover',$5,$6,'bench-apply',$7,$8)`,
-          [
-            commandId,
-            config.actorId,
-            config.targetId,
-            config.targetContextId,
-            authority.plan.build,
-            `manual-recovery:${dispatchId}`,
-            bytes,
-            sha256(bytes),
-          ],
+        await executeDatabaseQuery(
+          queryDatabase(client)
+            .insert(commands)
+            .values({
+              id: commandId,
+              actorId: config.actorId,
+              targetId: config.targetId,
+              targetContextId: config.targetContextId,
+              kind: 'recover',
+              handlerVersion: authority.plan.build,
+              workflowId: `manual-recovery:${dispatchId}`,
+              queueName: 'bench-apply',
+              payloadBytes: bytes,
+              payloadDigest: sha256(bytes),
+            }),
         )
-        await client.query('INSERT INTO outbox(command_id) VALUES($1)', [commandId])
+        await executeDatabaseQuery(queryDatabase(client).insert(outbox).values({ commandId }))
         const recoveryBytes = Buffer.from(canonical(recoveryIds))
-        await client.query(
-          'INSERT INTO manual_dispatch(id,run_id,actor_id,command_id,recovery_bytes,recovery_digest) VALUES($1,$2,$3,$4,$5,$6)',
-          [dispatchId, runId, config.actorId, commandId, recoveryBytes, sha256(recoveryBytes)],
+        await executeDatabaseQuery(
+          queryDatabase(client)
+            .insert(manualDispatches)
+            .values({
+              id: dispatchId,
+              runId,
+              actorId: config.actorId,
+              commandId,
+              recoveryBytes,
+              recoveryDigest: sha256(recoveryBytes),
+            }),
         )
         await publishManualRun(client, runId)
         return accepted

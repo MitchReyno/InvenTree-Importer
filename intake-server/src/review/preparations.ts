@@ -1,3 +1,19 @@
+import { and, eq, inArray, sql } from 'drizzle-orm'
+import { mediaEvidence } from '../media/schema.ts'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import {
+  manualReviews,
+  manualPrepareCommands,
+  manualReadIntents,
+  manualReadResults,
+  manualPreparations,
+  manualPreparationReviews,
+  manualPreparationLots,
+  manualPrepareOutcomes,
+  manualApprovals,
+  manualRuns,
+} from './schema.ts'
+
 import { partIdentitySatisfies } from '../inventory/part-identity.ts'
 import { supportedEffectsPreview, partAttachmentsPreview } from './effects-preview.ts'
 import {
@@ -164,16 +180,15 @@ export async function markReviewed(
           fail(selected.issues[0].code, 409)
         }
         for (const subject of selected.material.subjects) {
-          await client.query(
-            'INSERT INTO manual_review(id,batch_id,subject_id,actor_id,dependency_bytes,dependency_digest) VALUES($1,$2,$3,$4,$5,$6)',
-            [
-              randomUUID(),
+          await executeDatabaseQuery(
+            queryDatabase(client).insert(manualReviews).values({
+              id: randomUUID(),
               batchId,
-              subject.subjectId,
-              config.actorId,
-              subject.bytes,
-              subject.digest,
-            ],
+              subjectId: subject.subjectId,
+              actorId: config.actorId,
+              dependencyBytes: subject.bytes,
+              dependencyDigest: subject.digest,
+            }),
           )
         }
         const sequence = await appendEvent(client, selected.capture.streamId, 'manual_reviewed', {
@@ -293,9 +308,14 @@ async function observePreparation(
         }
         const intentId = randomUUID()
         await transaction(pool, async (client) => {
-          await client.query(
-            'INSERT INTO manual_read_intent(id,batch_id,prepare_command_id,model,pk) VALUES($1,$2,$3,$4,$5)',
-            [intentId, context.capture.snapshot.id, context.commandId, request.model, request.pk],
+          await executeDatabaseQuery(
+            queryDatabase(client).insert(manualReadIntents).values({
+              id: intentId,
+              batchId: context.capture.snapshot.id,
+              prepareCommandId: context.commandId,
+              model: request.model,
+              pk: request.pk,
+            }),
           )
         })
         let outcome: 'found' | 'unavailable' = 'unavailable'
@@ -351,9 +371,10 @@ async function observePreparation(
           }),
         )
         await transaction(pool, async (client) => {
-          await client.query(
-            'INSERT INTO manual_read_result(intent_id,outcome,receipt_bytes,receipt_digest) VALUES($1,$2,$3,$4)',
-            [intentId, outcome, receipt, sha256(receipt)],
+          await executeDatabaseQuery(
+            queryDatabase(client)
+              .insert(manualReadResults)
+              .values({ intentId, outcome, receiptBytes: receipt, receiptDigest: sha256(receipt) }),
           )
         })
       }),
@@ -404,21 +425,21 @@ export async function prepareSelection(
           binding.capability === 'owned-fake-effects/1'
             ? await selectedPartTransfers(client, selected.capture.source, selected.material, parts)
             : []
-        await client.query(
-          `INSERT INTO manual_prepare_command(id,batch_id,actor_id,deployment_id,target_id,context_id,dependency_bytes,dependency_digest,review_bytes,review_digest)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-          [
-            commandId,
-            batchId,
-            config.actorId,
-            binding.deploymentId,
-            binding.targetId,
-            binding.contextId,
-            selected.material.bytes,
-            selected.material.digest,
-            reviewBytes,
-            sha256(reviewBytes),
-          ],
+        await executeDatabaseQuery(
+          queryDatabase(client)
+            .insert(manualPrepareCommands)
+            .values({
+              id: commandId,
+              batchId,
+              actorId: config.actorId,
+              deploymentId: binding.deploymentId,
+              targetId: binding.targetId,
+              contextId: binding.contextId,
+              dependencyBytes: selected.material.bytes,
+              dependencyDigest: selected.material.digest,
+              reviewBytes,
+              reviewDigest: sha256(reviewBytes),
+            }),
         )
         context = {
           commandId,
@@ -441,13 +462,18 @@ export async function prepareSelection(
   if (started.issues) {
     return { status: 'blocked', issues: started.issues }
   }
-  const previous = await pool.query(
-    'SELECT response_bytes,response_digest FROM manual_prepare_outcome WHERE command_id=$1',
-    [started.command_id],
+  const previous = await executeDatabaseQuery(
+    queryDatabase(pool)
+      .select({
+        response_bytes: manualPrepareOutcomes.responseBytes,
+        response_digest: manualPrepareOutcomes.responseDigest,
+      })
+      .from(manualPrepareOutcomes)
+      .where(sql`${manualPrepareOutcomes.commandId} = ${started.command_id ?? null}`),
   )
-  if (previous.rows[0]) {
-    verifyBytes(previous.rows[0].response_bytes, previous.rows[0].response_digest)
-    const retained: unknown = strictJson(previous.rows[0].response_bytes.toString('utf8'))
+  if (previous[0]) {
+    verifyBytes(previous[0].response_bytes, previous[0].response_digest)
+    const retained: unknown = strictJson(previous[0].response_bytes.toString('utf8'))
     validate('ManualPreparationResult', retained)
     return retained as ManualPreparationResultDto
   }
@@ -525,11 +551,21 @@ export async function prepareSelection(
       const preparationId = randomUUID()
       const evidenceLabels = new Map<string, string>()
       if (plan.version !== 'bench-stock-plan/1' && plan.attachments.length) {
-        const labels = await client.query<{ id: string; label: string }>(
-          'SELECT id,label FROM media_evidence WHERE batch_id=$1 AND id=ANY($2::uuid[])',
-          [batchId, plan.attachments.map((attachment) => attachment.evidenceId)],
+        const labels = await executeDatabaseQuery(
+          queryDatabase(client)
+            .select({ id: mediaEvidence.id, label: mediaEvidence.label })
+            .from(mediaEvidence)
+            .where(
+              and(
+                eq(mediaEvidence.batchId, batchId),
+                inArray(
+                  mediaEvidence.id,
+                  plan.attachments.map((attachment) => attachment.evidenceId),
+                ),
+              ),
+            ),
         )
-        for (const evidence of labels.rows) {
+        for (const evidence of labels) {
           evidenceLabels.set(evidence.id, evidence.label)
         }
       }
@@ -567,54 +603,62 @@ export async function prepareSelection(
         ...mediaPreview(plan, capture.snapshot, evidenceLabels),
       }
       validate('ManualPreview', preview)
-      await client.query(
-        `INSERT INTO manual_preparation(id,batch_id,prepare_command_id,actor_id,target_revision,plan_bytes,plan_digest,review_bytes,review_digest,dependency_bytes,dependency_digest,preview_bytes)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-        [
-          preparationId,
-          batchId,
-          retained.commandId,
-          config.actorId,
-          binding!.targetRevision,
-          encoded.bytes,
-          encoded.digest,
-          retained.reviewBytes,
-          sha256(retained.reviewBytes),
-          material.bytes,
-          material.digest,
-          Buffer.from(canonical(preview)),
-        ],
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .insert(manualPreparations)
+          .values({
+            id: preparationId,
+            batchId,
+            prepareCommandId: retained.commandId,
+            actorId: config.actorId,
+            targetRevision: BigInt(binding!.targetRevision),
+            planBytes: encoded.bytes,
+            planDigest: encoded.digest,
+            reviewBytes: retained.reviewBytes,
+            reviewDigest: sha256(retained.reviewBytes),
+            dependencyBytes: material.bytes,
+            dependencyDigest: material.digest,
+            previewBytes: Buffer.from(canonical(preview)),
+          }),
       )
       if (plan.version !== 'bench-stock-plan/1') {
         await retainPreparationMedia(client, batchId, preparationId, config.actorId, material)
       }
       for (const review of reviews) {
-        await client.query('INSERT INTO manual_preparation_review VALUES($1,$2,$3,$4)', [
-          batchId,
-          preparationId,
-          review.subjectId,
-          review.reviewId,
-        ])
+        await executeDatabaseQuery(
+          queryDatabase(client).insert(manualPreparationReviews).values({
+            batchId,
+            preparationId,
+            subjectId: review.subjectId,
+            reviewId: review.reviewId,
+          }),
+        )
       }
       for (const effect of material.effects) {
         const review = reviews.find((value) => value.subjectId === effect.lot_id)!
-        await client.query('INSERT INTO manual_preparation_lot VALUES($1,$2,$3,$4,$5,$6)', [
-          batchId,
-          preparationId,
-          effect.lot_id,
-          review.reviewId,
-          capture.sourceId,
-          effect.contribution_key,
-        ])
+        await executeDatabaseQuery(
+          queryDatabase(client).insert(manualPreparationLots).values({
+            batchId,
+            preparationId,
+            lotId: effect.lot_id,
+            reviewId: review.reviewId,
+            sourceId: capture.sourceId,
+            contributionKey: effect.contribution_key,
+          }),
+        )
       }
       response = { status: 'prepared', preparation: preview }
     }
     const bytes = Buffer.from(canonical(response))
-    await client.query('INSERT INTO manual_prepare_outcome VALUES($1,$2,$3)', [
-      retained.commandId,
-      bytes,
-      sha256(bytes),
-    ])
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .insert(manualPrepareOutcomes)
+        .values({
+          commandId: retained.commandId,
+          responseBytes: bytes,
+          responseDigest: sha256(bytes),
+        }),
+    )
     await appendEvent(
       client,
       capture.streamId,
@@ -657,18 +701,28 @@ export async function approvePreparation(
           fail('approval_binding_mismatch', 409)
         }
         const capture = await lockedCapture(client, config, preview.batch_id)
-        const previous = await client.query(
-          'SELECT id FROM manual_approval WHERE preparation_id=$1 AND actor_id=$2',
-          [preview.id, config.actorId],
+        const previous = await executeDatabaseQuery(
+          queryDatabase(client)
+            .select({ id: manualApprovals.id })
+            .from(manualApprovals)
+            .where(
+              and(
+                eq(manualApprovals.preparationId, preview.id),
+                eq(manualApprovals.actorId, config.actorId),
+              ),
+            ),
         )
-        if (previous.rows[0]) {
-          const runResult = await client.query('SELECT id FROM manual_run WHERE approval_id=$1', [
-            previous.rows[0].id,
-          ])
-          if (!runResult.rows[0]) {
+        if (previous[0]) {
+          const runResult = await executeDatabaseQuery(
+            queryDatabase(client)
+              .select({ id: manualRuns.id })
+              .from(manualRuns)
+              .where(eq(manualRuns.approvalId, previous[0].id)),
+          )
+          if (!runResult[0]) {
             fail('run_authority_missing', 409)
           }
-          const original = await loadRun(client, runResult.rows[0].id)
+          const original = await loadRun(client, runResult[0].id)
           await reserveApprovedStock(client, {
             approvalId: original.approvalId,
             preparationId: preview.id,
@@ -738,23 +792,31 @@ export async function approvePreparation(
           bytes: preparation.row.plan_bytes,
           digest: preparation.row.plan_digest,
         })
-        const roundResult = await client.query(
-          'SELECT (count(*)+1)::text AS next FROM manual_approval WHERE batch_id=$1',
-          [preview.batch_id],
+        const roundResult = await executeDatabaseQuery(
+          queryDatabase(client)
+            .select({ next: sql<string>`(count(*)+1)::text` })
+            .from(manualApprovals)
+            .where(eq(manualApprovals.batchId, preview.batch_id)),
         )
-        await client.query(
-          'INSERT INTO manual_approval(id,batch_id,preparation_id,actor_id,round_number) VALUES($1,$2,$3,$4,$5)',
-          [
-            approved.approvalId,
-            preview.batch_id,
-            preview.id,
-            config.actorId,
-            roundResult.rows[0].next,
-          ],
+        await executeDatabaseQuery(
+          queryDatabase(client)
+            .insert(manualApprovals)
+            .values({
+              id: approved.approvalId,
+              batchId: preview.batch_id,
+              preparationId: preview.id,
+              actorId: config.actorId,
+              roundNumber: BigInt(roundResult[0].next),
+            }),
         )
-        await client.query(
-          'INSERT INTO manual_run(id,batch_id,approval_id,actor_id,stream_id) VALUES($1,$2,$3,$4,$5)',
-          [approved.runId, preview.batch_id, approved.approvalId, config.actorId, capture.streamId],
+        await executeDatabaseQuery(
+          queryDatabase(client).insert(manualRuns).values({
+            id: approved.runId,
+            batchId: preview.batch_id,
+            approvalId: approved.approvalId,
+            actorId: config.actorId,
+            streamId: capture.streamId,
+          }),
         )
         await appendEvent(client, capture.streamId, 'manual_approved', {
           batch_id: preview.batch_id,

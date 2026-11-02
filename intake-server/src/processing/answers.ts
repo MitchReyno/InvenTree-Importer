@@ -9,6 +9,7 @@ import {
   processingDependencies,
   processingInputs,
   processingQuestions,
+  processingJobs,
 } from './schema.ts'
 import { appendEvent, idempotent } from '../db/authority.ts'
 import { captureInTransaction } from '../capture/repository.ts'
@@ -277,13 +278,21 @@ export async function answerQuestion(
           continuationAttemptId: continuation.attemptId,
         }),
       )
-      await client.query(
-        "UPDATE processing_question SET state='answered',revision=revision+1 WHERE id=$1",
-        [questionId],
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .update(processingQuestions)
+          .set({ state: 'answered', revision: sql`${processingQuestions.revision}+1` })
+          .where(eq(processingQuestions.id, questionId)),
       )
-      await client.query(
-        "UPDATE processing_job SET current_attempt_id=$2,state='queued',revision=revision+1 WHERE id=$1",
-        [job.id, continuation.attemptId],
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .update(processingJobs)
+          .set({
+            currentAttemptId: continuation.attemptId,
+            state: 'queued',
+            revision: sql`${processingJobs.revision}+1`,
+          })
+          .where(eq(processingJobs.id, job.id)),
       )
 
       await continueDependentJobs(

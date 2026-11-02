@@ -1,7 +1,7 @@
 import { resolvedStockOperation } from './effects-output.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import {
   executorIntents,
@@ -91,12 +91,19 @@ export async function verifyKnownStock(
       throw new Error('known_output_required')
     }
     const bytes = Buffer.from(canonical({ kind: 'get_stock', pk: effect.remote_pk }))
-    const attempt = (
-      await client.query(
-        "SELECT count(*)::int+1 AS next FROM executor_intent WHERE run_id=$1 AND operation_key=$2 AND kind='get_stock'",
-        [input.runId, input.operationKey],
-      )
-    ).rows[0].next
+    const counts = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ next: sql<number>`count(*)::int+1` })
+        .from(executorIntents)
+        .where(
+          and(
+            eq(executorIntents.runId, input.runId),
+            eq(executorIntents.operationKey, input.operationKey),
+            eq(executorIntents.kind, 'get_stock'),
+          ),
+        ),
+    )
+    const attempt = counts[0].next
     await executeDatabaseQuery(
       queryDatabase(client)
         .insert(executorIntents)

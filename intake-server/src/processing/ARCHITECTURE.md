@@ -73,3 +73,5 @@ A restricted adapter must reap its controlled child before emitting an applicati
 ## Locking-query mapping
 
 Lane, job, attempt and question row locks use Drizzle on the original checked-out transaction client, preserving capture→media→lane→job→attempt→question ordering and exact scope predicates. Explicit PostgreSQL text casts retain revision, attempt number and message sequence strings at the existing domain boundary. Shared job-column selection is a query projection, not state or revision authority. Insert-before-lock lane establishment, compare-and-set updates and publication order remain unchanged.
+
+State transitions and supersession now express revision increments as PostgreSQL arithmetic through Drizzle. Actor-lane release remains one conditional UPDATE on the exact attempt ID; conflict insertion cannot clear a retained lane. Answer/continuation order, final publication and physical-child ownership rules are unchanged. Public-qualified post-child checks and recursive dependency closure remain explicit SQL.

@@ -288,3 +288,56 @@ export const executorAttachmentRecoveries = pgTable('executor_attachment_recover
   kind: text('kind').$type<'repair_attachment' | 'verify_attachment'>().notNull(),
   createIntentId: uuid('create_intent_id'),
 })
+
+export const executorAttachmentIntents = pgTable('executor_attachment_intent', {
+  id: uuid().primaryKey(),
+  runId: uuid('run_id').notNull(),
+  artifactKey: uuid('artifact_key').notNull(),
+  attempt: integer().notNull(),
+  recoveryId: uuid('recovery_id'),
+  kind: text()
+    .$type<
+      | 'create_attachment'
+      | 'get_attachment'
+      | 'download_attachment'
+      | 'lookup_attachment'
+      | 'get_stock'
+    >()
+    .notNull(),
+  requestBytes: bytea('request_bytes').notNull(),
+  requestDigest: bytea('request_digest').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const executorAttachmentResults = pgTable('executor_attachment_result', {
+  intentId: uuid('intent_id').primaryKey(),
+  outcome: text().$type<'response' | 'transport_loss' | 'proven_not_sent'>().notNull(),
+  status: integer(),
+  responseBytes: bytea('response_bytes'),
+  responseDigest: bytea('response_digest'),
+  responseSize: bigint('response_size', { mode: 'bigint' }),
+  remotePk: text('remote_pk'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const executorAttachmentEffects = pgTable('executor_attachment_effect', {
+  intentId: uuid('intent_id').primaryKey(),
+  runId: uuid('run_id').notNull(),
+  artifactKey: uuid('artifact_key').notNull(),
+  certainty: text().$type<'unknown' | 'none'>().notNull(),
+  remotePk: text('remote_pk'),
+})
+
+export const executorAttachmentVerifications = pgTable('executor_attachment_verification', {
+  id: uuid().primaryKey(),
+  intentId: uuid('intent_id').notNull(),
+  createIntentId: uuid('create_intent_id').notNull(),
+  runId: uuid('run_id').notNull(),
+  artifactKey: uuid('artifact_key').notNull(),
+  outcome: text().$type<'matches' | 'missing_or_changed' | 'unavailable'>().notNull(),
+  remotePk: text('remote_pk'),
+  verifiedDigest: bytea('verified_digest'),
+  observedStockPk: text('observed_stock_pk'),
+  observedArtifactKey: uuid('observed_artifact_key'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})

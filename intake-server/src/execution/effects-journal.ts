@@ -1,3 +1,4 @@
+import { cancellationVersion } from './cancellation.ts'
 import { randomUUID } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
@@ -9,6 +10,7 @@ import { lockRun, snapshot } from './authority.ts'
 import {
   supportedAssessments,
   supportedEffects,
+  executorGuards,
   supportedIntents,
   supportedRecoveries,
   supportedResults,
@@ -39,18 +41,21 @@ export async function authorizeSupportedRequest(
   return executorTransaction(context.pool, async (client) => {
     const authority = await lockRun(client, context.runId)
     await context.health()
-    const guard = await client.query(
-      'SELECT active_run FROM executor_guard WHERE target_id=$1 AND original_key=$2',
-      [context.plan.targetId, context.plan.originalSourceKey],
+    const guard = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ active_run: executorGuards.activeRun })
+        .from(executorGuards)
+        .where(
+          and(
+            eq(executorGuards.targetId, context.plan.targetId),
+            eq(executorGuards.originalKey, context.plan.originalSourceKey),
+          ),
+        ),
     )
-    if (guard.rows[0]?.active_run !== context.runId) {
+    if (guard[0]?.active_run !== context.runId) {
       throw new Error('source_not_owned')
     }
-    const cancellation = await client.query(
-      'SELECT COALESCE(max(id),0) AS version FROM executor_cancel WHERE run_id=$1',
-      [context.runId],
-    )
-    const version = cancellation.rows[0].version
+    const version = await cancellationVersion(client, context.runId)
     if (version !== '0' && !recovery) {
       return null
     }

@@ -89,3 +89,64 @@ export const captureSubjects = pgTable('capture_subject', {
   label: text().notNull(),
   revision: bigint({ mode: 'bigint' }).notNull().default(1n),
 })
+
+export const captureSources = pgTable('capture_source', {
+  id: uuid().primaryKey(),
+  namespaceKey: text('namespace_key').notNull(),
+  createdBy: uuid('created_by').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const captureParts = pgTable('capture_part', {
+  batchId: uuid('batch_id').notNull(),
+  id: uuid().primaryKey(),
+  kind: text().$type<'part'>().notNull().default('part'),
+})
+
+export const captureLots = pgTable('capture_lot', {
+  batchId: uuid('batch_id').notNull(),
+  id: uuid().primaryKey(),
+  kind: text().$type<'lot'>().notNull().default('lot'),
+  sourceId: uuid('source_id').notNull(),
+  contributionKey: uuid('contribution_key').notNull(),
+  partSubjectId: uuid('part_subject_id'),
+})
+
+export const captureNotes = pgTable('capture_note', {
+  id: uuid().primaryKey(),
+  batchId: uuid('batch_id').notNull(),
+  subjectId: uuid('subject_id'),
+  text: text().notNull(),
+  actorId: uuid('actor_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const captureSelections = pgTable('capture_selection', {
+  id: uuid().primaryKey(),
+  batchId: uuid('batch_id').notNull(),
+  subjectId: uuid('subject_id'),
+  field: text().$type<'quantity' | 'location' | 'choice'>().notNull(),
+  version: bigint({ mode: 'bigint' }).notNull(),
+  value: jsonb().notNull(),
+  observationId: uuid('observation_id'),
+  actorId: uuid('actor_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const captureRevisions = pgTable(
+  'capture_revision',
+  {
+    batchId: uuid('batch_id').notNull(),
+    revision: bigint({ mode: 'bigint' }).notNull(),
+    actorId: uuid('actor_id').notNull(),
+    commandBytes: bytea('command_bytes').notNull(),
+    commandDigest: bytea('command_digest').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.batchId, table.revision] })],
+)
+
+export const captureEditPublications = pgTable('capture_edit_publication', {
+  id: uuid().primaryKey(),
+  batchId: uuid('batch_id').notNull(),
+})

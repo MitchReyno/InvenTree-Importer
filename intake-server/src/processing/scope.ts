@@ -19,9 +19,9 @@ export function commandScope(
 }
 
 export async function lockLane(client: PoolClient, actorId: string) {
-  await client.query('INSERT INTO processing_lane(actor_id) VALUES($1) ON CONFLICT DO NOTHING', [
-    actorId,
-  ])
+  await executeDatabaseQuery(
+    queryDatabase(client).insert(processingLanes).values({ actorId }).onConflictDoNothing(),
+  )
   const rows = await executeDatabaseQuery(
     queryDatabase(client)
       .select({ attempt_id: processingLanes.attemptId })

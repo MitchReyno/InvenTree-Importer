@@ -1,10 +1,11 @@
-import { inArray } from 'drizzle-orm'
+import { executorGuards, executorAttachmentRecoveries } from './schema.ts'
+import { and, eq, inArray } from 'drizzle-orm'
 import { canonical } from '@invimport/contracts/json'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { inventoryTransport } from '../inventory/transport.ts'
 import type { ApplyDependencies } from './apply.ts'
 import { applyAttachments } from './attachment-apply.ts'
-import type { AttachmentRecovery } from './attachment-recovery.ts'
+import { attachmentRecoveryColumns } from './attachment-recovery.ts'
 import { lockRun, snapshot } from './authority.ts'
 import { supportedCreateBody } from './effects-body.ts'
 import { fieldsMatch } from './effects-evidence.ts'
@@ -38,12 +39,12 @@ export async function applySupportedEffects(
   }
   const transport = inventoryTransport(deps.profile)
   const selected = await selectedRecoveries(deps, recoveryIds)
-  const attachmentRecoveries = (
-    await deps.pool.query<AttachmentRecovery>(
-      'SELECT * FROM executor_attachment_recovery WHERE id=ANY($1::uuid[])',
-      [recoveryIds],
-    )
-  ).rows
+  const attachmentRecoveries = await executeDatabaseQuery(
+    queryDatabase(deps.pool)
+      .select(attachmentRecoveryColumns)
+      .from(executorAttachmentRecoveries)
+      .where(inArray(executorAttachmentRecoveries.id, recoveryIds)),
+  )
   const selectedRunIds = [
     ...selected.map((row) => row.runId),
     ...attachmentRecoveries.map((row) => row.run_id),
@@ -126,9 +127,17 @@ export async function applySupportedEffects(
     await lockRun(client, runId)
     const result = await snapshot(client, runId)
     if (result.state === 'settled_complete' || result.state === 'settled_incomplete') {
-      await client.query(
-        'UPDATE executor_guard SET active_run=NULL WHERE target_id=$1 AND original_key=$2 AND active_run=$3',
-        [plan.targetId, plan.originalSourceKey, runId],
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .update(executorGuards)
+          .set({ activeRun: null })
+          .where(
+            and(
+              eq(executorGuards.targetId, plan.targetId),
+              eq(executorGuards.originalKey, plan.originalSourceKey),
+              eq(executorGuards.activeRun, runId),
+            ),
+          ),
       )
     }
     return result

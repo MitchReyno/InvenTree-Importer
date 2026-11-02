@@ -1,3 +1,4 @@
+import { cancellationVersion } from './cancellation.ts'
 import { applySupportedEffects } from './effects-apply.ts'
 import type { BlobStore } from '../media/blob-store.ts'
 import { applyAttachments } from './attachment-apply.ts'
@@ -126,12 +127,7 @@ export async function executeRun(
       if (guard.activeRun !== runId) {
         throw new Error('source_not_owned')
       }
-      const cancelVersion = (
-        await client.query(
-          'SELECT COALESCE(max(id),0) AS version FROM executor_cancel WHERE run_id=$1',
-          [runId],
-        )
-      ).rows[0].version
+      const cancelVersion = await cancellationVersion(client, runId)
       if (cancelVersion !== '0' && !recoveryId) {
         return false
       }
@@ -405,9 +401,17 @@ async function settle(pool: Pool, authority: RunAuthority) {
     const result = await snapshot(client, authority.runId)
     // A safe partial run may release for NEW contributions; prior operations stay pinned.
     if (result.state === 'settled_complete' || result.state === 'settled_incomplete') {
-      await client.query(
-        'UPDATE executor_guard SET active_run=NULL WHERE target_id=$1 AND original_key=$2 AND active_run=$3',
-        [authority.plan.targetId, authority.plan.originalSourceKey, authority.runId],
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .update(executorGuards)
+          .set({ activeRun: null })
+          .where(
+            and(
+              eq(executorGuards.targetId, authority.plan.targetId),
+              eq(executorGuards.originalKey, authority.plan.originalSourceKey),
+              eq(executorGuards.activeRun, authority.runId),
+            ),
+          ),
       )
     }
     return result

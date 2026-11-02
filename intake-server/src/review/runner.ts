@@ -4,7 +4,16 @@ import type { DBOSClient } from '@dbos-inc/dbos-sdk'
 import { supportedVerificationOnly } from '../execution/effects-recovery.ts'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
-import { sql } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
+import { commands, outbox } from '../db/schema.ts'
+import {
+  manualDispatches,
+  manualRuns,
+  manualApprovals,
+  manualPreparations,
+  manualPrepareCommands,
+} from './schema.ts'
+import { dispatchColumns } from './row-projections.ts'
 import { verifyBytes } from '../db/authority.ts'
 import { loadRun, snapshot } from '../execution/authority.ts'
 import { attachmentVerificationOnly } from '../execution/attachment-recovery.ts'
@@ -28,40 +37,34 @@ export async function dispatchManualCommands(
   scheduler: DBOSClient,
   config: ManualRunnerConfig,
 ) {
-  const result = await pool.query(
-    `SELECT d.command_id FROM manual_dispatch d JOIN manual_run r ON r.id=d.run_id
-     JOIN manual_approval a ON a.id=r.approval_id
-     JOIN manual_preparation p ON p.id=a.preparation_id
-     JOIN manual_prepare_command prepared ON prepared.id=p.prepare_command_id
-     JOIN outbox o ON o.command_id=d.command_id
-     WHERE prepared.deployment_id=$1 AND prepared.target_id=$2 AND prepared.context_id=$3
-       AND o.acked_at IS NULL AND o.conflict_code IS NULL
-     ORDER BY d.sequence LIMIT 10`,
-    [config.deploymentId, config.profile.targetId, config.profile.contextId],
+  const result = await executeDatabaseQuery(
+    queryDatabase(pool)
+      .select({ command_id: manualDispatches.commandId })
+      .from(manualDispatches)
+      .innerJoin(manualRuns, eq(manualRuns.id, manualDispatches.runId))
+      .innerJoin(manualApprovals, eq(manualApprovals.id, manualRuns.approvalId))
+      .innerJoin(manualPreparations, eq(manualPreparations.id, manualApprovals.preparationId))
+      .innerJoin(
+        manualPrepareCommands,
+        eq(manualPrepareCommands.id, manualPreparations.prepareCommandId),
+      )
+      .innerJoin(outbox, eq(outbox.commandId, manualDispatches.commandId))
+      .where(
+        and(
+          eq(manualPrepareCommands.deploymentId, config.deploymentId),
+          eq(manualPrepareCommands.targetId, config.profile.targetId),
+          eq(manualPrepareCommands.contextId, config.profile.contextId),
+          isNull(outbox.ackedAt),
+          isNull(outbox.conflictCode),
+        ),
+      )
+      .orderBy(manualDispatches.sequence)
+      .limit(10),
   )
-  for (const row of result.rows) {
+  for (const row of result) {
     await deliverCommand(pool, scheduler, row.command_id)
   }
-  return result.rows.length
-}
-
-type ManualDispatchRow = {
-  id: string
-  run_id: string
-  command_id: string
-  actor_id: string
-  recovery_bytes: Buffer
-  recovery_digest: Buffer
-  state: string
-  payload_bytes: Buffer
-  payload_digest: Buffer
-  command_actor: string
-  target_id: string
-  target_context_id: string
-  kind: string
-  handler_version: string
-  queue_name: string
-  workflow_id: string
+  return result.length
 }
 
 /** A resumed scheduler step is inspection-only once a dispatch was claimed.
@@ -75,14 +78,25 @@ export async function executeManualDispatch(
 ) {
   const retained = await transaction(pool, async (client) => {
     const result = await executeDatabaseQuery(
-      queryDatabase(client).execute<ManualDispatchRow>(sql`
-        SELECT d.*,c.payload_bytes,c.payload_digest,c.actor_id AS command_actor,c.target_id,c.target_context_id,
-          c.kind,c.handler_version,c.queue_name,c.workflow_id
-        FROM manual_dispatch d JOIN command c ON c.id=d.command_id
-        WHERE c.workflow_id=${workflowId} FOR UPDATE OF d
-      `),
+      queryDatabase(client)
+        .select({
+          ...dispatchColumns,
+          payload_bytes: commands.payloadBytes,
+          payload_digest: commands.payloadDigest,
+          command_actor: commands.actorId,
+          target_id: commands.targetId,
+          target_context_id: commands.targetContextId,
+          kind: commands.kind,
+          handler_version: commands.handlerVersion,
+          queue_name: commands.queueName,
+          workflow_id: commands.workflowId,
+        })
+        .from(manualDispatches)
+        .innerJoin(commands, eq(commands.id, manualDispatches.commandId))
+        .where(eq(commands.workflowId, workflowId))
+        .for('update', { of: manualDispatches }),
     )
-    const row = result.rows[0]
+    const row = result[0]
     if (!row) {
       throw new Error('manual_dispatch_authority_missing')
     }
@@ -136,16 +150,26 @@ export async function executeManualDispatch(
       (!verificationOnly && original.state === 'settled_complete')
     ) {
       if (row.state === 'running') {
-        await client.query('UPDATE manual_dispatch SET state=$2,safe_code=$3 WHERE id=$1', [
-          row.id,
-          original.state === 'settled_complete' ? 'finished' : 'interrupted',
-          original.state === 'settled_complete' ? null : 'original_run_inspection_required',
-        ])
+        await executeDatabaseQuery(
+          queryDatabase(client)
+            .update(manualDispatches)
+            .set({
+              state: original.state === 'settled_complete' ? 'finished' : 'interrupted',
+              safeCode:
+                original.state === 'settled_complete' ? null : 'original_run_inspection_required',
+            })
+            .where(eq(manualDispatches.id, row.id)),
+        )
         await publishManualRun(client, row.run_id)
       }
       return { launch: false as const, runId: row.run_id, dispatchId: row.id, recoveryIds }
     }
-    await client.query("UPDATE manual_dispatch SET state='running' WHERE id=$1", [row.id])
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .update(manualDispatches)
+        .set({ state: 'running' })
+        .where(eq(manualDispatches.id, row.id)),
+    )
     await publishManualRun(client, row.run_id)
     return { launch: true as const, runId: row.run_id, dispatchId: row.id, recoveryIds }
   })
@@ -163,9 +187,16 @@ export async function executeManualDispatch(
     })
     const result = await supervised.completed
     await transaction(pool, async (client) => {
-      const changed = await client.query(
-        "UPDATE manual_dispatch SET state='finished',safe_code=NULL WHERE id=$1 AND state='running'",
-        [retained.dispatchId],
+      const changed = await executeDatabaseQuery(
+        queryDatabase(client)
+          .update(manualDispatches)
+          .set({ state: 'finished', safeCode: null })
+          .where(
+            and(
+              eq(manualDispatches.id, retained.dispatchId),
+              eq(manualDispatches.state, 'running'),
+            ),
+          ),
       )
       if (changed.rowCount) {
         await publishManualRun(client, retained.runId)
@@ -174,9 +205,16 @@ export async function executeManualDispatch(
     return result
   } catch {
     await transaction(pool, async (client) => {
-      const changed = await client.query(
-        "UPDATE manual_dispatch SET state='interrupted',safe_code='original_run_inspection_required' WHERE id=$1 AND state='running'",
-        [retained.dispatchId],
+      const changed = await executeDatabaseQuery(
+        queryDatabase(client)
+          .update(manualDispatches)
+          .set({ state: 'interrupted', safeCode: 'original_run_inspection_required' })
+          .where(
+            and(
+              eq(manualDispatches.id, retained.dispatchId),
+              eq(manualDispatches.state, 'running'),
+            ),
+          ),
       )
       if (changed.rowCount) {
         await publishManualRun(client, retained.runId)

@@ -48,9 +48,11 @@ export async function lockStockSource(client: PoolClient, source: OriginalSource
   if (sourceResult[0]?.originalKey !== source.originalSourceKey) {
     throw new Error('original_source_authority_missing')
   }
-  await client.query(
-    'INSERT INTO executor_guard(target_id,original_key) VALUES($1,$2) ON CONFLICT DO NOTHING',
-    [source.targetId, source.originalSourceKey],
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .insert(executorGuards)
+      .values({ targetId: source.targetId, originalKey: source.originalSourceKey })
+      .onConflictDoNothing(),
   )
   const guardResult = await executeDatabaseQuery(
     queryDatabase(client)

@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { createAttempt, type ProcessingConfig } from './attempts.ts'
@@ -75,9 +75,15 @@ export async function continueDependentJobs(
         attempt.input_id,
         answerId,
       )
-      await client.query(
-        "UPDATE processing_job SET current_attempt_id=$2,state='queued',revision=revision+1 WHERE id=$1",
-        [job.id, continuation.attemptId],
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .update(processingJobs)
+          .set({
+            currentAttemptId: continuation.attemptId,
+            state: 'queued',
+            revision: sql`${processingJobs.revision}+1`,
+          })
+          .where(eq(processingJobs.id, job.id)),
       )
 
       replacements.set(attempt.id, continuation.attemptId)

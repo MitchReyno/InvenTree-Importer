@@ -1,8 +1,9 @@
+import { cancellationVersion } from './cancellation.ts'
 import { randomUUID } from 'node:crypto'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, ne } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { supportedRecoveries } from './schema.ts'
+import { supportedRecoveries, executorRuns, executorGuards } from './schema.ts'
 import { lockRun, snapshot } from './authority.ts'
 import { supportedStates } from './effects-state.ts'
 
@@ -32,22 +33,25 @@ export async function selectSupportedRecovery(
   ) {
     throw new Error('effect_create_not_recoverable')
   }
-  const prior = await client.query(
-    'SELECT r.id FROM executor_run r WHERE r.target_id=$1 AND r.original_key=$2 AND r.id<>$3',
-    [authority.plan.targetId, authority.plan.originalSourceKey, runId],
+  const prior = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ id: executorRuns.id })
+      .from(executorRuns)
+      .where(
+        and(
+          eq(executorRuns.targetId, authority.plan.targetId),
+          eq(executorRuns.originalKey, authority.plan.originalSourceKey),
+          ne(executorRuns.id, runId),
+        ),
+      ),
   )
-  for (const row of prior.rows) {
+  for (const row of prior) {
     const state = await snapshot(client, row.id)
     if (state.state === 'recovery_required' || state.state === 'queued') {
       throw new Error('source_history_unsettled')
     }
   }
-  const version = (
-    await client.query(
-      'SELECT COALESCE(max(id),0) AS version FROM executor_cancel WHERE run_id=$1',
-      [runId],
-    )
-  ).rows[0].version
+  const version = await cancellationVersion(client, runId)
   const id = randomUUID()
   await executeDatabaseQuery(
     queryDatabase(client)
@@ -61,9 +65,16 @@ export async function selectSupportedRecovery(
         kind,
       }),
   )
-  await client.query(
-    'UPDATE executor_guard SET active_run=$3 WHERE target_id=$1 AND original_key=$2',
-    [authority.plan.targetId, authority.plan.originalSourceKey, runId],
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(executorGuards)
+      .set({ activeRun: runId })
+      .where(
+        and(
+          eq(executorGuards.targetId, authority.plan.targetId),
+          eq(executorGuards.originalKey, authority.plan.originalSourceKey),
+        ),
+      ),
   )
   return id
 }

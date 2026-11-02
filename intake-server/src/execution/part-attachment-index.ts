@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { partTransfers } from './schema.ts'
+import { partTransfers, executorRuns, executorApprovals } from './schema.ts'
 import { decodeExecutablePlan } from './media-plan.ts'
 import { supportedStates } from './effects-state.ts'
 import type { EffectsPlan } from './effects-plan.ts'
@@ -33,11 +33,17 @@ export async function priorPartTransfer(
   if (!row) {
     return null
   }
-  const approved = await client.query(
-    'SELECT a.plan_bytes,a.plan_digest FROM executor_run r JOIN executor_approval a ON a.id=r.approval_id WHERE r.id=$1',
-    [row.runId],
+  const approved = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        plan_bytes: executorApprovals.planBytes,
+        plan_digest: executorApprovals.planDigest,
+      })
+      .from(executorRuns)
+      .innerJoin(executorApprovals, eq(executorApprovals.id, executorRuns.approvalId))
+      .where(eq(executorRuns.id, row.runId)),
   )
-  const authority = approved.rows[0]
+  const authority = approved[0]
   if (!authority) {
     throw new Error('part_transfer_history_missing')
   }

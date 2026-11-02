@@ -1,3 +1,6 @@
+import { eq } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { mediaBatches } from '../media/schema.ts'
 import type { PoolClient } from 'pg'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { CaptureError } from '../capture/repository.ts'
@@ -20,8 +23,13 @@ async function unavailableMedia(
   if (config.mediaEnabled === undefined) {
     return material
   }
-  const retained = await client.query('SELECT 1 FROM media_batch WHERE batch_id=$1', [snapshot.id])
-  if (retained.rowCount) {
+  const retained = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ batchId: mediaBatches.batchId })
+      .from(mediaBatches)
+      .where(eq(mediaBatches.batchId, snapshot.id)),
+  )
+  if (retained.length) {
     material.issues.push(
       issue(
         'media_storage_unavailable',
