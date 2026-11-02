@@ -17,7 +17,15 @@ import type { ManualClient, ManualStage, RunRecoverySelection } from '../../manu
 import { CaptureHeader } from '../capture/CaptureHeader'
 import { useDirtySources } from '../../operator/useDirtySources'
 import { retiredLotIds } from '../../operator/review-model'
-import { Button, ErrorNotice, Notice, Paragraph, Small, Heading } from '../ui/primitives'
+import {
+  Button,
+  ErrorNotice,
+  Notice,
+  Paragraph,
+  Small,
+  Heading,
+  HeadingRow,
+} from '../ui/primitives'
 import { ReviewWorkspace } from './ReviewWorkspace'
 import { ApprovalWorkspace } from './ApprovalWorkspace'
 import { ResultsWorkspace } from '../results/ResultsWorkspace'
@@ -290,6 +298,8 @@ export function ManualWorkspace({
         operatorReview={operatorReview}
         operator={operator}
         media={mediaQuery.data}
+        mediaUnavailable={mediaQuery.isError || mediaQuery.fetchStatus === 'paused'}
+        mediaLoading={media !== undefined && mediaQuery.isPending}
         processing={processingQuery.data}
         selected={selected}
         maxSelected={MAX_SELECTED_LOTS}
@@ -342,18 +352,18 @@ export function ManualWorkspace({
           navigate(value, value === 'approve' ? (preparationId ?? lastPreview?.id) : undefined)
         }
       />
-      <Small>
-        Manual inventory workflow · owned fake only. Actual provider research remains unavailable.
-      </Small>
-      <Heading>
-        {
+      <HeadingRow>
+        <Heading>
           {
-            review: 'Review selected lots',
-            approve: 'Approve exact effects',
-            results: 'Retained results',
-          }[stage]
-        }
-      </Heading>
+            {
+              review: 'Review selected lots',
+              approve: 'Approve exact effects',
+              results: 'Retained results',
+            }[stage]
+          }
+        </Heading>
+        <Small>Owned fake only</Small>
+      </HeadingRow>
       {workspace?.preparations_truncated && (
         <Notice>
           Only the 20 most recent unapproved preparations are considered here. Older exact plans

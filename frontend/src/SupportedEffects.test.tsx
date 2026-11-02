@@ -3,6 +3,7 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { render } from './test/render'
 import { CaptureEditor } from './components/capture/CaptureEditor'
+import { DecisionPanel } from './components/operator/DecisionPanel'
 import { SupportedEffectResult } from './components/results/SupportedEffectResult'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 
@@ -108,4 +109,61 @@ test('unknown supported effect offers read-only known-output assessment and reta
   )
   expect(recover).toHaveBeenCalledOnce()
   expect(screen.queryByRole('button', { name: /Resume selected/ })).toBeNull()
+})
+
+test('Review presents an explicit new shared Part without asking for an existing match', () => {
+  const part: CaptureSnapshotDto['parts'][number] = {
+    ...batch.parts[0],
+    choice: {
+      mode: 'create',
+      spec: {
+        name: 'Resistor Ω',
+        category: {
+          observation_id: categoryId,
+          target_context_id: context,
+          model: 'category',
+          pk: '81',
+        },
+        parameters: [],
+        manufacturer: null,
+        supplier: null,
+        tags: [],
+      },
+    },
+  }
+  const lot: CaptureSnapshotDto['lots'][number] = {
+    id: '50000000-0000-4000-8000-000000000005',
+    label: 'Packet A',
+    revision: '1',
+    contribution_key: '60000000-0000-4000-8000-000000000006',
+    part_subject_id: partId,
+    quantity: { mode: 'set', value: '17' },
+    location: { mode: 'inherit' },
+  }
+  render(
+    <DecisionPanel
+      batch={{ ...batch, parts: [part], lots: [lot] }}
+      lot={lot}
+      part={part}
+      workspace={{
+        batch_id: batchId,
+        revision: batch.revision,
+        supported: true,
+        capability: 'owned-fake-stock/1',
+        lots: [{ lot_id: lot.id, reviewed: false, issues: [] }],
+        runs: [],
+        preparations: [],
+        preparations_truncated: false,
+        cursor: batch.cursor,
+      }}
+      activeLotIds={[lot.id]}
+      disabled={false}
+      edit={vi.fn()}
+      reload={vi.fn()}
+      inspect={vi.fn()}
+    />,
+  )
+  expect(screen.getByText('New shared Part')).toBeVisible()
+  expect(screen.getByText('Create shared Part: Resistor Ω')).toBeVisible()
+  expect(screen.queryByRole('button', { name: 'Compare matches' })).not.toBeInTheDocument()
 })

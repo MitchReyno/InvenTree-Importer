@@ -1,6 +1,6 @@
-# Bench Intake manual capture
+# Bench Intake operator application
 
-React + TypeScript + Vite with styled-components, managed by the root pnpm workspace. Manual batches, human notes, distinct lots/shared Part proposals and exact selections are retained through the same-origin intake API/PostgreSQL. Refresh resumes saved work. Capture cannot upload, infer, approve, apply or mutate inventory. Read-only existing Part/location observations require an explicitly configured fixed server target, never browser credentials.
+React + TypeScript + Vite with styled-components, managed by the root pnpm workspace. Manual batches, human notes, distinct lots/shared Part proposals and exact selections are retained through the same-origin intake API/PostgreSQL. Refresh resumes saved work. Capture supports optional retained uploads and documentary cropping; Review, Approve and Results use explicit retained commands against an owned fake. Actual provider inference and real inventory mutation remain unavailable. Read-only existing Part/location observations require an explicitly configured fixed server target, never browser credentials.
 
 Read the [root README](../README.md), [shared architecture](../ARCHITECTURE.md), [frontend architecture](ARCHITECTURE.md), [shared guidelines](../CODE_GUIDELINES.md) and [frontend guidelines](CODE_GUIDELINES.md) for responsibilities and change policy.
 
@@ -22,6 +22,10 @@ The root `pnpm lint`/`pnpm test` also run backend checks, which need the Python/
 
 ## Current and future scope
 
-The visible development banner and unavailable later stages are intentional. Component tests cover exact text scalars, human attribution, retained URL resume, revision conflicts and archive/resume. Real HTTP/PG/process/browser evidence is in the [T02 handover](../docs/handovers/bench-intake-T02.md); jsdom alone is not end-to-end proof. Read the [primary original prototype and screenshots](../docs/bench-intake/reference/README.md) before changing layout; preserve the user-approved current light/blue palette.
+The visible development banner and owned-fake/provider capability notices are intentional. Component tests cover exact text scalars, human attribution, retained URL resume, revision conflicts and archive/resume. Real HTTP/PG/process/browser evidence is in the [T02 handover](../docs/handovers/bench-intake-T02.md); jsdom alone is not end-to-end proof. Read the [primary original prototype and screenshots](../docs/bench-intake/reference/README.md) before changing layout; preserve the user-approved current light/blue palette.
 
-Upload, processing/progress, review, approval, results and final identity/access qualification need later reviewed interfaces. There is no connection to Python approvals/journals or unmerged executor SQL. Keep those plans separate from the [current architecture](ARCHITECTURE.md).
+The inbox provides explicit Capture, Processing, Review and Results links, a recent-batch card and title search over the loaded list (at most the latest 100 batches). It does not imply server-wide search, workflow counts or inventory outcomes from capture metadata. Compact shared headers retain all five stages, visible development attribution and the decorative masthead.
+
+Review keeps the physical-lot queue, a large read-only evidence viewer and the decision panel together. Select an exact retained source/version/page, zoom up to 300% and scroll its authorized preview; notes remain below it. Polling preserves that exact selection, including an unavailable state when it disappears. Viewer selection and zoom are local to the focused lot; URL persistence for source/page is deferred. New shared Part choices are labelled as creates rather than missing existing selections.
+
+Processing jobs/questions and research candidates remain fixture-only. Full identity/access, live event transport, operational recovery and release qualification remain future work. There is no connection to Python approvals/journals or unmerged executor SQL. See the [current architecture](ARCHITECTURE.md) and [design-alignment task record](../docs/handovers/bench-intake-design-alignment.md) for evidence and limitations.

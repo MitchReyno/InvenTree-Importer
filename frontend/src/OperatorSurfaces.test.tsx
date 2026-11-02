@@ -10,6 +10,7 @@ import {
 import { render } from './test/render'
 import { CaptureWorkspace } from './components/capture/CaptureWorkspace'
 import { CaptureHeader } from './components/capture/CaptureHeader'
+import { LotEvidence } from './components/operator/LotEvidence'
 import { InstructionsPanel } from './components/operator/InstructionsPanel'
 import { IssuePanel } from './components/operator/IssuePanel'
 import { retiredLotIds } from './operator/review-model'
@@ -301,4 +302,37 @@ test('instruction edits can be discarded locally when current commands become di
   expect(screen.getByLabelText('Batch instructions')).toHaveValue('Same order, separate packets.')
   expect(dirty).toHaveBeenLastCalledWith(false)
   expect(client.instruct).not.toHaveBeenCalled()
+})
+
+test('Capture back uses its explicit list route and reload keeps the list context', async () => {
+  const user = userEvent.setup()
+  history.replaceState(null, '', `#${batchId}/${active}`)
+  const props = {
+    batch,
+    busy: false,
+    edit: vi.fn(async () => undefined),
+    observe: vi.fn(),
+    onStage: vi.fn(),
+    onProcessing: vi.fn(),
+  }
+  const view = render(<CaptureWorkspace {...props} />)
+  await user.click(screen.getByText('← Lots and shared details'))
+  expect(location.hash).toBe(`#${batchId}/capture`)
+  view.unmount()
+  render(<CaptureWorkspace {...props} />)
+  expect(screen.getByRole('heading', { name: 'Batch defaults' })).toBeInTheDocument()
+  expect(screen.getByText('← Lots and shared details')).not.toHaveTextContent('save or discard')
+  history.replaceState(null, '', location.pathname)
+})
+
+test('Review distinguishes loading media from a failed first read without claiming no files', () => {
+  const props = { batch, lot: batch.lots[0], part: undefined }
+  const view = render(<LotEvidence {...props} mediaLoading />)
+  expect(screen.getByRole('status')).toHaveTextContent('Loading retained media')
+  view.rerender(<LotEvidence {...props} mediaUnavailable />)
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'File presence and previews could not be confirmed',
+  )
+  expect(screen.queryByText(/No preview selected/)).not.toBeInTheDocument()
+  expect(screen.queryByRole('img')).not.toBeInTheDocument()
 })

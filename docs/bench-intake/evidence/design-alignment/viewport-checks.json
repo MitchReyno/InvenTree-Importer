@@ -1,0 +1,21 @@
+{
+  "desktop": {
+    "width": 1440,
+    "height": 1000,
+    "scrollWidth": 1440,
+    "imageTop": 479.6180725097656,
+    "loaded": true
+  },
+  "narrow390": {
+    "width": 390,
+    "height": 843,
+    "scrollWidth": 390,
+    "imageTop": 679.3229370117188
+  },
+  "narrow360": {
+    "width": 360,
+    "height": 800,
+    "scrollWidth": 360,
+    "imageTop": 693.7673950195312
+  }
+}

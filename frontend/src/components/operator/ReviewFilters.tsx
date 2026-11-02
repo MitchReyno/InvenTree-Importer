@@ -22,7 +22,7 @@ function count(review: OperatorReviewDto, filter: ReviewFilter) {
 
 export function ReviewFilters({ review, filter, choose }: Props) {
   return (
-    <Chips role="group" aria-label="Filter lots">
+    <Chips role="group" aria-label="Filter lots" tabIndex={0}>
       {REVIEW_FILTERS.map((value) => (
         <Chip
           key={value}
@@ -42,6 +42,14 @@ const Chips = styled.div`
   flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 12px;
+  min-width: 0;
+  @media (max-width: 700px) {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 2px;
+    margin-bottom: 8px;
+  }
 `
 const Chip = styled.button`
   min-height: 36px;
@@ -54,6 +62,11 @@ const Chip = styled.button`
   span {
     color: #526179;
     font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 700px) {
+    flex: 0 0 auto;
+    min-height: 44px;
+    white-space: nowrap;
   }
   &[aria-pressed='true'] {
     background: #e0eafa;

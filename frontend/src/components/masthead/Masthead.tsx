@@ -16,7 +16,7 @@ export function Masthead() {
 
 const Header = styled.header`
   position: relative;
-  min-height: 120px;
+  min-height: 64px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -27,14 +27,14 @@ const Header = styled.header`
   background-size: 16px 16px;
   overflow: hidden;
   @media (max-width: 700px) {
-    min-height: 88px;
+    min-height: 52px;
     font-size: 12px;
   }
 `
 
 const Brand = styled.strong`
   position: relative;
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 750;
   color: #233349;
   span {

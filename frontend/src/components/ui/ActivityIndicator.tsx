@@ -52,8 +52,8 @@ const Indicator = styled.aside`
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  padding: 9px 12px;
-  margin: 12px 0;
+  padding: 6px 10px;
+  margin: 6px 0;
   border: 1px solid #d5dce5;
   border-radius: 6px;
   background: #fff;

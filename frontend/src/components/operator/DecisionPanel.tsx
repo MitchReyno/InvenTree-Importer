@@ -42,6 +42,9 @@ function partValue(batch: CaptureSnapshotDto, part: Part | undefined) {
   if (!part) {
     return 'No Part proposal'
   }
+  if (part.choice.mode === 'create') {
+    return `Create shared Part: ${part.choice.spec.name}`
+  }
   if (part.choice.mode !== 'set') {
     return `${part.label} · no existing Part chosen`
   }
@@ -98,7 +101,7 @@ export function DecisionPanel({
       <Heading>{lot.label}</Heading>
       <dl>
         <FactRow
-          label="Existing Part"
+          label={part?.choice.mode === 'create' ? 'New shared Part' : 'Existing Part'}
           value={partValue(batch, part)}
           provenance={part ? partProvenance(part.choice) : 'unset'}
         >
@@ -116,7 +119,7 @@ export function DecisionPanel({
               ))}
             </SharedLine>
           )}
-          {part && (
+          {part && part.choice.mode !== 'create' && (
             <span>
               <Button disabled={disabled || drafts.dirty} onClick={() => setComparing(true)}>
                 Compare matches

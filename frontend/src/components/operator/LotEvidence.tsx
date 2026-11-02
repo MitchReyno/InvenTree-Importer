@@ -6,7 +6,7 @@ import type {
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import { Field, Heading, Paragraph, Small, Subheading } from '../ui/primitives'
-import { mediaResource } from '../../media/types'
+import { EvidenceViewer } from './EvidenceViewer'
 import { ProcessingSources } from '../processing/ProcessingSources'
 import { StatusChip } from './StatusChip'
 
@@ -21,6 +21,8 @@ interface Props {
   operatorLot?: OperatorLotDto
   media?: MediaSnapshotDto
   processing?: ProcessingSnapshotDto
+  mediaUnavailable?: boolean
+  mediaLoading?: boolean
 }
 
 interface SourcedNote {
@@ -60,18 +62,17 @@ function linkedEvidence(media: MediaSnapshotDto | undefined, subjectIds: Set<str
   )
 }
 
-function firstPreview(evidence: MediaSnapshotDto['evidence'][number]) {
-  for (const version of evidence.versions) {
-    const page = version.pages[0]
-    if (page) {
-      return { version, page }
-    }
-  }
-  return null
-}
-
 /** Retained human evidence beside the decision panel; nothing here is inferred. */
-export function LotEvidence({ batch, lot, part, operatorLot, media, processing }: Props) {
+export function LotEvidence({
+  batch,
+  lot,
+  part,
+  operatorLot,
+  media,
+  processing,
+  mediaUnavailable,
+  mediaLoading,
+}: Props) {
   const predecessorIds = operatorLot?.predecessor_lot_ids ?? []
   const notes = evidenceNotes(batch, lot, part, predecessorIds)
   const subjects = new Set([lot.id, ...predecessorIds, ...(part ? [part.id] : [])])
@@ -83,12 +84,21 @@ export function LotEvidence({ batch, lot, part, operatorLot, media, processing }
   return (
     <>
       <Heading>Human evidence</Heading>
-      <Small>
-        Original notes and retained files. No automated inference is shown as a chosen fact.
-      </Small>
-      <Paragraph>
-        <strong>{lot.label}</strong> · {part?.label ?? 'No shared Part chosen'}
-      </Paragraph>
+      {!media && (mediaUnavailable || mediaLoading) && (
+        <Small role="status">
+          {mediaUnavailable
+            ? 'Retained media is unavailable. File presence and previews could not be confirmed.'
+            : 'Loading retained media…'}
+        </Small>
+      )}
+      {media && (
+        <EvidenceViewer
+          key={lot.id}
+          batchId={batch.id}
+          evidence={evidence}
+          unavailable={mediaUnavailable}
+        />
+      )}
       {notes.map(({ note, source }) => (
         <Field key={note.id}>
           <strong>{source}</strong>
@@ -96,29 +106,6 @@ export function LotEvidence({ batch, lot, part, operatorLot, media, processing }
           <Small>Human · {new Date(note.created_at).toLocaleString()}</Small>
         </Field>
       ))}
-      {evidence.length > 0 && (
-        <section aria-label="Linked retained media">
-          <Subheading>Linked media</Subheading>
-          <Thumbnails>
-            {evidence.map((item) => {
-              const preview = firstPreview(item)
-              return (
-                <figure key={item.id}>
-                  {preview ? (
-                    <img
-                      src={mediaResource(batch.id, 'previews', preview.page.preview_id)}
-                      alt={`${item.label}, ${preview.version.kind}`}
-                    />
-                  ) : (
-                    <Small>No ready preview</Small>
-                  )}
-                  <figcaption>{item.label}</figcaption>
-                </figure>
-              )
-            })}
-          </Thumbnails>
-        </section>
-      )}
       {proposals.length > 0 && (
         <section aria-label="Processing candidates">
           <Subheading>Processing candidates</Subheading>
@@ -142,26 +129,4 @@ export function LotEvidence({ batch, lot, part, operatorLot, media, processing }
 const OriginalNote = styled(Paragraph)`
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-`
-const Thumbnails = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10px;
-  figure {
-    margin: 0;
-  }
-  img {
-    display: block;
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    object-fit: contain;
-    background: #eef2f7;
-    border: 1px solid #d5dce5;
-    border-radius: 4px;
-  }
-  figcaption {
-    font-size: 12px;
-    color: #526179;
-    overflow-wrap: anywhere;
-  }
 `

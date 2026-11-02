@@ -7,7 +7,7 @@ import { createServerQueryClient } from './queries/client'
 import { serverQueryKey } from './queries/scope'
 import { fixtureScope } from './test/render'
 import { render } from './test/render'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import App from './App'
@@ -225,10 +225,11 @@ test('inbox resumes retained capture, filters archives and creates a batch with 
   })
   const user = userEvent.setup()
   render(<App />)
-  expect(await screen.findByRole('link', { name: 'Resume capture →' })).toHaveAttribute(
-    'href',
-    `#${batchId}`,
-  )
+  expect(
+    within(await screen.findByRole('region', { name: fixture.title })).getByRole('link', {
+      name: 'Capture',
+    }),
+  ).toHaveAttribute('href', `#${batchId}/capture`)
   expect(screen.queryByText('Archived packet')).not.toBeInTheDocument()
   await user.click(screen.getByRole('checkbox', { name: 'Show archived' }))
   expect(screen.getByText('Archived packet')).toBeVisible()
@@ -385,7 +386,7 @@ test('nonempty new-batch title and note survive global navigation; filters alone
   navigationServer()
   const user = userEvent.setup()
   const view = render(<App />)
-  await screen.findByRole('link', { name: 'Resume capture →' })
+  await screen.findByRole('searchbox', { name: 'Search loaded batches' })
   await user.click(screen.getByRole('checkbox', { name: 'Show archived' }))
   expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(true)
   await user.click(screen.getByRole('button', { name: 'New batch' }))

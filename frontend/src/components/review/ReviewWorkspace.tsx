@@ -34,6 +34,8 @@ interface Props {
   operatorReview?: OperatorReviewDto
   operator?: OperatorReviewClient
   media?: MediaSnapshotDto
+  mediaUnavailable?: boolean
+  mediaLoading?: boolean
   processing?: ProcessingSnapshotDto
   selected: string[]
   maxSelected: number
@@ -104,6 +106,8 @@ export function ReviewWorkspace({
   operatorReview: observedOperatorReview,
   operator,
   media,
+  mediaUnavailable,
+  mediaLoading,
   processing,
   selected,
   maxSelected,
@@ -267,7 +271,9 @@ export function ReviewWorkspace({
               </ModeTab>
             ))}
           </ModeSwitch>
-          <Small>J/K move · R mark reviewed · E edit quantity · V view evidence</Small>
+          <KeyboardHint>
+            J/K move · R mark reviewed · E edit quantity · V view evidence
+          </KeyboardHint>
         </Toolbar>
       )}
       {operatorReview && (
@@ -321,6 +327,8 @@ export function ReviewWorkspace({
                 part={part}
                 operatorLot={operatorLot}
                 media={media}
+                mediaUnavailable={mediaUnavailable}
+                mediaLoading={mediaLoading}
                 processing={processing}
               />
             ) : (
@@ -365,13 +373,34 @@ const ScopeBar = styled.div`
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
-  padding: 12px 16px;
+  margin-bottom: 8px;
+  padding: 6px 10px;
   background: white;
   border: 1px solid #d5dce5;
   border-radius: 6px;
   > div {
     margin-right: auto;
+  }
+  @media (max-width: 700px) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    > div {
+      grid-column: 1 / -1;
+      margin-right: 0;
+    }
+    > button {
+      min-width: 0;
+      width: 100%;
+      padding: 6px 8px;
+      font-size: 13px;
+      line-height: 1.3;
+    }
+  }
+`
+const KeyboardHint = styled(Small)`
+  @media (max-width: 700px) {
+    display: none;
   }
 `
 const Toolbar = styled.div`
@@ -380,7 +409,7 @@ const Toolbar = styled.div`
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px 16px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 `
 const ModeSwitch = styled.div`
   display: inline-flex;
@@ -403,7 +432,7 @@ const ModeTab = styled.button`
 `
 const ReviewGrid = styled.div<{ $focused: boolean }>`
   display: grid;
-  grid-template-columns: minmax(220px, 0.8fr) minmax(300px, 1.4fr) minmax(300px, 1.4fr);
+  grid-template-columns: minmax(200px, 0.75fr) minmax(320px, 1.6fr) minmax(300px, 1.3fr);
   gap: 12px;
   align-items: start;
   @media (max-width: 1000px) {
