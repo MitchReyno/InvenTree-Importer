@@ -82,6 +82,30 @@ export const CaptureObservation = object({
   label,
   observed_at: Type.String(),
 })
+export const CaptureListQuery = object({
+  q: Type.Optional(Type.String({ maxLength: 256 })),
+  archived: Type.Optional(Type.Union([Type.Literal('include'), Type.Literal('exclude')])),
+  offset: Type.Optional(Type.String({ pattern: '^(0|[1-9][0-9]{0,5})$' })),
+})
+export const InboxWorkflow = object({
+  lots: Type.Integer({ minimum: 0 }),
+  ready: Type.Integer({ minimum: 0 }),
+  needs_review: Type.Integer({ minimum: 0 }),
+  blocked: Type.Integer({ minimum: 0 }),
+  approved: Type.Integer({ minimum: 0 }),
+  open_questions: Type.Integer({ minimum: 0 }),
+  active_jobs: Type.Integer({ minimum: 0 }),
+  latest_round: Type.Union([
+    Type.Null(),
+    object({
+      run_id: Id,
+      round_number: Revision,
+      state: Type.String({ maxLength: 64 }),
+      confirmed_stock: Type.Integer({ minimum: 0 }),
+    }),
+  ]),
+  thumbnail: Type.Union([Type.Null(), object({ preview_id: Id, label })]),
+})
 export const CaptureSummary = object({
   id: Id,
   source_id: Id,
@@ -89,6 +113,10 @@ export const CaptureSummary = object({
   revision: Revision,
   archived: Type.Boolean(),
   updated_at: Type.String(),
+})
+export const InboxList = object({
+  batches: Type.Array(object({ ...CaptureSummary.properties, workflow: InboxWorkflow })),
+  truncated: Type.Boolean(),
 })
 export const CaptureList = object({
   batches: Type.Array(CaptureSummary),
@@ -126,7 +154,14 @@ export const CaptureSnapshot = object({
   observations: Type.Array(CaptureObservation),
   cursor: object({ stream_id: Id, sequence: Type.String({ pattern: '^(0|[1-9][0-9]{0,18})$' }) }),
 })
+export type CaptureListQueryDto = Static<typeof CaptureListQuery>
+export type InboxWorkflowDto = Static<typeof InboxWorkflow>
+export type InboxListDto = Static<typeof InboxList>
+
 export const captureSchemas = {
+  CaptureListQuery,
+  InboxWorkflow,
+  InboxList,
   CaptureRef,
   CaptureQuantity,
   CaptureLocation,

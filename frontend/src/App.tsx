@@ -3,6 +3,7 @@ import { useCallback, useMemo, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   captureClient,
+  inboxClient,
   intakeClient,
   manualClient,
   mediaClient,
@@ -50,7 +51,13 @@ export default function App() {
     [actorId, targetId, targetContextId],
   )
   const client = useMemo(
-    () => (bootstrap?.csrf_token ? captureClient(location.origin, bootstrap.csrf_token) : null),
+    () =>
+      bootstrap?.csrf_token
+        ? {
+            ...captureClient(location.origin, bootstrap.csrf_token),
+            ...inboxClient(location.origin, bootstrap.csrf_token),
+          }
+        : null,
     [bootstrap],
   )
   const manual = useMemo(

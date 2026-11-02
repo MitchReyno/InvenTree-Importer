@@ -397,3 +397,49 @@ export async function processingActivity(
   validate('ProcessingActivity', activity)
   return activity
 }
+
+/** Saved current-attempt status, not permission to answer or restart work. */
+export async function inboxProcessing(client: PoolClient, snapshot: CaptureSnapshotDto) {
+  const activeSubjects = [...snapshot.lots.filter((lot) => !lot.retired), ...snapshot.parts].map(
+    (subject) => subject.id,
+  )
+  if (!activeSubjects.length) {
+    return { open_questions: 0, active_jobs: 0 }
+  }
+  const jobs = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        id: processingJobs.id,
+        attemptId: processingJobs.currentAttemptId,
+        state: processingJobs.state,
+      })
+      .from(processingJobs)
+      .where(
+        and(
+          eq(processingJobs.batchId, snapshot.id),
+          inArray(processingJobs.subjectId, activeSubjects),
+        ),
+      ),
+  )
+  const waitingAttempts = jobs
+    .filter((job) => job.state === 'waiting_for_user')
+    .map((job) => job.attemptId)
+  const questions = waitingAttempts.length
+    ? await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({ id: processingQuestions.id })
+          .from(processingQuestions)
+          .where(
+            and(
+              eq(processingQuestions.batchId, snapshot.id),
+              eq(processingQuestions.state, 'open'),
+              inArray(processingQuestions.attemptId, waitingAttempts),
+            ),
+          ),
+      )
+    : []
+  return {
+    open_questions: questions.length,
+    active_jobs: jobs.filter((job) => job.state === 'running' || job.state === 'queued').length,
+  }
+}

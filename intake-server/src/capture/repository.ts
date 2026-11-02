@@ -19,6 +19,7 @@ import {
 import {
   validate,
   type CaptureEditDto,
+  type CaptureListQueryDto,
   type CaptureSnapshotDto,
   type CaptureObservationDto,
 } from '@invimport/contracts'
@@ -785,22 +786,8 @@ export function captureRepository(pool: Pool, config: Binding) {
   }
 
   return {
-    async list() {
-      const rows = await executeDatabaseQuery(
-        queryDatabase(pool)
-          .select(batchColumns)
-          .from(captureBatches)
-          .where(
-            and(
-              eq(captureBatches.actorId, config.actorId),
-              eq(captureBatches.targetId, config.targetId),
-              eq(captureBatches.targetContextId, config.targetContextId),
-            ),
-          )
-          .orderBy(desc(captureBatches.updatedAt), captureBatches.id)
-          .limit(101),
-      )
-      return { batches: rows.slice(0, 100).map(summary), truncated: rows.length > 100 }
+    list(options: CaptureListQueryDto = {}) {
+      return listCaptureBatches(pool, config, options)
     },
     async read(id: string) {
       return transaction(pool, async (c) => {
@@ -898,4 +885,33 @@ export function captureRepository(pool: Pool, config: Binding) {
       )
     },
   }
+}
+
+/** Scoped retained listing; callers may supply their repeatable-read transaction. */
+export async function listCaptureBatches(
+  client: Pool | PoolClient,
+  config: Binding,
+  options: CaptureListQueryDto = {},
+  limit = 100,
+) {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select(batchColumns)
+      .from(captureBatches)
+      .where(
+        and(
+          eq(captureBatches.actorId, config.actorId),
+          eq(captureBatches.targetId, config.targetId),
+          eq(captureBatches.targetContextId, config.targetContextId),
+          options.archived === 'exclude' ? eq(captureBatches.archived, false) : undefined,
+          options.q
+            ? sql`strpos(lower(${captureBatches.title}), lower(${options.q})) > 0`
+            : undefined,
+        ),
+      )
+      .orderBy(desc(captureBatches.updatedAt), captureBatches.id)
+      .offset(Number(options.offset ?? 0))
+      .limit(limit + 1),
+  )
+  return { batches: rows.slice(0, limit).map(summary), truncated: rows.length > limit }
 }

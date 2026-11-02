@@ -22,6 +22,7 @@ import {
 } from '../../operator/review-model'
 import type { OperatorReviewClient } from '../../operator/types'
 import { useDirtySources } from '../../operator/useDirtySources'
+import { retainEvidenceQuery } from '../../operator/evidence-location'
 import { useReviewKeyboard } from '../../operator/useReviewKeyboard'
 import { ReviewFilters } from '../operator/ReviewFilters'
 import { LotEvidence } from '../operator/LotEvidence'
@@ -162,7 +163,11 @@ export function ReviewWorkspace({
     setNavigationBlocked(false)
     const value = { ...route, ...next }
     setRoute(value)
-    history.replaceState(null, '', reviewHash(batch.id, value))
+    const sameLot = value.lotId === route.lotId
+    const hash = sameLot
+      ? retainEvidenceQuery(reviewHash(batch.id, value), location.hash)
+      : reviewHash(batch.id, value)
+    history.replaceState(null, '', hash)
   }
 
   function inspect(id: string | null) {

@@ -1,12 +1,13 @@
 import type { ManualAttachmentRead } from './part-attachments.ts'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Pool } from 'pg'
-import { Id, schemas, type ManualScopeDto } from '@invimport/contracts'
+import { Id, schemas, type ManualScopeDto, type CaptureListQueryDto } from '@invimport/contracts'
 import { CaptureError, fail } from '../capture/repository.ts'
 import type { CaptureRead } from '../capture/routes.ts'
 import type { ApprovalInput } from './preparations.ts'
 import type { ManualConfig } from './authority.ts'
 import { manualRepository } from './repository.ts'
+import { inboxProjection } from '../inbox/projection.ts'
 import { registerOperatorReview } from '../operator-review/routes.ts'
 
 function parameter(request: FastifyRequest) {
@@ -69,6 +70,11 @@ export function registerManual(
         correlation_id: request.id,
       })
     })
+    scope.get<{ Querystring: CaptureListQueryDto }>(
+      '/api/v1/inbox',
+      { schema: { querystring: schemas.CaptureListQuery, response: { 200: schemas.InboxList } } },
+      (request) => inboxProjection(pool, config, request.query),
+    )
     scope.get('/api/v1/activity', { schema: { response: { 200: schemas.ManualActivity } } }, () =>
       repository.activity(),
     )

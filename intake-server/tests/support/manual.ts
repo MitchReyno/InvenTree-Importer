@@ -93,6 +93,7 @@ export async function manualFixture(options: { media?: boolean; effects?: boolea
     if (purpose === 'api') {
       await grantFoundation(db.pool, name)
       await grantCapture(db.pool, name)
+      await db.pool.query(`GRANT SELECT ON processing_job,processing_question TO ${name}`)
       if (options.media) {
         await grantMedia(db.pool, name, 'api')
       }

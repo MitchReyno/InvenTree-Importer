@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
+import type { MediaClient } from '../../media/types'
 import type { ManualStage } from '../../manual/types'
 import type { ProcessingClient, ProcessingView } from '../../processing/types'
 import { CaptureHeader } from '../capture/CaptureHeader'
@@ -7,6 +8,7 @@ import { ProcessingWorkspace } from './ProcessingWorkspace'
 
 interface Props {
   batch: CaptureSnapshotDto
+  media?: MediaClient
   client: ProcessingClient
   route: string
   disabled: boolean
@@ -34,6 +36,7 @@ function selectedView(segment: string | undefined): ProcessingView {
 export function ProcessingStage({
   batch,
   client,
+  media,
   route,
   disabled,
   edit,
@@ -72,6 +75,7 @@ export function ProcessingStage({
       <ProcessingWorkspace
         batch={batch}
         client={client}
+        media={media}
         view={selectedView(segments[2])}
         questionId={segments[3]}
         navigate={navigateProcessing}

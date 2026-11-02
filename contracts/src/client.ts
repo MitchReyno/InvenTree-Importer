@@ -10,6 +10,7 @@ import type {
   ManualPreparationResult,
   ManualRun,
 } from '../generated/api.d.ts'
+import type { CaptureListQueryDto } from './capture.ts'
 import { validate } from './index.ts'
 import { successfulData } from './client-policy.ts'
 import { typedClient, commandHeaders } from './client-runtime.ts'
@@ -21,7 +22,8 @@ export function captureClient(baseUrl: string, csrfToken: string, transport: typ
   const client = typedClient(baseUrl, transport, csrfToken)
 
   return {
-    list: () => successfulData(client.GET('/api/v1/batches')),
+    list: (query: CaptureListQueryDto = {}) =>
+      successfulData(client.GET('/api/v1/batches', { params: { query } })),
 
     read: (id: string) =>
       successfulData(client.GET('/api/v1/batches/{id}', { params: { path: { id } } })),
@@ -152,4 +154,13 @@ async function manualRunResponse(operation: Promise<{ data?: unknown }>): Promis
   const value = await successfulData(operation)
   validate('ManualRun', value)
   return value as ManualRun
+}
+
+/** Read-only inbox observations never establish command authority. */
+export function inboxClient(baseUrl: string, csrfToken: string, transport: typeof fetch = fetch) {
+  const client = typedClient(baseUrl, transport, csrfToken)
+  return {
+    list: (query: CaptureListQueryDto = {}) =>
+      successfulData(client.GET('/api/v1/inbox', { params: { query } })),
+  }
 }

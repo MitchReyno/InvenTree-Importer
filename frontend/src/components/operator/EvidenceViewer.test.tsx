@@ -143,3 +143,51 @@ test('a new lot lifetime chooses its own evidence and resets zoom', async () => 
   expect(screen.getByLabelText('Evidence source and version')).toHaveValue(replacement.id)
   expect(screen.getByText('100%')).toBeVisible()
 })
+
+test('exact source/version/page/preview link survives remount and refuses a changed preview', async () => {
+  history.replaceState(null, '', '#batch/review/lot?filter=warnings')
+  const user = userEvent.setup()
+  const view = render(<EvidenceViewer batchId="batch" lotId="lot" evidence={[evidence]} />)
+  await user.selectOptions(screen.getByLabelText('Document page'), '2')
+  const params = new URLSearchParams(location.hash.split('?')[1])
+  expect(params.get('source')).toBe(evidence.id)
+  expect(params.get('version')).toBe(original.id)
+  expect(params.get('page')).toBe('2')
+  expect(params.get('preview')).toBe(original.pages[1].preview_id)
+  expect(params.get('filter')).toBe('warnings')
+  view.unmount()
+  const restored = render(<EvidenceViewer batchId="batch" lotId="lot" evidence={[evidence]} />)
+  expect(screen.getByLabelText('Document page')).toHaveValue('2')
+  expect(screen.getByRole('img')).toHaveAttribute(
+    'src',
+    expect.stringContaining(original.pages[1].preview_id),
+  )
+  restored.rerender(
+    <EvidenceViewer
+      batchId="batch"
+      lotId="lot"
+      evidence={[
+        {
+          ...evidence,
+          versions: [
+            {
+              ...original,
+              pages: [{ ...original.pages[1], preview_id: replacement.pages[0].preview_id }],
+            },
+          ],
+        },
+      ]}
+    />,
+  )
+  expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  expect(screen.getByText(/no replacement has been substituted/)).toBeVisible()
+  history.replaceState(null, '', '#')
+})
+
+test('partial or malformed evidence links cannot fall back to the first ready source', () => {
+  history.replaceState(null, '', '#batch/review/lot?source=untrusted')
+  render(<EvidenceViewer batchId="batch" lotId="lot" evidence={[evidence]} />)
+  expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  expect(screen.getByText(/link is incomplete or invalid/)).toBeVisible()
+  history.replaceState(null, '', '#')
+})

@@ -216,6 +216,7 @@ export function Batch({
         key={`${batch.id}:${batch.revision}:${reset}`}
         batch={batch}
         client={processing}
+        media={media}
         route={route}
         disabled={readOrCommandBusy || readUnavailable}
         edit={edit}

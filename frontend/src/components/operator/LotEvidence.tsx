@@ -95,6 +95,7 @@ export function LotEvidence({
         <EvidenceViewer
           key={lot.id}
           batchId={batch.id}
+          lotId={lot.id}
           evidence={evidence}
           unavailable={mediaUnavailable}
         />

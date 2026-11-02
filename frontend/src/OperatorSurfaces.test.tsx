@@ -174,6 +174,8 @@ test('Processing keeps retired history but offers only active lots for new attem
       retiredLotIds={new Set([retired])}
     />,
   )
+  await screen.findByText('Queue work for selected saved subjects')
+  await userEvent.setup().click(screen.getByText('Queue work for selected saved subjects'))
   const picker = await screen.findByRole('group', {
     name: 'Select saved subjects for a new processing attempt',
   })

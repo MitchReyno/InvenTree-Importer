@@ -165,3 +165,28 @@ export async function mediaSnapshot(
   validate('MediaSnapshot', snapshot)
   return snapshot
 }
+
+/** First decoded original page for an already scoped batch, inside the caller's read transaction. */
+export async function inboxThumbnail(client: PoolClient, batchId: string) {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ preview_id: mediaPreviews.id, label: mediaEvidence.label })
+      .from(mediaEvidence)
+      .innerJoin(
+        mediaVersions,
+        and(eq(mediaVersions.evidenceId, mediaEvidence.id), eq(mediaVersions.kind, 'original')),
+      )
+      .innerJoin(mediaPreviews, eq(mediaPreviews.versionId, mediaVersions.id))
+      .innerJoin(
+        mediaDecodeResults,
+        and(
+          eq(mediaDecodeResults.commandId, mediaPreviews.commandId),
+          eq(mediaDecodeResults.state, 'ready'),
+        ),
+      )
+      .where(eq(mediaEvidence.batchId, batchId))
+      .orderBy(mediaEvidence.createdAt, mediaEvidence.id, mediaPreviews.page, mediaPreviews.id)
+      .limit(1),
+  )
+  return rows[0] ?? null
+}

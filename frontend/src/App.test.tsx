@@ -56,6 +56,18 @@ const fixture: CaptureSnapshotDto = {
   cursor: { stream_id: '90000000-0000-4000-8000-000000000009', sequence: '3' },
 }
 
+const inboxWorkflow = {
+  lots: 1,
+  ready: 0,
+  needs_review: 1,
+  blocked: 0,
+  approved: 0,
+  open_questions: 0,
+  active_jobs: 0,
+  latest_round: null,
+  thumbnail: null,
+}
+
 const response = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } })
 
@@ -207,17 +219,21 @@ test('inbox resumes retained capture, filters archives and creates a batch with 
       sent.push(JSON.parse(String(init.body)))
       return response({ ...fixture, title: 'New manually counted bag' }, 201)
     }
-    if (path.endsWith('/batches')) {
+    if (path.endsWith('/batches') || path.endsWith('/inbox')) {
       return response({
         batches: [
-          summary,
+          { ...summary, workflow: inboxWorkflow },
           {
             ...summary,
             id: 'b0000000-0000-4000-8000-00000000000b',
             title: 'Archived packet',
             archived: true,
+            workflow: inboxWorkflow,
           },
-        ],
+        ].filter(
+          (batch) =>
+            new URL(String(input)).searchParams.get('archived') === 'include' || !batch.archived,
+        ),
         truncated: false,
       })
     }
@@ -232,7 +248,7 @@ test('inbox resumes retained capture, filters archives and creates a batch with 
   ).toHaveAttribute('href', `#${batchId}/capture`)
   expect(screen.queryByText('Archived packet')).not.toBeInTheDocument()
   await user.click(screen.getByRole('checkbox', { name: 'Show archived' }))
-  expect(screen.getByText('Archived packet')).toBeVisible()
+  expect(await screen.findByText('Archived packet')).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'New batch' }))
   await user.type(screen.getByLabelText('Batch title'), 'New manually counted bag')
   await user.type(screen.getByLabelText('Human note'), 'Counted at the bench, not inferred.')
@@ -272,7 +288,7 @@ function navigationServer(conflict = false) {
         truncated: false,
       })
     }
-    if (path.endsWith('/batches')) {
+    if (path.endsWith('/batches') || path.endsWith('/inbox')) {
       return response({
         batches: [
           {
@@ -282,6 +298,7 @@ function navigationServer(conflict = false) {
             revision: fixture.revision,
             archived: false,
             updated_at: fixture.updated_at,
+            workflow: inboxWorkflow,
           },
         ],
         truncated: false,
@@ -386,7 +403,7 @@ test('nonempty new-batch title and note survive global navigation; filters alone
   navigationServer()
   const user = userEvent.setup()
   const view = render(<App />)
-  await screen.findByRole('searchbox', { name: 'Search loaded batches' })
+  await screen.findByRole('searchbox', { name: 'Search retained batches' })
   await user.click(screen.getByRole('checkbox', { name: 'Show archived' }))
   expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(true)
   await user.click(screen.getByRole('button', { name: 'New batch' }))

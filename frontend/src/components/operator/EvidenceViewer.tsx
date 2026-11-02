@@ -1,22 +1,23 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type { MediaEvidenceDto } from '@invimport/contracts'
+import {
+  evidenceFromHash,
+  withEvidence,
+  type EvidenceSelection,
+} from '../../operator/evidence-location'
 import { mediaResource } from '../../media/types'
 import { mediaIdentityLabels } from '../../media/identity-labels'
 import { Button, Label, Select, Small } from '../ui/primitives'
 
 interface Props {
   batchId: string
+  lotId?: string
   evidence: MediaEvidenceDto[]
   unavailable?: boolean
 }
 
-interface Selection {
-  evidenceId: string
-  versionId: string
-  page: number
-  previewId: string
-}
+type Selection = EvidenceSelection
 
 function firstPage(evidence: MediaEvidenceDto, versionId?: string): Selection | null {
   const version = versionId
@@ -34,8 +35,17 @@ function firstPage(evidence: MediaEvidenceDto, versionId?: string): Selection | 
 }
 
 /** A selected retained page stays pinned even when polling adds or removes versions. */
-export function EvidenceViewer({ batchId, evidence, unavailable = false }: Props) {
+export function EvidenceViewer({ batchId, lotId, evidence, unavailable = false }: Props) {
+  const [invalidLink, setInvalidLink] = useState(() =>
+    Boolean(lotId && evidenceFromHash(location.hash) === null),
+  )
   const [selected, setSelected] = useState<Selection | null>(() => {
+    if (lotId) {
+      const linked = evidenceFromHash(location.hash)
+      if (linked !== undefined) {
+        return linked
+      }
+    }
     for (const item of evidence) {
       const page = firstPage(item)
       if (page) {
@@ -57,6 +67,27 @@ export function EvidenceViewer({ batchId, evidence, unavailable = false }: Props
   const failed = selected !== null && failedPreview === selected.previewId
   const sourceUnavailable = selected !== null && (!source || !version)
 
+  useEffect(() => {
+    if (
+      lotId &&
+      selected &&
+      location.hash.split('?')[0] === `#${batchId}/review/${lotId}` &&
+      evidenceFromHash(location.hash) === undefined
+    ) {
+      history.replaceState(null, '', withEvidence(location.hash, selected))
+    }
+  }, [batchId, lotId, selected])
+
+  function selectPage(selection: Selection) {
+    setSelected(selection)
+    setInvalidLink(false)
+    setZoom(1)
+    setFailedPreview(null)
+    if (lotId && location.hash.split('?')[0] === `#${batchId}/review/${lotId}`) {
+      history.replaceState(null, '', withEvidence(location.hash, selection))
+    }
+  }
+
   function chooseVersion(value: string) {
     if (!value) {
       return
@@ -64,9 +95,7 @@ export function EvidenceViewer({ batchId, evidence, unavailable = false }: Props
     for (const item of evidence) {
       const selection = firstPage(item, value)
       if (selection) {
-        setSelected(selection)
-        setZoom(1)
-        setFailedPreview(null)
+        selectPage(selection)
         return
       }
     }
@@ -75,14 +104,12 @@ export function EvidenceViewer({ batchId, evidence, unavailable = false }: Props
   function choosePage(value: number) {
     const next = version?.pages.find((item) => item.page === value)
     if (source && version && next) {
-      setSelected({
+      selectPage({
         evidenceId: source.id,
         versionId: version.id,
         page: next.page,
         previewId: next.preview_id,
       })
-      setZoom(1)
-      setFailedPreview(null)
     }
   }
 
@@ -126,9 +153,11 @@ export function EvidenceViewer({ batchId, evidence, unavailable = false }: Props
         </>
       ) : (
         <Empty role="status">
-          {selected
-            ? 'The selected source, version or page is unavailable. Choose another explicitly; no replacement has been substituted.'
-            : 'No preview selected. Choose a ready retained source below, or add evidence in Capture.'}
+          {invalidLink
+            ? 'The evidence link is incomplete or invalid. Choose a retained source explicitly; no replacement has been substituted.'
+            : selected
+              ? 'The selected source, version or page is unavailable. Choose another explicitly; no replacement has been substituted.'
+              : 'No preview selected. Choose a ready retained source below, or add evidence in Capture.'}
         </Empty>
       )}
       <Label>

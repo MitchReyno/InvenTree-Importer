@@ -26,6 +26,14 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/inbox",
+    {
+      "timeoutMs": 45000,
+      "errorMode": "typed",
+      "responseSchema": "InboxList"
+    }
+  ],
+  [
     "GET /api/v1/batches",
     {
       "timeoutMs": 10000,

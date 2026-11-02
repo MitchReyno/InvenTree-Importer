@@ -12,6 +12,9 @@ import type {
 } from '@invimport/contracts'
 import type { ProcessingClient, ProcessingView } from '../../processing/types'
 import { Button, ErrorNotice, Heading, Notice, Paragraph, Panel, Small } from '../ui/primitives'
+import type { MediaClient } from '../../media/types'
+import { ProcessingImages } from './ProcessingImages'
+import { ProcessingStageSummary } from './ProcessingStageSummary'
 import { ProcessingJobCard } from './ProcessingJobCard'
 import { ProcessingNeedsYou } from './ProcessingNeedsYou'
 import { QuestionAnswer } from './QuestionAnswer'
@@ -27,6 +30,7 @@ const views: ProcessingView[] = [
 
 interface Props {
   batch: CaptureSnapshotDto
+  media?: MediaClient
   client: ProcessingClient
   view: ProcessingView
   questionId?: string
@@ -44,6 +48,7 @@ type PinnedQuestion = {
 export function ProcessingWorkspace({
   batch,
   client,
+  media,
   view,
   questionId,
   navigate,
@@ -253,6 +258,7 @@ export function ProcessingWorkspace({
         <Paragraph role="status">Reading retained processing state…</Paragraph>
       ) : (
         <>
+          {view === 'images' && <ProcessingImages batchId={batch.id} client={media} />}
           <Panel>
             <Heading>
               {snapshot.jobs.filter((job) => job.state === 'running').length} running ·{' '}
@@ -262,39 +268,43 @@ export function ProcessingWorkspace({
             <Small>
               One research lane per account. A waiting question frees the lane for other lots.
             </Small>
-            <Selection
-              disabled={batch.archived}
-              aria-label="Select saved subjects for a new processing attempt"
-            >
-              {[...batch.lots.filter((lot) => !retiredLotIds.has(lot.id)), ...batch.parts].map(
-                (subject) => (
-                  <label key={subject.id}>
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(subject.id)}
-                      onChange={() =>
-                        setSelected((previous) =>
-                          previous.includes(subject.id)
-                            ? previous.filter((id) => id !== subject.id)
-                            : [...previous, subject.id],
-                        )
-                      }
-                    />
-                    {subject.label}
-                  </label>
-                ),
-              )}
-            </Selection>
-            <Button
-              disabled={
-                runnerDisabled || !selected.length || snapshot.capture_revision !== batch.revision
-              }
-              onClick={start}
-            >
-              Queue new processing attempts
-            </Button>
-            <Small>New attempts preserve saved human values and previous results.</Small>
+            <details>
+              <summary>Queue work for selected saved subjects</summary>
+              <Selection
+                disabled={batch.archived}
+                aria-label="Select saved subjects for a new processing attempt"
+              >
+                {[...batch.lots.filter((lot) => !retiredLotIds.has(lot.id)), ...batch.parts].map(
+                  (subject) => (
+                    <label key={subject.id}>
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(subject.id)}
+                        onChange={() =>
+                          setSelected((previous) =>
+                            previous.includes(subject.id)
+                              ? previous.filter((id) => id !== subject.id)
+                              : [...previous, subject.id],
+                          )
+                        }
+                      />
+                      {subject.label}
+                    </label>
+                  ),
+                )}
+              </Selection>
+              <Button
+                disabled={
+                  runnerDisabled || !selected.length || snapshot.capture_revision !== batch.revision
+                }
+                onClick={start}
+              >
+                Queue new processing attempts
+              </Button>
+              <Small>New attempts preserve saved human values and previous results.</Small>
+            </details>
           </Panel>
+          {view === 'overview' && <ProcessingStageSummary batchId={batch.id} snapshot={snapshot} />}
           {view === 'overview' && <ProcessingNeedsYou batch={batch} snapshot={snapshot} />}
           {questionId && pinned?.question.id === questionId ? (
             <QuestionAnswer
@@ -384,6 +394,14 @@ const Workspace = styled.section`
   display: grid;
   gap: 12px;
   min-width: 0;
+  > ${Notice} {
+    margin: 0;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+  > ${Panel} {
+    margin-bottom: 0;
+  }
 `
 
 const Tabs = styled.nav`
