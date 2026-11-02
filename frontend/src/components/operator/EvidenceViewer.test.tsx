@@ -98,6 +98,25 @@ test('never substitutes a removed version, page or preview identity', async () =
   )
 })
 
+test('an empty source choice cannot replace the explicitly selected version', async () => {
+  const user = userEvent.setup()
+  render(
+    <EvidenceViewer
+      batchId="batch"
+      evidence={[{ ...evidence, versions: [original, replacement] }]}
+    />,
+  )
+  const source = screen.getByLabelText('Evidence source and version')
+  await user.selectOptions(source, replacement.id)
+  expect(screen.getByRole('option', { name: 'Choose retained evidence' })).toBeDisabled()
+  fireEvent.change(source, { target: { value: '' } })
+  expect(source).toHaveValue(replacement.id)
+  expect(screen.getByRole('img')).toHaveAttribute(
+    'src',
+    '/api/v1/batches/batch/media/previews/60000000-0000-4000-8000-000000000006',
+  )
+})
+
 test('reports unavailable snapshots and retries only the selected failed preview', async () => {
   const user = userEvent.setup()
   render(<EvidenceViewer batchId="batch" evidence={[evidence]} unavailable />)

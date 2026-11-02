@@ -55,8 +55,12 @@ export function EvidenceViewer({ batchId, evidence, unavailable = false }: Props
   )
   const available = version?.state === 'ready' && page !== undefined
   const failed = selected !== null && failedPreview === selected.previewId
+  const sourceUnavailable = selected !== null && (!source || !version)
 
   function chooseVersion(value: string) {
+    if (!value) {
+      return
+    }
     for (const item of evidence) {
       const selection = firstPage(item, value)
       if (selection) {
@@ -133,8 +137,8 @@ export function EvidenceViewer({ batchId, evidence, unavailable = false }: Props
           value={version && source ? version.id : ''}
           onChange={(event) => chooseVersion(event.target.value)}
         >
-          <option value="">
-            {selected
+          <option value="" disabled>
+            {sourceUnavailable
               ? 'Selected source unavailable — choose explicitly'
               : 'Choose retained evidence'}
           </option>
