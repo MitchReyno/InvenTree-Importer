@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./json": "./src/json.ts",
     "./client": "./generated/client.ts",
-    "./media": "./src/media.ts"
+    "./media": "./src/media.ts",
+    "./research": "./src/research.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

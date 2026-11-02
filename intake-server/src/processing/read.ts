@@ -101,7 +101,8 @@ async function inputCurrency(
     (job.attemptState === 'queued' || dependencies.ready) &&
     processingInputIsCurrent(manifest, capture, media.inputs, config.approvedSourceUrls)
   const selectedProfile = config.profileId ?? mediaProfileId
-  const incompatibleQueued = job.attemptState === 'queued' && manifest.profile_id !== selectedProfile
+  const incompatibleQueued =
+    job.attemptState === 'queued' && manifest.profile_id !== selectedProfile
   return incompatibleQueued ? { current, blockedCode: 'worker_version_conflict' } : { current }
 }
 

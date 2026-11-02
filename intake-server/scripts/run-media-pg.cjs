@@ -34,6 +34,8 @@ async function main() {
   const suites = {
     retention: 'tests/pg/media.test.ts',
     inputs: 'tests/pg/media-input-scopes.test.ts',
+    research: 'tests/pg/research.test.ts',
+    'research-processing': 'tests/process/research-processing.test.ts',
     executor: 'tests/pg/media-executor.test.ts',
     browser: 'tests/fixtures/media-browser.ts',
     startup: 'tests/pg/media-startup-authority.test.ts',

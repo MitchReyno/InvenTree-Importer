@@ -322,6 +322,9 @@ importers:
       fastify:
         specifier: 5.12.7
         version: 5.12.7
+      ipaddr.js:
+        specifier: 2.5.0
+        version: 2.5.0
       pdfjs-dist:
         specifier: 6.4.299
         version: 6.4.299

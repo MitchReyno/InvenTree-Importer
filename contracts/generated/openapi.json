@@ -8777,6 +8777,908 @@
           }
         }
       },
+      "ProcessingInputV3": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_version",
+          "batch_id",
+          "source_id",
+          "capture_revision",
+          "subject_id",
+          "stage",
+          "dependencies",
+          "answer_id",
+          "defaults",
+          "subject",
+          "linked_part",
+          "notes",
+          "observations",
+          "profile_id",
+          "instruction_version",
+          "instruction_sha256",
+          "tool_profile_version",
+          "media",
+          "source_urls"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "bench-intake-input/3",
+            "type": "string"
+          },
+          "batch_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "source_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "capture_revision": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "subject_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "const": "reading",
+                "type": "string"
+              },
+              {
+                "const": "identifying",
+                "type": "string"
+              },
+              {
+                "const": "research",
+                "type": "string"
+              },
+              {
+                "const": "images",
+                "type": "string"
+              },
+              {
+                "const": "inventory",
+                "type": "string"
+              }
+            ]
+          },
+          "dependencies": {
+            "maxItems": 5,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+              "type": "string"
+            }
+          },
+          "answer_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "defaults": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "quantity",
+              "location"
+            ],
+            "properties": {
+              "quantity": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "unset",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "clear",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode",
+                      "value"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "set",
+                        "type": "string"
+                      },
+                      "value": {
+                        "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "inherit",
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              },
+              "location": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "unset",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "clear",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode",
+                      "value"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "set",
+                        "type": "string"
+                      },
+                      "value": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "observation_id",
+                          "target_context_id",
+                          "model",
+                          "pk"
+                        ],
+                        "properties": {
+                          "observation_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "target_context_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "model": {
+                            "anyOf": [
+                              {
+                                "const": "part",
+                                "type": "string"
+                              },
+                              {
+                                "const": "location",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "pk": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "inherit",
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "id",
+                  "label",
+                  "revision",
+                  "contribution_key",
+                  "part_subject_id",
+                  "quantity",
+                  "location"
+                ],
+                "properties": {
+                  "id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "label": {
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "type": "string"
+                  },
+                  "revision": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  "contribution_key": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "part_subject_id": {
+                    "anyOf": [
+                      {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "quantity": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "inherit",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "inherit",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "id",
+                  "label",
+                  "revision",
+                  "choice"
+                ],
+                "properties": {
+                  "id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "label": {
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "type": "string"
+                  },
+                  "revision": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  "choice": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "linked_part": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "id",
+                  "label",
+                  "revision",
+                  "choice"
+                ],
+                "properties": {
+                  "id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "label": {
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "type": "string"
+                  },
+                  "revision": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  "choice": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "maxItems": 1000,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "id",
+                "subject_id",
+                "text",
+                "actor_id",
+                "created_at",
+                "producer"
+              ],
+              "properties": {
+                "id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "subject_id": {
+                  "anyOf": [
+                    {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "text": {
+                  "maxLength": 8192,
+                  "type": "string"
+                },
+                "actor_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string"
+                },
+                "producer": {
+                  "const": "human",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "observations": {
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "id",
+                "model",
+                "pk",
+                "target_context_id",
+                "label",
+                "observed_at"
+              ],
+              "properties": {
+                "id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "model": {
+                  "anyOf": [
+                    {
+                      "const": "part",
+                      "type": "string"
+                    },
+                    {
+                      "const": "location",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "pk": {
+                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                  "format": "int64",
+                  "type": "string"
+                },
+                "target_context_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "label": {
+                  "minLength": 1,
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "observed_at": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "profile_id": {
+            "const": "restricted-research-stub/1",
+            "type": "string"
+          },
+          "instruction_version": {
+            "const": "restricted-research-stub/1",
+            "type": "string"
+          },
+          "instruction_sha256": {
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+            "type": "string"
+          },
+          "tool_profile_version": {
+            "const": "restricted-research-tools/1",
+            "type": "string"
+          },
+          "media": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "manifest",
+              "sha256"
+            ],
+            "properties": {
+              "manifest": {
+                "minLength": 1,
+                "maxLength": 245760,
+                "type": "string"
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              }
+            }
+          },
+          "source_urls": {
+            "maxItems": 16,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "minLength": 1,
+              "maxLength": 2048,
+              "type": "string"
+            }
+          }
+        }
+      },
       "ProcessingCommandV1": {
         "additionalProperties": false,
         "type": "object",
@@ -8865,6 +9767,54 @@
           },
           "handler_version": {
             "const": "processing/2",
+            "type": "string"
+          },
+          "command_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      },
+      "ProcessingCommandV3": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_version",
+          "job_id",
+          "attempt_id",
+          "input_id",
+          "input_sha256",
+          "profile_id",
+          "handler_version",
+          "command_id"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "bench-intake-processing-command/3",
+            "type": "string"
+          },
+          "job_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "attempt_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "input_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "input_sha256": {
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+            "type": "string"
+          },
+          "profile_id": {
+            "const": "restricted-research-stub/1",
+            "type": "string"
+          },
+          "handler_version": {
+            "const": "processing/3",
             "type": "string"
           },
           "command_id": {
@@ -8989,6 +9939,119 @@
           }
         }
       },
+      "ProcessingProposalV3": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_version",
+          "subject_id",
+          "summary",
+          "sources"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "bench-intake-proposal/3",
+            "type": "string"
+          },
+          "subject_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "summary": {
+            "minLength": 1,
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "sources": {
+            "minItems": 1,
+            "maxItems": 100,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "note_id",
+                        "text_sha256"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "note",
+                          "type": "string"
+                        },
+                        "note_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "text_sha256": {
+                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "evidence_id",
+                        "version_id",
+                        "sha256"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "media_version",
+                          "type": "string"
+                        },
+                        "evidence_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "version_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "sha256": {
+                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "receipt_id",
+                    "sha256"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "research_receipt",
+                      "type": "string"
+                    },
+                    "receipt_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "ProcessingSource": {
         "anyOf": [
           {
@@ -9033,6 +10096,88 @@
                 "type": "string"
               },
               "version_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ProcessingSourceV3": {
+        "anyOf": [
+          {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "note_id",
+                  "text_sha256"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "note",
+                    "type": "string"
+                  },
+                  "note_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "text_sha256": {
+                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "evidence_id",
+                  "version_id",
+                  "sha256"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "media_version",
+                    "type": "string"
+                  },
+                  "evidence_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "version_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "receipt_id",
+              "sha256"
+            ],
+            "properties": {
+              "kind": {
+                "const": "research_receipt",
+                "type": "string"
+              },
+              "receipt_id": {
                 "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                 "type": "string"
               },
@@ -9593,6 +10738,359 @@
               },
               "handler_version": {
                 "const": "processing/2",
+                "type": "string"
+              },
+              "sequence": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "kind": {
+                "const": "terminal",
+                "type": "string"
+              },
+              "payload": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "state"
+                ],
+                "properties": {
+                  "state": {
+                    "anyOf": [
+                      {
+                        "const": "ready",
+                        "type": "string"
+                      },
+                      {
+                        "const": "failed",
+                        "type": "string"
+                      },
+                      {
+                        "const": "waiting_for_login",
+                        "type": "string"
+                      },
+                      {
+                        "const": "waiting_for_capacity",
+                        "type": "string"
+                      },
+                      {
+                        "const": "interrupted",
+                        "type": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ProcessingEnvelopeV3": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "job_id",
+              "attempt_id",
+              "command_id",
+              "input_sha256",
+              "profile_id",
+              "handler_version",
+              "sequence",
+              "kind",
+              "payload"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-runner/3",
+                "type": "string"
+              },
+              "job_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "command_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "input_sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "profile_id": {
+                "const": "restricted-research-stub/1",
+                "type": "string"
+              },
+              "handler_version": {
+                "const": "processing/3",
+                "type": "string"
+              },
+              "sequence": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "kind": {
+                "const": "proposal",
+                "type": "string"
+              },
+              "payload": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "schema_version",
+                  "subject_id",
+                  "summary",
+                  "sources"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "const": "bench-intake-proposal/3",
+                    "type": "string"
+                  },
+                  "subject_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "summary": {
+                    "minLength": 1,
+                    "maxLength": 2048,
+                    "type": "string"
+                  },
+                  "sources": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "uniqueItems": true,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "note_id",
+                                "text_sha256"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "note",
+                                  "type": "string"
+                                },
+                                "note_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "text_sha256": {
+                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "evidence_id",
+                                "version_id",
+                                "sha256"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "media_version",
+                                  "type": "string"
+                                },
+                                "evidence_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "version_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "sha256": {
+                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "receipt_id",
+                            "sha256"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "research_receipt",
+                              "type": "string"
+                            },
+                            "receipt_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "sha256": {
+                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "job_id",
+              "attempt_id",
+              "command_id",
+              "input_sha256",
+              "profile_id",
+              "handler_version",
+              "sequence",
+              "kind",
+              "payload"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-runner/3",
+                "type": "string"
+              },
+              "job_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "command_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "input_sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "profile_id": {
+                "const": "restricted-research-stub/1",
+                "type": "string"
+              },
+              "handler_version": {
+                "const": "processing/3",
+                "type": "string"
+              },
+              "sequence": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "kind": {
+                "const": "question",
+                "type": "string"
+              },
+              "payload": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "subject_id",
+                  "prompt",
+                  "reason"
+                ],
+                "properties": {
+                  "kind": {
+                    "anyOf": [
+                      {
+                        "const": "quantity",
+                        "type": "string"
+                      },
+                      {
+                        "const": "clarification",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "prompt": {
+                    "minLength": 1,
+                    "maxLength": 2048,
+                    "type": "string"
+                  },
+                  "reason": {
+                    "minLength": 1,
+                    "maxLength": 2048,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "job_id",
+              "attempt_id",
+              "command_id",
+              "input_sha256",
+              "profile_id",
+              "handler_version",
+              "sequence",
+              "kind",
+              "payload"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-runner/3",
+                "type": "string"
+              },
+              "job_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "command_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "input_sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "profile_id": {
+                "const": "restricted-research-stub/1",
+                "type": "string"
+              },
+              "handler_version": {
+                "const": "processing/3",
                 "type": "string"
               },
               "sequence": {
@@ -11430,6 +12928,908 @@
                 }
               }
             }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "batch_id",
+              "source_id",
+              "capture_revision",
+              "subject_id",
+              "stage",
+              "dependencies",
+              "answer_id",
+              "defaults",
+              "subject",
+              "linked_part",
+              "notes",
+              "observations",
+              "profile_id",
+              "instruction_version",
+              "instruction_sha256",
+              "tool_profile_version",
+              "media",
+              "source_urls"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-input/3",
+                "type": "string"
+              },
+              "batch_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "source_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "capture_revision": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "subject_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "stage": {
+                "anyOf": [
+                  {
+                    "const": "reading",
+                    "type": "string"
+                  },
+                  {
+                    "const": "identifying",
+                    "type": "string"
+                  },
+                  {
+                    "const": "research",
+                    "type": "string"
+                  },
+                  {
+                    "const": "images",
+                    "type": "string"
+                  },
+                  {
+                    "const": "inventory",
+                    "type": "string"
+                  }
+                ]
+              },
+              "dependencies": {
+                "maxItems": 5,
+                "uniqueItems": true,
+                "type": "array",
+                "items": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                }
+              },
+              "answer_id": {
+                "anyOf": [
+                  {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "defaults": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "quantity",
+                  "location"
+                ],
+                "properties": {
+                  "quantity": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "inherit",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "inherit",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "subject": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "label",
+                      "revision",
+                      "contribution_key",
+                      "part_subject_id",
+                      "quantity",
+                      "location"
+                    ],
+                    "properties": {
+                      "id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "label": {
+                        "minLength": 1,
+                        "maxLength": 256,
+                        "type": "string"
+                      },
+                      "revision": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      },
+                      "contribution_key": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "part_subject_id": {
+                        "anyOf": [
+                          {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "quantity": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unset",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unknown",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "inherit",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "location": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unset",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unknown",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "anyOf": [
+                                      {
+                                        "const": "part",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "location",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "inherit",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "label",
+                      "revision",
+                      "choice"
+                    ],
+                    "properties": {
+                      "id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "label": {
+                        "minLength": 1,
+                        "maxLength": 256,
+                        "type": "string"
+                      },
+                      "revision": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      },
+                      "choice": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unset",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unknown",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "anyOf": [
+                                      {
+                                        "const": "part",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "location",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "linked_part": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "label",
+                      "revision",
+                      "choice"
+                    ],
+                    "properties": {
+                      "id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "label": {
+                        "minLength": 1,
+                        "maxLength": 256,
+                        "type": "string"
+                      },
+                      "revision": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      },
+                      "choice": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unset",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unknown",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "anyOf": [
+                                      {
+                                        "const": "part",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "location",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "notes": {
+                "maxItems": 1000,
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "subject_id",
+                    "text",
+                    "actor_id",
+                    "created_at",
+                    "producer"
+                  ],
+                  "properties": {
+                    "id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "subject_id": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "text": {
+                      "maxLength": 8192,
+                      "type": "string"
+                    },
+                    "actor_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "producer": {
+                      "const": "human",
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "observations": {
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "model",
+                    "pk",
+                    "target_context_id",
+                    "label",
+                    "observed_at"
+                  ],
+                  "properties": {
+                    "id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "model": {
+                      "anyOf": [
+                        {
+                          "const": "part",
+                          "type": "string"
+                        },
+                        {
+                          "const": "location",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "pk": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "target_context_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "label": {
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "type": "string"
+                    },
+                    "observed_at": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "profile_id": {
+                "const": "restricted-research-stub/1",
+                "type": "string"
+              },
+              "instruction_version": {
+                "const": "restricted-research-stub/1",
+                "type": "string"
+              },
+              "instruction_sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "tool_profile_version": {
+                "const": "restricted-research-tools/1",
+                "type": "string"
+              },
+              "media": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "manifest",
+                  "sha256"
+                ],
+                "properties": {
+                  "manifest": {
+                    "minLength": 1,
+                    "maxLength": 245760,
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                }
+              },
+              "source_urls": {
+                "maxItems": 16,
+                "uniqueItems": true,
+                "type": "array",
+                "items": {
+                  "minLength": 1,
+                  "maxLength": 2048,
+                  "type": "string"
+                }
+              }
+            }
           }
         ]
       },
@@ -11523,6 +13923,54 @@
               },
               "handler_version": {
                 "const": "processing/2",
+                "type": "string"
+              },
+              "command_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "job_id",
+              "attempt_id",
+              "input_id",
+              "input_sha256",
+              "profile_id",
+              "handler_version",
+              "command_id"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-processing-command/3",
+                "type": "string"
+              },
+              "job_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "input_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "input_sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "profile_id": {
+                "const": "restricted-research-stub/1",
+                "type": "string"
+              },
+              "handler_version": {
+                "const": "processing/3",
                 "type": "string"
               },
               "command_id": {
@@ -12080,6 +14528,119 @@
                           "type": "string"
                         },
                         "version_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "sha256": {
+                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "subject_id",
+              "summary",
+              "sources"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-proposal/3",
+                "type": "string"
+              },
+              "subject_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "summary": {
+                "minLength": 1,
+                "maxLength": 2048,
+                "type": "string"
+              },
+              "sources": {
+                "minItems": 1,
+                "maxItems": 100,
+                "uniqueItems": true,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "note_id",
+                            "text_sha256"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "note",
+                              "type": "string"
+                            },
+                            "note_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "text_sha256": {
+                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "evidence_id",
+                            "version_id",
+                            "sha256"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "media_version",
+                              "type": "string"
+                            },
+                            "evidence_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "version_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "sha256": {
+                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "receipt_id",
+                        "sha256"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "research_receipt",
+                          "type": "string"
+                        },
+                        "receipt_id": {
                           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                           "type": "string"
                         },
@@ -12694,6 +15255,359 @@
                 }
               }
             ]
+          },
+          {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "schema_version",
+                  "job_id",
+                  "attempt_id",
+                  "command_id",
+                  "input_sha256",
+                  "profile_id",
+                  "handler_version",
+                  "sequence",
+                  "kind",
+                  "payload"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "const": "bench-intake-runner/3",
+                    "type": "string"
+                  },
+                  "job_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "attempt_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "command_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "input_sha256": {
+                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "profile_id": {
+                    "const": "restricted-research-stub/1",
+                    "type": "string"
+                  },
+                  "handler_version": {
+                    "const": "processing/3",
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "proposal",
+                    "type": "string"
+                  },
+                  "payload": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "schema_version",
+                      "subject_id",
+                      "summary",
+                      "sources"
+                    ],
+                    "properties": {
+                      "schema_version": {
+                        "const": "bench-intake-proposal/3",
+                        "type": "string"
+                      },
+                      "subject_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "summary": {
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "type": "string"
+                      },
+                      "sources": {
+                        "minItems": 1,
+                        "maxItems": 100,
+                        "uniqueItems": true,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "kind",
+                                    "note_id",
+                                    "text_sha256"
+                                  ],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "note",
+                                      "type": "string"
+                                    },
+                                    "note_id": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "text_sha256": {
+                                      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "kind",
+                                    "evidence_id",
+                                    "version_id",
+                                    "sha256"
+                                  ],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "media_version",
+                                      "type": "string"
+                                    },
+                                    "evidence_id": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "version_id": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "sha256": {
+                                      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "receipt_id",
+                                "sha256"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "research_receipt",
+                                  "type": "string"
+                                },
+                                "receipt_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "sha256": {
+                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "schema_version",
+                  "job_id",
+                  "attempt_id",
+                  "command_id",
+                  "input_sha256",
+                  "profile_id",
+                  "handler_version",
+                  "sequence",
+                  "kind",
+                  "payload"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "const": "bench-intake-runner/3",
+                    "type": "string"
+                  },
+                  "job_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "attempt_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "command_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "input_sha256": {
+                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "profile_id": {
+                    "const": "restricted-research-stub/1",
+                    "type": "string"
+                  },
+                  "handler_version": {
+                    "const": "processing/3",
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "question",
+                    "type": "string"
+                  },
+                  "payload": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "subject_id",
+                      "prompt",
+                      "reason"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "anyOf": [
+                          {
+                            "const": "quantity",
+                            "type": "string"
+                          },
+                          {
+                            "const": "clarification",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "subject_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "prompt": {
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "type": "string"
+                      },
+                      "reason": {
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "schema_version",
+                  "job_id",
+                  "attempt_id",
+                  "command_id",
+                  "input_sha256",
+                  "profile_id",
+                  "handler_version",
+                  "sequence",
+                  "kind",
+                  "payload"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "const": "bench-intake-runner/3",
+                    "type": "string"
+                  },
+                  "job_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "attempt_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "command_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "input_sha256": {
+                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "profile_id": {
+                    "const": "restricted-research-stub/1",
+                    "type": "string"
+                  },
+                  "handler_version": {
+                    "const": "processing/3",
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "terminal",
+                    "type": "string"
+                  },
+                  "payload": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "properties": {
+                      "state": {
+                        "anyOf": [
+                          {
+                            "const": "ready",
+                            "type": "string"
+                          },
+                          {
+                            "const": "failed",
+                            "type": "string"
+                          },
+                          {
+                            "const": "waiting_for_login",
+                            "type": "string"
+                          },
+                          {
+                            "const": "waiting_for_capacity",
+                            "type": "string"
+                          },
+                          {
+                            "const": "interrupted",
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
           }
         ]
       },
@@ -13045,6 +15959,119 @@
                                     "type": "string"
                                   },
                                   "version_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "sha256": {
+                                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "schema_version",
+                        "subject_id",
+                        "summary",
+                        "sources"
+                      ],
+                      "properties": {
+                        "schema_version": {
+                          "const": "bench-intake-proposal/3",
+                          "type": "string"
+                        },
+                        "subject_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "summary": {
+                          "minLength": 1,
+                          "maxLength": 2048,
+                          "type": "string"
+                        },
+                        "sources": {
+                          "minItems": 1,
+                          "maxItems": 100,
+                          "uniqueItems": true,
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "kind",
+                                      "note_id",
+                                      "text_sha256"
+                                    ],
+                                    "properties": {
+                                      "kind": {
+                                        "const": "note",
+                                        "type": "string"
+                                      },
+                                      "note_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "text_sha256": {
+                                        "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "kind",
+                                      "evidence_id",
+                                      "version_id",
+                                      "sha256"
+                                    ],
+                                    "properties": {
+                                      "kind": {
+                                        "const": "media_version",
+                                        "type": "string"
+                                      },
+                                      "evidence_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "version_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "sha256": {
+                                        "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "receipt_id",
+                                  "sha256"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "const": "research_receipt",
+                                    "type": "string"
+                                  },
+                                  "receipt_id": {
                                     "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                                     "type": "string"
                                   },
@@ -13466,6 +16493,119 @@
                                 }
                               }
                             }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "schema_version",
+                              "subject_id",
+                              "summary",
+                              "sources"
+                            ],
+                            "properties": {
+                              "schema_version": {
+                                "const": "bench-intake-proposal/3",
+                                "type": "string"
+                              },
+                              "subject_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "summary": {
+                                "minLength": 1,
+                                "maxLength": 2048,
+                                "type": "string"
+                              },
+                              "sources": {
+                                "minItems": 1,
+                                "maxItems": 100,
+                                "uniqueItems": true,
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "anyOf": [
+                                        {
+                                          "additionalProperties": false,
+                                          "type": "object",
+                                          "required": [
+                                            "kind",
+                                            "note_id",
+                                            "text_sha256"
+                                          ],
+                                          "properties": {
+                                            "kind": {
+                                              "const": "note",
+                                              "type": "string"
+                                            },
+                                            "note_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "text_sha256": {
+                                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "additionalProperties": false,
+                                          "type": "object",
+                                          "required": [
+                                            "kind",
+                                            "evidence_id",
+                                            "version_id",
+                                            "sha256"
+                                          ],
+                                          "properties": {
+                                            "kind": {
+                                              "const": "media_version",
+                                              "type": "string"
+                                            },
+                                            "evidence_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "version_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                              "type": "string"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "kind",
+                                        "receipt_id",
+                                        "sha256"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "research_receipt",
+                                          "type": "string"
+                                        },
+                                        "receipt_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "sha256": {
+                                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            }
                           }
                         ]
                       }
@@ -13654,6 +16794,638 @@
           "command_id": {
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
             "type": "string"
+          }
+        }
+      },
+      "ResearchReceiptSource": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "receipt_id",
+          "sha256"
+        ],
+        "properties": {
+          "kind": {
+            "const": "research_receipt",
+            "type": "string"
+          },
+          "receipt_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      },
+      "ResearchEvidenceRead": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version_id",
+          "sha256",
+          "offset",
+          "length"
+        ],
+        "properties": {
+          "version_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+            "type": "string"
+          },
+          "offset": {
+            "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "length": {
+            "pattern": "^[1-9][0-9]{0,6}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      },
+      "ResearchSourceFetch": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "minLength": 1,
+            "maxLength": 2048,
+            "type": "string"
+          }
+        }
+      },
+      "ResearchReceiptRead": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "receipt_id",
+          "sha256",
+          "offset",
+          "length"
+        ],
+        "properties": {
+          "receipt_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+            "type": "string"
+          },
+          "offset": {
+            "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "length": {
+            "pattern": "^[1-9][0-9]{0,6}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      },
+      "ResearchInventoryLookup": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "model",
+          "pk"
+        ],
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "const": "part",
+                "type": "string"
+              },
+              {
+                "const": "location",
+                "type": "string"
+              }
+            ]
+          },
+          "pk": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          }
+        }
+      },
+      "ResearchReceipt": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "sha256",
+          "byte_size",
+          "media_type"
+        ],
+        "properties": {
+          "id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "const": "web",
+                "type": "string"
+              },
+              {
+                "const": "inventory",
+                "type": "string"
+              }
+            ]
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+            "type": "string"
+          },
+          "byte_size": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "media_type": {
+            "anyOf": [
+              {
+                "const": "image/png",
+                "type": "string"
+              },
+              {
+                "const": "image/jpeg",
+                "type": "string"
+              },
+              {
+                "const": "application/pdf",
+                "type": "string"
+              },
+              {
+                "const": "text/html",
+                "type": "string"
+              },
+              {
+                "const": "text/plain",
+                "type": "string"
+              },
+              {
+                "const": "application/json",
+                "type": "string"
+              }
+            ]
+          },
+          "source_url": {
+            "minLength": 1,
+            "maxLength": 2048,
+            "type": "string"
+          }
+        }
+      },
+      "ResearchReceiptDescriptor": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_version",
+          "batch_id",
+          "attempt_id",
+          "command_id",
+          "actor_id",
+          "target_id",
+          "target_context_id",
+          "input_sha256",
+          "request_id",
+          "request_sha256",
+          "receipt"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "bench-intake-research-receipt/1",
+            "type": "string"
+          },
+          "batch_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "attempt_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "command_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "actor_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "target_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "target_context_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "input_sha256": {
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+            "type": "string"
+          },
+          "request_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "request_sha256": {
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+            "type": "string"
+          },
+          "receipt": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "id",
+              "kind",
+              "sha256",
+              "byte_size",
+              "media_type"
+            ],
+            "properties": {
+              "id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "kind": {
+                "anyOf": [
+                  {
+                    "const": "web",
+                    "type": "string"
+                  },
+                  {
+                    "const": "inventory",
+                    "type": "string"
+                  }
+                ]
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "byte_size": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "media_type": {
+                "anyOf": [
+                  {
+                    "const": "image/png",
+                    "type": "string"
+                  },
+                  {
+                    "const": "image/jpeg",
+                    "type": "string"
+                  },
+                  {
+                    "const": "application/pdf",
+                    "type": "string"
+                  },
+                  {
+                    "const": "text/html",
+                    "type": "string"
+                  },
+                  {
+                    "const": "text/plain",
+                    "type": "string"
+                  },
+                  {
+                    "const": "application/json",
+                    "type": "string"
+                  }
+                ]
+              },
+              "source_url": {
+                "minLength": 1,
+                "maxLength": 2048,
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ResearchEvidenceChunk": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "evidence_id",
+          "version_id",
+          "sha256",
+          "byte_size",
+          "media_type",
+          "offset",
+          "bytes_base64"
+        ],
+        "properties": {
+          "evidence_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "version_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+            "type": "string"
+          },
+          "byte_size": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "media_type": {
+            "anyOf": [
+              {
+                "const": "image/png",
+                "type": "string"
+              },
+              {
+                "const": "image/jpeg",
+                "type": "string"
+              },
+              {
+                "const": "application/pdf",
+                "type": "string"
+              },
+              {
+                "const": "text/html",
+                "type": "string"
+              },
+              {
+                "const": "text/plain",
+                "type": "string"
+              },
+              {
+                "const": "application/json",
+                "type": "string"
+              }
+            ]
+          },
+          "offset": {
+            "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "bytes_base64": {
+            "minLength": 1,
+            "maxLength": 131072,
+            "type": "string"
+          }
+        }
+      },
+      "ResearchSourceChunk": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "receipt",
+          "offset",
+          "bytes_base64"
+        ],
+        "properties": {
+          "receipt": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "id",
+              "kind",
+              "sha256",
+              "byte_size",
+              "media_type"
+            ],
+            "properties": {
+              "id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "kind": {
+                "anyOf": [
+                  {
+                    "const": "web",
+                    "type": "string"
+                  },
+                  {
+                    "const": "inventory",
+                    "type": "string"
+                  }
+                ]
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "byte_size": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "media_type": {
+                "anyOf": [
+                  {
+                    "const": "image/png",
+                    "type": "string"
+                  },
+                  {
+                    "const": "image/jpeg",
+                    "type": "string"
+                  },
+                  {
+                    "const": "application/pdf",
+                    "type": "string"
+                  },
+                  {
+                    "const": "text/html",
+                    "type": "string"
+                  },
+                  {
+                    "const": "text/plain",
+                    "type": "string"
+                  },
+                  {
+                    "const": "application/json",
+                    "type": "string"
+                  }
+                ]
+              },
+              "source_url": {
+                "minLength": 1,
+                "maxLength": 2048,
+                "type": "string"
+              }
+            }
+          },
+          "offset": {
+            "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "bytes_base64": {
+            "minLength": 1,
+            "maxLength": 131072,
+            "type": "string"
+          }
+        }
+      },
+      "ResearchInventoryObservation": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "model",
+          "pk",
+          "label"
+        ],
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "const": "part",
+                "type": "string"
+              },
+              {
+                "const": "location",
+                "type": "string"
+              }
+            ]
+          },
+          "pk": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "label": {
+            "minLength": 1,
+            "maxLength": 256,
+            "type": "string"
+          }
+        }
+      },
+      "ResearchInventoryResult": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "receipt",
+          "observation"
+        ],
+        "properties": {
+          "receipt": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "id",
+              "kind",
+              "sha256",
+              "byte_size",
+              "media_type"
+            ],
+            "properties": {
+              "id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "kind": {
+                "anyOf": [
+                  {
+                    "const": "web",
+                    "type": "string"
+                  },
+                  {
+                    "const": "inventory",
+                    "type": "string"
+                  }
+                ]
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "byte_size": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "media_type": {
+                "anyOf": [
+                  {
+                    "const": "image/png",
+                    "type": "string"
+                  },
+                  {
+                    "const": "image/jpeg",
+                    "type": "string"
+                  },
+                  {
+                    "const": "application/pdf",
+                    "type": "string"
+                  },
+                  {
+                    "const": "text/html",
+                    "type": "string"
+                  },
+                  {
+                    "const": "text/plain",
+                    "type": "string"
+                  },
+                  {
+                    "const": "application/json",
+                    "type": "string"
+                  }
+                ]
+              },
+              "source_url": {
+                "minLength": 1,
+                "maxLength": 2048,
+                "type": "string"
+              }
+            }
+          },
+          "observation": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "model",
+              "pk",
+              "label"
+            ],
+            "properties": {
+              "model": {
+                "anyOf": [
+                  {
+                    "const": "part",
+                    "type": "string"
+                  },
+                  {
+                    "const": "location",
+                    "type": "string"
+                  }
+                ]
+              },
+              "pk": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "label": {
+                "minLength": 1,
+                "maxLength": 256,
+                "type": "string"
+              }
+            }
           }
         }
       },

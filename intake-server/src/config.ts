@@ -1,4 +1,12 @@
 import { Bootstrap, validate, type BootstrapDto } from '@invimport/contracts'
+import { strictJson } from '@invimport/contracts/json'
+import type { ProcessingConfig } from './processing/attempts.ts'
+import { canonicalSourceUrl } from './research/source-policy.ts'
+import {
+  MAX_RESEARCH_PROTECTED_ORIGINS,
+  MAX_RESEARCH_SOURCE_URLS,
+  MAX_RESEARCH_URL_BYTES,
+} from './research/limits.ts'
 
 export interface DevConfig {
   origin: string
@@ -54,4 +62,84 @@ export function bootstrap(
     permission_gate: 'deferred_T11',
     csrf_token: csrfToken,
   }
+}
+
+const MAX_RESEARCH_CONFIGURATION_BYTES = 64 * 1024
+
+function researchUrlList(raw: string | undefined, maximum: number): string[] {
+  if (raw === undefined) {
+    return []
+  }
+  if (Buffer.byteLength(raw) > MAX_RESEARCH_CONFIGURATION_BYTES) {
+    throw new Error('invalid_research_configuration')
+  }
+  const values: unknown = strictJson(raw)
+  if (!Array.isArray(values) || values.length > maximum) {
+    throw new Error('invalid_research_configuration')
+  }
+  const urls: string[] = []
+  for (const value of values) {
+    if (
+      typeof value !== 'string' ||
+      value.length === 0 ||
+      Buffer.byteLength(value) > MAX_RESEARCH_URL_BYTES
+    ) {
+      throw new Error('invalid_research_configuration')
+    }
+    urls.push(value)
+  }
+  return urls
+}
+
+function researchProtectedOrigins(env: NodeJS.ProcessEnv): readonly string[] {
+  const configured = researchUrlList(
+    env.INTAKE_RESEARCH_PROTECTED_ORIGINS,
+    MAX_RESEARCH_PROTECTED_ORIGINS,
+  )
+  if (env.INTAKE_READ_ORIGIN !== undefined) {
+    configured.push(env.INTAKE_READ_ORIGIN)
+  }
+  const origins = new Set<string>()
+  for (const value of configured) {
+    let url: URL
+    try {
+      url = new URL(value)
+    } catch {
+      throw new Error('invalid_research_configuration')
+    }
+    const valid =
+      ['http:', 'https:'].includes(url.protocol) &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash &&
+      url.pathname === '/'
+    if (!valid) {
+      throw new Error('invalid_research_configuration')
+    }
+    origins.add(url.origin)
+  }
+  if (origins.size > MAX_RESEARCH_PROTECTED_ORIGINS) {
+    throw new Error('invalid_research_configuration')
+  }
+  return Object.freeze([...origins].sort())
+}
+
+/** Server-only profile choice. No credential or native executable crosses this boundary. */
+export function processingConfig(config: DevConfig, env: NodeJS.ProcessEnv): ProcessingConfig {
+  const profileId = env.INTAKE_PROCESSING_PROFILE ?? 'synthetic-research/2'
+  if (profileId !== 'synthetic-research/2' && profileId !== 'restricted-research-stub/1') {
+    throw new Error('unsupported_processing_profile')
+  }
+  const approved = researchUrlList(env.INTAKE_RESEARCH_SOURCE_URLS, MAX_RESEARCH_SOURCE_URLS)
+  const canonicalUrls = approved.map((value) => canonicalSourceUrl(value).href)
+  return Object.freeze({
+    actorId: config.actorId,
+    targetId: config.targetId,
+    targetContextId: config.targetContextId,
+    channelSecret: env.INTAKE_PROCESSING_CHANNEL_SECRET ?? '',
+    profileId,
+    approvedSourceUrls: Object.freeze([...new Set(canonicalUrls)].sort()),
+    sourceProtectedOrigins: researchProtectedOrigins(env),
+  })
 }
