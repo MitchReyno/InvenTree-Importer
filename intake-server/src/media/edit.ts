@@ -102,6 +102,7 @@ async function linkEvidence(
   if (!subjects.some((subject) => subject.id === change.subject_id)) {
     fail('not_found', 404)
   }
+  requireActiveLot(capture, change.subject_id)
   await executeDatabaseQuery(
     queryDatabase(client).insert(mediaLinks).values({
       id: randomUUID(),
@@ -204,6 +205,14 @@ async function requestDerivation(
   )
 }
 
+/** Retired lots are frozen history: evidence links and attachments no longer change. */
+function requireActiveLot(capture: CaptureSnapshotDto, subjectId: string) {
+  const lot = capture.lots.find((subject) => subject.id === subjectId)
+  if (lot?.retired === true) {
+    fail('lot_retired', 409)
+  }
+}
+
 async function selectAttachment(
   client: PoolClient,
   binding: CaptureBinding,
@@ -215,6 +224,7 @@ async function selectAttachment(
   if (!capture.lots.some((subject) => subject.id === change.subject_id)) {
     fail('not_found', 404)
   }
+  requireActiveLot(capture, change.subject_id)
   if ((change.mode === 'selected') !== (change.version_id !== null)) {
     fail('invalid_attachment_selection')
   }

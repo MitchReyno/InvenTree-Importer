@@ -330,7 +330,7 @@ export function ManualWorkspace({
         dirty={false}
         edit={edit}
         stage={stage}
-        retiredLotIds={retiredLotIds(operatorReview)}
+        retiredLotIds={retiredLotIds(operatorReview, batch)}
         onProcessing={onProcessing}
         onStage={(value) =>
           navigate(value, value === 'approve' ? (preparationId ?? lastPreview?.id) : undefined)

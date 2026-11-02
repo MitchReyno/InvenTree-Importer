@@ -97,7 +97,7 @@ Warnings are deterministic: `no_supporting_evidence` and `possible_duplicate_par
 
 Bulk edits, restructures (split, merge with explicit same-contribution confirmation, move between Part proposals) and instructions lock the batch, check the expected revision and commit one capture revision. Restructures refuse lots with an original contribution approval. With `preview: true` the server applies the command inside a savepoint, reports the exact impact and rolls back; previews keep no idempotency record and return no new IDs.
 
-Retired lots stay in `CaptureSnapshot.lots` so Processing and media history remain readable. Capture edits and notes refuse them with `lot_retired`, and selection treats them as blocking. Refusing new Processing starts on a retired lot is a proposed Processing follow-up.
+Retired lots stay in `CaptureSnapshot.lots` so Processing and media history remain readable; the snapshot marks them with an optional server-projected `retired: true`, which active lots omit so their bytes are unchanged. Capture edits, notes, media links and attachment selections refuse them with `lot_retired`, and selection for review or preparation treats them as blocking. Processing refuses new starts with `subject_retired` and treats their existing work as stale, as described in the [Processing boundary](src/processing/ARCHITECTURE.md#retired-subjects).
 
 ## Retained research coordination
 

@@ -11,6 +11,7 @@ import { render } from './test/render'
 import { CaptureHeader } from './components/capture/CaptureHeader'
 import { InstructionsPanel } from './components/operator/InstructionsPanel'
 import { IssuePanel } from './components/operator/IssuePanel'
+import { retiredLotIds } from './operator/review-model'
 import { ProcessingWorkspace } from './components/processing/ProcessingWorkspace'
 import type { OperatorReviewClient } from './operator/types'
 import type { ProcessingClient } from './processing/types'
@@ -233,4 +234,14 @@ test('a shared Part warning states every affected lot before dismissal', () => {
   )
 
   expect(screen.getByText(/affects 2 lots \(Packet A, Packet B\)/)).toBeTruthy()
+})
+
+test('retired lots come from the snapshot flag even without the operator projection', () => {
+  const flagged: CaptureSnapshotDto = {
+    ...batch,
+    lots: batch.lots.map((value) => (value.id === retired ? { ...value, retired: true } : value)),
+  }
+
+  expect([...retiredLotIds(undefined, flagged)]).toEqual([retired])
+  expect([...retiredLotIds(undefined, batch)]).toEqual([])
 })

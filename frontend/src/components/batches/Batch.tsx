@@ -172,7 +172,7 @@ export function Batch({
   // A projection for another revision is not shown as current review state.
   const operatorReview =
     batch && operatorQuery.data?.revision === batch.revision ? operatorQuery.data : undefined
-  const retired = retiredLotIds(operatorReview)
+  const retired = retiredLotIds(operatorReview, batch ?? undefined)
   const activeBatch = useMemo(
     () =>
       batch && retired.size

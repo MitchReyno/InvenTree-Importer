@@ -248,3 +248,14 @@ All runs held the exclusive `pg-docker` lease, used decoder `sha256:877516742f7b
 | `pnpm db:intake test:process` | 25/25 passed, 0 skipped |
 
 Afterwards no test databases, processes or containers from these runs remained; only the two pre-existing 2026-11-01 test databases are present. Five `intake_<hex>` roles exist in the cluster; fixture disposal drops its own roles, but no baseline was taken, so their origin is not attributed and they were left alone.
+
+## Local review round 2 fixes
+
+A second fresh reviewer checked `7e3c0db`. It verified all round-1 fixes and the Processing retirement paths (start, claim, message acceptance, answer, read and continuations) and found no critical or important issues. Fixes for its minor findings:
+
+- Media links and attachment selections now refuse retired lots with `lot_retired`, so retired history stays frozen and cannot clear a successor's evidence warning. PG test `tests/pg/operator-media-retirement.test.ts`.
+- The browser derives retired lots from the snapshot flag as well as the operator projection, so they stay hidden if the projection is unavailable. A Processing start refused with `subject_retired` shows a specific message.
+- Architecture docs now describe the implemented retirement contract instead of a proposed follow-up, including a Processing section.
+- The explicit retired check in `processingInputIsCurrent` is labelled defensive.
+
+Checks: focused `NODE_OPTIONS=--test-name-pattern=retire pnpm db:intake test` 21/21 under the lease; frontend 103/103; fast tier and static checks clean.

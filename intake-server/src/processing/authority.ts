@@ -120,6 +120,7 @@ export function processingInputIsCurrent(
   snapshot: CaptureSnapshotDto,
   media: MediaInputs,
 ) {
+  // Defensive: the projected retired flag already changes the recomputed manifest.
   // A retired lot's work is stale; unrelated batch changes still do not invalidate this subject.
   const retiredSubject = snapshot.lots.some(
     (lot) => lot.id === manifest.subject_id && lot.retired === true,

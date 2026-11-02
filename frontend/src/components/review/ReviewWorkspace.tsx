@@ -121,7 +121,7 @@ export function ReviewWorkspace({
   const evidenceRef = useRef<HTMLElement>(null)
   const queueRef = useRef<HTMLDivElement>(null)
   const previousFocus = useRef(route.lotId)
-  const retired = retiredLotIds(operatorReview)
+  const retired = retiredLotIds(operatorReview, batch)
   const activeLotIds = batch.lots.filter((lot) => !retired.has(lot.id)).map((lot) => lot.id)
   const visibleIds = visibleQueueLotIds(batch, operatorReview, route.filter)
   const focused = route.lotId && activeLotIds.includes(route.lotId) ? route.lotId : null

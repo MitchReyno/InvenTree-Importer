@@ -1,3 +1,4 @@
+import { IntakeRequestError } from '@invimport/contracts/client'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -140,10 +141,12 @@ export function ProcessingWorkspace({
     let commandFailed = false
     try {
       await work()
-    } catch {
+    } catch (failure) {
       commandFailed = true
       setError(
-        'Command not confirmed. Inspect retained status before deciding whether to submit another command.',
+        failure instanceof IntakeRequestError && failure.code === 'subject_retired'
+          ? 'A selected lot was split or merged. Choose its successor lots instead.'
+          : 'Command not confirmed. Inspect retained status before deciding whether to submit another command.',
       )
     }
 

@@ -129,8 +129,14 @@ export const GROUP_ORDER: QueueGroup[] = [
   'approved',
 ]
 
-export function retiredLotIds(review: OperatorReviewDto | undefined): ReadonlySet<string> {
-  return new Set(review?.retired_lots.map((lot) => lot.lot_id) ?? [])
+/** Union of the operator projection and the capture snapshot's own retired flag. */
+export function retiredLotIds(
+  review: OperatorReviewDto | undefined,
+  batch?: CaptureSnapshotDto,
+): ReadonlySet<string> {
+  const fromReview = review?.retired_lots.map((lot) => lot.lot_id) ?? []
+  const fromSnapshot = batch?.lots.filter((lot) => lot.retired === true).map((lot) => lot.id) ?? []
+  return new Set([...fromReview, ...fromSnapshot])
 }
 
 export type Provenance = 'human' | 'inherited' | 'override' | 'unknown' | 'cleared' | 'unset'
