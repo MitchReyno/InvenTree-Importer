@@ -12,10 +12,17 @@ import type {
 } from '@invimport/contracts'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import { processingFixture } from '../support/processing.ts'
-import { claimProcessingCommand, acceptEnvelope } from '../../src/processing/runner.ts'
+import {
+  claimProcessingCommand,
+  acceptEnvelope,
+  interruptProcessing,
+  type ResearchInput,
+} from '../../src/processing/runner.ts'
 import { researchAttemptAccess } from '../../src/processing/research.ts'
 import { researchReceiptStore } from '../../src/research/receipts.ts'
 import { researchBroker } from '../../src/research/broker.ts'
+import { ResearchReapPendingError } from '../../src/research/errors.ts'
+import { channelToken } from '../../src/processing/attempts.ts'
 
 const approvedSource = 'https://example.com/datasheet'
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
@@ -512,6 +519,112 @@ test('explicit deterministic protocol adapter executes the claimed V3 command th
     const result = await snapshot(fixture, capture.batch.id)
     assert.equal(result.jobs[0].proposals.length, 1)
     assert.equal(result.jobs[0].state, 'ready')
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('uncertain adapter reap retains the exact lane through cancel/reprocess until a known-reaped interruption', async () => {
+  const fixture = await restrictedFixture()
+  try {
+    const capture = await fixture.seedCapture()
+    const request = {
+      schema_version: 'bench-intake-processing/1',
+      expected_capture_revision: capture.batch.revision,
+      subject_ids: [capture.packetA.id],
+      stages: ['reading'],
+    }
+    const started = await fixture.http(`/batches/${capture.batch.id}/processing`, request)
+    assert.equal(started.status, 202)
+    const oldAttempt = started.value.attempt_ids[0] as string
+    const retained = await fixture.db.pool.query(
+      `SELECT command.workflow_id,command.payload_bytes FROM command
+       JOIN processing_attempt attempt ON attempt.command_id=command.id WHERE attempt.id=$1`,
+      [oldAttempt],
+    )
+    let oldInput: ResearchInput | undefined
+    await assert.rejects(
+      () =>
+        executeProcessingCommand(
+          fixture.runner.pool,
+          fixture.config,
+          retained.rows[0].workflow_id,
+          strictJson(retained.rows[0].payload_bytes.toString('utf8')),
+          {
+            profileId: 'restricted-research-stub/1',
+            qualification: 'fixture_only',
+            async run(input) {
+              oldInput = input
+              // Simulated trusted-host uncertainty, not an actual operating-system reap failure.
+              throw new ResearchReapPendingError()
+            },
+          },
+        ),
+      /research_reap_unconfirmed/,
+    )
+    assert.ok(oldInput)
+    const held = await fixture.db.pool.query(
+      'SELECT attempt_id FROM processing_lane WHERE actor_id=$1',
+      [fixture.identity.actor],
+    )
+    assert.deepEqual(held.rows, [{ attempt_id: oldAttempt }])
+    assert.equal((await snapshot(fixture, capture.batch.id)).jobs[0].state, 'running')
+    assert.equal((await fixture.http('/processing-activity')).value.lane_occupied, true)
+
+    const running = (await snapshot(fixture, capture.batch.id)).jobs[0]
+    const cancelled = await fixture.http(
+      `/batches/${capture.batch.id}/processing/${running.id}/cancellation`,
+      {
+        expected_revision: running.revision,
+        attempt_id: oldAttempt,
+      },
+    )
+    assert.equal(cancelled.status, 200)
+    const replacement = await fixture.http(`/batches/${capture.batch.id}/processing`, request)
+    assert.equal(replacement.status, 202)
+    const freshAttempt = replacement.value.attempt_ids[0] as string
+    assert.notEqual(freshAttempt, oldAttempt)
+    assert.equal(await claimAttempt(fixture, freshAttempt), null)
+    const stillHeld = await fixture.db.pool.query(
+      'SELECT attempt_id FROM processing_lane WHERE actor_id=$1',
+      [fixture.identity.actor],
+    )
+    assert.deepEqual(stillHeld.rows, [{ attempt_id: oldAttempt }])
+    assert.equal((await snapshot(fixture, capture.batch.id)).jobs[0].state, 'queued')
+
+    // The fixture now supplies the explicit known-reaped point. Delivery did not infer it.
+    await interruptProcessing(fixture.runner.pool, fixture.config, oldAttempt)
+    const fresh = await claimAttempt(fixture, freshAttempt)
+    assert.ok(fresh)
+    const oldCommand: Claimed = {
+      ...oldInput,
+      channelToken: channelToken(fixture.config, oldAttempt),
+    }
+    assert.equal(
+      await acceptEnvelope(
+        fixture.runner.pool,
+        fixture.config,
+        oldCommand.channelToken,
+        envelope(oldCommand, '1', { kind: 'terminal', payload: { state: 'ready' } }),
+      ),
+      'stale',
+    )
+    const currentLane = await fixture.db.pool.query(
+      'SELECT attempt_id FROM processing_lane WHERE actor_id=$1',
+      [fixture.identity.actor],
+    )
+    assert.deepEqual(currentLane.rows, [{ attempt_id: freshAttempt }])
+    const currentJob = (await snapshot(fixture, capture.batch.id)).jobs[0]
+    assert.equal(currentJob.attempt_id, freshAttempt)
+    assert.equal(currentJob.state, 'running')
+    await acceptEnvelope(
+      fixture.runner.pool,
+      fixture.config,
+      fresh.channelToken,
+      envelope(fresh, '1', { kind: 'terminal', payload: { state: 'ready' } }),
+    )
+    assert.equal((await fixture.http('/processing-activity')).value.lane_occupied, false)
+    assert.equal((await snapshot(fixture, capture.batch.id)).jobs[0].state, 'ready')
   } finally {
     await fixture.dispose()
   }
