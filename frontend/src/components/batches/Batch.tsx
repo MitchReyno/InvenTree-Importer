@@ -47,7 +47,8 @@ export function Batch({
     segment === 'review' || segment === 'approve' || segment === 'results' ? segment : 'capture'
 
   function navigate(value: ManualStage, resourceId?: string) {
-    location.hash = value === 'capture' ? id : `${id}/${value}${resourceId ? `/${resourceId}` : ''}`
+    location.hash =
+      value === 'capture' ? `${id}/capture` : `${id}/${value}${resourceId ? `/${resourceId}` : ''}`
   }
 
   function openProcessing() {

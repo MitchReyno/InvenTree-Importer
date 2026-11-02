@@ -22,8 +22,13 @@ export function CaptureWorkspace({
   operator,
   reload,
 }: CaptureWorkspaceProps) {
-  const [selected, select] = useState(() => location.hash.split('/')[1] || 'defaults')
-  const [focused, setFocused] = useState(() => Boolean(location.hash.split('/')[1]))
+  const initialSubject = location.hash.split('/')[1]
+  const [selected, select] = useState(() =>
+    initialSubject && initialSubject !== 'capture' ? initialSubject : 'defaults',
+  )
+  const [focused, setFocused] = useState(() =>
+    Boolean(initialSubject && initialSubject !== 'capture'),
+  )
   const [editorDirty, setDirty] = useState(false)
   const [mediaDirty, setMediaDirty] = useState(false)
   const [instructionsDirty, setInstructionsDirty] = useState(false)
@@ -102,7 +107,7 @@ export function CaptureWorkspace({
           disabled={dirty}
           onClick={() => {
             setFocused(false)
-            history.replaceState(null, '', `#${batch.id}`)
+            history.replaceState(null, '', `#${batch.id}/capture`)
           }}
         >
           ← Lots and shared details{dirty ? ' · save or discard first' : ''}

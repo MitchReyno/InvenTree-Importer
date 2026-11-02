@@ -34,7 +34,7 @@ export function CaptureHeader({
 
   return (
     <BatchHeader>
-      <Breadcrumb>
+      <Breadcrumb data-area="breadcrumb">
         <Link
           href="#"
           aria-disabled={dirty}
@@ -46,11 +46,9 @@ export function CaptureHeader({
         >
           Batches{dirty ? ' (save or discard first)' : ''}
         </Link>
-        <span aria-hidden="true">/</span>
-        <span>{batch.title}</span>
         <SavedState>{busy ? 'Saving / reading…' : `Saved · revision ${batch.revision}`}</SavedState>
       </Breadcrumb>
-      <HeadingRow>
+      <BatchTitleRow data-area="batch-title">
         <div>
           <PageTitle>{batch.title}</PageTitle>
           <BatchCounts>
@@ -65,7 +63,7 @@ export function CaptureHeader({
         >
           {batch.archived ? 'Resume archived batch' : 'Archive batch'}
         </Button>
-      </HeadingRow>
+      </BatchTitleRow>
       <StageNav aria-label="Batch stages">
         {(['capture', 'processing', 'review', 'approve', 'results'] as const).map((value) => {
           const unavailable =
@@ -96,8 +94,23 @@ const BatchHeader = styled.header`
   background: white;
   border: 1px solid #d5dce5;
   border-radius: 6px;
-  padding: 0 16px;
-  margin-bottom: 12px;
+  padding: 0 12px;
+  margin-bottom: 10px;
+  @media (min-width: 1100px) {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(430px, 0.9fr);
+    column-gap: 20px;
+    [data-area='breadcrumb'] {
+      grid-column: 1 / -1;
+    }
+    [data-area='batch-title'] {
+      grid-column: 1;
+    }
+    > nav {
+      grid-column: 2;
+      align-self: end;
+    }
+  }
   @media (max-width: 700px) {
     padding: 0 10px;
     ${HeadingRow} {
@@ -108,12 +121,31 @@ const BatchHeader = styled.header`
     }
   }
 `
+const BatchTitleRow = styled(HeadingRow)`
+  padding-top: 4px;
+  ${PageTitle} {
+    font-size: clamp(20px, 2.4vw, 26px);
+    margin: 4px 0;
+  }
+  > div {
+    min-width: 0;
+  }
+  @media (max-width: 700px) {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    > button {
+      flex-shrink: 0;
+      font-size: 12px;
+      padding: 6px 8px;
+    }
+  }
+`
 const Breadcrumb = styled.div`
   display: flex;
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-  padding: 12px 0;
+  padding: 3px 0;
   border-bottom: 1px solid #e0e5ed;
   font-size: 13px;
   overflow-wrap: anywhere;
@@ -126,7 +158,7 @@ const SavedState = styled.span`
   }
 `
 const BatchCounts = styled(Paragraph)`
-  margin: 8px 0 12px;
+  margin: 0 0 6px;
   font-size: 13px;
   color: #526179;
 `
@@ -139,7 +171,7 @@ const StageNav = styled.nav`
   font-size: 13px;
   color: #526179;
   > * {
-    padding: 12px 4px;
+    padding: 8px 4px;
     border-bottom: 3px solid transparent;
     min-width: 0;
   }
@@ -162,7 +194,7 @@ const StageControl = styled.button<{ $active: boolean }>`
   background: transparent;
   border: 0;
   cursor: pointer;
-  min-height: 58px;
+  min-height: 44px;
   font: inherit;
   color: ${(p) => (p.$active ? '#164a93' : '#526179')};
   font-weight: ${(p) => (p.$active ? 700 : 400)};

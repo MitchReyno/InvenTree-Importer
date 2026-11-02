@@ -146,7 +146,8 @@ const AppShell = styled.div`
   }
 `
 const DevelopmentBanner = styled.p`
-  padding: 8px 12px;
+  padding: 5px 10px;
+  margin: 6px 0;
   color: #644813;
   background: #fff3d8;
   border: 1px solid #e7d09c;
@@ -155,7 +156,7 @@ const DevelopmentBanner = styled.p`
   line-height: 1.5;
 `
 const Main = styled.main`
-  margin: 18px auto;
+  margin: 10px auto;
 `
 const Footer = styled.footer`
   padding: 24px 0;

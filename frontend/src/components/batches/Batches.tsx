@@ -1,7 +1,8 @@
-import { HeadingRow, Eyebrow, Intro, Caption, CheckboxLabel } from '../ui/primitives'
+import { HeadingRow, Eyebrow, Intro, Caption, CheckboxLabel, Label, Small } from '../ui/primitives'
 import { Button, Heading, Input, Link, PageTitle, Panel, Paragraph } from '../ui/primitives'
 import { useEffect, useRef, useState } from 'react'
 import { NewBatchForm } from './NewBatchForm'
+import { BatchStageLinks } from './BatchStageLinks'
 import type { BatchCreate } from '../../../../contracts/generated/api.d.ts'
 import type { Client } from '../../capture/client'
 import styled from 'styled-components'
@@ -23,6 +24,7 @@ export function Batches({
   const batches = batchesQuery.data
   const [archived, setArchived] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [search, setSearch] = useState('')
   // Command identity outlives the mountable editor, including discard/reopen after lost ACK.
   const createIntent = useRef({ payload: '', key: crypto.randomUUID() })
 
@@ -46,8 +48,21 @@ export function Batches({
   }
 
   const recent = batches?.batches.find((b) => !b.archived)
-  const others =
-    batches?.batches.filter((b) => (archived || !b.archived) && b.id !== recent?.id) ?? []
+  const query = search.trim().toLocaleLowerCase()
+  const continued = query ? undefined : recent
+  const visible =
+    batches?.batches.filter(
+      (batch) =>
+        batch.id !== continued?.id &&
+        (archived || !batch.archived) &&
+        batch.title.toLocaleLowerCase().includes(query),
+    ) ?? []
+  let emptyMessage = 'No visible batches yet. Show archived or create a batch.'
+  if (query) {
+    emptyMessage = 'No loaded batches match this title.'
+  } else if (continued) {
+    emptyMessage = 'No other visible batches. Show archived or create a batch.'
+  }
   return (
     <>
       <HeadingRow>
@@ -76,20 +91,19 @@ export function Batches({
           />
         </Panel>
       )}
-      {recent && (
-        <Panel aria-labelledby="continue-title">
-          <Eyebrow>Continue manual capture</Eyebrow>
-          <Heading id="continue-title">{recent.title}</Heading>
+      {continued && (
+        <ContinueCard aria-labelledby="continue-title">
+          <Eyebrow>Continue your latest batch</Eyebrow>
+          <Heading id="continue-title">{continued.title}</Heading>
           <Caption>
-            Saved revision {recent.revision} · {new Date(recent.updated_at).toLocaleString()} · no
-            inventory effects
+            Saved revision {continued.revision} · {new Date(continued.updated_at).toLocaleString()}
           </Caption>
-          <Link href={`#${recent.id}`}>Resume capture →</Link>
-        </Panel>
+          <BatchStageLinks batchId={continued.id} title={continued.title} />
+        </ContinueCard>
       )}
       <Panel aria-labelledby="retained-batches">
         <HeadingRow>
-          <Heading id="retained-batches">Resume a batch</Heading>
+          <Heading id="retained-batches">Retained batches</Heading>
           <CheckboxLabel>
             <Input
               type="checkbox"
@@ -99,25 +113,37 @@ export function Batches({
             Show archived
           </CheckboxLabel>
         </HeadingRow>
+        <SearchLabel>
+          Search loaded batches
+          <Input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Find a batch by title"
+          />
+        </SearchLabel>
+        <Small>
+          Search covers the loaded list, up to the most recent 100 batches. Open a batch for current
+          work and outcomes.
+        </Small>
         {!batches ? (
           <Paragraph role="status">Loading retained batches…</Paragraph>
-        ) : !others.length ? (
-          <Paragraph>
-            {recent
-              ? 'No other visible batches.'
-              : 'No visible batches yet. Show archived or create a batch.'}
-          </Paragraph>
+        ) : !visible.length ? (
+          <Paragraph>{emptyMessage}</Paragraph>
         ) : (
           <BatchList>
-            {others.map((b) => (
+            {visible.map((b) => (
               <li key={b.id}>
-                <Link href={`#${b.id}`}>
-                  <strong>{b.title}</strong>
-                  <span>
+                <BatchIdentity>
+                  <Link href={`#${b.id}/capture`}>
+                    <strong>{b.title}</strong>
+                  </Link>
+                  <Small>
                     {b.archived ? 'Archived · ' : ''}Revision {b.revision} ·{' '}
                     {new Date(b.updated_at).toLocaleString()}
-                  </span>
-                </Link>
+                  </Small>
+                </BatchIdentity>
+                <BatchStageLinks batchId={b.id} title={b.title} />
               </li>
             ))}
           </BatchList>
@@ -133,21 +159,41 @@ export function Batches({
   )
 }
 
-const BatchList = styled.ul`
-  list-style: none;
-  padding: 0;
-  margin: 14px 0 0;
+const ContinueCard = styled(Panel)`
+  border-left: 4px solid #3977c9;
+  background: linear-gradient(110deg, #edf3fc, white 75%);
+  ${Eyebrow} {
+    margin: 0 0 6px;
+  }
+  ${Caption} {
+    margin: 6px 0;
+  }
+`
+const SearchLabel = styled(Label)`
+  max-width: 440px;
+  margin: 6px 0;
+`
+const BatchIdentity = styled.div`
+  min-width: 0;
   a {
-    display: block;
-    padding: 16px 4px;
-    border-top: 1px solid #e0e5ed;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
     text-decoration: none;
     overflow-wrap: anywhere;
   }
-  span {
-    display: block;
-    color: #526179;
-    font-size: 13px;
-    margin-top: 7px;
+`
+const BatchList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 20px;
+    padding: 8px 0;
+    border-top: 1px solid #e0e5ed;
   }
 `

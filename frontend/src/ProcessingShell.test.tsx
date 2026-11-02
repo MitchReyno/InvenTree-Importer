@@ -107,7 +107,7 @@ test('Processing deep link uses its own workspace and stale-input physical work 
   await waitFor(() =>
     expect(screen.queryByRole('navigation', { name: 'Processing steps' })).not.toBeInTheDocument(),
   )
-  expect(location.hash).toBe(`#${batch.id}`)
+  expect(location.hash).toBe(`#${batch.id}/capture`)
   await user.click(screen.getByRole('button', { name: 'Processing' }))
   await screen.findByRole('navigation', { name: 'Processing steps' })
   expect(location.hash).toBe(`#${batch.id}/processing/overview`)
