@@ -15,7 +15,8 @@
     "apply:manual": "tsx src/review/runner-main.ts",
     "media:decode": "tsx src/media/worker-main.ts",
     "media:gc": "tsx src/media/gc-main.ts",
-    "preview:manual": "tsx tests/fixtures/manual-browser.ts"
+    "preview:manual": "tsx tests/fixtures/manual-browser.ts",
+    "preview:attachments": "tsx tests/fixtures/part-attachment-browser.ts"
   },
   "dependencies": {
     "@dbos-inc/dbos-sdk": "5.4.0",

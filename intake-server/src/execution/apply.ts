@@ -4,6 +4,18 @@ import { applyAttachments } from './attachment-apply.ts'
 import type { AttachmentRecovery } from './attachment-recovery.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
+import { and, asc, eq, inArray } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import {
+  executorDeployments,
+  executorGuards,
+  executorRecoveries,
+  executorIntents,
+  executorEffects,
+  executorResults,
+  executorApprovals,
+  executorAttachmentRecoveries,
+} from './schema.ts'
 import { canonical } from '@invimport/contracts/json'
 import { executorTransaction as transaction } from './transaction.ts'
 import { sha256 } from '../db/authority.ts'
@@ -36,10 +48,13 @@ export async function executeRun(
   const { pool, writer, gate, claimToken, profile } = deps
   let authority = await loadRun(pool, runId)
   const deployment = (
-    await pool.query('SELECT origin FROM executor_deployment WHERE id=$1', [
-      authority.plan.deploymentId,
-    ])
-  ).rows[0]
+    await executeDatabaseQuery(
+      queryDatabase(pool)
+        .select({ origin: executorDeployments.origin })
+        .from(executorDeployments)
+        .where(eq(executorDeployments.id, authority.plan.deploymentId)),
+    )
+  )[0]
   if (
     profile.origin !== deployment.origin ||
     profile.targetId !== authority.plan.targetId ||
@@ -96,12 +111,19 @@ export async function executeRun(
         return false
       }
       const guard = (
-        await client.query(
-          'SELECT active_run FROM executor_guard WHERE target_id=$1 AND original_key=$2',
-          [authority.plan.targetId, authority.plan.originalSourceKey],
+        await executeDatabaseQuery(
+          queryDatabase(client)
+            .select({ activeRun: executorGuards.activeRun })
+            .from(executorGuards)
+            .where(
+              and(
+                eq(executorGuards.targetId, authority.plan.targetId),
+                eq(executorGuards.originalKey, authority.plan.originalSourceKey),
+              ),
+            ),
         )
-      ).rows[0]
-      if (guard.active_run !== runId) {
+      )[0]
+      if (guard.activeRun !== runId) {
         throw new Error('source_not_owned')
       }
       const cancelVersion = (
@@ -114,23 +136,44 @@ export async function executeRun(
         return false
       }
       if (recoveryId) {
-        const selected = await client.query(
-          'SELECT cancel_version FROM executor_recovery WHERE id=$1 AND run_id=$2 AND operation_key=$3',
-          [recoveryId, runId, operation.operationKey],
+        const selected = await executeDatabaseQuery(
+          queryDatabase(client)
+            .select({ cancelVersion: executorRecoveries.cancelVersion })
+            .from(executorRecoveries)
+            .where(
+              and(
+                eq(executorRecoveries.id, recoveryId),
+                eq(executorRecoveries.runId, runId),
+                eq(executorRecoveries.operationKey, operation.operationKey),
+              ),
+            ),
         )
-        if (!selected.rowCount) {
+        if (!selected.length) {
           throw new Error('recovery_authority_missing')
         }
-        if (selected.rows[0].cancel_version !== cancelVersion) {
+        if (selected[0].cancelVersion.toString() !== cancelVersion) {
           return false
         }
       }
-      const attempts = (
-        await client.query(
-          `SELECT i.*,e.certainty,r.outcome FROM executor_intent i LEFT JOIN executor_effect e ON e.intent_id=i.id LEFT JOIN executor_result r ON r.intent_id=i.id WHERE i.run_id=$1 AND i.operation_key=$2 AND i.kind=$3 ORDER BY i.attempt`,
-          [runId, operation.operationKey, kind],
-        )
-      ).rows
+      const attempts = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({
+            recovery_id: executorIntents.recoveryId,
+            certainty: executorEffects.certainty,
+            outcome: executorResults.outcome,
+          })
+          .from(executorIntents)
+          .leftJoin(executorEffects, eq(executorEffects.intentId, executorIntents.id))
+          .leftJoin(executorResults, eq(executorResults.intentId, executorIntents.id))
+          .where(
+            and(
+              eq(executorIntents.runId, runId),
+              eq(executorIntents.operationKey, operation.operationKey),
+              eq(executorIntents.kind, kind),
+            ),
+          )
+          .orderBy(asc(executorIntents.attempt)),
+      )
       if (
         attempts.length &&
         (!recoveryId || attempts.some((row) => row.recovery_id === recoveryId))
@@ -143,18 +186,19 @@ export async function executeRun(
       ) {
         throw new Error('create_not_recoverable')
       }
-      await client.query(
-        'INSERT INTO executor_intent(id,run_id,operation_key,attempt,recovery_id,kind,request_bytes,request_digest) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-        [
-          intentId,
-          runId,
-          operation.operationKey,
-          attempts.length + 1,
-          recoveryId,
-          kind,
-          bytes,
-          sha256(bytes),
-        ],
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .insert(executorIntents)
+          .values({
+            id: intentId,
+            runId,
+            operationKey: operation.operationKey,
+            attempt: attempts.length + 1,
+            recoveryId,
+            kind,
+            requestBytes: bytes,
+            requestDigest: sha256(bytes),
+          }),
       )
       return true
     })
@@ -172,11 +216,14 @@ export async function executeRun(
     }
     if (kind === 'create_stock') {
       const row = (
-        await pool.query('SELECT plan_digest FROM executor_approval WHERE id=$1', [
-          authority.approvalId,
-        ])
-      ).rows[0]
-      await gate.witness(intentId, row.plan_digest, sha256(bytes), authority.plan.deploymentId)
+        await executeDatabaseQuery(
+          queryDatabase(pool)
+            .select({ planDigest: executorApprovals.planDigest })
+            .from(executorApprovals)
+            .where(eq(executorApprovals.id, authority.approvalId)),
+        )
+      )[0]
+      await gate.witness(intentId, row.planDigest, sha256(bytes), authority.plan.deploymentId)
       await health()
     }
     let received: { status: number; bytes: Buffer }
@@ -235,34 +282,49 @@ export async function executeRun(
   ) {
     await transaction(pool, async (client) => {
       await lockRun(client, runId)
-      await client.query(
-        'INSERT INTO executor_result(intent_id,outcome,status,response_bytes) VALUES ($1,$2,$3,$4)',
-        [intentId, outcome, status, bytes],
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .insert(executorResults)
+          .values({ intentId, outcome, status, responseBytes: bytes }),
       )
       if (kind === 'create_stock') {
-        await client.query('INSERT INTO executor_effect VALUES ($1,$2,$3,$4,$5)', [
-          intentId,
-          runId,
-          operation.operationKey,
-          certainty,
-          remotePk,
-        ])
+        await executeDatabaseQuery(
+          queryDatabase(client)
+            .insert(executorEffects)
+            .values({ intentId, runId, operationKey: operation.operationKey, certainty, remotePk }),
+        )
       }
     })
     await deps.checkpoint?.('result_committed', kind, intentId)
   }
 
-  const selected = (
-    await pool.query('SELECT * FROM executor_recovery WHERE id=ANY($1::uuid[])', [recoveryIds])
-  ).rows
-  const attachmentRecoveries =
+  const selected = await executeDatabaseQuery(
+    queryDatabase(pool)
+      .select({
+        id: executorRecoveries.id,
+        run_id: executorRecoveries.runId,
+        operation_key: executorRecoveries.operationKey,
+      })
+      .from(executorRecoveries)
+      .where(inArray(executorRecoveries.id, [...recoveryIds])),
+  )
+  const attachmentRecoveries: AttachmentRecovery[] =
     authority.plan.version === 'bench-media-plan/1'
       ? (
-          await pool.query<AttachmentRecovery>(
-            'SELECT * FROM executor_attachment_recovery WHERE id=ANY($1::uuid[])',
-            [recoveryIds],
+          await executeDatabaseQuery(
+            queryDatabase(pool)
+              .select({
+                id: executorAttachmentRecoveries.id,
+                run_id: executorAttachmentRecoveries.runId,
+                artifact_key: executorAttachmentRecoveries.artifactKey,
+                kind: executorAttachmentRecoveries.kind,
+                create_intent_id: executorAttachmentRecoveries.createIntentId,
+                cancel_version: executorAttachmentRecoveries.cancelVersion,
+              })
+              .from(executorAttachmentRecoveries)
+              .where(inArray(executorAttachmentRecoveries.id, [...recoveryIds])),
           )
-        ).rows
+        ).map((row) => ({ ...row, cancel_version: row.cancel_version.toString() }))
       : []
   const allSelected = [...selected, ...attachmentRecoveries]
   if (

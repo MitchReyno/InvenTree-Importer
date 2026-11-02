@@ -1,4 +1,13 @@
-import { bigint, customType, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import {
+  jsonb,
+  bigint,
+  customType,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core'
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' })
 
@@ -45,4 +54,16 @@ export const captureInstructions = pgTable('capture_instruction', {
   text: text().notNull(),
   actorId: uuid('actor_id').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const captureObservations = pgTable('capture_observation', {
+  id: uuid('id').primaryKey(),
+  batchId: uuid('batch_id').notNull(),
+  targetId: uuid('target_id').notNull(),
+  targetContextId: uuid('target_context_id').notNull(),
+  model: text('model').notNull(),
+  pk: text('pk').notNull(),
+  label: text('label').notNull(),
+  observedAt: timestamp('observed_at', { withTimezone: true }).notNull().defaultNow(),
+  mapping: jsonb('mapping'),
 })

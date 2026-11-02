@@ -389,6 +389,76 @@ test('previews report stale preparations; split, merge and move keep lineage and
   }
 })
 
+test('merge preserves exact lineage and retirement revisions above the safe integer range', async () => {
+  const fixture = await manualFixture()
+  try {
+    const seeded = await fixture.seedCapture()
+    const batchId = seeded.batch.id
+    const split = await restructure(fixture, batchId, {
+      kind: 'split_lot',
+      lot_id: seeded.b.id,
+      children: [
+        { label: 'B1', quantity: '10' },
+        { label: 'B2', quantity: '13' },
+      ],
+    })
+    assert.equal(split.status, 200, JSON.stringify(split.value))
+    const children = (split.value as RestructureResultDto).impact.created_lots.map(
+      (lot) => lot.lot_id!,
+    )
+    const priorRevision = '9007199254740992'
+    const mergedRevision = '9007199254740993'
+    await fixture.db.pool.query('UPDATE capture_batch SET revision=$2 WHERE id=$1', [
+      batchId,
+      priorRevision,
+    ])
+    const merged = await restructure(fixture, batchId, {
+      kind: 'merge_lots',
+      lot_ids: children,
+      label: 'Merged B',
+      quantity: '23',
+      part_subject_id: seeded.partId,
+      confirm_same_physical_contribution: true,
+    })
+    assert.equal(merged.status, 200, JSON.stringify(merged.value))
+    assert.equal((await capture(fixture, batchId)).revision, mergedRevision)
+    const mergedId = (merged.value as RestructureResultDto).impact.created_lots[0].lot_id!
+    const lineage = await fixture.db.pool.query<{
+      predecessor_lot_id: string
+      successor_lot_id: string
+      revision: string
+    }>(
+      'SELECT predecessor_lot_id,successor_lot_id,revision FROM capture_lot_lineage WHERE batch_id=$1 AND action=$2 ORDER BY predecessor_lot_id',
+      [batchId, 'merge'],
+    )
+    assert.deepEqual(
+      lineage.rows,
+      [...children].sort().map((id) => ({
+        predecessor_lot_id: id,
+        successor_lot_id: mergedId,
+        revision: mergedRevision,
+      })),
+    )
+    const retired = await fixture.db.pool.query<{ lot_id: string; revision: string }>(
+      'SELECT lot_id,revision FROM capture_lot_retirement WHERE batch_id=$1 AND lot_id=ANY($2::uuid[]) ORDER BY lot_id',
+      [batchId, children],
+    )
+    assert.deepEqual(
+      retired.rows,
+      [...children].sort().map((id) => ({ lot_id: id, revision: mergedRevision })),
+    )
+    const projected = await operator(fixture, batchId)
+    assert.equal(projected.revision, mergedRevision)
+    for (const id of children) {
+      const predecessor = projected.retired_lots.find((lot) => lot.lot_id === id)
+      assert.equal(predecessor?.retired_revision, mergedRevision)
+      assert.deepEqual(predecessor?.successor_lot_ids, [mergedId])
+    }
+  } finally {
+    await fixture.dispose()
+  }
+})
+
 test('restructuring refuses a lot whose original contribution is approved', async () => {
   const fixture = await manualFixture()
   try {

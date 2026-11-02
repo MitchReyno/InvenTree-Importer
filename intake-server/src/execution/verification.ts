@@ -1,22 +1,20 @@
 import { resolvedStockOperation } from './effects-output.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
+import { and, eq } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import {
+  executorIntents,
+  executorEffects,
+  executorResults,
+  executorVerifications,
+} from './schema.ts'
 import { canonical } from '@invimport/contracts/json'
 import { sha256 } from '../db/authority.ts'
 import { inventoryTransport, type TargetProfile } from '../inventory/transport.ts'
 import { executorTransaction } from './transaction.ts'
 import { checkDeployment, lockRun } from './authority.ts'
 import { inventoryBody, responseObject, responsePk, stockMatches } from './response.ts'
-
-interface CreateAttempt {
-  intent_id: string
-  attempt: number
-  certainty: string | null
-  remote_pk: string | null
-  outcome: string | null
-  status: number | null
-  response_bytes: Buffer | null
-}
 
 /** Explicit selected ORIGINAL confirmed-output read. No writable closure, barcode search,
  * guessed attribution, unknown-create adoption or replacement/replenishment permission.
@@ -46,18 +44,28 @@ export async function verifyKnownStock(
       throw new Error('verification_binding_mismatch')
     }
     // Start at intents: an unresolved attempt must not disappear through an inner join.
-    const attempts = (
-      await client.query<CreateAttempt>(
-        `
-      SELECT i.id AS intent_id,i.attempt,e.certainty,e.remote_pk,r.outcome,r.status,r.response_bytes
-      FROM executor_intent i
-      LEFT JOIN executor_effect e ON e.intent_id=i.id
-      LEFT JOIN executor_result r ON r.intent_id=i.id
-      WHERE i.run_id=$1 AND i.operation_key=$2 AND i.kind='create_stock'
-    `,
-        [input.runId, input.operationKey],
-      )
-    ).rows
+    const attempts = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({
+          intent_id: executorIntents.id,
+          attempt: executorIntents.attempt,
+          certainty: executorEffects.certainty,
+          remote_pk: executorEffects.remotePk,
+          outcome: executorResults.outcome,
+          status: executorResults.status,
+          response_bytes: executorResults.responseBytes,
+        })
+        .from(executorIntents)
+        .leftJoin(executorEffects, eq(executorEffects.intentId, executorIntents.id))
+        .leftJoin(executorResults, eq(executorResults.intentId, executorIntents.id))
+        .where(
+          and(
+            eq(executorIntents.runId, input.runId),
+            eq(executorIntents.operationKey, input.operationKey),
+            eq(executorIntents.kind, 'create_stock'),
+          ),
+        ),
+    )
     const confirmed = attempts.filter((value) => value.certainty === 'confirmed')
     if (confirmed.length !== 1) {
       throw new Error('known_output_required')
@@ -89,9 +97,18 @@ export async function verifyKnownStock(
         [input.runId, input.operationKey],
       )
     ).rows[0].next
-    await client.query(
-      `INSERT INTO executor_intent(id,run_id,operation_key,attempt,kind,request_bytes,request_digest) VALUES ($1,$2,$3,$4,'get_stock',$5,$6)`,
-      [intentId, input.runId, input.operationKey, attempt, bytes, sha256(bytes)],
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .insert(executorIntents)
+        .values({
+          id: intentId,
+          runId: input.runId,
+          operationKey: input.operationKey,
+          attempt,
+          kind: 'get_stock',
+          requestBytes: bytes,
+          requestDigest: sha256(bytes),
+        }),
     )
     return {
       authority,
@@ -139,17 +156,25 @@ export async function verifyKnownStock(
   }
   await executorTransaction(pool, async (client) => {
     await lockRun(client, input.runId)
-    await client.query(
-      'INSERT INTO executor_result(intent_id,outcome,status,response_bytes) VALUES ($1,$2,$3,$4)',
-      [intentId, status === null ? 'transport_loss' : 'response', status, bytes],
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .insert(executorResults)
+        .values({
+          intentId,
+          outcome: status === null ? 'transport_loss' : 'response',
+          status,
+          responseBytes: bytes,
+        }),
     )
-    await client.query('INSERT INTO executor_verification VALUES ($1,$2,$3,$4,$5)', [
-      intentId,
-      retained.effect.intent_id,
-      input.runId,
-      input.operationKey,
-      outcome,
-    ])
+    await executeDatabaseQuery(
+      queryDatabase(client).insert(executorVerifications).values({
+        intentId,
+        effectIntentId: retained.effect.intent_id,
+        runId: input.runId,
+        operationKey: input.operationKey,
+        outcome,
+      }),
+    )
   })
   return { intentId, remotePk: retained.effect.remote_pk, outcome }
 }

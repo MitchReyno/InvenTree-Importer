@@ -1,4 +1,7 @@
 import type { PoolClient } from 'pg'
+import { and, asc, desc, eq, isNull } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { manualPreparations, manualApprovals, manualPreparationLots } from '../review/schema.ts'
 import type { OperatorImpactDto } from '@invimport/contracts'
 import { verifyBytes } from '../db/authority.ts'
 import type { BatchDependencies } from './review-state.ts'
@@ -6,12 +9,6 @@ import { subjectReviewState } from './review-state.ts'
 
 /** The workspace lists at most this many unapproved preparations; impact uses the same window. */
 const MAX_LISTED_PREPARATIONS = 20
-
-interface PreparationRow {
-  id: string
-  dependency_bytes: Buffer
-  dependency_digest: Buffer
-}
 
 export interface PendingPreparation {
   id: string
@@ -24,26 +21,39 @@ export async function pendingPreparations(
   batchId: string,
   actorId: string,
 ): Promise<PendingPreparation[]> {
-  const result = await client.query<PreparationRow>(
-    `SELECT p.id,p.dependency_bytes,p.dependency_digest
-FROM manual_preparation p
-LEFT JOIN manual_approval a ON a.preparation_id=p.id
-WHERE p.batch_id=$1 AND p.actor_id=$2 AND a.id IS NULL
-ORDER BY p.created_at DESC,p.id DESC
-LIMIT $3`,
-    [batchId, actorId, MAX_LISTED_PREPARATIONS],
+  const result = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        id: manualPreparations.id,
+        dependencyBytes: manualPreparations.dependencyBytes,
+        dependencyDigest: manualPreparations.dependencyDigest,
+      })
+      .from(manualPreparations)
+      .leftJoin(manualApprovals, eq(manualApprovals.preparationId, manualPreparations.id))
+      .where(
+        and(
+          eq(manualPreparations.batchId, batchId),
+          eq(manualPreparations.actorId, actorId),
+          isNull(manualApprovals.id),
+        ),
+      )
+      .orderBy(desc(manualPreparations.createdAt), desc(manualPreparations.id))
+      .limit(MAX_LISTED_PREPARATIONS),
   )
   const preparations: PendingPreparation[] = []
-  for (const row of result.rows) {
-    verifyBytes(row.dependency_bytes, row.dependency_digest)
-    const lots = await client.query<{ lot_id: string }>(
-      'SELECT lot_id FROM manual_preparation_lot WHERE preparation_id=$1 ORDER BY lot_id',
-      [row.id],
+  for (const row of result) {
+    verifyBytes(row.dependencyBytes, row.dependencyDigest)
+    const lots = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ lotId: manualPreparationLots.lotId })
+        .from(manualPreparationLots)
+        .where(eq(manualPreparationLots.preparationId, row.id))
+        .orderBy(asc(manualPreparationLots.lotId)),
     )
     preparations.push({
       id: row.id,
-      dependencyBytes: row.dependency_bytes,
-      lotIds: lots.rows.map((lot) => lot.lot_id),
+      dependencyBytes: row.dependencyBytes,
+      lotIds: lots.map((lot) => lot.lotId),
     })
   }
   return preparations

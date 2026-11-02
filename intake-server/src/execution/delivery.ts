@@ -1,4 +1,7 @@
 import type { Pool } from 'pg'
+import { eq } from 'drizzle-orm'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { executorRuns } from './schema.ts'
 import type { DBOSClient } from '@dbos-inc/dbos-sdk'
 import { deliverCommand } from '../workers/delivery.ts'
 import { loadRun } from './authority.ts'
@@ -8,8 +11,14 @@ import { loadRun } from './authority.ts'
  * The scheduler's handler uses startApply; the child revalidates original authority.
  */
 export async function deliverStockCommand(pool: Pool, scheduler: DBOSClient, commandId: string) {
-  const row = (await pool.query('SELECT id FROM executor_run WHERE command_id=$1', [commandId]))
-    .rows[0]
+  const row = (
+    await executeDatabaseQuery(
+      queryDatabase(pool)
+        .select({ id: executorRuns.id })
+        .from(executorRuns)
+        .where(eq(executorRuns.commandId, commandId)),
+    )
+  )[0]
   if (!row) {
     throw new Error('stock_command_authority_missing')
   }

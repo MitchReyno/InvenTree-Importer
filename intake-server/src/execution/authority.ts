@@ -5,10 +5,23 @@ import { canonical as canonicalStock } from '@invimport/contracts/json'
 import { randomUUID } from 'node:crypto'
 import type { PoolClient, Pool } from 'pg'
 import { canonical } from '@invimport/contracts/json'
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { sha256, verifyBytes } from '../db/authority.ts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { supportedIntents } from './schema.ts'
+import {
+  supportedIntents,
+  executorSources,
+  executorGuards,
+  executorApprovals,
+  executorRuns,
+  executorOperations,
+  executorCancels,
+  executorRecoveries,
+  executorIntents,
+  executorResults,
+  executorEffects,
+} from './schema.ts'
+import { commands, outbox } from '../db/schema.ts'
 import { stockBytes, id } from './plan.ts'
 import { decodeExecutablePlan, type ExecutablePlan } from './media-plan.ts'
 import { attachmentStates, type AttachmentState } from './attachment-state.ts'
@@ -18,6 +31,28 @@ import {
   requireApprovedMediaPins,
 } from '../media/execution-pins.ts'
 import { retainAttachmentIndex, requireAttachmentIndex } from './attachment-index.ts'
+
+const approvalColumns = {
+  id: executorApprovals.id,
+  preparation_id: executorApprovals.preparationId,
+  actor_id: executorApprovals.actorId,
+  deployment_id: executorApprovals.deploymentId,
+  target_id: executorApprovals.targetId,
+  context_id: executorApprovals.contextId,
+  source_id: executorApprovals.sourceId,
+  original_key: executorApprovals.originalKey,
+  plan_bytes: executorApprovals.planBytes,
+  plan_digest: executorApprovals.planDigest,
+}
+
+const operationColumns = {
+  operation_key: executorOperations.operationKey,
+  contribution_key: executorOperations.contributionKey,
+  original_key: executorOperations.originalKey,
+  target_id: executorOperations.targetId,
+  request_bytes: executorOperations.requestBytes,
+  request_digest: executorOperations.requestDigest,
+}
 
 export interface Reservation {
   approvalId: string
@@ -54,11 +89,18 @@ export async function retainOriginalSource(
     input.originalSourceKey,
   ])
   const stored = (
-    await client.query(
-      'SELECT original_key FROM executor_source WHERE target_id=$1 AND source_id=$2',
-      [input.targetId, input.sourceId],
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ original_key: executorSources.originalKey })
+        .from(executorSources)
+        .where(
+          and(
+            eq(executorSources.targetId, input.targetId),
+            eq(executorSources.sourceId, input.sourceId),
+          ),
+        ),
     )
-  ).rows[0]
+  )[0]
   if (!stored || stored.original_key !== input.originalSourceKey) {
     throw new Error('original_source_binding_conflict')
   }
@@ -99,11 +141,19 @@ export async function reserveApprovedStock(
   const plan = decodeExecutablePlan(input.bytes, input.digest)
   await client.query('SELECT id FROM target WHERE id=$1 FOR UPDATE', [plan.targetId])
   await checkDeployment(client, plan)
-  const source = await client.query(
-    'SELECT 1 FROM executor_source WHERE target_id=$1 AND source_id=$2 AND original_key=$3',
-    [plan.targetId, plan.sourceId, plan.originalSourceKey],
+  const source = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ id: executorSources.sourceId })
+      .from(executorSources)
+      .where(
+        and(
+          eq(executorSources.targetId, plan.targetId),
+          eq(executorSources.sourceId, plan.sourceId),
+          eq(executorSources.originalKey, plan.originalSourceKey),
+        ),
+      ),
   )
-  if (!source.rowCount) {
+  if (!source.length) {
     throw new Error('original_source_authority_missing')
   }
   await client.query(
@@ -116,12 +166,15 @@ export async function reserveApprovedStock(
       [plan.targetId, plan.originalSourceKey],
     )
   ).rows[0]
-  const prior = await client.query(
-    `SELECT a.*,r.id AS run_id,r.command_id FROM executor_approval a JOIN executor_run r ON r.approval_id=a.id WHERE a.preparation_id=$1`,
-    [input.preparationId],
+  const prior = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ ...approvalColumns, run_id: executorRuns.id, command_id: executorRuns.commandId })
+      .from(executorApprovals)
+      .innerJoin(executorRuns, eq(executorRuns.approvalId, executorApprovals.id))
+      .where(eq(executorApprovals.preparationId, input.preparationId)),
   )
-  if (prior.rowCount) {
-    const row = prior.rows[0]
+  if (prior.length) {
+    const row = prior[0]
     verifyBytes(row.plan_bytes, row.plan_digest)
     if (row.actor_id !== input.actorId || !row.plan_bytes.equals(input.bytes)) {
       throw new Error('approval_payload_conflict')
@@ -133,22 +186,39 @@ export async function reserveApprovedStock(
     throw new Error('source_reserved')
   }
   // Never infer a clean source merely from its current guard pointer.
-  const previousRuns = await client.query(
-    'SELECT id FROM executor_run WHERE target_id=$1 AND original_key=$2',
-    [plan.targetId, plan.originalSourceKey],
+  const previousRuns = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ id: executorRuns.id })
+      .from(executorRuns)
+      .where(
+        and(
+          eq(executorRuns.targetId, plan.targetId),
+          eq(executorRuns.originalKey, plan.originalSourceKey),
+        ),
+      ),
   )
-  for (const previous of previousRuns.rows) {
+  for (const previous of previousRuns) {
     const state = (await snapshot(client, previous.id)).state
     if (state === 'recovery_required' || state === 'queued') {
       throw new Error('source_history_unsettled')
     }
   }
   // A previous approved contribution blocks even when its stock no longer exists.
-  const history = await client.query(
-    'SELECT contribution_key FROM executor_operation WHERE target_id=$1 AND contribution_key=ANY($2::uuid[])',
-    [plan.targetId, plan.operations.map((value) => value.contributionKey)],
+  const history = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ contribution_key: executorOperations.contributionKey })
+      .from(executorOperations)
+      .where(
+        and(
+          eq(executorOperations.targetId, plan.targetId),
+          inArray(
+            executorOperations.contributionKey,
+            plan.operations.map((value) => value.contributionKey),
+          ),
+        ),
+      ),
   )
-  if (history.rowCount) {
+  if (history.length) {
     throw new Error('original_contribution_already_approved')
   }
   const mediaBatchId =
@@ -156,18 +226,20 @@ export async function reserveApprovedStock(
     (plan.version === 'bench-effects-plan/1' && plan.mediaConfigured)
       ? await lockApprovedMedia(client, input.actorId, plan)
       : null
-  await client.query('INSERT INTO executor_approval VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [
-    input.approvalId,
-    input.preparationId,
-    input.actorId,
-    plan.deploymentId,
-    plan.targetId,
-    plan.contextId,
-    plan.sourceId,
-    plan.originalSourceKey,
-    input.bytes,
-    input.digest,
-  ])
+  await executeDatabaseQuery(
+    queryDatabase(client).insert(executorApprovals).values({
+      id: input.approvalId,
+      preparationId: input.preparationId,
+      actorId: input.actorId,
+      deploymentId: plan.deploymentId,
+      targetId: plan.targetId,
+      contextId: plan.contextId,
+      sourceId: plan.sourceId,
+      originalKey: plan.originalSourceKey,
+      planBytes: input.bytes,
+      planDigest: input.digest,
+    }),
+  )
   const payload = Buffer.from(
     canonical({
       runId: input.runId,
@@ -175,38 +247,49 @@ export async function reserveApprovedStock(
       planDigest: input.digest.toString('hex'),
     }),
   )
-  await client.query(
-    `INSERT INTO command(id,actor_id,target_id,target_context_id,kind,handler_version,workflow_id,queue_name,payload_bytes,payload_digest) VALUES ($1,$2,$3,$4,'apply',$5,$6,'bench-apply',$7,$8)`,
-    [
-      input.commandId,
-      input.actorId,
-      plan.targetId,
-      plan.contextId,
-      plan.build,
-      `stock:${input.runId}`,
-      payload,
-      sha256(payload),
-    ],
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .insert(commands)
+      .values({
+        id: input.commandId,
+        actorId: input.actorId,
+        targetId: plan.targetId,
+        targetContextId: plan.contextId,
+        kind: 'apply',
+        handlerVersion: plan.build,
+        workflowId: `stock:${input.runId}`,
+        queueName: 'bench-apply',
+        payloadBytes: payload,
+        payloadDigest: sha256(payload),
+      }),
   )
-  await client.query('INSERT INTO outbox(command_id) VALUES ($1)', [input.commandId])
-  await client.query('INSERT INTO executor_run VALUES ($1,$2,$3,$4,$5)', [
-    input.runId,
-    input.approvalId,
-    input.commandId,
-    plan.targetId,
-    plan.originalSourceKey,
-  ])
+  await executeDatabaseQuery(
+    queryDatabase(client).insert(outbox).values({ commandId: input.commandId }),
+  )
+  await executeDatabaseQuery(
+    queryDatabase(client).insert(executorRuns).values({
+      id: input.runId,
+      approvalId: input.approvalId,
+      commandId: input.commandId,
+      targetId: plan.targetId,
+      originalKey: plan.originalSourceKey,
+    }),
+  )
   for (const operation of plan.operations) {
     const bytes = stockIndexBytes(operation, stockBytes, canonicalStock)
-    await client.query('INSERT INTO executor_operation VALUES ($1,$2,$3,$4,$5,$6,$7)', [
-      input.runId,
-      operation.operationKey,
-      plan.targetId,
-      plan.originalSourceKey,
-      operation.contributionKey,
-      bytes,
-      sha256(bytes),
-    ])
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .insert(executorOperations)
+        .values({
+          runId: input.runId,
+          operationKey: operation.operationKey,
+          targetId: plan.targetId,
+          originalKey: plan.originalSourceKey,
+          contributionKey: operation.contributionKey,
+          requestBytes: bytes,
+          requestDigest: sha256(bytes),
+        }),
+    )
   }
   if (plan.version === 'bench-effects-plan/1') {
     await retainSupportedIndex(client, input.runId, plan)
@@ -220,9 +303,16 @@ export async function reserveApprovedStock(
       await retainApprovedMediaPins(client, input.approvalId, mediaBatchId, plan)
     }
   }
-  await client.query(
-    'UPDATE executor_guard SET active_run=$3 WHERE target_id=$1 AND original_key=$2',
-    [plan.targetId, plan.originalSourceKey, input.runId],
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(executorGuards)
+      .set({ activeRun: input.runId })
+      .where(
+        and(
+          eq(executorGuards.targetId, plan.targetId),
+          eq(executorGuards.originalKey, plan.originalSourceKey),
+        ),
+      ),
   )
   return { runId: input.runId, commandId: input.commandId, approvalId: input.approvalId }
 }
@@ -230,12 +320,27 @@ export async function reserveApprovedStock(
 /** Every start/adopt and authorization rechecks ALL retained bindings, not just a run status. */
 export async function loadRun(client: Pool | PoolClient, runId: string): Promise<RunAuthority> {
   id(runId)
-  const result = await client.query(
-    `SELECT a.*,r.command_id,c.payload_bytes,c.payload_digest,c.handler_version,c.actor_id AS command_actor,c.target_id AS command_target,c.target_context_id,c.kind,c.workflow_id,c.queue_name
-    FROM executor_run r JOIN executor_approval a ON a.id=r.approval_id JOIN command c ON c.id=r.command_id WHERE r.id=$1`,
-    [runId],
+  const result = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        ...approvalColumns,
+        command_id: executorRuns.commandId,
+        payload_bytes: commands.payloadBytes,
+        payload_digest: commands.payloadDigest,
+        handler_version: commands.handlerVersion,
+        command_actor: commands.actorId,
+        command_target: commands.targetId,
+        target_context_id: commands.targetContextId,
+        kind: commands.kind,
+        workflow_id: commands.workflowId,
+        queue_name: commands.queueName,
+      })
+      .from(executorRuns)
+      .innerJoin(executorApprovals, eq(executorApprovals.id, executorRuns.approvalId))
+      .innerJoin(commands, eq(commands.id, executorRuns.commandId))
+      .where(eq(executorRuns.id, runId)),
   )
-  const row = result.rows[0]
+  const row = result[0]
   if (!row) {
     throw new Error('run_authority_missing')
   }
@@ -262,9 +367,12 @@ export async function loadRun(client: Pool | PoolClient, runId: string): Promise
   ) {
     throw new Error('command_authority_mismatch')
   }
-  const operations = (
-    await client.query('SELECT * FROM executor_operation WHERE run_id=$1', [runId])
-  ).rows
+  const operations = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select(operationColumns)
+      .from(executorOperations)
+      .where(eq(executorOperations.runId, runId)),
+  )
   if (operations.length !== plan.operations.length) {
     throw new Error('operation_authority_missing')
   }
@@ -325,10 +433,9 @@ export async function cancelRun(client: PoolClient, runId: string, actorId: stri
   if (authority.actorId !== actorId) {
     throw new Error('run_actor_mismatch')
   }
-  await client.query('INSERT INTO executor_cancel(run_id,actor_id) VALUES ($1,$2)', [
-    runId,
-    actorId,
-  ])
+  await executeDatabaseQuery(
+    queryDatabase(client).insert(executorCancels).values({ runId, actorId }),
+  )
 }
 
 export async function selectRecovery(
@@ -349,11 +456,21 @@ export async function selectRecovery(
   if ((await snapshot(client, runId)).state === 'recovery_required') {
     throw new Error('create_not_recoverable')
   }
-  const intents = await client.query(
-    `SELECT i.*,r.outcome,e.certainty FROM executor_intent i LEFT JOIN executor_result r ON r.intent_id=i.id LEFT JOIN executor_effect e ON e.intent_id=i.id WHERE i.run_id=$1 AND i.operation_key=$2 AND i.kind='create_stock'`,
-    [runId, operationKey],
+  const intents = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ outcome: executorResults.outcome, certainty: executorEffects.certainty })
+      .from(executorIntents)
+      .leftJoin(executorResults, eq(executorResults.intentId, executorIntents.id))
+      .leftJoin(executorEffects, eq(executorEffects.intentId, executorIntents.id))
+      .where(
+        and(
+          eq(executorIntents.runId, runId),
+          eq(executorIntents.operationKey, operationKey),
+          eq(executorIntents.kind, 'create_stock'),
+        ),
+      ),
   )
-  if (intents.rows.some((row) => row.outcome !== 'proven_not_sent' || row.certainty !== 'none')) {
+  if (intents.some((row) => row.outcome !== 'proven_not_sent' || row.certainty !== 'none')) {
     throw new Error('create_not_recoverable')
   }
   const recoveryId = randomUUID()
@@ -363,17 +480,28 @@ export async function selectRecovery(
       [runId],
     )
   ).rows[0].version
-  await client.query('INSERT INTO executor_recovery VALUES ($1,$2,$3,$4,$5,$6)', [
-    recoveryId,
-    runId,
-    operationKey,
-    actorId,
-    cancelVersion,
-    intents.rowCount ? 'resume_no_effect' : 'resume_pending',
-  ])
-  await client.query(
-    'UPDATE executor_guard SET active_run=$3 WHERE target_id=$1 AND original_key=$2',
-    [authority.plan.targetId, authority.plan.originalSourceKey, runId],
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .insert(executorRecoveries)
+      .values({
+        id: recoveryId,
+        runId,
+        operationKey,
+        actorId,
+        cancelVersion: BigInt(cancelVersion),
+        kind: intents.length ? 'resume_no_effect' : 'resume_pending',
+      }),
+  )
+  await executeDatabaseQuery(
+    queryDatabase(client)
+      .update(executorGuards)
+      .set({ activeRun: runId })
+      .where(
+        and(
+          eq(executorGuards.targetId, authority.plan.targetId),
+          eq(executorGuards.originalKey, authority.plan.originalSourceKey),
+        ),
+      ),
   )
   return recoveryId
 }
@@ -412,8 +540,14 @@ export async function snapshot(client: Pool | PoolClient, runId: string): Promis
         .limit(1),
     )
     const hasRequests = supportedRequests.length
-    const cancelled = (await client.query('SELECT 1 FROM executor_cancel WHERE run_id=$1', [runId]))
-      .rowCount
+    const cancelled = (
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({ id: executorCancels.id })
+          .from(executorCancels)
+          .where(eq(executorCancels.runId, runId)),
+      )
+    ).length
     return {
       runId,
       cancellationRequested: Boolean(cancelled),
@@ -434,12 +568,17 @@ export async function snapshot(client: Pool | PoolClient, runId: string): Promis
         .flatMap((state) => state.remotePks),
     }
   }
-  const effects = (
-    await client.query(
-      `SELECT i.operation_key,e.certainty,e.remote_pk FROM executor_intent i LEFT JOIN executor_effect e ON e.intent_id=i.id WHERE i.run_id=$1 AND i.kind='create_stock'`,
-      [runId],
-    )
-  ).rows
+  const effects = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        operation_key: executorIntents.operationKey,
+        certainty: executorEffects.certainty,
+        remote_pk: executorEffects.remotePk,
+      })
+      .from(executorIntents)
+      .leftJoin(executorEffects, eq(executorEffects.intentId, executorIntents.id))
+      .where(and(eq(executorIntents.runId, runId), eq(executorIntents.kind, 'create_stock'))),
+  )
   const operations = authority.plan.operations.map((operation) => {
     const rows = effects.filter((value) => value.operation_key === operation.operationKey)
     const confirmed = rows.find((value) => value.certainty === 'confirmed')
@@ -457,11 +596,23 @@ export async function snapshot(client: Pool | PoolClient, runId: string): Promis
     }
   })
   const attachments = await attachmentStates(client, runId, authority.plan, operations)
-  const cancelled = (await client.query('SELECT 1 FROM executor_cancel WHERE run_id=$1', [runId]))
-    .rowCount
+  const cancelled = (
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ id: executorCancels.id })
+        .from(executorCancels)
+        .where(eq(executorCancels.runId, runId)),
+    )
+  ).length
   const hasRequests = (
-    await client.query('SELECT 1 FROM executor_intent WHERE run_id=$1 LIMIT 1', [runId])
-  ).rowCount
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ id: executorIntents.id })
+        .from(executorIntents)
+        .where(eq(executorIntents.runId, runId))
+        .limit(1),
+    )
+  ).length
   return {
     runId,
     cancellationRequested: Boolean(cancelled),
