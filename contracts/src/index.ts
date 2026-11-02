@@ -5,10 +5,12 @@ import { captureSchemas } from './capture.ts'
 import { manualSchemas } from './manual.ts'
 import { mediaSchemas } from './media.ts'
 import { processingSchemas } from './processing.ts'
+import { researchSchemas } from './research.ts'
 export * from './scalars.ts'
 export * from './capture.ts'
 export * from './manual.ts'
 export * from './processing.ts'
+export * from './research.ts'
 export * from './media.ts'
 
 const object = <T extends TProperties>(properties: T) =>
@@ -139,6 +141,7 @@ export const schemas = {
   ...captureSchemas,
   ...manualSchemas,
   ...processingSchemas,
+  ...researchSchemas,
   ...mediaSchemas,
 }
 export type BootstrapDto = Static<typeof Bootstrap>

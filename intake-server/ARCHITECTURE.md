@@ -98,3 +98,9 @@ Commands take capture/sorted subject locks and the complete media digest union b
 Logical freshness, selected job state and occupied capacity remain distinct. Stale nonterminal output is retained without releasing its child claim. Cancellation/reprocess retains a held lane until authenticated command-ending output or explicit interruption after reap; an old terminal cannot clear a newer claim. Human answers commit capture edits, exact new inputs, continuations, outbox and events together through the capture-owned publication lifecycle. See the [Processing architecture](src/processing/ARCHITECTURE.md) and [handover](../docs/handovers/bench-intake-T06.md) for exact compatibility, channel and observed-test boundaries.
 
 No actual model/provider test is authorized until Mitch explicitly permits usage. This coordinator does not qualify native authentication, entitlement, tool isolation, media inspection or a real inventory mutation profile.
+
+## Restricted research broker
+
+T07 adds migration0009 and an explicit `restricted-research-stub/1` / `processing/3` authority without widening retained earlier profiles. Version3 inputs seal exact server-admitted source URLs and media/instruction authority. Startup parses explicit profile/admission configuration but constructs no worker or provider transport.
+
+The [owning research module](src/research/ARCHITECTURE.md) limits reads to current attempt evidence, semantic inventory objects and admitted public sources, with bounded immutable PostgreSQL receipts. Broker replay rechecks current authority. Publication waits remain cancellation-aware while child cleanup proceeds independently; unconfirmed reap retains the Processing lane. The [T07 handover](../docs/handovers/bench-intake-T07.md) records deterministic protocol/child and retained PNG/PDF acceptance separately from unqualified actual-provider behavior.

@@ -4,7 +4,7 @@ import Fastify from 'fastify'
 import { schemas } from '@invimport/contracts'
 import { intakeClient } from '@invimport/contracts/client'
 import { createServer, installContracts } from '../src/api/server.ts'
-import { devConfig } from '../src/config.ts'
+import { devConfig, processingConfig } from '../src/config.ts'
 
 const id = '00000000-0000-4000-8000-000000000001'
 const secondId = '00000000-0000-4000-8000-000000000002'
@@ -266,4 +266,90 @@ test('generated typed client consumes actual loopback bootstrap API', async () =
   } finally {
     await app.close()
   }
+})
+
+test('research profile configuration is explicit, server-only and carries no inventory credential', () => {
+  const development = devConfig({
+    INTAKE_DEV_API_KEY: 'owned-fake-key',
+    INTAKE_CREDENTIAL_REF: 'owned-fake',
+  })
+  const legacy = processingConfig(development, {})
+  assert.equal(legacy.profileId, 'synthetic-research/2')
+  assert.deepEqual(legacy.approvedSourceUrls, [])
+  assert.deepEqual(legacy.sourceProtectedOrigins, [])
+  assert.equal('apiKey' in legacy, false)
+  assert.equal('credentialRef' in legacy, false)
+  const configured = processingConfig(development, {
+    INTAKE_PROCESSING_PROFILE: 'restricted-research-stub/1',
+    INTAKE_PROCESSING_CHANNEL_SECRET: 'owned-fixture-channel',
+    INTAKE_RESEARCH_SOURCE_URLS: JSON.stringify([
+      'https://EXAMPLE.COM/b',
+      'https://example.com/a',
+      'https://example.com/a',
+    ]),
+    INTAKE_READ_ORIGIN: 'http://127.0.0.1:7102',
+    INTAKE_RESEARCH_PROTECTED_ORIGINS: '["http://127.0.0.1:7102/","https://inventory.invalid/"]',
+  })
+  assert.equal(configured.profileId, 'restricted-research-stub/1')
+  assert.deepEqual(configured.approvedSourceUrls, [
+    'https://example.com/a',
+    'https://example.com/b',
+  ])
+  assert.deepEqual(configured.sourceProtectedOrigins, [
+    'http://127.0.0.1:7102',
+    'https://inventory.invalid',
+  ])
+  assert.equal(configured.channelSecret, 'owned-fixture-channel')
+  assert.ok(Object.isFrozen(configured))
+  assert.ok(Object.isFrozen(configured.approvedSourceUrls))
+  assert.ok(Object.isFrozen(configured.sourceProtectedOrigins))
+})
+
+test('research configuration refuses unqualified profiles and malformed or excessive URL admissions', () => {
+  const development = devConfig({})
+  for (const profile of ['', 'codex', 'native', 'synthetic-research/1']) {
+    assert.throws(
+      () => processingConfig(development, { INTAKE_PROCESSING_PROFILE: profile }),
+      /unsupported_processing_profile/,
+    )
+  }
+  for (const sourceList of [
+    'null',
+    '{}',
+    '[1]',
+    '["file:///private/evidence"]',
+    '["https://user:secret@example.com/"]',
+    '["https://example.com/#private"]',
+    JSON.stringify(Array.from({ length: 17 }, (_, index) => `https://example.com/${index}`)),
+    ' '.repeat(64 * 1024 + 1),
+  ]) {
+    assert.throws(() => processingConfig(development, { INTAKE_RESEARCH_SOURCE_URLS: sourceList }))
+  }
+  for (const protectedList of [
+    '["https://example.com/path"]',
+    '["https://example.com/?query"]',
+    '["https://user:secret@example.com/"]',
+    JSON.stringify(Array.from({ length: 9 }, (_, index) => `https://target${index}.example.com`)),
+  ]) {
+    assert.throws(() =>
+      processingConfig(development, { INTAKE_RESEARCH_PROTECTED_ORIGINS: protectedList }),
+    )
+  }
+})
+
+test('invalid protected-origin configuration does not retain private URL input in errors', () => {
+  const canary = 'owned-fixture-private-url-canary'
+  assert.throws(
+    () =>
+      processingConfig(devConfig({}), {
+        INTAKE_RESEARCH_PROTECTED_ORIGINS: JSON.stringify([canary]),
+      }),
+    (error: unknown) => {
+      assert.ok(error instanceof Error)
+      assert.equal(error.message, 'invalid_research_configuration')
+      assert.equal(JSON.stringify(error).includes(canary), false)
+      assert.equal(error.stack?.includes(canary), false)
+      return true
+    },
+  )
 })

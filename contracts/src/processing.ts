@@ -1,6 +1,7 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { CursorSequence, Digest, Id, Quantity, Revision } from './scalars.ts'
 import { CaptureDefaults, CaptureSnapshot } from './capture.ts'
+import { ResearchReceiptSource } from './research.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -61,7 +62,18 @@ export const ProcessingInputV2 = object({
   notes: Type.Array(CaptureSnapshot.properties.notes.items, { maxItems: 1000 }),
   media: object({ manifest: Type.String({ minLength: 1, maxLength: 245760 }), sha256: Digest }),
 })
-export const ProcessingInput = Type.Union([ProcessingInputV1, ProcessingInputV2])
+export const ProcessingInputV3 = object({
+  ...ProcessingInputV2.properties,
+  schema_version: Type.Literal('bench-intake-input/3'),
+  profile_id: Type.Literal('restricted-research-stub/1'),
+  instruction_version: Type.Literal('restricted-research-stub/1'),
+  tool_profile_version: Type.Literal('restricted-research-tools/1'),
+  source_urls: Type.Array(Type.String({ minLength: 1, maxLength: 2048 }), {
+    maxItems: 16,
+    uniqueItems: true,
+  }),
+})
+export const ProcessingInput = Type.Union([ProcessingInputV1, ProcessingInputV2, ProcessingInputV3])
 
 export const ProcessingCommandV1 = object({
   schema_version: Type.Literal('bench-intake-processing-command/1'),
@@ -79,7 +91,17 @@ export const ProcessingCommandV2 = object({
   profile_id: Type.Literal('synthetic-research/2'),
   handler_version: Type.Literal('processing/2'),
 })
-export const ProcessingCommand = Type.Union([ProcessingCommandV1, ProcessingCommandV2])
+export const ProcessingCommandV3 = object({
+  ...ProcessingCommandV2.properties,
+  schema_version: Type.Literal('bench-intake-processing-command/3'),
+  profile_id: Type.Literal('restricted-research-stub/1'),
+  handler_version: Type.Literal('processing/3'),
+})
+export const ProcessingCommand = Type.Union([
+  ProcessingCommandV1,
+  ProcessingCommandV2,
+  ProcessingCommandV3,
+])
 
 export const ProcessingCancellation = object({
   expected_revision: Revision,
@@ -122,7 +144,17 @@ export const ProcessingProposalV2 = object({
   summary: text,
   sources: Type.Array(ProcessingSource, { minItems: 1, maxItems: 100, uniqueItems: true }),
 })
-export const ProcessingProposal = Type.Union([ProcessingProposalV1, ProcessingProposalV2])
+export const ProcessingSourceV3 = Type.Union([ProcessingSource, ResearchReceiptSource])
+export const ProcessingProposalV3 = object({
+  ...ProcessingProposalV2.properties,
+  schema_version: Type.Literal('bench-intake-proposal/3'),
+  sources: Type.Array(ProcessingSourceV3, { minItems: 1, maxItems: 100, uniqueItems: true }),
+})
+export const ProcessingProposal = Type.Union([
+  ProcessingProposalV1,
+  ProcessingProposalV2,
+  ProcessingProposalV3,
+])
 
 const runnerBinding = {
   schema_version: Type.Literal('bench-intake-runner/1'),
@@ -171,7 +203,22 @@ export const ProcessingEnvelopeV2 = Type.Union([
     payload: terminalPayload,
   }),
 ])
-export const ProcessingEnvelope = Type.Union([ProcessingEnvelopeV1, ProcessingEnvelopeV2])
+const runnerBindingV3 = {
+  ...runnerBindingV2,
+  schema_version: Type.Literal('bench-intake-runner/3'),
+  profile_id: Type.Literal('restricted-research-stub/1'),
+  handler_version: Type.Literal('processing/3'),
+}
+export const ProcessingEnvelopeV3 = Type.Union([
+  object({ ...runnerBindingV3, kind: Type.Literal('proposal'), payload: ProcessingProposalV3 }),
+  object({ ...runnerBindingV3, kind: Type.Literal('question'), payload: ProcessingQuestionSpec }),
+  object({ ...runnerBindingV3, kind: Type.Literal('terminal'), payload: terminalPayload }),
+])
+export const ProcessingEnvelope = Type.Union([
+  ProcessingEnvelopeV1,
+  ProcessingEnvelopeV2,
+  ProcessingEnvelopeV3,
+])
 export const ProcessingBlocker = Type.Union([
   Type.Literal('media_not_ready'),
   Type.Literal('media_input_capacity'),
@@ -242,13 +289,18 @@ export const ProcessingActivity = object({
 export const processingSchemas = {
   ProcessingInputV1,
   ProcessingInputV2,
+  ProcessingInputV3,
   ProcessingCommandV1,
   ProcessingCommandV2,
+  ProcessingCommandV3,
   ProcessingProposalV1,
   ProcessingProposalV2,
+  ProcessingProposalV3,
   ProcessingSource,
+  ProcessingSourceV3,
   ProcessingEnvelopeV1,
   ProcessingEnvelopeV2,
+  ProcessingEnvelopeV3,
   ProcessingBlocker,
   ProcessingInput,
   ProcessingCommand,
@@ -297,3 +349,13 @@ export type ProcessingSourceDto = Static<typeof ProcessingSource>
 export type ProcessingEnvelopeV1Dto = Static<typeof ProcessingEnvelopeV1>
 export type ProcessingEnvelopeV2Dto = Static<typeof ProcessingEnvelopeV2>
 export type ProcessingBlockerDto = Static<typeof ProcessingBlocker>
+
+export type ProcessingInputV3Dto = Static<typeof ProcessingInputV3>
+
+export type ProcessingCommandV3Dto = Static<typeof ProcessingCommandV3>
+
+export type ProcessingProposalV3Dto = Static<typeof ProcessingProposalV3>
+
+export type ProcessingSourceV3Dto = Static<typeof ProcessingSourceV3>
+
+export type ProcessingEnvelopeV3Dto = Static<typeof ProcessingEnvelopeV3>

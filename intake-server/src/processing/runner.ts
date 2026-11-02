@@ -10,7 +10,14 @@ import { appendEvent } from '../db/authority.ts'
 import { lockCaptureForInputSettlement } from '../capture/repository.ts'
 import { lockLane } from './scope.ts'
 import { channelToken, type ProcessingConfig } from './attempts.ts'
-import { fail, mediaHandlerVersion, sealed } from './model.ts'
+import {
+  fail,
+  mediaHandlerVersion,
+  mediaProfileId,
+  researchHandlerVersion,
+  sealed,
+  type SelectedProcessingProfile,
+} from './model.ts'
 import { loadProcessingAuthority, processingInputIsCurrent } from './authority.ts'
 import { prepareMediaTransaction } from '../media/transaction.ts'
 import { lockProcessingMediaCurrency } from './media.ts'
@@ -30,7 +37,7 @@ export interface ResearchCommand extends ResearchInput {
 
 export interface RestrictedResearchRunner {
   qualification: 'fixture_only'
-  profileId: 'synthetic-research/2'
+  profileId: SelectedProcessingProfile
   run(
     command: ResearchInput,
     emit: (message: ProcessingEnvelopeDto) => Promise<void>,
@@ -45,7 +52,7 @@ export async function claimProcessingCommand(
   payload: unknown,
   actualHandlerVersion: string,
 ): Promise<ResearchCommand | null> {
-  if (actualHandlerVersion !== mediaHandlerVersion) {
+  if (![mediaHandlerVersion, researchHandlerVersion].includes(actualHandlerVersion)) {
     fail('worker_version_conflict')
   }
   return transaction(pool, async (client) => {
@@ -66,7 +73,10 @@ export async function claimProcessingCommand(
     if (canonical(payload) !== canonical(retained.payload)) {
       fail('payload_conflict')
     }
-    if (retained.payload.handler_version !== actualHandlerVersion) {
+    if (
+      retained.manifest.profile_id !== (config.profileId ?? mediaProfileId) ||
+      retained.payload.handler_version !== actualHandlerVersion
+    ) {
       fail('worker_version_conflict')
     }
     const token = channelToken(config, ref.id)
@@ -91,7 +101,12 @@ export async function claimProcessingCommand(
       capture.snapshot.archived ||
       !dependencies.current ||
       !media.available ||
-      !processingInputIsCurrent(retained.manifest, capture.snapshot, media.inputs)
+      !processingInputIsCurrent(
+        retained.manifest,
+        capture.snapshot,
+        media.inputs,
+        config.approvedSourceUrls,
+      )
     ) {
       await transitionAttempt(client, job, attempt, 'superseded')
       await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: job.batch_id })

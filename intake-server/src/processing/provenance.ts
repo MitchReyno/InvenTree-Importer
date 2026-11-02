@@ -28,6 +28,11 @@ export function validateProposalSources(
   if (!('sources' in proposal)) {
     fail('runner_source_version_mismatch', 422)
   }
+  const restrictedInput = manifest.schema_version === 'bench-intake-input/3'
+  const restrictedProposal = proposal.schema_version === 'bench-intake-proposal/3'
+  if (restrictedInput !== restrictedProposal) {
+    fail('runner_source_version_mismatch', 422)
+  }
 
   const media = decodeMediaInputs(
     Buffer.from(manifest.media.manifest, 'utf8'),
@@ -35,6 +40,13 @@ export function validateProposalSources(
   )
   const versionsById = new Map(media.versions.map((version) => [version.versionId, version]))
   for (const source of proposal.sources) {
+    if (source.kind === 'research_receipt') {
+      if (!restrictedInput) {
+        fail('runner_source_version_mismatch', 422)
+      }
+      // The caller additionally verifies exact retained receipt authority on its transaction.
+      continue
+    }
     if (source.kind === 'note') {
       const note = notesById.get(source.note_id)
       if (!note || sha256(Buffer.from(note.text, 'utf8')).toString('hex') !== source.text_sha256) {

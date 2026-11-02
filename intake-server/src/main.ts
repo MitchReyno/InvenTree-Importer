@@ -1,5 +1,5 @@
 import { createServer } from './api/server.ts'
-import { devConfig } from './config.ts'
+import { devConfig, processingConfig } from './config.ts'
 import { database } from './db/database.ts'
 import type { Pool } from 'pg'
 import { readMediaStoreIdentity } from './media/store-identity.ts'
@@ -56,15 +56,7 @@ if (db) {
       )
     : undefined
   await registerCapture(server, db.pool, config, read)
-  registerProcessing(
-    server,
-    db.pool,
-    {
-      ...config,
-      channelSecret: process.env.INTAKE_PROCESSING_CHANNEL_SECRET ?? '',
-    },
-    lockCaptureForEdit,
-  )
+  registerProcessing(server, db.pool, processingConfig(config, process.env), lockCaptureForEdit)
   if (mediaStore) {
     registerMediaRoutes(server, db.pool, config, mediaStore)
   }
