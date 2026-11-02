@@ -135,6 +135,11 @@ function record(value: unknown, keys: string[]): Record<string, unknown> {
 }
 
 /** Rebuild the index from typed specifications; arbitrary handler/body/dependency inputs are refused. */
+export const MAX_PLAN_PARTS = 10
+export const MAX_PLAN_EFFECTS = 100
+/** Matches the `plan_bytes` check constraint on retained preparations and runs. */
+export const MAX_PLAN_BYTES = 262144
+
 export function decodeEffectsPlan(bytes: Buffer, digest: Buffer): EffectsPlan {
   verifyBytes(bytes, digest)
   const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
@@ -188,9 +193,9 @@ export function decodeEffectsPlan(bytes: Buffer, digest: Buffer): EffectsPlan {
   }
   if (
     !Array.isArray(value.parts) ||
-    value.parts.length > 10 ||
+    value.parts.length > MAX_PLAN_PARTS ||
     !Array.isArray(value.effects) ||
-    value.effects.length > 100 ||
+    value.effects.length > MAX_PLAN_EFFECTS ||
     !Array.isArray(value.operations) ||
     !value.operations.length ||
     value.operations.length > 10

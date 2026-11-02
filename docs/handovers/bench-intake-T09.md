@@ -133,3 +133,16 @@ Processing `/1`–`/3` inputs no longer embed newer catalogue observations or ma
 ### Checkpoint and focused qualification
 
 Blank, control, overlong, excessive and missing tag names refuse in the plan and spec checks; `Ω` and `ω` stay distinct. The Part-attachment wire tests and the unconfigured-media plan refusal pass. An apply role can read the effects tables and cannot delete intents, insert operations or update effects. Processing history, lost answer acknowledgement, cancellation, stale questions, retirement of an unrelated lot, source-admission revocation and V3 continuations pass on PostgreSQL. The execution and Processing architecture notes now describe those boundaries. Decoder images, the full tier run, the browser fixture and independent review of the published head remain open.
+
+## Independent review fixes
+
+A fresh read-only review of `73b025d` against `interactive-app` `73ad9ff` (after merging the Drizzle query refactor) found no critical issue and confirmed the Part and stock authority. It raised two important and three minor findings, all fixed:
+
+- Part attachments had no HTTP/PostgreSQL journey. Writing one exposed a real defect: migration 0010 widened the destination check but left `media_attachment_selection.subject_kind` fixed to `lot`, so selecting any Part attachment failed its capture-subject foreign key. Migration 0010 now ties `subject_kind` to `destination`, and `editMedia` writes `part` for a Part attachment. New journeys cover an incomplete attachment response held as unknown, selected verification confirming it without another upload, a selected stock resume, a restarted later round reusing the transfer (1 attachment, 1 Part and 2 stock POSTs; stored bytes match), and a missing prior attachment blocking the later round with `known_attachment_changed` and no upload.
+- A Part attachment selected on an `owned-fake-media/1` deployment was silently dropped from the plan. Review and preparation now report `unsupported_part_attachment`.
+- Several parameters could cite one category-parameter observation and bypass `parameter_category_incompatible`. Every citing parameter must now use that mapping's template.
+- A schema-valid selection above 10 Parts, 100 effects or 256 KiB of plan failed as an untyped 500. Preparation now returns a typed `effects_capacity` issue.
+- A declined or cleared Part attachment moved the scope to `media-inputs/2`, permanently blocking Processing for linked lots. Only a selected Part attachment does so now; non-selected Part attachment rows are omitted from the manifest.
+
+Earlier pending notes in this record about Part-attachment HTTP/PostgreSQL tests are superseded by these journeys. Process and browser coverage of Part attachments is still not added.
+

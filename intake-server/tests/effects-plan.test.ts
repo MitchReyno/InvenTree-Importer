@@ -3,7 +3,11 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { canonical } from '@invimport/contracts/json'
-import { validate, type InventoryPartSpecDto } from '@invimport/contracts'
+import {
+  validate,
+  type CaptureObservationDto,
+  type InventoryPartSpecDto,
+} from '@invimport/contracts'
 import { sha256 } from '../src/db/authority.ts'
 import {
   decodeEffectsPlan,
@@ -17,6 +21,7 @@ import {
 import { attributedPks, supportedResponseEvidence } from '../src/execution/effects-apply.ts'
 import { contributionBarcode } from '../src/execution/plan.ts'
 import { validatePartSpec } from '../src/capture/part-spec.ts'
+import { planCapacityIssue } from '../src/review/preparations.ts'
 
 function fixture() {
   const context = randomUUID()
@@ -191,6 +196,64 @@ test('exact response bytes retain more than32 attributable IDs and unsafe siblin
   )
 })
 
+test('every parameter citing a category mapping must use that mapping template', () => {
+  const { spec, context, category } = fixture()
+  const observation = (
+    model: 'category' | 'parameter_template' | 'category_parameter',
+    pk: string,
+    mapping: CaptureObservationDto['mapping'],
+  ) => ({
+    id: randomUUID(),
+    model,
+    pk,
+    target_context_id: context,
+    label: `${model} ${pk}`,
+    observed_at: 'fixture',
+    mapping,
+  })
+  const categoryObserved = {
+    ...observation('category', category.pk, { kind: 'category' }),
+    id: category.observation_id,
+  }
+  const enabled = {
+    kind: 'parameter_template' as const,
+    model_type: 'part.part' as const,
+    enabled: true,
+  }
+  const first = observation('parameter_template', '11', enabled)
+  const second = observation('parameter_template', '12', enabled)
+  const mapping = observation('category_parameter', '31', {
+    kind: 'category_parameter',
+    category_id: category.pk,
+    template_id: first.pk,
+  })
+  const reference = <M extends 'parameter_template' | 'category_parameter'>(
+    observed: { id: string; pk: string },
+    model: M,
+  ) => ({
+    observation_id: observed.id,
+    target_context_id: context,
+    model,
+    pk: observed.pk,
+  })
+  const parameter = (template: typeof first, value: string) => ({
+    template: reference(template, 'parameter_template'),
+    category_mapping: reference(mapping, 'category_parameter'),
+    value,
+  })
+  const observations = [categoryObserved, first, second, mapping]
+  validatePartSpec({ ...spec, parameters: [parameter(first, '10k')] }, context, observations)
+  assert.throws(
+    () =>
+      validatePartSpec(
+        { ...spec, parameters: [parameter(first, '10k'), parameter(second, '1%')] },
+        context,
+        observations,
+      ),
+    { code: 'parameter_category_incompatible' },
+  )
+})
+
 test('selected Part attachment freezes exact media and destination without pulling another subject or primary image', async () => {
   const { partDestinationKey, partTransferEffects } =
     await import('../src/execution/part-attachment-plan.ts')
@@ -336,4 +399,18 @@ test('create confirmation keeps extra observed tags and every trustworthy identi
     '8101',
     '7777',
   ])
+})
+
+test('an oversized supported-effects selection is a typed capacity issue, not a decoder failure', () => {
+  const { plan } = fixture()
+  assert.equal(planCapacityIssue(plan), null)
+  const effects = Array.from({ length: 101 }, () => plan.effects[0])
+  assert.equal(planCapacityIssue({ ...plan, effects })?.code, 'effects_capacity')
+  const parts = Array.from({ length: 11 }, () => plan.parts[0])
+  assert.equal(planCapacityIssue({ ...plan, parts })?.code, 'effects_capacity')
+  const oversized = { ...plan.parts[0].spec, name: 'x'.repeat(270000) }
+  assert.equal(
+    planCapacityIssue({ ...plan, parts: [{ ...plan.parts[0], spec: oversized }] })?.code,
+    'effects_capacity',
+  )
 })

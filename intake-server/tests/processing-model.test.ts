@@ -6,7 +6,7 @@ import { retainedQuestionSpec } from '../src/processing/retained.ts'
 import { inputManifest, mediaInputManifest, sealed, unseal } from '../src/processing/model.ts'
 import { processingInputIsCurrent } from '../src/processing/authority.ts'
 import { canonicalMedia } from '../src/media/encoding.ts'
-import { decodeMediaInputs } from '../src/media/inputs.ts'
+import { decodeMediaInputs, scopeMediaInputs } from '../src/media/inputs.ts'
 import { sha256 } from '../src/db/authority.ts'
 import { manualInputFixture, emptyProcessingMedia } from './support/processing-input.ts'
 
@@ -195,6 +195,46 @@ test('old processing inputs freeze new catalogue observations and reject a scope
     () => inputManifest(capture, capture.lots[0].id, 'reading', [], null),
     /unsupported_processing_input/,
   )
+})
+
+test('only a selected Part attachment moves a media scope to media-inputs/2', () => {
+  const batchId = randomUUID()
+  const partId = randomUUID()
+  const lotId = randomUUID()
+  const snapshot = (mode: 'selected' | 'declined' | 'unset') => ({
+    batch_id: batchId,
+    revision: '3',
+    evidence: [],
+    groups: [],
+    derivations: [],
+    attachments: [
+      {
+        id: randomUUID(),
+        subject_id: partId,
+        mode,
+        version_id: mode === 'selected' ? randomUUID() : null,
+        destination: 'part_attachment' as const,
+      },
+      {
+        id: randomUUID(),
+        subject_id: lotId,
+        mode: 'declined' as const,
+        version_id: null,
+        destination: 'lot_attachment' as const,
+      },
+    ],
+  })
+  const version = (inputs: { bytes: Buffer }) =>
+    (JSON.parse(inputs.bytes.toString('utf8')) as { version: string }).version
+  for (const mode of ['declined', 'unset'] as const) {
+    const inputs = scopeMediaInputs(snapshot(mode), [partId, lotId])
+    assert.equal(version(inputs), 'media-inputs/1')
+    assert.deepEqual(
+      inputs.attachments.map((selection) => selection.destination),
+      ['lot_attachment'],
+    )
+  }
+  assert.equal(version(scopeMediaInputs(snapshot('selected'), [partId, lotId])), 'media-inputs/2')
 })
 
 test('media-inputs/2 is not a current processing input', () => {

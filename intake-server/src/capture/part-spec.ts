@@ -49,13 +49,15 @@ export function validatePartSpec(
       throw new PartSpecError('parameter_category_incompatible')
     }
     if (observed.mapping.kind === 'category_parameter') {
-      const parameter = spec.parameters.find(
+      // Every parameter citing this observation must use its template, not just the first.
+      const parameters = spec.parameters.filter(
         (item) => item.category_mapping.observation_id === reference.observation_id,
       )
+      const templateId = observed.mapping.template_id
       if (
-        !parameter ||
+        !parameters.length ||
         observed.mapping.category_id !== spec.category.pk ||
-        observed.mapping.template_id !== parameter.template.pk
+        parameters.some((parameter) => parameter.template.pk !== templateId)
       ) {
         throw new PartSpecError('parameter_category_incompatible')
       }

@@ -6,8 +6,17 @@ import type {
   ManualRunDto,
   CaptureObservationDto,
 } from '@invimport/contracts'
+import { randomUUID } from 'node:crypto'
 import { manualFixture } from '../support/manual.ts'
 import { executeManualDispatch } from '../../src/review/runner.ts'
+import { mediaRepository } from '../../src/media/repository.ts'
+import { editMedia } from '../../src/media/edit.ts'
+import { processMediaCommand } from '../../src/media/worker.ts'
+
+const png = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAD0lEQVQImWP4ICLHdUIDAAhZAh0cg3OhAAAAAElFTkSuQmCC',
+  'base64',
+)
 
 type Fixture = Awaited<ReturnType<typeof manualFixture>>
 async function dispatch(fixture: Fixture, runId: string) {
@@ -406,6 +415,180 @@ test('consumed and deleted historical stock verification never authorizes replac
       ).length,
       1,
     )
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+async function selectPartAttachment(
+  fixture: Fixture,
+  batchId: string,
+  partId: string,
+  image: string,
+) {
+  assert.ok(fixture.store)
+  const repository = mediaRepository(fixture.api.pool, fixture.config, fixture.store)
+  const uploaded = await repository.upload(batchId, randomUUID(), '1', 'datasheet.png', png)
+  await processMediaCommand(fixture.db.pool, fixture.store, fixture.config, image)
+  const snapshot = await repository.snapshot(batchId)
+  const changed = await editMedia(fixture.api.pool, fixture.config, batchId, randomUUID(), {
+    expected_revision: snapshot.revision,
+    change: {
+      kind: 'select_attachment',
+      subject_id: partId,
+      mode: 'selected',
+      version_id: (uploaded as { version: { id: string } }).version.id,
+      destination: 'part_attachment',
+    },
+  })
+  assert.equal((changed as { revision: string }).revision !== snapshot.revision, true)
+}
+
+async function posts(fixture: Fixture, path: string) {
+  return (await fixture.fake.records()).filter(
+    (record) => record.method === 'POST' && record.path === path,
+  ).length
+}
+
+async function startRun(fixture: Fixture, id: string) {
+  const queued = await fixture.http(`/runs/${id}/start`, {
+    expected_run_revision: (await run(fixture, id)).revision,
+  })
+  assert.equal(queued.status, 200, JSON.stringify(queued.value))
+}
+
+function effect(current: ManualRunDto, kind: string) {
+  return current.supported_effects!.find((value) => value.kind === kind)!
+}
+
+test('selected Part attachment is verified once after an unattributable response and reused by a later round', async (context) => {
+  const image = process.env.INTAKE_MEDIA_DECODER_IMAGE
+  if (!image) {
+    context.skip('explicit isolated decoder image required')
+    return
+  }
+  const fixture = await manualFixture({ media: true, effects: true })
+  try {
+    const capture = await createChoice(fixture)
+    await selectPartAttachment(fixture, capture.batch.id, capture.batch.parts[0].id, image)
+    const a = await approve(fixture, capture.batch, capture.a.id)
+    await startRun(fixture, a)
+    await fixture.fake.fault('part_attachment_incomplete')
+    await dispatch(fixture, a)
+    let current = await run(fixture, a)
+    assert.equal(current.state, 'recovery_required')
+    let attachment = effect(current, 'part_attachment')
+    assert.deepEqual(
+      [attachment.certainty, attachment.remote_pks, attachment.verification],
+      ['unknown', ['13001'], 'missing_or_changed'],
+    )
+    assert.equal(attachment.recovery_action, 'verify_effect')
+    assert.equal(effect(current, 'create_stock').certainty, 'none')
+
+    const selected = await fixture.http(`/runs/${a}/recover`, {
+      expected_run_revision: current.revision,
+      assessment_keys: [attachment.operation_key],
+    })
+    assert.equal(selected.status, 200, JSON.stringify(selected.value))
+    await fixture.fake.fault('none')
+    await dispatch(fixture, a)
+    current = await run(fixture, a)
+    attachment = effect(current, 'part_attachment')
+    assert.deepEqual(
+      [attachment.certainty, attachment.remote_pks, attachment.verification],
+      ['confirmed', ['13001'], 'matches'],
+    )
+    await recover(fixture, a, [effect(current, 'create_stock').operation_key])
+    assert.equal((await run(fixture, a)).state, 'settled_complete')
+
+    await fixture.stop()
+    await fixture.restartFake()
+    await fixture.start()
+    await fixture.fake.fault('none')
+    const b = await approve(fixture, capture.batch, capture.b.id)
+    await startRun(fixture, b)
+    await dispatch(fixture, b)
+    current = await run(fixture, b)
+    assert.equal(current.state, 'settled_complete')
+    assert.deepEqual(
+      current.supported_effects!.map((value) => value.kind),
+      ['create_stock'],
+    )
+    assert.equal(await posts(fixture, '/api/attachment/'), 1)
+    assert.equal(await posts(fixture, '/api/part/?tags=true'), 1)
+    assert.equal(await posts(fixture, '/api/stock/'), 2)
+    const stored = await fixture.db.pool.query<{ part: string; bytes: Buffer }>(
+      'SELECT part,bytes FROM fake_part_attachment',
+    )
+    assert.equal(stored.rows.length, 1)
+    assert.equal(stored.rows[0].part, '8101')
+    assert.ok(stored.rows[0].bytes.equals(png))
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('a missing prior Part attachment blocks a later round without another upload', async (context) => {
+  const image = process.env.INTAKE_MEDIA_DECODER_IMAGE
+  if (!image) {
+    context.skip('explicit isolated decoder image required')
+    return
+  }
+  const fixture = await manualFixture({ media: true, effects: true })
+  try {
+    const capture = await createChoice(fixture)
+    await selectPartAttachment(fixture, capture.batch.id, capture.batch.parts[0].id, image)
+    const a = await approve(fixture, capture.batch, capture.a.id)
+    await startRun(fixture, a)
+    await dispatch(fixture, a)
+    assert.equal((await run(fixture, a)).state, 'settled_complete')
+    await fixture.db.pool.query('DELETE FROM fake_part_attachment')
+    const scope = {
+      expected_batch_revision: capture.batch.revision,
+      selected_lot_ids: [capture.b.id],
+    }
+    const reviewed = await fixture.http(`/batches/${capture.batch.id}/reviews`, scope)
+    assert.equal(reviewed.status, 200, JSON.stringify(reviewed.value))
+    const prepared = await fixture.http(`/batches/${capture.batch.id}/preparations`, scope)
+    assert.equal(prepared.status, 200, JSON.stringify(prepared.value))
+    assert.equal(prepared.value.status, 'blocked')
+    assert.deepEqual(
+      prepared.value.issues.map((value: { code: string }) => value.code),
+      ['known_attachment_changed'],
+    )
+    assert.equal(await posts(fixture, '/api/attachment/'), 1)
+    assert.equal(await posts(fixture, '/api/stock/'), 1)
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('a Part attachment on a media-only deployment is a typed issue, never a silent omission', async (context) => {
+  const image = process.env.INTAKE_MEDIA_DECODER_IMAGE
+  if (!image) {
+    context.skip('explicit isolated decoder image required')
+    return
+  }
+  const fixture = await manualFixture({ media: true })
+  try {
+    const capture = await fixture.seedCapture()
+    await selectPartAttachment(fixture, capture.batch.id, capture.batch.parts[0].id, image)
+    const scope = {
+      expected_batch_revision: capture.batch.revision,
+      selected_lot_ids: [capture.a.id],
+    }
+    const reviewed = await fixture.http(`/batches/${capture.batch.id}/reviews`, scope)
+    assert.equal(reviewed.status, 409, JSON.stringify(reviewed.value))
+    const prepared = await fixture.http(`/batches/${capture.batch.id}/preparations`, scope)
+    assert.equal(prepared.status, 200, JSON.stringify(prepared.value))
+    assert.equal(prepared.value.status, 'blocked')
+    assert.ok(
+      prepared.value.issues.some(
+        (value: { code: string }) => value.code === 'unsupported_part_attachment',
+      ),
+      JSON.stringify(prepared.value.issues),
+    )
+    assert.equal(await posts(fixture, '/api/attachment/'), 0)
   } finally {
     await fixture.dispose()
   }

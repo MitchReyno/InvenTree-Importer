@@ -9,7 +9,12 @@ import type { PartTransfer } from '../execution/part-attachment-plan.ts'
 import { knownPartBindings, supportedPlan } from './effects-plan.ts'
 import { partSpecReferences } from '../capture/part-spec.ts'
 import type { InventoryModelDto, InventoryMappingDto } from '@invimport/contracts'
-import type { PartBinding } from '../execution/effects-plan.ts'
+import {
+  MAX_PLAN_BYTES,
+  MAX_PLAN_EFFECTS,
+  MAX_PLAN_PARTS,
+  type PartBinding,
+} from '../execution/effects-plan.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import {
@@ -25,7 +30,7 @@ import { idempotent, appendEvent, sha256, verifyBytes } from '../db/authority.ts
 import { fail } from '../capture/repository.ts'
 import type { CaptureRead } from '../capture/routes.ts'
 import { loadRun, reserveApprovedStock } from '../execution/authority.ts'
-import { encodeExecutablePlan } from '../execution/media-plan.ts'
+import { encodeExecutablePlan, type ExecutablePlan } from '../execution/media-plan.ts'
 import { mediaPreview } from './media-preview.ts'
 import { retainPreparationMedia } from './media-preparation.ts'
 import { preparedPlan } from './media-plan.ts'
@@ -57,6 +62,20 @@ function normalized(input: ManualScopeDto) {
 }
 
 /** A warning blocks review and preparation until fixed or dismissed with a reason. */
+/** Report an oversized selection as a typed issue before the plan decoder refuses it. */
+export function planCapacityIssue(plan: ExecutablePlan) {
+  const effectsExceeded =
+    plan.version === 'bench-effects-plan/1' &&
+    (plan.parts.length > MAX_PLAN_PARTS || plan.effects.length > MAX_PLAN_EFFECTS)
+  if (effectsExceeded || Buffer.byteLength(canonical(plan)) > MAX_PLAN_BYTES) {
+    return issue(
+      'effects_capacity',
+      `Choose fewer lots, Parts or parameters: one preparation supports at most ${MAX_PLAN_PARTS} new or existing Parts, ${MAX_PLAN_EFFECTS} inventory effects and 256 KiB of approved plan.`,
+    )
+  }
+  return null
+}
+
 export function warningIssues(material: ManualMaterial) {
   return unresolvedWarnings(material).map((warning) =>
     issue('warning_unresolved', warning.message, warning.lotId),
@@ -106,6 +125,17 @@ async function checkedSelection(
       issue(
         'unsupported_media_capability',
         'This retained media scope needs the separately qualified owned fake media capability.',
+      ),
+    )
+  }
+  const partAttachmentSelected = [...(material.mediaInputs?.values() ?? [])].some((inputs) =>
+    inputs.attachments.some((selection) => selection.destination === 'part_attachment'),
+  )
+  if (partAttachmentSelected && binding?.capability !== 'owned-fake-effects/1') {
+    issues.push(
+      issue(
+        'unsupported_part_attachment',
+        'This deployment does not support Part attachments. Decline the Part attachment or use the owned fake effects capability.',
       ),
     )
   }
@@ -465,12 +495,10 @@ export async function prepareSelection(
         ),
       )
     }
-    let response: ManualPreparationResultDto
-    if (issues.length) {
-      response = { status: 'blocked', issues }
-    } else {
+    let plan: ExecutablePlan | null = null
+    if (!issues.length) {
       requireReviews(material, reviews)
-      const plan =
+      plan =
         binding?.capability === 'owned-fake-effects/1'
           ? supportedPlan(
               binding,
@@ -481,6 +509,15 @@ export async function prepareSelection(
               retained.partTransfers,
             )
           : preparedPlan(binding!, capture.sourceId, capture.originalSourceKey, material)
+      const capacity = planCapacityIssue(plan)
+      if (capacity) {
+        issues.push(capacity)
+      }
+    }
+    let response: ManualPreparationResultDto
+    if (issues.length || !plan) {
+      response = { status: 'blocked', issues }
+    } else {
       const encoded = encodeExecutablePlan(plan)
       const preparationId = randomUUID()
       const evidenceLabels = new Map<string, string>()

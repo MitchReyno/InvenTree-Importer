@@ -241,16 +241,19 @@ async function selectAttachment(
     }
   }
   await executeDatabaseQuery(
-    queryDatabase(client).insert(mediaAttachmentSelections).values({
-      id: randomUUID(),
-      batchId,
-      subjectId: change.subject_id,
-      mode: change.mode,
-      versionId: change.version_id,
-      destination: change.destination,
-      revision,
-      actorId: binding.actorId,
-    }),
+    queryDatabase(client)
+      .insert(mediaAttachmentSelections)
+      .values({
+        id: randomUUID(),
+        batchId,
+        subjectId: change.subject_id,
+        subjectKind: change.destination === 'part_attachment' ? 'part' : 'lot',
+        mode: change.mode,
+        versionId: change.version_id,
+        destination: change.destination,
+        revision,
+        actorId: binding.actorId,
+      }),
   )
 }
 

@@ -1,6 +1,8 @@
 -- Additive effects authority; old plan bytes and migration history remain immutable.
 ALTER TABLE media_attachment_selection DROP CONSTRAINT media_attachment_selection_destination_check;
 ALTER TABLE media_attachment_selection ADD CONSTRAINT media_attachment_selection_destination_check CHECK(destination IN ('lot_attachment','part_attachment'));
+ALTER TABLE media_attachment_selection DROP CONSTRAINT media_attachment_selection_subject_kind_check;
+ALTER TABLE media_attachment_selection ADD CONSTRAINT media_attachment_selection_subject_kind_check CHECK((destination='lot_attachment' AND subject_kind='lot') OR (destination='part_attachment' AND subject_kind='part'));
 ALTER TABLE executor_deployment DROP CONSTRAINT executor_deployment_capability_check;
 ALTER TABLE executor_deployment ADD CONSTRAINT executor_deployment_capability_check CHECK(capability IN ('owned-fake-stock/1','owned-fake-media/1','owned-fake-effects/1'));
 ALTER TABLE capture_observation DROP CONSTRAINT capture_observation_model_check;
