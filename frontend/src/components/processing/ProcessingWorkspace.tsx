@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
+import { useRetainedPollInterval } from '../../live/LiveUpdates'
 import type {
   CaptureSnapshotDto,
   ProcessingAnswerDto,
@@ -51,6 +51,7 @@ export function ProcessingWorkspace({
   onSaved,
   retiredLotIds = NO_RETIRED_LOTS,
 }: Props) {
+  const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const queryKey = serverQueryKey(scope, 'processing', batch.id)
   const scopeIdentity = JSON.stringify(queryKey)
@@ -72,7 +73,7 @@ export function ProcessingWorkspace({
         throw error
       }
     },
-    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+    refetchInterval: pollInterval,
   })
   const snapshot = snapshotQuery.data
   const offline = snapshotQuery.isError || snapshotQuery.fetchStatus === 'paused'

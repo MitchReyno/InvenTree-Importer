@@ -3,7 +3,7 @@ import { Button, Paragraph, Summary } from '../ui/primitives'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
+import { useRetainedPollInterval } from '../../live/LiveUpdates'
 import type { OperatorReviewClient } from '../../operator/types'
 import { retiredLotIds } from '../../operator/review-model'
 import { IntakeRequestError } from '@invimport/contracts/client'
@@ -57,6 +57,7 @@ export function Batch({
 
   const onProcessing = processing ? openProcessing : undefined
 
+  const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const queryClient = useQueryClient()
   const queryKey = serverQueryKey(scope, 'capture', id)
@@ -66,7 +67,7 @@ export function Batch({
     queryKey: operatorKey,
     queryFn: () => operator!.read(id),
     enabled: operator !== undefined,
-    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+    refetchInterval: pollInterval,
   })
   // This is accepted edit authority, not a mirror of the latest cache value.
   const [batch, setBatch] = useState<CaptureSnapshotDto | null>(null)

@@ -41,6 +41,7 @@ export async function manualProcess(
   fixture.config.origin = `http://127.0.0.1:${port ?? (await freePort())}`
   let web: ChildProcess | undefined
   let runner: ChildProcess | undefined
+  let webDiagnostic = ''
   const baseEnv = { PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR }
   async function reap(child: ChildProcess | undefined, signal: NodeJS.Signals = 'SIGTERM') {
     if (!child || child.exitCode !== null || child.signalCode !== null) {
@@ -51,6 +52,7 @@ export async function manualProcess(
     await exited
   }
   async function startWeb() {
+    webDiagnostic = ''
     web = spawn(process.execPath, ['--import', 'tsx', 'src/main.ts'], {
       cwd: fileURLToPath(new URL('../../', import.meta.url)),
       env: {
@@ -69,6 +71,9 @@ export async function manualProcess(
           : {}),
       },
       stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    web.stderr!.on('data', (bytes) => {
+      if (webDiagnostic.length < 8192) webDiagnostic += bytes.toString()
     })
     await until(
       async () => {
@@ -121,6 +126,9 @@ export async function manualProcess(
     startRunner,
     stopWeb: () => reap(web),
     stopRunner: () => reap(runner),
+    get webDiagnostic() {
+      return webDiagnostic
+    },
     get webChild() {
       return web
     },

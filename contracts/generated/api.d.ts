@@ -43,6 +43,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Readiness */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Readiness"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/bootstrap": {
         parameters: {
             query?: never;
@@ -7415,6 +7459,68 @@ export interface components {
                 destination: "lot_attachment" | "part_attachment";
             };
         };
+        LiveCursor: {
+            stream_id: string;
+            /** Format: int64 */
+            sequence: string;
+        };
+        LiveSubscribe: {
+            /** @constant */
+            type: "subscribe";
+            /** @constant */
+            protocol: "bench-intake-live/1";
+            csrf_token: string;
+            batch_id: string | null;
+            cursors: {
+                stream_id: string;
+                /** Format: int64 */
+                sequence: string;
+            }[];
+        };
+        LiveFrame: {
+            /** @constant */
+            type: "ready";
+            /** @constant */
+            protocol: "bench-intake-live/1";
+            cursors: {
+                stream_id: string;
+                /** Format: int64 */
+                sequence: string;
+            }[];
+            truncated: boolean;
+        } | {
+            /** @constant */
+            type: "changed";
+            /** @constant */
+            protocol: "bench-intake-live/1";
+            batch_id: string;
+            stream_id: string;
+            /** Format: int64 */
+            sequence: string;
+            reset: boolean;
+        } | {
+            /** @constant */
+            type: "heartbeat";
+            /** @constant */
+            protocol: "bench-intake-live/1";
+        };
+        Readiness: {
+            /** @constant */
+            status: "ready";
+            /** @constant */
+            api_version: "bench-intake-app/1";
+            /** @constant */
+            deployment: "restricted-local-development";
+            /** @constant */
+            identity: "deferred_T11";
+            /** @constant */
+            research: "unqualified";
+            media: "configured" | "disabled";
+            /** @constant */
+            updates: "websocket-with-polling-fallback";
+            /** @constant */
+            apply: "separately-supervised-owned-fake-only";
+        };
     };
     responses: never;
     parameters: never;
@@ -7533,3 +7639,7 @@ export type MediaVersion = components['schemas']['MediaVersion']
 export type MediaSnapshot = components['schemas']['MediaSnapshot']
 export type MediaReceipt = components['schemas']['MediaReceipt']
 export type MediaEdit = components['schemas']['MediaEdit']
+export type LiveCursor = components['schemas']['LiveCursor']
+export type LiveSubscribe = components['schemas']['LiveSubscribe']
+export type LiveFrame = components['schemas']['LiveFrame']
+export type Readiness = components['schemas']['Readiness']

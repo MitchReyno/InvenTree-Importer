@@ -134,6 +134,10 @@ jobs:
             printf 'INTAKE_MEDIA_PROBE_IMAGE=%s\n' "$INTAKE_MEDIA_PROBE_IMAGE"
           } >> "$GITHUB_ENV"
       - name: Test reviewed migrations, transactions, grants and exact bytes
+        env:
+          INTAKE_TEST_PG_CONTAINER: ${{ job.services.postgres.id }}
         run: pnpm --filter @invimport/intake-server test:pg
       - name: Qualify DBOS public API across actual worker crash and version changes
+        env:
+          INTAKE_TEST_PG_CONTAINER: ${{ job.services.postgres.id }}
         run: pnpm --filter @invimport/intake-server test:process

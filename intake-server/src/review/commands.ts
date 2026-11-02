@@ -1,4 +1,5 @@
 import { selectSupportedRecovery } from '../execution/effects-recovery.ts'
+import { publishManualRun } from './events.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool } from 'pg'
 import { canonical } from '@invimport/contracts/json'
@@ -59,6 +60,7 @@ export async function runCommand(
             return accepted
           }
           await cancelRun(client, runId, config.actorId)
+          await publishManualRun(client, runId)
           return accepted
         }
         if (action === 'start') {
@@ -77,6 +79,7 @@ export async function runCommand(
             'INSERT INTO manual_dispatch(id,run_id,actor_id,command_id,recovery_bytes,recovery_digest) VALUES($1,$2,$3,$4,$5,$6)',
             [randomUUID(), runId, config.actorId, authority.commandId, bytes, sha256(bytes)],
           )
+          await publishManualRun(client, runId)
           return accepted
         }
         const selectedEffects = payload.effect_keys ?? []
@@ -176,6 +179,7 @@ export async function runCommand(
           'INSERT INTO manual_dispatch(id,run_id,actor_id,command_id,recovery_bytes,recovery_digest) VALUES($1,$2,$3,$4,$5,$6)',
           [dispatchId, runId, config.actorId, commandId, recoveryBytes, sha256(recoveryBytes)],
         )
+        await publishManualRun(client, runId)
         return accepted
       },
     ),

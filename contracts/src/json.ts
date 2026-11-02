@@ -11,7 +11,7 @@ export function attributionJson(text: string): unknown {
 }
 
 function parsedJson(text: string, exactNumbers: boolean): unknown {
-  if (Buffer.byteLength(text, 'utf8') > 262144) {
+  if (new TextEncoder().encode(text).byteLength > 262144) {
     throw new Error('json_too_large')
   }
   const stack: (Set<string> | null)[] = []

@@ -41,7 +41,15 @@ test(
       })
       try {
         const deadline = Date.now() + 5000
-        while (!output.includes('listening on configured loopback origin')) {
+        const ready = () =>
+          output.split('\n').some((line) => {
+            try {
+              return JSON.parse(line).event === 'web_ready'
+            } catch {
+              return false
+            }
+          })
+        while (!ready()) {
           assert.equal(child.exitCode, null, 'web process exited before readiness')
           assert(Date.now() < deadline, 'web process readiness timeout')
           await new Promise((resolve) => setTimeout(resolve, 25))

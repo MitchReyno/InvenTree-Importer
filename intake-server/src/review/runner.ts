@@ -1,4 +1,5 @@
 import type { Pool } from 'pg'
+import { publishManualRun } from './events.ts'
 import type { DBOSClient } from '@dbos-inc/dbos-sdk'
 import { supportedVerificationOnly } from '../execution/effects-recovery.ts'
 import { canonical, strictJson } from '@invimport/contracts/json'
@@ -119,10 +120,12 @@ export async function executeManualDispatch(
           original.state === 'settled_complete' ? 'finished' : 'interrupted',
           original.state === 'settled_complete' ? null : 'original_run_inspection_required',
         ])
+        await publishManualRun(client, row.run_id)
       }
       return { launch: false as const, runId: row.run_id, dispatchId: row.id, recoveryIds }
     }
     await client.query("UPDATE manual_dispatch SET state='running' WHERE id=$1", [row.id])
+    await publishManualRun(client, row.run_id)
     return { launch: true as const, runId: row.run_id, dispatchId: row.id, recoveryIds }
   })
   if (!retained.launch) {
@@ -138,20 +141,26 @@ export async function executeManualDispatch(
       recoveryIds: retained.recoveryIds,
     })
     const result = await supervised.completed
-    await transaction(pool, (client) =>
-      client.query(
+    await transaction(pool, async (client) => {
+      const changed = await client.query(
         "UPDATE manual_dispatch SET state='finished',safe_code=NULL WHERE id=$1 AND state='running'",
         [retained.dispatchId],
-      ),
-    )
+      )
+      if (changed.rowCount) {
+        await publishManualRun(client, retained.runId)
+      }
+    })
     return result
   } catch {
-    await transaction(pool, (client) =>
-      client.query(
+    await transaction(pool, async (client) => {
+      const changed = await client.query(
         "UPDATE manual_dispatch SET state='interrupted',safe_code='original_run_inspection_required' WHERE id=$1 AND state='running'",
         [retained.dispatchId],
-      ),
-    )
+      )
+      if (changed.rowCount) {
+        await publishManualRun(client, retained.runId)
+      }
+    })
     throw new Error('apply_interrupted_inspect_original_run')
   }
 }

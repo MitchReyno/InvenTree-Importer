@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { RETAINED_POLL_INTERVAL_MS } from '../../queries/client'
+import { useRetainedPollInterval } from '../../live/LiveUpdates'
 import type {
   CaptureSnapshotDto,
   CaptureEditDto,
@@ -87,24 +87,25 @@ export function ManualWorkspace({
   processing,
   onDirtyChange,
 }: Props) {
+  const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const queryClient = useQueryClient()
   const mediaQuery = useQuery({
     queryKey: serverQueryKey(scope, 'media', batch.id),
     queryFn: () => media!.snapshot(batch.id),
     enabled: stage === 'review' && media !== undefined,
-    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+    refetchInterval: pollInterval,
   })
   const processingQuery = useQuery({
     queryKey: serverQueryKey(scope, 'processing', batch.id),
     queryFn: () => processing!.read(batch.id),
     enabled: stage === 'review' && processing !== undefined,
-    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+    refetchInterval: pollInterval,
   })
   const workspaceQuery = useQuery({
     queryKey: serverQueryKey(scope, 'manual', batch.id),
     queryFn: () => client.workspace(batch.id),
-    refetchInterval: RETAINED_POLL_INTERVAL_MS,
+    refetchInterval: pollInterval,
   })
   const workspace = workspaceQuery.data
   const connectionLost = workspaceQuery.isError || workspaceQuery.fetchStatus === 'paused'

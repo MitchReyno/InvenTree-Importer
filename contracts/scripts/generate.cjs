@@ -145,6 +145,7 @@ async function main() {
     info: { title: 'Bench Intake foundation', version: 'bench-intake-app/1' },
     paths: {
       '/api/v1/health': { get: get('Health', SETUP_TIMEOUT_MS, 'setup') },
+      '/api/v1/readiness': { get: get('Readiness', SETUP_TIMEOUT_MS, 'setup') },
       '/api/v1/bootstrap': {
         get: get('Bootstrap', SETUP_TIMEOUT_MS, 'setup'),
       },
