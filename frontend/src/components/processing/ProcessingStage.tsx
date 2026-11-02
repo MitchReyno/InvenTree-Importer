@@ -65,6 +65,7 @@ export function ProcessingStage({
         dirty={dirty}
         stage="processing"
         edit={edit}
+        retiredLotIds={retiredLotIds}
         onStage={navigate}
         onProcessing={() => navigateProcessing()}
       />

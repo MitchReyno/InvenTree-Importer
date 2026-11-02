@@ -8,6 +8,7 @@ import {
   type ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import { render } from './test/render'
+import { CaptureHeader } from './components/capture/CaptureHeader'
 import { InstructionsPanel } from './components/operator/InstructionsPanel'
 import { ProcessingWorkspace } from './components/processing/ProcessingWorkspace'
 import type { OperatorReviewClient } from './operator/types'
@@ -185,4 +186,20 @@ test('Processing keeps retired history but offers only active lots for new attem
     `#${batchId}/review/${active}`,
   )
   expect(screen.queryByRole('link', { name: 'Open this lot in Review' })).not.toBeInTheDocument()
+})
+
+test('the batch header counts active lots and states retired history separately', () => {
+  render(
+    <CaptureHeader
+      batch={batch}
+      busy={false}
+      dirty={false}
+      edit={vi.fn()}
+      onStage={vi.fn()}
+      stage="review"
+      retiredLotIds={new Set([retired])}
+    />,
+  )
+
+  expect(screen.getByText(/1 physical lots \(1 retired\)/)).toBeTruthy()
 })

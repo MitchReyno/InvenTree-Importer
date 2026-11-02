@@ -7,6 +7,8 @@ import type { ManualStage } from '../../manual/types'
 type Props = Pick<CaptureWorkspaceProps, 'batch' | 'busy' | 'edit' | 'onStage' | 'onProcessing'> & {
   dirty: boolean
   stage?: ManualStage | 'processing'
+  /** Retired lots stay in the capture snapshot as history; counts show active lots. */
+  retiredLotIds?: ReadonlySet<string>
 }
 
 export function CaptureHeader({
@@ -17,7 +19,11 @@ export function CaptureHeader({
   onStage,
   onProcessing,
   stage = 'capture',
+  retiredLotIds,
 }: Props) {
+  const retiredCount = batch.lots.filter((lot) => retiredLotIds?.has(lot.id)).length
+  const activeCount = batch.lots.length - retiredCount
+
   function chooseStage(value: ManualStage | 'processing') {
     if (value === 'processing') {
       onProcessing?.()
@@ -48,8 +54,9 @@ export function CaptureHeader({
         <div>
           <PageTitle>{batch.title}</PageTitle>
           <BatchCounts>
-            {batch.lots.length} physical lots · {batch.parts.length} shared Part proposals ·{' '}
-            {batch.notes.length} human notes
+            {activeCount} physical lots
+            {retiredCount > 0 && ` (${retiredCount} retired)`} · {batch.parts.length} shared Part
+            proposals · {batch.notes.length} human notes
           </BatchCounts>
         </div>
         <Button

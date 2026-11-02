@@ -173,3 +173,35 @@ Implemented by the T08 frontend-stream subagent in the shared T08 worktree, on t
   - Native `<dialog>` focus trapping (jsdom has no `showModal`; the component falls back to `open`).
   - Visual comparison against the original screenshots.
   - The full Batch → Review → reload flow against the live server routes.
+
+## Coordinator integration and native evidence
+
+### Chronology and plan adjustments
+
+The plan above was committed before implementation (`b6fa810`). Codex acknowledged the contracts registration, generator paths and migration `0008` in the shared proposal files before those edits; T07 reserves `0009`.
+
+One planned decision was reversed during implementation. The plan said retired lots would leave `CaptureSnapshot.lots`. Processing's read path validates every historical job subject against that list, so hiding a lot that ever had a job would turn the whole Processing read into an error. Retired lots therefore stay in the capture snapshot as history. Capture edits and notes refuse them with `lot_retired`, review/preparation/approval treat them as blocking, and the browser hides them from every selectable list. Codex's conditions (history inspectable, no Processing 500, lanes untouched) hold. Refusing new Processing starts on a retired lot is proposed to Codex as a Processing-owned follow-up.
+
+Warnings gate preparation and approval as well as review. A sibling Part proposal changing can raise `possible_duplicate_part` without changing this Part's reviewed facts, so a review-only gate would let an unresolved warning reach approval. The planned `location_cleared` warning was dropped: an explicit "no location" is already a deliberate human choice.
+
+At Mitch's request, implementation then ran as two parallel streams in this worktree with disjoint paths: server (`intake-server/**`) and frontend (`frontend/**`). The coordinator committed each stream after rerunning its checks: `fe00229` (contracts and review context), `68d34f4` (server), `e9f1ccd` (frontend).
+
+### Native browser pass
+
+Owned fixture `pnpm db:intake preview:manual` on 127.0.0.1:4330, under the exclusive `pg-docker` lease, with the T04 two-lot seed. Browser-harness with recordings off; real clicks and typing.
+
+| Case | Result |
+| --- | --- |
+| Desktop evidence workspace renders live operator-review data | Observed: [review](../bench-intake/evidence/T08/review-desktop.png), [focused lot](../bench-intake/evidence/T08/review-focused-desktop.png) |
+| Mark A and B reviewed, then a lot-only quantity edit on B (23 → 24) | Observed: B became "Changed after review", A stayed Reviewed (revision 9) |
+| 390 px table | Observed: no page overflow (scroll width 390); table scrolls inside its labelled region ([screenshot](../bench-intake/evidence/T08/table-390.png)) |
+| Split B into B1 (10) and B2 (14) | Observed: server preview listed exact retired/created lots, no shared Part affected and no invalidated reviews; apply produced revision 10 |
+| Web child restart and full reload | Observed: revision 10, B retired with lineage to B1/B2 ([screenshot](../bench-intake/evidence/T08/retired-after-restart.png)) |
+
+The pass found one defect: the batch header counted retired lots. It now counts active lots and states retired ones separately, with a regression test.
+
+Full-page screenshots leave elements below the viewport inside scroll layers blank; viewport captures after native scrolling show them correctly. The fixture was stopped with SIGTERM to its exact process, its database was dropped, port 4330 was released and the lease removed. Two older `intake_test_*` databases from 2026-11-01 predate this task and were left untouched. The retained 4310 service was not touched, and the user preview stayed stopped.
+
+### Not tested natively
+
+Warning dismissal, compare matches, bulk edit preview/apply, merge/move dialogs, keyboard shortcuts, conflict-retained drafts and native `<dialog>` focus trapping were not driven in the browser. They are covered by component tests (jsdom) and PG tests only. No real InvenTree request, provider or model call was made.

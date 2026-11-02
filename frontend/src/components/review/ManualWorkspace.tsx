@@ -15,6 +15,7 @@ import type { OperatorReviewClient } from '../../operator/types'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type { ManualClient, ManualStage, RunRecoverySelection } from '../../manual/types'
 import { CaptureHeader } from '../capture/CaptureHeader'
+import { retiredLotIds } from '../../operator/review-model'
 import { Button, ErrorNotice, Notice, Paragraph, Small, Heading } from '../ui/primitives'
 import { ReviewWorkspace } from './ReviewWorkspace'
 import { ApprovalWorkspace } from './ApprovalWorkspace'
@@ -329,6 +330,7 @@ export function ManualWorkspace({
         dirty={false}
         edit={edit}
         stage={stage}
+        retiredLotIds={retiredLotIds(operatorReview)}
         onProcessing={onProcessing}
         onStage={(value) =>
           navigate(value, value === 'approve' ? (preparationId ?? lastPreview?.id) : undefined)
