@@ -1,7 +1,15 @@
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
+import { and, eq } from 'drizzle-orm'
 import { validate, type CaptureEditDto, type ProcessingAnswerDto } from '@invimport/contracts'
-import { transaction } from '../db/database.ts'
+import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
+import {
+  processingAnswers,
+  processingAttempts,
+  processingDependencies,
+  processingInputs,
+  processingQuestions,
+} from './schema.ts'
 import { appendEvent, idempotent } from '../db/authority.ts'
 import { captureInTransaction } from '../capture/repository.ts'
 import type { LockCapture } from './capture.ts'
@@ -35,32 +43,48 @@ async function adoptRetainedAnswer(
   questionId: string,
   input: ProcessingAnswerDto,
 ) {
-  const answers = await client.query(
-    `SELECT answer.*,input.capture_revision,continuation.command_id
-     FROM processing_answer answer
-     JOIN processing_question question ON question.id=answer.question_id
-     JOIN processing_attempt continuation ON continuation.id=answer.continuation_attempt_id
-     JOIN processing_input input ON input.id=continuation.input_id
-     WHERE question.batch_id=$1 AND question.id=$2 AND answer.actor_id=$3`,
-    [batchId, questionId, config.actorId],
+  const answers = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        id: processingAnswers.id,
+        valueBytes: processingAnswers.valueBytes,
+        valueDigest: processingAnswers.valueDigest,
+        continuationAttemptId: processingAnswers.continuationAttemptId,
+        captureRevision: processingInputs.captureRevision,
+        commandId: processingAttempts.commandId,
+      })
+      .from(processingAnswers)
+      .innerJoin(processingQuestions, eq(processingQuestions.id, processingAnswers.questionId))
+      .innerJoin(
+        processingAttempts,
+        eq(processingAttempts.id, processingAnswers.continuationAttemptId),
+      )
+      .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
+      .where(
+        and(
+          eq(processingQuestions.batchId, batchId),
+          eq(processingQuestions.id, questionId),
+          eq(processingAnswers.actorId, config.actorId),
+        ),
+      ),
   )
-  const answer = answers.rows[0]
+  const answer = answers[0]
   if (!answer) {
     return null
   }
 
-  unseal(answer.value_bytes, answer.value_digest)
+  unseal(answer.valueBytes, answer.valueDigest)
   const expected = sealed({ ...input, question_id: questionId })
-  if (!answer.value_bytes.equals(expected.bytes)) {
+  if (!answer.valueBytes.equals(expected.bytes)) {
     fail('payload_conflict')
   }
 
   return {
     answer_id: answer.id,
     question_id: questionId,
-    attempt_id: answer.continuation_attempt_id,
-    capture_revision: answer.capture_revision,
-    command_id: answer.command_id,
+    attempt_id: answer.continuationAttemptId,
+    capture_revision: answer.captureRevision.toString(),
+    command_id: answer.commandId,
   }
 }
 
@@ -70,12 +94,14 @@ async function lockCurrentQuestion(
   questionId: string,
   input: ProcessingAnswerDto,
 ) {
-  const references = await client.query<QuestionRow>(
-    'SELECT * FROM processing_question WHERE batch_id=$1 AND id=$2',
-    [batchId, questionId],
+  const references = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ jobId: processingQuestions.jobId })
+      .from(processingQuestions)
+      .where(and(eq(processingQuestions.batchId, batchId), eq(processingQuestions.id, questionId))),
   )
-  const reference = references.rows[0] ?? fail('question_not_found', 404)
-  const { job, attempt } = await lockProcessingAttempt(client, reference.job_id, input.attempt_id)
+  const reference = references[0] ?? fail('question_not_found', 404)
+  const { job, attempt } = await lockProcessingAttempt(client, reference.jobId, input.attempt_id)
   const questions = await client.query<QuestionRow>(
     'SELECT * FROM processing_question WHERE batch_id=$1 AND id=$2 FOR UPDATE',
     [batchId, questionId],
@@ -105,14 +131,21 @@ async function answerEdit(
   subjectId: string,
   captureRevision: string,
 ): Promise<CaptureEditDto> {
-  const inputs = await client.query('SELECT * FROM processing_input WHERE id=$1', [
-    question.input_id,
-  ])
-  const retainedInput = inputs.rows[0]
-  decodeProcessingInput(retainedInput.manifest_bytes, retainedInput.manifest_digest)
+  const inputs = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        manifestBytes: processingInputs.manifestBytes,
+        manifestDigest: processingInputs.manifestDigest,
+        captureRevision: processingInputs.captureRevision,
+      })
+      .from(processingInputs)
+      .where(eq(processingInputs.id, question.input_id)),
+  )
+  const retainedInput = inputs[0]
+  decodeProcessingInput(retainedInput.manifestBytes, retainedInput.manifestDigest)
   const matchingInput =
-    retainedInput.manifest_digest.toString('hex') === input.input_sha256 &&
-    retainedInput.capture_revision === captureRevision
+    retainedInput.manifestDigest.toString('hex') === input.input_sha256 &&
+    retainedInput.captureRevision.toString() === captureRevision
   if (!matchingInput) {
     fail('stale_question', 412)
   }
@@ -198,11 +231,14 @@ export async function answerQuestion(
       )
       const snapshot = await capture.apply(edit)
 
-      const dependencyRows = await client.query<{ dependency_attempt_id: string }>(
-        'SELECT dependency_attempt_id FROM processing_dependency WHERE attempt_id=$1 ORDER BY dependency_attempt_id',
-        [attempt.id],
+      const dependencyRows = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({ dependencyAttemptId: processingDependencies.dependencyAttemptId })
+          .from(processingDependencies)
+          .where(eq(processingDependencies.attemptId, attempt.id))
+          .orderBy(processingDependencies.dependencyAttemptId),
       )
-      const dependencies = dependencyRows.rows.map((dependency) => dependency.dependency_attempt_id)
+      const dependencies = dependencyRows.map((dependency) => dependency.dependencyAttemptId)
       const answerId = randomUUID()
       const attemptNumber = (BigInt(attempt.number) + 1n).toString()
       const continuation = await createAttempt(
@@ -218,18 +254,16 @@ export async function answerQuestion(
       )
       const value = sealed({ ...input, question_id: questionId })
 
-      await client.query(
-        `INSERT INTO processing_answer(id,job_id,question_id,actor_id,value_bytes,value_digest,continuation_attempt_id)
-       VALUES($1,$2,$3,$4,$5,$6,$7)`,
-        [
-          answerId,
-          job.id,
+      await executeDatabaseQuery(
+        queryDatabase(client).insert(processingAnswers).values({
+          id: answerId,
+          jobId: job.id,
           questionId,
-          config.actorId,
-          value.bytes,
-          value.digest,
-          continuation.attemptId,
-        ],
+          actorId: config.actorId,
+          valueBytes: value.bytes,
+          valueDigest: value.digest,
+          continuationAttemptId: continuation.attemptId,
+        }),
       )
       await client.query(
         "UPDATE processing_question SET state='answered',revision=revision+1 WHERE id=$1",

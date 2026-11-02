@@ -72,8 +72,8 @@ export async function processingDependencyStatus(
   let current = true
   let ready = true
   for (const dependency of dependencies) {
-    const selected = dependency.row.current_attempt_id === dependency.row.id
-    const consistentState = dependency.row.job_state === dependency.row.state
+    const selected = dependency.row.currentAttemptId === dependency.row.id
+    const consistentState = dependency.row.jobState === dependency.row.state
     const dependencyCurrent =
       selected && consistentState && currentDependencyStates.has(dependency.row.state)
     current = current && dependencyCurrent

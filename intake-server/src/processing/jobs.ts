@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
+import { eq } from 'drizzle-orm'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { createAttempt, type ProcessingConfig } from './attempts.ts'
+import { processingAttempts, processingJobs } from './schema.ts'
 import { MAX_JOBS_PER_BATCH } from './limits.ts'
 import { fail, type Stage } from './model.ts'
 import type { ProcessingJobRow } from './state.ts'
@@ -43,12 +46,18 @@ export async function queueJob(
 
   if (priorJob) {
     await supersedeJobAttempts(client, job.id)
-    const attempts = await client.query<{ number: string; input_id: string }>(
-      'SELECT number,input_id FROM processing_attempt WHERE id=$1',
-      [priorJob.current_attempt_id],
+    const attempts = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({
+          number: processingAttempts.number,
+          inputId: processingAttempts.inputId,
+        })
+        .from(processingAttempts)
+        .where(eq(processingAttempts.id, priorJob.current_attempt_id)),
     )
-    parentInputId = attempts.rows[0].input_id
-    attemptNumber = (BigInt(attempts.rows[0].number) + 1n).toString()
+    const priorAttempt = attempts[0]
+    parentInputId = priorAttempt.inputId
+    attemptNumber = (priorAttempt.number + 1n).toString()
   }
 
   const attempt = await createAttempt(
@@ -67,10 +76,15 @@ export async function queueJob(
       [job.id, attempt.attemptId],
     )
   } else {
-    await client.query(
-      `INSERT INTO processing_job(id,batch_id,subject_id,stage,current_attempt_id,state)
-       VALUES($1,$2,$3,$4,$5,'queued')`,
-      [job.id, snapshot.id, subjectId, stage, attempt.attemptId],
+    await executeDatabaseQuery(
+      queryDatabase(client).insert(processingJobs).values({
+        id: job.id,
+        batchId: snapshot.id,
+        subjectId,
+        stage,
+        currentAttemptId: attempt.attemptId,
+        state: 'queued',
+      }),
     )
   }
 
@@ -83,21 +97,23 @@ export async function checkJobCapacity(
   subjectIds: string[],
   stages: Stage[],
 ) {
-  const jobs = await client.query<{ subject_id: string; stage: Stage }>(
-    'SELECT subject_id,stage FROM processing_job WHERE batch_id=$1',
-    [batchId],
+  const jobs = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ subjectId: processingJobs.subjectId, stage: processingJobs.stage })
+      .from(processingJobs)
+      .where(eq(processingJobs.batchId, batchId)),
   )
   let newJobs = 0
   for (const subjectId of subjectIds) {
     for (const stage of stages) {
-      const exists = jobs.rows.some((job) => job.subject_id === subjectId && job.stage === stage)
+      const exists = jobs.some((job) => job.subjectId === subjectId && job.stage === stage)
       if (!exists) {
         newJobs += 1
       }
     }
   }
 
-  if (jobs.rows.length + newJobs > MAX_JOBS_PER_BATCH) {
+  if (jobs.length + newJobs > MAX_JOBS_PER_BATCH) {
     fail('processing_capacity')
   }
 }

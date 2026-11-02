@@ -1,7 +1,9 @@
 import type { PoolClient } from 'pg'
-import { eq } from 'drizzle-orm'
+import { and, eq, getTableColumns } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import type { CaptureSnapshotDto, ProcessingInputDto } from '@invimport/contracts'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { commands } from '../db/schema.ts'
 import { canonical } from '@invimport/contracts/json'
 import {
   fail,
@@ -19,7 +21,13 @@ import { processingProfiles } from './policy.ts'
 import type { MediaInputs } from '../media/inputs.ts'
 import { verifyRetainedProcessingMedia } from './media.ts'
 import type { ProcessingConfig } from './attempts.ts'
-import { processingDependencies } from './schema.ts'
+import {
+  processingAttempts,
+  processingDependencies,
+  processingInputs,
+  processingJobs,
+  processingProfiles as processingProfileTable,
+} from './schema.ts'
 
 async function verifyDependencyBinding(
   client: PoolClient,
@@ -44,64 +52,89 @@ export async function loadProcessingAuthority(
   config: ProcessingConfig,
   attemptId: string,
 ) {
-  const authorities = await client.query(
-    `SELECT attempt.*, input.manifest_bytes, input.manifest_digest, input.capture_revision,
-            command.payload_bytes, command.payload_digest, command.actor_id, command.target_id,
-            command.target_context_id, command.handler_version, command.workflow_id,
-            command.queue_name, command.kind,
-            profile.instruction_bytes, profile.instruction_digest, profile.tool_profile_version,
-            job.subject_id, job.stage, job.current_attempt_id, job.state AS job_state
-     FROM processing_attempt attempt
-     JOIN processing_input input ON input.id = attempt.input_id
-     JOIN command command ON command.id = attempt.command_id
-     JOIN processing_profile profile ON profile.id = attempt.profile_id
-     JOIN processing_job job ON job.id = attempt.job_id AND job.batch_id = attempt.batch_id
-     WHERE attempt.id = $1`,
-    [attemptId],
+  const authorities = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        ...getTableColumns(processingAttempts),
+        manifestBytes: processingInputs.manifestBytes,
+        manifestDigest: processingInputs.manifestDigest,
+        captureRevision: processingInputs.captureRevision,
+        payloadBytes: commands.payloadBytes,
+        payloadDigest: commands.payloadDigest,
+        actorId: commands.actorId,
+        targetId: commands.targetId,
+        targetContextId: commands.targetContextId,
+        handlerVersion: commands.handlerVersion,
+        workflowId: commands.workflowId,
+        queueName: commands.queueName,
+        kind: commands.kind,
+        instructionBytes: processingProfileTable.instructionBytes,
+        instructionDigest: processingProfileTable.instructionDigest,
+        toolProfileVersion: processingProfileTable.toolProfileVersion,
+        subjectId: processingJobs.subjectId,
+        stage: processingJobs.stage,
+        currentAttemptId: processingJobs.currentAttemptId,
+        jobState: processingJobs.state,
+      })
+      .from(processingAttempts)
+      .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
+      .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
+      .innerJoin(
+        processingProfileTable,
+        eq(processingProfileTable.id, processingAttempts.profileId),
+      )
+      .innerJoin(
+        processingJobs,
+        and(
+          eq(processingJobs.id, processingAttempts.jobId),
+          eq(processingJobs.batchId, processingAttempts.batchId),
+        ),
+      )
+      .where(eq(processingAttempts.id, attemptId)),
   )
-  const row = authorities.rows[0]
+  const row = authorities[0]
   if (
     !row ||
-    row.actor_id !== config.actorId ||
-    row.target_id !== config.targetId ||
-    row.target_context_id !== config.targetContextId
+    row.actorId !== config.actorId ||
+    row.targetId !== config.targetId ||
+    row.targetContextId !== config.targetContextId
   ) {
     fail('attempt_not_found', 404)
   }
-  const profile = processingProfiles[row.profile_id as keyof typeof processingProfiles]
+  const profile = processingProfiles[row.profileId as keyof typeof processingProfiles]
   if (!profile) {
     fail('processing_profile_version_conflict')
   }
-  verifyBytes(row.instruction_bytes, row.instruction_digest)
+  verifyBytes(row.instructionBytes, row.instructionDigest)
   const profileMatches =
-    row.instruction_digest.toString('hex') === profile.instructionDigest &&
-    row.instruction_bytes.toString('utf8') === profile.instructions &&
-    row.tool_profile_version === profile.toolProfileVersion
+    row.instructionDigest.toString('hex') === profile.instructionDigest &&
+    row.instructionBytes.toString('utf8') === profile.instructions &&
+    row.toolProfileVersion === profile.toolProfileVersion
   if (!profileMatches) {
     fail('processing_profile_version_conflict')
   }
 
-  const manifest = decodeProcessingInput(row.manifest_bytes, row.manifest_digest)
-  const payload = decodeProcessingCommand(row.payload_bytes, row.payload_digest)
+  const manifest = decodeProcessingInput(row.manifestBytes, row.manifestDigest)
+  const payload = decodeProcessingCommand(row.payloadBytes, row.payloadDigest)
   const expected = {
     schema_version: profile.commandSchemaVersion,
-    job_id: row.job_id,
+    job_id: row.jobId,
     attempt_id: row.id,
-    input_id: row.input_id,
-    input_sha256: row.manifest_digest.toString('hex'),
+    input_id: row.inputId,
+    input_sha256: row.manifestDigest.toString('hex'),
     profile_id: manifest.profile_id,
     handler_version: profile.handlerVersion,
-    command_id: row.command_id,
+    command_id: row.commandId,
   }
   if (
     canonical(payload) !== canonical(expected) ||
-    row.handler_version !== profile.handlerVersion ||
-    row.profile_id !== manifest.profile_id ||
-    row.workflow_id !== `processing:${row.id}` ||
-    row.queue_name !== 'bench-research' ||
+    row.handlerVersion !== profile.handlerVersion ||
+    row.profileId !== manifest.profile_id ||
+    row.workflowId !== `processing:${row.id}` ||
+    row.queueName !== 'bench-research' ||
     !['process', 'continue'].includes(row.kind) ||
-    manifest.batch_id !== row.batch_id ||
-    manifest.subject_id !== row.subject_id ||
+    manifest.batch_id !== row.batchId ||
+    manifest.subject_id !== row.subjectId ||
     manifest.stage !== row.stage ||
     manifest.instruction_version !== profile.instructionVersion ||
     manifest.instruction_sha256 !== profile.instructionDigest ||
@@ -109,7 +142,7 @@ export async function loadProcessingAuthority(
   ) {
     fail('processing_authority_corrupt')
   }
-  await verifyRetainedProcessingMedia(client, config, manifest, row.command_id)
+  await verifyRetainedProcessingMedia(client, config, manifest, row.commandId)
   await verifyDependencyBinding(client, row.id, manifest)
   return { row, manifest, payload }
 }
