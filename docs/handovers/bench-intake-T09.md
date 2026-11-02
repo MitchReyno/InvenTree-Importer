@@ -146,5 +146,27 @@ A fresh read-only review of `73b025d` against `interactive-app` `73ad9ff` (after
 
 Earlier pending notes in this record about Part-attachment HTTP/PostgreSQL tests are superseded by these journeys. Process and browser coverage of Part attachments is still not added.
 
-A second review of `18a3427` confirmed these fixes and asked for tighter comments and assertions (done in `67a89d2`). It also reported the 10-lot plan limit as unchecked; that limit is unreachable because the scope schema allows at most 10 lots, so the check added for it is defensive only. A third review of `67a89d2` found no code issue. The three new journeys need `INTAKE_MEDIA_DECODER_IMAGE`; they ran with it. Under the `pg-docker` lease on the shared PostgreSQL 17 service, with decoder and probe images rebuilt from `18a3427`, the PostgreSQL tier passed 98/98 and the process tier 32/32 on `18a3427`, with no skips. `tests/pg/supported-effects.test.ts` then passed 9/9 on the `67a89d2` content, which changes no source under `src/media`. The browser fixture was not run.
+A second review of `18a3427` confirmed these fixes and asked for tighter comments and assertions (done in `67a89d2`). It also reported the 10-lot plan limit as unchecked; that limit is unreachable because the scope schema allows at most 10 lots, so the check added for it is defensive only. A third review of `67a89d2` found no code issue. The three new journeys need `INTAKE_MEDIA_DECODER_IMAGE`; they ran with it. Under the `pg-docker` lease on the shared PostgreSQL 17 service, with decoder and probe images rebuilt from `18a3427`, the PostgreSQL tier passed 98/98 and the process tier 32/32 on `18a3427`, with no skips. `tests/pg/supported-effects.test.ts` then passed 9/9 on the `67a89d2` content, which changes no source under `src/media`. The browser fixture ran afterwards; see the native browser pass below.
 
+### Native browser pass
+
+Owned fixture `INTAKE_PREVIEW_EFFECTS=1 pnpm db:intake preview:manual` on 127.0.0.1:4330 with the `owned-fake-effects/1` capability, under the `pg-docker` and `browser` leases, with the two-lot seed. Browser-harness with recordings off; real clicks and typing, except native select menus, which were set through the element value and a `change` event because CDP cannot drive the macOS menu. The fixture's fake fault was set in its own database for the dependent-failure case.
+
+| Case | Result |
+| --- | --- |
+| Create one shared Part with observed category 81, template 201 and category mapping 301, parameter `4.7 kΩ`, tags `SMD` and a new tag | Observed: mapped records read, saved as revision 9 |
+| Exact preview for Packet A | Observed: create Part and parameter, stock 17 × Packet A, no attachment ([screenshot](../bench-intake/evidence/T09/create-part-preview-desktop.png)) |
+| Dependent parameter failure after Part create | Observed: run safely incomplete, Part #8101 known and usable, parameter and stock unconfirmed with selected resume ([screenshot](../bench-intake/evidence/T09/dependent-failure-desktop.png)) |
+| Web child restart and full reload | Observed: identical retained results |
+| Selected repair of the parameter, then the stock | Observed: parameter 9101 and stock 7101 confirmed; fake holds one Part POST, one parameter POST and one stock POST ([screenshot](../bench-intake/evidence/T09/selected-repair-desktop.png)) |
+| Later round for Packet B | Observed: preview reuses Part #8101 and creates no Part ([screenshot](../bench-intake/evidence/T09/later-round-reuse-preview-desktop.png)); stock 7102 confirmed; fake totals one Part, one parameter and two stock POSTs |
+| 390 px and desktop layouts | Observed: no page overflow on Capture with the new-Part form, Review and Results ([form](../bench-intake/evidence/T09/create-part-form-390.png), [results](../bench-intake/evidence/T09/results-390.png)) |
+| Keyboard | Observed: Tab order through the new-Part form follows the visual order and every control shows a focus ring |
+
+Observations outside the qualified behaviour:
+
+- After the web child restarts, a page that has not been fully reloaded keeps the old CSRF token, so its commands are refused with `access_denied` and the generic "command was not accepted" message. A full reload restores them. This is the existing development-mode behaviour recorded in T04.
+- Before the original run is queued, each supported effect already shows "Resume selected original effect" and the Part output reads "Part identity needs inspection". Both are accurate to the retained state but read oddly before any attempt.
+- On a narrow screen, Capture's "← Lots and shared details" replaces the hash with the bare batch id, which then routes to Processing rather than the Capture list. That button comes from the operator-review work, not T09.
+
+Part attachments were not exercised in the browser, because the preview does not run the media decoder.
