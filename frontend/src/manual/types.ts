@@ -34,5 +34,7 @@ export interface ManualClient {
 
 export type ManualStage = 'capture' | 'review' | 'approve' | 'results'
 
-export type RunRecoverySelection =
-  { kind: 'stock'; keys: string[] } | { kind: 'attachment'; keys: string[] }
+export type RunRecoverySelection = {
+  kind: 'stock' | 'attachment' | 'effect' | 'assessment'
+  keys: string[]
+}

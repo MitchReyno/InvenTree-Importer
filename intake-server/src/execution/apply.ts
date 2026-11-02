@@ -1,3 +1,4 @@
+import { applySupportedEffects } from './effects-apply.ts'
 import type { BlobStore } from '../media/blob-store.ts'
 import { applyAttachments } from './attachment-apply.ts'
 import type { AttachmentRecovery } from './attachment-recovery.ts'
@@ -47,8 +48,11 @@ export async function executeRun(
   ) {
     throw new Error('apply_profile_mismatch')
   }
-  if (authority.plan.version === 'bench-media-plan/1') {
-    if (profile.attachmentCapability !== authority.plan.capability || !deps.mediaStore) {
+  if (
+    authority.plan.version === 'bench-media-plan/1' ||
+    (authority.plan.version === 'bench-effects-plan/1' && authority.plan.mediaConfigured)
+  ) {
+    if (profile.attachmentCapability !== 'owned-fake-media/1' || !deps.mediaStore) {
       throw new Error('media_apply_capability_unavailable')
     }
     // All supporting bytes must be present and verified before even the first stock POST.
@@ -71,6 +75,9 @@ export async function executeRun(
   }
 
   await health()
+  if (authority.plan.version === 'bench-effects-plan/1') {
+    return applySupportedEffects(deps, runId, authority.plan, recoveryIds, health)
+  }
 
   async function request(
     operation: StockOperation,

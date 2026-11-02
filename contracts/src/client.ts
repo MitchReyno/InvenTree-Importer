@@ -6,7 +6,11 @@ import type {
   Approval,
   ManualRunCommand,
   ManualRecoveryCommand,
+  ManualWorkspace,
+  ManualPreparationResult,
+  ManualRun,
 } from '../generated/api.d.ts'
+import { validate } from './index.ts'
 import { successfulData } from './client-policy.ts'
 import { typedClient, commandHeaders } from './client-runtime.ts'
 
@@ -52,7 +56,9 @@ export function manualClient(baseUrl: string, csrfToken: string, transport: type
     activity: () => successfulData(client.GET('/api/v1/activity')),
 
     workspace: (id: string) =>
-      successfulData(client.GET('/api/v1/batches/{id}/manual', { params: { path: { id } } })),
+      manualWorkspaceResponse(
+        client.GET('/api/v1/batches/{id}/manual', { params: { path: { id } } }),
+      ),
 
     review: (id: string, input: ManualScope, key: string) =>
       successfulData(
@@ -64,7 +70,7 @@ export function manualClient(baseUrl: string, csrfToken: string, transport: type
       ),
 
     prepare: (id: string, input: ManualScope, key: string) =>
-      successfulData(
+      manualPreparationResponse(
         client.POST('/api/v1/batches/{id}/preparations', {
           params: { path: { id } },
           body: input,
@@ -82,7 +88,7 @@ export function manualClient(baseUrl: string, csrfToken: string, transport: type
       ),
 
     run: (id: string) =>
-      successfulData(client.GET('/api/v1/runs/{id}', { params: { path: { id } } })),
+      manualRunResponse(client.GET('/api/v1/runs/{id}', { params: { path: { id } } })),
 
     start: (id: string, input: ManualRunCommand, key: string) =>
       successfulData(
@@ -121,4 +127,27 @@ export function intakeClient(baseUrl: string, transport: typeof fetch = fetch) {
 
     bootstrap: () => successfulData(client.GET('/api/v1/bootstrap')),
   }
+}
+
+// The pinned OpenAPI Readable helper drops null-only keys; these named decoders retain the validated wire union.
+async function manualWorkspaceResponse(
+  operation: Promise<{ data?: unknown }>,
+): Promise<ManualWorkspace> {
+  const value = await successfulData(operation)
+  validate('ManualWorkspace', value)
+  return value as ManualWorkspace
+}
+
+async function manualPreparationResponse(
+  operation: Promise<{ data?: unknown }>,
+): Promise<ManualPreparationResult> {
+  const value = await successfulData(operation)
+  validate('ManualPreparationResult', value)
+  return value as ManualPreparationResult
+}
+
+async function manualRunResponse(operation: Promise<{ data?: unknown }>): Promise<ManualRun> {
+  const value = await successfulData(operation)
+  validate('ManualRun', value)
+  return value as ManualRun
 }

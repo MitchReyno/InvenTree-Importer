@@ -54,3 +54,25 @@ is unknown until explicit supported verification. A positive no-effect receipt p
 selected original-run attachment repair; the stock loop is skipped. Historical confirmation
 survives later removal and never grants replacement authority. The qualified protocol is an
 owned persistent fake, not an InvenTree API compatibility claim.
+
+## Additive supported effects
+
+`effects-plan.ts` adds `bench-effects-plan/1` and `owned-fake-effects/1` beside the stock and
+media plans. Migration `0010_supported_effects.sql` adds the effects journal, Part identity
+and transfer tables, and the immutable triggers and projection events those rows use. Legacy
+stock and media bytes stay on their own versions. `applySupportedEffects` only orchestrates:
+`effects-journal` commits one intent, result, effect or assessment; `effects-request` sends
+at most once and checkpoints; `effects-body` builds the create payload; `effects-preconditions`
+completes catalogue reads; `effects-evidence` attributes every trustworthy PK. Part
+attachments go through `applyPartAttachmentEffect`. Guard reads, cancel-version aggregates
+and the source-hold release stay explicit SQL.
+
+A new Part is one `POST /api/part/?tags=true` whose body is name, category, the approved tag
+names and `copy_category_parameters: false`. Extra observed tags still confirm. Missing
+requested tags, blank names, control characters, names over 100 characters, more than 32
+names and ASCII case duplicates do not. Non-ASCII names compare exactly. An existing Part is
+read, not patched. A lost Part acknowledgement stays unknown and blocks another create.
+Consumed or deleted stock can be verified and cannot authorize a replacement. Unconfigured
+media cannot carry evidence, lot attachments or Part attachments.
+
+These checks use the owned inventory fake. They do not prove a live InvenTree mutation.

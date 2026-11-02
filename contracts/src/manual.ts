@@ -1,5 +1,6 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Id, Digest, Revision, PositivePk, Quantity, CursorSequence } from './scalars.ts'
+import { PartOutput, SupportedEffectPreview, SupportedEffectResult } from './effects.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -14,17 +15,20 @@ export const ManualIssue = object({
   lot_id: Type.Union([Id, Type.Null()]),
   run_id: Type.Union([Id, Type.Null()]),
 })
-export const ManualEffect = object({
+const stockEffect = {
   lot_id: Id,
   lot_label: text,
-  part_id: PositivePk,
   part_label: text,
   quantity: Quantity,
   location_id: Type.Union([PositivePk, Type.Null()]),
   location_label: text,
   contribution_key: Id,
   barcode: text,
-})
+}
+export const ManualEffect = Type.Union([
+  object({ ...stockEffect, part_id: PositivePk }),
+  object({ ...stockEffect, part_id: Type.Null(), part_operation_key: Id }),
+])
 export const ManualMediaEvidence = object({
   version_id: Id,
   evidence_id: Id,
@@ -48,9 +52,23 @@ export const ManualAttachment = object({
   evidence_label: text,
   destination: Type.Literal('stock_attachment'),
 })
+const partAttachmentFields = {
+  ...ManualMediaEvidence.properties,
+  artifact_key: Id,
+  part_subject_id: Id,
+  part_label: text,
+  destination: Type.Literal('part_attachment'),
+  prior_run_id: Type.Union([Id, Type.Null()]),
+  prior_remote_pk: Type.Union([PositivePk, Type.Null()]),
+}
+export const ManualPartAttachment = Type.Union([
+  object({ ...partAttachmentFields, part_id: PositivePk }),
+  object({ ...partAttachmentFields, part_id: Type.Null(), part_operation_key: Id }),
+])
 const capability = Type.Union([
   Type.Literal('owned-fake-stock/1'),
   Type.Literal('owned-fake-media/1'),
+  Type.Literal('owned-fake-effects/1'),
 ])
 export const ManualPreview = object({
   id: Id,
@@ -62,8 +80,10 @@ export const ManualPreview = object({
   target_revision: Revision,
   capability,
   attachments: Type.Optional(Type.Array(ManualAttachment, { maxItems: 10 })),
+  part_attachments: Type.Optional(Type.Array(ManualPartAttachment, { maxItems: 10 })),
   evidence: Type.Optional(Type.Array(ManualMediaEvidence, { maxItems: 64 })),
   media_inputs_sha256: Type.Optional(Digest),
+  supported_effects: Type.Optional(Type.Array(SupportedEffectPreview, { maxItems: 100 })),
   effects: Type.Array(ManualEffect, { minItems: 1, maxItems: 10 }),
 })
 export const ManualPreparationResult = Type.Union([
@@ -79,6 +99,8 @@ export const ManualRunCommand = object({ expected_run_revision: Revision })
 export const ManualRecoveryCommand = Type.Union([
   object({ expected_run_revision: Revision, operation_keys: selected }),
   object({ expected_run_revision: Revision, attachment_keys: selected }),
+  object({ expected_run_revision: Revision, effect_keys: selected }),
+  object({ expected_run_revision: Revision, assessment_keys: selected }),
 ])
 export const ManualRun = object({
   run_id: Id,
@@ -102,6 +124,9 @@ export const ManualRun = object({
   effect_certainty: Type.Union(
     (['none', 'confirmed', 'unknown', 'mixed'] as const).map((value) => Type.Literal(value)),
   ),
+  part_attachments: Type.Optional(Type.Array(ManualPartAttachment, { maxItems: 10 })),
+  part_outputs: Type.Optional(Type.Array(PartOutput, { maxItems: 10 })),
+  supported_effects: Type.Optional(Type.Array(SupportedEffectResult, { maxItems: 100 })),
   confirmed_stock_ids: Type.Array(PositivePk),
   attributed_stock_ids: Type.Array(PositivePk),
   cancellation_requested: Type.Boolean(),
@@ -179,6 +204,7 @@ export const manualSchemas = {
   ManualEffect,
   ManualPreview,
   ManualAttachment,
+  ManualPartAttachment,
   ManualMediaEvidence,
   ManualPreparationResult,
   ManualReviewResult,
@@ -204,3 +230,5 @@ export type ManualMediaEvidenceDto = Static<typeof ManualMediaEvidence>
 export type ManualAcceptedDto = Static<typeof ManualAccepted>
 export type ManualReviewResultDto = Static<typeof ManualReviewResult>
 export type ManualActivityDto = Static<typeof ManualActivity>
+
+export type ManualPartAttachmentDto = Static<typeof ManualPartAttachment>

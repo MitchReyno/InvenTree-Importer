@@ -212,3 +212,45 @@ test('owned disposable writes exactly once; redirects never reach protected cont
     await new Promise<void>((resolve) => sink.close(() => resolve()))
   }
 })
+
+test('new Part creates and tagged reads opt into native tags on the collection and instance URLs', async () => {
+  const observed: string[] = []
+  const endpoint = createServer((_req, res) => {
+    observed.push(`${_req.method} ${_req.url}`)
+    res.writeHead(201).end('{"pk":"8101"}')
+  })
+  await new Promise<void>((resolve) => endpoint.listen(0, '127.0.0.1', resolve))
+  const address = endpoint.address()
+  assert(address && typeof address !== 'string')
+  const binding = { targetId: 'owned-fixture', contextId: 'owned-context' }
+  const transport = inventoryTransport({
+    ...binding,
+    kind: 'owned-disposable',
+    origin: `http://127.0.0.1:${address.port}`,
+    protectedOrigins: ['https://protected.invalid'],
+    credential: 'fake-only',
+    effectsCapability: 'owned-fake-effects/1',
+  })
+  try {
+    await (
+      await transport.sendSupported(
+        binding,
+        'create_part',
+        '{"category":"81","copy_category_parameters":false,"name":"R","tags":["SMD"]}',
+      )
+    ).text()
+    await (await transport.readSupported(binding, 'create_part', '8101')).text()
+    await (await transport.read(binding, { kind: 'get_tagged_part', pk: '8101' })).text()
+    await (await transport.read(binding, { kind: 'get_part', pk: '8101' })).text()
+    await (await transport.sendSupported(binding, 'create_stock', '{"part":"8101"}')).text()
+    assert.deepEqual(observed, [
+      'POST /api/part/?tags=true',
+      'GET /api/part/8101/?tags=true',
+      'GET /api/part/8101/?tags=true',
+      'GET /api/part/8101/',
+      'POST /api/stock/',
+    ])
+  } finally {
+    await new Promise<void>((resolve) => endpoint.close(() => resolve()))
+  }
+})

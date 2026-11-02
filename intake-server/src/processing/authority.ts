@@ -195,10 +195,14 @@ export function processingInputIsCurrent(
       current = mediaInputManifest(...argumentsForInput, descriptor)
     }
   } catch (error) {
-    const evidenceRemoved =
+    const closed =
       error instanceof ProcessingError &&
-      ['retained_evidence_required', 'retained_manual_evidence_required'].includes(error.code)
-    if (evidenceRemoved) {
+      [
+        'retained_evidence_required',
+        'retained_manual_evidence_required',
+        'unsupported_processing_input',
+      ].includes(error.code)
+    if (closed) {
       return false
     }
     throw error

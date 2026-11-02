@@ -1,6 +1,8 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Ajv2020 } from 'ajv/dist/2020.js'
 import { Id, Revision, CursorSequence, Digest, PositivePk, Quantity } from './scalars.ts'
+import { effectsSchemas } from './effects.ts'
+export * from './effects.ts'
 import { captureSchemas } from './capture.ts'
 import { manualSchemas } from './manual.ts'
 import { mediaSchemas } from './media.ts'
@@ -141,6 +143,7 @@ export const schemas = {
   Bootstrap,
   Health,
   ...captureSchemas,
+  ...effectsSchemas,
   ...manualSchemas,
   ...processingSchemas,
   ...operatorReviewSchemas,

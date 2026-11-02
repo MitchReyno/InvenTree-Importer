@@ -99,7 +99,7 @@ export const MediaSnapshot = object({
       subject_id: Id,
       mode: Type.Union([Type.Literal('selected'), Type.Literal('declined'), Type.Literal('unset')]),
       version_id: nullableId,
-      destination: Type.Literal('lot_attachment'),
+      destination: Type.Union([Type.Literal('lot_attachment'), Type.Literal('part_attachment')]),
     }),
     { maxItems: 200 },
   ),
@@ -139,7 +139,7 @@ export const MediaEdit = object({
       subject_id: Id,
       mode: Type.Union([Type.Literal('selected'), Type.Literal('declined'), Type.Literal('unset')]),
       version_id: nullableId,
-      destination: Type.Literal('lot_attachment'),
+      destination: Type.Union([Type.Literal('lot_attachment'), Type.Literal('part_attachment')]),
     }),
   ]),
 })
@@ -210,8 +210,7 @@ const MediaInputVersion = object({
   mediaType: MediaVersion.properties.media_type,
   recipe: Type.Union([MediaRecipe, Type.Null()]),
 })
-export const MediaInputManifest = object({
-  version: Type.Literal('media-inputs/1'),
+const mediaInputFields = {
   batchId: Id,
   subjectIds: Type.Array(Id, { maxItems: MEDIA_INPUT_MAX_SUBJECTS, uniqueItems: true }),
   attachments: MediaSnapshot.properties.attachments,
@@ -224,7 +223,23 @@ export const MediaInputManifest = object({
     { maxItems: 200 },
   ),
   versions: Type.Array(MediaInputVersion, { maxItems: MEDIA_INPUT_MAX_VERSIONS }),
+}
+const MediaInputManifestV1 = object({
+  ...mediaInputFields,
+  version: Type.Literal('media-inputs/1'),
+  attachments: Type.Array(
+    object({
+      ...MediaSnapshot.properties.attachments.items.properties,
+      destination: Type.Literal('lot_attachment'),
+    }),
+    { maxItems: 200 },
+  ),
 })
+const MediaInputManifestV2 = object({
+  ...mediaInputFields,
+  version: Type.Literal('media-inputs/2'),
+})
+export const MediaInputManifest = Type.Union([MediaInputManifestV1, MediaInputManifestV2])
 export type MediaInputManifestDto = Static<typeof MediaInputManifest>
 
 export function assertMediaInputManifest(value: unknown): asserts value is MediaInputManifestDto {

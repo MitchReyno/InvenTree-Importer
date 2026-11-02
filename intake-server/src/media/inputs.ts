@@ -165,8 +165,11 @@ export function scopeMediaInputs(
   if (selectedSubjects.length > MEDIA_INPUT_MAX_SUBJECTS) {
     throw new MediaInputUnavailableError('capacity')
   }
-  const selectedAttachments = snapshot.attachments.filter((attachment) =>
-    selectedSubjects.includes(attachment.subject_id),
+  // A declined or cleared Part attachment transfers nothing, so it must not move the scope to /2.
+  const selectedAttachments = snapshot.attachments.filter(
+    (attachment) =>
+      selectedSubjects.includes(attachment.subject_id) &&
+      (attachment.destination !== 'part_attachment' || attachment.mode === 'selected'),
   )
   const chosenVersions = new Set(
     selectedAttachments.flatMap((attachment) =>
@@ -205,7 +208,9 @@ export function scopeMediaInputs(
   versions.sort((left, right) => left.versionId.localeCompare(right.versionId))
   const bytes = Buffer.from(
     canonicalMedia({
-      version: 'media-inputs/1',
+      version: selectedAttachments.some((selection) => selection.destination === 'part_attachment')
+        ? 'media-inputs/2'
+        : 'media-inputs/1',
       batchId: snapshot.batch_id,
       subjectIds: selectedSubjects,
       attachments: selectedAttachments,

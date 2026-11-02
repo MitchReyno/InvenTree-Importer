@@ -1,3 +1,5 @@
+import { PreparedPartAttachments } from '../review/PreparedPartAttachments'
+import { SupportedEffectResult } from './SupportedEffectResult'
 import { AttachmentResult } from './AttachmentResult'
 import type { RunRecoverySelection } from '../../manual/types'
 import styled from 'styled-components'
@@ -70,6 +72,34 @@ export function RunResult({ run, busy, command }: Props) {
           the retained request.
         </Paragraph>
       )}
+      {run.part_outputs?.map((output) => (
+        <Operation key={output.operation_key}>
+          <strong>{output.label}</strong>
+          <Paragraph>
+            {output.usable
+              ? `Part #${output.remote_pks[0]} is known and usable`
+              : 'Part identity needs inspection'}
+          </Paragraph>
+          {output.remote_pks.length > 0 && (
+            <Small>Retained attributable IDs: {output.remote_pks.join(', ')}</Small>
+          )}
+          <Small>Dependent failures do not erase this output.</Small>
+        </Operation>
+      ))}
+      {run.part_attachments && <PreparedPartAttachments attachments={run.part_attachments} />}
+      {run.supported_effects?.map((effect) => (
+        <SupportedEffectResult
+          key={effect.operation_key}
+          effect={effect}
+          busy={busy}
+          recover={() =>
+            command(run, 'recover', {
+              kind: effect.recovery_action === 'verify_effect' ? 'assessment' : 'effect',
+              keys: [effect.operation_key],
+            })
+          }
+        />
+      ))}
       {run.operations.map((operation) => (
         <Operation key={operation.operation_key}>
           <strong>

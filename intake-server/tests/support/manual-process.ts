@@ -32,7 +32,10 @@ export async function freePort() {
   await new Promise<void>((resolve) => server.close(() => resolve()))
   return address.port
 }
-export async function manualProcess(port?: number, options: { media?: boolean } = {}) {
+export async function manualProcess(
+  port?: number,
+  options: { media?: boolean; effects?: boolean } = {},
+) {
   const fixture = await manualFixture(options)
   await fixture.stop()
   fixture.config.origin = `http://127.0.0.1:${port ?? (await freePort())}`

@@ -1,0 +1,218 @@
+import { and, eq } from 'drizzle-orm'
+import type { Pool, PoolClient } from 'pg'
+import { canonical } from '@invimport/contracts/json'
+import { sha256, verifyBytes } from '../db/authority.ts'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { retainPartTransfers, requirePartTransfers } from './part-attachment-index.ts'
+import {
+  partIdentities,
+  supportedAssessments,
+  supportedEffects,
+  supportedIntents,
+  supportedOperations,
+} from './schema.ts'
+import { supportedStates } from './effects-state.ts'
+import { decodeEffectsPlan, logicalEffectKey, type EffectsPlan } from './effects-plan.ts'
+
+export function indexedSupportedOperations(plan: EffectsPlan) {
+  return [
+    ...plan.effects.map((effect) => ({
+      key: effect.operationKey,
+      subject: effect.partSubjectId,
+      kind: effect.kind,
+      spec: effect,
+    })),
+    ...plan.operations.map((operation) => ({
+      key: operation.operationKey,
+      subject: null,
+      kind: 'create_stock',
+      spec: operation,
+    })),
+  ]
+}
+
+export async function retainSupportedIndex(client: PoolClient, runId: string, plan: EffectsPlan) {
+  const db = queryDatabase(client)
+  for (const operation of indexedSupportedOperations(plan)) {
+    const bytes = Buffer.from(canonical(operation.spec))
+    await executeDatabaseQuery(
+      db.insert(supportedOperations).values({
+        runId,
+        operationKey: operation.key,
+        partSubjectId: operation.subject,
+        kind: operation.kind,
+        specBytes: bytes,
+        specDigest: sha256(bytes),
+      }),
+    )
+  }
+  await retainPartTransfers(client, runId, plan)
+  for (const binding of plan.parts) {
+    if (!binding.prior) {
+      await executeDatabaseQuery(
+        db.insert(partIdentities).values({
+          targetId: plan.targetId,
+          originalKey: plan.originalSourceKey,
+          partSubjectId: binding.subjectId,
+          runId,
+          operationKey: logicalEffectKey(binding.subjectId, 'create_part'),
+          specDigest: Buffer.from(binding.specDigest, 'hex'),
+        }),
+      )
+    } else {
+      await requirePriorPart(client, plan, binding.subjectId, binding.specDigest, binding.prior)
+    }
+  }
+}
+
+export async function requirePriorPart(
+  client: Pool | PoolClient,
+  plan: EffectsPlan,
+  subjectId: string,
+  specDigest: string,
+  prior: { runId: string; intentId: string; pk: string },
+) {
+  const db = queryDatabase(client)
+  const createdParts = await executeDatabaseQuery(
+    db
+      .select({
+        operationKey: partIdentities.operationKey,
+        specDigest: partIdentities.specDigest,
+        remotePks: supportedEffects.remotePks,
+        certainty: supportedEffects.certainty,
+      })
+      .from(partIdentities)
+      .innerJoin(
+        supportedIntents,
+        and(
+          eq(supportedIntents.runId, partIdentities.runId),
+          eq(supportedIntents.operationKey, partIdentities.operationKey),
+          eq(supportedIntents.kind, 'create'),
+        ),
+      )
+      .innerJoin(supportedEffects, eq(supportedEffects.intentId, supportedIntents.id))
+      .where(
+        and(
+          eq(partIdentities.targetId, plan.targetId),
+          eq(partIdentities.originalKey, plan.originalSourceKey),
+          eq(partIdentities.partSubjectId, subjectId),
+          eq(partIdentities.runId, prior.runId),
+          eq(supportedIntents.id, prior.intentId),
+        ),
+      ),
+  )
+  const row = createdParts[0]
+  if (
+    !row ||
+    row.specDigest.toString('hex') !== specDigest ||
+    row.remotePks.length !== 1 ||
+    row.remotePks[0] !== prior.pk
+  ) {
+    throw new Error('prior_part_binding_invalid')
+  }
+  const approved = await client.query(
+    'SELECT a.plan_bytes,a.plan_digest FROM executor_run r JOIN executor_approval a ON a.id=r.approval_id WHERE r.id=$1',
+    [prior.runId],
+  )
+  const retained = approved.rows[0]
+  if (!retained) {
+    throw new Error('prior_part_authority_missing')
+  }
+  const original = decodeEffectsPlan(retained.plan_bytes, retained.plan_digest)
+  const binding = original.parts.find((part) => part.subjectId === subjectId)
+  if (
+    original.targetId !== plan.targetId ||
+    original.originalSourceKey !== plan.originalSourceKey ||
+    !binding ||
+    binding.prior !== null ||
+    binding.specDigest !== specDigest
+  ) {
+    throw new Error('prior_part_binding_invalid')
+  }
+  const state = (await supportedStates(client, prior.runId, original)).find(
+    (state) => state.operationKey === row.operationKey,
+  )
+  if (
+    state?.certainty !== 'confirmed' ||
+    state.remotePks.length !== 1 ||
+    state.remotePks[0] !== prior.pk ||
+    state.createIntentId !== prior.intentId
+  ) {
+    throw new Error('prior_part_unconfirmed')
+  }
+  if (row.certainty !== 'confirmed') {
+    const verified = await executeDatabaseQuery(
+      db
+        .select({ id: supportedAssessments.id })
+        .from(supportedAssessments)
+        .where(
+          and(
+            eq(supportedAssessments.runId, prior.runId),
+            eq(supportedAssessments.createIntentId, prior.intentId),
+            eq(supportedAssessments.remotePk, prior.pk),
+            eq(supportedAssessments.outcome, 'matches'),
+          ),
+        ),
+    )
+    if (!verified.length) {
+      throw new Error('prior_part_unconfirmed')
+    }
+  }
+}
+
+export async function requireSupportedIndex(
+  client: Pool | PoolClient,
+  runId: string,
+  plan: EffectsPlan,
+) {
+  const db = queryDatabase(client)
+  const indexed = await executeDatabaseQuery(
+    db.select().from(supportedOperations).where(eq(supportedOperations.runId, runId)),
+  )
+  const expected = indexedSupportedOperations(plan)
+  if (indexed.length !== expected.length) {
+    throw new Error('supported_index_missing')
+  }
+  for (const operation of expected) {
+    const stored = indexed.find((row) => row.operationKey === operation.key)
+    if (!stored || stored.kind !== operation.kind || stored.partSubjectId !== operation.subject) {
+      throw new Error('supported_index_mismatch')
+    }
+    verifyBytes(stored.specBytes, stored.specDigest)
+    if (stored.specBytes.toString('utf8') !== canonical(operation.spec)) {
+      throw new Error('supported_index_mismatch')
+    }
+  }
+  await requirePartTransfers(client, runId, plan)
+  for (const binding of plan.parts) {
+    if (binding.prior) {
+      await requirePriorPart(client, plan, binding.subjectId, binding.specDigest, binding.prior)
+    } else {
+      const identities = await executeDatabaseQuery(
+        db
+          .select({
+            runId: partIdentities.runId,
+            operationKey: partIdentities.operationKey,
+            specDigest: partIdentities.specDigest,
+          })
+          .from(partIdentities)
+          .where(
+            and(
+              eq(partIdentities.targetId, plan.targetId),
+              eq(partIdentities.originalKey, plan.originalSourceKey),
+              eq(partIdentities.partSubjectId, binding.subjectId),
+            ),
+          ),
+      )
+      const row = identities[0]
+      if (
+        !row ||
+        row.runId !== runId ||
+        row.operationKey !== logicalEffectKey(binding.subjectId, 'create_part') ||
+        row.specDigest.toString('hex') !== binding.specDigest
+      ) {
+        throw new Error('part_identity_missing')
+      }
+    }
+  }
+}

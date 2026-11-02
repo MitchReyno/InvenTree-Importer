@@ -1,7 +1,14 @@
+import { stockIndexBytes } from './effects-output.ts'
+import { supportedStates } from './effects-state.ts'
+import { retainSupportedIndex, requireSupportedIndex } from './effects-index.ts'
+import { canonical as canonicalStock } from '@invimport/contracts/json'
 import { randomUUID } from 'node:crypto'
 import type { PoolClient, Pool } from 'pg'
 import { canonical } from '@invimport/contracts/json'
+import { eq } from 'drizzle-orm'
 import { sha256, verifyBytes } from '../db/authority.ts'
+import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { supportedIntents } from './schema.ts'
 import { stockBytes, id } from './plan.ts'
 import { decodeExecutablePlan, type ExecutablePlan } from './media-plan.ts'
 import { attachmentStates, type AttachmentState } from './attachment-state.ts'
@@ -145,7 +152,8 @@ export async function reserveApprovedStock(
     throw new Error('original_contribution_already_approved')
   }
   const mediaBatchId =
-    plan.version === 'bench-media-plan/1'
+    plan.version === 'bench-media-plan/1' ||
+    (plan.version === 'bench-effects-plan/1' && plan.mediaConfigured)
       ? await lockApprovedMedia(client, input.actorId, plan)
       : null
   await client.query('INSERT INTO executor_approval VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [
@@ -189,7 +197,7 @@ export async function reserveApprovedStock(
     plan.originalSourceKey,
   ])
   for (const operation of plan.operations) {
-    const bytes = stockBytes(operation)
+    const bytes = stockIndexBytes(operation, stockBytes, canonicalStock)
     await client.query('INSERT INTO executor_operation VALUES ($1,$2,$3,$4,$5,$6,$7)', [
       input.runId,
       operation.operationKey,
@@ -200,12 +208,17 @@ export async function reserveApprovedStock(
       sha256(bytes),
     ])
   }
-  if (plan.version === 'bench-media-plan/1') {
+  if (plan.version === 'bench-effects-plan/1') {
+    await retainSupportedIndex(client, input.runId, plan)
+  }
+  if (plan.version !== 'bench-stock-plan/1') {
     await retainAttachmentIndex(client, input.runId, plan)
-    if (!mediaBatchId) {
+    if (!mediaBatchId && (plan.version === 'bench-media-plan/1' || plan.mediaConfigured)) {
       throw new Error('media_source_authority_missing')
     }
-    await retainApprovedMediaPins(client, input.approvalId, mediaBatchId, plan)
+    if (mediaBatchId) {
+      await retainApprovedMediaPins(client, input.approvalId, mediaBatchId, plan)
+    }
   }
   await client.query(
     'UPDATE executor_guard SET active_run=$3 WHERE target_id=$1 AND original_key=$2',
@@ -215,10 +228,7 @@ export async function reserveApprovedStock(
 }
 
 /** Every start/adopt and authorization rechecks ALL retained bindings, not just a run status. */
-export async function loadRun(
-  client: Pick<PoolClient, 'query'>,
-  runId: string,
-): Promise<RunAuthority> {
+export async function loadRun(client: Pool | PoolClient, runId: string): Promise<RunAuthority> {
   id(runId)
   const result = await client.query(
     `SELECT a.*,r.command_id,c.payload_bytes,c.payload_digest,c.handler_version,c.actor_id AS command_actor,c.target_id AS command_target,c.target_context_id,c.kind,c.workflow_id,c.queue_name
@@ -269,12 +279,15 @@ export async function loadRun(
       throw new Error('operation_binding_mismatch')
     }
     verifyBytes(stored.request_bytes, stored.request_digest)
-    if (!stored.request_bytes.equals(stockBytes(operation))) {
+    if (!stored.request_bytes.equals(stockIndexBytes(operation, stockBytes, canonicalStock))) {
       throw new Error('operation_bytes_mismatch')
     }
   }
+  if (plan.version === 'bench-effects-plan/1') {
+    await requireSupportedIndex(client, runId, plan)
+  }
   await requireAttachmentIndex(client, runId, plan)
-  if (plan.version === 'bench-media-plan/1') {
+  if (plan.version !== 'bench-stock-plan/1') {
     await requireApprovedMediaPins(client, row.id, plan)
   }
   return {
@@ -379,11 +392,48 @@ export interface StockSnapshot {
   }[]
 }
 
-export async function snapshot(
-  client: Pick<Pool, 'query'> | Pick<PoolClient, 'query'>,
-  runId: string,
-): Promise<StockSnapshot> {
+export async function snapshot(client: Pool | PoolClient, runId: string): Promise<StockSnapshot> {
   const authority = await loadRun(client, runId)
+  if (authority.plan.version === 'bench-effects-plan/1') {
+    const states = await supportedStates(client, runId, authority.plan)
+    const operations = states
+      .filter((state) => state.kind === 'create_stock')
+      .map((state) => ({
+        operationKey: state.operationKey,
+        certainty: state.certainty,
+        remotePk: state.remotePks.length === 1 ? state.remotePks[0] : null,
+      }))
+    const attachments = await attachmentStates(client, runId, authority.plan, operations)
+    const supportedRequests = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({ id: supportedIntents.id })
+        .from(supportedIntents)
+        .where(eq(supportedIntents.runId, runId))
+        .limit(1),
+    )
+    const hasRequests = supportedRequests.length
+    const cancelled = (await client.query('SELECT 1 FROM executor_cancel WHERE run_id=$1', [runId]))
+      .rowCount
+    return {
+      runId,
+      cancellationRequested: Boolean(cancelled),
+      attachments,
+      operations,
+      state: [...states, ...attachments].some((state) => state.certainty === 'unknown')
+        ? 'recovery_required'
+        : [...states, ...attachments].every((state) => state.certainty === 'confirmed')
+          ? 'settled_complete'
+          : hasRequests || cancelled
+            ? 'settled_incomplete'
+            : 'queued',
+      confirmedStockIds: operations.flatMap((state) =>
+        state.certainty === 'confirmed' && state.remotePk ? [state.remotePk] : [],
+      ),
+      attributedStockIds: states
+        .filter((state) => state.kind === 'create_stock')
+        .flatMap((state) => state.remotePks),
+    }
+  }
   const effects = (
     await client.query(
       `SELECT i.operation_key,e.certainty,e.remote_pk FROM executor_intent i LEFT JOIN executor_effect e ON e.intent_id=i.id WHERE i.run_id=$1 AND i.kind='create_stock'`,

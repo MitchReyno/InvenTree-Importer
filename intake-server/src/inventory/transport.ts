@@ -15,8 +15,30 @@ export interface TargetProfile extends TargetBinding {
   protectedOrigins: readonly string[]
   credential: string
   attachmentCapability?: 'owned-fake-media/1'
+  effectsCapability?: 'owned-fake-effects/1'
 }
-type ReadOperation = { kind: 'get_part' | 'get_location' | 'get_stock'; pk: string }
+export type ReadOperation = {
+  kind:
+    | 'get_part'
+    | 'get_tagged_part'
+    | 'get_location'
+    | 'get_stock'
+    | 'get_category'
+    | 'get_parameter_template'
+    | 'get_category_parameter'
+    | 'get_company'
+  pk: string
+}
+const READ_PATHS = {
+  get_part: 'part',
+  get_tagged_part: 'part',
+  get_location: 'stock/location',
+  get_stock: 'stock',
+  get_category: 'part/category',
+  get_parameter_template: 'parameter/template',
+  get_category_parameter: 'part/category/parameters',
+  get_company: 'company',
+} as const
 
 function origin(value: string): URL {
   const url = new URL(value)
@@ -154,7 +176,7 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
       assertBinding(binding)
       if (
         !operation ||
-        !['get_part', 'get_location', 'get_stock'].includes(operation.kind) ||
+        !Object.hasOwn(READ_PATHS, operation.kind) ||
         typeof operation.pk !== 'string' ||
         !new RegExp(PositivePk.pattern!).test(operation.pk) ||
         BigInt(operation.pk) > 9223372036854775807n
@@ -162,7 +184,11 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
         throw new Error('read_operation_refused')
       }
       return request(
-        `/api/${operation.kind === 'get_part' ? 'part' : operation.kind === 'get_location' ? 'stock/location' : 'stock'}/${operation.pk}/`,
+        inventoryPath(
+          READ_PATHS[operation.kind],
+          operation.pk,
+          operation.kind === 'get_tagged_part',
+        ),
         'GET',
       )
     },
@@ -172,6 +198,74 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
       return request('/api/stock/', 'POST', retainedRequestBytes)
     },
 
+    async readPartAttachmentMetadata(binding: TargetBinding, pk: string) {
+      assertBinding(binding)
+      if (!new RegExp(PositivePk.pattern!).test(pk) || BigInt(pk) > 9223372036854775807n) {
+        throw new Error('part_attachment_read_refused')
+      }
+      return request(`/api/attachment/${pk}/`, 'GET')
+    },
+    async readPartAttachmentFile(
+      binding: TargetBinding,
+      input: { pk: string; partPk: string; path: string },
+    ) {
+      assertBinding(binding)
+      for (const pk of [input.pk, input.partPk]) {
+        if (!new RegExp(PositivePk.pattern!).test(pk) || BigInt(pk) > 9223372036854775807n) {
+          throw new Error('part_attachment_read_refused')
+        }
+      }
+      const path = qualifiedAttachmentPath(input.path, destination)
+      return request(path, 'GET')
+    },
+    async sendPartAttachment(binding: TargetBinding, body: Buffer, contentType: string) {
+      assertBinding(binding)
+      requireOwnedMutationTarget()
+      if (
+        profile.effectsCapability !== 'owned-fake-effects/1' ||
+        body.length > MEDIA_SOURCE_MAX_BYTES + 8192 ||
+        !/^multipart\/form-data; boundary=bench-[a-f0-9-]+$/.test(contentType)
+      ) {
+        throw new Error('part_attachment_send_refused')
+      }
+      return request('/api/attachment/', 'POST', new Uint8Array(body), {
+        'content-type': contentType,
+      })
+    },
+    async sendSupported(
+      binding: TargetBinding,
+      kind: SupportedMutationKind,
+      retainedRequestBytes: string,
+    ) {
+      assertBinding(binding)
+      requireOwnedMutationTarget()
+      if (
+        profile.effectsCapability !== 'owned-fake-effects/1' ||
+        kind === 'part_attachment' ||
+        !Object.hasOwn(SUPPORTED_PATHS, kind)
+      ) {
+        throw new Error('effects_capability_refused')
+      }
+      return request(
+        inventoryPath(SUPPORTED_PATHS[kind], undefined, kind === 'create_part'),
+        'POST',
+        retainedRequestBytes,
+      )
+    },
+    async readSupported(binding: TargetBinding, kind: SupportedMutationKind, pk: string) {
+      assertBinding(binding)
+      requireOwnedMutationTarget()
+      if (
+        profile.effectsCapability !== 'owned-fake-effects/1' ||
+        kind === 'part_attachment' ||
+        !Object.hasOwn(SUPPORTED_PATHS, kind) ||
+        !new RegExp(PositivePk.pattern!).test(pk) ||
+        BigInt(pk) > 9223372036854775807n
+      ) {
+        throw new Error('effects_read_refused')
+      }
+      return request(inventoryPath(SUPPORTED_PATHS[kind], pk, kind === 'create_part'), 'GET')
+    },
     async sendAttachment(binding: TargetBinding, metadata: AttachmentWire, bytes: Buffer) {
       requireOwnedMedia(binding)
       checkedAttachmentWire(metadata, bytes)
@@ -238,4 +332,51 @@ function checkedAttachmentWire(metadata: AttachmentWire, bytes: Buffer) {
   ) {
     throw new Error('attachment_request_refused')
   }
+}
+
+function inventoryPath(family: string, pk?: string, tags = false) {
+  const path = pk ? `/api/${family}/${pk}/` : `/api/${family}/`
+  return tags ? `${path}?tags=true` : path
+}
+
+export type SupportedMutationKind =
+  'create_part' | 'parameter' | 'manufacturer' | 'supplier' | 'create_stock' | 'part_attachment'
+const SUPPORTED_PATHS = {
+  create_part: 'part',
+  parameter: 'parameter',
+  manufacturer: 'company/part/manufacturer',
+  supplier: 'company/part',
+  part_attachment: 'attachment',
+  create_stock: 'stock',
+} as const
+
+/** Only metadata-bound same-origin local media is supported; signed/custom storage URLs fail closed. */
+export function qualifiedAttachmentPath(value: string, destination: URL) {
+  if (typeof value !== 'string' || value.length > 2048 || /[\\\x00-\x20\x7f]/.test(value)) {
+    throw new Error('part_attachment_path_refused')
+  }
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(value)
+  } catch {
+    throw new Error('part_attachment_path_refused')
+  }
+  if (
+    decoded.includes('\\') ||
+    decoded.split('/').some((segment) => segment === '.' || segment === '..')
+  ) {
+    throw new Error('part_attachment_path_refused')
+  }
+  const url = new URL(value, destination)
+  if (
+    url.origin !== destination.origin ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
+    !url.pathname.startsWith('/media/attachments/')
+  ) {
+    throw new Error('part_attachment_path_refused')
+  }
+  return url.pathname
 }

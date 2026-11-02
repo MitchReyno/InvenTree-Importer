@@ -1,0 +1,21 @@
+/** An explicit fake profile is not a compatibility claim for an InvenTree deployment. */
+export const SUPPORTED_EFFECTS_MANIFEST = Object.freeze({
+  version: 'bench-effects-capability/1',
+  build: 'bench-effects/1',
+  capability: 'owned-fake-effects/1',
+  qualification: 'owned_fake_only',
+  sourceVersion: 'InvenTree/1.5.0',
+  createPart: true,
+  mappedCategory: true,
+  mappedParameters: true,
+  manufacturerPart: true,
+  supplierPart: true,
+  stock: true,
+  partAttachment: true,
+  stockAttachment: true,
+  tags: 'new_part_create_only',
+  tagCreation: true,
+  primaryImageReplacement: false,
+  categoryTemplateCompanyCreation: false,
+  arbitraryOverwrite: false,
+})

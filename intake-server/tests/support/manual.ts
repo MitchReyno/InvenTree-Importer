@@ -1,3 +1,4 @@
+import { EFFECTS_BUILD, EFFECTS_CAPABILITY } from '../../src/execution/effects-plan.ts'
 import { readMediaStoreIdentity } from '../../src/media/store-identity.ts'
 import { realpath } from 'node:fs/promises'
 import { BlobStore } from '../../src/media/blob-store.ts'
@@ -31,19 +32,27 @@ import { inventoryTransport } from '../../src/inventory/transport.ts'
 import type { ManualRunnerConfig } from '../../src/review/runner.ts'
 
 /** Only fresh synthetic roles/credentials and random isolated databases on the shared owned PG. */
-export async function manualFixture(options: { media?: boolean } = {}) {
+export async function manualFixture(options: { media?: boolean; effects?: boolean } = {}) {
   const db = await isolatedDatabase()
   const identity = await seedAuthority(db.pool)
   const root = await realpath(await mkdtemp(join(tmpdir(), 'bench-manual-')))
-  const build = options.media ? MEDIA_EXECUTOR_BUILD : EXECUTOR_BUILD
-  const capability = options.media ? MEDIA_CAPABILITY : CAPABILITY
+  const build = options.effects
+    ? EFFECTS_BUILD
+    : options.media
+      ? MEDIA_EXECUTOR_BUILD
+      : EXECUTOR_BUILD
+  const capability = options.effects
+    ? EFFECTS_CAPABILITY
+    : options.media
+      ? MEDIA_CAPABILITY
+      : CAPABILITY
   const blobRoot = join(root, 'blobs')
   const store = options.media
     ? await BlobStore.initialize(blobRoot, await readMediaStoreIdentity(db.pool))
     : undefined
   const roles: string[] = []
   const connections: ReturnType<typeof database>[] = []
-  let fake = await inventoryFake(db.pool, 0, true, options.media)
+  let fake = await inventoryFake(db.pool, 0, true, options.media, options.effects)
   const deploymentId = randomUUID()
   const epoch = randomUUID()
   await db.pool.query('INSERT INTO executor_deployment VALUES($1,$2,$3,$4,$5,$6,$7,$8)', [
@@ -111,6 +120,7 @@ export async function manualFixture(options: { media?: boolean } = {}) {
     protectedOrigins: ['https://protected.invalid'],
     credential: 'owned-fake-token',
     ...(options.media ? { attachmentCapability: MEDIA_CAPABILITY } : {}),
+    ...(options.effects ? { effectsCapability: EFFECTS_CAPABILITY } : {}),
   }
   const runnerConfig: ManualRunnerConfig = {
     runnerDatabaseUrl: runner.url,
@@ -143,7 +153,18 @@ export async function manualFixture(options: { media?: boolean } = {}) {
   async function start() {
     app = createServer(config, { mediaEnabled: Boolean(store) })
     registerCapture(app, api.pool, config, read)
-    registerManual(app, api.pool, config, read)
+    registerManual(app, api.pool, config, read, {
+      metadata: (pk) =>
+        transport.readPartAttachmentMetadata(
+          { targetId: identity.target, contextId: identity.context },
+          pk,
+        ),
+      file: (input) =>
+        transport.readPartAttachmentFile(
+          { targetId: identity.target, contextId: identity.context },
+          input,
+        ),
+    })
     if (store) {
       registerMediaRoutes(app, api.pool, config, store)
     }
@@ -194,7 +215,7 @@ export async function manualFixture(options: { media?: boolean } = {}) {
     async restartFake() {
       const port = fake.port
       await fake.close()
-      fake = await inventoryFake(db.pool, port, true, options.media)
+      fake = await inventoryFake(db.pool, port, true, options.media, options.effects)
     },
     async seedCapture() {
       const created = await http('/batches', {
@@ -242,7 +263,7 @@ export async function manualFixture(options: { media?: boolean } = {}) {
           value: {
             observation_id: observation.id,
             target_context_id: observation.target_context_id,
-            model: observation.model,
+            model,
             pk: observation.pk,
           },
         }

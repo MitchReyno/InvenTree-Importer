@@ -10,7 +10,9 @@ const reservation = createServer()
 reservation.listen(4330, '127.0.0.1')
 await once(reservation, 'listening')
 await new Promise<void>((resolve) => reservation.close(() => resolve()))
-const fixture = await manualProcess(4330)
+// Opt-in supported-effects capability for explicit Part creation journeys.
+const effects = process.env.INTAKE_PREVIEW_EFFECTS === '1'
+const fixture = await manualProcess(4330, { effects })
 try {
   await fixture.startWeb()
   const capture = await fixture.seedCapture()
@@ -23,6 +25,7 @@ try {
       JSON.stringify(
         {
           owner: 'T04',
+          capability: effects ? 'owned-fake-effects/1' : 'owned-fake-stock/1',
           parent_pid: process.pid,
           web_pid: fixture.webChild?.pid,
           runner_pid: fixture.runnerChild?.pid,

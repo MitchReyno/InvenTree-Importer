@@ -1,3 +1,4 @@
+import { decodeEffectsPlan, type EffectsPlan } from './effects-plan.ts'
 import { Digest } from '@invimport/contracts'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import { sha256, verifyBytes } from '../db/authority.ts'
@@ -33,7 +34,7 @@ export interface MediaPlan extends Omit<StockPlan, 'version' | 'build' | 'capabi
   evidence: MediaPlanEvidence[]
 }
 
-export type ExecutablePlan = StockPlan | MediaPlan
+export type ExecutablePlan = StockPlan | MediaPlan | EffectsPlan
 
 function record(value: unknown, keys: readonly string[]): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -96,7 +97,7 @@ function validateVersionFields(version: Record<string, unknown>) {
   }
 }
 
-function validateEvidence(value: unknown): MediaPlanEvidence {
+export function validateEvidence(value: unknown): MediaPlanEvidence {
   const version = record(value, evidenceKeys)
   validateVersionFields(version)
   return version as unknown as MediaPlanEvidence
@@ -132,6 +133,14 @@ export function decodeExecutablePlan(bytes: Buffer, expectedDigest: Buffer): Exe
     (parsed as Record<string, unknown>).version === 'bench-stock-plan/1'
   ) {
     return decodePlan(bytes, expectedDigest)
+  }
+  if (
+    parsed &&
+    typeof parsed === 'object' &&
+    !Array.isArray(parsed) &&
+    (parsed as Record<string, unknown>).version === 'bench-effects-plan/1'
+  ) {
+    return decodeEffectsPlan(bytes, expectedDigest)
   }
   const value = record(parsed, [
     'version',
@@ -229,5 +238,5 @@ export function encodeExecutablePlan(plan: ExecutablePlan) {
 }
 
 export function attachmentOperations(plan: ExecutablePlan): readonly AttachmentOperation[] {
-  return plan.version === 'bench-media-plan/1' ? plan.attachments : []
+  return plan.version === 'bench-stock-plan/1' ? [] : plan.attachments
 }

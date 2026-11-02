@@ -55,7 +55,10 @@ export function retainedEvidence(inputsBySubject: ReadonlyMap<string, MediaInput
     .sort((left, right) => left.versionId.localeCompare(right.versionId))
 }
 
-function selectedAttachments(material: ManualMaterial, evidence: readonly MediaPlanEvidence[]) {
+export function selectedAttachments(
+  material: ManualMaterial,
+  evidence: readonly MediaPlanEvidence[],
+) {
   const attachments: AttachmentOperation[] = []
   for (const effect of material.effects) {
     const inputs = material.mediaInputs?.get(effect.lot_id)
@@ -94,6 +97,9 @@ export function preparedPlan(
   originalSourceKey: string,
   material: ManualMaterial,
 ): ExecutablePlan {
+  if (binding.capability === 'owned-fake-effects/1') {
+    throw new Error('effects_preparation_requires_retained_bindings')
+  }
   if (binding.capability === CAPABILITY) {
     if (material.mediaInputs?.size) {
       throw new Error('unsupported_media_capability')

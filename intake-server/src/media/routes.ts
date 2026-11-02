@@ -44,7 +44,10 @@ export function registerMediaRoutes(
       const code = error instanceof CommandPayloadConflict ? 'payload_conflict' : error.code
       reply.code(statusCode).send({
         code,
-        message: 'The evidence request could not be accepted.',
+        message:
+          code === 'lot_retired'
+            ? 'This lot was split or merged. Select an active successor lot for evidence changes.'
+            : 'The evidence request could not be accepted.',
         recovery: code === 'revision_conflict' ? 'refresh' : 'none',
         correlation_id: request.id,
       })

@@ -221,10 +221,13 @@ async function selectAttachment(
   change: Extract<Change, { kind: 'select_attachment' }>,
   capture: CaptureSnapshotDto,
 ) {
-  if (!capture.lots.some((subject) => subject.id === change.subject_id)) {
+  const subjects = change.destination === 'lot_attachment' ? capture.lots : capture.parts
+  if (!subjects.some((subject) => subject.id === change.subject_id)) {
     fail('not_found', 404)
   }
-  requireActiveLot(capture, change.subject_id)
+  if (change.destination === 'lot_attachment') {
+    requireActiveLot(capture, change.subject_id)
+  }
   if ((change.mode === 'selected') !== (change.version_id !== null)) {
     fail('invalid_attachment_selection')
   }
@@ -238,16 +241,19 @@ async function selectAttachment(
     }
   }
   await executeDatabaseQuery(
-    queryDatabase(client).insert(mediaAttachmentSelections).values({
-      id: randomUUID(),
-      batchId,
-      subjectId: change.subject_id,
-      mode: change.mode,
-      versionId: change.version_id,
-      destination: change.destination,
-      revision,
-      actorId: binding.actorId,
-    }),
+    queryDatabase(client)
+      .insert(mediaAttachmentSelections)
+      .values({
+        id: randomUUID(),
+        batchId,
+        subjectId: change.subject_id,
+        subjectKind: change.destination === 'part_attachment' ? 'part' : 'lot',
+        mode: change.mode,
+        versionId: change.version_id,
+        destination: change.destination,
+        revision,
+        actorId: binding.actorId,
+      }),
   )
 }
 

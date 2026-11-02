@@ -2,6 +2,15 @@ import { visit } from 'jsonc-parser'
 
 /** Reject duplicates (including escaped aliases), unsafe numbers and non-JSON syntax. */
 export function strictJson(text: string): unknown {
+  return parsedJson(text, true)
+}
+
+/** Evidence extraction only. Unsafe numbers never establish identities or usable outputs. */
+export function attributionJson(text: string): unknown {
+  return parsedJson(text, false)
+}
+
+function parsedJson(text: string, exactNumbers: boolean): unknown {
   if (Buffer.byteLength(text, 'utf8') > 262144) {
     throw new Error('json_too_large')
   }
@@ -37,6 +46,7 @@ export function strictJson(text: string): unknown {
       },
       onLiteralValue: (value) => {
         if (
+          exactNumbers &&
           typeof value === 'number' &&
           (!Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value)))
         ) {

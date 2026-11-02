@@ -1,3 +1,4 @@
+import { effectsDeployment, type EffectsDeployment } from '../execution/effects-source.ts'
 import type { PoolClient } from 'pg'
 import type { ManualIssueDto } from '@invimport/contracts'
 import type { DevConfig } from '../config.ts'
@@ -18,7 +19,7 @@ export interface ManualConfig extends DevConfig {
   readOrigin?: string
   mediaEnabled?: boolean
 }
-export type DeploymentBinding = StockDeployment | MediaDeployment
+export type DeploymentBinding = StockDeployment | MediaDeployment | EffectsDeployment
 
 export async function deploymentBinding(
   client: PoolClient,
@@ -37,7 +38,7 @@ export async function deploymentBinding(
   if (stock) {
     return stock
   }
-  return mediaDeployment(client, input)
+  return (await mediaDeployment(client, input)) ?? (await effectsDeployment(client, input))
 }
 
 export async function lockedCapture(client: PoolClient, config: ManualConfig, batchId: string) {
@@ -152,7 +153,7 @@ export function stockPlan(
     operations: material.effects.map((value) => ({
       operationKey: value.lot_id,
       contributionKey: value.contribution_key,
-      part: value.part_id,
+      part: value.part_id ?? fail('unsupported_part_creation', 409),
       location: value.location_id,
       quantity: value.quantity,
       barcode: value.barcode,

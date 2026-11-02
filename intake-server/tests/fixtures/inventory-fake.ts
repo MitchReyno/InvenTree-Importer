@@ -1,3 +1,4 @@
+import { effectsFakeRequest,initializeEffectsFake } from './effects-fake.ts'
 import { attachmentFakeRequest, initializeAttachmentFake } from './attachment-fake.ts'
 import { createServer } from 'node:http'
 import type { Pool } from 'pg'
@@ -6,11 +7,12 @@ import { transaction } from '../../src/db/database.ts'
 /** Owned persistent HTTP fake. PG, not a JS map, owns requests, faults and stock.
  * Restart the listener with the same pool to retain ALL receipts and effects.
  */
-export async function inventoryFake(pool: Pool, port = 0, names = false, media = false) {
+export async function inventoryFake(pool: Pool, port = 0, names = false, media = false, effects = false) {
   await pool.query(`CREATE TABLE IF NOT EXISTS fake_request (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,method text NOT NULL,path text NOT NULL,body bytea NOT NULL);
     CREATE TABLE IF NOT EXISTS fake_stock (pk bigint GENERATED ALWAYS AS IDENTITY (START WITH 7101) PRIMARY KEY,request_id bigint NOT NULL REFERENCES fake_request(id),part text NOT NULL,location text,quantity text NOT NULL,barcode text NOT NULL);
     CREATE TABLE IF NOT EXISTS fake_control (id integer PRIMARY KEY CHECK (id=1),fault text NOT NULL);
     INSERT INTO fake_control VALUES (1,'none') ON CONFLICT DO NOTHING;`)
+  if(effects) {await initializeEffectsFake(pool)}
   if (media) {
     await initializeAttachmentFake(pool)
   }
@@ -40,6 +42,7 @@ export async function inventoryFake(pool: Pool, port = 0, names = false, media =
         }
         return { row, fault, stock }
       })
+      if(effects && await effectsFakeRequest(pool,request,response,bytes,fault,row.id)) {return}
       if (media && (await attachmentFakeRequest(pool, request, response, bytes, fault))) {
         return
       }
@@ -71,13 +74,16 @@ export async function inventoryFake(pool: Pool, port = 0, names = false, media =
           response.end(JSON.stringify(stored ?? {}))
           return
         }
-        const match = /^\/api\/(part|stock\/location)\/([1-9][0-9]*)\/$/.exec(request.url!)
+        const url = new URL(request.url!, 'http://inventory-fake.invalid')
+        const match = /^\/api\/(part|stock\/location)\/([1-9][0-9]*)\/$/.exec(url.pathname)
         if (!match) {
           response.writeHead(404).end('{}')
           return
         }
         const name = match[1] === 'part' ? `Existing Part ${match[2]}` : `Location ${match[2]}`
-        response.end(JSON.stringify({ pk: match[2], ...(names ? { name } : {}) }))
+        // Existing fake Parts carry no tags; the optional field appears only with ?tags=true.
+        const tags = match[1] === 'part' && url.searchParams.get('tags') === 'true' ? { tags: [] } : {}
+        response.end(JSON.stringify({ pk: match[2], ...(names ? { name } : {}), ...tags }))
         return
       }
       if (fault === 'redirect') {

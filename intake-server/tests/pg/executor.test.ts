@@ -568,12 +568,19 @@ test('restricted apply role reads authority/locks but cannot approve, enroll, re
     try {
       await client.query(`SET ROLE ${role}`)
       assert.equal((await loadRun(client, run.runId)).runId, run.runId)
+      assert.equal(
+        (await client.query('SELECT operation_key FROM executor_supported_operation')).rowCount,
+        0,
+      )
       for (const sql of [
         'TRUNCATE executor_intent',
         'DELETE FROM executor_operation',
         'INSERT INTO executor_approval SELECT * FROM executor_approval',
         'INSERT INTO executor_source SELECT * FROM executor_source',
         'ALTER TABLE executor_effect DISABLE TRIGGER ALL',
+        'DELETE FROM executor_supported_intent',
+        'INSERT INTO executor_supported_operation SELECT * FROM executor_supported_operation',
+        'UPDATE executor_supported_effect SET certainty=certainty',
       ])
         await assert.rejects(client.query(sql), /permission denied|must be owner/)
       await assert.rejects(client.query('UPDATE executor_run SET id=id'), /immutable_authority/)

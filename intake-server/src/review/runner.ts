@@ -1,5 +1,6 @@
 import type { Pool } from 'pg'
 import type { DBOSClient } from '@dbos-inc/dbos-sdk'
+import { supportedVerificationOnly } from '../execution/effects-recovery.ts'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import { transaction } from '../db/database.ts'
 import { verifyBytes } from '../db/authority.ts'
@@ -103,8 +104,10 @@ export async function executeManualDispatch(
     }
     const original = await snapshot(client, row.run_id)
     const verificationOnly =
-      authority.plan.version === 'bench-media-plan/1' &&
-      (await attachmentVerificationOnly(client, row.run_id, recoveryIds))
+      (authority.plan.version !== 'bench-stock-plan/1' &&
+        (await attachmentVerificationOnly(client, row.run_id, recoveryIds))) ||
+      (authority.plan.version === 'bench-effects-plan/1' &&
+        (await supportedVerificationOnly(client, row.run_id, recoveryIds)))
     if (
       row.state !== 'queued' ||
       (!verificationOnly && original.state === 'recovery_required') ||

@@ -263,9 +263,13 @@ export function ManualWorkspace({
       if (action === 'recover') {
         await client.recover(
           run.run_id,
-          selection?.kind === 'attachment'
-            ? { ...input, attachment_keys: selection.keys }
-            : { ...input, operation_keys: selection?.keys ?? [] },
+          selection?.kind === 'effect'
+            ? { ...input, effect_keys: selection.keys }
+            : selection?.kind === 'assessment'
+              ? { ...input, assessment_keys: selection.keys }
+              : selection?.kind === 'attachment'
+                ? { ...input, attachment_keys: selection.keys }
+                : { ...input, operation_keys: selection?.keys ?? [] },
           crypto.randomUUID(),
         )
       } else {

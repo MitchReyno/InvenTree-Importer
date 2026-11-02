@@ -1,3 +1,21 @@
+import { partIdentitySatisfies } from '../inventory/part-identity.ts'
+import { supportedEffectsPreview, partAttachmentsPreview } from './effects-preview.ts'
+import {
+  selectedPartTransfers,
+  observePartTransfers,
+  type ManualAttachmentRead,
+} from './part-attachments.ts'
+import type { PartTransfer } from '../execution/part-attachment-plan.ts'
+import { knownPartBindings, supportedPlan } from './effects-plan.ts'
+import { partSpecReferences } from '../capture/part-spec.ts'
+import type { InventoryModelDto, InventoryMappingDto } from '@invimport/contracts'
+import {
+  MAX_PLAN_BYTES,
+  MAX_PLAN_EFFECTS,
+  MAX_PLAN_OPERATIONS,
+  MAX_PLAN_PARTS,
+  type PartBinding,
+} from '../execution/effects-plan.ts'
 import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import {
@@ -13,7 +31,7 @@ import { idempotent, appendEvent, sha256, verifyBytes } from '../db/authority.ts
 import { fail } from '../capture/repository.ts'
 import type { CaptureRead } from '../capture/routes.ts'
 import { loadRun, reserveApprovedStock } from '../execution/authority.ts'
-import { encodeExecutablePlan } from '../execution/media-plan.ts'
+import { encodeExecutablePlan, type ExecutablePlan } from '../execution/media-plan.ts'
 import { mediaPreview } from './media-preview.ts'
 import { retainPreparationMedia } from './media-preparation.ts'
 import { preparedPlan } from './media-plan.ts'
@@ -42,6 +60,22 @@ function scope(config: ManualConfig, action: string, batchId: string, key: strin
 
 function normalized(input: ManualScopeDto) {
   return { ...input, selected_lot_ids: [...input.selected_lot_ids].sort() }
+}
+
+/** Report an oversized selection as a typed issue before the plan decoder refuses it. */
+export function planCapacityIssue(plan: ExecutablePlan) {
+  const effectsExceeded =
+    plan.version === 'bench-effects-plan/1' &&
+    (plan.parts.length > MAX_PLAN_PARTS ||
+      plan.effects.length > MAX_PLAN_EFFECTS ||
+      plan.operations.length > MAX_PLAN_OPERATIONS)
+  if (effectsExceeded || Buffer.byteLength(canonical(plan)) > MAX_PLAN_BYTES) {
+    return issue(
+      'effects_capacity',
+      `Choose fewer lots, Parts or parameters: one preparation supports at most ${MAX_PLAN_OPERATIONS} lots, ${MAX_PLAN_PARTS} Parts created by this intake, ${MAX_PLAN_EFFECTS} inventory effects and 256 KiB of approved plan.`,
+    )
+  }
+  return null
 }
 
 /** A warning blocks review and preparation until fixed or dismissed with a reason. */
@@ -77,11 +111,34 @@ async function checkedSelection(
       ),
     )
   }
-  if (material.mediaInputs?.size && binding?.capability !== 'owned-fake-media/1') {
+  if (material.parts.length && binding?.capability !== 'owned-fake-effects/1') {
+    issues.push(
+      issue(
+        'unsupported_part_creation',
+        'This deployment does not support explicit Part creation.',
+      ),
+    )
+  }
+  if (
+    material.mediaInputs?.size &&
+    binding?.capability !== 'owned-fake-media/1' &&
+    binding?.capability !== 'owned-fake-effects/1'
+  ) {
     issues.push(
       issue(
         'unsupported_media_capability',
         'This retained media scope needs the separately qualified owned fake media capability.',
+      ),
+    )
+  }
+  const partAttachmentSelected = [...(material.mediaInputs?.values() ?? [])].some((inputs) =>
+    inputs.attachments.some((selection) => selection.destination === 'part_attachment'),
+  )
+  if (partAttachmentSelected && binding?.capability !== 'owned-fake-effects/1') {
+    issues.push(
+      issue(
+        'unsupported_part_attachment',
+        'This deployment does not support Part attachments. Decline the Part attachment or use the owned fake effects capability.',
       ),
     )
   }
@@ -139,13 +196,16 @@ interface PreparationContext {
   binding: DeploymentBinding
   reviews: ReviewBinding[]
   reviewBytes: Buffer
+  parts: PartBinding[]
+  partTransfers: PartTransfer[]
 }
 
 async function boundedRead(
   read: CaptureRead,
-  model: 'part' | 'location',
+  model: InventoryModelDto,
   pk: string,
   deadline: number,
+  includeTags = false,
 ) {
   const remaining = Math.min(10000, deadline - Date.now())
   if (remaining <= 0) {
@@ -154,7 +214,7 @@ async function boundedRead(
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     return await Promise.race([
-      read({ model, pk }),
+      read({ model, pk, ...(includeTags ? { includeTags: true as const } : {}) }),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new Error('preparation_read_budget_exceeded')), remaining)
       }),
@@ -168,14 +228,26 @@ async function observePreparation(
   pool: Pool,
   read: CaptureRead | undefined,
   context: PreparationContext,
+  deadline: number,
 ) {
-  const requests = new Map<string, { model: 'part' | 'location'; pk: string; label: string }>()
+  const requests = new Map<
+    string,
+    {
+      model: InventoryModelDto
+      pk: string
+      label: string
+      mapping?: InventoryMappingDto
+      partIdentity?: { category_id: string; tags?: string[] }
+    }
+  >()
   for (const effect of context.material.effects) {
-    requests.set(`part:${effect.part_id}`, {
-      model: 'part',
-      pk: effect.part_id,
-      label: effect.part_label,
-    })
+    if (effect.part_id !== null) {
+      requests.set(`part:${effect.part_id}`, {
+        model: 'part',
+        pk: effect.part_id,
+        label: effect.part_label,
+      })
+    }
     if (effect.location_id) {
       requests.set(`location:${effect.location_id}`, {
         model: 'location',
@@ -184,8 +256,28 @@ async function observePreparation(
       })
     }
   }
+  for (const part of context.parts) {
+    for (const reference of partSpecReferences(part.spec)) {
+      const observation = context.capture.snapshot.observations.find(
+        (item) => item.id === reference.observation_id,
+      )!
+      requests.set(`${reference.model}:${reference.pk}`, {
+        model: reference.model,
+        pk: reference.pk,
+        label: observation.label,
+        mapping: observation.mapping,
+      })
+    }
+    if (part.prior) {
+      requests.set(`part:${part.prior.pk}`, {
+        model: 'part',
+        pk: part.prior.pk,
+        label: part.spec.name,
+        partIdentity: { category_id: part.spec.category.pk, tags: part.spec.tags },
+      })
+    }
+  }
   const issues: ManualIssueDto[] = []
-  const deadline = Date.now() + 30000
   const bounded = [...requests.values()]
   for (let offset = 0; offset < bounded.length; offset += 3) {
     await Promise.all(
@@ -208,14 +300,31 @@ async function observePreparation(
         })
         let outcome: 'found' | 'unavailable' = 'unavailable'
         let label: string | null = null
+        let mapping: InventoryMappingDto | undefined
+        let partIdentity: { category_id: string; tags?: string[] } | undefined
         try {
           if (!read) {
             throw new Error('inventory_read_unavailable')
           }
-          const observed = await boundedRead(read, request.model, request.pk, deadline)
+          const observed = await boundedRead(
+            read,
+            request.model,
+            request.pk,
+            deadline,
+            request.partIdentity?.tags !== undefined,
+          )
           label = observed.label
+          mapping = observed.mapping
+          if (request.partIdentity) {
+            partIdentity = observed.partIdentity
+          }
           outcome = 'found'
-          if (label !== request.label) {
+          if (
+            label !== request.label ||
+            canonical(observed.mapping ?? null) !== canonical(request.mapping ?? null) ||
+            (request.partIdentity &&
+              !partIdentitySatisfies(observed.partIdentity, request.partIdentity))
+          ) {
             issues.push(
               issue(
                 'target_choice_changed',
@@ -232,7 +341,14 @@ async function observePreparation(
           )
         }
         const receipt = Buffer.from(
-          canonical({ model: request.model, pk: request.pk, outcome, label }),
+          canonical({
+            model: request.model,
+            pk: request.pk,
+            outcome,
+            label,
+            ...(mapping ? { mapping } : {}),
+            ...(partIdentity ? { partIdentity } : {}),
+          }),
         )
         await transaction(pool, async (client) => {
           await client.query(
@@ -253,6 +369,7 @@ export async function prepareSelection(
   batchId: string,
   key: string,
   input: ManualScopeDto,
+  attachmentRead?: ManualAttachmentRead,
 ): Promise<ManualPreparationResultDto> {
   let context: PreparationContext | undefined
   const started = (await transaction(pool, (client) =>
@@ -279,6 +396,14 @@ export async function prepareSelection(
         const commandId = randomUUID()
         const reviewBytes = Buffer.from(canonical(reviews))
         const binding = selected.binding!
+        const parts =
+          binding.capability === 'owned-fake-effects/1'
+            ? await knownPartBindings(client, selected.capture.source, selected.material)
+            : []
+        const partTransfers =
+          binding.capability === 'owned-fake-effects/1'
+            ? await selectedPartTransfers(client, selected.capture.source, selected.material, parts)
+            : []
         await client.query(
           `INSERT INTO manual_prepare_command(id,batch_id,actor_id,deployment_id,target_id,context_id,dependency_bytes,dependency_digest,review_bytes,review_digest)
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
@@ -302,6 +427,8 @@ export async function prepareSelection(
           binding,
           reviews,
           reviewBytes,
+          parts,
+          partTransfers,
         }
         await appendEvent(client, selected.capture.streamId, 'manual_preparation_started', {
           batch_id: batchId,
@@ -328,7 +455,23 @@ export async function prepareSelection(
     fail('preparation_in_progress', 409)
   }
   const retained = context
-  const readIssues = await observePreparation(pool, read, retained)
+  const deadline = Date.now() + 30000
+  const readIssues = await observePreparation(pool, read, retained, deadline)
+  readIssues.push(
+    ...(await observePartTransfers(
+      pool,
+      attachmentRead,
+      {
+        batchId,
+        commandId: retained.commandId,
+        targetId: config.targetId,
+        contextId: config.targetContextId,
+        originalSourceKey: retained.capture.originalSourceKey,
+        transfers: retained.partTransfers,
+      },
+      deadline,
+    )),
+  )
   return transaction(pool, async (client) => {
     const capture = await lockedCapture(client, config, batchId)
     const material = await materializeWithMedia(
@@ -355,16 +498,33 @@ export async function prepareSelection(
         ),
       )
     }
+    let plan: ExecutablePlan | null = null
+    if (!issues.length) {
+      requireReviews(material, reviews)
+      plan =
+        binding?.capability === 'owned-fake-effects/1'
+          ? supportedPlan(
+              binding,
+              capture.sourceId,
+              capture.originalSourceKey,
+              material,
+              retained.parts,
+              retained.partTransfers,
+            )
+          : preparedPlan(binding!, capture.sourceId, capture.originalSourceKey, material)
+      const capacity = planCapacityIssue(plan)
+      if (capacity) {
+        issues.push(capacity)
+      }
+    }
     let response: ManualPreparationResultDto
-    if (issues.length) {
+    if (issues.length || !plan) {
       response = { status: 'blocked', issues }
     } else {
-      requireReviews(material, reviews)
-      const plan = preparedPlan(binding!, capture.sourceId, capture.originalSourceKey, material)
       const encoded = encodeExecutablePlan(plan)
       const preparationId = randomUUID()
       const evidenceLabels = new Map<string, string>()
-      if (plan.version === 'bench-media-plan/1' && plan.attachments.length) {
+      if (plan.version !== 'bench-stock-plan/1' && plan.attachments.length) {
         const labels = await client.query<{ id: string; label: string }>(
           'SELECT id,label FROM media_evidence WHERE batch_id=$1 AND id=ANY($2::uuid[])',
           [batchId, plan.attachments.map((attachment) => attachment.evidenceId)],
@@ -385,7 +545,25 @@ export async function prepareSelection(
         review_fingerprint: sha256(retained.reviewBytes).toString('hex'),
         target_revision: binding!.targetRevision,
         capability: plan.capability,
-        effects: material.effects,
+        effects:
+          plan.version === 'bench-effects-plan/1'
+            ? material.effects.map((effect) => {
+                const operation = plan.operations.find(
+                  (operation) => operation.operationKey === effect.lot_id,
+                )!
+                if (operation.part !== null && effect.part_id === null) {
+                  const { part_operation_key, ...fields } = effect
+                  return { ...fields, part_id: operation.part }
+                }
+                return effect
+              })
+            : material.effects,
+        ...(plan.version === 'bench-effects-plan/1'
+          ? {
+              supported_effects: supportedEffectsPreview(plan),
+              part_attachments: partAttachmentsPreview(plan, material.effects),
+            }
+          : {}),
         ...mediaPreview(plan, capture.snapshot, evidenceLabels),
       }
       validate('ManualPreview', preview)
@@ -407,7 +585,7 @@ export async function prepareSelection(
           Buffer.from(canonical(preview)),
         ],
       )
-      if (plan.version === 'bench-media-plan/1') {
+      if (plan.version !== 'bench-stock-plan/1') {
         await retainPreparationMedia(client, batchId, preparationId, config.actorId, material)
       }
       for (const review of reviews) {
@@ -532,7 +710,21 @@ export async function approvePreparation(
         }
         requireReviews(material, reviews)
         const currentPlan = encodeExecutablePlan(
-          preparedPlan(binding, capture.sourceId, capture.originalSourceKey, material),
+          binding.capability === 'owned-fake-effects/1'
+            ? supportedPlan(
+                binding,
+                capture.sourceId,
+                capture.originalSourceKey,
+                material,
+                await knownPartBindings(client, capture.source, material),
+                await selectedPartTransfers(
+                  client,
+                  capture.source,
+                  material,
+                  await knownPartBindings(client, capture.source, material),
+                ),
+              )
+            : preparedPlan(binding, capture.sourceId, capture.originalSourceKey, material),
         )
         if (!currentPlan.bytes.equals(preparation.row.plan_bytes)) {
           fail('stale_preparation', 409)

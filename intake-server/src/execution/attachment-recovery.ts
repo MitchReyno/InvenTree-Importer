@@ -19,7 +19,7 @@ export async function selectAttachmentRecovery(
   actorId: string,
 ): Promise<string> {
   const authority = await lockRun(client, runId)
-  if (authority.actorId !== actorId || authority.plan.version !== 'bench-media-plan/1') {
+  if (authority.actorId !== actorId || authority.plan.version === 'bench-stock-plan/1') {
     throw new Error('attachment_recovery_scope_mismatch')
   }
   const state = await snapshot(client, runId)
