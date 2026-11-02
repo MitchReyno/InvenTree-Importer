@@ -259,3 +259,11 @@ A second fresh reviewer checked `7e3c0db`. It verified all round-1 fixes and the
 - The explicit retired check in `processingInputIsCurrent` is labelled defensive.
 
 Checks: focused `NODE_OPTIONS=--test-name-pattern=retire pnpm db:intake test` 21/21 under the lease; frontend 103/103; fast tier and static checks clean.
+
+## Local review round 3 and recorded nits
+
+A third fresh reviewer checked `d9cd6ae` (delta from `7e3c0db`) and found no new material issues. Local review is complete. These non-correctness items are recorded for the next owner touching media or retirement (T09 kickoff, or a T08 follow-up if T09 does not touch these files):
+
+- `frontend/src/components/media/MediaWorkspace.tsx`: a `lot_retired` refusal from a stale view shows the generic "Media change was not confirmed" text; map it through `operator/command-failure.ts`.
+- `intake-server/tests/pg/operator-media-retirement.test.ts`: also assert status 409, an unchanged media revision after the refusals, and an unlink (`linked: false`) case.
+- `frontend/src/components/batches/Batch.tsx`: the `useMemo` comment should say the retired set comes from `batch` and `operatorReview`.
