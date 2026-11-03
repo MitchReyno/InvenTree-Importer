@@ -65,7 +65,7 @@ Consolidate all settings currently reached through the Shared details buttons in
 Replace the top-right Manual workflow element with a clickable connection-status indicator that reveals connection details, with an Open InvenTree link to its right as in the original mockup. Add a distinct workflow status/actions indicator on the same header row, using the mockup's Processing in progress state as the reference. Expanding it should show current work status and steps, relevant actions and active agents while keeping connection health separate from workflow progress.
 
 - Change: `status-signalling-uplift`
-- Status: In review
+- Status: Done
 - Size: L — cross-layer target/work read contracts, accessible header integration and browser qualification.
 - Prerequisites: None external identified — existing retained data and target transport are available; the change includes its read-contract and package-qualification foundations. No ordering dependency on BI-001.
 - OpenSpec: [status-signalling-uplift](../openspec/changes/status-signalling-uplift/)
