@@ -32,11 +32,11 @@ This proposal documentation PR is separate from those future implementation bund
 - Verification: Focused Vitest interaction tests plus owned desktop/narrow browser fixture; typecheck, frontend lint/build and lockfile audit.
 - Risks: Source-main version may differ from published release; fail qualification before consumers rely on it.
 
-- [ ] 1.1 Refresh official release, peer/license/advisory evidence and choose an exact published version; record lock/transitive cost without leaking local paths.
-- [ ] 1.2 Exercise the candidate in an owned masthead fixture with React 19.3.1, portals, 360px/390px and 200% zoom; record actual focus/escape/collision results.
-  - [ ] 1.2.1 If Radix fails, qualify the documented alternative and update proposal/design before adopting it; record the selected outcome rather than installing competing systems.
-- [ ] 1.3 Build the narrow styled wrapper and interaction regressions; verify open-state labels, dismissal and focus return, with no canvas pointer interception.
-- [ ] 1.4 Refactor only shared disclosure mechanics, run owning checks and record the selected package proof and remaining limitations.
+- [x] 1.1 Refresh official release, peer/license/advisory evidence and choose an exact published version; record lock/transitive cost without leaking local paths.
+- [x] 1.2 Exercise the candidate in an owned masthead fixture with React 19.3.1, portals, 360px/390px and 200% zoom; record actual focus/escape/collision results.
+  - [x] 1.2.1 If Radix fails, qualify the documented alternative and update proposal/design before adopting it; record the selected outcome rather than installing competing systems.
+- [x] 1.3 Build the narrow styled wrapper and interaction regressions; verify open-state labels, dismissal and focus return, with no canvas pointer interception.
+- [x] 1.4 Refactor only shared disclosure mechanics, run owning checks and record the selected package proof and remaining limitations.
 
 ## 2. Add scoped connection/work projections
 

@@ -1,0 +1,14 @@
+[
+  {
+    "case": "zoom-200",
+    "metrics": "{\"width\":640,\"overflow\":false,\"dialogs\":1,\"draft\":\"Preserve qualification draft\",\"focus\":\"Close\",\"dialog\":{\"x\":193.5,\"right\":553.5,\"width\":360}}"
+  },
+  {
+    "case": "narrow-360",
+    "metrics": "{\"width\":360,\"overflow\":false,\"dialogs\":1,\"draft\":\"Preserve qualification draft\",\"focus\":\"Close\",\"dialog\":{\"x\":12,\"right\":348,\"width\":336}}"
+  },
+  {
+    "case": "narrow-390",
+    "metrics": "{\"width\":390,\"overflow\":false,\"dialogs\":1,\"draft\":\"Preserve qualification draft\",\"focus\":\"Close\",\"dialog\":{\"x\":12,\"right\":372,\"width\":360}}"
+  }
+]
