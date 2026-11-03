@@ -63,3 +63,7 @@ Back up only owned fixture data for migration qualification and exercise upgrade
 ## Risks and open decisions
 
 Main risks: treating contextual supplier/tags as execution choices, partial settings saves, losing group history on ungroup, breaking input/preparation currentness, or resetting drafts when panels move. Explicit contracts and boundary tests address them. Final layout and exact drag dependency are bounded implementation experiments with recorded decisions before their consumers ship. PO scope is resolved; no additional user decision is required to complete planning. Runtime proof remains future work.
+
+## Implementation dependency refresh
+
+The Task 4 preflight on 2026-11-03 found that official documentation now labels `@dnd-kit/core` legacy. The [current React adapter](https://dndkit.com/react/quickstart/) explicitly supports React 18/19; exact React/DOM 0.5.3 packages were selected instead, with eight additional locked packages and no added advisory IDs against the current baseline. Its pre-1.0 API is an accepted maintenance cost, contained by the small adapter and exact pins. The legacy candidate was not installed. Owned React 19.3.1/StrictMode browser proof passed pointer/keyboard/touch, Escape cancellation and real auto-scrolling, with stable identity and neighbouring draft. The [qualification record](../../../docs/bench-intake/evidence/grouped-evidence/README.md) distinguishes this package proof from subsequent retained UI/transaction integration. This refresh changes the dependency choice, not feature or authority scope.

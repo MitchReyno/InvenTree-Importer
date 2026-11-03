@@ -141,6 +141,9 @@ export function CaptureWorkspace({
           frozen={frozen || instructionsDirty || settingsDirty}
           setSelected={setSelected}
           media={media}
+          operator={operator}
+          review={operatorReview}
+          reload={reload}
           onMediaDirtyChange={reportMediaDirty}
         />
         <BatchSettingsPanel
@@ -152,7 +155,18 @@ export function CaptureWorkspace({
           observe={observe}
           noteRef={noteRef}
           reload={reload}
-        />
+        >
+          {operator && operatorReview && reload && (
+            <InstructionsPanel
+              batch={batch}
+              review={operatorReview}
+              client={operator}
+              disabled={frozen || editorDirty || mediaDirty || settingsDirty}
+              reload={reload}
+              onDirtyChange={reportInstructionsDirty}
+            />
+          )}
+        </BatchSettingsPanel>
         {!['defaults', 'batch', 'note'].includes(selected) && (
           <EditorPanel role="region" data-area="editor" aria-labelledby="editor-title">
             <HeadingRow>
@@ -184,19 +198,6 @@ export function CaptureWorkspace({
             />
           </EditorPanel>
         )}
-        {operator && operatorReview && reload && (
-          <InstructionsArea>
-            <InstructionsPanel
-              batch={batch}
-              review={operatorReview}
-              client={operator}
-              media={media}
-              disabled={frozen || editorDirty || mediaDirty || settingsDirty}
-              reload={reload}
-              onDirtyChange={reportInstructionsDirty}
-            />
-          </InstructionsArea>
-        )}
       </CaptureGrid>
     </>
   )
@@ -214,16 +215,16 @@ function anyDirty(flags: {
 const CaptureGrid = styled.div<{ $focused: boolean }>`
   display: grid;
   grid-template-columns: minmax(180px, 0.65fr) minmax(0, 1.4fr) minmax(300px, 1fr);
-  grid-template-areas: 'queue context settings' 'editor editor settings' 'instructions instructions settings';
+  grid-template-areas: 'queue context settings' 'editor editor settings';
   gap: 12px;
   align-items: start;
   @media (max-width: 1000px) {
     grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.5fr);
-    grid-template-areas: 'queue context' 'editor settings' 'instructions settings';
+    grid-template-areas: 'queue context' 'editor settings';
   }
   @media (max-width: 700px) {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: ${(p) => (p.$focused ? "'back' 'context' 'settings' 'editor' 'instructions'" : "'queue' 'context' 'settings' 'instructions'")};
+    grid-template-areas: ${(p) => (p.$focused ? "'back' 'context' 'settings' 'editor'" : "'queue' 'context' 'settings'")};
     gap: 12px;
     > [data-area='queue'] {
       display: ${(p) => (p.$focused ? 'none' : 'flex')};
@@ -232,9 +233,6 @@ const CaptureGrid = styled.div<{ $focused: boolean }>`
       display: ${(p) => (p.$focused ? 'block' : 'none')};
     }
   }
-`
-const InstructionsArea = styled(Panel)`
-  grid-area: instructions;
 `
 const BackButton = styled(Button)`
   display: none;

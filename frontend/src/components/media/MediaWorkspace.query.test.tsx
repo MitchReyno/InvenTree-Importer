@@ -72,15 +72,15 @@ test('warm cache cannot authorize media input before this mount obtains a succes
       />
     </ServerStateProvider>,
   )
-  expect(screen.getByLabelText('Add a photo or PDF')).toBeDisabled()
+  expect(screen.getByLabelText('Choose photos')).toBeDisabled()
   await act(async () => rejectRead(new Error('offline')))
   await screen.findByRole('alert')
-  expect(screen.getByLabelText('Add a photo or PDF')).toBeDisabled()
+  expect(screen.getByLabelText('Choose photos')).toBeDisabled()
   expect(media.upload).not.toHaveBeenCalled()
   expect(media.edit).not.toHaveBeenCalled()
   vi.mocked(media.snapshot).mockResolvedValue(snapshot)
   await userEvent.setup().click(screen.getByRole('button', { name: 'Refresh saved evidence' }))
-  await waitFor(() => expect(screen.getByLabelText('Add a photo or PDF')).toBeEnabled())
+  await waitFor(() => expect(screen.getByLabelText('Choose photos')).toBeEnabled())
 })
 
 test('failed retained polling preserves pending original and its exact upload intent through recovery', async () => {
@@ -99,7 +99,7 @@ test('failed retained polling preserves pending original and its exact upload in
       />
     </ServerStateProvider>,
   )
-  const input = await screen.findByLabelText('Add a photo or PDF')
+  const input = await screen.findByLabelText('Choose photos')
   await waitFor(() => expect(input).toBeEnabled())
   const file = new File(['source bytes'], 'retained.png', { type: 'image/png' })
   await user.upload(input, file)

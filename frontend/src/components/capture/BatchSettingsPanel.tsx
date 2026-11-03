@@ -31,6 +31,7 @@ type Values = {
   noteSubject: string
 }
 type Props = Pick<CaptureWorkspaceProps, 'edit' | 'observe' | 'reload'> & {
+  children?: React.ReactNode
   batch: Snapshot
   disabled: boolean
   dirty: boolean
@@ -51,6 +52,7 @@ function defaults(batch: Snapshot): Values {
 
 export function BatchSettingsPanel({
   batch,
+  children,
   disabled,
   dirty,
   onDirty,
@@ -211,6 +213,7 @@ export function BatchSettingsPanel({
           </Button>
         )}
       </Form>
+      {children}
       <Unavailable>
         <legend>Purchase order · unavailable</legend>
         <Label>

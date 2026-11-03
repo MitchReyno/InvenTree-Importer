@@ -188,7 +188,7 @@ test('archive is read-only until explicit resume; no approval or write button is
       observe={vi.fn(async () => null)}
     />,
   )
-  expect(screen.getByRole('status')).toHaveTextContent('Archived, not deleted')
+  expect(screen.getByText(/Archived, not deleted/)).toHaveAttribute('role', 'status')
   expect(screen.getByRole('button', { name: 'Save Batch settings' })).toBeDisabled()
   expect(screen.queryByRole('button', { name: /Approve|Apply|Upload/ })).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Resume archived batch' }))

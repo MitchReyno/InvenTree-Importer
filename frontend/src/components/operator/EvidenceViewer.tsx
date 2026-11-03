@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import type { MediaEvidenceDto } from '@invimport/contracts'
+import type { MediaEvidenceDto, MediaSnapshotDto } from '@invimport/contracts'
 import {
   evidenceFromHash,
   withEvidence,
@@ -8,12 +8,14 @@ import {
 } from '../../operator/evidence-location'
 import { mediaResource } from '../../media/types'
 import { mediaIdentityLabels } from '../../media/identity-labels'
+import { MediaNoteSummary } from '../media/MediaNoteSummary'
 import { Button, Label, Select, Small } from '../ui/primitives'
 
 interface Props {
   batchId: string
   lotId?: string
   evidence: MediaEvidenceDto[]
+  groups?: MediaSnapshotDto['groups']
   unavailable?: boolean
 }
 
@@ -35,7 +37,13 @@ function firstPage(evidence: MediaEvidenceDto, versionId?: string): Selection | 
 }
 
 /** A selected retained page stays pinned even when polling adds or removes versions. */
-export function EvidenceViewer({ batchId, lotId, evidence, unavailable = false }: Props) {
+export function EvidenceViewer({
+  batchId,
+  lotId,
+  evidence,
+  groups = [],
+  unavailable = false,
+}: Props) {
   const [invalidLink, setInvalidLink] = useState(() =>
     Boolean(lotId && evidenceFromHash(location.hash) === null),
   )
@@ -268,6 +276,20 @@ export function EvidenceViewer({ batchId, lotId, evidence, unavailable = false }
           </Zoom>
         </Controls>
       )}
+      {groups
+        .filter((group) => evidence.some((item) => item.group_id === group.id))
+        .map((group) => (
+          <MediaNoteSummary key={group.id} title={`Group ${group.label}`} note={group.note} />
+        ))}
+      {evidence
+        .filter((item) => item.note)
+        .map((item) => (
+          <MediaNoteSummary
+            key={item.id}
+            title={`Evidence ${labels.evidence.get(item.id)}`}
+            note={item.note}
+          />
+        ))}
     </Viewer>
   )
 }

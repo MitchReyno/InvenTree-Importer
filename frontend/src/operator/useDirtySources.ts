@@ -38,6 +38,11 @@ export function useDirtySources(onDirtyChange?: (dirty: boolean) => void) {
     [],
   )
 
+  const hasOtherSources = useCallback(
+    (...allowed: string[]) => [...sources.current].some((source) => !allowed.includes(source)),
+    [],
+  )
+
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
-  return { dirty: sources.current.size > 0, isDirty, forSource }
+  return { dirty: sources.current.size > 0, isDirty, forSource, hasOtherSources }
 }

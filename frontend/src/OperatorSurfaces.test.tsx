@@ -136,7 +136,9 @@ test('batch instructions save as a new version with the loaded revision', async 
       onDirtyChange={dirty}
     />,
   )
-  expect(screen.getByText(/Current fixture-only Processing does not consume them/)).toBeVisible()
+  expect(
+    screen.getByText(/Instructions do not approve inventory values or create stock/),
+  ).toBeVisible()
   const text = screen.getByLabelText('Batch instructions')
   expect(text).toHaveValue('Same order, separate packets.')
   expect(screen.getByText(/Version 6/)).toBeVisible()

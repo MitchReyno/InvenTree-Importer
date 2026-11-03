@@ -97,6 +97,7 @@ export function LotEvidence({
           batchId={batch.id}
           lotId={lot.id}
           evidence={evidence}
+          groups={media.groups}
           unavailable={mediaUnavailable}
         />
       )}

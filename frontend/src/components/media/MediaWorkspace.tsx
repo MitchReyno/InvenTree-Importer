@@ -1,16 +1,16 @@
 import { mediaIdentityLabels } from '../../media/identity-labels'
-import { useQuery } from '@tanstack/react-query'
-import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { useRetainedPollInterval } from '../operations/LiveUpdates'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useId } from 'react'
 import styled from 'styled-components'
-import type { CaptureSnapshotDto, MediaEditDto, MediaVersionDto } from '@invimport/contracts'
+import type { CaptureSnapshotDto, MediaVersionDto, OperatorReviewDto } from '@invimport/contracts'
 import { Button, Heading, Label, Paragraph, Select, Small } from '../ui/primitives'
 import type { MediaClient } from '../../media/types'
-import { MediaUpload } from './MediaUpload'
-import { MediaEvidenceCard } from './MediaEvidenceCard'
-import { MediaEvidenceRelations } from './MediaEvidenceRelations'
+import type { OperatorReviewClient } from '../../operator/types'
+import { useEvidenceWorkspace } from '../../media/useEvidenceWorkspace'
+import { MediaUpload, type EvidenceUploadHandle } from './MediaUpload'
 import { MediaCropDialog } from './MediaCropDialog'
+import { EvidenceDragContext } from './EvidenceDragContext'
+import { EvidenceGroupPanel } from './EvidenceGroupPanel'
+import { MediaTextEditor } from './MediaTextEditor'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -18,124 +18,45 @@ interface Props {
   disabled: boolean
   selectedSubject: string
   onDirtyChange: (dirty: boolean) => void
+  onWriteNote?: () => void
+  noteDisabled?: boolean
+  operator?: OperatorReviewClient
+  review?: OperatorReviewDto
+  reload?: () => Promise<void>
 }
 
-export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDirtyChange }: Props) {
-  const pollInterval = useRetainedPollInterval()
-  const scope = useServerScope()
-  const attachmentControlId = useId()
-  const attachmentDescriptionId = `${attachmentControlId}-selection`
-  const mediaQuery = useQuery({
-    queryKey: serverQueryKey(scope, 'media', batch.id),
-    queryFn: () => client.snapshot(batch.id),
-    refetchInterval: pollInterval,
-  })
-  const snapshot = mediaQuery.data
-  const readUnavailable =
-    mediaQuery.isError || mediaQuery.fetchStatus === 'paused' || !mediaQuery.isFetchedAfterMount
-  const { refetch } = mediaQuery
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [uploadDirty, setUploadDirty] = useState(false)
-  const [, setCropDirty] = useState(false)
+export function MediaWorkspace({
+  batch,
+  client,
+  disabled,
+  selectedSubject,
+  onDirtyChange,
+  onWriteNote,
+  noteDisabled = disabled,
+  operator,
+  review,
+  reload,
+}: Props) {
+  const state = useEvidenceWorkspace(batch.id, client, disabled, onDirtyChange)
+  const { snapshot, drafts, command, edit } = state
+  const upload = useRef<EvidenceUploadHandle>(null)
+  const [newGroup, setNewGroup] = useState(false)
+  const [destinationGroup, setDestinationGroup] = useState('')
+  const confirmation = useRef(state.confirmation)
+  useEffect(() => {
+    if (confirmation.current !== state.confirmation) {
+      confirmation.current = state.confirmation
+      setNewGroup(false)
+      drafts.forSource('new-group')(false)
+    }
+  }, [state.confirmation, drafts.forSource])
   const [crop, setCrop] = useState<{
     version: MediaVersionDto
     page: number
     revision: string
   } | null>(null)
-
-  const dirtyFlags = useRef({ upload: false, crop: false, command: false })
-  const dirtyGroups = useRef(new Set<string>())
-
-  const reportUploadDirty = useCallback(
-    (dirty: boolean) => {
-      dirtyFlags.current.upload = dirty
-      setUploadDirty(dirty)
-      onDirtyChange(
-        dirtyFlags.current.upload ||
-          dirtyFlags.current.crop ||
-          dirtyFlags.current.command ||
-          dirtyGroups.current.size > 0,
-      )
-    },
-    [onDirtyChange],
-  )
-
-  const reportCropDirty = useCallback(
-    (dirty: boolean) => {
-      dirtyFlags.current.crop = dirty
-      setCropDirty(dirty)
-      onDirtyChange(
-        dirtyFlags.current.upload ||
-          dirtyFlags.current.crop ||
-          dirtyFlags.current.command ||
-          dirtyGroups.current.size > 0,
-      )
-    },
-    [onDirtyChange],
-  )
-
-  const reportGroupDirty = useCallback(
-    (evidenceId: string, dirty: boolean) => {
-      if (dirty) {
-        dirtyGroups.current.add(evidenceId)
-      } else {
-        dirtyGroups.current.delete(evidenceId)
-      }
-      onDirtyChange(
-        dirtyFlags.current.upload ||
-          dirtyFlags.current.crop ||
-          dirtyFlags.current.command ||
-          dirtyGroups.current.size > 0,
-      )
-    },
-    [onDirtyChange],
-  )
-
-  useEffect(() => () => onDirtyChange(false), [onDirtyChange])
-
-  const refresh = useCallback(async () => {
-    const result = await refetch({ throwOnError: true })
-    if (!result.data) {
-      throw new Error('media_snapshot_missing')
-    }
-  }, [refetch])
-
-  async function submitEdit(input: MediaEditDto, key: string) {
-    if (readUnavailable || disabled) {
-      throw new Error('current_media_read_required')
-    }
-    dirtyFlags.current.command = true
-    onDirtyChange(true)
-    setBusy(true)
-    setError('')
-    try {
-      await client.edit(batch.id, input, key)
-      await refresh()
-    } catch (failure) {
-      setError(
-        'Media change was not confirmed. Refresh saved evidence before deciding whether to submit again.',
-      )
-      throw failure
-    } finally {
-      dirtyFlags.current.command = false
-      onDirtyChange(
-        dirtyFlags.current.upload || dirtyFlags.current.crop || dirtyGroups.current.size > 0,
-      )
-      setBusy(false)
-    }
-  }
-
-  function edit(change: MediaEditDto['change'], intent?: { key: string; revision: string }) {
-    if (!snapshot) {
-      throw new Error('media_not_loaded')
-    }
-    return submitEdit(
-      { expected_revision: intent?.revision ?? snapshot.revision, change },
-      intent?.key ?? crypto.randomUUID(),
-    )
-  }
-
+  const attachmentControlId = useId()
+  const attachmentDescriptionId = `${attachmentControlId}-selection`
   const selectedPart = batch.parts.find((part) => part.id === selectedSubject)
   const subject = batch.lots.find((lot) => lot.id === selectedSubject) ?? selectedPart
   const destination = selectedPart ? ('part_attachment' as const) : ('lot_attachment' as const)
@@ -150,45 +71,177 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
       ? 'No attachment for this Part'
       : 'No attachment for this lot'
   }
-  const frozen = disabled || busy || !snapshot || readUnavailable
+  const frozen = disabled || command.busy || command.pending || !snapshot || state.unavailable
+
+  const blocked = (owner: string) => frozen || drafts.hasOtherSources(owner)
 
   return (
-    <section aria-labelledby="retained-evidence-title">
-      <Heading id="retained-evidence-title">Photos and documents</Heading>
+    <section aria-label="Retained evidence">
+      <MediaUpload
+        ref={upload}
+        disabled={blocked('upload')}
+        chooseDisabled={blocked('upload')}
+        noteDisabled={noteDisabled}
+        onWriteNote={onWriteNote}
+        revision={snapshot?.revision ?? '0'}
+        onDirtyChange={drafts.forSource('upload')}
+        upload={(file, key, revision) => client.upload(batch.id, revision, file.name, file, key)}
+        finish={async (receipt, groupId) => {
+          const current = await state.refresh()
+          const original = current.evidence.find((item) => item.id === receipt.evidence_id)
+          if (!original?.versions.some((version) => version.id === receipt.version.id)) {
+            throw new Error('retained_original_not_in_fresh_projection')
+          }
+          state.accept(current)
+          if (groupId) {
+            // Original retention is complete before membership is attempted.
+            state.select([receipt.evidence_id], current.revision)
+            await state.move([receipt.evidence_id], groupId, current.revision)
+          }
+        }}
+      />
+      <Heading>Evidence groups</Heading>
       <Paragraph>
-        Evidence can support several lots or shared Parts. Grouping does not create stock.
+        Grouping preserves original files, links and physical-lot identities. Move up to 200
+        selected files together.
       </Paragraph>
-      {readUnavailable && (
+      {state.unavailable && (
         <Paragraph role="alert">
-          Current saved media could not be confirmed. File and crop inputs are preserved;
-          preparation and media changes remain blocked until a fresh read succeeds.
+          Current saved media could not be confirmed. Local file, selection and crop inputs are
+          preserved; media changes wait for a fresh read.
         </Paragraph>
       )}
-      {error && <Paragraph role="alert">{error}</Paragraph>}
+      {state.error && <Paragraph role="alert">{state.error}</Paragraph>}
+      {command.message && <Paragraph role="alert">{command.message}</Paragraph>}
+      {command.pending && (
+        <>
+          <Button
+            disabled={command.busy || state.unavailable || disabled}
+            onClick={() => void state.retry()}
+          >
+            Retry exact media request
+          </Button>
+          <Button disabled={command.busy} onClick={state.discard}>
+            Discard unconfirmed media request
+          </Button>
+        </>
+      )}
       <Button
-        disabled={busy}
-        onClick={() => void refresh().catch(() => setError('Refresh failed.'))}
+        disabled={command.busy}
+        onClick={() =>
+          void state
+            .refresh()
+            .catch(() => state.setError('Refresh failed. Local drafts are preserved.'))
+        }
       >
         Refresh saved evidence
       </Button>
       {snapshot && (
         <>
-          <MediaUpload
-            disabled={frozen}
-            revision={snapshot.revision}
-            onDirtyChange={reportUploadDirty}
-            refresh={refresh}
-            upload={(file, key, revision) =>
-              client.upload(batch.id, revision, file.name, file, key)
+          <Button disabled={blocked('new-group')} onClick={() => setNewGroup(true)}>
+            New evidence group
+          </Button>
+          {newGroup && (
+            <MediaTextEditor
+              label="New group name"
+              action="Create group"
+              text=""
+              revision={snapshot.revision}
+              maximum={256}
+              trim
+              disabled={blocked('new-group')}
+              pending={command.pending}
+              onDirtyChange={drafts.forSource('new-group')}
+              onCancel={() => setNewGroup(false)}
+              onSave={(label, revision) => edit({ kind: 'group', label }, revision)}
+            />
+          )}
+          {state.selected.length > 0 && (
+            <MoveControls aria-label="Selected evidence">
+              <Small>{state.selected.length} selected · exact evidence identities retained</Small>
+              <Label>
+                Move selected evidence to
+                <Select
+                  value={destinationGroup}
+                  disabled={blocked('selection')}
+                  onChange={(event) => setDestinationGroup(event.target.value)}
+                >
+                  <option value="">Ungrouped</option>
+                  {snapshot.groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.label}
+                    </option>
+                  ))}
+                </Select>
+              </Label>
+              <Button
+                disabled={blocked('selection')}
+                onClick={() => void state.move(state.selected, destinationGroup || null)}
+              >
+                Move selected evidence
+              </Button>
+              <Button
+                disabled={frozen || drafts.hasOtherSources('selection')}
+                onClick={() => state.select([])}
+              >
+                Clear evidence selection
+              </Button>
+              <Button
+                disabled={
+                  command.pending || command.busy || disabled || drafts.hasOtherSources('selection')
+                }
+                onClick={() => void state.reconcile()}
+              >
+                Reload membership for a new move
+              </Button>
+            </MoveControls>
+          )}
+          <EvidenceDragContext
+            disabled={frozen || drafts.hasOtherSources('selection', 'drag')}
+            onDraggingChange={drafts.forSource('drag')}
+            onMove={(id, groupId) =>
+              state.move(state.selected.includes(id) ? state.selected : [id], groupId)
             }
-          />
+          >
+            <Groups>
+              {[...snapshot.groups.map((group) => group.id), null].map((groupId) => (
+                <EvidenceGroupPanel
+                  key={groupId ?? 'ungrouped'}
+                  batch={batch}
+                  snapshot={snapshot}
+                  groupId={groupId}
+                  confirmation={state.confirmation}
+                  labels={identityLabels}
+                  frozen={frozen}
+                  pending={command.pending}
+                  selected={state.selected}
+                  edit={edit}
+                  blocked={(owner) =>
+                    owner === 'selection'
+                      ? frozen || drafts.hasOtherSources('selection', 'drag')
+                      : blocked(owner)
+                  }
+                  dirty={drafts.forSource}
+                  select={state.select}
+                  choose={(kind, id) => upload.current?.choose(kind, id)}
+                  crop={(version, page) => {
+                    drafts.forSource('crop')(true)
+                    setCrop({ version, page, revision: snapshot.revision })
+                  }}
+                  operator={operator}
+                  review={review}
+                  reload={reload}
+                />
+              ))}
+            </Groups>
+          </EvidenceDragContext>
           {subject && (
             <AttachmentChoice>
               <Label htmlFor={attachmentControlId}>Attachment for {subject.label}</Label>
               <Select
                 id={attachmentControlId}
                 aria-describedby={attachmentDescriptionId}
-                disabled={frozen}
+                disabled={blocked('attachment')}
                 value={selection?.version_id ?? selection?.mode ?? 'unset'}
                 onChange={(event) => {
                   const value = event.target.value
@@ -221,9 +274,7 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
               </Small>
             </AttachmentChoice>
           )}
-          <Small>
-            {snapshot.evidence.length} retained files · {snapshot.groups.length} groups
-          </Small>
+
           {snapshot.derivations
             .filter((item) => item.state !== 'ready')
             .map((item) => (
@@ -231,32 +282,6 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
                 Crop preparation: {item.state.replaceAll('_', ' ')}
               </Paragraph>
             ))}
-          {snapshot.evidence.map((evidence) => (
-            <div key={evidence.id}>
-              <MediaEvidenceCard
-                labels={identityLabels}
-                key={evidence.id}
-                batchId={batch.id}
-                evidence={evidence}
-                disabled={frozen || uploadDirty}
-                onCrop={(version, page) => {
-                  reportCropDirty(true)
-                  setCrop({ version, page, revision: snapshot.revision })
-                }}
-              />
-              <MediaEvidenceRelations
-                batch={batch}
-                snapshot={snapshot}
-                evidence={evidence}
-                disabled={frozen || uploadDirty}
-                edit={edit}
-                onDirtyChange={reportGroupDirty}
-              />
-            </div>
-          ))}
-          {!snapshot.evidence.length && (
-            <Paragraph>No files yet. Human notes and known values remain available.</Paragraph>
-          )}
         </>
       )}
       {crop && snapshot && (
@@ -267,19 +292,37 @@ export function MediaWorkspace({ batch, client, disabled, selectedSubject, onDir
           pageNumber={crop.page}
           revision={crop.revision}
           snapshot={snapshot}
-          readUnavailable={readUnavailable || disabled}
-          onDirtyChange={reportCropDirty}
+          readUnavailable={state.unavailable || disabled}
+          onDirtyChange={drafts.forSource('crop')}
           close={() => {
-            reportCropDirty(false)
+            drafts.forSource('crop')(false)
             setCrop(null)
           }}
-          save={submitEdit}
+          save={state.saveCrop}
         />
       )}
     </section>
   )
 }
 
+const Groups = styled.div`
+  display: grid;
+  gap: 16px;
+  margin: 16px 0;
+  min-width: 0;
+`
+const MoveControls = styled.div`
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid #b7ccec;
+  border-radius: 6px;
+  min-width: 0;
+  select {
+    max-width: 100%;
+  }
+`
 const AttachmentChoice = styled.div`
   display: grid;
   gap: 6px;
