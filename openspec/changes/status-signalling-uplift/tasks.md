@@ -2,7 +2,7 @@
 
 ## Plan context
 
-Canonical change: `status-signalling-uplift`, linked [BI-002](../../../docs/PLANNED_FUNCTIONALITY.md#bi-002--status-signalling-uplift). Read the [proposal and reuse assessment](proposal.md), [design](design.md), [connection requirements](specs/header-connection-status/spec.md) and [workflow requirements](specs/header-workflow-status/spec.md). The index owns mutable metadata. This document plans future implementation; all implementation checkboxes start unchecked.
+Canonical change: `status-signalling-uplift`, linked [BI-002](../../../docs/PLANNED_FUNCTIONALITY.md#bi-002--status-signalling-uplift). Read the [proposal and reuse assessment](proposal.md), [design](design.md), [connection requirements](specs/header-connection-status/spec.md) and [workflow requirements](specs/header-workflow-status/spec.md). The index owns mutable metadata. Implementation evidence is recorded in the handover; completed checkboxes alone do not establish a merged release.
 
 ## Completion and commit ordering
 
@@ -19,7 +19,7 @@ Tasks 1 and 2 are independent foundations. Task 3 consumes both. Task 4 qualifie
 | PR-A | Foundations: Tasks 1 and 2 in full | Qualify the disclosure primitive and additive read contracts before any consumer depends on them; these tasks may proceed independently inside one coherent integration foundation | `interactive-app`; `feat/status-signalling-uplift-foundations`; `feat(status-signalling-uplift): add qualified header read foundations` | Package proof-of-fit, generated contracts, scope/freshness/probe and retained-reader tests; exact-head review and selected CI |
 | PR-B | Visible header and integrated qualification: Tasks 3 and 4 in full | One complete user-facing replacement with accessibility/adverse evidence; requires merged PR-A, not Capture uplift | `interactive-app`; `feat/status-signalling-uplift-header`; `feat(status-signalling-uplift): expose connection and workflow header` | Header regressions, browser evidence, app checks and updated architecture/handover; exact-head review and selected CI |
 
-This proposal documentation PR is separate from those future implementation bundles. Neither implementation PR is authorized merely by this plan. Add actual references when published and revise boundaries for coherence, compatibility or risk rather than task counts. No task/checklist appears in more than one bundle.
+The user authorized implementation after both proposals merged. PR-A merged as [#77](https://github.com/MitchReyno/InvenTree-Importer/pull/77); PR-B delivers the visible header and its integration qualification. Add actual references when published and revise boundaries for coherence, compatibility or risk rather than task counts. No task/checklist appears in more than one bundle.
 
 ## 1. Qualify and wrap the disclosure primitive
 
@@ -70,13 +70,13 @@ This proposal documentation PR is separate from those future implementation bund
 - Verification: Focused frontend Vitest files, `pnpm typecheck`, `pnpm lint:frontend`, `pnpm build`; Task 4 supplies browser qualification in the same PR.
 - Risks: Moving provider boundaries can remount dirty forms or duplicate subscriptions; test those actual boundaries.
 
-- [ ] 3.1 RED: add regressions for healthy socket/unavailable target, missing URL, healthy-socket foreground polling, local expiry/visibility recomputation, fresh failed versus stale observations, scope races and failed reads not becoming idle.
-- [ ] 3.2 RED: cover current-batch priority, partial active-agent coverage, retained step labels and tab navigation preserving dirty inputs and query subscription identity.
-- [ ] 3.3 GREEN: integrate scoped connection/work hooks, expose read-only update health, and render independent triggers, detail panels and safe target navigation.
-  - [ ] 3.3.1 Show physically occupied agents even after logical cancellation; link to owning views without introducing new mutations.
-  - [ ] 3.3.2 Show freshness, last check, unknown/partial coverage and meaningful text equivalents for segments.
-- [ ] 3.4 Refactor duplicate activity presentation, keep page-level diagnostics, and run affected query/navigation regressions without widening scope.
-- [ ] 3.5 Verify owning frontend checks and record actual outcomes before committing completed work.
+- [x] 3.1 RED: add regressions for healthy socket/unavailable target, missing URL, healthy-socket foreground polling, local expiry/visibility recomputation, fresh failed versus stale observations, scope races and failed reads not becoming idle.
+- [x] 3.2 RED: cover current-batch priority, partial active-agent coverage, retained step labels and tab navigation preserving dirty inputs and query subscription identity.
+- [x] 3.3 GREEN: integrate scoped connection/work hooks, expose read-only update health, and render independent triggers, detail panels and safe target navigation.
+  - [x] 3.3.1 Show physically occupied agents even after logical cancellation; link to owning views without introducing new mutations.
+  - [x] 3.3.2 Show freshness, last check, unknown/partial coverage and meaningful text equivalents for segments.
+- [x] 3.4 Refactor duplicate activity presentation, keep page-level diagnostics, and run affected query/navigation regressions without widening scope.
+- [x] 3.5 Verify owning frontend checks and record actual outcomes before committing completed work.
 
 ## 4. Qualify responsive and adverse behavior
 
@@ -89,11 +89,11 @@ This proposal documentation PR is separate from those future implementation bund
 - Verification: Desktop, 360px, 390px and 200% browser zoom; keyboard and screen-reader semantics; required formatting/readability/build/generated checks.
 - Risks: jsdom cannot prove clipping, browser focus or actual responsive behavior; screenshots alone cannot prove health or mutation containment.
 
-- [ ] 4.1 Run owned preview journeys for connected/unavailable/stale/idle/concurrent/partial work and occupied-agent states; retain only synthetic evidence.
-- [ ] 4.2 Verify keyboard open/escape/focus return, labelled controls, polite announcements and reachable actions at desktop/narrow/zoom sizes.
-- [ ] 4.3 Compare original Processing in progress header hierarchy and confirm Open InvenTree is to the connection control's right; keep responsive wrapping usable.
-- [ ] 4.4 Run relevant full owning checks and formatting/readability checks; update frontend/server/shared architecture where boundaries changed and the maintained handover with actual limits.
-- [ ] 4.5 Reconcile acceptance and index status truthfully; do not mark BI-002 Done before accepted merged implementation exists.
+- [x] 4.1 Run owned preview journeys for connected/unavailable/stale/idle/concurrent/partial work and occupied-agent states; retain only synthetic evidence.
+- [x] 4.2 Verify keyboard open/escape/focus return, labelled controls, polite announcements and reachable actions at desktop/narrow/zoom sizes.
+- [x] 4.3 Compare original Processing in progress header hierarchy and confirm Open InvenTree is to the connection control's right; keep responsive wrapping usable.
+- [x] 4.4 Run relevant full owning checks and formatting/readability checks; update frontend/server/shared architecture where boundaries changed and the maintained handover with actual limits.
+- [x] 4.5 Reconcile acceptance and index status truthfully; do not mark BI-002 Done before accepted merged implementation exists.
 
 ## Delivery evidence and lifecycle follow-up
 

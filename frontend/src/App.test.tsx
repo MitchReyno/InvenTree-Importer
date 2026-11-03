@@ -71,6 +71,56 @@ const inboxWorkflow = {
 const response = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } })
 
+function headerRead(path: string) {
+  const identity = {
+    actor_id: fixture.actor_id,
+    target_id: 'a0000000-0000-4000-8000-00000000000a',
+    target_context_id: fixture.target_context_id,
+  }
+  if (path.endsWith('/connection-status')) {
+    return response({
+      ...identity,
+      target: {
+        state: 'unconfigured',
+        freshness: 'unobserved',
+        observed_at: null,
+        failure_code: null,
+        navigation_url: null,
+        label: null,
+      },
+    })
+  }
+  if (path.endsWith('/header-work')) {
+    return response({
+      ...identity,
+      observed_at: new Date().toISOString(),
+      work: [
+        {
+          kind: 'import',
+          id: activityRunId,
+          batch_id: batchId,
+          stage: 'inventory',
+          state: 'queued',
+          steps: [{ name: 'approval', state: 'confirmed' }],
+          steps_complete: false,
+        },
+      ],
+      active_sessions: [],
+      work_truncated: false,
+      sessions_truncated: false,
+      lane_occupied: false,
+    })
+  }
+  return undefined
+}
+
+async function clickOriginalRun(user: ReturnType<typeof userEvent.setup>) {
+  if (!screen.queryByRole('link', { name: 'Open original run' })) {
+    await user.click(screen.getByRole('button', { name: 'Workflow activity' }))
+  }
+  await user.click(await screen.findByRole('link', { name: 'Open original run' }))
+}
+
 afterEach(() => {
   vi.restoreAllMocks()
   history.replaceState(null, '', location.pathname + location.search)
@@ -107,6 +157,10 @@ test('refresh URL resumes server batch and a 412 preserves local inputs while sh
   const sent: unknown[] = []
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const path = new URL(String(input)).pathname
+    const header = headerRead(path)
+    if (header) {
+      return header
+    }
     if (path.endsWith('/processing-activity')) {
       return response({ jobs: [], lane_occupied: false, truncated: false })
     }
@@ -207,6 +261,10 @@ test('inbox resumes retained capture, filters archives and creates a batch with 
   }
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const path = new URL(String(input)).pathname
+    const header = headerRead(path)
+    if (header) {
+      return header
+    }
     if (path.endsWith('/processing-activity')) {
       return response({ jobs: [], lane_occupied: false, truncated: false })
     }
@@ -277,6 +335,10 @@ function navigationServer(conflict = false) {
   let saved = fixture
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const path = new URL(String(input)).pathname
+    const header = headerRead(path)
+    if (header) {
+      return header
+    }
     if (path.endsWith('/processing-activity')) {
       return response({ jobs: [], lane_occupied: false, truncated: false })
     }
@@ -358,10 +420,12 @@ test('app-wide activity navigation preserves the dirty editor instance; explicit
   const view = render(<App />)
   const title = await screen.findByLabelText('Batch title')
   await user.clear(title)
+  const workflowTrigger = screen.getByRole('button', { name: 'Workflow activity' })
   await user.type(title, 'UNSAVED activity regression')
-  await user.click(await screen.findByRole('link', { name: 'Open original run' }))
+  await clickOriginalRun(user)
   expect(await screen.findByText(/Your unsaved input is preserved/)).toBeVisible()
   expect(screen.getByLabelText('Batch title')).toBe(title)
+  expect(screen.getByRole('button', { name: 'Workflow activity' })).toBe(workflowTrigger)
   expect(title).toHaveValue('UNSAVED activity regression')
   expect(location.hash).toBe(`#${batchId}/batch`)
   expect(screen.queryByRole('heading', { name: 'Retained results' })).not.toBeInTheDocument()
@@ -375,7 +439,7 @@ test('app-wide activity navigation preserves the dirty editor instance; explicit
     expect(screen.getByLabelText('Batch title')).toHaveValue('Another saved title'),
   )
   expect(screen.queryByText(/Your unsaved input is preserved/)).not.toBeInTheDocument()
-  await user.click(screen.getByRole('link', { name: 'Open original run' }))
+  await clickOriginalRun(user)
   await screen.findByRole('heading', { name: 'Retained results' })
   expect(location.hash).toBe(`#${activityDestination}`)
   view.unmount()
@@ -424,7 +488,7 @@ test('nonempty new-batch title and note survive global navigation; filters alone
   const note = screen.getByLabelText('Human note')
   await user.type(title, 'UNSAVED new batch')
   await user.type(note, 'Human facts must survive the activity link.')
-  await user.click(screen.getByRole('link', { name: 'Open original run' }))
+  await clickOriginalRun(user)
   expect(await screen.findByText(/Your unsaved input is preserved/)).toBeVisible()
   expect(screen.getByLabelText('Batch title')).toBe(title)
   expect(title).toHaveValue('UNSAVED new batch')
@@ -432,7 +496,7 @@ test('nonempty new-batch title and note survive global navigation; filters alone
   expect(location.hash).toBe('')
   await user.click(screen.getByRole('button', { name: 'Discard new batch input' }))
   expect(screen.queryByText(/Your unsaved input is preserved/)).not.toBeInTheDocument()
-  await user.click(screen.getByRole('link', { name: 'Open original run' }))
+  await clickOriginalRun(user)
   await screen.findByRole('heading', { name: 'Retained results' })
   view.unmount()
 })
@@ -597,6 +661,10 @@ test('an unavailable bootstrap refresh within the same scope preserves the mount
   let bootstrapAvailable = true
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     const path = new URL(String(input)).pathname
+    const header = headerRead(path)
+    if (header) {
+      return header
+    }
     if (path.endsWith('/processing-activity')) {
       return response({ jobs: [], lane_occupied: false, truncated: false })
     }

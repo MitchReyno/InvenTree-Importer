@@ -18,7 +18,6 @@ import {
 import type { ManualClient } from './manual/types'
 import { ManualWorkspace } from './components/review/ManualWorkspace'
 import { ResultsWorkspace } from './components/results/ResultsWorkspace'
-import { ActivityIndicator } from './components/ui/ActivityIndicator'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const partId = '20000000-0000-4000-8000-000000000002'
@@ -410,7 +409,7 @@ test('changed capture never silently reviews unseen values; explicit reload is r
   expect(client.review).not.toHaveBeenCalled()
 })
 
-test('unknown results retain uncertainty without create retry and app-wide activity links to original run', async () => {
+test('unknown results retain uncertainty without create retry', async () => {
   const unknown: ManualRunDto = {
     ...run,
     state: 'recovery_required',
@@ -422,7 +421,6 @@ test('unknown results retain uncertainty without create retry and app-wide activ
   const command = vi.fn()
   render(
     <>
-      <ActivityIndicator client={fakeClient()} />
       <ResultsWorkspace batchId={batchId} runs={[unknown]} busy={false} command={command} />
     </>,
   )
@@ -433,11 +431,6 @@ test('unknown results retain uncertainty without create retry and app-wide activ
   expect(
     screen.queryByRole('button', { name: /resume|retry|queue supervised/i }),
   ).not.toBeInTheDocument()
-  await screen.findByRole('link', { name: 'Open original run' })
-  expect(screen.getByRole('link', { name: 'Open original run' })).toHaveAttribute(
-    'href',
-    `#${batchId}/results/${runId}`,
-  )
   expect(command).not.toHaveBeenCalled()
 })
 
@@ -521,40 +514,6 @@ test('Approve pins the requested preparation through poll ordering/removal and r
   await screen.findByText(/The pinned preparation is unavailable/)
   expect(screen.queryByText('23 × Packet B')).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Approve 0 lots for the owned fake' })).toBeDisabled()
-})
-
-test('two activity observers share the same in-flight scoped read', async () => {
-  const client = fakeClient()
-  let finish: (() => void) | undefined
-  const wait = new Promise<void>((resolve) => {
-    finish = resolve
-  })
-  vi.mocked(client.activity).mockImplementation(async () => {
-    await wait
-    return { runs: [], truncated: false }
-  })
-  const view = render(
-    <>
-      <ActivityIndicator client={client} />
-      <ActivityIndicator client={client} />
-    </>,
-  )
-  await waitFor(() => expect(client.activity).toHaveBeenCalledTimes(1))
-  const complete = finish
-  if (!complete) {
-    throw new Error('activity_fixture_not_started')
-  }
-  await act(async () => {
-    complete()
-  })
-  await waitFor(() =>
-    expect(
-      screen
-        .getAllByLabelText('Application activity')
-        .every((element) => element.textContent?.includes('0 running')),
-    ).toBe(true),
-  )
-  view.unmount()
 })
 
 test(

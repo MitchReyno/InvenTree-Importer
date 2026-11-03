@@ -1,0 +1,13 @@
+# Status header qualification
+
+Checked2026-11-03 with owned synthetic data. Foundation disclosure screenshots use the `disclosure-*` prefix; integrated controls use `header-*`. The maintained [handover](../../../handovers/status-signalling-uplift.md) records package, transport and retained-data evidence separately.
+
+## Integrated connection and workflow controls
+
+The owned `header-status.html` fixture composes the production Masthead, HeaderStatus and Radix wrapper over explicit synthetic retained reads and transport health. It makes no inventory, API or provider request. Its sanitized example link was inspected but never opened. Production app regressions separately verify the real scoped shell, dirty navigation and persistent subscriptions; fixture tab buttons are layout aids, not proof of the app navigation guard.
+
+Desktop1440, narrow390/360 and native200%390/360 all retain the same neighbouring draft without document horizontal overflow. Workflow popovers stay inside the viewport and scroll internally; the final Agent sessions action is reachable by Tab at native200%. Escape returns focus to the workflow trigger. One labelled disclosure is open at a time, and the external link follows the connection control to its right. Native zoom is independently observed as2 with visual viewport scale1; these checks do not emulate zoom with CSS or page scale. Screenshots and metrics use the `header-*` prefix and were visually inspected.
+
+Integrated scenario controls exercised reachable, fresh failed target, stale target/work, idle, partial work/session coverage, logically cancelled physical occupancy, failed API reads and unconfigured target states. Healthy synthetic update transport never changes a failed target to reachable. Failed work reads report unavailable, not idle. The unconfigured state removes target navigation; a failed read may retain the previous validated same-context URL while marking connection unavailable. Retained steps are shown without inferred percentages, and unknown actual model identity remains explicit.
+
+An initial raw Enter dispatch omitted the text/native activation information and did not open the popup; a complete native Enter event succeeded before qualification continued. A headless native select-menu attempt did not change its option; fixture buttons replaced only that qualification control so all adverse states could be exercised by actual input. Neither failed interaction was counted as a feature pass. The user's normal browser profile and zoom were unchanged.
