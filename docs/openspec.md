@@ -1,48 +1,46 @@
 # Bench Intake OpenSpec planning
 
-The project uses the custom [`bench-intake` schema](../openspec/schemas/bench-intake/README.md) with the standard OpenSpec lifecycle skills. The integration was generated with OpenSpec 1.16.0. There are no real change proposals or maintained behavior specs yet.
+The project uses the custom [`bench-intake` schema](../openspec/schemas/bench-intake/README.md) with standard OpenSpec lifecycle skills. Planning is repository-owned: the [functionality index](PLANNED_FUNCTIONALITY.md) owns current item metadata and links directly to OpenSpec changes for detail. No external ticket-service integration is required.
 
-## Capture, plan and identify
+## Capture and change identity
 
-The [Notion ticket tracker](notion-tickets.md) owns identity, current priority, size, prerequisites, sprint assignment and status. The [planned-functionality register](PLANNED_FUNCTIONALITY.md) and its [detail directory](planned-functionality/README.md) are manually maintained snapshots. **BI** means **Bench Intake**: use stable IDs such as `BI-001`. The `planned-functionality` project-level skill creates/updates Notion tickets and reads back their allocated IDs before publishing references; title and priority changes do not change identity.
+BI item identifiers such as `BI-001` identify index entries. Each OpenSpec change has a separate canonical short descriptive kebab-case name, such as `add-bulk-lot-editing`. Choose a name that conveys the outcome, check active and archived changes for collisions, and keep it stable once referenced.
 
-Capture a future idea in Notion first when requested, then refresh relevant repository snapshots. An item can remain a short description with unknown estimates or prerequisites. Capture does not automatically start OpenSpec planning or implementation. When detailed planning is requested, link the relevant BI Notion tickets and available detail snapshots from an OpenSpec proposal; one change may address several related items. Work without a registered item can state None with a reason.
+Use the exact change name in its directory, every delivering Git branch and every commit/PR subject. Branches may add a meaningful bundle suffix, for example `feat/add-bulk-lot-editing-validation`; subjects use `feat(add-bulk-lot-editing): validate bulk edits`. Put additional BI references in the body when useful. All PRs delivering one change retain its canonical name.
+
+The `planned-functionality` project-level skill maintains the index, allocates BI IDs from repository history and creates or reuses change scaffolds when capture is requested. A brief capture does not require completing all planning artifacts or authorize implementation. Several related index items may link to one cohesive change; unregistered work can state None with a reason.
 
 ## Schema workflow
 
-The schema produces proposal, behavior specs, design assessment and tasks. It incorporates focused discovery, source-grounded planning, proposal-stage reuse/dependency research, testable scenarios, meaningful alternatives and detailed outcome tasks without adding OpenSpec Plus skills or another orchestrator. Proposals compare relevant packages/frameworks, existing-stack reuse and custom implementation using current primary evidence, pros/cons, compatibility and adoption cost; design carries that assessment forward.
+The schema produces proposal, behavior specs, design assessment and detailed tasks. It includes source-grounded discovery, proposal-stage reuse/dependency research, testable scenarios, meaningful alternatives, task checklists and flexible task-level TDD. Proposals compare relevant packages/frameworks, existing-stack reuse and custom implementation using primary evidence and adoption trade-offs; design carries that assessment forward.
 
-Design is an explicit assessment for every schema-driven change. It can be brief when existing architecture suffices. Pure documentation, tooling or behavior-preserving refactors can declare `skip_specs: true` in their change metadata; then specs are intentionally skipped and no behavioral requirements are invented. Existing changes keep the schema declared in their own metadata; selecting a new default does not migrate them.
+Design is an explicit assessment for every schema-driven change and can be brief when existing architecture suffices. Pure documentation, tooling or behavior-preserving refactors can declare `skip_specs: true` in change metadata; no behavioral requirements are invented. Existing changes retain their declared schema rather than being migrated by a new project default.
 
-Planning-only requests stop with a reviewable plan. Existing plan-and-implement authorization can continue through apply without requesting the same permission again. The schema batches unresolved material questions, allows relevant source reads in every phase, scales verification to the work, and uses the project's correction/review rounds and publication workflow. The schema's [shared practices](../openspec/schemas/bench-intake/README.md#shared-working-practices) define the details and limits.
+Planning-only requests stop with a reviewable plan. Existing plan-and-implement authorization can continue through apply without requesting the same permission again. Batch material unresolved questions and record routine assumptions. Follow the schema's [shared practices](../openspec/schemas/bench-intake/README.md#shared-working-practices), governing engineering instructions and existing project-level Git/PR skills.
+
+## Tasks, commits and delivery
+
+Nontrivial changes have multiple substantive tasks, each with outcome, scope, approach, prerequisites, acceptance references, verification and checkbox actions. Nested subtasks may express meaningful substeps. Behavioral tasks default to baseline, RED, GREEN and refactor/verification steps; justified alternatives retain appropriate checks for documentation and behavior-preserving work.
+
+Before committing completed work, check off the corresponding completed actions in `tasks.md` and stage that update with the work. Keep unrelated or incomplete actions unchecked. Do not claim a review, published PR, passing CI or merge before the event actually occurs; record those events only after they are evidenced. Completion tracking and commit ordering do not relax verification or exact-head review requirements.
+
+The task plan also supplies an explicit PR delivery map with scope, included tasks/checklist work, rationale, real dependencies, branch names and gates. Each top-level task belongs wholly to exactly one PR; never split its subtasks or checklist work across PRs. A PR may include one or several whole top-level tasks. If a task is too broad for a sensible PR, refine it into meaningful top-level tasks before assigning bundles. PR grouping is a reasoned delivery decision; do not infer a fixed one-task/one-PR mapping. Implementation completion, independent review, publication, merge, current item Done and archival remain separate facts. The index's Done status requires accepted and merged implementation, and its OpenSpec links are updated when an authorized archive moves the change.
 
 ## Agent and CLI entry points
 
-Use the project-level `openspec-explore`, `openspec-propose`, `openspec-apply-change`, `openspec-update-change`, `openspec-sync-specs` and `openspec-archive-change` skills. Codex accepts skill invocation such as `$openspec-propose`. Claude Code also has `/opsx:explore`, `/opsx:propose`, `/opsx:apply`, `/opsx:update`, `/opsx:sync` and `/opsx:archive` commands. No Cursor-specific integration was generated in this initialization.
-
-Those are agent invocations. Terminal commands include:
+Use project-level `openspec-explore`, `openspec-propose`, `openspec-apply-change`, `openspec-update-change`, `openspec-sync-specs` and `openspec-archive-change` skills. Codex uses skill invocation such as `$openspec-propose`; native Claude commands include `/opsx:propose`, `/opsx:apply` and `/opsx:archive`. The CLI is installed separately from the repository; the integration was qualified with OpenSpec 1.16.0.
 
 ```bash
 openspec schema validate bench-intake --json
-openspec new change change-slug
-openspec status --change change-slug --json
-openspec instructions proposal --change change-slug --json
+openspec new change change-name --description "Brief intent"
+openspec status --change change-name --json
+openspec instructions proposal --change change-name --json
 ```
 
-The CLI is installed separately from the repository. Invoke it from the correct repository root and preserve the output paths and artifact scope it resolves. Structural validation does not establish artifact quality, user approval, live provider behavior or inventory-write authority.
+Use the correct repository root and preserve CLI-resolved output paths and artifact scope. Structural validation does not establish artifact quality, approval, provider behavior or inventory-write authority.
 
-## Delivery and product status
+## Maintenance and qualification
 
-Tasks are broken into multiple coherent work units for nontrivial changes, each with outcome/scope, prerequisites, acceptance references, approach, verification and its own checkbox list. Nested subtasks are available for meaningful substeps. Behavioral tasks default to explicit baseline, RED, GREEN and refactor/verification steps; justified alternatives retain appropriate checks for documentation and behavior-preserving work. Tasks use native checkboxes for actual deliverables, including applicable review and publication work. Keep a held merge task pending. A task implemented and verified, a merged implementation, a BI item Done and an archived change are separate facts.
+Custom instructions/templates live under `openspec/schemas/bench-intake/`; keep them separate from standard integration regeneration. After updating the CLI, inspect the output of `openspec update`, reapply the existing invocation/authorization adaptations to standard skills and native commands, and mirror skill copies exactly. The root generator target marker remains excluded from authored-resource comparisons; same-name files inside skills remain compared.
 
-Merged code and acceptance evidence determine whether a BI item is Done. Archive state alone does not. Update Notion first, then manually refresh current-status snapshots and links when an authorized archive moves referenced artifacts. Do not claim automatic synchronization. Existing architecture, execution qualification and project authorization boundaries remain in force.
-
-## Maintaining the integration
-
-Custom schema instructions, templates and shared practices live under `openspec/schemas/bench-intake/`. Do not overwrite them when updating standard OpenSpec integration files. Changes follow the schema's [qualification guidance](../openspec/schemas/bench-intake/README.md#maintenance-and-qualification).
-
-After updating the CLI, run `openspec update` from the repository root and inspect the generated diff. Shared standard skills have local adaptations for agent invocation and persistent user authorization. Reapply those notes to skills and native commands after regeneration, then mirror skill directories as identical real copies. Native Claude command files remain host-specific. The schema supplies planning policy; standard skills retain lifecycle ownership.
-
-The `.agents/skills/.openspec-target` marker records the generator owner for the shared tree. Keep it generated; the workflow-copy comparison excludes only that root marker. Same-name files inside a skill remain authored resources subject to comparison.
-
-Run `pnpm workflow-sync` after skill changes, plus Markdown and applicable repository checks. Obtain independent exact-head review before publication and selected green CI before any authorized merge into `interactive-app`. An explicit merge hold remains effective until lifted.
+After changes, run applicable schema/instruction/progress checks in disposable projects, Markdown/link/reference checks and `pnpm workflow-sync` for skill edits. Record actual evidence and limits in the maintained handover. Follow independent exact-head review and selected CI before any authorized merge into `interactive-app`.

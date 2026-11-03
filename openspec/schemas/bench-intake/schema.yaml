@@ -14,11 +14,13 @@ artifacts:
       available in project documentation, relevant source and tests. Record minor
       assumptions explicitly instead of asking for routine implementation choices.
 
-      Link existing BI Notion tickets and available repository snapshots when
-      applicable. A change may cover several related items; do not allocate an ID or create backlog
-      entries merely to fill this template. Priority, size, prerequisites and
-      current item status remain owned by the Notion ticket source; repository
-      Markdown is a manually refreshed snapshot, not a competing allocator.
+      Use one short descriptive kebab-case change name, read from the CLI change
+      identity. Keep it stable in the change directory, all delivering Git branch
+      names and every conventional commit/PR subject: type(change-name): description.
+      Branches may add a meaningful PR suffix while retaining the exact change name.
+      Link applicable BI index entries; one change may address several related items.
+      The repository index owns current priority, size, prerequisites and item status;
+      OpenSpec artifacts hold the detailed plan rather than another mutable backlog.
       Distinguish observed behavior, requested behavior and unverified assumptions.
       Identify affected application boundaries, compatibility and evidence limits.
       Decompose unrelated outcomes without splitting a cohesive end-to-end change
@@ -146,8 +148,18 @@ artifacts:
       Keep each task actionable and traceable to an outcome, requirement or necessary enabling
       work. Explain what must be delivered; include file paths or concrete checks
       where useful without duplicating the design or prescribing line-by-line edits.
-      A task or slice is not automatically one PR; choose coherent reviewable PRs
-      under the repository's branch and publication rules.
+      Define an explicit PR delivery map before implementation. For each planned
+      bundle, state its outcome/scope, covered task IDs and checklist work, boundary
+      rationale, real dependencies and merge order, intended base/branch, conventional
+      subject and verification/merge gates. Every branch and subject includes the
+      exact canonical change name. Cover the work without unexplained gaps or duplicate
+      ownership. One change can use one or several PRs, and a PR can bundle several
+      tasks. Choose boundaries for coherent review/delivery, compatibility, rollout,
+      risk and independent verification rather than task counts or arbitrary size
+      quotas. Assign each whole top-level task to exactly one PR. Never split its
+      subtasks or checklist work across PRs. Refine oversized tasks into meaningful
+      top-level tasks before assigning bundles. Keep the map current when discoveries
+      change the proposed bundles.
 
       Select checks by task type and affected boundary. Behavior changes need
       meaningful regressions and explicit TDD-oriented checklist steps by default:
@@ -208,12 +220,23 @@ apply:
     repeated failures and report the actual blocker without a fixed three-attempt
     rule that abandons recoverable work. Continue useful authorized work.
 
+    Keep every top-level task wholly within its owning PR, including all subtasks
+    and checklist work. Follow the task plan's explicit PR delivery map, scope and
+    real dependencies;
+    revise the map within authorized scope when evidence changes the bundle boundary.
+    Use the canonical change name in every delivering branch and commit/PR subject.
+    Before committing a completed checkbox item's work, verify its evidence, mark
+    that item complete in tasks.md and stage the task-file change in the same commit
+    as its corresponding work. A parent action stays incomplete while required child
+    actions are incomplete. Do not defer completed-item bookkeeping to a later commit.
+    Leave genuinely incomplete items unchecked; review/publication/CI/merge outcomes
+    can be recorded only after they actually occur, not pre-checked for convenience.
     Check each task only after its deliverable and required evidence are satisfied.
     Keep publication/merge tasks pending until their own conditions are met. Preserve
     the existing commit and PR workflow: isolated conventional branches, maintained
     handovers, independent read-only review of the exact candidate, correction and
     re-review until clear, then selected green CI. Commits are permitted within that
     workflow. Merge and archive require applicable user authorization; obey any hold.
-    Update linked BI Notion tickets first from actual current evidence, then refresh
-    any affected repository snapshots without claiming automatic synchronization. A completed task list,
+    Update linked BI index entries from actual evidence and keep their OpenSpec
+    links current. Keep only current item status in the index. A completed task list,
     archive or green CI alone does not establish merged product functionality.
