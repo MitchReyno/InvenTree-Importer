@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { validate } from '../src/index.ts'
-import { headerClient } from '../src/client.ts'
+import { headerClient } from '../generated/client.ts'
 
 const id = '00000000-0000-4000-8000-000000000001'
 const work = {

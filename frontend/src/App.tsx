@@ -7,6 +7,7 @@ import {
   agentsClient,
   captureClient,
   inboxClient,
+  headerClient,
   intakeClient,
   manualClient,
   mediaClient,
@@ -21,7 +22,7 @@ import { Batch } from './components/batches/Batch'
 import { GlobalStyle } from './components/GlobalStyle'
 import styled from 'styled-components'
 import { Diagnostics } from './components/operations/Diagnostics'
-import { ActivityIndicator } from './components/ui/ActivityIndicator'
+import { HeaderStatus } from './components/masthead/HeaderStatus'
 import { Masthead } from './components/masthead/Masthead'
 import { useNavigationGuard } from './navigation/useNavigationGuard'
 
@@ -90,6 +91,12 @@ export default function App() {
         : undefined,
     [bootstrap],
   )
+  const header = useMemo(
+    () => (bootstrap?.csrf_token ? headerClient(location.origin, bootstrap.csrf_token) : null),
+    [bootstrap?.csrf_token],
+  )
+  const currentBatch =
+    route === 'agents' || route === 'settings' ? undefined : route?.split('/')[0] || undefined
   let content: ReactNode
   if (bootstrapUnavailable && !bootstrap) {
     content = (
@@ -137,18 +144,29 @@ export default function App() {
   return (
     <AppShell>
       <GlobalStyle />
-      <Masthead />
-
-      <DevelopmentBanner>
-        {bootstrap?.banner ?? 'Connecting to local application…'}
-      </DevelopmentBanner>
       <ServerStateProvider key={scope ? serverScopeIdentity(scope) : 'setup'} scope={scope}>
         <LiveUpdates
           csrfToken={bootstrap?.csrf_token ?? null}
-          batchId={route === 'agents' || route === 'settings' ? null : route?.split('/')[0] || null}
+          batchId={currentBatch ?? null}
+          showStatus={false}
           refreshBootstrap={refreshBootstrap}
         >
-          {manual && <ActivityIndicator client={manual} processing={processing} />}
+          <Masthead
+            actions={
+              header && scope ? (
+                <HeaderStatus
+                  client={header}
+                  batchId={currentBatch}
+                  bootstrapUnavailable={bootstrapUnavailable}
+                />
+              ) : (
+                <span>{bootstrap ? 'Local setup required' : 'Connecting to application…'}</span>
+              )
+            }
+          />
+          <DevelopmentBanner>
+            {bootstrap?.banner ?? 'Connecting to local application…'}
+          </DevelopmentBanner>
           {bootstrapUnavailable && bootstrap && (
             <Notice role="alert">
               Application connection unavailable. Showing the last development context; retained

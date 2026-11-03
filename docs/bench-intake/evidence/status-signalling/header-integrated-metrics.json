@@ -1,0 +1,41 @@
+[
+  {
+    "width": 1440,
+    "scroll": 1440,
+    "dialog": {
+      "left": 812,
+      "right": 1172,
+      "top": 78,
+      "bottom": 778
+    },
+    "draft": "Keep this draft while checking status.",
+    "occupied": true,
+    "cancelled": true
+  },
+  {
+    "width": 390,
+    "scroll": 390,
+    "dialog": {
+      "left": 14,
+      "right": 374,
+      "top": 99,
+      "bottom": 799
+    },
+    "draft": "Keep this draft while checking status.",
+    "occupied": true,
+    "cancelled": true
+  },
+  {
+    "width": 360,
+    "scroll": 360,
+    "dialog": {
+      "left": 12,
+      "right": 348,
+      "top": 99,
+      "bottom": 799
+    },
+    "draft": "Keep this draft while checking status.",
+    "occupied": true,
+    "cancelled": true
+  }
+]

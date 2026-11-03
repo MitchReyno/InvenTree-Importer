@@ -1,0 +1,74 @@
+[
+  {
+    "scenario": "Show connected state",
+    "status": [
+      "Processing in progress \u00b7 research",
+      "Target reachable"
+    ],
+    "draft": "Keep this draft while checking status.",
+    "external": "https://inventory.example.test/"
+  },
+  {
+    "scenario": "Show unavailable state",
+    "status": [
+      "Processing in progress \u00b7 research",
+      "Target unavailable"
+    ],
+    "draft": "Keep this draft while checking status.",
+    "external": "https://inventory.example.test/"
+  },
+  {
+    "scenario": "Show stale state",
+    "status": [
+      "Workflow status stale",
+      "Target status stale"
+    ],
+    "draft": "Keep this draft while checking status.",
+    "external": "https://inventory.example.test/"
+  },
+  {
+    "scenario": "Show idle state",
+    "status": [
+      "Idle",
+      "Target reachable"
+    ],
+    "draft": "Keep this draft while checking status.",
+    "external": "https://inventory.example.test/"
+  },
+  {
+    "scenario": "Show partial state",
+    "status": [
+      "Processing in progress \u00b7 research",
+      "Target reachable"
+    ],
+    "draft": "Keep this draft while checking status.",
+    "external": "https://inventory.example.test/"
+  },
+  {
+    "scenario": "Show cancelled state",
+    "status": [
+      "Processing in progress \u00b7 research",
+      "Target reachable"
+    ],
+    "draft": "Keep this draft while checking status.",
+    "external": "https://inventory.example.test/"
+  },
+  {
+    "scenario": "Show offline state",
+    "status": [
+      "Workflow unavailable",
+      "Connection unavailable"
+    ],
+    "draft": "Keep this draft while checking status.",
+    "external": "https://inventory.example.test/"
+  },
+  {
+    "scenario": "Show unconfigured state",
+    "status": [
+      "Idle",
+      "Target unconfigured"
+    ],
+    "draft": "Keep this draft while checking status.",
+    "external": null
+  }
+]

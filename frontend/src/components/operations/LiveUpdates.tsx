@@ -17,19 +17,47 @@ export function useRetainedPollInterval() {
   return useContext(PollInterval)
 }
 
+export const LIVE_UPDATE_FRESH_MS = 30_000
+
+export interface UpdateHealth {
+  state: Connection
+  observedAt: number | null
+  truncated: boolean
+}
+export const UpdateHealthContext = createContext<UpdateHealth>({
+  state: 'connecting',
+  observedAt: null,
+  truncated: false,
+})
+
+export function useUpdateHealth() {
+  return useContext(UpdateHealthContext)
+}
+
 type Connection = 'connecting' | 'live' | 'polling' | 'update_required'
 interface Props {
   csrfToken: string | null
   batchId: string | null
   refreshBootstrap: () => void
   children: ReactNode
+  showStatus?: boolean
 }
 
 /** Socket frames invalidate reads only. Drafts and domain command lifecycles stay with their owners. */
-export function LiveUpdates({ csrfToken, batchId, refreshBootstrap, children }: Props) {
+export function LiveUpdates({
+  csrfToken,
+  batchId,
+  refreshBootstrap,
+  children,
+  showStatus = true,
+}: Props) {
   const scope = useContext(ServerScopeContext)
   const queryClient = useQueryClient()
-  const [connection, setConnection] = useState<Connection>('connecting')
+  const [health, setHealth] = useState<{ state: Connection; observedAt: number | null }>({
+    state: 'connecting',
+    observedAt: null,
+  })
+  const connection = health.state
   const [truncated, setTruncated] = useState(false)
   const cursors = useRef<LiveCursorDto[]>([])
   useEffect(() => {
@@ -78,10 +106,10 @@ export function LiveUpdates({ csrfToken, batchId, refreshBootstrap, children }: 
 
     const connect = () => {
       if (stopped || !csrfToken || typeof WebSocket === 'undefined') {
-        setConnection('polling')
+        setHealth({ state: 'polling', observedAt: Date.now() })
         return
       }
-      setConnection('connecting')
+      setHealth({ state: 'connecting', observedAt: Date.now() })
       try {
         const url = new URL('/api/v1/live', scope.origin)
         url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -119,6 +147,9 @@ export function LiveUpdates({ csrfToken, batchId, refreshBootstrap, children }: 
           validate('LiveFrame', value)
           const frame = value as LiveFrameDto
           lastFrame = Date.now()
+          setHealth((previous) =>
+            previous.state === 'live' ? { state: 'live', observedAt: lastFrame } : previous,
+          )
           if (frame.type === 'ready') {
             if (
               new Set(frame.cursors.map((cursor) => cursor.stream_id)).size !== frame.cursors.length
@@ -127,7 +158,7 @@ export function LiveUpdates({ csrfToken, batchId, refreshBootstrap, children }: 
             }
             cursors.current = frame.cursors
             setTruncated(frame.truncated)
-            setConnection('live')
+            setHealth({ state: 'live', observedAt: Date.now() })
             attempt = 0
             reconcile()
           } else if (frame.type === 'changed') {
@@ -139,7 +170,7 @@ export function LiveUpdates({ csrfToken, batchId, refreshBootstrap, children }: 
             reconcile()
           }
         } catch {
-          setConnection('update_required')
+          setHealth({ state: 'update_required', observedAt: Date.now() })
           stopped = true
           clearInterval(deadline)
           current.close(3002, 'invalid_frame')
@@ -152,7 +183,7 @@ export function LiveUpdates({ csrfToken, batchId, refreshBootstrap, children }: 
         }
         clearInterval(deadline)
         if (event.code === 1002) {
-          setConnection('update_required')
+          setHealth({ state: 'update_required', observedAt: Date.now() })
           stopped = true
           return
         }
@@ -160,7 +191,7 @@ export function LiveUpdates({ csrfToken, batchId, refreshBootstrap, children }: 
         schedule()
       }
       deadline = setInterval(() => {
-        if (Date.now() - lastFrame > 30000) {
+        if (Date.now() - lastFrame > LIVE_UPDATE_FRESH_MS) {
           current.close()
         }
       }, 5000)
@@ -170,7 +201,7 @@ export function LiveUpdates({ csrfToken, batchId, refreshBootstrap, children }: 
       if (stopped) {
         return
       }
-      setConnection('polling')
+      setHealth({ state: 'polling', observedAt: Date.now() })
       clearTimeout(retry)
       retry = setTimeout(
         connect,
@@ -208,12 +239,14 @@ export function LiveUpdates({ csrfToken, batchId, refreshBootstrap, children }: 
   const interval = connection === 'live' ? (truncated ? 15000 : false) : RETAINED_POLL_INTERVAL_MS
   return (
     <PollInterval.Provider value={interval}>
-      {csrfToken && (
-        <Small role="status" aria-live="polite">
-          {status}
-        </Small>
-      )}
-      {children}
+      <UpdateHealthContext.Provider value={{ ...health, truncated }}>
+        {showStatus && csrfToken && (
+          <Small role="status" aria-live="polite">
+            {status}
+          </Small>
+        )}
+        {children}
+      </UpdateHealthContext.Provider>
     </PollInterval.Provider>
   )
 }
