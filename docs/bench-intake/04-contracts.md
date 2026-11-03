@@ -127,3 +127,9 @@ A snapshot returns a consistent state plus cursor from the same repeatable-read 
 ## Compatibility tests
 
 Retain shared malformed/duplicate/unknown-field/number/path/hash vectors. Add request/response fixtures for every public union and cross-version incompatibility. Validate generated clients against the actual server parser/serializer, not just TS compilation. Test old tabs, out-of-order delivery, duplicate cursor IDs, rollback/commit ordering, expired event windows and cross-batch object access. No runtime type assertion or schema generator alone is acceptance evidence.
+
+## Retained Capture context additions
+
+The implemented Capture edits endpoint accepts one composite `settings` command for batch title/defaults, human supplier/date/tag context and an optional human note. The existing lot edit accepts per-lot context in the same transaction as its other changes. Loaded revisions and payload-bound keys remain mandatory. Context is human evidence, not an approval or new inventory effect; PO intent is not an accepted field. Absent new context is omitted from legacy snapshots.
+
+Media edits add group rename/retirement, atomic multi-evidence moves and versioned evidence notes. Group instructions retain their existing versioned authority. Ungrouping preserves original evidence, links and historical group/instruction identity. Additive `media-inputs/3` includes scoped group/evidence context; /1 and /2 retained bytes remain valid, and Processing still refuses Part-attachment scopes. See the [implemented server boundary](../../intake-server/ARCHITECTURE.md#capture-settings-and-grouped-context-foundations) and generated API contracts for exact fields. UI consolidation and its acceptance evidence are separate delivery tasks.

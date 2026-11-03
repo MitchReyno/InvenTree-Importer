@@ -87,6 +87,7 @@ export async function stageNativePrompt(
     linked_part: manifest.linked_part,
     defaults: manifest.defaults,
     notes: manifest.notes,
+    ...(media.context ? { media_context: media.context } : {}),
     inspected_sources: sources,
     unavailable_media_version_ids: unavailable,
     image_order: sources.filter((source) => source.kind === 'media_version'),

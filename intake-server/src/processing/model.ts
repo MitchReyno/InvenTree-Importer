@@ -1,3 +1,4 @@
+import { captureContextNotes } from '../capture/context-input.ts'
 import { nativeProfileId, nativeInstructionDigest } from '../agents/policy.ts'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import {
@@ -111,7 +112,7 @@ function captureInputFields(
     defaults: snapshot.defaults,
     subject: (lot ?? part)!,
     linked_part: linkedPart ?? null,
-    notes,
+    notes: [...notes, ...captureContextNotes(snapshot, subjectId)],
     observations: snapshot.observations.flatMap((observation) => {
       if (observation.model !== 'part' && observation.model !== 'location') {
         return []
@@ -182,7 +183,10 @@ export function mediaInputManifest(
     Buffer.from(media.sha256, 'hex'),
   )
   const mediaVersion = strictJson(media.manifest) as { version?: string }
-  if (mediaVersion.version !== 'media-inputs/1') {
+  if (
+    (mediaVersion.version !== 'media-inputs/1' && mediaVersion.version !== 'media-inputs/3') ||
+    decodedMedia.attachments.some((attachment) => attachment.destination === 'part_attachment')
+  ) {
     fail('unsupported_processing_input')
   }
   const expectedSubjectIds = processingSubjectScope(snapshot, subjectId)
@@ -191,13 +195,33 @@ export function mediaInputManifest(
     fail('processing_media_binding_invalid')
   }
 
-  const meaningfulNote = fields.notes.some((note) => note.text.trim().length > 0)
+  const mediaNotes = [
+    ...(decodedMedia.context?.groups.flatMap((group) =>
+      group.note ? [{ ...group.note, scope: { group_id: group.id, label: group.label } }] : [],
+    ) ?? []),
+    ...(decodedMedia.context?.evidenceNotes.map((item) => ({
+      ...item.note,
+      scope: { evidence_id: item.evidenceId },
+    })) ?? []),
+  ]
+    .filter((note) => note.text.trim().length > 0)
+    .map((note) => ({
+      id: note.id,
+      subject_id: null,
+      producer: 'human' as const,
+      actor_id: note.actor_id,
+      created_at: note.created_at,
+      text: `Human evidence context, not approved inventory effects: ${canonical({ version: note.version, scope: note.scope, text: note.text })}`,
+    }))
+  const notes = [...fields.notes, ...mediaNotes]
+  const meaningfulNote = notes.some((note) => note.text.trim().length > 0)
   if (!meaningfulNote && decodedMedia.versions.length === 0) {
     fail('retained_evidence_required', 422)
   }
 
   return {
     ...fields,
+    notes,
     schema_version: 'bench-intake-input/2',
     profile_id: mediaProfileId,
     instruction_version: mediaInstructionVersion,

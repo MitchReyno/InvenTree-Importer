@@ -1,6 +1,6 @@
 import { Type, type Static, type TProperties, type TSchema } from '@sinclair/typebox'
 import { Id, PositivePk, Quantity, Revision } from './scalars.ts'
-import { InventoryModel, InventoryPartSpec, InventoryMapping } from './effects.ts'
+import { InventoryModel, InventoryPartSpec, InventoryMapping, mappedReference } from './effects.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -32,9 +32,40 @@ export const CapturePartChoice = Type.Union([
   object({ mode: Type.Literal('create'), spec: InventoryPartSpec }),
 ])
 export const CaptureDefaults = object({ quantity: CaptureQuantity, location: CaptureLocation })
+const calendarDate = Type.String({ pattern: '^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}(?![\\s\\S])' })
+const captureTags = Type.Array(Type.String({ minLength: 1, maxLength: 100, pattern: '[^\\s]' }), {
+  maxItems: 32,
+  uniqueItems: true,
+})
+export const CaptureContext = object({
+  supplier: selection(mappedReference('company')),
+  purchase_date: selection(calendarDate),
+  tags: selection(captureTags),
+})
+export const CaptureLotContext = object({
+  supplier: inheritable(mappedReference('company')),
+  purchase_date: inheritable(calendarDate),
+  tags: inheritable(captureTags),
+})
+export const CaptureContextRecord = object({
+  id: Id,
+  subject_id: Type.Union([Id, Type.Null()]),
+  version: Revision,
+  value: CaptureLotContext,
+  actor_id: Id,
+  created_at: Type.String(),
+})
 export const CaptureEdit = object({
   expected_revision: Revision,
   change: Type.Union([
+    object({
+      kind: Type.Literal('settings'),
+      title: Type.Optional(label),
+      quantity: Type.Optional(CaptureQuantity),
+      location: Type.Optional(CaptureLocation),
+      context: Type.Optional(CaptureContext),
+      note: Type.Optional(note),
+    }),
     object({
       kind: Type.Literal('batch'),
       title: Type.Optional(label),
@@ -57,6 +88,7 @@ export const CaptureEdit = object({
       id: Id,
       label: Type.Optional(label),
       part_subject_id: Type.Optional(Type.Union([Id, Type.Null()])),
+      context: Type.Optional(CaptureLotContext),
       quantity: Type.Optional(CaptureQuantity),
       location: Type.Optional(CaptureLocation),
     }),
@@ -127,6 +159,7 @@ export const CaptureSnapshot = object({
   actor_id: Id,
   target_context_id: Id,
   defaults: CaptureDefaults,
+  context: Type.Optional(Type.Array(CaptureContextRecord, { maxItems: 101 })),
   parts: Type.Array(object({ id: Id, label, revision: Revision, choice: CapturePartChoice })),
   lots: Type.Array(
     object({
@@ -167,6 +200,9 @@ export const captureSchemas = {
   CaptureLocation,
   CapturePartChoice,
   CaptureDefaults,
+  CaptureContext,
+  CaptureLotContext,
+  CaptureContextRecord,
   CaptureEdit,
   CaptureObserve,
   CaptureObservation,
@@ -178,3 +214,7 @@ export type CaptureEditDto = Static<typeof CaptureEdit>
 export type CaptureSnapshotDto = Static<typeof CaptureSnapshot>
 export type CaptureObservationDto = Static<typeof CaptureObservation>
 export type CaptureObserveDto = Static<typeof CaptureObserve>
+
+export type CaptureContextDto = Static<typeof CaptureContext>
+export type CaptureLotContextDto = Static<typeof CaptureLotContext>
+export type CaptureContextRecordDto = Static<typeof CaptureContextRecord>

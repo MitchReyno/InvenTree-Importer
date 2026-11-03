@@ -22,7 +22,7 @@ Group items by type below, then by **Critical**, **High**, **Normal**, **Low**, 
 A two-to-five sentence description of the problem and intended outcome. Explain the relevant scope or limitation.
 
 - Change: `add-bulk-lot-editing`
-- Status: Proposed
+- Status: In progress
 - Size: Unknown
 - Prerequisites: Unknown — dependencies have not been assessed.
 - OpenSpec: [add-bulk-lot-editing](../openspec/changes/add-bulk-lot-editing/)
@@ -55,7 +55,7 @@ No registered items.
 Consolidate all settings currently reached through the Shared details buttons into one Batch settings panel and remove those buttons. Include the original mockup's elements with PO controls disabled and greyed out, and compare right-side versus above-content placement before choosing the layout. Uplift the main evidence panel with three prominent top actions for taking photos, adding documents and writing notes, and organize evidence using groups like the original mockup.
 
 - Change: `capture-tab-uplift`
-- Status: Proposed
+- Status: In progress
 - Size: L — retained settings/context and group/note contracts, UI consolidation and responsive evidence qualification.
 - Prerequisites: None external identified — existing media/groups and form/revision infrastructure are available; the change includes missing context/group contracts and dependency qualification. PO controls remain disabled; no dependency on BI-002.
 - OpenSpec: [capture-tab-uplift](../openspec/changes/capture-tab-uplift/)

@@ -1,4 +1,11 @@
-import { Type } from '@sinclair/typebox'
+import { FormatRegistry, Type } from '@sinclair/typebox'
+
+export function validInt64(value: string) {
+  return /^(0|[1-9][0-9]{0,18})(?![\s\S])/.test(value) && BigInt(value) <= 9223372036854775807n
+}
+
+// Interpreted media validation and compiled HTTP validation share exact integer limits.
+FormatRegistry.Set('int64', validInt64)
 
 const end = '(?![\\s\\S])'
 export const Id = Type.String({

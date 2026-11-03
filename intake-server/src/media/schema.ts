@@ -133,3 +133,23 @@ export const mediaCommandPins = pgTable('media_command_pin', {
   versionId: uuid('version_id').notNull(),
   blobDigest: bytea('blob_digest').notNull(),
 })
+
+export const mediaGroupHistory = pgTable('media_group_history', {
+  id: uuid().primaryKey(),
+  batchId: uuid('batch_id').notNull(),
+  groupId: uuid('group_id').notNull(),
+  revision: decimalInteger().notNull(),
+  label: text().notNull(),
+  retired: boolean().notNull(),
+  actorId: uuid('actor_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+export const mediaEvidenceNotes = pgTable('media_evidence_note', {
+  id: uuid().primaryKey(),
+  batchId: uuid('batch_id').notNull(),
+  evidenceId: uuid('evidence_id').notNull(),
+  revision: decimalInteger().notNull(),
+  text: text().notNull(),
+  actorId: uuid('actor_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})

@@ -1,9 +1,16 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { validate } from '@invimport/contracts'
+import { validate, type MediaSnapshotDto } from '@invimport/contracts'
+import { materialize } from '../src/review/model.ts'
 import { retainedQuestionSpec } from '../src/processing/retained.ts'
-import { inputManifest, mediaInputManifest, sealed, unseal } from '../src/processing/model.ts'
+import {
+  inputManifest,
+  mediaInputManifest,
+  processingSubjectScope,
+  sealed,
+  unseal,
+} from '../src/processing/model.ts'
 import { processingInputIsCurrent } from '../src/processing/authority.ts'
 import { canonicalMedia } from '../src/media/encoding.ts'
 import { decodeMediaInputs, scopeMediaInputs } from '../src/media/inputs.ts'
@@ -274,5 +281,107 @@ test('media-inputs/2 is not a current processing input', () => {
       decodeMediaInputs(Buffer.from(version1), sha256(version1)),
     ),
     true,
+  )
+})
+
+test('retained human context changes input currency without changing frozen input shape or execution choices', () => {
+  const capture = manualInputFixture()
+  const subjectId = capture.lots[0].id
+  const before = inputManifest(capture, subjectId, 'reading', [], null)
+  const reviewBefore = materialize(capture, [subjectId])
+  capture.context = [
+    {
+      id: randomUUID(),
+      subject_id: null,
+      version: '2',
+      actor_id: capture.actor_id,
+      created_at: '2026-11-03T00:00:00.000Z',
+      value: {
+        supplier: { mode: 'unset' },
+        purchase_date: { mode: 'set', value: '2026-11-03' },
+        tags: { mode: 'set', value: ['incoming'] },
+      },
+    },
+  ]
+  const after = inputManifest(capture, subjectId, 'reading', [], null)
+  const reviewAfter = materialize(capture, [subjectId])
+  assert.notDeepEqual(reviewAfter.digest, reviewBefore.digest)
+  assert.deepEqual(reviewAfter.effects, reviewBefore.effects)
+  validate('ProcessingInputV1', after)
+  assert.equal(after.schema_version, before.schema_version)
+  assert.deepEqual(after.subject, before.subject)
+  assert.equal(after.notes.at(-1)?.id, capture.context[0].id)
+  assert.match(after.notes.at(-1)!.text, /not approved inventory effects/)
+  assert.equal(
+    processingInputIsCurrent(before, capture, emptyProcessingMedia(capture, subjectId)),
+    false,
+  )
+  assert.equal(
+    processingInputIsCurrent(after, capture, emptyProcessingMedia(capture, subjectId)),
+    true,
+  )
+})
+
+test('versioned media context reaches processing and invalidates stale notes without changing originals', () => {
+  const capture = manualInputFixture()
+  const subjectId = capture.lots[0].id
+  const evidenceId = randomUUID()
+  const groupId = randomUUID()
+  const note = {
+    id: randomUUID(),
+    version: '2',
+    text: 'Front and back of one packet',
+    actor_id: capture.actor_id,
+    created_at: '2026-11-03T00:00:00.000Z',
+  }
+  const snapshot: MediaSnapshotDto = {
+    batch_id: capture.id,
+    revision: '2',
+    evidence: [
+      {
+        id: evidenceId,
+        label: 'Packet',
+        group_id: groupId,
+        linked_subject_ids: [subjectId],
+        versions: [],
+        note,
+      },
+    ],
+    groups: [{ id: groupId, label: 'Keep together', note: { ...note, id: randomUUID() } }],
+    attachments: [],
+    derivations: [],
+  }
+  const scoped = scopeMediaInputs(snapshot, processingSubjectScope(capture, subjectId))
+  const manifest = mediaInputManifest(capture, subjectId, 'reading', [], null, {
+    manifest: scoped.bytes.toString(),
+    sha256: scoped.digest.toString('hex'),
+  })
+  validate('ProcessingInputV2', manifest)
+  assert.equal(JSON.parse(scoped.bytes.toString()).version, 'media-inputs/3')
+  assert.ok(
+    manifest.notes.some((value) => value.id === note.id && value.text.includes('Front and back')),
+  )
+  assert.equal(processingInputIsCurrent(manifest, capture, scoped), true)
+  const changed = structuredClone(snapshot)
+  changed.evidence[0].note = { ...note, id: randomUUID(), version: '3', text: 'Different count' }
+  const newer = scopeMediaInputs(changed, processingSubjectScope(capture, subjectId))
+  assert.equal(processingInputIsCurrent(manifest, capture, newer), false)
+  assert.deepEqual(newer.versions, scoped.versions)
+  const forbidden = JSON.parse(scoped.bytes.toString())
+  forbidden.attachments.push({
+    id: randomUUID(),
+    subject_id: subjectId,
+    mode: 'selected',
+    version_id: randomUUID(),
+    destination: 'part_attachment',
+  })
+  const forbiddenBytes = Buffer.from(canonicalMedia(forbidden))
+  assert.throws(
+    () =>
+      mediaInputManifest(capture, subjectId, 'reading', [], null, {
+        manifest: forbiddenBytes.toString(),
+        sha256: sha256(forbiddenBytes).toString('hex'),
+      }),
+    /unsupported_processing_input/,
   )
 })

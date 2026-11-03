@@ -150,3 +150,13 @@ export const captureEditPublications = pgTable('capture_edit_publication', {
   id: uuid().primaryKey(),
   batchId: uuid('batch_id').notNull(),
 })
+
+export const captureContexts = pgTable('capture_context', {
+  id: uuid().primaryKey(),
+  batchId: uuid('batch_id').notNull(),
+  subjectId: uuid('subject_id'),
+  version: bigint({ mode: 'bigint' }).notNull(),
+  value: jsonb().notNull(),
+  actorId: uuid('actor_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})

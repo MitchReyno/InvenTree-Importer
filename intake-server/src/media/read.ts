@@ -1,3 +1,4 @@
+import { activeMediaGroups, enrichMediaNotes } from './context.ts'
 import { prepareMediaTransaction } from './transaction.ts'
 import type { PoolClient } from 'pg'
 import { and, asc, desc, eq, isNull, or } from 'drizzle-orm'
@@ -12,7 +13,6 @@ import {
   mediaDecodeResults,
   mediaDerivations,
   mediaEvidence,
-  mediaGroups,
   mediaLinks,
   mediaMemberships,
   mediaPreviews,
@@ -82,13 +82,7 @@ async function readMediaRows(client: PoolClient, batchId: string): Promise<Media
       .where(eq(mediaPreviews.batchId, batchId))
       .orderBy(asc(mediaPreviews.page)),
   )
-  const groups = await executeDatabaseQuery(
-    db
-      .select({ id: mediaGroups.id, label: mediaGroups.label })
-      .from(mediaGroups)
-      .where(eq(mediaGroups.batchId, batchId))
-      .orderBy(asc(mediaGroups.id)),
-  )
+  const groups = await activeMediaGroups(client, batchId)
   const membership = await executeDatabaseQuery(
     db
       .selectDistinctOn([mediaMemberships.evidenceId], {
@@ -161,7 +155,10 @@ export async function mediaSnapshot(
 ): Promise<MediaSnapshotDto> {
   await prepareMediaTransaction(client)
   await captureInTransaction(client, binding, batchId)
-  const snapshot = projectMediaSnapshot(batchId, await readMediaRows(client, batchId))
+  const snapshot = await enrichMediaNotes(
+    client,
+    projectMediaSnapshot(batchId, await readMediaRows(client, batchId)),
+  )
   validate('MediaSnapshot', snapshot)
   return snapshot
 }

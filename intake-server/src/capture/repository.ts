@@ -19,6 +19,7 @@ import {
 import {
   validate,
   type CaptureEditDto,
+  type CaptureLotContextDto,
   type CaptureListQueryDto,
   type CaptureSnapshotDto,
   type CaptureObservationDto,
@@ -27,6 +28,7 @@ import { canonical } from '@invimport/contracts/json'
 import type { DevConfig } from '../config.ts'
 import { transaction } from '../db/database.ts'
 import { validatePartSpec, PartSpecError } from './part-spec.ts'
+import { readCaptureContexts, retainCaptureContext } from './context.ts'
 import { appendEvent, idempotent, sha256 } from '../db/authority.ts'
 
 export class CaptureError extends Error {
@@ -198,8 +200,10 @@ async function snapshot(
       .where(eq(streams.id, b.stream_id)),
   )
   const cursor = streamRows[0].head.toString()
+  const context = await readCaptureContexts(client, id)
   const result = {
     ...summary(b),
+    ...(context.length ? { context } : {}),
     actor_id: b.actor_id,
     target_context_id: b.target_context_id,
     defaults: {
@@ -468,7 +472,37 @@ async function applyLockedCaptureEdit(
   const select = (subjectId: string | null, field: SelectionField, value: Selection | undefined) =>
     insertSelection(c, b, subjectId, field, value, nextRevision)
 
+  const retainContext = (subjectId: string | null, value: CaptureLotContextDto) =>
+    retainCaptureContext(
+      c,
+      {
+        batchId: id,
+        actorId: b.actor_id,
+        targetId: b.target_id,
+        targetContextId: b.target_context_id,
+      },
+      subjectId,
+      nextRevision,
+      value,
+    )
+
   switch (change.kind) {
+    case 'settings':
+      await executeDatabaseQuery(
+        queryDatabase(c)
+          .update(captureBatches)
+          .set({ title: sql`coalesce(${change.title ?? null}, ${captureBatches.title})` })
+          .where(eq(captureBatches.id, id)),
+      )
+      await select(null, 'quantity', change.quantity)
+      await select(null, 'location', change.location)
+      if (change.context !== undefined) {
+        await retainContext(null, change.context)
+      }
+      if (change.note !== undefined) {
+        await note(c, b, null, change.note)
+      }
+      break
     case 'batch':
       await executeDatabaseQuery(
         queryDatabase(c)
@@ -521,6 +555,9 @@ async function applyLockedCaptureEdit(
             .set({ partSubjectId: change.part_subject_id })
             .where(eq(captureLots.id, change.id)),
         )
+      }
+      if (change.context !== undefined) {
+        await retainContext(change.id, change.context)
       }
       await select(change.id, 'quantity', change.quantity)
       await select(change.id, 'location', change.location)
@@ -658,6 +695,7 @@ export interface OperatorCommandScope {
   ): Promise<void>
   addLot(label: string, partSubjectId: string | null): Promise<string>
   addPart(label: string): Promise<string>
+  setContext(lotId: string, value: CaptureLotContextDto): Promise<void>
   setLotPart(lotId: string, partSubjectId: string | null): Promise<void>
   touchSubject(subjectId: string): Promise<void>
   /** Bumps the batch revision, retains exact command bytes and publishes one event. */
@@ -736,6 +774,20 @@ export async function lockCaptureForOperatorCommand(
       await executeDatabaseQuery(queryDatabase(client).insert(captureParts).values({ batchId, id }))
       return id
     },
+
+    setContext: (lotId, value) =>
+      retainCaptureContext(
+        client,
+        {
+          batchId,
+          actorId: retained.actor_id,
+          targetId: retained.target_id,
+          targetContextId: retained.target_context_id,
+        },
+        lotId,
+        nextRevision,
+        value,
+      ),
 
     async setLotPart(lotId, partSubjectId) {
       await executeDatabaseQuery(
