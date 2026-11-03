@@ -17,6 +17,8 @@ export function useRetainedPollInterval() {
   return useContext(PollInterval)
 }
 
+export const LIVE_UPDATE_FRESH_MS = 30_000
+
 export interface UpdateHealth {
   state: Connection
   observedAt: number | null
@@ -189,7 +191,7 @@ export function LiveUpdates({
         schedule()
       }
       deadline = setInterval(() => {
-        if (Date.now() - lastFrame > 30000) {
+        if (Date.now() - lastFrame > LIVE_UPDATE_FRESH_MS) {
           current.close()
         }
       }, 5000)

@@ -32,6 +32,7 @@ type Scenario =
   | 'cancelled'
   | 'offline'
   | 'unconfigured'
+  | 'transport-stale'
 
 export function HeaderStatusProof() {
   const [cache] = useState(createServerQueryClient)
@@ -130,7 +131,11 @@ export function HeaderStatusProof() {
         <Masthead
           actions={
             <UpdateHealthContext.Provider
-              value={{ state: 'live', observedAt: Date.now(), truncated: false }}
+              value={{
+                state: 'live',
+                observedAt: Date.now() - (selected === 'transport-stale' ? 61_000 : 0),
+                truncated: false,
+              }}
             >
               <HeaderStatus client={client} batchId={batchId} />
             </UpdateHealthContext.Provider>
@@ -152,6 +157,7 @@ export function HeaderStatusProof() {
               'cancelled',
               'offline',
               'unconfigured',
+              'transport-stale',
             ] satisfies Scenario[]
           ).map((state) => (
             <button

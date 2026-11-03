@@ -78,6 +78,8 @@ The user authorized implementation after both proposals merged. PR-A merged as [
 - [x] 3.4 Refactor duplicate activity presentation, keep page-level diagnostics, and run affected query/navigation regressions without widening scope.
 - [x] 3.5 Verify owning frontend checks and record actual outcomes before committing completed work.
 
+- [x] 3.6 Correct reviewed foreground-resume transport freshness: derive stale/unknown presentation from the shared 30-second frame policy, verify a clock jump without timer execution, and preserve independently fresh API/target observations.
+
 ## 4. Qualify responsive and adverse behavior
 
 - Type / PR: Integration, browser evidence and documentation; PR-B.

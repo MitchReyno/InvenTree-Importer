@@ -17,9 +17,18 @@ export function assertHeaderScope(
   }
 }
 
+const CLOCK_SKEW_TOLERANCE_MS = 5000
+
+export function timestampFresh(timestamp: number, now: number, maximumAge = HEADER_FRESH_MS) {
+  return (
+    Number.isFinite(timestamp) &&
+    timestamp <= now + CLOCK_SKEW_TOLERANCE_MS &&
+    now - timestamp < maximumAge
+  )
+}
+
 export function observationFresh(at: string | null, now: number) {
-  const timestamp = at === null ? NaN : Date.parse(at)
-  return Number.isFinite(timestamp) && timestamp <= now + 5000 && now - timestamp < HEADER_FRESH_MS
+  return timestampFresh(at === null ? NaN : Date.parse(at), now)
 }
 
 export function safeTargetNavigation(value: string | null | undefined) {

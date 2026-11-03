@@ -354,3 +354,40 @@ test('current-batch work takes priority over another running batch without losin
   expect(screen.getByRole('dialog')).toHaveTextContent('images · running')
   expect(screen.getByRole('dialog')).toHaveTextContent('research · waiting for user')
 })
+
+test('foreground clock reconciliation cannot report an old live transport as connected', async () => {
+  vi.useFakeTimers()
+  const observedAt = Date.now()
+  const api = client()
+  render(
+    <UpdateHealthContext.Provider value={{ state: 'live', observedAt, truncated: false }}>
+      <HeaderStatus client={api} />
+    </UpdateHealthContext.Provider>,
+  )
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1)
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Connection status' }))
+  expect(screen.getByText('Live updates connected')).toBeVisible()
+  vi.setSystemTime(observedAt + 31_000)
+  await act(async () => {
+    fireEvent.focus(window)
+    await vi.advanceTimersByTimeAsync(1)
+  })
+  expect(screen.queryByText('Live updates connected')).toBeNull()
+  expect(screen.getByText(/Live-update observation stale/)).toBeVisible()
+  expect(screen.getByText('Application API read available')).toBeVisible()
+  expect(screen.getByText(/Fresh target observation/)).toBeVisible()
+})
+
+test('live transport without a retained frame observation remains unknown', async () => {
+  render(
+    <UpdateHealthContext.Provider value={{ state: 'live', observedAt: null, truncated: false }}>
+      <HeaderStatus client={client()} />
+    </UpdateHealthContext.Provider>,
+  )
+  await screen.findByText('Target unavailable')
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Connection status' }))
+  expect(screen.getByText(/Live-update health unknown/)).toBeVisible()
+  expect(screen.queryByText('Live updates connected')).toBeNull()
+})

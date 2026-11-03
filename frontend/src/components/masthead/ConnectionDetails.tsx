@@ -1,7 +1,7 @@
 import type { ConnectionStatusDto } from '@invimport/contracts'
-import type { UpdateHealth } from '../operations/LiveUpdates'
+import { LIVE_UPDATE_FRESH_MS, type UpdateHealth } from '../operations/LiveUpdates'
 import { Paragraph, Small, Subheading } from '../ui/primitives'
-import { HEADER_FRESH_MS, observationFresh } from '../../header/observations'
+import { observationFresh, timestampFresh } from '../../header/observations'
 
 interface Props {
   target?: ConnectionStatusDto['target']
@@ -12,12 +12,21 @@ interface Props {
 }
 
 export function ConnectionDetails({ target, apiUnavailable, apiChecked, now, health }: Props) {
-  const apiFresh = apiChecked > 0 && now - apiChecked < HEADER_FRESH_MS
+  const apiFresh = apiChecked > 0 && timestampFresh(apiChecked, now)
   const targetFresh =
     target && target.freshness === 'fresh' && observationFresh(target.observed_at, now)
+  const transportObserved = health.observedAt !== null && Number.isFinite(health.observedAt)
+  const transportFresh =
+    health.observedAt !== null && timestampFresh(health.observedAt, now, LIVE_UPDATE_FRESH_MS)
   let transport = 'Connecting live updates…'
   if (health.state === 'live') {
-    transport = 'Live updates connected'
+    if (!transportObserved) {
+      transport = 'Live-update health unknown; no frame observation'
+    } else if (!transportFresh) {
+      transport = 'Live-update observation stale; awaiting transport confirmation'
+    } else {
+      transport = 'Live updates connected'
+    }
   }
   if (health.state === 'polling') {
     transport = 'Live updates unavailable; polling saved state'
@@ -25,37 +34,42 @@ export function ConnectionDetails({ target, apiUnavailable, apiChecked, now, hea
   if (health.state === 'update_required') {
     transport = 'Application update required; preserve unsaved work before reloading'
   }
+  let apiStatus = 'Application API not yet observed'
+  if (apiUnavailable) {
+    apiStatus = 'Application API unavailable'
+  } else if (apiFresh) {
+    apiStatus = 'Application API read available'
+  } else if (apiChecked) {
+    apiStatus = 'Application API observation stale'
+  }
+  let transportFreshness = 'Unknown'
+  if (transportObserved) {
+    transportFreshness = transportFresh ? 'Fresh' : 'Stale'
+  }
+  let targetObservation = 'Target not yet observed'
+  if (target?.observed_at) {
+    targetObservation = targetFresh ? 'Fresh target observation' : 'Stale target observation'
+  }
   return (
     <>
       <Subheading>Application API</Subheading>
-      <Paragraph>
-        {apiUnavailable
-          ? 'Application API unavailable'
-          : apiFresh
-            ? 'Application API read available'
-            : apiChecked
-              ? 'Application API observation stale'
-              : 'Application API not yet observed'}
-      </Paragraph>
+      <Paragraph>{apiStatus}</Paragraph>
       <Small>
         Last API read: {apiChecked ? new Date(apiChecked).toLocaleString() : 'Not yet checked'}
       </Small>
       <Subheading>Update transport</Subheading>
       <Paragraph>{transport}</Paragraph>
       <Small>
-        Transport observation:{' '}
-        {health.observedAt ? new Date(health.observedAt).toLocaleString() : 'Not yet observed'}
+        Transport observation: {transportFreshness} ·{' '}
+        {transportObserved && health.observedAt !== null
+          ? new Date(health.observedAt).toLocaleString()
+          : 'Not yet observed'}
         {health.truncated ? ' · update coverage partial; polling remains enabled' : ''}
       </Small>
       <Subheading>InvenTree target</Subheading>
       <Paragraph>{target?.label ?? 'No configured target label'}</Paragraph>
       <Paragraph>
-        {targetFresh
-          ? 'Fresh target observation'
-          : target?.observed_at
-            ? 'Stale target observation'
-            : 'Target not yet observed'}{' '}
-        · {target?.state ?? 'unknown'}
+        {targetObservation} · {target?.state ?? 'unknown'}
         {target?.failure_code ? ` · ${target.failure_code.replaceAll('_', ' ')}` : ''}
       </Paragraph>
       <Small>
