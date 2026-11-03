@@ -52,12 +52,12 @@ No registered items.
 
 #### BI-001 — Capture tab uplift
 
-Consolidate all settings currently reached through the Shared details buttons into one Batch settings panel and remove those buttons. Include the original mockup's elements, with explicit proposal-time reconciliation of unsupported controls, and compare right-side versus above-content placement before choosing the layout. Uplift the main evidence panel with three prominent top actions for taking photos, adding documents and writing notes, and organize evidence using groups like the original mockup.
+Consolidate all settings currently reached through the Shared details buttons into one Batch settings panel and remove those buttons. Include the original mockup's elements with PO controls disabled and greyed out, and compare right-side versus above-content placement before choosing the layout. Uplift the main evidence panel with three prominent top actions for taking photos, adding documents and writing notes, and organize evidence using groups like the original mockup.
 
 - Change: `capture-tab-uplift`
 - Status: Proposed
-- Size: Unknown — assess settings consolidation, evidence groups and required persistence during proposal development.
-- Prerequisites: Unknown — original mockup is available; resolve its purchase-order control against current contracts and assess group/persistence support before implementation.
+- Size: L — retained settings/context and group/note contracts, UI consolidation and responsive evidence qualification.
+- Prerequisites: None external identified — existing media/groups and form/revision infrastructure are available; the change includes missing context/group contracts and dependency qualification. PO controls remain disabled; no dependency on BI-002.
 - OpenSpec: [capture-tab-uplift](../openspec/changes/capture-tab-uplift/)
 
 #### BI-002 — Status signalling uplift
