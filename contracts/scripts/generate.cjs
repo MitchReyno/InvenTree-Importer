@@ -189,6 +189,13 @@ async function main() {
         parameters: [{ name: 'id', in: 'path', required: true, schema: Id }],
         post: post('CaptureObserve', 'CaptureObservation', '201', CAPTURE_TIMEOUT_MS),
       },
+      '/api/v1/connection-status': { get: get('ConnectionStatus', CAPTURE_TIMEOUT_MS) },
+      '/api/v1/header-work': {
+        get: {
+          ...get('HeaderWork', CAPTURE_TIMEOUT_MS),
+          parameters: [{ name: 'batch_id', in: 'query', schema: Id }],
+        },
+      },
       '/api/v1/agent-settings': {
         get: get('AgentSettings', CAPTURE_TIMEOUT_MS),
         put: post('AgentSettingsUpdate', 'AgentSettings', '200', CAPTURE_TIMEOUT_MS),

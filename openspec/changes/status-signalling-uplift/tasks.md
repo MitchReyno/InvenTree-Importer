@@ -49,12 +49,12 @@ This proposal documentation PR is separate from those future implementation bund
 - Verification: `pnpm contracts:generate`, `pnpm contracts:check`, `pnpm typecheck:intake`, focused contract/server tests, `pnpm test:intake:pg` and affected process checks.
 - Risks: Probe budget/route, partial global lists and old-context response reuse; explicit bounds are part of acceptance.
 
-- [ ] 2.1 Identify the adapter's harmless supported read route, scope/configuration source and query indexes; record its exact response/error policy before enabling observation.
-- [ ] 2.2 RED: cover sanitized URL refusal, wrong scope/context, missing configuration, timeout, duplicate/coalesced probes, 30s cache and 60s stale threshold, distinguishing fresh failed probes from stale observations.
-- [ ] 2.3 RED: add retained-reader cases for logically cancelled occupied agents, active rows beyond history page one, unknown step detail and independent truncation flags.
-- [ ] 2.4 GREEN: add TypeBox read schemas, authenticated routes and typed/generated clients; implement bounded observations and retained projections using existing adapters/readers.
-  - [ ] 2.4.1 Preserve safe failure codes, observation time, actor/target/context identity and credential redaction.
-  - [ ] 2.4.2 Apply active-only filtering before pagination; include deterministic ordering, current-batch preference and explicit collection limits.
+- [x] 2.1 Identify the adapter's harmless supported read route, scope/configuration source and query indexes; record its exact response/error policy before enabling observation.
+- [x] 2.2 RED: cover sanitized URL refusal, wrong scope/context, missing configuration, timeout, duplicate/coalesced probes, 30s cache and 60s stale threshold, distinguishing fresh failed probes from stale observations.
+- [x] 2.3 Characterize existing retained readers and add boundary regression cases for logically cancelled occupied agents, active rows beyond history page one, unknown step detail and independent truncation flags.
+- [x] 2.4 GREEN: add TypeBox read schemas, authenticated routes and typed/generated clients; implement bounded observations and retained projections using existing adapters/readers.
+  - [x] 2.4.1 Preserve safe failure codes, observation time, actor/target/context identity and credential redaction.
+  - [x] 2.4.2 Apply active-only filtering before pagination; include deterministic ordering, current-batch preference and explicit collection limits.
 - [ ] 2.5 Refactor shared read composition where useful, verify fake-only transport and PG isolation, and document contract compatibility and actual results.
 
 ## 3. Integrate both header indicators

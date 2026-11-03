@@ -77,6 +77,22 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/connection-status",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "ConnectionStatus"
+    }
+  ],
+  [
+    "GET /api/v1/header-work",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "HeaderWork"
+    }
+  ],
+  [
     "GET /api/v1/agent-settings",
     {
       "timeoutMs": 10000,

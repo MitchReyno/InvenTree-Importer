@@ -1,3 +1,6 @@
+import { registerHeader } from './header/routes.ts'
+import { scopedConnectionStatus } from './header/binding.ts'
+import { headerWork } from './header/work.ts'
 import { registerAgents } from './agents/routes.ts'
 import { devListenPort } from './dev/listen.ts'
 import { createServer } from './api/server.ts'
@@ -93,6 +96,28 @@ async function main() {
       const processing = processingConfig(config, process.env)
       registerProcessing(server, db.pool, processing, lockCaptureForEdit)
       registerAgents(server, db.pool, processing)
+      const headerPool = db.pool
+      const headerConfig = {
+        ...config,
+        ...processing,
+        deploymentId: process.env.INTAKE_DEPLOYMENT_ID,
+        readOrigin: process.env.INTAKE_READ_ORIGIN,
+        mediaEnabled: mediaStore !== undefined,
+      }
+      registerHeader(
+        server,
+        config,
+        scopedConnectionStatus(
+          headerPool,
+          config,
+          process.env.INTAKE_READ_ORIGIN,
+          transport
+            ? () =>
+                transport.probe({ targetId: config.targetId, contextId: config.targetContextId })
+            : undefined,
+        ),
+        (batchId) => headerWork(headerPool, headerConfig, batchId),
+      )
       if (mediaStore) {
         registerMediaRoutes(server, db.pool, config, mediaStore)
       }

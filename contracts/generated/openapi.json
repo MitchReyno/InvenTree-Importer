@@ -554,6 +554,76 @@
         }
       }
     },
+    "/api/v1/connection-status": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "ConnectionStatus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/header-work": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "HeaderWork",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeaderWork"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "query",
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/api/v1/agent-settings": {
       "get": {
         "x-intake-client": {
@@ -8429,6 +8499,740 @@
                 "type": "string"
               }
             }
+          }
+        }
+      },
+      "ConnectionStatus": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "actor_id",
+          "target_id",
+          "target_context_id",
+          "target"
+        ],
+        "properties": {
+          "actor_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "target_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "target_context_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "target": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "state",
+              "freshness",
+              "observed_at",
+              "failure_code",
+              "navigation_url",
+              "label"
+            ],
+            "properties": {
+              "state": {
+                "anyOf": [
+                  {
+                    "const": "unconfigured",
+                    "type": "string"
+                  },
+                  {
+                    "const": "unknown",
+                    "type": "string"
+                  },
+                  {
+                    "const": "reachable",
+                    "type": "string"
+                  },
+                  {
+                    "const": "unavailable",
+                    "type": "string"
+                  }
+                ]
+              },
+              "freshness": {
+                "anyOf": [
+                  {
+                    "const": "unobserved",
+                    "type": "string"
+                  },
+                  {
+                    "const": "fresh",
+                    "type": "string"
+                  },
+                  {
+                    "const": "stale",
+                    "type": "string"
+                  }
+                ]
+              },
+              "observed_at": {
+                "anyOf": [
+                  {
+                    "maxLength": 40,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "failure_code": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "const": "invalid_configuration",
+                        "type": "string"
+                      },
+                      {
+                        "const": "timeout",
+                        "type": "string"
+                      },
+                      {
+                        "const": "http_error",
+                        "type": "string"
+                      },
+                      {
+                        "const": "redirect_refused",
+                        "type": "string"
+                      },
+                      {
+                        "const": "unexpected_response",
+                        "type": "string"
+                      },
+                      {
+                        "const": "unavailable",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "navigation_url": {
+                "anyOf": [
+                  {
+                    "maxLength": 2048,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "label": {
+                "anyOf": [
+                  {
+                    "maxLength": 256,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "HeaderWorkQuery": {
+        "additionalProperties": false,
+        "type": "object",
+        "properties": {
+          "batch_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      },
+      "HeaderWork": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "actor_id",
+          "target_id",
+          "target_context_id",
+          "observed_at",
+          "work",
+          "active_sessions",
+          "work_truncated",
+          "sessions_truncated",
+          "lane_occupied"
+        ],
+        "properties": {
+          "actor_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "target_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "target_context_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "observed_at": {
+            "maxLength": 40,
+            "type": "string"
+          },
+          "work": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "id",
+                    "batch_id",
+                    "attempt_id",
+                    "stage",
+                    "state",
+                    "input_current",
+                    "occupies_lane",
+                    "blocked_code",
+                    "steps",
+                    "steps_complete"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "processing",
+                      "type": "string"
+                    },
+                    "id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "batch_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "attempt_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "stage": {
+                      "anyOf": [
+                        {
+                          "const": "reading",
+                          "type": "string"
+                        },
+                        {
+                          "const": "identifying",
+                          "type": "string"
+                        },
+                        {
+                          "const": "research",
+                          "type": "string"
+                        },
+                        {
+                          "const": "images",
+                          "type": "string"
+                        },
+                        {
+                          "const": "inventory",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "state": {
+                      "anyOf": [
+                        {
+                          "const": "queued",
+                          "type": "string"
+                        },
+                        {
+                          "const": "running",
+                          "type": "string"
+                        },
+                        {
+                          "const": "waiting_for_user",
+                          "type": "string"
+                        },
+                        {
+                          "const": "waiting_for_login",
+                          "type": "string"
+                        },
+                        {
+                          "const": "waiting_for_capacity",
+                          "type": "string"
+                        },
+                        {
+                          "const": "ready",
+                          "type": "string"
+                        },
+                        {
+                          "const": "failed",
+                          "type": "string"
+                        },
+                        {
+                          "const": "cancelled",
+                          "type": "string"
+                        },
+                        {
+                          "const": "superseded",
+                          "type": "string"
+                        },
+                        {
+                          "const": "interrupted",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "input_current": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "occupies_lane": {
+                      "type": "boolean"
+                    },
+                    "blocked_code": {
+                      "anyOf": [
+                        {
+                          "anyOf": [
+                            {
+                              "const": "media_not_ready",
+                              "type": "string"
+                            },
+                            {
+                              "const": "media_input_capacity",
+                              "type": "string"
+                            },
+                            {
+                              "const": "worker_version_conflict",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "steps": {
+                      "maxItems": 5,
+                      "type": "array",
+                      "items": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "stage",
+                          "state"
+                        ],
+                        "properties": {
+                          "stage": {
+                            "anyOf": [
+                              {
+                                "const": "reading",
+                                "type": "string"
+                              },
+                              {
+                                "const": "identifying",
+                                "type": "string"
+                              },
+                              {
+                                "const": "research",
+                                "type": "string"
+                              },
+                              {
+                                "const": "images",
+                                "type": "string"
+                              },
+                              {
+                                "const": "inventory",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "state": {
+                            "anyOf": [
+                              {
+                                "const": "queued",
+                                "type": "string"
+                              },
+                              {
+                                "const": "running",
+                                "type": "string"
+                              },
+                              {
+                                "const": "waiting_for_user",
+                                "type": "string"
+                              },
+                              {
+                                "const": "waiting_for_login",
+                                "type": "string"
+                              },
+                              {
+                                "const": "waiting_for_capacity",
+                                "type": "string"
+                              },
+                              {
+                                "const": "ready",
+                                "type": "string"
+                              },
+                              {
+                                "const": "failed",
+                                "type": "string"
+                              },
+                              {
+                                "const": "cancelled",
+                                "type": "string"
+                              },
+                              {
+                                "const": "superseded",
+                                "type": "string"
+                              },
+                              {
+                                "const": "interrupted",
+                                "type": "string"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "steps_complete": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "id",
+                    "batch_id",
+                    "stage",
+                    "state",
+                    "steps",
+                    "steps_complete"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "import",
+                      "type": "string"
+                    },
+                    "id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "batch_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "stage": {
+                      "const": "inventory",
+                      "type": "string"
+                    },
+                    "state": {
+                      "anyOf": [
+                        {
+                          "const": "queued",
+                          "type": "string"
+                        },
+                        {
+                          "const": "running",
+                          "type": "string"
+                        },
+                        {
+                          "const": "stopping",
+                          "type": "string"
+                        },
+                        {
+                          "const": "settled_complete",
+                          "type": "string"
+                        },
+                        {
+                          "const": "settled_incomplete",
+                          "type": "string"
+                        },
+                        {
+                          "const": "recovery_required",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "steps": {
+                      "maxItems": 3,
+                      "type": "array",
+                      "items": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "state"
+                        ],
+                        "properties": {
+                          "name": {
+                            "anyOf": [
+                              {
+                                "const": "approval",
+                                "type": "string"
+                              },
+                              {
+                                "const": "dispatch",
+                                "type": "string"
+                              },
+                              {
+                                "const": "inventory",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "state": {
+                            "anyOf": [
+                              {
+                                "const": "confirmed",
+                                "type": "string"
+                              },
+                              {
+                                "const": "not_requested",
+                                "type": "string"
+                              },
+                              {
+                                "const": "queued",
+                                "type": "string"
+                              },
+                              {
+                                "const": "running",
+                                "type": "string"
+                              },
+                              {
+                                "const": "finished",
+                                "type": "string"
+                              },
+                              {
+                                "const": "interrupted",
+                                "type": "string"
+                              },
+                              {
+                                "const": "none",
+                                "type": "string"
+                              },
+                              {
+                                "const": "unknown",
+                                "type": "string"
+                              },
+                              {
+                                "const": "mixed",
+                                "type": "string"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "steps_complete": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "active_sessions": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "attempt_id",
+                "batch_id",
+                "job_id",
+                "stage",
+                "state",
+                "selection",
+                "actual_model",
+                "progress",
+                "occupies_lane"
+              ],
+              "properties": {
+                "attempt_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "batch_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "job_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "stage": {
+                  "anyOf": [
+                    {
+                      "const": "reading",
+                      "type": "string"
+                    },
+                    {
+                      "const": "identifying",
+                      "type": "string"
+                    },
+                    {
+                      "const": "research",
+                      "type": "string"
+                    },
+                    {
+                      "const": "images",
+                      "type": "string"
+                    },
+                    {
+                      "const": "inventory",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "state": {
+                  "anyOf": [
+                    {
+                      "const": "queued",
+                      "type": "string"
+                    },
+                    {
+                      "const": "running",
+                      "type": "string"
+                    },
+                    {
+                      "const": "waiting_for_user",
+                      "type": "string"
+                    },
+                    {
+                      "const": "waiting_for_login",
+                      "type": "string"
+                    },
+                    {
+                      "const": "waiting_for_capacity",
+                      "type": "string"
+                    },
+                    {
+                      "const": "ready",
+                      "type": "string"
+                    },
+                    {
+                      "const": "failed",
+                      "type": "string"
+                    },
+                    {
+                      "const": "cancelled",
+                      "type": "string"
+                    },
+                    {
+                      "const": "superseded",
+                      "type": "string"
+                    },
+                    {
+                      "const": "interrupted",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "selection": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "provider",
+                    "authentication",
+                    "model"
+                  ],
+                  "properties": {
+                    "provider": {
+                      "anyOf": [
+                        {
+                          "const": "codex",
+                          "type": "string"
+                        },
+                        {
+                          "const": "claude",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "authentication": {
+                      "anyOf": [
+                        {
+                          "const": "api_key",
+                          "type": "string"
+                        },
+                        {
+                          "const": "subscription",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "model": {
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+                      "type": "string"
+                    }
+                  }
+                },
+                "actual_model": {
+                  "anyOf": [
+                    {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "progress": {
+                  "anyOf": [
+                    {
+                      "const": "queued",
+                      "type": "string"
+                    },
+                    {
+                      "const": "starting",
+                      "type": "string"
+                    },
+                    {
+                      "const": "responding",
+                      "type": "string"
+                    },
+                    {
+                      "const": "settled",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "occupies_lane": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "work_truncated": {
+            "type": "boolean"
+          },
+          "sessions_truncated": {
+            "type": "boolean"
+          },
+          "lane_occupied": {
+            "type": "boolean"
           }
         }
       },
