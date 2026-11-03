@@ -14,14 +14,32 @@ artifacts:
       available in project documentation, relevant source and tests. Record minor
       assumptions explicitly instead of asking for routine implementation choices.
 
-      Link existing BI item IDs and their detail files when applicable. A change
-      may cover several related items; do not allocate an ID or create backlog
+      Link existing BI Notion tickets and available repository snapshots when
+      applicable. A change may cover several related items; do not allocate an ID or create backlog
       entries merely to fill this template. Priority, size, prerequisites and
-      current item status remain owned by the planned-functionality register.
+      current item status remain owned by the Notion ticket source; repository
+      Markdown is a manually refreshed snapshot, not a competing allocator.
       Distinguish observed behavior, requested behavior and unverified assumptions.
       Identify affected application boundaries, compatibility and evidence limits.
       Decompose unrelated outcomes without splitting a cohesive end-to-end change
       into artificial subsystems.
+
+      Include an explicit reuse and dependency assessment before recommending custom
+      implementation. Inspect relevant existing code, manifests and lockfiles first.
+      Investigate suitable external packages, dependencies or frameworks using current
+      primary sources when they could materially achieve the goal. Compare meaningful
+      candidates with reusing/extending the existing stack and custom implementation;
+      do not invent weak alternatives or impose a fixed candidate quota.
+      For each option, weigh requirement fit, strengths, limitations, maintenance,
+      license/security constraints, runtime and version compatibility, integration
+      effort, operational/dependency cost and migration or lock-in concerns.
+      Record source links, versions and when the evidence was checked, plus unknowns
+      and any proof-of-fit work still required. Recommend the best supported approach
+      with reasons and rejected-option trade-offs. For trivial or non-runtime work,
+      give a concise evidence-based explanation when no external investigation is
+      relevant; do not introduce a package just to fill the assessment.
+      Keep detailed architecture in design; the proposal must still explain why reuse,
+      adoption or custom work is justified. Research does not itself prove integration.
 
       Inspect the existing capability inventory and relevant main specs in full
       before declaring new or modified capability paths. Preserve existing paths.
@@ -86,8 +104,11 @@ artifacts:
       viable alternatives, recommend one, preserve rejected alternatives and reasons,
       and record accepted trade-offs. Do not invent weak alternatives or require
       approval for each section or library choice when within authorized scope.
-      Research new dependencies only when justified; prefer suitable existing tools
-      and explain custom policy or code where a package cannot own the contract.
+      Carry forward the proposal's reuse assessment and evidence. Confirm compatibility
+      at the actual integration boundary and refresh research when assumptions change.
+      Resolve any proof-of-fit gap before relying on it. Prefer suitable existing tools;
+      explain custom policy or code where a package cannot own the contract. Do not
+      repeat the full proposal comparison unless a material decision has changed.
 
       Cover relevant data flow, authority, revision/identity rules, failure and recovery
       behavior, compatibility, security, observability and operational limits. Define
@@ -103,7 +124,7 @@ artifacts:
 
   - id: tasks
     generates: tasks.md
-    description: Verifiable slices, real dependencies, verification and delivery evidence.
+    description: Detailed tasks and subtasks with TDD-oriented checklists, real dependencies and delivery evidence.
     template: tasks.md
     instruction: |
       Read openspec/schemas/bench-intake/README.md for the shared working practices.
@@ -115,16 +136,28 @@ artifacts:
       outcome, task type, real prerequisites, acceptance references and verification.
       Do not force independent work into an artificial linear dependency chain.
 
-      Use numbered sections and native - [ ] numbered task checkboxes. Keep each
-      task actionable and traceable to an outcome, requirement or necessary enabling
+      Break a nontrivial change into multiple coherent tasks, each with a descriptive
+      numbered heading, outcome, scope/affected areas, prerequisites, acceptance links,
+      approach, verification commands/evidence and risks. Include a substantive list of
+      native - [ ] numbered checkbox actions for every task. Use nested numbered
+      checkbox subtasks where useful for real substeps or cases; do not split every
+      function or test mechanically. A genuinely trivial change may use one explained
+      implementation task rather than padding the plan. Make enabling work explicit.
+      Keep each task actionable and traceable to an outcome, requirement or necessary enabling
       work. Explain what must be delivered; include file paths or concrete checks
       where useful without duplicating the design or prescribing line-by-line edits.
       A task or slice is not automatically one PR; choose coherent reviewable PRs
       under the repository's branch and publication rules.
 
       Select checks by task type and affected boundary. Behavior changes need
-      meaningful regressions; use red/green testing where useful. Refactors may
-      rely on existing and characterization coverage; docs need reference/consistency
+      meaningful regressions and explicit TDD-oriented checklist steps by default:
+      establish the baseline, write/run the relevant failing regression (RED), implement
+      and verify the intended behavior (GREEN), then refactor as needed and verify the
+      surrounding contracts. State the expected failure and concrete checks before
+      implementation. If test-first work is not appropriate, explain why and specify
+      an equivalent verification strategy for that task; do not silently omit it.
+      Do not require a separate RED/GREEN cycle for each checkbox or test case.
+      Refactors may rely on existing and characterization coverage; docs need reference/consistency
       checks; migrations need validation and recovery evidence. Do not require a new
       test for every line, a one-test-per-scenario mapping, deletion of existing work,
       or ceremonial per-test logs. Include required project checks, meaningful failure
@@ -181,5 +214,6 @@ apply:
     handovers, independent read-only review of the exact candidate, correction and
     re-review until clear, then selected green CI. Commits are permitted within that
     workflow. Merge and archive require applicable user authorization; obey any hold.
-    Update linked BI items only from actual current evidence. A completed task list,
+    Update linked BI Notion tickets first from actual current evidence, then refresh
+    any affected repository snapshots without claiming automatic synchronization. A completed task list,
     archive or green CI alone does not establish merged product functionality.

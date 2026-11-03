@@ -4,13 +4,13 @@ The project uses the custom [`bench-intake` schema](../openspec/schemas/bench-in
 
 ## Capture, plan and identify
 
-The [planned-functionality register](PLANNED_FUNCTIONALITY.md) and its [detail directory](planned-functionality/README.md) own item identity, current priority, relative size, prerequisites and status. **BI** means **Bench Intake**: use stable IDs such as `BI-001`. The `planned-functionality` project-level skill allocates and maintains those IDs; title and priority changes do not change identity.
+The [Notion ticket tracker](notion-tickets.md) owns identity, current priority, size, prerequisites, sprint assignment and status. The [planned-functionality register](PLANNED_FUNCTIONALITY.md) and its [detail directory](planned-functionality/README.md) are manually maintained snapshots. **BI** means **Bench Intake**: use stable IDs such as `BI-001`. The `planned-functionality` project-level skill creates/updates Notion tickets and reads back their allocated IDs before publishing references; title and priority changes do not change identity.
 
-Capture a future idea in the register first when requested. An item can remain a short description with unknown estimates or prerequisites. Capture does not automatically start OpenSpec planning or implementation. When detailed planning is requested, link the relevant BI detail files from an OpenSpec proposal; one change may address several related items. Work without a registered item can state None with a reason.
+Capture a future idea in Notion first when requested, then refresh relevant repository snapshots. An item can remain a short description with unknown estimates or prerequisites. Capture does not automatically start OpenSpec planning or implementation. When detailed planning is requested, link the relevant BI Notion tickets and available detail snapshots from an OpenSpec proposal; one change may address several related items. Work without a registered item can state None with a reason.
 
 ## Schema workflow
 
-The schema produces proposal, behavior specs, design assessment and tasks. It incorporates focused discovery, source-grounded planning, testable scenarios, meaningful alternatives and outcome slices without adding OpenSpec Plus skills or another orchestrator.
+The schema produces proposal, behavior specs, design assessment and tasks. It incorporates focused discovery, source-grounded planning, proposal-stage reuse/dependency research, testable scenarios, meaningful alternatives and detailed outcome tasks without adding OpenSpec Plus skills or another orchestrator. Proposals compare relevant packages/frameworks, existing-stack reuse and custom implementation using current primary evidence, pros/cons, compatibility and adoption cost; design carries that assessment forward.
 
 Design is an explicit assessment for every schema-driven change. It can be brief when existing architecture suffices. Pure documentation, tooling or behavior-preserving refactors can declare `skip_specs: true` in their change metadata; then specs are intentionally skipped and no behavioral requirements are invented. Existing changes keep the schema declared in their own metadata; selecting a new default does not migrate them.
 
@@ -33,9 +33,9 @@ The CLI is installed separately from the repository. Invoke it from the correct 
 
 ## Delivery and product status
 
-Tasks use native checkboxes for actual deliverables, including applicable review and publication work. Keep a held merge task pending. A task implemented and verified, a merged implementation, a BI item Done and an archived change are separate facts.
+Tasks are broken into multiple coherent work units for nontrivial changes, each with outcome/scope, prerequisites, acceptance references, approach, verification and its own checkbox list. Nested subtasks are available for meaningful substeps. Behavioral tasks default to explicit baseline, RED, GREEN and refactor/verification steps; justified alternatives retain appropriate checks for documentation and behavior-preserving work. Tasks use native checkboxes for actual deliverables, including applicable review and publication work. Keep a held merge task pending. A task implemented and verified, a merged implementation, a BI item Done and an archived change are separate facts.
 
-Merged code and acceptance evidence determine whether a BI item is Done. Archive state alone does not. Keep current status only in the register and detail file; update their links when an authorized archive moves referenced artifacts. Existing architecture, execution qualification and project authorization boundaries remain in force.
+Merged code and acceptance evidence determine whether a BI item is Done. Archive state alone does not. Update Notion first, then manually refresh current-status snapshots and links when an authorized archive moves referenced artifacts. Do not claim automatic synchronization. Existing architecture, execution qualification and project authorization boundaries remain in force.
 
 ## Maintaining the integration
 

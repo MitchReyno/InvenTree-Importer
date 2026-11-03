@@ -1,8 +1,9 @@
 schema: bench-intake
 
 context: |
-  Bench Intake planning is separate from backlog capture. The planned-functionality
-  register and its detail files own BI item identity and current product metadata.
+  Bench Intake planning is separate from backlog capture. The
+  Notion Tickets database owns BI item identity and current product metadata;
+  the register and its detail files are manually maintained snapshots.
   Preserve existing user scope and authorization; use the project's governing
   instructions and existing engineering/PR skills. No schema grants provider,
   inventory, deployment or external messaging authority.
@@ -11,7 +12,7 @@ operations:
   apply:
     guidance:
       - Use the owning project's declared checks and required independent exact-head review; keep merge tasks pending during a user hold.
-      - Update linked BI items only from actual acceptance and merge evidence, retaining current status only.
+      - Update linked BI Notion tickets first from actual evidence; manually refresh affected repository snapshots and retain current status only.
   archive:
     guidance:
       - Check implementation and acceptance evidence before describing a linked BI item as Done; archive state alone is insufficient.
