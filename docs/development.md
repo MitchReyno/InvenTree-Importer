@@ -57,10 +57,14 @@ INTAKE_PROCESSING_PROFILE=native-agent/1 pnpm dev
 
 Then select the global provider, authentication route and model in Settings before starting an agent. Claude subscription authentication uses the signed-in CLI account under the host `HOME`. Codex subscription mode uses the worker's isolated `$INTAKE_APP_STATE/agents/codex` as `CODEX_HOME`; the default host Codex login is not automatically reused.
 
-After the first synthetic startup has created the private app-state directory, establish Codex subscription authentication in that exact namespace (use the same override if you selected another app-state directory):
+Use the exact private app-state directory belonging to your target. A value loaded from `.env` is not exported back into the shell: export the same resolved `INTAKE_APP_STATE` path before logging in. Automatic read-only namespaces use `read-only-<hash>` directories, so the fake profile's `app` directory is not a substitute. If your app already has retained data, use its existing directory.
+
+For a new namespace, select an explicit private path before first startup, and keep the same exported value for login and later launches:
 
 ```bash
-export INTAKE_APP_STATE="${INTAKE_APP_STATE:-$HOME/.local/state/bench-intake/app}"
+export INTAKE_APP_STATE="$HOME/.local/state/bench-intake/my-development-target"
+INTAKE_PROCESSING_PROFILE=synthetic-research/2 pnpm dev
+# Once ready, stop with Ctrl-C before continuing in the same shell.
 mkdir -p -m 700 "$INTAKE_APP_STATE/agents"
 mkdir -p -m 700 "$INTAKE_APP_STATE/agents/codex"
 CODEX_HOME="$INTAKE_APP_STATE/agents/codex" codex login
