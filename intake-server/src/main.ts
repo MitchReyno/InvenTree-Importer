@@ -1,3 +1,4 @@
+import { registerAgents } from './agents/routes.ts'
 import { createServer } from './api/server.ts'
 import { registerLive } from './live/routes.ts'
 import { compatibleSchema } from './operations/compatibility.ts'
@@ -90,6 +91,7 @@ async function main() {
       await registerCapture(server, db.pool, config, read)
       const processing = processingConfig(config, process.env)
       registerProcessing(server, db.pool, processing, lockCaptureForEdit)
+      registerAgents(server, db.pool, processing)
       if (mediaStore) {
         registerMediaRoutes(server, db.pool, config, mediaStore)
       }

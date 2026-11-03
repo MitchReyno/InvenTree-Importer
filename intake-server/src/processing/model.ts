@@ -1,3 +1,4 @@
+import { nativeProfileId, nativeInstructionDigest } from '../agents/policy.ts'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import {
   validate,
@@ -6,6 +7,8 @@ import {
   type ProcessingInputV1Dto,
   type ProcessingInputV2Dto,
   type ProcessingInputV3Dto,
+  type ProcessingInputV4Dto,
+  type AgentSettingsDto,
   type ProcessingCommandDto,
   type ProcessingQuestionSpecDto,
   type ProcessingProposalDto,
@@ -37,7 +40,8 @@ export const researchHandlerVersion = 'processing/3'
 
 export const researchProfileId = 'restricted-research-stub/1'
 
-export type SelectedProcessingProfile = typeof mediaProfileId | typeof researchProfileId
+export type SelectedProcessingProfile =
+  typeof mediaProfileId | typeof researchProfileId | typeof nativeProfileId
 
 export const stageOrder = ['reading', 'identifying', 'research', 'images', 'inventory'] as const
 
@@ -258,4 +262,29 @@ export function decodeProposal(bytes: Buffer, digest: Buffer): ProcessingProposa
   const value = unseal(bytes, digest)
   validate('ProcessingProposal', value)
   return value as ProcessingProposalDto
+}
+
+export function nativeInputManifest(
+  snapshot: CaptureSnapshotDto,
+  subjectId: string,
+  stage: Stage,
+  dependencies: string[],
+  answerId: string | null,
+  media: RetainedMediaDescriptor,
+  settings: AgentSettingsDto,
+): ProcessingInputV4Dto {
+  if (!settings.selection || settings.revision === '0') {
+    fail('agent_default_required', 422)
+  }
+  const fields = mediaInputManifest(snapshot, subjectId, stage, dependencies, answerId, media)
+  return {
+    ...fields,
+    schema_version: 'bench-intake-input/4',
+    profile_id: nativeProfileId,
+    instruction_version: 'native-agent/1',
+    instruction_sha256: nativeInstructionDigest,
+    tool_profile_version: 'native-no-tools/1',
+    agent: settings.selection,
+    settings_revision: settings.revision,
+  }
 }

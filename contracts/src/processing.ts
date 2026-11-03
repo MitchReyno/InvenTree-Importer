@@ -1,6 +1,7 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { CursorSequence, Digest, Id, Quantity, Revision } from './scalars.ts'
 import { CaptureDefaults, CaptureSnapshot } from './capture.ts'
+import { AgentSelection } from './agent-selection.ts'
 import { ResearchReceiptSource } from './research.ts'
 
 const object = <T extends TProperties>(properties: T) =>
@@ -73,7 +74,21 @@ export const ProcessingInputV3 = object({
     uniqueItems: true,
   }),
 })
-export const ProcessingInput = Type.Union([ProcessingInputV1, ProcessingInputV2, ProcessingInputV3])
+export const ProcessingInputV4 = object({
+  ...ProcessingInputV2.properties,
+  schema_version: Type.Literal('bench-intake-input/4'),
+  profile_id: Type.Literal('native-agent/1'),
+  instruction_version: Type.Literal('native-agent/1'),
+  tool_profile_version: Type.Literal('native-no-tools/1'),
+  agent: AgentSelection,
+  settings_revision: Revision,
+})
+export const ProcessingInput = Type.Union([
+  ProcessingInputV1,
+  ProcessingInputV2,
+  ProcessingInputV3,
+  ProcessingInputV4,
+])
 
 export const ProcessingCommandV1 = object({
   schema_version: Type.Literal('bench-intake-processing-command/1'),
@@ -97,7 +112,14 @@ export const ProcessingCommandV3 = object({
   profile_id: Type.Literal('restricted-research-stub/1'),
   handler_version: Type.Literal('processing/3'),
 })
+export const ProcessingCommandV4 = object({
+  ...ProcessingCommandV2.properties,
+  schema_version: Type.Literal('bench-intake-processing-command/4'),
+  profile_id: Type.Literal('native-agent/1'),
+  handler_version: Type.Literal('processing/4'),
+})
 export const ProcessingCommand = Type.Union([
+  ProcessingCommandV4,
   ProcessingCommandV1,
   ProcessingCommandV2,
   ProcessingCommandV3,
@@ -214,7 +236,19 @@ export const ProcessingEnvelopeV3 = Type.Union([
   object({ ...runnerBindingV3, kind: Type.Literal('question'), payload: ProcessingQuestionSpec }),
   object({ ...runnerBindingV3, kind: Type.Literal('terminal'), payload: terminalPayload }),
 ])
+const runnerBindingV4 = {
+  ...runnerBindingV2,
+  schema_version: Type.Literal('bench-intake-runner/4'),
+  profile_id: Type.Literal('native-agent/1'),
+  handler_version: Type.Literal('processing/4'),
+}
+export const ProcessingEnvelopeV4 = Type.Union([
+  object({ ...runnerBindingV4, kind: Type.Literal('proposal'), payload: ProcessingProposalV2 }),
+  object({ ...runnerBindingV4, kind: Type.Literal('question'), payload: ProcessingQuestionSpec }),
+  object({ ...runnerBindingV4, kind: Type.Literal('terminal'), payload: terminalPayload }),
+])
 export const ProcessingEnvelope = Type.Union([
+  ProcessingEnvelopeV4,
   ProcessingEnvelopeV1,
   ProcessingEnvelopeV2,
   ProcessingEnvelopeV3,
@@ -243,7 +277,7 @@ export const ProcessingJob = object({
   attempt_id: Id,
   input_sha256: Digest,
   attempt_number: Revision,
-  qualification: Type.Literal('fixture_only'),
+  qualification: Type.Union([Type.Literal('fixture_only'), Type.Literal('native_unverified')]),
   can_cancel: Type.Optional(Type.Boolean()),
   blocked_code: Type.Optional(ProcessingBlocker),
   proposals: Type.Array(object({ id: Id, message_id: Id, value: ProcessingProposal }), {
@@ -252,7 +286,11 @@ export const ProcessingJob = object({
   questions: Type.Array(ProcessingQuestion, { maxItems: 100 }),
 })
 export const ProcessingSnapshot = object({
-  runner_status: Type.Union([Type.Literal('unconfigured'), Type.Literal('fixture_only')]),
+  runner_status: Type.Union([
+    Type.Literal('unconfigured'),
+    Type.Literal('fixture_only'),
+    Type.Literal('native_unverified'),
+  ]),
   batch_id: Id,
   capture_revision: Revision,
   jobs: Type.Array(ProcessingJob, { maxItems: 100 }),
@@ -287,6 +325,9 @@ export const ProcessingActivity = object({
   truncated: Type.Boolean(),
 })
 export const processingSchemas = {
+  ProcessingInputV4,
+  ProcessingCommandV4,
+  ProcessingEnvelopeV4,
   ProcessingInputV1,
   ProcessingInputV2,
   ProcessingInputV3,
@@ -359,3 +400,7 @@ export type ProcessingProposalV3Dto = Static<typeof ProcessingProposalV3>
 export type ProcessingSourceV3Dto = Static<typeof ProcessingSourceV3>
 
 export type ProcessingEnvelopeV3Dto = Static<typeof ProcessingEnvelopeV3>
+
+export type ProcessingInputV4Dto = Static<typeof ProcessingInputV4>
+export type ProcessingCommandV4Dto = Static<typeof ProcessingCommandV4>
+export type ProcessingEnvelopeV4Dto = Static<typeof ProcessingEnvelopeV4>

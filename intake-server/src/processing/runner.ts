@@ -1,3 +1,4 @@
+import { nativeHandlerVersion } from '../agents/policy.ts'
 import type { Pool } from 'pg'
 import { eq } from 'drizzle-orm'
 import type {
@@ -39,7 +40,7 @@ export interface ResearchCommand extends ResearchInput {
 }
 
 export interface RestrictedResearchRunner {
-  qualification: 'fixture_only'
+  qualification: 'fixture_only' | 'native_unverified'
   profileId: SelectedProcessingProfile
   run(
     command: ResearchInput,
@@ -55,7 +56,11 @@ export async function claimProcessingCommand(
   payload: unknown,
   actualHandlerVersion: string,
 ): Promise<ResearchCommand | null> {
-  if (![mediaHandlerVersion, researchHandlerVersion].includes(actualHandlerVersion)) {
+  if (
+    ![mediaHandlerVersion, researchHandlerVersion, nativeHandlerVersion].includes(
+      actualHandlerVersion,
+    )
+  ) {
     fail('worker_version_conflict')
   }
   return transaction(pool, async (client) => {

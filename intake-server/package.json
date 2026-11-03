@@ -17,7 +17,8 @@
     "media:gc": "tsx src/media/gc-main.ts",
     "preview:manual": "tsx tests/fixtures/manual-browser.ts",
     "preview:attachments": "tsx tests/fixtures/part-attachment-browser.ts",
-    "operations": "tsx src/operations/main.ts"
+    "operations": "tsx src/operations/main.ts",
+    "agents:run": "tsx src/agents/worker-main.ts"
   },
   "dependencies": {
     "@dbos-inc/dbos-sdk": "5.4.0",

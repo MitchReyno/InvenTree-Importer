@@ -128,7 +128,11 @@ function researchProtectedOrigins(env: NodeJS.ProcessEnv): readonly string[] {
 /** Server-only profile choice. No credential or native executable crosses this boundary. */
 export function processingConfig(config: DevConfig, env: NodeJS.ProcessEnv): ProcessingConfig {
   const profileId = env.INTAKE_PROCESSING_PROFILE ?? 'synthetic-research/2'
-  if (profileId !== 'synthetic-research/2' && profileId !== 'restricted-research-stub/1') {
+  if (
+    profileId !== 'synthetic-research/2' &&
+    profileId !== 'restricted-research-stub/1' &&
+    profileId !== 'native-agent/1'
+  ) {
     throw new Error('unsupported_processing_profile')
   }
   const approved = researchUrlList(env.INTAKE_RESEARCH_SOURCE_URLS, MAX_RESEARCH_SOURCE_URLS)

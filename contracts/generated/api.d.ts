@@ -546,6 +546,173 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/agent-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description AgentSettings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentSettings"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AgentSettingsUpdate"];
+                };
+            };
+            responses: {
+                /** @description AgentSettings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentSettings"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/agent-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    before?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description AgentSessionList */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentSessionList"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/processing-activity": {
         parameters: {
             query?: never;
@@ -4107,6 +4274,416 @@ export interface components {
             }[];
             truncated: boolean;
         };
+        ProcessingInputV4: {
+            /** @constant */
+            schema_version: "bench-intake-input/4";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            subject_id: string;
+            stage: "reading" | "identifying" | "research" | "images" | "inventory";
+            dependencies: string[];
+            answer_id: string | null;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            subject: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                contribution_key: string;
+                part_subject_id: string | null;
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                /** @constant */
+                retired?: true;
+            } | {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "create";
+                    spec: {
+                        name: string;
+                        category: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        parameters: {
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            value: string;
+                        }[];
+                        manufacturer: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            mpn: string;
+                        };
+                        supplier: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sku: string;
+                        };
+                        tags: string[];
+                    };
+                };
+            };
+            linked_part: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "create";
+                    spec: {
+                        name: string;
+                        category: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        parameters: {
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            value: string;
+                        }[];
+                        manufacturer: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            mpn: string;
+                        };
+                        supplier: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sku: string;
+                        };
+                        tags: string[];
+                    };
+                };
+            } | null;
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location" | "category" | "parameter_template" | "category_parameter" | "company";
+                mapping?: {
+                    /** @constant */
+                    kind: "category";
+                } | {
+                    /** @constant */
+                    kind: "parameter_template";
+                    model_type: "part.part" | null;
+                    enabled: boolean;
+                } | {
+                    /** @constant */
+                    kind: "category_parameter";
+                    /** Format: int64 */
+                    category_id: string;
+                    /** Format: int64 */
+                    template_id: string;
+                } | {
+                    /** @constant */
+                    kind: "company";
+                    manufacturer: boolean;
+                    supplier: boolean;
+                };
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            /** @constant */
+            profile_id: "native-agent/1";
+            /** @constant */
+            instruction_version: "native-agent/1";
+            instruction_sha256: string;
+            /** @constant */
+            tool_profile_version: "native-no-tools/1";
+            media: {
+                manifest: string;
+                sha256: string;
+            };
+            agent: {
+                provider: "codex" | "claude";
+                authentication: "api_key" | "subscription";
+                model: string;
+            };
+            /** Format: int64 */
+            settings_revision: string;
+        };
+        ProcessingCommandV4: {
+            /** @constant */
+            schema_version: "bench-intake-processing-command/4";
+            job_id: string;
+            attempt_id: string;
+            input_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "native-agent/1";
+            /** @constant */
+            handler_version: "processing/4";
+            command_id: string;
+        };
+        ProcessingEnvelopeV4: {
+            /** @constant */
+            schema_version: "bench-intake-runner/4";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "native-agent/1";
+            /** @constant */
+            handler_version: "processing/4";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "proposal";
+            payload: {
+                /** @constant */
+                schema_version: "bench-intake-proposal/2";
+                subject_id: string;
+                summary: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/4";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "native-agent/1";
+            /** @constant */
+            handler_version: "processing/4";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "question";
+            payload: {
+                kind: "quantity" | "clarification";
+                subject_id: string;
+                prompt: string;
+                reason: string;
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/4";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "native-agent/1";
+            /** @constant */
+            handler_version: "processing/4";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "terminal";
+            payload: {
+                state: "ready" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "interrupted";
+            };
+        };
         ProcessingInputV1: {
             /** @constant */
             schema_version: "bench-intake-input/1";
@@ -6328,8 +6905,343 @@ export interface components {
                 sha256: string;
             };
             source_urls: string[];
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-input/4";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            subject_id: string;
+            stage: "reading" | "identifying" | "research" | "images" | "inventory";
+            dependencies: string[];
+            answer_id: string | null;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            subject: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                contribution_key: string;
+                part_subject_id: string | null;
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                /** @constant */
+                retired?: true;
+            } | {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "create";
+                    spec: {
+                        name: string;
+                        category: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        parameters: {
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            value: string;
+                        }[];
+                        manufacturer: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            mpn: string;
+                        };
+                        supplier: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sku: string;
+                        };
+                        tags: string[];
+                    };
+                };
+            };
+            linked_part: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "create";
+                    spec: {
+                        name: string;
+                        category: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        parameters: {
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            value: string;
+                        }[];
+                        manufacturer: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            mpn: string;
+                        };
+                        supplier: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sku: string;
+                        };
+                        tags: string[];
+                    };
+                };
+            } | null;
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location" | "category" | "parameter_template" | "category_parameter" | "company";
+                mapping?: {
+                    /** @constant */
+                    kind: "category";
+                } | {
+                    /** @constant */
+                    kind: "parameter_template";
+                    model_type: "part.part" | null;
+                    enabled: boolean;
+                } | {
+                    /** @constant */
+                    kind: "category_parameter";
+                    /** Format: int64 */
+                    category_id: string;
+                    /** Format: int64 */
+                    template_id: string;
+                } | {
+                    /** @constant */
+                    kind: "company";
+                    manufacturer: boolean;
+                    supplier: boolean;
+                };
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            /** @constant */
+            profile_id: "native-agent/1";
+            /** @constant */
+            instruction_version: "native-agent/1";
+            instruction_sha256: string;
+            /** @constant */
+            tool_profile_version: "native-no-tools/1";
+            media: {
+                manifest: string;
+                sha256: string;
+            };
+            agent: {
+                provider: "codex" | "claude";
+                authentication: "api_key" | "subscription";
+                model: string;
+            };
+            /** Format: int64 */
+            settings_revision: string;
         };
         ProcessingCommand: {
+            /** @constant */
+            schema_version: "bench-intake-processing-command/4";
+            job_id: string;
+            attempt_id: string;
+            input_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "native-agent/1";
+            /** @constant */
+            handler_version: "processing/4";
+            command_id: string;
+        } | {
             /** @constant */
             schema_version: "bench-intake-processing-command/1";
             job_id: string;
@@ -6475,6 +7387,78 @@ export interface components {
             })[];
         };
         ProcessingEnvelope: ({
+            /** @constant */
+            schema_version: "bench-intake-runner/4";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "native-agent/1";
+            /** @constant */
+            handler_version: "processing/4";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "proposal";
+            payload: {
+                /** @constant */
+                schema_version: "bench-intake-proposal/2";
+                subject_id: string;
+                summary: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/4";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "native-agent/1";
+            /** @constant */
+            handler_version: "processing/4";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "question";
+            payload: {
+                kind: "quantity" | "clarification";
+                subject_id: string;
+                prompt: string;
+                reason: string;
+            };
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-runner/4";
+            job_id: string;
+            attempt_id: string;
+            command_id: string;
+            input_sha256: string;
+            /** @constant */
+            profile_id: "native-agent/1";
+            /** @constant */
+            handler_version: "processing/4";
+            /** Format: int64 */
+            sequence: string;
+            /** @constant */
+            kind: "terminal";
+            payload: {
+                state: "ready" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "interrupted";
+            };
+        }) | ({
             /** @constant */
             schema_version: "bench-intake-runner/1";
             job_id: string;
@@ -6709,8 +7693,7 @@ export interface components {
             input_sha256: string;
             /** Format: int64 */
             attempt_number: string;
-            /** @constant */
-            qualification: "fixture_only";
+            qualification: "fixture_only" | "native_unverified";
             can_cancel?: boolean;
             blocked_code?: "media_not_ready" | "media_input_capacity" | "worker_version_conflict";
             proposals: {
@@ -6778,7 +7761,7 @@ export interface components {
             }[];
         };
         ProcessingSnapshot: {
-            runner_status: "unconfigured" | "fixture_only";
+            runner_status: "unconfigured" | "fixture_only" | "native_unverified";
             batch_id: string;
             /** Format: int64 */
             capture_revision: string;
@@ -6793,8 +7776,7 @@ export interface components {
                 input_sha256: string;
                 /** Format: int64 */
                 attempt_number: string;
-                /** @constant */
-                qualification: "fixture_only";
+                qualification: "fixture_only" | "native_unverified";
                 can_cancel?: boolean;
                 blocked_code?: "media_not_ready" | "media_input_capacity" | "worker_version_conflict";
                 proposals: {
@@ -7630,6 +8612,81 @@ export interface components {
             /** @constant */
             apply: "separately-supervised-owned-fake-only";
         };
+        NativeAgentResult: {
+            proposal: {
+                /** @constant */
+                schema_version: "bench-intake-proposal/2";
+                subject_id: string;
+                summary: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            } | null;
+            question: {
+                kind: "quantity" | "clarification";
+                subject_id: string;
+                prompt: string;
+                reason: string;
+            } | null;
+        };
+        AgentSelection: {
+            provider: "codex" | "claude";
+            authentication: "api_key" | "subscription";
+            model: string;
+        };
+        AgentSettings: {
+            /** Format: int64 */
+            revision: string;
+            selection: {
+                provider: "codex" | "claude";
+                authentication: "api_key" | "subscription";
+                model: string;
+            } | null;
+        };
+        AgentSettingsUpdate: {
+            /** Format: int64 */
+            expected_revision: string;
+            selection: {
+                provider: "codex" | "claude";
+                authentication: "api_key" | "subscription";
+                model: string;
+            };
+        };
+        AgentSessionList: {
+            sessions: {
+                attempt_id: string;
+                batch_id: string;
+                job_id: string;
+                subject_id: string;
+                stage: "reading" | "identifying" | "research" | "images" | "inventory";
+                state: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
+                latest_on_job: boolean;
+                selection: {
+                    provider: "codex" | "claude";
+                    authentication: "api_key" | "subscription";
+                    model: string;
+                };
+                /** Format: int64 */
+                settings_revision: string;
+                queued_at: string;
+                started_at: string | null;
+                finished_at: string | null;
+                native_session_id: string | null;
+                actual_model: string | null;
+                progress: "queued" | "starting" | "responding" | "settled";
+                occupies_lane: boolean;
+            }[];
+            next_before: string | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -7688,6 +8745,9 @@ export type ManualRecoveryCommand = components['schemas']['ManualRecoveryCommand
 export type ManualRun = components['schemas']['ManualRun']
 export type ManualWorkspace = components['schemas']['ManualWorkspace']
 export type ManualActivity = components['schemas']['ManualActivity']
+export type ProcessingInputV4 = components['schemas']['ProcessingInputV4']
+export type ProcessingCommandV4 = components['schemas']['ProcessingCommandV4']
+export type ProcessingEnvelopeV4 = components['schemas']['ProcessingEnvelopeV4']
 export type ProcessingInputV1 = components['schemas']['ProcessingInputV1']
 export type ProcessingInputV2 = components['schemas']['ProcessingInputV2']
 export type ProcessingInputV3 = components['schemas']['ProcessingInputV3']
@@ -7755,3 +8815,8 @@ export type LiveCursor = components['schemas']['LiveCursor']
 export type LiveSubscribe = components['schemas']['LiveSubscribe']
 export type LiveFrame = components['schemas']['LiveFrame']
 export type Readiness = components['schemas']['Readiness']
+export type NativeAgentResult = components['schemas']['NativeAgentResult']
+export type AgentSelection = components['schemas']['AgentSelection']
+export type AgentSettings = components['schemas']['AgentSettings']
+export type AgentSettingsUpdate = components['schemas']['AgentSettingsUpdate']
+export type AgentSessionList = components['schemas']['AgentSessionList']

@@ -1,3 +1,4 @@
+import { nativeInstructions, nativeInstructionDigest } from '../agents/policy.ts'
 import { sha256 } from '../db/authority.ts'
 
 export const instructionVersion = 'restricted-synthetic/1'
@@ -19,6 +20,14 @@ export const researchInstructionDigest = sha256(researchTrustedInstructions).toS
 
 /** Old immutable instructions remain authority for retained /1 attempts only. */
 export const processingProfiles = {
+  'native-agent/1': {
+    handlerVersion: 'processing/4',
+    instructionVersion: 'native-agent/1',
+    instructionDigest: nativeInstructionDigest,
+    instructions: nativeInstructions,
+    toolProfileVersion: 'native-no-tools/1',
+    commandSchemaVersion: 'bench-intake-processing-command/4',
+  },
   'synthetic-research/1': {
     handlerVersion: 'processing/1',
     instructionVersion,

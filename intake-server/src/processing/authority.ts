@@ -9,6 +9,7 @@ import {
   ProcessingError,
   inputManifest,
   mediaInputManifest,
+  nativeInputManifest,
   researchInputManifest,
   approvedResearchSources,
   decodeProcessingInput,
@@ -189,6 +190,11 @@ export function processingInputIsCurrent(
     }
     if (manifest.schema_version === 'bench-intake-input/1') {
       current = inputManifest(...argumentsForInput)
+    } else if (manifest.schema_version === 'bench-intake-input/4') {
+      current = nativeInputManifest(...argumentsForInput, descriptor, {
+        revision: manifest.settings_revision,
+        selection: manifest.agent,
+      })
     } else if (manifest.schema_version === 'bench-intake-input/3') {
       current = researchInputManifest(...argumentsForInput, descriptor, manifest.source_urls)
     } else {

@@ -77,6 +77,31 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/agent-settings",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "AgentSettings"
+    }
+  ],
+  [
+    "PUT /api/v1/agent-settings",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "AgentSettings",
+      "requestSchema": "AgentSettingsUpdate"
+    }
+  ],
+  [
+    "GET /api/v1/agent-sessions",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "AgentSessionList"
+    }
+  ],
+  [
     "GET /api/v1/processing-activity",
     {
       "timeoutMs": 10000,
