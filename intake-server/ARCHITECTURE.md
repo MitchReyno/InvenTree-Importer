@@ -8,6 +8,12 @@ T01 adds the Fastify/TypeScript foundation and `contracts`; T02 connects the Rea
 
 `config.ts` accepts explicit injected settings and stable development actor/target/context IDs. No module discovers `.env`, logs a key, falls back to username/password, contacts inventory or launches a process on import. The key is not a verified user identity. Web bootstrap does not claim target capability/permission verification. The protected root `.env` is outside T01's runtime configuration and was not read. Actual configuration-file/credential resolution and trusted actor/target persistence must be added with consuming features, not inferred from a successful health response.
 
+## Explicit local development stack
+
+Root `tooling/dev.cjs` owns the separate development lifecycle described in [local development](../docs/development.md). Its development-only `src/dev/setup.ts` reuses the owned manual fixture to provision a retained synthetic namespace. Separate fake, API, apply, media and Processing processes receive restricted runtime roles; shared PG administration is confined to setup/migration children and never retained in app configuration. The synthetic Processing runner publishes visibly synthetic source-bound proposals without model inference. The native worker is selected only by explicit profile configuration.
+
+The public Vite HTTP/WebSocket proxy preserves browser Host/Origin authority while `dev/listen.ts` permits an explicit private API listener. Vite runs in its own child because its signal handlers must not terminate the owning supervisor before worker shutdown. Source-byte watching excludes runtime data and drains owned services before restart. Shutdown releases the owned lock after child exit; retained data and the shared PostgreSQL service remain in place. Ordinary web startup never imports development provisioning or starts these workers.
+
 ## Manual capture boundary
 
 `capture/routes.ts` installs GET list/read and POST create/edit/observation endpoints under `/api/v1/batches`. All lookups bind server-configured development actor plus fixed target/context. Commands require CSRF/Origin and payload-bound UUID idempotency; no browser-selected actor, origin, credential or raw inventory action exists. `capture/repository.ts` uses caller-owned transactions, batch row locks and expected revision comparisons (412, never silent overwrite). Read snapshots and stream cursors share a repeatable-read transaction. Observation creation is independent from explicit human selection and does not change field selections.

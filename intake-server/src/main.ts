@@ -1,4 +1,5 @@
 import { registerAgents } from './agents/routes.ts'
+import { devListenPort } from './dev/listen.ts'
 import { createServer } from './api/server.ts'
 import { registerLive } from './live/routes.ts'
 import { compatibleSchema } from './operations/compatibility.ts'
@@ -132,7 +133,7 @@ async function main() {
         void server!.close()
       })
     }
-    await server.listen({ host: '127.0.0.1', port: Number(new URL(config.origin).port) || 80 })
+    await server.listen({ host: '127.0.0.1', port: devListenPort(config.origin, process.env) })
     process.stdout.write(
       JSON.stringify({ event: 'web_ready', mode: 'restricted_local', research: 'unqualified' }) +
         '\n',

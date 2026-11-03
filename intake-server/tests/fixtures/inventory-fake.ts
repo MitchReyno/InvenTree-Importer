@@ -7,14 +7,23 @@ import { transaction } from '../../src/db/database.ts'
 /** Owned persistent HTTP fake. PG, not a JS map, owns requests, faults and stock.
  * Restart the listener with the same pool to retain ALL receipts and effects.
  */
-export async function inventoryFake(pool: Pool, port = 0, names = false, media = false, effects = false) {
-  await pool.query(`CREATE TABLE IF NOT EXISTS fake_request (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,method text NOT NULL,path text NOT NULL,body bytea NOT NULL);
-    CREATE TABLE IF NOT EXISTS fake_stock (pk bigint GENERATED ALWAYS AS IDENTITY (START WITH 7101) PRIMARY KEY,request_id bigint NOT NULL REFERENCES fake_request(id),part text NOT NULL,location text,quantity text NOT NULL,barcode text NOT NULL);
-    CREATE TABLE IF NOT EXISTS fake_control (id integer PRIMARY KEY CHECK (id=1),fault text NOT NULL);
-    INSERT INTO fake_control VALUES (1,'none') ON CONFLICT DO NOTHING;`)
-  if(effects) {await initializeEffectsFake(pool)}
-  if (media) {
-    await initializeAttachmentFake(pool)
+export async function inventoryFake(
+  pool: Pool,
+  port = 0,
+  names = false,
+  media = false,
+  effects = false,
+  initialize = true,
+) {
+  if (initialize) {
+    await pool.query(`CREATE TABLE IF NOT EXISTS fake_request (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,method text NOT NULL,path text NOT NULL,body bytea NOT NULL);
+      CREATE TABLE IF NOT EXISTS fake_stock (pk bigint GENERATED ALWAYS AS IDENTITY (START WITH 7101) PRIMARY KEY,request_id bigint NOT NULL REFERENCES fake_request(id),part text NOT NULL,location text,quantity text NOT NULL,barcode text NOT NULL);
+      CREATE TABLE IF NOT EXISTS fake_control (id integer PRIMARY KEY CHECK (id=1),fault text NOT NULL);
+      INSERT INTO fake_control VALUES (1,'none') ON CONFLICT DO NOTHING;`)
+    if(effects) {await initializeEffectsFake(pool)}
+    if (media) {
+      await initializeAttachmentFake(pool)
+    }
   }
   const server = createServer((request, response) => {
     void (async () => {

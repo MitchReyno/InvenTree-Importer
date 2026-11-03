@@ -33,10 +33,14 @@ import { inventoryTransport } from '../../src/inventory/transport.ts'
 import type { ManualRunnerConfig } from '../../src/review/runner.ts'
 
 /** Only fresh synthetic roles/credentials and random isolated databases on the shared owned PG. */
-export async function manualFixture(options: { media?: boolean; effects?: boolean } = {}) {
-  const db = await isolatedDatabase()
+export async function manualFixture(
+  options: { media?: boolean; effects?: boolean; retainedRoot?: string } = {},
+) {
+  const db = await isolatedDatabase(options.retainedRoot ? { retainedDev: true } : {})
   const identity = await seedAuthority(db.pool)
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'bench-manual-')))
+  const root = options.retainedRoot
+    ? await realpath(options.retainedRoot)
+    : await realpath(await mkdtemp(join(tmpdir(), 'bench-manual-')))
   const build = options.effects
     ? EFFECTS_BUILD
     : options.media

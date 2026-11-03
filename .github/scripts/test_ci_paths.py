@@ -63,6 +63,9 @@ class SelectionTests(unittest.TestCase):
             "intake-server/migrations/0001_foundation.sql",
             "intake-server/scripts/dev-services.cjs",
             "intake-server/tests/support/database.ts",
+            "tooling/dev.cjs",
+            "tooling/dev/process.cjs",
+            "tooling/tests/dev.test.cjs",
         ):
             with self.subTest(path=path):
                 self.assert_checks([path], "intake")

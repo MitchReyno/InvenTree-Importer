@@ -6,7 +6,7 @@
     "node": ">=24.15.0 <25"
   },
   "scripts": {
-    "dev": "pnpm --filter @invimport/frontend dev",
+    "dev": "node tooling/dev.cjs",
     "build": "pnpm --filter @invimport/frontend build",
     "typecheck": "pnpm --filter @invimport/frontend typecheck && pnpm run typecheck:intake",
     "typecheck:intake": "pnpm --filter @invimport/contracts typecheck && pnpm --filter @invimport/intake-server typecheck",
@@ -40,7 +40,9 @@
     "spikes:check": "uv run --directory backend pytest tests/spikes/test_shared_contracts.py",
     "lint:readability": "eslint --config eslint.config.mjs frontend/src intake-server/src contracts/src --max-warnings 0",
     "test:readability": "node --test tooling/tests/readability.test.mjs",
-    "format:readability": "eslint --config eslint.config.mjs frontend/src intake-server/src contracts/src --fix --max-warnings 0"
+    "format:readability": "eslint --config eslint.config.mjs frontend/src intake-server/src contracts/src --fix --max-warnings 0",
+    "dev:ui": "pnpm --filter @invimport/frontend dev",
+    "test:dev": "node --test tooling/tests/dev.test.cjs"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "5.10.0",
