@@ -59,7 +59,12 @@ export function ProcessingJobCard({
         </Heading>
         <Status>{labels[job.state]}</Status>
       </Row>
-      <Small>Attempt {job.attempt_number} · synthetic fixture only</Small>
+      <Small>
+        Attempt {job.attempt_number} ·{' '}
+        {job.qualification === 'fixture_only'
+          ? 'synthetic fixture only'
+          : 'native agent · live provider not qualified'}
+      </Small>
       {job.blocked_code && <Paragraph role="status">{blockerLabels[job.blocked_code]}</Paragraph>}
       {job.proposals.map((proposal) => (
         <div key={proposal.id}>

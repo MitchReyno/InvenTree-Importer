@@ -235,7 +235,7 @@ export async function processingSnapshot(
       attempt_id: job.attemptId,
       input_sha256: job.inputDigest.toString('hex'),
       attempt_number: job.attemptNumber.toString(),
-      qualification: 'fixture_only',
+      qualification: jobManifestQualification(job.inputBytes, job.inputDigest),
       can_cancel: canCancelProcessingAttempt(
         { current_attempt_id: job.currentAttemptId, state: job.state },
         { id: job.attemptId, state: job.attemptState },
@@ -248,7 +248,7 @@ export async function processingSnapshot(
   }
   const configured = Buffer.byteLength(config.channelSecret) >= MIN_CHANNEL_SECRET_BYTES
   const snapshot: ProcessingSnapshotDto = {
-    runner_status: configured ? 'fixture_only' : 'unconfigured',
+    runner_status: configuredRunnerStatus(configured, config),
     batch_id: capture.id,
     capture_revision: capture.revision,
     jobs,
@@ -425,4 +425,23 @@ export async function inboxProcessing(
       .filter((question) => question.state === 'open').length,
     active_jobs: jobs.filter((job) => job.state === 'running' || job.state === 'queued').length,
   }
+}
+
+function jobManifestQualification(
+  bytes: Buffer,
+  digest: Buffer,
+): ProcessingJobDto['qualification'] {
+  return decodeProcessingInput(bytes, digest).profile_id === 'native-agent/1'
+    ? 'native_unverified'
+    : 'fixture_only'
+}
+
+function configuredRunnerStatus(
+  configured: boolean,
+  config: ProcessingConfig,
+): ProcessingSnapshotDto['runner_status'] {
+  if (!configured) {
+    return 'unconfigured'
+  }
+  return config.profileId === 'native-agent/1' ? 'native_unverified' : 'fixture_only'
 }

@@ -1,3 +1,8 @@
+import { processingProfiles } from './policy.ts'
+import type { ProcessingInputDto } from '@invimport/contracts'
+import { readAgentSettings } from '../agents/settings.ts'
+import { agentSessions } from '../agents/schema.ts'
+import { nativeProfileId } from '../agents/policy.ts'
 import { randomUUID, createHmac } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import { validate, type CaptureSnapshotDto } from '@invimport/contracts'
@@ -8,11 +13,10 @@ import { processingAttempts, processingDependencies, processingInputs } from './
 import { MIN_CHANNEL_SECRET_BYTES, MAX_PROCESSING_SNAPSHOT_BYTES } from './limits.ts'
 import {
   fail,
-  mediaHandlerVersion,
   mediaInputManifest,
+  nativeInputManifest,
   mediaProfileId,
   researchProfileId,
-  researchHandlerVersion,
   researchInputManifest,
   sealed,
   type Stage,
@@ -53,7 +57,9 @@ export async function createAttempt(
   const commandId = randomUUID()
   const selectedProfile = config.profileId ?? mediaProfileId
   const restricted = selectedProfile === researchProfileId
-  const actualHandlerVersion = restricted ? researchHandlerVersion : mediaHandlerVersion
+  const native = selectedProfile === nativeProfileId
+  const profile = processingProfiles[selectedProfile]
+  const actualHandlerVersion = profile.handlerVersion
   const mediaDescriptor = { manifest: media.manifest, sha256: media.manifestDigest }
   const argumentsForInput = [
     snapshot,
@@ -63,9 +69,15 @@ export async function createAttempt(
     answerId,
     mediaDescriptor,
   ] as const
-  const manifestValue = restricted
-    ? researchInputManifest(...argumentsForInput, config.approvedSourceUrls ?? [])
-    : mediaInputManifest(...argumentsForInput)
+  let manifestValue: ProcessingInputDto
+  if (native) {
+    const settings = await readAgentSettings(client, config, true)
+    manifestValue = nativeInputManifest(...argumentsForInput, settings)
+  } else if (restricted) {
+    manifestValue = researchInputManifest(...argumentsForInput, config.approvedSourceUrls ?? [])
+  } else {
+    manifestValue = mediaInputManifest(...argumentsForInput)
+  }
   validate('ProcessingInput', manifestValue)
   const manifest = sealed(manifestValue)
   if (manifest.bytes.length > MAX_PROCESSING_SNAPSHOT_BYTES) {
@@ -84,9 +96,7 @@ export async function createAttempt(
       }),
   )
   const payload = sealed({
-    schema_version: restricted
-      ? 'bench-intake-processing-command/3'
-      : 'bench-intake-processing-command/2',
+    schema_version: profile.commandSchemaVersion,
     job_id: job.id,
     attempt_id: attemptId,
     input_id: inputId,
@@ -128,6 +138,9 @@ export async function createAttempt(
         state: 'queued',
       }),
   )
+  if (native) {
+    await executeDatabaseQuery(queryDatabase(client).insert(agentSessions).values({ attemptId }))
+  }
   for (const dependency of dependencies) {
     await executeDatabaseQuery(
       queryDatabase(client).insert(processingDependencies).values({

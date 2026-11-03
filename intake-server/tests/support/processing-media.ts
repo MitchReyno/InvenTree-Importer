@@ -34,6 +34,7 @@ export async function processingMediaFixture(fixture: Fixture, batchId: string) 
   }
 
   return {
+    root,
     store,
     snapshot: () => repository.snapshot(batchId),
     edit,

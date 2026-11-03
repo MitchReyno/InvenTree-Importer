@@ -554,6 +554,164 @@
         }
       }
     },
+    "/api/v1/agent-settings": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "AgentSettings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSettings"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentSettingsUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AgentSettings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent-sessions": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "AgentSessionList",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSessionList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "before",
+            "in": "query",
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/api/v1/processing-activity": {
       "get": {
         "x-intake-client": {
@@ -12206,6 +12364,1937 @@
           }
         }
       },
+      "ProcessingInputV4": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_version",
+          "batch_id",
+          "source_id",
+          "capture_revision",
+          "subject_id",
+          "stage",
+          "dependencies",
+          "answer_id",
+          "defaults",
+          "subject",
+          "linked_part",
+          "notes",
+          "observations",
+          "profile_id",
+          "instruction_version",
+          "instruction_sha256",
+          "tool_profile_version",
+          "media",
+          "agent",
+          "settings_revision"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "bench-intake-input/4",
+            "type": "string"
+          },
+          "batch_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "source_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "capture_revision": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "subject_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "const": "reading",
+                "type": "string"
+              },
+              {
+                "const": "identifying",
+                "type": "string"
+              },
+              {
+                "const": "research",
+                "type": "string"
+              },
+              {
+                "const": "images",
+                "type": "string"
+              },
+              {
+                "const": "inventory",
+                "type": "string"
+              }
+            ]
+          },
+          "dependencies": {
+            "maxItems": 5,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+              "type": "string"
+            }
+          },
+          "answer_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "defaults": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "quantity",
+              "location"
+            ],
+            "properties": {
+              "quantity": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "unset",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "clear",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode",
+                      "value"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "set",
+                        "type": "string"
+                      },
+                      "value": {
+                        "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "inherit",
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              },
+              "location": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "unset",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "clear",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode",
+                      "value"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "set",
+                        "type": "string"
+                      },
+                      "value": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "observation_id",
+                          "target_context_id",
+                          "model",
+                          "pk"
+                        ],
+                        "properties": {
+                          "observation_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "target_context_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "model": {
+                            "anyOf": [
+                              {
+                                "const": "part",
+                                "type": "string"
+                              },
+                              {
+                                "const": "location",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "pk": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "inherit",
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "id",
+                  "label",
+                  "revision",
+                  "contribution_key",
+                  "part_subject_id",
+                  "quantity",
+                  "location"
+                ],
+                "properties": {
+                  "id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "label": {
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "type": "string"
+                  },
+                  "revision": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  "contribution_key": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "part_subject_id": {
+                    "anyOf": [
+                      {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "quantity": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "inherit",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "inherit",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "retired": {
+                    "const": true,
+                    "type": "boolean"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "id",
+                  "label",
+                  "revision",
+                  "choice"
+                ],
+                "properties": {
+                  "id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "label": {
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "type": "string"
+                  },
+                  "revision": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  "choice": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "spec"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "create",
+                            "type": "string"
+                          },
+                          "spec": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "name",
+                              "category",
+                              "parameters",
+                              "manufacturer",
+                              "supplier",
+                              "tags"
+                            ],
+                            "properties": {
+                              "name": {
+                                "minLength": 1,
+                                "maxLength": 256,
+                                "type": "string"
+                              },
+                              "category": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "const": "category",
+                                    "type": "string"
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "parameters": {
+                                "maxItems": 32,
+                                "type": "array",
+                                "items": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "template",
+                                    "category_mapping",
+                                    "value"
+                                  ],
+                                  "properties": {
+                                    "template": {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "observation_id",
+                                        "target_context_id",
+                                        "model",
+                                        "pk"
+                                      ],
+                                      "properties": {
+                                        "observation_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "target_context_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "model": {
+                                          "const": "parameter_template",
+                                          "type": "string"
+                                        },
+                                        "pk": {
+                                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                          "format": "int64",
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    "category_mapping": {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "observation_id",
+                                        "target_context_id",
+                                        "model",
+                                        "pk"
+                                      ],
+                                      "properties": {
+                                        "observation_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "target_context_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "model": {
+                                          "const": "category_parameter",
+                                          "type": "string"
+                                        },
+                                        "pk": {
+                                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                          "format": "int64",
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    "value": {
+                                      "minLength": 1,
+                                      "maxLength": 256,
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              },
+                              "manufacturer": {
+                                "anyOf": [
+                                  {
+                                    "type": "null"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "company",
+                                      "mpn"
+                                    ],
+                                    "properties": {
+                                      "company": {
+                                        "additionalProperties": false,
+                                        "type": "object",
+                                        "required": [
+                                          "observation_id",
+                                          "target_context_id",
+                                          "model",
+                                          "pk"
+                                        ],
+                                        "properties": {
+                                          "observation_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "target_context_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "model": {
+                                            "const": "company",
+                                            "type": "string"
+                                          },
+                                          "pk": {
+                                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                            "format": "int64",
+                                            "type": "string"
+                                          }
+                                        }
+                                      },
+                                      "mpn": {
+                                        "minLength": 1,
+                                        "maxLength": 256,
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              "supplier": {
+                                "anyOf": [
+                                  {
+                                    "type": "null"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "company",
+                                      "sku"
+                                    ],
+                                    "properties": {
+                                      "company": {
+                                        "additionalProperties": false,
+                                        "type": "object",
+                                        "required": [
+                                          "observation_id",
+                                          "target_context_id",
+                                          "model",
+                                          "pk"
+                                        ],
+                                        "properties": {
+                                          "observation_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "target_context_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "model": {
+                                            "const": "company",
+                                            "type": "string"
+                                          },
+                                          "pk": {
+                                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                            "format": "int64",
+                                            "type": "string"
+                                          }
+                                        }
+                                      },
+                                      "sku": {
+                                        "minLength": 1,
+                                        "maxLength": 256,
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              "tags": {
+                                "maxItems": 32,
+                                "uniqueItems": true,
+                                "type": "array",
+                                "items": {
+                                  "minLength": 1,
+                                  "maxLength": 100,
+                                  "pattern": "[^\\s]",
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "linked_part": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "id",
+                  "label",
+                  "revision",
+                  "choice"
+                ],
+                "properties": {
+                  "id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "label": {
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "type": "string"
+                  },
+                  "revision": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  "choice": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "spec"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "create",
+                            "type": "string"
+                          },
+                          "spec": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "name",
+                              "category",
+                              "parameters",
+                              "manufacturer",
+                              "supplier",
+                              "tags"
+                            ],
+                            "properties": {
+                              "name": {
+                                "minLength": 1,
+                                "maxLength": 256,
+                                "type": "string"
+                              },
+                              "category": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "const": "category",
+                                    "type": "string"
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "parameters": {
+                                "maxItems": 32,
+                                "type": "array",
+                                "items": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "template",
+                                    "category_mapping",
+                                    "value"
+                                  ],
+                                  "properties": {
+                                    "template": {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "observation_id",
+                                        "target_context_id",
+                                        "model",
+                                        "pk"
+                                      ],
+                                      "properties": {
+                                        "observation_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "target_context_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "model": {
+                                          "const": "parameter_template",
+                                          "type": "string"
+                                        },
+                                        "pk": {
+                                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                          "format": "int64",
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    "category_mapping": {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "observation_id",
+                                        "target_context_id",
+                                        "model",
+                                        "pk"
+                                      ],
+                                      "properties": {
+                                        "observation_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "target_context_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "model": {
+                                          "const": "category_parameter",
+                                          "type": "string"
+                                        },
+                                        "pk": {
+                                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                          "format": "int64",
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    "value": {
+                                      "minLength": 1,
+                                      "maxLength": 256,
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              },
+                              "manufacturer": {
+                                "anyOf": [
+                                  {
+                                    "type": "null"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "company",
+                                      "mpn"
+                                    ],
+                                    "properties": {
+                                      "company": {
+                                        "additionalProperties": false,
+                                        "type": "object",
+                                        "required": [
+                                          "observation_id",
+                                          "target_context_id",
+                                          "model",
+                                          "pk"
+                                        ],
+                                        "properties": {
+                                          "observation_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "target_context_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "model": {
+                                            "const": "company",
+                                            "type": "string"
+                                          },
+                                          "pk": {
+                                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                            "format": "int64",
+                                            "type": "string"
+                                          }
+                                        }
+                                      },
+                                      "mpn": {
+                                        "minLength": 1,
+                                        "maxLength": 256,
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              "supplier": {
+                                "anyOf": [
+                                  {
+                                    "type": "null"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "company",
+                                      "sku"
+                                    ],
+                                    "properties": {
+                                      "company": {
+                                        "additionalProperties": false,
+                                        "type": "object",
+                                        "required": [
+                                          "observation_id",
+                                          "target_context_id",
+                                          "model",
+                                          "pk"
+                                        ],
+                                        "properties": {
+                                          "observation_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "target_context_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "model": {
+                                            "const": "company",
+                                            "type": "string"
+                                          },
+                                          "pk": {
+                                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                            "format": "int64",
+                                            "type": "string"
+                                          }
+                                        }
+                                      },
+                                      "sku": {
+                                        "minLength": 1,
+                                        "maxLength": 256,
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              "tags": {
+                                "maxItems": 32,
+                                "uniqueItems": true,
+                                "type": "array",
+                                "items": {
+                                  "minLength": 1,
+                                  "maxLength": 100,
+                                  "pattern": "[^\\s]",
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "maxItems": 1000,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "id",
+                "subject_id",
+                "text",
+                "actor_id",
+                "created_at",
+                "producer"
+              ],
+              "properties": {
+                "id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "subject_id": {
+                  "anyOf": [
+                    {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "text": {
+                  "maxLength": 8192,
+                  "type": "string"
+                },
+                "actor_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string"
+                },
+                "producer": {
+                  "const": "human",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "observations": {
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "id",
+                "model",
+                "pk",
+                "target_context_id",
+                "label",
+                "observed_at"
+              ],
+              "properties": {
+                "id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "model": {
+                  "anyOf": [
+                    {
+                      "const": "part",
+                      "type": "string"
+                    },
+                    {
+                      "const": "location",
+                      "type": "string"
+                    },
+                    {
+                      "const": "category",
+                      "type": "string"
+                    },
+                    {
+                      "const": "parameter_template",
+                      "type": "string"
+                    },
+                    {
+                      "const": "category_parameter",
+                      "type": "string"
+                    },
+                    {
+                      "const": "company",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "mapping": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "category",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "model_type",
+                        "enabled"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "parameter_template",
+                          "type": "string"
+                        },
+                        "model_type": {
+                          "anyOf": [
+                            {
+                              "const": "part.part",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "enabled": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "category_id",
+                        "template_id"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "category_parameter",
+                          "type": "string"
+                        },
+                        "category_id": {
+                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                          "format": "int64",
+                          "type": "string"
+                        },
+                        "template_id": {
+                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                          "format": "int64",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "manufacturer",
+                        "supplier"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "company",
+                          "type": "string"
+                        },
+                        "manufacturer": {
+                          "type": "boolean"
+                        },
+                        "supplier": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "pk": {
+                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                  "format": "int64",
+                  "type": "string"
+                },
+                "target_context_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "label": {
+                  "minLength": 1,
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "observed_at": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "profile_id": {
+            "const": "native-agent/1",
+            "type": "string"
+          },
+          "instruction_version": {
+            "const": "native-agent/1",
+            "type": "string"
+          },
+          "instruction_sha256": {
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+            "type": "string"
+          },
+          "tool_profile_version": {
+            "const": "native-no-tools/1",
+            "type": "string"
+          },
+          "media": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "manifest",
+              "sha256"
+            ],
+            "properties": {
+              "manifest": {
+                "minLength": 1,
+                "maxLength": 245760,
+                "type": "string"
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              }
+            }
+          },
+          "agent": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "provider",
+              "authentication",
+              "model"
+            ],
+            "properties": {
+              "provider": {
+                "anyOf": [
+                  {
+                    "const": "codex",
+                    "type": "string"
+                  },
+                  {
+                    "const": "claude",
+                    "type": "string"
+                  }
+                ]
+              },
+              "authentication": {
+                "anyOf": [
+                  {
+                    "const": "api_key",
+                    "type": "string"
+                  },
+                  {
+                    "const": "subscription",
+                    "type": "string"
+                  }
+                ]
+              },
+              "model": {
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+                "type": "string"
+              }
+            }
+          },
+          "settings_revision": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          }
+        }
+      },
+      "ProcessingCommandV4": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_version",
+          "job_id",
+          "attempt_id",
+          "input_id",
+          "input_sha256",
+          "profile_id",
+          "handler_version",
+          "command_id"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "bench-intake-processing-command/4",
+            "type": "string"
+          },
+          "job_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "attempt_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "input_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "input_sha256": {
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+            "type": "string"
+          },
+          "profile_id": {
+            "const": "native-agent/1",
+            "type": "string"
+          },
+          "handler_version": {
+            "const": "processing/4",
+            "type": "string"
+          },
+          "command_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      },
+      "ProcessingEnvelopeV4": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "job_id",
+              "attempt_id",
+              "command_id",
+              "input_sha256",
+              "profile_id",
+              "handler_version",
+              "sequence",
+              "kind",
+              "payload"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-runner/4",
+                "type": "string"
+              },
+              "job_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "command_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "input_sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "profile_id": {
+                "const": "native-agent/1",
+                "type": "string"
+              },
+              "handler_version": {
+                "const": "processing/4",
+                "type": "string"
+              },
+              "sequence": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "kind": {
+                "const": "proposal",
+                "type": "string"
+              },
+              "payload": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "schema_version",
+                  "subject_id",
+                  "summary",
+                  "sources"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "const": "bench-intake-proposal/2",
+                    "type": "string"
+                  },
+                  "subject_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "summary": {
+                    "minLength": 1,
+                    "maxLength": 2048,
+                    "type": "string"
+                  },
+                  "sources": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "uniqueItems": true,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "note_id",
+                            "text_sha256"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "note",
+                              "type": "string"
+                            },
+                            "note_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "text_sha256": {
+                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "evidence_id",
+                            "version_id",
+                            "sha256"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "media_version",
+                              "type": "string"
+                            },
+                            "evidence_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "version_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "sha256": {
+                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "job_id",
+              "attempt_id",
+              "command_id",
+              "input_sha256",
+              "profile_id",
+              "handler_version",
+              "sequence",
+              "kind",
+              "payload"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-runner/4",
+                "type": "string"
+              },
+              "job_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "command_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "input_sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "profile_id": {
+                "const": "native-agent/1",
+                "type": "string"
+              },
+              "handler_version": {
+                "const": "processing/4",
+                "type": "string"
+              },
+              "sequence": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "kind": {
+                "const": "question",
+                "type": "string"
+              },
+              "payload": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "subject_id",
+                  "prompt",
+                  "reason"
+                ],
+                "properties": {
+                  "kind": {
+                    "anyOf": [
+                      {
+                        "const": "quantity",
+                        "type": "string"
+                      },
+                      {
+                        "const": "clarification",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "prompt": {
+                    "minLength": 1,
+                    "maxLength": 2048,
+                    "type": "string"
+                  },
+                  "reason": {
+                    "minLength": 1,
+                    "maxLength": 2048,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "job_id",
+              "attempt_id",
+              "command_id",
+              "input_sha256",
+              "profile_id",
+              "handler_version",
+              "sequence",
+              "kind",
+              "payload"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-runner/4",
+                "type": "string"
+              },
+              "job_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "command_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "input_sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "profile_id": {
+                "const": "native-agent/1",
+                "type": "string"
+              },
+              "handler_version": {
+                "const": "processing/4",
+                "type": "string"
+              },
+              "sequence": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "kind": {
+                "const": "terminal",
+                "type": "string"
+              },
+              "payload": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "state"
+                ],
+                "properties": {
+                  "state": {
+                    "anyOf": [
+                      {
+                        "const": "ready",
+                        "type": "string"
+                      },
+                      {
+                        "const": "failed",
+                        "type": "string"
+                      },
+                      {
+                        "const": "waiting_for_login",
+                        "type": "string"
+                      },
+                      {
+                        "const": "waiting_for_capacity",
+                        "type": "string"
+                      },
+                      {
+                        "const": "interrupted",
+                        "type": "string"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
       "ProcessingInputV1": {
         "additionalProperties": false,
         "type": "object",
@@ -22739,11 +24828,1616 @@
                 }
               }
             }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "batch_id",
+              "source_id",
+              "capture_revision",
+              "subject_id",
+              "stage",
+              "dependencies",
+              "answer_id",
+              "defaults",
+              "subject",
+              "linked_part",
+              "notes",
+              "observations",
+              "profile_id",
+              "instruction_version",
+              "instruction_sha256",
+              "tool_profile_version",
+              "media",
+              "agent",
+              "settings_revision"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-input/4",
+                "type": "string"
+              },
+              "batch_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "source_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "capture_revision": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "subject_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "stage": {
+                "anyOf": [
+                  {
+                    "const": "reading",
+                    "type": "string"
+                  },
+                  {
+                    "const": "identifying",
+                    "type": "string"
+                  },
+                  {
+                    "const": "research",
+                    "type": "string"
+                  },
+                  {
+                    "const": "images",
+                    "type": "string"
+                  },
+                  {
+                    "const": "inventory",
+                    "type": "string"
+                  }
+                ]
+              },
+              "dependencies": {
+                "maxItems": 5,
+                "uniqueItems": true,
+                "type": "array",
+                "items": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                }
+              },
+              "answer_id": {
+                "anyOf": [
+                  {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "defaults": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "quantity",
+                  "location"
+                ],
+                "properties": {
+                  "quantity": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "inherit",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "inherit",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "subject": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "label",
+                      "revision",
+                      "contribution_key",
+                      "part_subject_id",
+                      "quantity",
+                      "location"
+                    ],
+                    "properties": {
+                      "id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "label": {
+                        "minLength": 1,
+                        "maxLength": 256,
+                        "type": "string"
+                      },
+                      "revision": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      },
+                      "contribution_key": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "part_subject_id": {
+                        "anyOf": [
+                          {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "quantity": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unset",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unknown",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "inherit",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "location": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unset",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unknown",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "anyOf": [
+                                      {
+                                        "const": "part",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "location",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "inherit",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "retired": {
+                        "const": true,
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "label",
+                      "revision",
+                      "choice"
+                    ],
+                    "properties": {
+                      "id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "label": {
+                        "minLength": 1,
+                        "maxLength": 256,
+                        "type": "string"
+                      },
+                      "revision": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      },
+                      "choice": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unset",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unknown",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "anyOf": [
+                                      {
+                                        "const": "part",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "location",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "spec"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "create",
+                                "type": "string"
+                              },
+                              "spec": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "name",
+                                  "category",
+                                  "parameters",
+                                  "manufacturer",
+                                  "supplier",
+                                  "tags"
+                                ],
+                                "properties": {
+                                  "name": {
+                                    "minLength": 1,
+                                    "maxLength": 256,
+                                    "type": "string"
+                                  },
+                                  "category": {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "observation_id",
+                                      "target_context_id",
+                                      "model",
+                                      "pk"
+                                    ],
+                                    "properties": {
+                                      "observation_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "target_context_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "model": {
+                                        "const": "category",
+                                        "type": "string"
+                                      },
+                                      "pk": {
+                                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                        "format": "int64",
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "parameters": {
+                                    "maxItems": 32,
+                                    "type": "array",
+                                    "items": {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "template",
+                                        "category_mapping",
+                                        "value"
+                                      ],
+                                      "properties": {
+                                        "template": {
+                                          "additionalProperties": false,
+                                          "type": "object",
+                                          "required": [
+                                            "observation_id",
+                                            "target_context_id",
+                                            "model",
+                                            "pk"
+                                          ],
+                                          "properties": {
+                                            "observation_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "target_context_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "model": {
+                                              "const": "parameter_template",
+                                              "type": "string"
+                                            },
+                                            "pk": {
+                                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                              "format": "int64",
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        "category_mapping": {
+                                          "additionalProperties": false,
+                                          "type": "object",
+                                          "required": [
+                                            "observation_id",
+                                            "target_context_id",
+                                            "model",
+                                            "pk"
+                                          ],
+                                          "properties": {
+                                            "observation_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "target_context_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "model": {
+                                              "const": "category_parameter",
+                                              "type": "string"
+                                            },
+                                            "pk": {
+                                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                              "format": "int64",
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        "value": {
+                                          "minLength": 1,
+                                          "maxLength": 256,
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "manufacturer": {
+                                    "anyOf": [
+                                      {
+                                        "type": "null"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "type": "object",
+                                        "required": [
+                                          "company",
+                                          "mpn"
+                                        ],
+                                        "properties": {
+                                          "company": {
+                                            "additionalProperties": false,
+                                            "type": "object",
+                                            "required": [
+                                              "observation_id",
+                                              "target_context_id",
+                                              "model",
+                                              "pk"
+                                            ],
+                                            "properties": {
+                                              "observation_id": {
+                                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                "type": "string"
+                                              },
+                                              "target_context_id": {
+                                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                "type": "string"
+                                              },
+                                              "model": {
+                                                "const": "company",
+                                                "type": "string"
+                                              },
+                                              "pk": {
+                                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                                "format": "int64",
+                                                "type": "string"
+                                              }
+                                            }
+                                          },
+                                          "mpn": {
+                                            "minLength": 1,
+                                            "maxLength": 256,
+                                            "type": "string"
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  "supplier": {
+                                    "anyOf": [
+                                      {
+                                        "type": "null"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "type": "object",
+                                        "required": [
+                                          "company",
+                                          "sku"
+                                        ],
+                                        "properties": {
+                                          "company": {
+                                            "additionalProperties": false,
+                                            "type": "object",
+                                            "required": [
+                                              "observation_id",
+                                              "target_context_id",
+                                              "model",
+                                              "pk"
+                                            ],
+                                            "properties": {
+                                              "observation_id": {
+                                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                "type": "string"
+                                              },
+                                              "target_context_id": {
+                                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                "type": "string"
+                                              },
+                                              "model": {
+                                                "const": "company",
+                                                "type": "string"
+                                              },
+                                              "pk": {
+                                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                                "format": "int64",
+                                                "type": "string"
+                                              }
+                                            }
+                                          },
+                                          "sku": {
+                                            "minLength": 1,
+                                            "maxLength": 256,
+                                            "type": "string"
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  "tags": {
+                                    "maxItems": 32,
+                                    "uniqueItems": true,
+                                    "type": "array",
+                                    "items": {
+                                      "minLength": 1,
+                                      "maxLength": 100,
+                                      "pattern": "[^\\s]",
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "linked_part": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "label",
+                      "revision",
+                      "choice"
+                    ],
+                    "properties": {
+                      "id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "label": {
+                        "minLength": 1,
+                        "maxLength": 256,
+                        "type": "string"
+                      },
+                      "revision": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      },
+                      "choice": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unset",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unknown",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "anyOf": [
+                                      {
+                                        "const": "part",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "location",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "spec"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "create",
+                                "type": "string"
+                              },
+                              "spec": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "name",
+                                  "category",
+                                  "parameters",
+                                  "manufacturer",
+                                  "supplier",
+                                  "tags"
+                                ],
+                                "properties": {
+                                  "name": {
+                                    "minLength": 1,
+                                    "maxLength": 256,
+                                    "type": "string"
+                                  },
+                                  "category": {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "observation_id",
+                                      "target_context_id",
+                                      "model",
+                                      "pk"
+                                    ],
+                                    "properties": {
+                                      "observation_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "target_context_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "model": {
+                                        "const": "category",
+                                        "type": "string"
+                                      },
+                                      "pk": {
+                                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                        "format": "int64",
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "parameters": {
+                                    "maxItems": 32,
+                                    "type": "array",
+                                    "items": {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "template",
+                                        "category_mapping",
+                                        "value"
+                                      ],
+                                      "properties": {
+                                        "template": {
+                                          "additionalProperties": false,
+                                          "type": "object",
+                                          "required": [
+                                            "observation_id",
+                                            "target_context_id",
+                                            "model",
+                                            "pk"
+                                          ],
+                                          "properties": {
+                                            "observation_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "target_context_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "model": {
+                                              "const": "parameter_template",
+                                              "type": "string"
+                                            },
+                                            "pk": {
+                                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                              "format": "int64",
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        "category_mapping": {
+                                          "additionalProperties": false,
+                                          "type": "object",
+                                          "required": [
+                                            "observation_id",
+                                            "target_context_id",
+                                            "model",
+                                            "pk"
+                                          ],
+                                          "properties": {
+                                            "observation_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "target_context_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "model": {
+                                              "const": "category_parameter",
+                                              "type": "string"
+                                            },
+                                            "pk": {
+                                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                              "format": "int64",
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        "value": {
+                                          "minLength": 1,
+                                          "maxLength": 256,
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "manufacturer": {
+                                    "anyOf": [
+                                      {
+                                        "type": "null"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "type": "object",
+                                        "required": [
+                                          "company",
+                                          "mpn"
+                                        ],
+                                        "properties": {
+                                          "company": {
+                                            "additionalProperties": false,
+                                            "type": "object",
+                                            "required": [
+                                              "observation_id",
+                                              "target_context_id",
+                                              "model",
+                                              "pk"
+                                            ],
+                                            "properties": {
+                                              "observation_id": {
+                                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                "type": "string"
+                                              },
+                                              "target_context_id": {
+                                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                "type": "string"
+                                              },
+                                              "model": {
+                                                "const": "company",
+                                                "type": "string"
+                                              },
+                                              "pk": {
+                                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                                "format": "int64",
+                                                "type": "string"
+                                              }
+                                            }
+                                          },
+                                          "mpn": {
+                                            "minLength": 1,
+                                            "maxLength": 256,
+                                            "type": "string"
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  "supplier": {
+                                    "anyOf": [
+                                      {
+                                        "type": "null"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "type": "object",
+                                        "required": [
+                                          "company",
+                                          "sku"
+                                        ],
+                                        "properties": {
+                                          "company": {
+                                            "additionalProperties": false,
+                                            "type": "object",
+                                            "required": [
+                                              "observation_id",
+                                              "target_context_id",
+                                              "model",
+                                              "pk"
+                                            ],
+                                            "properties": {
+                                              "observation_id": {
+                                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                "type": "string"
+                                              },
+                                              "target_context_id": {
+                                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                "type": "string"
+                                              },
+                                              "model": {
+                                                "const": "company",
+                                                "type": "string"
+                                              },
+                                              "pk": {
+                                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                                "format": "int64",
+                                                "type": "string"
+                                              }
+                                            }
+                                          },
+                                          "sku": {
+                                            "minLength": 1,
+                                            "maxLength": 256,
+                                            "type": "string"
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  },
+                                  "tags": {
+                                    "maxItems": 32,
+                                    "uniqueItems": true,
+                                    "type": "array",
+                                    "items": {
+                                      "minLength": 1,
+                                      "maxLength": 100,
+                                      "pattern": "[^\\s]",
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "notes": {
+                "maxItems": 1000,
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "subject_id",
+                    "text",
+                    "actor_id",
+                    "created_at",
+                    "producer"
+                  ],
+                  "properties": {
+                    "id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "subject_id": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "text": {
+                      "maxLength": 8192,
+                      "type": "string"
+                    },
+                    "actor_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "producer": {
+                      "const": "human",
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "observations": {
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "model",
+                    "pk",
+                    "target_context_id",
+                    "label",
+                    "observed_at"
+                  ],
+                  "properties": {
+                    "id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "model": {
+                      "anyOf": [
+                        {
+                          "const": "part",
+                          "type": "string"
+                        },
+                        {
+                          "const": "location",
+                          "type": "string"
+                        },
+                        {
+                          "const": "category",
+                          "type": "string"
+                        },
+                        {
+                          "const": "parameter_template",
+                          "type": "string"
+                        },
+                        {
+                          "const": "category_parameter",
+                          "type": "string"
+                        },
+                        {
+                          "const": "company",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "mapping": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "category",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "model_type",
+                            "enabled"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "parameter_template",
+                              "type": "string"
+                            },
+                            "model_type": {
+                              "anyOf": [
+                                {
+                                  "const": "part.part",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "enabled": {
+                              "type": "boolean"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "category_id",
+                            "template_id"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "category_parameter",
+                              "type": "string"
+                            },
+                            "category_id": {
+                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                              "format": "int64",
+                              "type": "string"
+                            },
+                            "template_id": {
+                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                              "format": "int64",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "manufacturer",
+                            "supplier"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "company",
+                              "type": "string"
+                            },
+                            "manufacturer": {
+                              "type": "boolean"
+                            },
+                            "supplier": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "pk": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "target_context_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "label": {
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "type": "string"
+                    },
+                    "observed_at": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "profile_id": {
+                "const": "native-agent/1",
+                "type": "string"
+              },
+              "instruction_version": {
+                "const": "native-agent/1",
+                "type": "string"
+              },
+              "instruction_sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "tool_profile_version": {
+                "const": "native-no-tools/1",
+                "type": "string"
+              },
+              "media": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "manifest",
+                  "sha256"
+                ],
+                "properties": {
+                  "manifest": {
+                    "minLength": 1,
+                    "maxLength": 245760,
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                }
+              },
+              "agent": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "provider",
+                  "authentication",
+                  "model"
+                ],
+                "properties": {
+                  "provider": {
+                    "anyOf": [
+                      {
+                        "const": "codex",
+                        "type": "string"
+                      },
+                      {
+                        "const": "claude",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "authentication": {
+                    "anyOf": [
+                      {
+                        "const": "api_key",
+                        "type": "string"
+                      },
+                      {
+                        "const": "subscription",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "model": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+                    "type": "string"
+                  }
+                }
+              },
+              "settings_revision": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              }
+            }
           }
         ]
       },
       "ProcessingCommand": {
         "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "job_id",
+              "attempt_id",
+              "input_id",
+              "input_sha256",
+              "profile_id",
+              "handler_version",
+              "command_id"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-processing-command/4",
+                "type": "string"
+              },
+              "job_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "input_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "input_sha256": {
+                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                "type": "string"
+              },
+              "profile_id": {
+                "const": "native-agent/1",
+                "type": "string"
+              },
+              "handler_version": {
+                "const": "processing/4",
+                "type": "string"
+              },
+              "command_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              }
+            }
+          },
           {
             "additionalProperties": false,
             "type": "object",
@@ -23568,6 +27262,332 @@
       },
       "ProcessingEnvelope": {
         "anyOf": [
+          {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "schema_version",
+                  "job_id",
+                  "attempt_id",
+                  "command_id",
+                  "input_sha256",
+                  "profile_id",
+                  "handler_version",
+                  "sequence",
+                  "kind",
+                  "payload"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "const": "bench-intake-runner/4",
+                    "type": "string"
+                  },
+                  "job_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "attempt_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "command_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "input_sha256": {
+                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "profile_id": {
+                    "const": "native-agent/1",
+                    "type": "string"
+                  },
+                  "handler_version": {
+                    "const": "processing/4",
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "proposal",
+                    "type": "string"
+                  },
+                  "payload": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "schema_version",
+                      "subject_id",
+                      "summary",
+                      "sources"
+                    ],
+                    "properties": {
+                      "schema_version": {
+                        "const": "bench-intake-proposal/2",
+                        "type": "string"
+                      },
+                      "subject_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "summary": {
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "type": "string"
+                      },
+                      "sources": {
+                        "minItems": 1,
+                        "maxItems": 100,
+                        "uniqueItems": true,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "note_id",
+                                "text_sha256"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "note",
+                                  "type": "string"
+                                },
+                                "note_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "text_sha256": {
+                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "evidence_id",
+                                "version_id",
+                                "sha256"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "media_version",
+                                  "type": "string"
+                                },
+                                "evidence_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "version_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "sha256": {
+                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "schema_version",
+                  "job_id",
+                  "attempt_id",
+                  "command_id",
+                  "input_sha256",
+                  "profile_id",
+                  "handler_version",
+                  "sequence",
+                  "kind",
+                  "payload"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "const": "bench-intake-runner/4",
+                    "type": "string"
+                  },
+                  "job_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "attempt_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "command_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "input_sha256": {
+                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "profile_id": {
+                    "const": "native-agent/1",
+                    "type": "string"
+                  },
+                  "handler_version": {
+                    "const": "processing/4",
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "question",
+                    "type": "string"
+                  },
+                  "payload": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "subject_id",
+                      "prompt",
+                      "reason"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "anyOf": [
+                          {
+                            "const": "quantity",
+                            "type": "string"
+                          },
+                          {
+                            "const": "clarification",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "subject_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "prompt": {
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "type": "string"
+                      },
+                      "reason": {
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "schema_version",
+                  "job_id",
+                  "attempt_id",
+                  "command_id",
+                  "input_sha256",
+                  "profile_id",
+                  "handler_version",
+                  "sequence",
+                  "kind",
+                  "payload"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "const": "bench-intake-runner/4",
+                    "type": "string"
+                  },
+                  "job_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "attempt_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "command_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "input_sha256": {
+                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "profile_id": {
+                    "const": "native-agent/1",
+                    "type": "string"
+                  },
+                  "handler_version": {
+                    "const": "processing/4",
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "terminal",
+                    "type": "string"
+                  },
+                  "payload": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "state"
+                    ],
+                    "properties": {
+                      "state": {
+                        "anyOf": [
+                          {
+                            "const": "ready",
+                            "type": "string"
+                          },
+                          {
+                            "const": "failed",
+                            "type": "string"
+                          },
+                          {
+                            "const": "waiting_for_login",
+                            "type": "string"
+                          },
+                          {
+                            "const": "waiting_for_capacity",
+                            "type": "string"
+                          },
+                          {
+                            "const": "interrupted",
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
           {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "anyOf": [
@@ -24722,8 +28742,16 @@
             "type": "string"
           },
           "qualification": {
-            "const": "fixture_only",
-            "type": "string"
+            "anyOf": [
+              {
+                "const": "fixture_only",
+                "type": "string"
+              },
+              {
+                "const": "native_unverified",
+                "type": "string"
+              }
+            ]
           },
           "can_cancel": {
             "type": "boolean"
@@ -25116,6 +29144,10 @@
               {
                 "const": "fixture_only",
                 "type": "string"
+              },
+              {
+                "const": "native_unverified",
+                "type": "string"
               }
             ]
           },
@@ -25243,8 +29275,16 @@
                   "type": "string"
                 },
                 "qualification": {
-                  "const": "fixture_only",
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "const": "fixture_only",
+                      "type": "string"
+                    },
+                    {
+                      "const": "native_unverified",
+                      "type": "string"
+                    }
+                  ]
                 },
                 "can_cancel": {
                   "type": "boolean"
@@ -30232,6 +34272,567 @@
           "apply": {
             "const": "separately-supervised-owned-fake-only",
             "type": "string"
+          }
+        }
+      },
+      "NativeAgentResult": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "proposal",
+          "question"
+        ],
+        "properties": {
+          "proposal": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "schema_version",
+                  "subject_id",
+                  "summary",
+                  "sources"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "const": "bench-intake-proposal/2",
+                    "type": "string"
+                  },
+                  "subject_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "summary": {
+                    "minLength": 1,
+                    "maxLength": 2048,
+                    "type": "string"
+                  },
+                  "sources": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "uniqueItems": true,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "note_id",
+                            "text_sha256"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "note",
+                              "type": "string"
+                            },
+                            "note_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "text_sha256": {
+                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "evidence_id",
+                            "version_id",
+                            "sha256"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "media_version",
+                              "type": "string"
+                            },
+                            "evidence_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "version_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "sha256": {
+                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "question": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "subject_id",
+                  "prompt",
+                  "reason"
+                ],
+                "properties": {
+                  "kind": {
+                    "anyOf": [
+                      {
+                        "const": "quantity",
+                        "type": "string"
+                      },
+                      {
+                        "const": "clarification",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "prompt": {
+                    "minLength": 1,
+                    "maxLength": 2048,
+                    "type": "string"
+                  },
+                  "reason": {
+                    "minLength": 1,
+                    "maxLength": 2048,
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "AgentSelection": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider",
+          "authentication",
+          "model"
+        ],
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "const": "codex",
+                "type": "string"
+              },
+              {
+                "const": "claude",
+                "type": "string"
+              }
+            ]
+          },
+          "authentication": {
+            "anyOf": [
+              {
+                "const": "api_key",
+                "type": "string"
+              },
+              {
+                "const": "subscription",
+                "type": "string"
+              }
+            ]
+          },
+          "model": {
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      },
+      "AgentSettings": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "selection"
+        ],
+        "properties": {
+          "revision": {
+            "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "selection": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "provider",
+                  "authentication",
+                  "model"
+                ],
+                "properties": {
+                  "provider": {
+                    "anyOf": [
+                      {
+                        "const": "codex",
+                        "type": "string"
+                      },
+                      {
+                        "const": "claude",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "authentication": {
+                    "anyOf": [
+                      {
+                        "const": "api_key",
+                        "type": "string"
+                      },
+                      {
+                        "const": "subscription",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "model": {
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "AgentSettingsUpdate": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_revision",
+          "selection"
+        ],
+        "properties": {
+          "expected_revision": {
+            "pattern": "^(0|[1-9][0-9]{0,18})(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "selection": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "provider",
+              "authentication",
+              "model"
+            ],
+            "properties": {
+              "provider": {
+                "anyOf": [
+                  {
+                    "const": "codex",
+                    "type": "string"
+                  },
+                  {
+                    "const": "claude",
+                    "type": "string"
+                  }
+                ]
+              },
+              "authentication": {
+                "anyOf": [
+                  {
+                    "const": "api_key",
+                    "type": "string"
+                  },
+                  {
+                    "const": "subscription",
+                    "type": "string"
+                  }
+                ]
+              },
+              "model": {
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "AgentSessionList": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "sessions",
+          "next_before"
+        ],
+        "properties": {
+          "sessions": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "attempt_id",
+                "batch_id",
+                "job_id",
+                "subject_id",
+                "stage",
+                "state",
+                "latest_on_job",
+                "selection",
+                "settings_revision",
+                "queued_at",
+                "started_at",
+                "finished_at",
+                "native_session_id",
+                "actual_model",
+                "progress",
+                "occupies_lane"
+              ],
+              "properties": {
+                "attempt_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "batch_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "job_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "subject_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "stage": {
+                  "anyOf": [
+                    {
+                      "const": "reading",
+                      "type": "string"
+                    },
+                    {
+                      "const": "identifying",
+                      "type": "string"
+                    },
+                    {
+                      "const": "research",
+                      "type": "string"
+                    },
+                    {
+                      "const": "images",
+                      "type": "string"
+                    },
+                    {
+                      "const": "inventory",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "state": {
+                  "anyOf": [
+                    {
+                      "const": "queued",
+                      "type": "string"
+                    },
+                    {
+                      "const": "running",
+                      "type": "string"
+                    },
+                    {
+                      "const": "waiting_for_user",
+                      "type": "string"
+                    },
+                    {
+                      "const": "waiting_for_login",
+                      "type": "string"
+                    },
+                    {
+                      "const": "waiting_for_capacity",
+                      "type": "string"
+                    },
+                    {
+                      "const": "ready",
+                      "type": "string"
+                    },
+                    {
+                      "const": "failed",
+                      "type": "string"
+                    },
+                    {
+                      "const": "cancelled",
+                      "type": "string"
+                    },
+                    {
+                      "const": "superseded",
+                      "type": "string"
+                    },
+                    {
+                      "const": "interrupted",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "latest_on_job": {
+                  "type": "boolean"
+                },
+                "selection": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "provider",
+                    "authentication",
+                    "model"
+                  ],
+                  "properties": {
+                    "provider": {
+                      "anyOf": [
+                        {
+                          "const": "codex",
+                          "type": "string"
+                        },
+                        {
+                          "const": "claude",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "authentication": {
+                      "anyOf": [
+                        {
+                          "const": "api_key",
+                          "type": "string"
+                        },
+                        {
+                          "const": "subscription",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "model": {
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
+                      "type": "string"
+                    }
+                  }
+                },
+                "settings_revision": {
+                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                  "format": "int64",
+                  "type": "string"
+                },
+                "queued_at": {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                "started_at": {
+                  "anyOf": [
+                    {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "finished_at": {
+                  "anyOf": [
+                    {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "native_session_id": {
+                  "anyOf": [
+                    {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "actual_model": {
+                  "anyOf": [
+                    {
+                      "maxLength": 128,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "progress": {
+                  "anyOf": [
+                    {
+                      "const": "queued",
+                      "type": "string"
+                    },
+                    {
+                      "const": "starting",
+                      "type": "string"
+                    },
+                    {
+                      "const": "responding",
+                      "type": "string"
+                    },
+                    {
+                      "const": "settled",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "occupies_lane": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "next_before": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       }

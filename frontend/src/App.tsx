@@ -1,7 +1,10 @@
+import { AgentSettings } from './components/agents/AgentSettings'
+import { AgentSessions } from './components/agents/AgentSessions'
 import { Button, PageTitle, Panel, Paragraph, Notice } from './components/ui/primitives'
 import { useCallback, useMemo, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
+  agentsClient,
   captureClient,
   inboxClient,
   intakeClient,
@@ -60,6 +63,10 @@ export default function App() {
         : null,
     [bootstrap],
   )
+  const agents = useMemo(
+    () => (bootstrap?.csrf_token ? agentsClient(location.origin, bootstrap.csrf_token) : null),
+    [bootstrap],
+  )
   const manual = useMemo(
     () => (bootstrap?.csrf_token ? manualClient(location.origin, bootstrap.csrf_token) : null),
     [bootstrap],
@@ -106,6 +113,10 @@ export default function App() {
         </Paragraph>
       </Panel>
     )
+  } else if (route === 'settings' && agents) {
+    content = <AgentSettings client={agents} onDirtyChange={onDirtyChange} />
+  } else if (route === 'agents' && agents) {
+    content = <AgentSessions client={agents} />
   } else if (route && manual) {
     content = (
       <Batch
@@ -134,7 +145,7 @@ export default function App() {
       <ServerStateProvider key={scope ? serverScopeIdentity(scope) : 'setup'} scope={scope}>
         <LiveUpdates
           csrfToken={bootstrap?.csrf_token ?? null}
-          batchId={route?.split('/')[0] || null}
+          batchId={route === 'agents' || route === 'settings' ? null : route?.split('/')[0] || null}
           refreshBootstrap={refreshBootstrap}
         >
           {manual && <ActivityIndicator client={manual} processing={processing} />}
@@ -150,14 +161,19 @@ export default function App() {
               navigating, then choose the destination again.
             </Notice>
           )}
+          <MainNav aria-label="Application">
+            <a href="#">Batches</a>
+            <a href="#agents">Agent sessions</a>
+            <a href="#settings">Agent settings</a>
+          </MainNav>
           <Main>{content}</Main>
           {manual && <Diagnostics />}
         </LiveUpdates>
       </ServerStateProvider>
       <Footer>
         Saved in the application database. Exact manual approvals can queue the separately
-        supervised owned fake. Actual provider research and real inventory mutation remain
-        unavailable.
+        supervised owned fake. Native agents require an explicitly supervised worker and a saved
+        model default. Real inventory mutation remains unavailable.
       </Footer>
     </AppShell>
   )
@@ -190,4 +206,11 @@ const Footer = styled.footer`
   font-size: 12px;
   color: #526179;
   line-height: 1.6;
+`
+
+const MainNav = styled.nav`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin: 16px 0;
 `

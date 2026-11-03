@@ -1,3 +1,4 @@
+import { processingHandler, runnerQualificationMatches } from '../agents/profile.ts'
 import type { DBOSClient } from '@dbos-inc/dbos-sdk'
 import type { Pool } from 'pg'
 import { and, eq, isNull, ne, notExists, or } from 'drizzle-orm'
@@ -14,13 +15,7 @@ import {
   type RestrictedResearchRunner,
 } from './runner.ts'
 import type { ProcessingConfig } from './attempts.ts'
-import {
-  fail,
-  mediaHandlerVersion,
-  mediaProfileId,
-  researchProfileId,
-  researchHandlerVersion,
-} from './model.ts'
+import { fail } from './model.ts'
 import { ResearchReapPendingError } from '../research/errors.ts'
 
 /** Scheduler delivery is payload-bound; account/attempt authority is checked again by the worker. */
@@ -29,8 +24,7 @@ export async function dispatchProcessingCommands(
   scheduler: DBOSClient,
   config: ProcessingConfig,
 ) {
-  const actualHandlerVersion =
-    config.profileId === researchProfileId ? researchHandlerVersion : mediaHandlerVersion
+  const actualHandlerVersion = processingHandler(config.profileId)
   const pending = await transaction(pool, async (client) => {
     await prepareMediaTransaction(client)
     const predecessorAttempts = alias(processingAttempts, 'predecessor')
@@ -92,14 +86,10 @@ export async function executeProcessingCommand(
   payload: unknown,
   runner: RestrictedResearchRunner,
 ) {
-  if (
-    ![mediaProfileId, researchProfileId].includes(runner.profileId) ||
-    runner.qualification !== 'fixture_only'
-  ) {
+  if (!runnerQualificationMatches(runner.profileId, runner.qualification)) {
     fail('unsupported_runner_profile', 422)
   }
-  const actualHandlerVersion =
-    runner.profileId === researchProfileId ? researchHandlerVersion : mediaHandlerVersion
+  const actualHandlerVersion = processingHandler(runner.profileId)
 
   const command = await claimProcessingCommand(
     pool,

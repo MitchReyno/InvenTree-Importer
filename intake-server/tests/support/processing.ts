@@ -1,3 +1,4 @@
+import { registerLive } from '../../src/live/routes.ts'
 import fastifyStatic from '@fastify/static'
 import { access } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -11,6 +12,7 @@ import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { createServer } from '../../src/api/server.ts'
 import { registerCapture } from '../../src/capture/routes.ts'
 import { lockCaptureForEdit } from '../../src/capture/repository.ts'
+import { registerAgents } from '../../src/agents/routes.ts'
 import { registerProcessing } from '../../src/processing/routes.ts'
 import { grantProcessing } from '../../src/processing/grants.ts'
 import { grantFoundation } from '../../src/operations/grants.ts'
@@ -26,12 +28,14 @@ export interface ProcessingFixtureAllocation {
 }
 
 interface ProcessingFixtureOptions {
+  profileId?: import('../../src/processing/model.ts').SelectedProcessingProfile
   autoStart?: boolean
   onAllocation?: (allocation: ProcessingFixtureAllocation) => void
   bootstrapFault?: 'close_socket'
 }
 
 export interface ProcessingWebOptions {
+  live?: boolean
   port?: number
   assets?: string
   mediaStore?: BlobStore
@@ -134,6 +138,7 @@ export async function processingFixture(options: ProcessingFixtureOptions = {}) 
       targetId: identity.target,
       targetContextId: identity.context,
       channelSecret: `synthetic-channel-${randomUUID()}`,
+      profileId: options.profileId,
       credentialRef: 'processing_fixture',
       apiKey: 'synthetic-unused-no-target-transport',
     }
@@ -161,6 +166,10 @@ export async function processingFixture(options: ProcessingFixtureOptions = {}) 
       }
       registerCapture(app, api.pool, config)
       registerProcessing(app, api.pool, config, lockCaptureForEdit)
+      registerAgents(app, api.pool, config)
+      if (web.live) {
+        registerLive(app, api.pool, config)
+      }
       if (web.mediaStore) {
         registerMediaRoutes(app, api.pool, config, web.mediaStore)
       }

@@ -9,6 +9,16 @@ export async function grantProcessing(pool: Pool, role: string, purpose: 'api' |
     throw new Error('invalid_runtime_role')
   }
   await grantResearch(pool, role, purpose)
+  await pool.query(`GRANT SELECT ON schema_migration,agent_settings,agent_session TO ${role};`)
+  if (purpose === 'api') {
+    await pool.query(
+      `GRANT INSERT ON agent_settings,agent_session TO ${role}; GRANT UPDATE(revision,provider,authentication,model) ON agent_settings TO ${role};`,
+    )
+  } else {
+    await pool.query(
+      `GRANT UPDATE(started_at,finished_at,native_session_id,actual_model,progress) ON agent_session TO ${role};`,
+    )
+  }
   await pool.query(`GRANT SELECT ON processing_profile,processing_input,processing_job,processing_attempt,
     processing_dependency,processing_lane,processing_message,processing_proposal,processing_question,processing_answer,processing_transition TO ${role};
     GRANT INSERT ON processing_lane,processing_message,processing_proposal,processing_question TO ${role};
