@@ -16,7 +16,7 @@ These are agent commands or skills. Terminal commands include `openspec --versio
 
 ## Updating the integration
 
-Run `openspec update` from the repository root after updating the CLI, then inspect the generated diff. The shared skills contain a local invocation note explaining the mapping between Claude command examples and project-level skill names. Reapply that note and mirror all six skill directories as identical real copies after regeneration; native Claude command files remain host-specific.
+Run `openspec update` from the repository root after updating the CLI, then inspect the generated diff. The shared skills contain a local invocation note explaining the mapping between Claude command examples and project-level skill names. Reapply that note and the authorization adaptation: preserve planning-only scope, but honor an existing request to edit or implement without demanding the same permission again. Check both skills and native commands for regenerated confirmation barriers. Mirror all six skill directories as identical real copies after regeneration; native Claude command files remain host-specific.
 
 The `.agents/skills/.openspec-target` marker records the generator's owner for the shared tree. Keep it generated; it is excluded only at the skill root from authored-skill copy comparisons. Files with the same name inside a skill remain subject to comparison.
 

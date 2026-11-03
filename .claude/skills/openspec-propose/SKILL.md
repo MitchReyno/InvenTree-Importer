@@ -10,11 +10,13 @@ metadata:
   generatedBy: "1.16.0"
 ---
 
+**Authorization:** Preserve the scope and authorization already established by the user. A planning-only request does not authorize implementation. When the user has already authorized edits or plan-and-implement work, continue within that scope without asking for the same permission again; confirmation steps below apply only to genuinely new scope or unresolved material decisions. Finish planning before transitioning to the apply skill for authorized implementation.
+
 **Agent invocation:** The examples below use Claude Code command syntax. In other agents, invoke the corresponding project-level skill by name: `/opsx:apply` → `openspec-apply-change`. Use the selected agent’s skill invocation syntax; these are not terminal commands.
 
 Propose a new change - create the change and generate all artifacts in one step.
 
-**Planning boundary**: This workflow creates planning artifacts only. The user request that selected or triggered this workflow authorizes planning only, even if it asks to build or fix something. Do not edit project code. After the planning artifacts are complete, stop. Do not start implementation in the same response, even if the initial request asks for it. Wait for a new user request after the artifacts are presented; then start the apply workflow.
+**Planning boundary**: This workflow creates planning artifacts before implementation. For a planning-only request, present the artifacts and stop. If the user already authorized implementation in the current scope, complete the artifacts and then transition to the apply skill without requesting the same permission again. Do not edit implementation code within the proposal workflow itself.
 
 I'll create a change with the artifacts your schema defines. With the default spec-driven schema that is:
 
@@ -25,7 +27,7 @@ I'll create a change with the artifacts your schema defines. With the default sp
 
 `<capability-path>` is the spec directory relative to `specs/` (for example, `user-auth` or `identity/user-auth`). Preserve an existing capability's full path and follow the project's established organization for new capabilities.
 
-When the user is ready to implement, they must start the apply workflow explicitly.
+Transition to the apply skill once planning is complete and implementation is authorized. Ask only if implementation has not already been authorized.
 
 ***
 
@@ -165,7 +167,7 @@ After completing all artifacts, summarize:
 - Change name and location
 - List of artifacts created with brief descriptions, plus any conditional artifact you skipped and why
 - What's ready: "All artifacts needed for implementation are ready."
-- Prompt: "The artifacts are ready for review. When you are ready, run `/opsx:apply` or ask me to apply this change."
+- For planning-only work, explain that the artifacts are ready for review and how to invoke `/opsx:apply`. For already authorized implementation, summarize the artifacts and continue with the apply skill.
 
 **Artifact Creation Guidelines**
 
@@ -180,7 +182,7 @@ After completing all artifacts, summarize:
 
 **Guardrails**
 
-- The request that invoked this workflow authorizes planning only. Any implementation or apply instruction in that request does not carry forward. Do NOT implement the change, start the apply workflow, or edit project code during this workflow. After presenting the artifacts, stop and wait for a new user request to start the apply workflow
+- Keep proposal authoring separate from implementation. Preserve existing user authorization when transitioning to the apply skill; stop after presenting artifacts only when the request is planning-only or a material decision remains unresolved.
 - Create every artifact the apply phase transitively depends on, not just the ids listed in `apply.requires`
 - Always read dependency artifacts before creating a new one - re-read from disk, not from conversation memory (files may have changed since you last saw them)
 - Ask about ambiguities that would materially change scope, externally observable behavior, compatibility, or acceptance criteria; for minor details, make reasonable assumptions and record them

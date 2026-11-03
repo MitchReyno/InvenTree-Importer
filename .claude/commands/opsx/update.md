@@ -6,6 +6,8 @@ category: "Workflow"
 tags: ["workflow", "artifacts", "experimental"]
 ---
 
+**Authorization:** Preserve the scope and authorization already established by the user. A planning-only request does not authorize implementation. When the user has already authorized edits or plan-and-implement work, continue within that scope without asking for the same permission again; confirmation steps below apply only to genuinely new scope or unresolved material decisions. Finish planning before transitioning to the apply skill for authorized implementation.
+
 Revise a change's existing planning artifacts and keep them coherent. Never edit code.
 
 **Store selection:** If the user names a store (a store is a standalone OpenSpec repo registered on this machine) or the work lives in one, run `openspec store list --json` to discover registered store ids, then pass `--store <id>` on the commands that read or write specs and changes (`new change`, `status`, `instructions`, `list`, `show`, `validate`, `archive`, `doctor`, `context`, `schemas`, `view`). Once selected, treat `--store <id>` as sticky for the rest of the workflow. Every unscoped example of those commands below is shorthand: before running it, append the flag. For example, run `openspec status --change "<name>" --json --store "<id>"`, not the unscoped form shown below. Other commands do not take the flag. Hints printed by commands already carry the flag; keep it on follow-ups. Without a store, commands act on the nearest local `openspec/` root.
@@ -74,24 +76,24 @@ This workflow revises artifacts that already exist; it never creates missing one
    - A glob artifact (e.g. `specs/**/*.md`) is marked `done` after at least one file matches, and the continue workflow only handles `ready` artifacts. When reconciliation identifies a missing file for a glob artifact whose `existingOutputPaths` is non-empty:
      1. Run `openspec instructions "<artifact-id>" --change "<name>" --json` and use its `instruction` and `template`. Treat `context` and `rules` as constraints; do not copy them into the file. If instructions report `skipped: true`, do not create the file. Read current dependency files from disk; if a required non-skipped dependency is missing, stop and ask the user to restore it first.
      2. Choose a concrete path inside `changeRoot` that matches `artifactPaths.<id>.outputPath` and does not already exist. Verify it remains inside `changeRoot` after resolving any symlinked parent directories. The glob `resolvedOutputPath` is not a valid target.
-     3. Include the new file in step 5's proposed revisions and create it only after the user confirms.
-     4. After confirmation, immediately before creation, refresh status and instructions. Verify the artifact is still in scope, not skipped, and partially populated; repeat the concrete-path checks above.
+     3. Include the new file in step 5's revisions. Create it when it is within the user's authorized scope; ask only if it expands that scope.
+     4. Once the scope is authorized, immediately before creation, refresh status and instructions. Verify the artifact is still in scope, not skipped, and partially populated; repeat the concrete-path checks above.
      5. Use a create operation that fails if the target already exists. If `instruction` delegates creation to another skill or command, invoke it only if it can honor the confirmed path and these guardrails; otherwise stop. If any check fails or the confirmed draft is no longer valid, stop and reconcile with the user rather than replacing existing content or choosing a different path.
    - If the change is already coherent, say so and propose no revisions.
 
-5. **Confirm and apply, one artifact at a time**
+5. **Apply authorized revisions, one artifact at a time**
    - This step performs every artifact write in this workflow; no earlier step edits an artifact.
-   - Show each proposed revision and why - including the requested edit drafted in step 4. Write only after the user confirms.
+   - Explain each revision and why, including the requested edit drafted in step 4. Apply already authorized revisions; ask before changes outside that scope or unresolved material decisions.
    - If the user rejects a revision, do not write it - leave that artifact unchanged.
    - When a substantial rewrite is needed, get that artifact's rules and template first:
      ```bash
      openspec instructions "<artifact-id>" --change "<name>" --json
      ```
 
-6. **Point to the next step (guidance only - NEVER act on it)**
+6. **Continue within authorized scope, or point to the next step**
    - Artifacts with empty `existingOutputPaths` and status `ready` or `blocked` -> run `openspec status --change "<name>" --json` for the next artifact and point the user to `openspec instructions "<artifact-id>" --change "<name>" --json` for how to create it.
-   - Change already implemented (tasks checked off / already applied) -> the code may no longer match the revised plan; suggest `/opsx:apply` to carry the delta into code.
-   - Everything done and implemented -> suggest `/opsx:archive`.
+   - Change already implemented (tasks checked off / already applied) -> the code may no longer match the revised plan; use the apply skill if implementing the revised scope is already authorized, otherwise suggest `/opsx:apply`.
+   - Everything done and implemented -> archive only if authorized; otherwise suggest `/opsx:archive`.
 
 **Output**
 
@@ -104,7 +106,7 @@ After each invocation, show:
 
 **Guardrails**
 
-- Planning artifacts only - NEVER edit implementation code. If the revised plan implies code changes, stop and point to `/opsx:apply`.
+- Edit planning artifacts within this workflow. If the revised plan requires authorized code changes, finish updating the plan and transition to the apply skill; otherwise stop and point to `/opsx:apply`.
 - Use the artifact ids and paths reported by `openspec status`; never branch on hardcoded artifact names.
 - Edit only the concrete files in `existingOutputPaths`, plus any confirmed concrete path allowed under a partly populated glob artifact (step 4); never write to a glob `resolvedOutputPath`.
 - Do not advance the build frontier: if an artifact has empty `existingOutputPaths` and status `ready` or `blocked`, creating them is a separate step, outside this workflow. Leave `skipped` artifacts untouched. The only new-file scope is a confirmed concrete path under a glob artifact whose `existingOutputPaths` is non-empty.

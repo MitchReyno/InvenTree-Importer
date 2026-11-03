@@ -6,6 +6,8 @@ category: "Workflow"
 tags: ["workflow", "specs", "experimental"]
 ---
 
+**Authorization:** Preserve the scope and authorization already established by the user. A planning-only request does not authorize implementation. When the user has already authorized edits or plan-and-implement work, continue within that scope without asking for the same permission again; confirmation steps below apply only to genuinely new scope or unresolved material decisions. Finish planning before transitioning to the apply skill for authorized implementation.
+
 Sync delta specs from a change to main specs.
 
 This is an **agent-driven** operation - you will read delta specs and directly edit main specs to apply the changes. This allows intelligent merging (e.g., adding a scenario without copying the entire requirement).

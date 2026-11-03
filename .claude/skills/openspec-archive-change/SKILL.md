@@ -10,6 +10,8 @@ metadata:
   generatedBy: "1.16.0"
 ---
 
+**Authorization:** Preserve the scope and authorization already established by the user. A planning-only request does not authorize implementation. When the user has already authorized edits or plan-and-implement work, continue within that scope without asking for the same permission again; confirmation steps below apply only to genuinely new scope or unresolved material decisions. Finish planning before transitioning to the apply skill for authorized implementation.
+
 **Agent invocation:** The examples below use Claude Code command syntax. In other agents, invoke the corresponding project-level skill by name: `/opsx:archive` → `openspec-archive-change`. Use the selected agent’s skill invocation syntax; these are not terminal commands.
 
 Archive a completed change in the experimental workflow.
