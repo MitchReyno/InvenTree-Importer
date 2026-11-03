@@ -10,6 +10,7 @@ import type {
   ManualPreparationResult,
   ManualRun,
 } from '../generated/api.d.ts'
+import type { HeaderWorkQueryDto } from './header.ts'
 import type { CaptureListQueryDto } from './capture.ts'
 import { validate } from './index.ts'
 import { successfulData } from './client-policy.ts'
@@ -162,5 +163,14 @@ export function inboxClient(baseUrl: string, csrfToken: string, transport: typeo
   return {
     list: (query: CaptureListQueryDto = {}) =>
       successfulData(client.GET('/api/v1/inbox', { params: { query } })),
+  }
+}
+
+export function headerClient(baseUrl: string, csrfToken: string, transport: typeof fetch = fetch) {
+  const client = typedClient(baseUrl, transport, csrfToken)
+  return {
+    connection: () => successfulData(client.GET('/api/v1/connection-status')),
+    work: (query: HeaderWorkQueryDto = {}) =>
+      successfulData(client.GET('/api/v1/header-work', { params: { query } })),
   }
 }

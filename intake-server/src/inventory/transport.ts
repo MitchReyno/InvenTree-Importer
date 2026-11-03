@@ -5,6 +5,14 @@ import { request as httpRequest } from 'node:http'
 import { request as httpsRequest } from 'node:https'
 import { Readable } from 'node:stream'
 
+export class InventoryTransportError extends Error {
+  readonly code = 'target_redirect_refused'
+
+  constructor() {
+    super('target_redirect_refused')
+  }
+}
+
 export interface TargetBinding {
   targetId: string
   contextId: string
@@ -91,6 +99,7 @@ const singleSend: typeof fetch = async (input, init) => {
       (message) => {
         try {
           const status = message.statusCode!
+          const contentType = message.headers['content-type']
           if ([204, 205, 304].includes(status)) {
             message.resume()
           }
@@ -99,7 +108,11 @@ const singleSend: typeof fetch = async (input, init) => {
               [204, 205, 304].includes(status)
                 ? null
                 : (Readable.toWeb(message) as ReadableStream<Uint8Array>),
-              { status },
+              {
+                status,
+                headers:
+                  typeof contentType === 'string' ? { 'content-type': contentType } : undefined,
+              },
             ),
           )
         } catch (error) {
@@ -130,12 +143,13 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
     method: 'GET' | 'POST',
     body?: string | Uint8Array<ArrayBuffer>,
     headers: Record<string, string> = {},
+    timeoutMs = 5000,
   ): Promise<Response> {
     const response = await send(new URL(path, destination), {
       method,
       body,
       redirect: 'manual',
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(timeoutMs),
       headers: {
         authorization: `Token ${profile.credential}`,
         'content-type': 'application/json',
@@ -144,7 +158,7 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
     })
     if (response.status >= 300 && response.status < 400) {
       await response.body?.cancel()
-      throw new Error('target_redirect_refused')
+      throw new InventoryTransportError()
     }
     return response
   }
@@ -172,6 +186,10 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
   }
 
   return Object.freeze({
+    async probe(binding: TargetBinding) {
+      assertBinding(binding)
+      return request('/api/part/?limit=1', 'GET', undefined, {}, 3000)
+    },
     async read(binding: TargetBinding, operation: ReadOperation) {
       assertBinding(binding)
       if (

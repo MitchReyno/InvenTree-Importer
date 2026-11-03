@@ -254,3 +254,39 @@ test('new Part creates and tagged reads opt into native tags on the collection a
     await new Promise<void>((resolve) => endpoint.close(() => resolve()))
   }
 })
+
+test('fixed binding probe uses one harmless bounded GET, refuses redirects and never accepts browser scope', async () => {
+  const binding = { targetId: 'probe-target', contextId: 'probe-context' }
+  const calls: {
+    url: string
+    method: string | undefined
+    redirect: RequestRedirect | undefined
+  }[] = []
+  const transport = inventoryTransport(
+    {
+      ...binding,
+      kind: 'protected-read-only',
+      origin: 'https://inventory.example.invalid/',
+      protectedOrigins: [],
+      credential: 'synthetic-probe-key',
+    },
+    async (url, init) => {
+      calls.push({ url: String(url), method: init?.method, redirect: init?.redirect })
+      assert.equal(new Headers(init?.headers).get('authorization'), 'Token synthetic-probe-key')
+      return new Response(null, { status: 302 })
+    },
+  )
+  await assert.rejects(
+    transport.probe({ ...binding, contextId: 'foreign' }),
+    /target_binding_mismatch/,
+  )
+  assert.equal(calls.length, 0)
+  await assert.rejects(transport.probe(binding), /target_redirect_refused/)
+  assert.deepEqual(calls, [
+    {
+      url: 'https://inventory.example.invalid/api/part/?limit=1',
+      method: 'GET',
+      redirect: 'manual',
+    },
+  ])
+})

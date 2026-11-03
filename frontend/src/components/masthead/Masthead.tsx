@@ -1,15 +1,16 @@
+import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import { ElectronicsCurrent } from './ElectronicsCurrent'
 
-/** Application masthead: brand and workflow label over a dot grid and drifting parts. */
-export function Masthead() {
+/** Decorative brand header; scoped application status controls occupy its action slot. */
+export function Masthead({ actions }: { actions?: ReactNode }) {
   return (
     <Header>
       <ElectronicsCurrent />
       <Brand>
         Bench <span>Intake</span>
       </Brand>
-      <WorkflowLabel>Manual workflow</WorkflowLabel>
+      <Actions>{actions ?? <WorkflowLabel>Manual workflow</WorkflowLabel>}</Actions>
     </Header>
   )
 }
@@ -20,7 +21,8 @@ const Header = styled.header`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 8px 16px;
   border-bottom: 1px solid #d5dce5;
   background-color: #f3f5f8;
   background-image: radial-gradient(circle, #dde3eb 1px, transparent 1.4px);
@@ -36,6 +38,7 @@ const Brand = styled.strong`
   position: relative;
   font-size: 22px;
   font-weight: 750;
+  flex-shrink: 0;
   color: #233349;
   span {
     font-weight: 450;
@@ -56,4 +59,12 @@ const WorkflowLabel = styled.span`
   @media (max-width: 700px) {
     font-size: 12px;
   }
+`
+
+const Actions = styled.div`
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 `

@@ -546,6 +546,96 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/connection-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ConnectionStatus */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConnectionStatus"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/header-work": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    batch_id?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description HeaderWork */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HeaderWork"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/agent-settings": {
         parameters: {
             query?: never;
@@ -3840,6 +3930,76 @@ export interface components {
                 stream_id: string;
                 sequence: string;
             };
+        };
+        ConnectionStatus: {
+            actor_id: string;
+            target_id: string;
+            target_context_id: string;
+            target: {
+                state: "unconfigured" | "unknown" | "reachable" | "unavailable";
+                freshness: "unobserved" | "fresh" | "stale";
+                observed_at: string | null;
+                failure_code: ("invalid_configuration" | "timeout" | "http_error" | "redirect_refused" | "unexpected_response" | "unavailable") | null;
+                navigation_url: string | null;
+                label: string | null;
+            };
+        };
+        HeaderWorkQuery: {
+            batch_id?: string;
+        };
+        HeaderWork: {
+            actor_id: string;
+            target_id: string;
+            target_context_id: string;
+            observed_at: string;
+            work: ({
+                /** @constant */
+                kind: "processing";
+                id: string;
+                batch_id: string;
+                attempt_id: string;
+                stage: "reading" | "identifying" | "research" | "images" | "inventory";
+                state: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
+                input_current: boolean | null;
+                occupies_lane: boolean;
+                blocked_code: ("media_not_ready" | "media_input_capacity" | "worker_version_conflict") | null;
+                steps: {
+                    stage: "reading" | "identifying" | "research" | "images" | "inventory";
+                    state: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
+                }[];
+                steps_complete: boolean;
+            } | {
+                /** @constant */
+                kind: "import";
+                id: string;
+                batch_id: string;
+                /** @constant */
+                stage: "inventory";
+                state: "queued" | "running" | "stopping" | "settled_complete" | "settled_incomplete" | "recovery_required";
+                steps: {
+                    name: "approval" | "dispatch" | "inventory";
+                    state: "confirmed" | "not_requested" | "queued" | "running" | "finished" | "interrupted" | "none" | "unknown" | "mixed";
+                }[];
+                steps_complete: boolean;
+            })[];
+            active_sessions: {
+                attempt_id: string;
+                batch_id: string;
+                job_id: string;
+                stage: "reading" | "identifying" | "research" | "images" | "inventory";
+                state: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
+                selection: {
+                    provider: "codex" | "claude";
+                    authentication: "api_key" | "subscription";
+                    model: string;
+                };
+                actual_model: string | null;
+                progress: "queued" | "starting" | "responding" | "settled";
+                occupies_lane: boolean;
+            }[];
+            work_truncated: boolean;
+            sessions_truncated: boolean;
+            lane_occupied: boolean;
         };
         InventoryModel: "part" | "location" | "category" | "parameter_template" | "category_parameter" | "company";
         InventoryPartSpec: {
@@ -9165,6 +9325,9 @@ export type CaptureObservation = components['schemas']['CaptureObservation']
 export type CaptureSummary = components['schemas']['CaptureSummary']
 export type CaptureList = components['schemas']['CaptureList']
 export type CaptureSnapshot = components['schemas']['CaptureSnapshot']
+export type ConnectionStatus = components['schemas']['ConnectionStatus']
+export type HeaderWorkQuery = components['schemas']['HeaderWorkQuery']
+export type HeaderWork = components['schemas']['HeaderWork']
 export type InventoryModel = components['schemas']['InventoryModel']
 export type InventoryPartSpec = components['schemas']['InventoryPartSpec']
 export type InventoryMapping = components['schemas']['InventoryMapping']
