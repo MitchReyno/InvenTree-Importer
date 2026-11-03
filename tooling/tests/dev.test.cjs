@@ -5,7 +5,7 @@ const { join } = require('node:path')
 const { tmpdir } = require('node:os')
 const { setTimeout: delay } = require('node:timers/promises')
 const { isCode, snapshot, watchCode } = require('../dev/watch.cjs')
-const { launch, stop } = require('../dev/process.cjs')
+const { launch, stop, startupGroup } = require('../dev/process.cjs')
 
 test('source watcher ignores runtime data, documents, tests and identical-byte saves, but sees code creation and edits', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dev-watch-'))
@@ -107,5 +107,45 @@ test('changes during application startup are reconciled when the watcher attache
     assert.equal(changes, 1)
   } finally {
     close()
+  }
+})
+
+test('a stale ready marker cannot make an exited process ready', async () => {
+  const owned = launch(
+    'failed-ready',
+    process.execPath,
+    ['-e', 'console.log("READY");process.exit(1)'],
+    {},
+    (text) => text.includes('READY'),
+  )
+  await owned.exited
+  await assert.rejects(owned.ready(), /failed-ready_stopped/)
+})
+
+test('a ready sibling exit aborts startup while a later service initializes', async () => {
+  const group = startupGroup()
+  const first = launch(
+    'first',
+    process.execPath,
+    ['-e', 'console.log("READY");setInterval(()=>{},1000)'],
+    {},
+    (text) => text.includes('READY'),
+  )
+  const second = launch(
+    'second',
+    process.execPath,
+    ['-e', 'setInterval(()=>{},1000)'],
+    {},
+    (text) => text.includes('READY'),
+  )
+  const watchedFirst = group.watch(first)
+  const watchedSecond = group.watch(second)
+  try {
+    await watchedFirst.ready(2000)
+    first.child.kill('SIGTERM')
+    await assert.rejects(watchedSecond.ready(2000), /first_stopped_during_startup/)
+    assert.throws(() => group.confirm(), /first_stopped_during_startup/)
+  } finally {
+    await stop([first, second], 2000)
   }
 })

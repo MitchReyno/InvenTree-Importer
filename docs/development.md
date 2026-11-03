@@ -34,7 +34,18 @@ To explicitly select the existing native-agent integration for new work:
 INTAKE_PROCESSING_PROFILE=native-agent/1 pnpm dev
 ```
 
-Then select the global provider, authentication route and model in Settings before starting an agent. Host CLI subscription authentication must already be established. API keys may be supplied through the existing `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables; the launcher forwards them only to the explicitly selected native worker and does not save them in app configuration. Existing native-worker restrictions and unqualified live-provider limitations still apply. Development qualification uses only the default synthetic profile.
+Then select the global provider, authentication route and model in Settings before starting an agent. Claude subscription authentication uses the signed-in CLI account under the host `HOME`. Codex subscription mode uses the worker's isolated `$INTAKE_APP_STATE/agents/codex` as `CODEX_HOME`; the default host Codex login is not automatically reused.
+
+After the first synthetic startup has created the private app-state directory, establish Codex subscription authentication in that exact namespace (use the same override if you selected another app-state directory):
+
+```bash
+export INTAKE_APP_STATE="${INTAKE_APP_STATE:-$HOME/.local/state/bench-intake/app}"
+mkdir -p -m 700 "$INTAKE_APP_STATE/agents"
+mkdir -p -m 700 "$INTAKE_APP_STATE/agents/codex"
+CODEX_HOME="$INTAKE_APP_STATE/agents/codex" codex login
+```
+
+Use the CLI login flow; do not copy an authentication store. API keys may be supplied through the existing `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables; the launcher forwards them only to the explicitly selected native worker and does not save them in app configuration. Existing native-worker restrictions and unqualified live-provider limitations still apply. Development qualification uses only the default synthetic profile.
 
 ## Verification
 

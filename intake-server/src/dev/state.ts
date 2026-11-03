@@ -5,6 +5,7 @@ import { Id } from '@invimport/contracts'
 import { MEDIA_CAPABILITY } from '../execution/media-plan.ts'
 import { EFFECTS_CAPABILITY } from '../execution/effects-plan.ts'
 import type { ManualRunnerConfig } from '../review/runner.ts'
+import { developmentRuntimeUrl } from './postgres-url.ts'
 
 export interface DevState {
   version: 1
@@ -149,15 +150,7 @@ export async function readDevState(root: string): Promise<DevState> {
     state.runnerConfig.applyDatabaseUrl,
     state.runnerConfig.schedulerDatabaseUrl,
   ]) {
-    const url = new URL(address)
-    if (
-      !['postgres:', 'postgresql:'].includes(url.protocol) ||
-      url.hostname !== '127.0.0.1' ||
-      url.pathname !== `/${state.databaseName}` ||
-      !/^intake_[a-z0-9_]+$/.test(url.username)
-    ) {
-      throw new Error('owned_dev_database_required')
-    }
+    developmentRuntimeUrl(address, state.databaseName)
   }
   if (state.runnerConfig.profile.kind !== 'owned-disposable') {
     throw new Error('owned_dev_fake_required')

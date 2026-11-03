@@ -10,19 +10,11 @@ import { grantMedia } from '../media/grants.ts'
 import { grantCaptureRead } from '../capture/grants.ts'
 import { grantProjection } from '../operations/grants.ts'
 import { readDevState, type DevState } from './state.ts'
+import { developmentAdminUrl } from './postgres-url.ts'
 
 async function adminUrl() {
   if (process.env.INTAKE_DEV_ADMIN_URL) {
-    const explicit = new URL(process.env.INTAKE_DEV_ADMIN_URL)
-    if (
-      !['postgres:', 'postgresql:'].includes(explicit.protocol) ||
-      !['127.0.0.1', 'localhost'].includes(explicit.hostname) ||
-      explicit.pathname !== '/postgres'
-    ) {
-      throw new Error('owned_local_admin_required')
-    }
-    explicit.hostname = '127.0.0.1'
-    return explicit
+    return developmentAdminUrl(process.env.INTAKE_DEV_ADMIN_URL)
   }
   const file = join(
     process.env.INTAKE_DEV_STATE ?? join(homedir(), '.local/state/bench-intake'),

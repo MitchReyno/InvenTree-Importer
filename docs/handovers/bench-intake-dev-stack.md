@@ -59,3 +59,11 @@ Application source roots and deliberate restart-required tooling/fixture/depende
 - The actual launcher process regression exercises HTTP and WebSocket proxy authority, PNG decode, synthetic DBOS Processing, explicit fake approval/apply, retained restart, no-op/runtime exclusions, backend restart without replacing Vite, compile-error recovery and all-owned-child exit. Focused journey passed before full-tier qualification.
 
 All qualification uses owned fake inventory and controlled providers only. No actual provider inference or original inventory environment is used. The browser and development app are stopped; shared PostgreSQL and retained data remain preserved.
+
+## First independent review and fixes
+
+Fresh read-only review of `44d87282d421df566f13e08832ca20d3ed58a7ee` requested two changes. Startup could ignore a ready sibling's later exit while another child initialized, and a retained ready marker could outlive its process. Startup now retains sibling-exit failure in a shared cancellation signal, checks every child before announcing readiness, and checks cancellation/exit before accepting a ready marker. Two controlled-process regressions distinguish these cases without launching application services.
+
+The second finding showed that `pg` query parameters can override host/user fields checked with `URL`. Both explicit admin and retained runtime connection validation now use plain-URL parsers that reject query parameters and fragments before connection. Tests demonstrate the driver's effective host/user override without connecting, then verify refusal alongside valid generated loopback URLs and foreign-host/database/user controls. Codex subscription documentation now identifies the isolated `CODEX_HOME` login namespace; no provider CLI or authentication store was invoked/copied.
+
+After these fixes, supervisor tests passed 6/6, server fast tests 144/144, types/readability/format/Markdown checks passed, and the complete dev-stack process journey passed again under a newly acquired `pg-docker` lease. Earlier full PG121/process38 evidence remains applicable to the unchanged domain/runtime boundaries. A fresh exact-commit review is required before publication.

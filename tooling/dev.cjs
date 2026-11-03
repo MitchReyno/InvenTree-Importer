@@ -17,7 +17,7 @@ const { createServer: netServer } = require('node:net')
 const { spawn } = require('node:child_process')
 const { randomUUID } = require('node:crypto')
 const { watchCode, snapshot } = require('./dev/watch.cjs')
-const { launch, stop } = require('./dev/process.cjs')
+const { launch, stop, startupGroup } = require('./dev/process.cjs')
 
 const repository = resolve(__dirname, '..')
 const intake = join(repository, 'intake-server')
@@ -247,6 +247,8 @@ async function main() {
       }
       starting = true
       intentional = false
+      const group = startupGroup(startup.signal)
+
       function child(name, entry, extra, ready) {
         if (closing) {
           throw new Error('development_stopping')
@@ -266,8 +268,9 @@ async function main() {
             shutdown()
           }
         })
-        return owned
+        return group.watch(owned)
       }
+
       await child('inventory', 'src/dev/fake-main.ts', {}, (text) =>
         text.includes('DEV_FAKE_READY'),
       ).ready()
@@ -323,10 +326,12 @@ async function main() {
           text.includes('DEV_PROCESSING_READY'),
         ).ready()
       }
+      group.confirm()
       starting = false
       await publishRunning(root, publicOrigin, children)
     }
     await start()
+    startup.signal.throwIfAborted()
     const ui = launch(
       'ui',
       process.execPath,
@@ -338,7 +343,7 @@ async function main() {
       (text) => text.includes('DEV_UI_READY'),
     )
     children.push(ui)
-    await ui.ready()
+    await ui.ready(30000, startup.signal)
     void ui.exited.then(() => {
       if (!closing) {
         process.exitCode = 1

@@ -26,11 +26,15 @@ function launch(name, command, args, options, ready) {
     name,
     child,
     exited,
-    async ready(timeoutMs = 30000) {
+    async ready(timeoutMs = 30000, signal) {
       const deadline = Date.now() + timeoutMs
-      while (!ready(text)) {
+      while (true) {
+        signal?.throwIfAborted()
         if (error || child.exitCode !== null || child.signalCode !== null) {
           throw error ?? new Error(`${name}_stopped`)
+        }
+        if (ready(text)) {
+          return
         }
         if (Date.now() >= deadline) {
           throw new Error(`${name}_startup_timeout`)
@@ -64,4 +68,27 @@ async function stop(children, graceMs = 45000) {
     throw new Error('owned_app_shutdown_unconfirmed')
   }
 }
-module.exports = { launch, stop }
+
+/** A ready sibling that exits must invalidate the entire in-progress startup. */
+function startupGroup(signal) {
+  const failure = new AbortController()
+  const combined = AbortSignal.any([failure.signal, ...(signal ? [signal] : [])])
+  const children = []
+  return {
+    watch(item) {
+      children.push(item)
+      void item.exited.then(() => failure.abort(new Error(`${item.name}_stopped_during_startup`)))
+      return { ...item, ready: (timeoutMs) => item.ready(timeoutMs, combined) }
+    },
+
+    confirm() {
+      combined.throwIfAborted()
+      for (const item of children) {
+        if (item.child.exitCode !== null || item.child.signalCode !== null) {
+          throw new Error(`${item.name}_stopped_during_startup`)
+        }
+      }
+    },
+  }
+}
+module.exports = { launch, stop, startupGroup }
