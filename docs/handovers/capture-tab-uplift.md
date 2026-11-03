@@ -12,3 +12,14 @@ The index/history contains only illustrative fenced BI examples, with no previou
 Independent review, hosted checks and publication are subsequent evidence gates, recorded only after they occur. The planned feature itself remains Proposed after this documentation merges.
 
 Validation passed: native CLI status resolves the `bench-intake` scaffold and reports planning incomplete, as expected for capture only; Markdown, local links and whitespace pass. Index/history review found no allocated BI IDs; the first entry is BI-001 with unique canonical identity. No skills or application source changed, so workflow-sync and runtime suites were not rerun.
+
+## Full proposal plan
+
+The user requested the full proposal after both backlog records merged. They resolved the original mockup conflict explicitly: include PO fields/components in the UI, disabled and greyed out until PO creation is supported. This branch authors only the `capture-tab-uplift` proposal, behavioral specs, design and detailed future tasks; no application implementation or runtime dependency installation is authorized.
+
+Before authoring, resolved the initialized root using native list/context and inspected current Capture editor/queue/evidence, media upload/group relations, operator group instructions, shared schemas and preserved HTML/Capture screenshot. Plan: reuse existing React Hook Form, media/group/note identities and revision/dirty protections; investigate maintained drag libraries versus native controls using current primary sources; define missing batch-context/group commands explicitly; preserve exact lots/evidence and disabled PO behavior. Compare right-side and above-content layouts in a future owned UI experiment rather than inventing browser evidence during planning. Validate artifacts, source links, ID metadata and whole-task PR boundaries, then independently review the exact proposal commit and selected CI before publication/authorized merge.
+
+- [x] Author and reconcile the full Capture proposal/spec/design/task artifacts with the user's disabled-PO decision.
+- [x] Validate complete planning, Markdown, direct links, current metadata and whole-task PR ownership before committing proposal work.
+
+Full Capture plan validation passed: strict native deltas, CLI planning-complete state, Markdown, local links and whitespace. Five wholly owned implementation tasks map to three coherent future PRs. All implementation boxes remain unchecked. Size is assessed L; no external ordering prerequisite was identified. PO UI remains disabled by the explicit user decision. RHF/drag source research is documented with compatibility/maintenance proof limits; no package or application changes were made.

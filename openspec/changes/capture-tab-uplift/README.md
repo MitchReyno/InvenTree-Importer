@@ -1,12 +1,12 @@
 # Capture tab uplift
 
-Capture the requested Capture tab redesign as BI-001 in the [functionality index](../../../docs/PLANNED_FUNCTIONALITY.md), which owns its current metadata. This brief records future intent; proposal, requirements, design, task decomposition and implementation are not yet complete.
+Capture the requested Capture tab redesign as BI-001 in the [functionality index](../../../docs/PLANNED_FUNCTIONALITY.md), which owns its current metadata. This brief records future intent; the [proposal](proposal.md), [requirements](specs/capture-batch-settings/spec.md), [design](design.md) and [task plan](tasks.md) now develop it. Application implementation remains future work.
 
 ## Batch settings
 
 Move every settings panel currently reached through the **Shared details** buttons into one **Batch settings** section containing all those elements in one panel. Remove those navigation buttons; do not retain separate button-selected settings panels. Current entry points include Batch defaults, Batch title and Write a human note in `frontend/src/components/capture/CaptureQueue.tsx`.
 
-Include the same elements as the original mockup's shared-details section, accounting for supplier, purchase date, storage location, tags, inheritance and visible per-item overrides as well as the existing settings. Inventory all original controls during proposal development rather than treating this list as exhaustive. The original also includes a purchase-order creation option: this conflicts with the maintained no-PO-creation contract and must be explicitly resolved in the proposal rather than silently omitted or treated as authorization for real writes.
+Include the same elements as the original mockup's shared-details section, accounting for supplier, purchase date, storage location, tags, inheritance and visible per-item overrides as well as the existing settings. Inventory all original controls during proposal development rather than treating this list as exhaustive. The user resolved the purchase-order option: include its fields/components visibly disabled and greyed out with a clear unavailable explanation until PO creation is supported. Do not submit PO intent or create POs.
 
 Experiment with placement before selecting the final layout: compare a right-side Batch settings panel with a full-width panel above the rest of Capture. Evaluate desktop, narrow screens, reading order, evidence visibility and editing usability; retain the current approved light/neutral palette and blue accents. Neither candidate placement is fixed by this brief.
 
