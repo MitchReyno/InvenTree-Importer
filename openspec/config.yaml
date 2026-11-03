@@ -1,32 +1,18 @@
-schema: spec-driven
+schema: bench-intake
 
-# Project context (optional)
-# Add only constraints that should guide OpenSpec artifacts and workflows.
-# Include constraints an agent cannot infer by reading the code.
-# Keep general project documentation and discoverable codebase facts out.
-# Example:
-#   context: |
-#     Designs and tasks must cover Windows, macOS, and Linux
-#     Write all artifacts in Spanish
+context: |
+  Bench Intake planning is separate from backlog capture. The planned-functionality
+  register and its detail files own BI item identity and current product metadata.
+  Preserve existing user scope and authorization; use the project's governing
+  instructions and existing engineering/PR skills. No schema grants provider,
+  inventory, deployment or external messaging authority.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always state what is out of scope
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
-
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+operations:
+  apply:
+    guidance:
+      - Use the owning project's declared checks and required independent exact-head review; keep merge tasks pending during a user hold.
+      - Update linked BI items only from actual acceptance and merge evidence, retaining current status only.
+  archive:
+    guidance:
+      - Check implementation and acceptance evidence before describing a linked BI item as Done; archive state alone is insufficient.
+      - Update links in BI detail files if the authorized archive moves the referenced change.

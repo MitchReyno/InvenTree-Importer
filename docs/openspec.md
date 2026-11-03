@@ -1,23 +1,48 @@
-# OpenSpec planning
+# Bench Intake OpenSpec planning
 
-OpenSpec is initialized with the `spec-driven` schema. There are no feature proposals or maintained behavior specs yet. The CLI is installed separately from the repository; this setup was generated with OpenSpec 1.16.0.
+The project uses the custom [`bench-intake` schema](../openspec/schemas/bench-intake/README.md) with the standard OpenSpec lifecycle skills. The integration was generated with OpenSpec 1.16.0. There are no real change proposals or maintained behavior specs yet.
 
-## Relationship to planned functionality
+## Capture, plan and identify
 
-The planned functionality register at `docs/PLANNED_FUNCTIONALITY.md` owns the overview of item type, priority, current status, size and prerequisites. Per-item detail files under `docs/planned-functionality/` can link an OpenSpec change when the work benefits from requirements, design and task breakdown. Small fixes do not require an OpenSpec change.
+The [planned-functionality register](PLANNED_FUNCTIONALITY.md) and its [detail directory](planned-functionality/README.md) own item identity, current priority, relative size, prerequisites and status. **BI** means **Bench Intake**: use stable IDs such as `BI-001`. The `planned-functionality` project-level skill allocates and maintains those IDs; title and priority changes do not change identity.
 
-Keep priority and status in the register and item detail, rather than adding a competing backlog in OpenSpec. When archiving a change moves its files, update any item links in the same PR. Merged code and acceptance evidence determine completion; archive state alone does not establish Done.
+Capture a future idea in the register first when requested. An item can remain a short description with unknown estimates or prerequisites. Capture does not automatically start OpenSpec planning or implementation. When detailed planning is requested, link the relevant BI detail files from an OpenSpec proposal; one change may address several related items. Work without a registered item can state None with a reason.
 
-## Agent entry points
+## Schema workflow
 
-Use the project-level `openspec-explore`, `openspec-propose`, `openspec-apply-change`, `openspec-update-change`, `openspec-sync-specs` and `openspec-archive-change` skills. Codex accepts skill invocation such as `$openspec-explore`. Claude Code also has `/opsx:explore`, `/opsx:propose`, `/opsx:apply`, `/opsx:update`, `/opsx:sync` and `/opsx:archive` commands. No Cursor-specific integration was generated in this initialization.
+The schema produces proposal, behavior specs, design assessment and tasks. It incorporates focused discovery, source-grounded planning, testable scenarios, meaningful alternatives and outcome slices without adding OpenSpec Plus skills or another orchestrator.
 
-These are agent commands or skills. Terminal commands include `openspec --version`, `openspec list --json` and `openspec validate --all`. Follow repository authorization, review and PR rules when using any workflow.
+Design is an explicit assessment for every schema-driven change. It can be brief when existing architecture suffices. Pure documentation, tooling or behavior-preserving refactors can declare `skip_specs: true` in their change metadata; then specs are intentionally skipped and no behavioral requirements are invented. Existing changes keep the schema declared in their own metadata; selecting a new default does not migrate them.
 
-## Updating the integration
+Planning-only requests stop with a reviewable plan. Existing plan-and-implement authorization can continue through apply without requesting the same permission again. The schema batches unresolved material questions, allows relevant source reads in every phase, scales verification to the work, and uses the project's correction/review rounds and publication workflow. The schema's [shared practices](../openspec/schemas/bench-intake/README.md#shared-working-practices) define the details and limits.
 
-Run `openspec update` from the repository root after updating the CLI, then inspect the generated diff. The shared skills contain a local invocation note explaining the mapping between Claude command examples and project-level skill names. Reapply that note and the authorization adaptation: preserve planning-only scope, but honor an existing request to edit or implement without demanding the same permission again. Check both skills and native commands for regenerated confirmation barriers. Mirror all six skill directories as identical real copies after regeneration; native Claude command files remain host-specific.
+## Agent and CLI entry points
 
-The `.agents/skills/.openspec-target` marker records the generator's owner for the shared tree. Keep it generated; it is excluded only at the skill root from authored-skill copy comparisons. Files with the same name inside a skill remain subject to comparison.
+Use the project-level `openspec-explore`, `openspec-propose`, `openspec-apply-change`, `openspec-update-change`, `openspec-sync-specs` and `openspec-archive-change` skills. Codex accepts skill invocation such as `$openspec-propose`. Claude Code also has `/opsx:explore`, `/opsx:propose`, `/opsx:apply`, `/opsx:update`, `/opsx:sync` and `/opsx:archive` commands. No Cursor-specific integration was generated in this initialization.
 
-Run `pnpm workflow-sync` and Markdown lint after updates. Keep changes on a separate branch and PR targeting `interactive-app`; obtain independent review and green selected CI before merging. The existing architecture and delivery plans remain authoritative for implemented boundaries and qualification limits.
+Those are agent invocations. Terminal commands include:
+
+```bash
+openspec schema validate bench-intake --json
+openspec new change change-slug
+openspec status --change change-slug --json
+openspec instructions proposal --change change-slug --json
+```
+
+The CLI is installed separately from the repository. Invoke it from the correct repository root and preserve the output paths and artifact scope it resolves. Structural validation does not establish artifact quality, user approval, live provider behavior or inventory-write authority.
+
+## Delivery and product status
+
+Tasks use native checkboxes for actual deliverables, including applicable review and publication work. Keep a held merge task pending. A task implemented and verified, a merged implementation, a BI item Done and an archived change are separate facts.
+
+Merged code and acceptance evidence determine whether a BI item is Done. Archive state alone does not. Keep current status only in the register and detail file; update their links when an authorized archive moves referenced artifacts. Existing architecture, execution qualification and project authorization boundaries remain in force.
+
+## Maintaining the integration
+
+Custom schema instructions, templates and shared practices live under `openspec/schemas/bench-intake/`. Do not overwrite them when updating standard OpenSpec integration files. Changes follow the schema's [qualification guidance](../openspec/schemas/bench-intake/README.md#maintenance-and-qualification).
+
+After updating the CLI, run `openspec update` from the repository root and inspect the generated diff. Shared standard skills have local adaptations for agent invocation and persistent user authorization. Reapply those notes to skills and native commands after regeneration, then mirror skill directories as identical real copies. Native Claude command files remain host-specific. The schema supplies planning policy; standard skills retain lifecycle ownership.
+
+The `.agents/skills/.openspec-target` marker records the generator owner for the shared tree. Keep it generated; the workflow-copy comparison excludes only that root marker. Same-name files inside a skill remain authored resources subject to comparison.
+
+Run `pnpm workflow-sync` after skill changes, plus Markdown and applicable repository checks. Obtain independent exact-head review before publication and selected green CI before any authorized merge into `interactive-app`. An explicit merge hold remains effective until lifted.

@@ -1,4 +1,4 @@
-# PF-NNN — Title
+# BI-NNN — Title
 
 [Back to the register](../PLANNED_FUNCTIONALITY.md)
 
@@ -22,7 +22,7 @@ State what this item delivers and any relevant exclusions or constraints.
 
 ## Prerequisites
 
-Link required PF items and explain what must be available before this work can proceed. Identify whether each known prerequisite is satisfied. Use None only after assessment, or Unknown with the missing information.
+Link required BI items and explain what must be available before this work can proceed. Identify whether each known prerequisite is satisfied. Use None only after assessment, or Unknown with the missing information.
 
 ## Open questions
 
