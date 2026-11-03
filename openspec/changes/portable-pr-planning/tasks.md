@@ -2,11 +2,11 @@
 
 ## Plan context
 
-Canonical change: `portable-pr-planning`. This workflow maintenance has no BI index item. Scope and reuse rationale are in the proposal; design records repository-only boundaries and the pending PR-policy clarification. This change declares native spec skipping because application behavior is unchanged.
+Canonical change: `portable-pr-planning`. This workflow maintenance has no BI index item. Scope and reuse rationale are in the proposal; design records repository-only boundaries and whole-task PR ownership. This change declares native spec skipping because application behavior is unchanged.
 
 ## PR delivery plan
 
-Provisional single coherent documentation PR on `docs/portable-pr-planning`, titled `docs(portable-pr-planning): define portable PR delivery planning`. It delivers the repository planning ownership, identity, completion ordering and clarified PR policy together so active instructions do not contradict one another. It has no code/runtime deployment dependency. Final task coverage and the task-splitting constraint remain pending clarification; do not publish an incomplete policy as final.
+PR-A is a single coherent documentation PR on `docs/portable-pr-planning`, titled `docs(portable-pr-planning): define portable PR delivery planning`. It delivers the repository planning ownership, identity, completion ordering and clarified PR policy together so active instructions do not contradict one another. It has no code/runtime deployment dependency. PR-A owns all of Tasks 1, 2 and 3, including every subtask and checkbox. No top-level task is split. Gates: schema/change validation, mirrored-skill checks, Markdown/reference audits, exact-head independent review and selected hosted CI.
 
 ## 1. Retire duplicate and external planning records
 
@@ -50,20 +50,20 @@ Provisional single coherent documentation PR on `docs/portable-pr-planning`, tit
 
 - Scope: Task schema/template and shared delivery guidance.
 
-- Prerequisites: Clarification of the top-level-task splitting constraint.
+- Prerequisites: The user confirmed that no top-level task should be split across PRs.
 
 - Acceptance: Explicit scope/coverage, rationale, dependencies/order, branch names and gates; the task-splitting rule matches the user's actual instruction.
 
 - Verification strategy: Review realistic small, multi-task and multi-PR examples against the clarified rule.
 
-- [ ] 3.1 Resolve the ambiguous task-splitting statement with the user.
+- [x] 3.1 Confirm with the user that no top-level task may be split across PRs.
 
-- [ ] 3.2 Finalize the task template's PR delivery map with the clarified rule.
+- [x] 3.2 Finalize the task template's PR delivery map with the clarified rule.
   - [x] 3.2.1 Add the generic bundle scope, coverage, rationale, dependencies, names and gates.
-  - [ ] 3.2.2 Apply the confirmed top-level-task split constraint.
+  - [x] 3.2.2 Apply the confirmed top-level-task split constraint.
 
-- [ ] 3.3 Independently review the exact candidate, fix/re-review findings, publish the PR, and verify selected CI before an authorized merge.
+- [x] 3.3 Verify single-task, multi-task and multi-PR grouping: one task owns one bundle; several whole tasks may share a bundle; separate bundles own disjoint whole tasks.
 
 ## Delivery gates
 
-Completed implementation checkboxes must be checked before their corresponding work is committed, with this file staged in that commit. Do not mark the remaining clarification or publication checks early. Merge and archive are separate lifecycle decisions governed by actual evidence and applicable user authorization.
+Completed implementation checkboxes must be checked before their corresponding work is committed, with this file staged in that commit. Before publication, independently review the exact candidate, fix/re-review findings and verify selected CI before an authorized merge. Record these lifecycle outcomes only after they occur. Merge and archive are separate lifecycle decisions governed by actual evidence and applicable user authorization.

@@ -25,7 +25,7 @@ Keep status aligned with actual evidence. Blocked needs a current explanation. D
 
 ## Delivery and portability
 
-Task plans define explicit PR bundles with covered work, rationale, dependencies, branch names and verification gates. Follow the governing schema's task/PR boundary rule rather than assuming a one-to-one mapping. Check completed actions off before committing their corresponding completed work, stage the task-file update in the same commit, and leave genuinely incomplete actions unchecked. Never check a publication, review or merge outcome before it occurs.
+Task plans define explicit PR bundles with covered work, rationale, dependencies, branch names and verification gates. Each top-level task belongs wholly to exactly one PR; never split its subtasks or checklist work across PRs. A PR may include one or several whole top-level tasks. If a task is too broad for a sensible PR, refine it into meaningful top-level tasks before assigning bundles. Follow the governing schema's task/PR boundary rule rather than assuming a one-to-one mapping. Check completed actions off before committing their corresponding completed work, stage the task-file update in the same commit, and leave genuinely incomplete actions unchecked. Never check a publication, review or merge outcome before it occurs.
 
 Keep planning self-contained in the repository: do not store external ticket-service resource IDs, workspace/database/view links, or service-specific routing instructions in tracked files. No external integration is required for capture or planning. Do not inspect or mutate external resources merely to maintain the index.
 

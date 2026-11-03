@@ -78,6 +78,8 @@ A single OpenSpec change can be delivered through one or several PRs. Its task d
 
 PR boundaries are a reasoned review/delivery decision. Consider coherence, compatibility, rollout/migration order, risk, independent verification and reviewer context; do not derive a fixed one-task/one-PR mapping or arbitrary line-count quota. A PR may bundle several tasks. Delivery planning does not grant publication or merge authority beyond the actual request.
 
+Each top-level task belongs wholly to exactly one PR; never split its subtasks or checklist work across PRs. A PR may include one or several whole top-level tasks. If a task is too broad for a sensible PR, refine it into meaningful top-level tasks before assigning bundles.
+
 ### Review, corrections and completion
 
 Self-check every artifact for coverage, consistency, evidence and scope. Substantial plans should receive an independent read-only artifact review where available and authorized; record a missing independent review as a limitation. Fix findings, verify corrections and repeat review after material revisions until no new issues remain. Do not impose a single-shot review rule. Reconcile discovered conflicts rather than treating an earlier artifact as infallible.

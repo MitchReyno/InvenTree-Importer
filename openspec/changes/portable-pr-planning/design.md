@@ -24,7 +24,7 @@ Check completed actions before committing their corresponding completed work and
 
 ### Decision: PR scope is a delivery decision
 
-The plan will include explicit PR bundles, work coverage, rationale, real dependencies, branch names and gates. The unresolved top-level-task splitting constraint must be clarified before finalizing this part of the schema.
+The plan will include explicit PR bundles, work coverage, rationale, real dependencies, branch names and gates. Each top-level task belongs wholly to exactly one PR; never split its subtasks or checklist work across PRs. A PR may include one or several whole top-level tasks. If a task is too broad for a sensible PR, refine it into meaningful top-level tasks before assigning bundles.
 
 ## State, authority and failure behavior
 
@@ -40,4 +40,4 @@ There are no real item detail records to migrate and no live data migration. Rem
 
 ## Risks and open decisions
 
-The task-to-PR constraint is ambiguous and pending clarification. Canonical naming and checkbox ordering are instructions rather than mechanical enforcement, so commits require staged-diff inspection and the normal independent review gates.
+The user confirmed that no top-level task may be split across PRs. Canonical naming and checkbox ordering are instructions rather than mechanical enforcement, so commits require staged-diff inspection and the normal independent review gates.

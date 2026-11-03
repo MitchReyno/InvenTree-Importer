@@ -156,7 +156,10 @@ artifacts:
       ownership. One change can use one or several PRs, and a PR can bundle several
       tasks. Choose boundaries for coherent review/delivery, compatibility, rollout,
       risk and independent verification rather than task counts or arbitrary size
-      quotas. Keep the map current when discoveries change the proposed bundles.
+      quotas. Assign each whole top-level task to exactly one PR. Never split its
+      subtasks or checklist work across PRs. Refine oversized tasks into meaningful
+      top-level tasks before assigning bundles. Keep the map current when discoveries
+      change the proposed bundles.
 
       Select checks by task type and affected boundary. Behavior changes need
       meaningful regressions and explicit TDD-oriented checklist steps by default:
@@ -217,7 +220,9 @@ apply:
     repeated failures and report the actual blocker without a fixed three-attempt
     rule that abandons recoverable work. Continue useful authorized work.
 
-    Follow the task plan's explicit PR delivery map, scope and real dependencies;
+    Keep every top-level task wholly within its owning PR, including all subtasks
+    and checklist work. Follow the task plan's explicit PR delivery map, scope and
+    real dependencies;
     revise the map within authorized scope when evidence changes the bundle boundary.
     Use the canonical change name in every delivering branch and commit/PR subject.
     Before committing a completed checkbox item's work, verify its evidence, mark

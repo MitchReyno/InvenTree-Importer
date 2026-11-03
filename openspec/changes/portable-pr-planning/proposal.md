@@ -18,7 +18,7 @@ The current schema and planning skill use a service-backed item workflow, the in
 
 Remove retired integration references and specific resource identifiers from current tracked files, remove the per-item directory/guide, link index entries directly to OpenSpec changes, require descriptive kebab-case change identity in Git naming/messages, define reasoned PR delivery bundles and stage completed-item checkbox changes with their corresponding work. Preserve package research, detailed task checklists, flexible TDD, native spec lifecycle and review gates.
 
-No external resource access or modification, Git history rewriting, application/runtime changes, dependency additions, provider calls or inventory operations are included. The top-level-task split constraint is awaiting clarification and must not be guessed.
+No external resource access or modification, Git history rewriting, application/runtime changes, dependency additions, provider calls or inventory operations are included. Each top-level task belongs wholly to exactly one PR; never split its subtasks or checklist work across PRs. A PR may include one or several whole top-level tasks. If a task is too broad for a sensible PR, refine it into meaningful top-level tasks before assigning bundles.
 
 ## Reuse and dependency assessment
 
@@ -32,7 +32,7 @@ No application behavior contract changes. Change metadata declares `skip_specs: 
 
 ## Impact and dependencies
 
-Affected areas are the planning index, schema/templates, mirrored planning skill and documentation/historical records. No deployment, migration or live service prerequisite exists. Final PR delivery policy depends on the user's response to the ambiguous task-splitting statement.
+Affected areas are the planning index, schema/templates, mirrored planning skill and documentation/historical records. No deployment, migration or live service prerequisite exists. Each PR delivers whole top-level tasks, with reasoned grouping and no fixed task count.
 
 ## Open decisions and assumptions
 

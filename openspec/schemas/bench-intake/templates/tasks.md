@@ -16,6 +16,8 @@ Break the change into multiple coherent tasks with meaningful verifiable outcome
 
 A change may deliver one or several PRs. Define the actual bundles and explain their boundaries; a PR can bundle multiple top-level tasks. Decide based on coherent outcomes, compatibility, dependencies, rollout/migration risk, verification and reviewer context rather than a fixed task count or line quota.
 
+Each top-level task belongs wholly to exactly one PR; never split its subtasks or checklist work across PRs. A PR may include one or several whole top-level tasks. If a task is too broad for a sensible PR, refine it into meaningful top-level tasks before assigning bundles.
+
 | Bundle | Outcome and included work                      | Task/checklist coverage                | Why this boundary is sensible          | Prerequisites and merge order      | Base, branch and subject                                | Verification and merge gates                |
 | ------ | ---------------------------------------------- | -------------------------------------- | -------------------------------------- | ---------------------------------- | ------------------------------------------------------- | ------------------------------------------- |
 | PR-A   | Replace with a concrete reviewable deliverable | Identify the covered task IDs and work | Explain why this work belongs together | State actual prerequisites or None | Include the canonical change name in branch and subject | Define the required evidence and conditions |
