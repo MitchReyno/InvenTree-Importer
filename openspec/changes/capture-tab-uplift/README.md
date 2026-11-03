@@ -1,10 +1,10 @@
 # Capture tab uplift
 
-Capture the requested Capture tab redesign as BI-001 in the [functionality index](../../../docs/PLANNED_FUNCTIONALITY.md), which owns its current metadata. This brief records future intent; the [proposal](proposal.md), [requirements](specs/capture-batch-settings/spec.md), [design](design.md) and [task plan](tasks.md) now develop it. Application implementation remains future work.
+BI-001 is implemented and merged into `interactive-app`; the [functionality index](../../../docs/PLANNED_FUNCTIONALITY.md) owns its current metadata. The [proposal](proposal.md), [requirements](specs/capture-batch-settings/spec.md), [design](design.md) and [task plan](tasks.md) preserve the accepted scope and delivery boundaries. [Accepted delivery evidence](../../../docs/handovers/capture-tab-uplift.md#accepted-delivery) records reviewed commits, CI and qualification limits. The selected layout places Batch settings on the desktop right and stacks it on narrow screens; the sections below retain the original request context.
 
 ## Batch settings
 
-Move every settings panel currently reached through the **Shared details** buttons into one **Batch settings** section containing all those elements in one panel. Remove those navigation buttons; do not retain separate button-selected settings panels. Current entry points include Batch defaults, Batch title and Write a human note in `frontend/src/components/capture/CaptureQueue.tsx`.
+Move every settings panel currently reached through the **Shared details** buttons into one **Batch settings** section containing all those elements in one panel. Remove those navigation buttons; do not retain separate button-selected settings panels. At request time, entry points included Batch defaults, Batch title and Write a human note in `frontend/src/components/capture/CaptureQueue.tsx`.
 
 Include the same elements as the original mockup's shared-details section, accounting for supplier, purchase date, storage location, tags, inheritance and visible per-item overrides as well as the existing settings. Inventory all original controls during proposal development rather than treating this list as exhaustive. The user resolved the purchase-order option: include its fields/components visibly disabled and greyed out with a clear unavailable explanation until PO creation is supported. Do not submit PO intent or create POs.
 

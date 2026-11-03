@@ -55,7 +55,7 @@ No registered items.
 Consolidate all settings currently reached through the Shared details buttons into one Batch settings panel and remove those buttons. Include the original mockup's elements with PO controls disabled and greyed out, and compare right-side versus above-content placement before choosing the layout. Uplift the main evidence panel with three prominent top actions for taking photos, adding documents and writing notes, and organize evidence using groups like the original mockup.
 
 - Change: `capture-tab-uplift`
-- Status: In review
+- Status: Done
 - Size: L — retained settings/context and group/note contracts, UI consolidation and responsive evidence qualification.
 - Prerequisites: None external identified — existing media/groups and form/revision infrastructure are available; the change includes missing context/group contracts and dependency qualification. PO controls remain disabled; no dependency on BI-002.
 - OpenSpec: [capture-tab-uplift](../openspec/changes/capture-tab-uplift/)
@@ -65,7 +65,7 @@ Consolidate all settings currently reached through the Shared details buttons in
 Replace the top-right Manual workflow element with a clickable connection-status indicator that reveals connection details, with an Open InvenTree link to its right as in the original mockup. Add a distinct workflow status/actions indicator on the same header row, using the mockup's Processing in progress state as the reference. Expanding it should show current work status and steps, relevant actions and active agents while keeping connection health separate from workflow progress.
 
 - Change: `status-signalling-uplift`
-- Status: In review
+- Status: Done
 - Size: L — cross-layer target/work read contracts, accessible header integration and browser qualification.
 - Prerequisites: None external identified — existing retained data and target transport are available; the change includes its read-contract and package-qualification foundations. No ordering dependency on BI-001.
 - OpenSpec: [status-signalling-uplift](../openspec/changes/status-signalling-uplift/)
