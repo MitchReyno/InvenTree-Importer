@@ -14,3 +14,18 @@ No new runtime dependency is required to capture this Markdown item. Detailed pr
 Independent review, publication, CI and merge remain separate evidence gates. The feature remains Proposed after the documentation merges.
 
 Validation passed: native CLI resolves `bench-intake` and correctly reports the scaffold planning-incomplete; Markdown, local links, unique BI-001/BI-002 identities and whitespace checks pass. No skill or application files changed, so workflow-sync and runtime suites were not rerun.
+
+## Full proposal plan
+
+After both backlog PRs merged, the user requested full proposals for both items. This branch expands only `status-signalling-uplift`; application implementation remains unauthorized. Read the project-local `openspec-propose` skill and schema, resolved the repo with CLI list/context, and inspected the masthead, activity indicators, live-update provider, agent-session schema, bootstrap/health contracts and original prototype.
+
+Author proposal, behavioral delta specs, design and detailed unchecked implementation tasks in dependency order using CLI instructions. Compare existing query/UI primitives, Radix Popover, Floating UI and native popovers using primary sources before choosing. Ground data freshness, actor/target scope, retained work and physical agent-lane occupancy in existing contracts. Add concrete PR bundles with whole-task ownership, TDD and completion-before-commit rules, then validate artifacts, references and Markdown and obtain independent exact-head review before publication. No providers, real inventory calls, external tracker access, application edits or package installations are included in this planning work.
+
+- [x] Produce all proposal/spec/design/task artifacts and reconcile the captured brief.
+- [x] Validate the complete plan, metadata, links and PR ownership before committing proposal work.
+
+Full status plan validation passed: strict native delta validation, CLI planning-complete state, Markdown, direct local links and whitespace. Implementation checkboxes remain unchecked; only completed proposal-authoring actions are checked here. Four implementation tasks map wholly to two reasoned PR bundles. Size is assessed L for cross-layer read/UI work; no external ordering prerequisite was identified. Package source evidence was checked on 2026-11-03; no package was installed and no runtime qualification is claimed.
+
+Independent review of `aba97ea` found two linked freshness gaps: socket-healthy state disables existing activity polling, and freshness based on last success mislabels fresh failures. The corrected plan specifies 30-second foreground connection polling independent of socket state, local 60-second expiry/visibility recomputation, and freshness based on latest completed observation. Added explicit future regression cases and revalidated specs/Markdown.
+
+- [x] Correct both reviewed freshness gaps and verify the revised status artifacts before committing the correction.
