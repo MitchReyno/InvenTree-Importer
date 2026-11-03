@@ -78,28 +78,6 @@ export function CaptureQueue({ batch, selected, dirty, frozen, setSelected }: Pr
         </QueueList>
         {!batch.parts.length && <Paragraph>No Part proposals yet.</Paragraph>}
       </Panel>
-      <Panel>
-        <Heading>Shared details</Heading>
-        <QueueActions data-queue-actions="true">
-          <Button
-            disabled={dirty}
-            aria-pressed={selected === 'defaults'}
-            onClick={() => setSelected('defaults')}
-          >
-            Batch defaults
-          </Button>
-          <Button
-            disabled={dirty || frozen}
-            aria-pressed={selected === 'batch'}
-            onClick={() => setSelected('batch')}
-          >
-            Batch title
-          </Button>
-          <Button disabled={dirty || frozen} onClick={() => setSelected('note')}>
-            Write a human note
-          </Button>
-        </QueueActions>
-      </Panel>
     </QueueArea>
   )
 }
@@ -169,7 +147,4 @@ const QueueList = styled.ul`
       }
     }
   }
-`
-const QueueActions = styled.div`
-  ${queueStyles}
 `

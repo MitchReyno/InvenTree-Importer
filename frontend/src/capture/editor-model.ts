@@ -1,9 +1,16 @@
-import type { CaptureEditDto, InventoryPartSpecDto } from '@invimport/contracts'
+import type {
+  CaptureEditDto,
+  CaptureLotContextDto,
+  InventoryPartSpecDto,
+} from '@invimport/contracts'
 import type { Snapshot, Quantity, Reference } from './types'
+
+import { captureContext } from './context'
 
 const empty = { mode: 'unset' } as const
 
 export type CaptureEditorValues = {
+  captureContext: CaptureLotContextDto
   label: string
   quantity: Quantity
   location: Reference
@@ -19,16 +26,15 @@ export type CaptureEditorValues = {
   tags: string
   partId: string
   text: string
-  noteSubject: string
 }
 
 export function captureEditorDefaults(batch: Snapshot, selected: string): CaptureEditorValues {
   const lot = batch.lots.find((candidate) => candidate.id === selected)
   const part = batch.parts.find((candidate) => candidate.id === selected)
-  const defaults = selected === 'defaults'
 
   const spec = part?.choice.mode === 'create' ? part.choice.spec : null
   return {
+    captureContext: captureContext(batch, lot?.id ?? null),
     partMode: spec ? 'create' : 'reuse',
     partName: spec?.name ?? '',
     categoryId: spec?.category.observation_id ?? '',
@@ -43,13 +49,12 @@ export function captureEditorDefaults(batch: Snapshot, selected: string): Captur
     supplierId: spec?.supplier?.company.observation_id ?? '',
     sku: spec?.supplier?.sku ?? '',
     tags: spec?.tags.join(', ') ?? '',
-    label: lot?.label ?? part?.label ?? (selected === 'batch' ? batch.title : ''),
-    quantity: lot?.quantity ?? (defaults ? batch.defaults.quantity : empty),
-    location: lot?.location ?? (defaults ? batch.defaults.location : empty),
+    label: lot?.label ?? part?.label ?? '',
+    quantity: lot?.quantity ?? empty,
+    location: lot?.location ?? empty,
     choice: part?.choice.mode === 'create' ? empty : (part?.choice ?? empty),
     partId: lot?.part_subject_id ?? '',
     text: '',
-    noteSubject: '',
   }
 }
 
@@ -60,14 +65,20 @@ export function captureEditorChange(
 ): CaptureEditDto['change'] {
   const lot = batch.lots.find((candidate) => candidate.id === selected)
   const part = batch.parts.find((candidate) => candidate.id === selected)
-  const defaults = selected === 'defaults'
-  const { label, quantity, location, choice, partId, text, noteSubject } = values
+  const { label, quantity, location, choice, partId, text } = values
 
-  if (defaults) {
-    return { kind: 'defaults', quantity, location }
-  }
   if (lot) {
-    return { kind: 'lot', id: lot.id, label, part_subject_id: partId || null, quantity, location }
+    return {
+      kind: 'lot',
+      id: lot.id,
+      label,
+      part_subject_id: partId || null,
+      quantity,
+      location,
+      ...(JSON.stringify(values.captureContext) !== JSON.stringify(captureContext(batch, lot.id))
+        ? { context: values.captureContext }
+        : {}),
+    }
   }
   if (part) {
     return {
@@ -88,10 +99,7 @@ export function captureEditorChange(
   if (selected === 'add_lot') {
     return { kind: 'add_lot', label, note: text, part_subject_id: partId || null }
   }
-  if (selected === 'note') {
-    return { kind: 'note', subject_id: noteSubject || null, text }
-  }
-  return { kind: 'batch', title: label }
+  throw new Error('capture_subject_not_selected')
 }
 
 export function partSpecFromValues(

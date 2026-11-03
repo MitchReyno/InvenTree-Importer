@@ -20,7 +20,7 @@ Tasks 1 and 2 are independent data foundations. Task 3 consumes Task 1; Task 4 c
 | PR-B | Task 3: layout comparison and single Batch settings consumer, including disabled PO controls | Complete settings behavior with a reasoned layout decision; requires PR-A, no status-signalling prerequisite | `interactive-app`; `feat/capture-tab-uplift-settings`; `feat(capture-tab-uplift): consolidate Batch settings` | Both placement comparisons, draft/conflict/disabled-PO regressions and browser evidence; independent exact-head review and selected CI |
 | PR-C | Tasks 4 and 5: three evidence actions, grouped UI and end-to-end qualification | Ship coherent evidence behavior plus its accessibility/adverse integration proof; requires PR-A and PR-B draft/layout integration | `interactive-app`; `feat/capture-tab-uplift-evidence`; `feat(capture-tab-uplift): expose grouped Capture evidence` | Dependency proof, media/group/note regressions, original-reference browser journeys and owning checks; independent exact-head review and selected CI |
 
-These future bundles do not authorize implementation. This proposal documentation PR is separate. Record real PR references when created; update the map for coherent review, compatibility or delivery risk, never arbitrary task counts. Coverage is complete and no top-level task is shared between bundles.
+The user authorized implementation after both proposals merged. PR-A merged as [#75](https://github.com/MitchReyno/InvenTree-Importer/pull/75); PR-B implements the complete settings task. Record real PR references when created; update the map for coherent review, compatibility or delivery risk, never arbitrary task counts. Coverage is complete and no top-level task is shared between bundles.
 
 ## 1. Retain composite settings and human context
 
@@ -75,13 +75,13 @@ These future bundles do not authorize implementation. This proposal documentatio
 - Verification: Focused Capture/App navigation tests, `pnpm typecheck`, `pnpm lint:frontend`, `pnpm build`, desktop/narrow/zoom browser fixture.
 - Risks: Duplicate responsive forms or background resets can erase drafts; batch notes must share one composer with the future top action.
 
-- [ ] 3.1 RED: cover all retained Shared details controls in one panel, current quantity modes and visible supplier/date/location/tags/override provenance.
-- [ ] 3.2 RED: cover conflict/lost acknowledgement/polling/reflow without resetting inputs, combined save semantics and dirty navigation protection.
-- [ ] 3.3 GREEN: integrate composite settings and one mounted RHF form, explicit save/discard and the shared batch-note composer.
-  - [ ] 3.3.1 Render PO controls/related components disabled and greyed out with readable unavailable text; verify no editable PO intent or submitted field.
-  - [ ] 3.3.2 Preserve all original context fields, current default controls and explicit override visibility; label capture-only context clearly in Review.
-- [ ] 3.4 Compare right-side versus above-content placements with the same representative content at desktop, 360px, 390px and 200% zoom; record evidence and a reasoned chosen layout.
-- [ ] 3.5 Refactor within scope, verify focus/reading order and no document horizontal overflow/draft remount, and run owning checks before accepting this task.
+- [x] 3.1 RED: cover all retained Shared details controls in one panel, current quantity modes and visible supplier/date/location/tags/override provenance.
+- [x] 3.2 RED: cover conflict/lost acknowledgement/polling/reflow without resetting inputs, combined save semantics and dirty navigation protection.
+- [x] 3.3 GREEN: integrate composite settings and one mounted RHF form, explicit save/discard and the shared batch-note composer.
+  - [x] 3.3.1 Render PO controls/related components disabled and greyed out with readable unavailable text; verify no editable PO intent or submitted field.
+  - [x] 3.3.2 Preserve all original context fields, current default controls and explicit override visibility; label capture-only context clearly in Review.
+- [x] 3.4 Compare right-side versus above-content placements with the same representative content at desktop, 360px, 390px and 200% zoom; record evidence and a reasoned chosen layout.
+- [x] 3.5 Refactor within scope, verify focus/reading order and no document horizontal overflow/draft remount, and run owning checks before accepting this task.
 
 ## 4. Compose the evidence actions and grouped workspace
 

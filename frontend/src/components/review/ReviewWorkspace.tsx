@@ -9,6 +9,7 @@ import type {
   ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import { Button, Panel, Paragraph, Small, Notice } from '../ui/primitives'
+import { CaptureContextSummary } from '../capture/CaptureContextSummary'
 import { ReviewQueue, visibleQueueLotIds } from './ReviewQueue'
 import {
   blockingIssues,
@@ -227,6 +228,7 @@ export function ReviewWorkspace({
           are retained; reload saved values deliberately before new commands.
         </Notice>
       )}
+      <CaptureContextSummary batch={batch} subjectId={focused ?? undefined} />
       <ScopeBar>
         <div>
           <strong>{selected.length} selected</strong>

@@ -1,5 +1,5 @@
 import { Notice, HeadingRow, Caption } from '../ui/primitives'
-import { Button, Heading, Panel, Paragraph } from '../ui/primitives'
+import { Button, Heading, Panel } from '../ui/primitives'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import styled from 'styled-components'
@@ -7,6 +7,7 @@ import { CaptureHeader } from './CaptureHeader'
 import { CaptureQueue } from './CaptureQueue'
 import { EvidencePanel } from './EvidencePanel'
 import { CaptureEditor } from './CaptureEditor'
+import { BatchSettingsPanel } from './BatchSettingsPanel'
 import { InstructionsPanel } from '../operator/InstructionsPanel'
 
 export function CaptureWorkspace({
@@ -23,17 +24,20 @@ export function CaptureWorkspace({
   reload,
 }: CaptureWorkspaceProps) {
   const initialSubject = location.hash.split('/')[1]
-  const [selected, select] = useState(() =>
-    initialSubject && initialSubject !== 'capture' ? initialSubject : 'defaults',
-  )
-  const [focused, setFocused] = useState(() =>
-    Boolean(initialSubject && initialSubject !== 'capture'),
-  )
+  const [selected, select] = useState(() => {
+    const known = [...batch.lots, ...batch.parts].some((subject) => subject.id === initialSubject)
+    return known || initialSubject === 'add_lot' || initialSubject === 'add_part'
+      ? initialSubject
+      : 'defaults'
+  })
+  const [focused, setFocused] = useState(() => selected !== 'defaults')
+  const noteRef = useRef<HTMLTextAreaElement>(null)
+  const [settingsDirty, setSettingsDirty] = useState(false)
   const [editorDirty, setDirty] = useState(false)
   const [mediaDirty, setMediaDirty] = useState(false)
   const [instructionsDirty, setInstructionsDirty] = useState(false)
-  const dirtyFlags = useRef({ editor: false, media: false, instructions: false })
-  const dirty = editorDirty || mediaDirty || instructionsDirty
+  const dirtyFlags = useRef({ editor: false, media: false, instructions: false, settings: false })
+  const dirty = settingsDirty || editorDirty || mediaDirty || instructionsDirty
 
   const reportMediaDirty = useCallback(
     (value: boolean) => {
@@ -61,7 +65,18 @@ export function CaptureWorkspace({
     onDirtyChange?.(anyDirty(dirtyFlags.current))
   }
 
+  function reportSettingsDirty(value: boolean) {
+    dirtyFlags.current.settings = value
+    setSettingsDirty(value)
+    onDirtyChange?.(anyDirty(dirtyFlags.current))
+  }
+
   function setSelected(value: string) {
+    if (value === 'note') {
+      noteRef.current?.focus()
+      noteRef.current?.scrollIntoView?.({ block: 'center' })
+      return
+    }
     select(value)
     setFocused(true)
     history.replaceState(null, '', `#${batch.id}/${value}`)
@@ -78,11 +93,8 @@ export function CaptureWorkspace({
   } else {
     title =
       {
-        defaults: 'Batch defaults',
         add_lot: 'Add a physical lot',
         add_part: 'Add a shared Part proposal',
-        batch: 'Batch title',
-        note: 'Add human note',
       }[selected] ?? 'Capture'
   }
 
@@ -101,7 +113,7 @@ export function CaptureWorkspace({
           Archived, not deleted. History and original contributions are retained. Resume to edit.
         </Notice>
       )}
-      <CaptureGrid $focused={focused}>
+      <CaptureGrid data-capture-grid $focused={focused}>
         <BackButton
           data-area="back"
           disabled={dirty}
@@ -116,100 +128,113 @@ export function CaptureWorkspace({
           batch={batch}
           selected={selected}
           dirty={dirty}
-          frozen={frozen || instructionsDirty}
+          frozen={frozen || instructionsDirty || settingsDirty}
           setSelected={setSelected}
         />
 
         <EvidencePanel
           batch={batch}
           selected={selected}
-          dirty={editorDirty}
+          dirty={editorDirty || settingsDirty}
           navigationDirty={dirty}
-          frozen={frozen || instructionsDirty}
+          noteDisabled={frozen || editorDirty || mediaDirty || instructionsDirty}
+          frozen={frozen || instructionsDirty || settingsDirty}
           setSelected={setSelected}
           media={media}
           onMediaDirtyChange={reportMediaDirty}
         />
-        <EditorPanel data-area="editor" aria-labelledby="editor-title">
-          <HeadingRow>
-            <Heading id="editor-title">{title}</Heading>
-            <SelectionBadge $dirty={dirty}>
-              {dirty ? 'Unsaved local input' : 'Human entered'}
-            </SelectionBadge>
-          </HeadingRow>
-          <Caption>
-            {dirty
-              ? 'Save or discard before switching subjects.'
-              : 'Saved values · not inferred or approved'}
-          </Caption>
-          {part && (
-            <Notice>
-              Affects {batch.lots.filter((l) => l.part_subject_id === part.id).length} lots. Sharing
-              a Part does not combine their quantities or contribution identities.
-            </Notice>
-          )}
-          {selected === 'defaults' && (
-            <Paragraph>
-              Changes apply only to inherited fields. Explicit choices, unknowns and clears stay
-              unchanged.
-            </Paragraph>
-          )}
-          <CaptureEditor
-            key={selected}
-            batch={batch}
-            selected={selected}
-            frozen={frozen || mediaDirty || instructionsDirty}
-            dirty={editorDirty}
-            onDirty={reportDirty}
-            edit={edit}
-            observe={observe}
-          />
-          {selected === 'defaults' && operator && operatorReview && reload && (
+        <BatchSettingsPanel
+          batch={batch}
+          disabled={frozen || editorDirty || mediaDirty || instructionsDirty}
+          dirty={settingsDirty}
+          onDirty={reportSettingsDirty}
+          edit={edit}
+          observe={observe}
+          noteRef={noteRef}
+          reload={reload}
+        />
+        {!['defaults', 'batch', 'note'].includes(selected) && (
+          <EditorPanel role="region" data-area="editor" aria-labelledby="editor-title">
+            <HeadingRow>
+              <Heading id="editor-title">{title}</Heading>
+              <SelectionBadge $dirty={dirty}>
+                {dirty ? 'Unsaved local input' : 'Human entered'}
+              </SelectionBadge>
+            </HeadingRow>
+            <Caption>
+              {dirty
+                ? 'Save or discard before switching subjects.'
+                : 'Saved values · not inferred or approved'}
+            </Caption>
+            {part && (
+              <Notice>
+                Affects {batch.lots.filter((l) => l.part_subject_id === part.id).length} lots.
+                Sharing a Part does not combine their quantities or contribution identities.
+              </Notice>
+            )}
+            <CaptureEditor
+              key={selected}
+              batch={batch}
+              selected={selected}
+              frozen={frozen || mediaDirty || instructionsDirty || settingsDirty}
+              dirty={editorDirty}
+              onDirty={reportDirty}
+              edit={edit}
+              observe={observe}
+            />
+          </EditorPanel>
+        )}
+        {operator && operatorReview && reload && (
+          <InstructionsArea>
             <InstructionsPanel
               batch={batch}
               review={operatorReview}
               client={operator}
               media={media}
-              disabled={frozen || editorDirty || mediaDirty}
+              disabled={frozen || editorDirty || mediaDirty || settingsDirty}
               reload={reload}
               onDirtyChange={reportInstructionsDirty}
             />
-          )}
-        </EditorPanel>
+          </InstructionsArea>
+        )}
       </CaptureGrid>
     </>
   )
 }
 
-function anyDirty(flags: { editor: boolean; media: boolean; instructions: boolean }) {
-  return flags.editor || flags.media || flags.instructions
+function anyDirty(flags: {
+  editor: boolean
+  media: boolean
+  instructions: boolean
+  settings: boolean
+}) {
+  return flags.editor || flags.media || flags.instructions || flags.settings
 }
 
 const CaptureGrid = styled.div<{ $focused: boolean }>`
   display: grid;
-  grid-template-columns: minmax(200px, 0.8fr) minmax(260px, 1.3fr) minmax(330px, 1.35fr);
-  grid-template-areas: 'queue context editor';
+  grid-template-columns: minmax(180px, 0.65fr) minmax(0, 1.4fr) minmax(300px, 1fr);
+  grid-template-areas: 'queue context settings' 'editor editor settings' 'instructions instructions settings';
   gap: 12px;
   align-items: start;
   @media (max-width: 1000px) {
-    grid-template-columns: minmax(190px, 0.7fr) minmax(0, 1.5fr);
-    grid-template-areas: 'queue editor' 'queue context';
+    grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.5fr);
+    grid-template-areas: 'queue context' 'editor settings' 'instructions settings';
   }
   @media (max-width: 700px) {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: ${(p) => (p.$focused ? "'back' 'context' 'editor'" : "'queue'")};
-    gap: 0;
+    grid-template-areas: ${(p) => (p.$focused ? "'back' 'context' 'settings' 'editor' 'instructions'" : "'queue' 'context' 'settings' 'instructions'")};
+    gap: 12px;
     > [data-area='queue'] {
       display: ${(p) => (p.$focused ? 'none' : 'flex')};
-    }
-    > [data-area='context'],
-    > [data-area='editor'] {
-      display: ${(p) => (p.$focused ? 'block' : 'none')};
     }
     > [data-area='back'] {
       display: ${(p) => (p.$focused ? 'block' : 'none')};
     }
   }
+`
+const InstructionsArea = styled(Panel)`
+  grid-area: instructions;
 `
 const BackButton = styled(Button)`
   display: none;

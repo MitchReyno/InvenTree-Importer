@@ -15,6 +15,7 @@ type Props = {
   dirty: boolean
   navigationDirty: boolean
   frozen: boolean
+  noteDisabled?: boolean
   setSelected: (value: string) => void
 }
 
@@ -27,6 +28,7 @@ export function EvidencePanel({
   setSelected,
   media,
   onMediaDirtyChange,
+  noteDisabled = navigationDirty || frozen,
 }: Props) {
   const lot = batch.lots.find((l) => l.id === selected)
   const part = batch.parts.find((p) => p.id === selected)
@@ -46,7 +48,7 @@ export function EvidencePanel({
     <EvidenceArea data-area="context" aria-labelledby="evidence">
       <HeadingRow>
         <Heading id="evidence">Human note evidence</Heading>
-        <Button disabled={navigationDirty || frozen} onClick={() => setSelected('note')}>
+        <Button disabled={noteDisabled} onClick={() => setSelected('note')}>
           Add note
         </Button>
       </HeadingRow>

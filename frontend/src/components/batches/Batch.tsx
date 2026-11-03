@@ -1,6 +1,6 @@
 import { ErrorNotice } from '../ui/primitives'
 import { Button, Paragraph, Summary } from '../ui/primitives'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
@@ -76,6 +76,7 @@ export function Batch({
   const [current, setCurrent] = useState<CaptureSnapshotDto | null>(null)
   const [busy, setBusy] = useState(false)
   const [reset, setReset] = useState(0)
+  const editIntent = useRef<{ request: CaptureEditDto; key: string } | null>(null)
 
   useEffect(() => {
     if (
@@ -103,13 +104,24 @@ export function Batch({
     if (!batch) {
       return
     }
+    const request = { expected_revision: batch.revision, change }
+    if (
+      editIntent.current &&
+      JSON.stringify(editIntent.current.request) !== JSON.stringify(request)
+    ) {
+      setError(
+        'An earlier save is unconfirmed. Retry its unchanged input or reload saved values deliberately before submitting different changes.',
+      )
+      return
+    }
+    editIntent.current ??= { request, key: crypto.randomUUID() }
+    const intent = editIntent.current
     setBusy(true)
     setError('')
     setCurrent(null)
     try {
-      acceptSavedBatch(
-        await client.edit(id, { expected_revision: batch.revision, change }, crypto.randomUUID()),
-      )
+      acceptSavedBatch(await client.edit(id, intent.request, intent.key))
+      editIntent.current = null
     } catch (error) {
       if (error instanceof IntakeRequestError && error.status === 412) {
         setError(
@@ -164,6 +176,7 @@ export function Batch({
       if (!result.data) {
         throw new Error('capture_snapshot_missing')
       }
+      editIntent.current = null
       acceptSavedBatch(result.data)
       setReset((revision) => revision + 1)
       setCurrent(null)
