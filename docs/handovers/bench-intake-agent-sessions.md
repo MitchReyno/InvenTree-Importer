@@ -1,6 +1,6 @@
 # Native agent sessions and global model default
 
-Status: planning recorded before source implementation on `feat/intake-agent-sessions`, based on `interactive-app` at `f33b325470260785b2fb6384ef371ddd6e0732c8`.
+Status: implementation and local qualification complete; final independent review and publication are pending. The plan was recorded before source implementation on `feat/intake-agent-sessions`, originally based on `interactive-app` at `f33b325470260785b2fb6384ef371ddd6e0732c8`.
 
 ## Requested behavior
 
@@ -84,3 +84,21 @@ Verified native browser input, synchronous unsaved-navigation refusal, explicit 
 The owned browser and fixture were closed and the browser lease released. Provider inference was simulated throughout. No host login or real provider request was performed.
 
 Both image-capable supervised workers passed the new end-to-end process cases after the media identity grant fix. The controlled CLIs compare the received base64 image digest to the exact staged source and return a media-backed proposal; Processing retains it through the real DBOS path. Sixteen focused protocol checks and five settings-form checks passed, including both deferred owner races and immediate rejection of an unexpected Codex tool-start event. Complete final tiers are being rerun with newly built immutable decoder/probe images before publication/merge.
+
+
+### Final qualification and review 2
+
+A second fresh reviewer inspected `b7716ab21b2e49e9299295c65160e08cc1aa8a05`, confirmed both Important fixes and found no remaining runtime blocker. Independent checks passed seven frontend and sixteen controlled-CLI tests. One Minor finding identified root architecture text that still described provider integration as wholly unimplemented. Root and frontend entry points now distinguish implemented native adapters from unverified live inference, link the owning boundary and state the initial input limitations.
+
+Complete final checks passed with zero test failures or skips:
+
+- Contracts: 33; intake server: 141; frontend: 151.
+- Full serial PostgreSQL: 121; full serial worker/process: 37.
+- Frozen dependency install, generated-contract drift check, all TypeScript checks, readability/frontend lint, Markdown lint, formatting checks and frontend build.
+- Native process tests use the real DBOS worker and owning runtime grants with exact decoded image content for both providers. Authentication and inference are deterministic CLI fixtures; they do not prove live account entitlement or containment of the unmodified native binaries.
+
+The final immutable decoder image is `sha256:df65f2672842df4c0946d1712d6cddff29a1e6c15ff2e2267efa75b356a9d72e`; the test containment probe is `sha256:58374835f4789c144ba33757b16242fe0b55cbb50f71de5ed728368254189427`. Both complete PG/process tiers ran serially under the coordinated pg-docker allocation while preserving the user preview. Native qualification fixtures and the owned browser were closed; the user preview retains its original lease and data.
+
+During this work, PR 65 advanced `interactive-app` to `9b53b5f01902600e0a734c5c67dd3928dc0c87df` with a planning register and mirrored planning skill. That documentation-only change is incorporated by an ordinary merge without history rewriting. Its planning files are preserved unchanged, with identical skill copies. The final documentation/evidence commit changes no runtime source relative to the fully tested second-review commit. It receives its own fresh read-only review before publication.
+
+No Python/scanner behavior or skill implementation was changed by this feature. T11 identity/access, release/deployment, live provider entitlement/inference/containment, native semantic broker tools, PDF content staging and modern create/instruction input support retain their stated qualification limits. No original environment file, provider credential store or real inventory endpoint was used in development/tests. No live model calls, deployment, main/PR 32 merge, force-push, reset/clean or branch/worktree/user-data deletion occurred.
