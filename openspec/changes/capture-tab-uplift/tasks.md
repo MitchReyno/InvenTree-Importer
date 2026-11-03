@@ -83,6 +83,8 @@ The user authorized implementation after both proposals merged. PR-A merged as [
 - [x] 3.4 Compare right-side versus above-content placements with the same representative content at desktop, 360px, 390px and 200% zoom; record evidence and a reasoned chosen layout.
 - [x] 3.5 Refactor within scope, verify focus/reading order and no document horizontal overflow/draft remount, and run owning checks before accepting this task.
 
+- [x] 3.6 Correct reviewed discard/submission and unsent-validation races; restore original Batch/Part/lot note scope in the atomic settings contract and qualify same-batch/retired ownership plus long retained context wrapping.
+
 ## 4. Compose the evidence actions and grouped workspace
 
 - Type / PR: Media UI and interaction integration; PR-C.

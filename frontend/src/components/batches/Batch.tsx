@@ -7,6 +7,7 @@ import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import type { OperatorReviewClient } from '../../operator/types'
 import { retiredLotIds } from '../../operator/review-model'
 import { IntakeRequestError } from '@invimport/contracts/client'
+import { validate } from '@invimport/contracts'
 import type {
   CaptureEditDto,
   CaptureSnapshotDto,
@@ -76,6 +77,7 @@ export function Batch({
   const [current, setCurrent] = useState<CaptureSnapshotDto | null>(null)
   const [busy, setBusy] = useState(false)
   const [reset, setReset] = useState(0)
+  const editPending = useRef(false)
   const editIntent = useRef<{ request: CaptureEditDto; key: string } | null>(null)
 
   useEffect(() => {
@@ -105,6 +107,17 @@ export function Batch({
       return
     }
     const request = { expected_revision: batch.revision, change }
+    try {
+      validate('CaptureEdit', request)
+    } catch {
+      setError(
+        'Check the entered values before saving. No request was sent for these values; the input remains editable. Any earlier unconfirmed save still needs reconciliation.',
+      )
+      return
+    }
+    if (editPending.current) {
+      return
+    }
     if (
       editIntent.current &&
       JSON.stringify(editIntent.current.request) !== JSON.stringify(request)
@@ -116,6 +129,7 @@ export function Batch({
     }
     editIntent.current ??= { request, key: crypto.randomUUID() }
     const intent = editIntent.current
+    editPending.current = true
     setBusy(true)
     setError('')
     setCurrent(null)
@@ -138,6 +152,7 @@ export function Batch({
         )
       }
     } finally {
+      editPending.current = false
       setBusy(false)
     }
   }
@@ -170,6 +185,9 @@ export function Batch({
   }
 
   async function reloadSavedValues() {
+    if (editPending.current) {
+      return
+    }
     void queryClient.invalidateQueries({ queryKey: operatorKey })
     try {
       const result = await captureQuery.refetch({ throwOnError: true })
@@ -316,6 +334,8 @@ export function Batch({
                     {
                       title: current.title,
                       defaults: current.defaults,
+                      context: current.context,
+                      notes: current.notes,
                       lots: current.lots,
                       parts: current.parts,
                     },

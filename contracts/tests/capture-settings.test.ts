@@ -77,3 +77,10 @@ test('calendar-date shape refuses year zero and trailing whitespace', () => {
     )
   }
 })
+
+test('composite settings retain a selected note subject without changing legacy batch-note intent', () => {
+  validate('CaptureEdit', {
+    ...settings,
+    change: { ...settings.change, note_subject_id: '00000000-0000-4000-8000-000000000001' },
+  })
+})

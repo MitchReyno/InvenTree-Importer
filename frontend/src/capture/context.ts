@@ -45,3 +45,13 @@ export function contextDescription(
   const observation = batch.observations.find((item) => item.id === value.observation_id)
   return `${observation?.label ?? 'Retained supplier'} (#${value.pk})`
 }
+
+export function normalizeContextTags(context: CaptureLotContextDto): CaptureLotContextDto {
+  if (context.tags.mode !== 'set') {
+    return context
+  }
+  return {
+    ...context,
+    tags: { mode: 'set', value: context.tags.value.map((tag) => tag.trim()).filter(Boolean) },
+  }
+}

@@ -1,3 +1,4 @@
+import styled from 'styled-components'
 import type { Snapshot } from '../../capture/types'
 import { captureContext, contextDescription } from '../../capture/context'
 import { Paragraph, Small } from '../ui/primitives'
@@ -8,7 +9,7 @@ export function CaptureContextSummary({ batch, subjectId }: Props) {
   const record = batch.context?.find((item) => item.subject_id === (subjectId ?? null))
   const context = captureContext(batch, subjectId ?? null)
   return (
-    <div aria-label="Human capture context">
+    <Context aria-label="Human capture context">
       <Small>Human capture context · separate from approved inventory effects</Small>
       {(['supplier', 'purchase_date', 'tags'] as const).map((field) => (
         <Paragraph key={field}>
@@ -22,6 +23,11 @@ export function CaptureContextSummary({ batch, subjectId }: Props) {
           Human record {record.id} · version {record.version} · actor {record.actor_id}
         </Small>
       )}
-    </div>
+    </Context>
   )
 }
+
+const Context = styled.div`
+  min-width: 0;
+  overflow-wrap: anywhere;
+`

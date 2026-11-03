@@ -754,3 +754,44 @@ test('uncertain composite settings save retries identical revision, payload and 
   await waitFor(() => expect(requests).toHaveLength(3))
   expect(requests[2].key).not.toBe(requests[0].key)
 })
+
+test('a locally refused lot context remains correctable before any delivery intent is retained', async () => {
+  const user = userEvent.setup()
+  const edits: unknown[] = []
+
+  const transport: typeof fetch = async (input, init) => {
+    if (new URL(String(input)).pathname.endsWith('/edits')) {
+      edits.push(JSON.parse(String(init?.body)))
+      return response({ ...fixture, revision: '9007199254740994' })
+    }
+    return response(fixture)
+  }
+
+  const client = captureClient(location.origin, 'a'.repeat(64), transport)
+  const manual = manualClient(location.origin, 'a'.repeat(64), async () => {
+    throw new Error('unexpected_manual_call')
+  })
+  render(
+    <Batch id={batchId} route={batchId} client={client} manual={manual} onDirtyChange={vi.fn()} />,
+  )
+  await screen.findByLabelText('Batch title')
+  await user.click(screen.getByRole('button', { name: 'Edit lot Packet A' }))
+  const lot = screen.getByRole('region', { name: 'Lot: Packet A' })
+  await user.selectOptions(within(lot).getByLabelText('Capture tags mode'), 'set')
+  const tags = within(lot).getByLabelText(/^Capture tags \(one per line\)/)
+  await user.type(tags, 'same\nsame')
+  await user.click(within(lot).getByRole('button', { name: 'Save human changes' }))
+  await screen.findByText(/No request was sent/)
+  expect(edits).toHaveLength(0)
+  await user.clear(tags)
+  await user.type(tags, 'corrected\n')
+  await user.click(within(lot).getByRole('button', { name: 'Save human changes' }))
+  await waitFor(() => expect(edits).toHaveLength(1))
+  expect(edits[0]).toEqual(
+    expect.objectContaining({
+      change: expect.objectContaining({
+        context: expect.objectContaining({ tags: { mode: 'set', value: ['corrected'] } }),
+      }),
+    }),
+  )
+})

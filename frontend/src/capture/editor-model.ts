@@ -5,7 +5,7 @@ import type {
 } from '@invimport/contracts'
 import type { Snapshot, Quantity, Reference } from './types'
 
-import { captureContext } from './context'
+import { captureContext, normalizeContextTags } from './context'
 
 const empty = { mode: 'unset' } as const
 
@@ -68,6 +68,7 @@ export function captureEditorChange(
   const { label, quantity, location, choice, partId, text } = values
 
   if (lot) {
+    const context = normalizeContextTags(values.captureContext)
     return {
       kind: 'lot',
       id: lot.id,
@@ -75,8 +76,8 @@ export function captureEditorChange(
       part_subject_id: partId || null,
       quantity,
       location,
-      ...(JSON.stringify(values.captureContext) !== JSON.stringify(captureContext(batch, lot.id))
-        ? { context: values.captureContext }
+      ...(JSON.stringify(context) !== JSON.stringify(captureContext(batch, lot.id))
+        ? { context }
         : {}),
     }
   }

@@ -171,6 +171,7 @@ export function CaptureEditor({
       {dirty && (
         <Button
           type="button"
+          disabled={formState.isSubmitting}
           onClick={() => {
             onDirty(false)
             /* Remount through explicit reset rather than silently dropping stale values. */ locationReload()

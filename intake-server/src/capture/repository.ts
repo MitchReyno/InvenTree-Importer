@@ -455,8 +455,20 @@ async function applyLockedCaptureEdit(
       .where(eq(captureLotRetirements.batchId, id)),
   )
   const retired = new Set(retiredResult.map((row) => row.lot_id))
-  const editedSubject =
-    change.kind === 'lot' ? change.id : change.kind === 'note' ? change.subject_id : null
+  let editedSubject: string | null = null
+  if (change.kind === 'lot') {
+    editedSubject = change.id
+  } else if (change.kind === 'note') {
+    editedSubject = change.subject_id
+  } else if (change.kind === 'settings') {
+    if (change.note_subject_id !== undefined && change.note === undefined) {
+      fail('note_text_required', 400)
+    }
+    editedSubject = change.note_subject_id ?? null
+    if (editedSubject !== null) {
+      subject(editedSubject)
+    }
+  }
   if (editedSubject !== null && retired.has(editedSubject)) {
     fail('lot_retired', 409)
   }
@@ -500,7 +512,7 @@ async function applyLockedCaptureEdit(
         await retainContext(null, change.context)
       }
       if (change.note !== undefined) {
-        await note(c, b, null, change.note)
+        await note(c, b, change.note_subject_id ?? null, change.note)
       }
       break
     case 'batch':

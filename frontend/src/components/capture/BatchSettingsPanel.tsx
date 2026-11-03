@@ -14,6 +14,7 @@ import {
   Panel,
   Paragraph,
   Small,
+  Select,
   TextArea,
 } from '../ui/primitives'
 import { QuantityField } from './QuantityField'
@@ -27,6 +28,7 @@ type Values = {
   location: Reference
   context: CaptureContextDto
   note: string
+  noteSubject: string
 }
 type Props = Pick<CaptureWorkspaceProps, 'edit' | 'observe' | 'reload'> & {
   batch: Snapshot
@@ -43,6 +45,7 @@ function defaults(batch: Snapshot): Values {
     location: batch.defaults.location,
     context: batchContext(batch),
     note: '',
+    noteSubject: '',
   }
 }
 
@@ -77,7 +80,12 @@ export function BatchSettingsPanel({
       quantity: values.quantity,
       location: values.location,
       context,
-      ...(values.note ? { note: values.note } : {}),
+      ...(values.note
+        ? {
+            note: values.note,
+            ...(values.noteSubject ? { note_subject_id: values.noteSubject } : {}),
+          }
+        : {}),
     }
     try {
       validate('CaptureEdit', { expected_revision: batch.revision, change })
@@ -158,6 +166,17 @@ export function BatchSettingsPanel({
               )}
             />
             <Label>
+              Note relates to
+              <Select {...register('noteSubject')}>
+                <option value="">Batch</option>
+                {[...batch.parts, ...batch.lots].map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.label}
+                  </option>
+                ))}
+              </Select>
+            </Label>
+            <Label>
               Batch human note
               <TextArea
                 maxLength={8192}
@@ -167,7 +186,10 @@ export function BatchSettingsPanel({
                   noteRef.current = element
                 }}
               />
-              <Small>Append a human observation to this batch in the same settings save.</Small>
+              <Small>
+                Append a human observation to the selected batch, Part or physical lot in the same
+                settings save.
+              </Small>
             </Label>
           </Fields>
           <Button disabled={disabled || !dirty}>Save Batch settings</Button>
@@ -175,6 +197,7 @@ export function BatchSettingsPanel({
         {dirty && (
           <Button
             type="button"
+            disabled={formState.isSubmitting}
             onClick={() => {
               if (reload) {
                 void reload()

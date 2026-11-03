@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
@@ -152,4 +152,60 @@ test('the note action focuses the existing shared composer without replacing a s
   expect(screen.getByLabelText(/^Batch human note/)).toHaveFocus()
   expect(screen.getByLabelText('Batch title')).toHaveValue('Two packets draft')
   expect(screen.getAllByLabelText(/^Batch human note/)).toHaveLength(1)
+})
+
+test('discard stays unavailable while an atomic save acknowledgement is pending', async () => {
+  const user = userEvent.setup()
+  let settle: (() => void) | undefined
+  const edit = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        settle = resolve
+      }),
+  )
+  const reload = vi.fn(async () => undefined)
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      edit={edit}
+      reload={reload}
+      observe={vi.fn(async () => null)}
+    />,
+  )
+  await user.type(screen.getByLabelText('Batch title'), ' pending')
+  await user.click(screen.getByRole('button', { name: 'Save Batch settings' }))
+  const discard = screen.getByRole('button', { name: 'Discard Batch settings edits' })
+  expect(discard).toBeDisabled()
+  await user.click(discard)
+  expect(reload).not.toHaveBeenCalled()
+  settle?.()
+  await waitFor(() => expect(discard).toBeEnabled())
+})
+
+test('shared composer retains the original Part and physical-lot note scopes in the composite save', async () => {
+  const user = userEvent.setup()
+  const partId = '60000000-0000-4000-8000-000000000006'
+  const edit = vi.fn(async () => undefined)
+  render(
+    <CaptureWorkspace
+      batch={{
+        ...batch,
+        parts: [{ id: partId, label: 'Shared resistor', revision: '1', choice: { mode: 'unset' } }],
+      }}
+      busy={false}
+      edit={edit}
+      observe={vi.fn(async () => null)}
+    />,
+  )
+  await user.selectOptions(screen.getByLabelText('Note relates to'), partId)
+  await user.type(screen.getByLabelText(/^Batch human note/), 'Check the shared marking.')
+  await user.click(screen.getByRole('button', { name: 'Save Batch settings' }))
+  expect(edit).toHaveBeenCalledWith(
+    expect.objectContaining({
+      kind: 'settings',
+      note_subject_id: partId,
+      note: 'Check the shared marking.',
+    }),
+  )
 })
