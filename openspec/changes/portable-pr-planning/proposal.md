@@ -36,4 +36,4 @@ Affected areas are the planning index, schema/templates, mirrored planning skill
 
 ## Open decisions and assumptions
 
-Clarify whether a single top-level task must stay within one PR or is intended to span several PRs. The PR map will otherwise group work by coherent review, verification, compatibility and delivery boundaries rather than a one-task/one-PR formula.
+Confirmed by the user: no top-level task may be split across PRs. A PR may bundle several whole tasks. No material decision remains open; group work by coherent review, verification, compatibility and delivery boundaries.

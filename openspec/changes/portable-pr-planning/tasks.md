@@ -64,6 +64,8 @@ PR-A is a single coherent documentation PR on `docs/portable-pr-planning`, title
 
 - [x] 3.3 Verify single-task, multi-task and multi-PR grouping: one task owns one bundle; several whole tasks may share a bundle; separate bundles own disjoint whole tasks.
 
+- [x] 3.4 Resolve the independent review finding: replace the stale proposal question with the confirmed whole-task ownership decision; verify consistency and strict change validation.
+
 ## Delivery gates
 
 Completed implementation checkboxes must be checked before their corresponding work is committed, with this file staged in that commit. Before publication, independently review the exact candidate, fix/re-review findings and verify selected CI before an authorized merge. Record these lifecycle outcomes only after they occur. Merge and archive are separate lifecycle decisions governed by actual evidence and applicable user authorization.
