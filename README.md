@@ -32,12 +32,13 @@ Applications have owning READMEs and architecture; backend/frontend have languag
 After installing the application toolchains/dependencies as described in their READMEs, run from repository root:
 
 ```sh
-pnpm dev                  # frontend loopback development server
+pnpm dev                  # full retained local app at 127.0.0.1:4330
+pnpm dev:ui               # standalone frontend development server
 pnpm build                # frontend production assets
 pnpm typecheck
 pnpm lint                 # Python, frontend and Markdown
 pnpm test                 # normal backend, frontend and fast intake tests
-pnpm dev:intake            # loopback development bootstrap API, no worker/inventory calls
+pnpm dev:intake            # standalone API with source-only reload; no workers
 pnpm typecheck:intake      # contracts and intake-server
 pnpm contracts:check       # generated OpenAPI/DTO/client drift
 pnpm db:intake test        # explicit owned local PostgreSQL qualification
@@ -91,3 +92,5 @@ There is no aggregate required **CI** gate, `continue-on-error` or success-forci
 Read the shared and owning app guidelines/architecture before changes. Keep future product/workflow plans explicitly labeled until implemented; the file-picker scaffold is not capture/approval, and the separate intake foundation is not an inventory executor or release-qualified deployment. The [relocation handover](docs/handovers/repository-layout.md) records historical layout decisions; the [T01 handover](docs/handovers/bench-intake-T01.md) records the new implemented boundary and evidence.
 
 Licensed under [GPLv3](LICENSE); see [third-party notices](THIRD-PARTY-NOTICES.md). DigiKey/InvenTree are their respective owners' trademarks; this independent tool is not affiliated with or endorsed by them. Vendor API obligations and credential handling are described in the [backend guide](backend/README.md#using-the-digikey-api).
+
+See [local app development](docs/development.md) for full-stack startup, source-only reload, retained data and synthetic/native Processing selection.

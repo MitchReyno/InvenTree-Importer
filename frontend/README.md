@@ -10,7 +10,7 @@ Run these commands from repository root, using Node from `.node-version` and pnp
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm dev                  # standalone Vite, no API proxy configured
+pnpm dev:ui               # standalone Vite, no API proxy configured
 pnpm typecheck
 pnpm lint:frontend
 pnpm test:frontend
@@ -29,3 +29,5 @@ The inbox provides explicit Capture, Processing, Review and Results links, a rec
 Review keeps the physical-lot queue, a large read-only evidence viewer and the decision panel together. Select an exact retained source/version/page, zoom up to 300% and scroll its authorized preview; notes remain below it. Polling preserves that exact selection, including an unavailable state when it disappears. Exact source/version/page/preview selection persists in the URL; zoom remains local to the focused lot. Invalid or missing pinned evidence requires explicit selection. New shared Part choices are labelled as creates rather than missing existing selections.
 
 Processing jobs/questions and research candidates remain fixture-only. Full identity/access, live event transport, operational recovery and release qualification remain future work. There is no connection to Python approvals/journals or unmerged executor SQL. See the [current architecture](ARCHITECTURE.md) and [design-alignment task record](../docs/handovers/bench-intake-design-alignment.md) for evidence and limitations.
+
+Root `pnpm dev` starts the [full local app](../docs/development.md), including a same-origin HTTP/WebSocket development proxy and source-driven reload. Standalone `dev:ui` does not provision services.

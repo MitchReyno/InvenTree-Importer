@@ -64,6 +64,8 @@ def select_checks(paths: list[str] | None) -> dict[str, bool]:
             contract_input
             or (not markdown and path.startswith("intake-server/"))
             or path in WORKSPACE_INPUTS
+            or path == "tooling/dev.cjs"
+            or path.startswith(("tooling/dev/", "tooling/tests/dev."))
         ):
             selected["intake"] = True
         if path.startswith(SHARED_WORKFLOWS):
