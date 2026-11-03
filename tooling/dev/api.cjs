@@ -3,14 +3,14 @@ const { join, resolve } = require('node:path')
 const { pathToFileURL } = require('node:url')
 const { launch, stop } = require('./process.cjs')
 const { watchCode, snapshot } = require('./watch.cjs')
-const { developmentEnvironment } = require('./environment.cjs')
+const { developmentEnvironment, apiEnvironment } = require('./environment.cjs')
 
 const repository = resolve(__dirname, '../..')
 const intake = join(repository, 'intake-server')
 const intakeRequire = createRequire(join(intake, 'package.json'))
 
 async function main() {
-  const environment = await developmentEnvironment(repository)
+  const environment = apiEnvironment(await developmentEnvironment(repository))
   let child
   let restarting = false
   let closing = false

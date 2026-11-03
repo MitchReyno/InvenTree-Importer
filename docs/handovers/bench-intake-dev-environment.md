@@ -54,3 +54,9 @@ Retained startup now reapplies current foundation/Capture/manual/media API grant
 - Headless real-browser verification reports Target reachable on the default fake, creates a retained batch, clicks Take photos, chooses a synthetic 64×64 PNG, clicks Retain, and observes a 237-byte retained original with a ready 64×64 preview. Screenshot `.amp/out/browser/photo-saved.png` was visually inspected. Browser/app are stopped and the user's existing dev app remains untouched.
 
 All configuration/probe/upload/worker evidence uses synthetic files and owned local services. The original real inventory `.env` was not read/copied, and no actual provider or real InvenTree request was made. Independent exact-commit review and selected hosted CI remain required before publication/merge.
+
+## First review and fix
+
+Fresh read-only review of `0e0ef5a7c509c5521e9c3bc50cc6818022fe00c8` found that standalone `dev:intake` forwarded the merged environment without narrowing it to the HTTP runtime. A shared env file could therefore expose its unused setup-admin/provider keys to the API child. The launcher now applies a dedicated API-runtime allowlist after file/shell resolution, excluding setup-admin URLs, provider keys, native executable overrides, Node flags and unrelated shell values. A synthetic actual-child regression proves exclusion while preserving the API origin, inventory token and restricted app database URL. No other concrete findings were reported. Fresh exact-commit review follows after relevant checks.
+
+Post-fix checks passed: 15 env/supervisor regressions (including an actual synthetic child environment), the standalone HTTP env-file journey, formatting and Markdown. This fix narrows only the standalone child environment; full-stack/domain code and the earlier complete PG/process evidence are unchanged. A new reviewer must inspect the new exact commit before publication.

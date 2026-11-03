@@ -32,6 +32,40 @@ const SETTINGS = new Set([
   'INTAKE_RESEARCH_PROTECTED_ORIGINS',
 ])
 
+const API_SETTINGS = new Set([
+  'PATH',
+  'HOME',
+  'USER',
+  'LOGNAME',
+  'TMPDIR',
+  'LANG',
+  'NODE_ENV',
+  'INTAKE_ORIGIN',
+  'INTAKE_DEV_LISTEN_PORT',
+  'INTAKE_DATABASE_URL',
+  'INTAKE_ACTOR_ID',
+  'INTAKE_TARGET_ID',
+  'INTAKE_TARGET_CONTEXT_ID',
+  'INTAKE_CREDENTIAL_REF',
+  'INTAKE_DEV_API_KEY',
+  'INTAKE_READ_ORIGIN',
+  'INTAKE_BLOB_ROOT',
+  'INTAKE_DEPLOYMENT_ID',
+  'INTAKE_PROCESSING_PROFILE',
+  'INTAKE_PROCESSING_CHANNEL_SECRET',
+  'INTAKE_RESEARCH_SOURCE_URLS',
+  'INTAKE_RESEARCH_PROTECTED_ORIGINS',
+])
+
+/** Setup/provider secrets belong to their owners, never the standalone HTTP child. */
+function apiEnvironment(environment) {
+  return Object.fromEntries(
+    Object.entries(environment).filter(
+      ([key, value]) => API_SETTINGS.has(key) && value !== undefined,
+    ),
+  )
+}
+
 /** Deliberately returns data: dotenv cannot set process flags, PATH or client Vite values. */
 async function developmentEnvironment(
   repository,
@@ -97,4 +131,4 @@ async function developmentEnvironment(
   const accepted = Object.fromEntries(Object.entries(values).filter(([key]) => SETTINGS.has(key)))
   return { ...accepted, ...inherited }
 }
-module.exports = { developmentEnvironment }
+module.exports = { developmentEnvironment, apiEnvironment }

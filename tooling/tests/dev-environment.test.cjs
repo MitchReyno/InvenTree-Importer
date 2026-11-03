@@ -4,7 +4,7 @@ const { mkdtemp, writeFile, symlink } = require('node:fs/promises')
 const { tmpdir } = require('node:os')
 const { execFileSync } = require('node:child_process')
 const { join, resolve } = require('node:path')
-const { developmentEnvironment } = require('../dev/environment.cjs')
+const { developmentEnvironment, apiEnvironment } = require('../dev/environment.cjs')
 
 async function directory() {
   return mkdtemp(join(tmpdir(), 'intake-env-test-'))
@@ -126,4 +126,42 @@ test('checkout dotenv variants are ignored by Git while the documented templates
       { status: 1 },
     )
   }
+})
+
+test('standalone API child receives runtime settings but no setup/provider or unrelated shell secrets', () => {
+  const inherited = {
+    PATH: '/controlled/bin',
+    INTAKE_ORIGIN: 'http://127.0.0.1:12345',
+    INTAKE_DEV_API_KEY: 'synthetic-inventory-runtime',
+    INTAKE_DATABASE_URL: 'postgresql://intake_fixture:synthetic@127.0.0.1/owned',
+    INTAKE_DEV_ADMIN_URL: 'synthetic-admin-never-runtime',
+    OPENAI_API_KEY: 'synthetic-provider-never-runtime',
+    ANTHROPIC_API_KEY: 'synthetic-second-provider-never-runtime',
+    INTAKE_CODEX_EXECUTABLE: 'never-spawn',
+    NODE_OPTIONS: '--require=never-load',
+    VITE_PRIVATE_TOKEN: 'never-browser',
+    ARBITRARY_SECRET: 'never-child',
+  }
+  const env = apiEnvironment(inherited)
+  const child = JSON.parse(
+    execFileSync(process.execPath, ['-e', 'process.stdout.write(JSON.stringify(process.env))'], {
+      env,
+      encoding: 'utf8',
+    }),
+  )
+  assert.equal(child.INTAKE_ORIGIN, 'http://127.0.0.1:12345')
+  assert.equal(child.INTAKE_DEV_API_KEY, 'synthetic-inventory-runtime')
+  assert.equal(child.INTAKE_DATABASE_URL, inherited.INTAKE_DATABASE_URL)
+  for (const key of [
+    'INTAKE_DEV_ADMIN_URL',
+    'OPENAI_API_KEY',
+    'ANTHROPIC_API_KEY',
+    'INTAKE_CODEX_EXECUTABLE',
+    'NODE_OPTIONS',
+    'VITE_PRIVATE_TOKEN',
+    'ARBITRARY_SECRET',
+  ]) {
+    assert.equal(child[key], undefined, key)
+  }
+  assert.equal(inherited.OPENAI_API_KEY, 'synthetic-provider-never-runtime')
 })
