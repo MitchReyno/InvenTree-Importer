@@ -26,6 +26,7 @@ export interface RetiredLotRecord {
 }
 
 export interface InstructionRecord {
+  id: string
   groupId: string | null
   version: string
   text: string
@@ -167,6 +168,7 @@ export async function latestInstructions(
   const rows = await executeDatabaseQuery(
     queryDatabase(client)
       .selectDistinctOn([captureInstructions.groupId], {
+        id: captureInstructions.id,
         groupId: captureInstructions.groupId,
         version: captureInstructions.version,
         text: captureInstructions.text,
@@ -181,6 +183,7 @@ export async function latestInstructions(
       ),
   )
   return rows.map((row) => ({
+    id: row.id,
     groupId: row.groupId,
     version: row.version.toString(),
     text: row.text,

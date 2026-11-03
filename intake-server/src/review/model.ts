@@ -1,3 +1,4 @@
+import { captureContextRecords } from '../capture/context-input.ts'
 import { validatePartSpec, PartSpecError } from '../capture/part-spec.ts'
 import { logicalEffectKey } from '../execution/effects-plan.ts'
 import type { InventoryPartSpecDto } from '@invimport/contracts'
@@ -276,7 +277,9 @@ export function materialize(
       partDestinations.set(part.id, part.choice.value.pk)
     }
     if (part) {
+      const partContext = captureContextRecords(snapshot, null)
       const partFacts = {
+        ...(partContext.length ? { captureContext: partContext } : {}),
         version: mediaDigests.has(part.id) ? 'manual-part-review/2' : 'manual-part-review/1',
         ...(mediaDigests.has(part.id) ? { mediaDigest: mediaDigests.get(part.id) } : {}),
         batchId: snapshot.id,
@@ -293,7 +296,9 @@ export function materialize(
       }
       retain(part.id, null, partFacts, partWarnings)
     }
+    const lotContext = captureContextRecords(snapshot, lotId)
     const lotFacts = {
+      ...(lotContext.length ? { captureContext: lotContext } : {}),
       version: mediaDigests.has(lotId) ? 'manual-lot-review/2' : 'manual-lot-review/1',
       ...(mediaDigests.has(lotId) ? { mediaDigest: mediaDigests.get(lotId) } : {}),
       batchId: snapshot.id,

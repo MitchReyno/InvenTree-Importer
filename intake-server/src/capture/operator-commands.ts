@@ -1,6 +1,8 @@
+import { activeMediaGroups } from '../media/context.ts'
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import type {
+  CaptureLotContextDto,
   BulkEditDto,
   InstructionEditDto,
   OperatorImpactDto,
@@ -107,6 +109,12 @@ async function splitLot(client: PoolClient, scope: OperatorCommandScope, change:
     if (original.location.mode !== 'inherit') {
       await scope.setSelection(childId, 'location', original.location)
     }
+    const inheritedContext = scope.snapshot.context?.find(
+      (record) => record.subject_id === change.lot_id,
+    )
+    if (inheritedContext) {
+      await scope.setContext(childId, inheritedContext.value)
+    }
     created.push({ lot_id: childId, label: child.label })
   }
   const successorIds = created.map((value) => value.lot_id!)
@@ -126,6 +134,28 @@ async function mergeLots(client: PoolClient, scope: OperatorCommandScope, change
     new Set(locations).size === 1 ? lot(scope, change.lot_ids[0]).location : null
   if (sharedLocation && sharedLocation.mode !== 'inherit') {
     await scope.setSelection(mergedId, 'location', sharedLocation)
+  }
+  const contexts = change.lot_ids.map(
+    (id) => scope.snapshot.context?.find((record) => record.subject_id === id)?.value,
+  )
+  if (contexts.some((value) => value !== undefined)) {
+    const inherited: CaptureLotContextDto = {
+      supplier: { mode: 'inherit' },
+      purchase_date: { mode: 'inherit' },
+      tags: { mode: 'inherit' },
+    }
+    const values = contexts.map((value) => value ?? inherited)
+
+    const shared = <K extends keyof CaptureLotContextDto>(field: K): CaptureLotContextDto[K] =>
+      values.every((value) => JSON.stringify(value[field]) === JSON.stringify(values[0][field]))
+        ? values[0][field]
+        : { mode: 'unknown' }
+
+    await scope.setContext(mergedId, {
+      supplier: shared('supplier'),
+      purchase_date: shared('purchase_date'),
+      tags: shared('tags'),
+    })
   }
   await recordLineage(client, scope, change.lot_ids, [mergedId], 'merge')
   return {
@@ -194,6 +224,12 @@ export async function recordInstruction(
   scope: RevisionScope,
   input: InstructionEditDto,
 ) {
+  if (input.group_id !== null) {
+    const active = await activeMediaGroups(client, scope.batchId)
+    if (!active.some((group) => group.id === input.group_id)) {
+      fail('group_not_found', 404)
+    }
+  }
   try {
     await executeDatabaseQuery(
       queryDatabase(client)

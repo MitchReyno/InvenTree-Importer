@@ -1,3 +1,4 @@
+import { activeMediaGroups, retainGroupHistory, retainEvidenceNote } from './context.ts'
 import { requireMediaRecipeBounds, MediaEvidence, MediaSnapshot } from '@invimport/contracts/media'
 import { and, count, eq } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
@@ -67,13 +68,8 @@ async function moveEvidence(
 ) {
   await requireEvidence(client, batchId, change.evidence_id)
   if (change.group_id !== null) {
-    const groups = await executeDatabaseQuery(
-      queryDatabase(client)
-        .select({ id: mediaGroups.id })
-        .from(mediaGroups)
-        .where(and(eq(mediaGroups.batchId, batchId), eq(mediaGroups.id, change.group_id))),
-    )
-    if (!groups.length) {
+    const groups = await activeMediaGroups(client, batchId)
+    if (!groups.some((group) => group.id === change.group_id)) {
       fail('not_found', 404)
     }
   }
@@ -281,6 +277,60 @@ export async function editMedia(
         const revision = (BigInt(input.expected_revision) + 1n).toString()
         const change = input.change
         switch (change.kind) {
+          case 'rename_group':
+          case 'ungroup': {
+            const group = (await activeMediaGroups(client, batchId)).find(
+              (value) => value.id === change.group_id,
+            )
+            if (!group) {
+              fail('not_found', 404)
+            }
+            if (change.kind === 'ungroup') {
+              const current = await mediaSnapshot(client, binding, batchId)
+              for (const evidence of current.evidence.filter(
+                (item) => item.group_id === group.id,
+              )) {
+                await moveEvidence(client, binding, batchId, revision, {
+                  kind: 'move',
+                  evidence_id: evidence.id,
+                  group_id: null,
+                })
+              }
+            }
+            await retainGroupHistory(
+              client,
+              batchId,
+              binding.actorId,
+              group.id,
+              revision,
+              change.kind === 'rename_group' ? change.label : group.label,
+              change.kind === 'ungroup',
+            )
+            break
+          }
+          case 'move_many':
+            for (const evidenceId of change.evidence_ids) {
+              await requireEvidence(client, batchId, evidenceId)
+            }
+            for (const evidenceId of change.evidence_ids) {
+              await moveEvidence(client, binding, batchId, revision, {
+                kind: 'move',
+                evidence_id: evidenceId,
+                group_id: change.group_id,
+              })
+            }
+            break
+          case 'evidence_note':
+            await requireEvidence(client, batchId, change.evidence_id)
+            await retainEvidenceNote(
+              client,
+              batchId,
+              binding.actorId,
+              change.evidence_id,
+              revision,
+              change.text,
+            )
+            break
           case 'group':
             await createGroup(client, binding, batchId, change.label)
             break

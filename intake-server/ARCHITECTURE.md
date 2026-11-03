@@ -153,3 +153,13 @@ The inbox reuses exact operator review/dependency rules, original-run snapshots 
 ## Native provider sessions
 
 [Native agents](src/agents/ARCHITECTURE.md) add one scoped global default, immutable queue-time model/authentication selection and retained session history over Processing. The web process never launches providers. A separately supervised local worker can use unmodified Codex or Claude Code CLIs with explicit API-key or native subscription authentication. Deterministic qualification does not prove live provider access; current capability remains `native_unverified`. No native output grants inventory effects or human selections.
+
+## Capture settings and grouped context foundations
+
+Capture supports one transactional `settings` edit for title, quantity/location defaults, retained human supplier/date/tag context and an optional appended note. Per-lot context preserves explicit inheritance/clear/unknown modes. Supplier choices bind to same-batch, same-target supplier-company observations. Calendar dates remain date strings; no context value creates an inventory effect. Immutable `capture_context` versions are omitted from older snapshots when absent and are retained across legacy edit kinds. Splits copy explicit context; conflicting merged context becomes unknown rather than guessed.
+
+Group rename/retirement and per-evidence notes are append-only. `move_many` and `ungroup` serialize under the existing Capture/media locks and commit all memberships together. Ungroup retires active presentation without deleting originals, links, group identities or historical instructions. Current group notes reuse Capture's versioned instruction authority and reject writes to retired groups under the shared Capture lock.
+
+Relevant group labels/notes and evidence notes enter additive `media-inputs/3` manifests. Existing /1 and /2 bytes remain decodable; Part attachments still cannot enter Processing. Capture context materializes as bounded untrusted human notes with retained IDs/actors/versions. Group/evidence note text remains verbatim with scope/version sealed separately in the media descriptor. Review fact/media digests invalidate stale dependencies. Native prompts receive only scoped retained context; no new tool/provider or execution capability is granted. Interpreted media and compiled HTTP validation share the same exact int64 bound.
+
+These are additive backend contracts. Capture UI consolidation follows separately. Older frontend builds fail closed on unknown response fields after new context is stored and need reload; stale old revisions cannot erase context. Deploy compatible generated clients with consumers, preserve drafts and do not remove additive APIs before rolling consumers back.

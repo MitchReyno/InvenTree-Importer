@@ -1,3 +1,4 @@
+import type { MediaInputContextDto } from '@invimport/contracts/media'
 import { prepareMediaTransaction } from './transaction.ts'
 import type { PoolClient } from 'pg'
 import type { CaptureSnapshotDto, MediaRecipeDto, MediaSnapshotDto } from '@invimport/contracts'
@@ -32,6 +33,7 @@ export interface MediaInputs {
   subjectIds: string[]
   versions: MediaInputVersion[]
   attachments: MediaAttachmentSelection[]
+  context?: MediaInputContextDto
   bytes: Buffer
   digest: Buffer
 }
@@ -206,11 +208,27 @@ export function scopeMediaInputs(
     throw new MediaInputUnavailableError('capacity')
   }
   versions.sort((left, right) => left.versionId.localeCompare(right.versionId))
+  const relevantGroups = new Set(
+    relevantEvidence.flatMap((item) => (item.group_id ? [item.group_id] : [])),
+  )
+  const context = {
+    groups: snapshot.groups.filter((group) => relevantGroups.has(group.id)),
+    evidenceNotes: relevantEvidence.flatMap((item) =>
+      item.note ? [{ evidenceId: item.id, note: item.note }] : [],
+    ),
+  }
+  const hasContext = context.groups.length > 0 || context.evidenceNotes.length > 0
+  let version = 'media-inputs/1'
+  if (selectedAttachments.some((selection) => selection.destination === 'part_attachment')) {
+    version = 'media-inputs/2'
+  }
+  if (hasContext) {
+    version = 'media-inputs/3'
+  }
   const bytes = Buffer.from(
     canonicalMedia({
-      version: selectedAttachments.some((selection) => selection.destination === 'part_attachment')
-        ? 'media-inputs/2'
-        : 'media-inputs/1',
+      version,
+      ...(hasContext ? { context } : {}),
       batchId: snapshot.batch_id,
       subjectIds: selectedSubjects,
       attachments: selectedAttachments,
@@ -229,6 +247,7 @@ export function scopeMediaInputs(
   }
   return {
     batchId: snapshot.batch_id,
+    ...(hasContext ? { context } : {}),
     subjectIds: selectedSubjects,
     versions,
     attachments: selectedAttachments,
@@ -247,6 +266,7 @@ export function decodeMediaInputs(bytes: Buffer, expectedDigest: Buffer): MediaI
   }
   return {
     batchId: manifest.batchId,
+    ...(manifest.version === 'media-inputs/3' ? { context: manifest.context } : {}),
     subjectIds: manifest.subjectIds,
     versions: manifest.versions,
     attachments: manifest.attachments,

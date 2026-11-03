@@ -1,3 +1,4 @@
+import { unicodeText } from './unicode-text.ts'
 import { Value } from '@sinclair/typebox/value'
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Digest, Id, Revision } from './scalars.ts'
@@ -10,7 +11,7 @@ const object = <T extends TProperties>(properties: T) =>
 const nullableId = Type.Union([Id, Type.Null()])
 const pixel = Type.Integer({ minimum: 0, maximum: 24000000 })
 const dimension = Type.Integer({ minimum: 1, maximum: 24000000 })
-const label = Type.String({ minLength: 1, maxLength: 256 })
+const label = unicodeText(1, 256)
 
 /** Coordinates address the orientation-normalized source, before output rotation. */
 export const LegacyMediaRecipe = object({
@@ -82,11 +83,19 @@ export const MediaVersion = object({
     { maxItems: 30 },
   ),
 })
+export const MediaHumanNote = object({
+  id: Id,
+  version: Revision,
+  text: unicodeText(0, 8192),
+  actor_id: Id,
+  created_at: Type.String(),
+})
 export const MediaEvidence = object({
   id: Id,
   label,
   group_id: nullableId,
   linked_subject_ids: Type.Array(Id, { maxItems: 200, uniqueItems: true }),
+  note: Type.Optional(MediaHumanNote),
   versions: Type.Array(MediaVersion, { maxItems: 100 }),
 })
 export const MediaSnapshot = object({
@@ -103,7 +112,9 @@ export const MediaSnapshot = object({
     }),
     { maxItems: 200 },
   ),
-  groups: Type.Array(object({ id: Id, label }), { maxItems: 100 }),
+  groups: Type.Array(object({ id: Id, label, note: Type.Optional(MediaHumanNote) }), {
+    maxItems: 100,
+  }),
   derivations: Type.Array(
     object({
       id: Id,
@@ -126,6 +137,18 @@ export const MediaEdit = object({
   expected_revision: Revision,
   change: Type.Union([
     object({ kind: Type.Literal('group'), label }),
+    object({ kind: Type.Literal('rename_group'), group_id: Id, label }),
+    object({ kind: Type.Literal('ungroup'), group_id: Id }),
+    object({
+      kind: Type.Literal('move_many'),
+      evidence_ids: Type.Array(Id, { minItems: 1, maxItems: 200, uniqueItems: true }),
+      group_id: nullableId,
+    }),
+    object({
+      kind: Type.Literal('evidence_note'),
+      evidence_id: Id,
+      text: Type.String({ maxLength: 8192 }),
+    }),
     object({ kind: Type.Literal('move'), evidence_id: Id, group_id: nullableId }),
     object({ kind: Type.Literal('link'), evidence_id: Id, subject_id: Id, linked: Type.Boolean() }),
     object({
@@ -239,7 +262,21 @@ const MediaInputManifestV2 = object({
   ...mediaInputFields,
   version: Type.Literal('media-inputs/2'),
 })
-export const MediaInputManifest = Type.Union([MediaInputManifestV1, MediaInputManifestV2])
+export const MediaInputContext = object({
+  groups: Type.Array(MediaSnapshot.properties.groups.items, { maxItems: 100 }),
+  evidenceNotes: Type.Array(object({ evidenceId: Id, note: MediaHumanNote }), { maxItems: 200 }),
+})
+const MediaInputManifestV3 = object({
+  ...mediaInputFields,
+  version: Type.Literal('media-inputs/3'),
+  context: MediaInputContext,
+})
+export const MediaInputManifest = Type.Union([
+  MediaInputManifestV1,
+  MediaInputManifestV2,
+  MediaInputManifestV3,
+])
+export type MediaInputContextDto = Static<typeof MediaInputContext>
 export type MediaInputManifestDto = Static<typeof MediaInputManifest>
 
 export function assertMediaInputManifest(value: unknown): asserts value is MediaInputManifestDto {

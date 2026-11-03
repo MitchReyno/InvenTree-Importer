@@ -79,3 +79,9 @@ State transitions and supersession now express revision increments as PostgreSQL
 ## Native sessions
 
 The additive input/command/envelope version 4 selects `native-agent/1` and seals the global provider/authentication/model default when an attempt is queued. The existing queue, account lane, currentness, provenance, cancellation and question/answer authorities still apply. The [native agent boundary](../agents/ARCHITECTURE.md) documents supervision, authentication, staged image limits and crash recovery. Existing fixture profiles retain their original bytes and defaults. Native capability is labelled unverified until separately authorized live qualification.
+
+## Human capture context
+
+Current retained batch/lot context materializes as labelled untrusted human-context notes with the original record IDs, authors and versions. Existing input schemas /1–/4 remain unchanged; no historical sealed input is rewritten. Additive `media-inputs/3` descriptors include only the selected closure's group labels/notes and per-evidence notes. Their digests and note identities participate in currentness. Part-attachment scopes remain unsupported in Processing regardless of media descriptor version. Native prompts include scoped media context with the existing no-tools authority.
+
+Group/evidence note text stays verbatim within the existing note bound, while scope/version remains sealed in media context. Capture tag values use a bounded length-prefixed representation without escape expansion. Excessive combined note counts yield a typed capacity refusal; previously retained work becomes noncurrent rather than throwing a generic validation failure. Interpreted media-note validation counts Unicode code points like HTTP JSON Schema.

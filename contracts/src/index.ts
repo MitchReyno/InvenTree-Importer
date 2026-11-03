@@ -1,6 +1,14 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Ajv2020 } from 'ajv/dist/2020.js'
-import { Id, Revision, CursorSequence, Digest, PositivePk, Quantity } from './scalars.ts'
+import {
+  Id,
+  Revision,
+  CursorSequence,
+  Digest,
+  PositivePk,
+  Quantity,
+  validInt64,
+} from './scalars.ts'
 import { effectsSchemas } from './effects.ts'
 export * from './effects.ts'
 import { captureSchemas } from './capture.ts'
@@ -167,10 +175,7 @@ const ajv = new Ajv2020({
   useDefaults: false,
   removeAdditional: false,
 })
-ajv.addFormat(
-  'int64',
-  (value) => /^(0|[1-9][0-9]{0,18})$/.test(value) && BigInt(value) <= 9223372036854775807n,
-)
+ajv.addFormat('int64', validInt64)
 const validators = new Map(
   Object.entries(schemas).map(([key, schema]) => [key, ajv.compile(schema)]),
 )

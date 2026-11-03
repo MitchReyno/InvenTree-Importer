@@ -33,13 +33,15 @@ These future bundles do not authorize implementation. This proposal documentatio
 - Verification: `pnpm contracts:generate`, `pnpm contracts:check`, `pnpm typecheck:intake`, targeted contract/server tests, `pnpm test:intake:pg` and affected process tests.
 - Risks: Context may be confused with executable supplier/tag choices; partial composite saves and immutable historical plans require explicit tests.
 
-- [ ] 1.1 Define bounded supplier/date/tag context, per-lot modes, effective-value provenance and one composite settings command; document their distinction from inventory effects.
-- [ ] 1.2 RED: cover atomic rollback, exact quantity/PK/date roundtrip, invalid company role/context, tag bounds, duplicate command keys, changed payload refusal and rejected PO intent.
-- [ ] 1.3 RED: cover explicit overrides surviving default changes, old data defaulting to unset/inherit and affected processing/preparation currency after context changes.
-- [ ] 1.4 GREEN: add additive migrations, strict schemas/typed clients, retained projections and transactional composite save; preserve historical plan/approval bytes.
-  - [ ] 1.4.1 Include optional appended human note in the same acknowledged save, preserving human provenance and version identity.
-  - [ ] 1.4.2 Integrate context dependencies into canonical input/manifest currency and Review readback without new automatic effects.
-- [ ] 1.5 Refactor only affected helpers, validate migration upgrade/readback/consumer rollback against owned data, and record actual boundary evidence.
+- [x] 1.1 Define bounded supplier/date/tag context, per-lot modes, effective-value provenance and one composite settings command; document their distinction from inventory effects.
+- [x] 1.2 RED: cover atomic rollback, exact quantity/PK/date roundtrip, invalid company role/context, tag bounds, duplicate command keys, changed payload refusal and rejected PO intent.
+- [x] 1.3 RED: cover explicit overrides surviving default changes, old data defaulting to unset/inherit and affected processing/preparation currency after context changes.
+- [x] 1.4 GREEN: add additive migrations, strict schemas/typed clients, retained projections and transactional composite save; preserve historical plan/approval bytes.
+  - [x] 1.4.1 Include optional appended human note in the same acknowledged save, preserving human provenance and version identity.
+  - [x] 1.4.2 Integrate context dependencies into canonical input/manifest currency and Review readback projections without new automatic effects.
+- [x] 1.5 Refactor only affected helpers, validate migration upgrade/readback/consumer rollback against owned data, and record actual boundary evidence.
+
+- [x] 1.6 Correct reviewed note-bound issues: retain full maximum-length Unicode notes, bound escape-heavy Capture context without truncation, and refuse excessive note counts with a typed capacity result.
 
 ## 2. Extend durable group and evidence-note operations
 
@@ -52,13 +54,15 @@ These future bundles do not authorize implementation. This proposal documentatio
 - Verification: Contract/client drift checks, focused media/operator tests, real `pnpm test:intake:pg` and affected input/processing process tests.
 - Risks: Deleting group identity would orphan historical instructions; optimistic per-item moves can partially succeed.
 
-- [ ] 2.1 Specify bounded rename/multi-move/ungroup commands and versioned evidence notes; preserve existing single-move/create compatibility and exact request identities.
-- [ ] 2.2 RED: test cross-batch destinations, duplicate/missing evidence IDs, stale revisions, all-or-nothing move, repeated payload-bound requests and frozen edit refusal.
-- [ ] 2.3 RED: cover ungroup preserving originals/links/history, annotation roundtrip in Review/viewer and changed context invalidating dependent inputs/preparations.
-- [ ] 2.4 GREEN: extend commands/migrations/read projections and canonical input materialization using existing group IDs and group instructions.
-  - [ ] 2.4.1 Retire ungrouped group's active presentation while preserving attributable historical group records/instructions.
-  - [ ] 2.4.2 Return retained note/instruction version identities without changing original bytes or attachment selections.
-- [ ] 2.5 Verify rollback/idempotence and currentness, run owning checks and document migration/compatibility limits in the handover.
+- [x] 2.1 Specify bounded rename/multi-move/ungroup commands and versioned evidence notes; preserve existing single-move/create compatibility and exact request identities.
+- [x] 2.2 RED: test cross-batch destinations, duplicate/missing evidence IDs, stale revisions, all-or-nothing move, repeated payload-bound requests and frozen edit refusal.
+- [x] 2.3 RED: cover ungroup preserving originals/links/history, annotation roundtrip in the scoped read projections consumed by Review/viewer and changed context invalidating dependent inputs/preparations.
+- [x] 2.4 GREEN: extend commands/migrations/read projections and canonical input materialization using existing group IDs and group instructions.
+  - [x] 2.4.1 Retire ungrouped group's active presentation while preserving attributable historical group records/instructions.
+  - [x] 2.4.2 Return retained note/instruction version identities without changing original bytes or attachment selections.
+- [x] 2.5 Verify rollback/idempotence and currentness, run owning checks and document migration/compatibility limits in the handover.
+
+- [x] 2.6 Reject group-instruction writes to retired groups under the shared Capture lock, preserving old history and proving stale-editor refusal.
 
 ## 3. Consolidate and position Batch settings
 

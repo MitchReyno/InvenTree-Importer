@@ -1,3 +1,4 @@
+import { captureContextNotes } from '../capture/context-input.ts'
 import { nativeProfileId, nativeInstructionDigest } from '../agents/policy.ts'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import {
@@ -74,6 +75,14 @@ export function unseal(bytes: Buffer, digest: Buffer): unknown {
   return value
 }
 
+const MAX_PROCESSING_HUMAN_NOTES = 1000
+
+function requireNoteCapacity(notes: readonly unknown[]) {
+  if (notes.length > MAX_PROCESSING_HUMAN_NOTES) {
+    fail('processing_input_capacity', 422)
+  }
+}
+
 function captureInputFields(
   snapshot: CaptureSnapshotDto,
   subjectId: string,
@@ -93,6 +102,8 @@ function captureInputFields(
       note.subject_id === subjectId ||
       note.subject_id === linkedPart?.id,
   )
+  const contextNotes = captureContextNotes(snapshot, subjectId)
+  requireNoteCapacity([...notes, ...contextNotes])
   // /1–/3 stay frozen. A create choice is scoped to this subject; newer observation
   // models and mapping fields stay out of the sealed document.
   for (const scoped of [lot ?? part, linkedPart]) {
@@ -111,7 +122,7 @@ function captureInputFields(
     defaults: snapshot.defaults,
     subject: (lot ?? part)!,
     linked_part: linkedPart ?? null,
-    notes,
+    notes: [...notes, ...contextNotes],
     observations: snapshot.observations.flatMap((observation) => {
       if (observation.model !== 'part' && observation.model !== 'location') {
         return []
@@ -182,7 +193,10 @@ export function mediaInputManifest(
     Buffer.from(media.sha256, 'hex'),
   )
   const mediaVersion = strictJson(media.manifest) as { version?: string }
-  if (mediaVersion.version !== 'media-inputs/1') {
+  if (
+    (mediaVersion.version !== 'media-inputs/1' && mediaVersion.version !== 'media-inputs/3') ||
+    decodedMedia.attachments.some((attachment) => attachment.destination === 'part_attachment')
+  ) {
     fail('unsupported_processing_input')
   }
   const expectedSubjectIds = processingSubjectScope(snapshot, subjectId)
@@ -191,13 +205,29 @@ export function mediaInputManifest(
     fail('processing_media_binding_invalid')
   }
 
-  const meaningfulNote = fields.notes.some((note) => note.text.trim().length > 0)
+  const mediaNotes = [
+    ...(decodedMedia.context?.groups.flatMap((group) => (group.note ? [group.note] : [])) ?? []),
+    ...(decodedMedia.context?.evidenceNotes.map((item) => item.note) ?? []),
+  ]
+    .filter((note) => note.text.trim().length > 0)
+    .map((note) => ({
+      id: note.id,
+      subject_id: null,
+      producer: 'human' as const,
+      actor_id: note.actor_id,
+      created_at: note.created_at,
+      text: note.text,
+    }))
+  const notes = [...fields.notes, ...mediaNotes]
+  requireNoteCapacity(notes)
+  const meaningfulNote = notes.some((note) => note.text.trim().length > 0)
   if (!meaningfulNote && decodedMedia.versions.length === 0) {
     fail('retained_evidence_required', 422)
   }
 
   return {
     ...fields,
+    notes,
     schema_version: 'bench-intake-input/2',
     profile_id: mediaProfileId,
     instruction_version: mediaInstructionVersion,
