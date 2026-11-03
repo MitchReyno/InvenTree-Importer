@@ -64,13 +64,13 @@ test('pending original cannot enable Capture save or lose its request when Captu
   await user.upload(input, file)
 
   expect(dirty).toHaveBeenLastCalledWith(true)
-  expect(screen.getByRole('button', { name: 'Save shared defaults' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Save Batch settings' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Add note' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Archive batch' })).toBeDisabled()
   view.rerender(
     <CaptureWorkspace {...props} batch={{ ...batch, updated_at: '2026-11-02T00:01:00Z' }} />,
   )
-  await user.click(screen.getByRole('button', { name: 'Save shared defaults' }))
+  await user.click(screen.getByRole('button', { name: 'Save Batch settings' }))
   expect(edit).not.toHaveBeenCalled()
   expect(screen.getByRole('button', { name: 'Retain bench-photo.png' })).toBeEnabled()
 
@@ -84,7 +84,7 @@ test('pending original cannot enable Capture save or lose its request when Captu
 
   await user.click(screen.getByRole('button', { name: 'Discard selected file' }))
   expect(dirty).toHaveBeenLastCalledWith(false)
-  expect(screen.getByRole('button', { name: 'Save shared defaults' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Save Batch settings' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Archive batch' })).toBeEnabled()
 })
 
@@ -102,7 +102,7 @@ test('Capture input freezes file selection until its own input is resolved', asy
   )
   const upload = await screen.findByLabelText('Add a photo or PDF')
   expect(upload).toBeEnabled()
-  await user.type(screen.getByRole('textbox', { name: 'Title' }), ' updated')
+  await user.type(screen.getByRole('textbox', { name: 'Batch title' }), ' updated')
   expect(upload).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'Save human changes' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Save Batch settings' })).toBeEnabled()
 })

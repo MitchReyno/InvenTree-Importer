@@ -148,15 +148,26 @@ test('refresh URL resumes server batch and a 412 preserves local inputs while sh
   const user = userEvent.setup()
   render(<App />)
   await screen.findByRole('heading', { name: 'Separate packets' })
-  await user.click(screen.getByRole('button', { name: 'Batch title' }))
-  await user.clear(screen.getByLabelText('Title'))
-  await user.type(screen.getByLabelText('Title'), 'My unsaved title')
-  await user.click(screen.getByRole('button', { name: 'Save human changes' }))
+  await user.clear(screen.getByLabelText('Batch title'))
+  await user.type(screen.getByLabelText('Batch title'), 'My unsaved title')
+  await user.click(screen.getByRole('button', { name: 'Save Batch settings' }))
   await screen.findByText(/Another client saved first/)
-  expect(screen.getByLabelText('Title')).toHaveValue('My unsaved title')
+  expect(screen.getByLabelText('Batch title')).toHaveValue('My unsaved title')
   expect(screen.getByText(/Current saved revision 9007199254740994/)).toBeVisible()
   expect(sent).toEqual([
-    { expected_revision: '9007199254740993', change: { kind: 'batch', title: 'My unsaved title' } },
+    {
+      expected_revision: '9007199254740993',
+      change: {
+        kind: 'settings',
+        title: 'My unsaved title',
+        ...fixture.defaults,
+        context: {
+          supplier: { mode: 'unset' },
+          purchase_date: { mode: 'unset' },
+          tags: { mode: 'unset' },
+        },
+      },
+    },
   ])
   await user.click(
     screen.getByRole('button', { name: 'Discard local edits and load saved values' }),
@@ -178,7 +189,7 @@ test('archive is read-only until explicit resume; no approval or write button is
     />,
   )
   expect(screen.getByRole('status')).toHaveTextContent('Archived, not deleted')
-  expect(screen.getByRole('button', { name: 'Save shared defaults' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Save Batch settings' })).toBeDisabled()
   expect(screen.queryByRole('button', { name: /Approve|Apply|Upload/ })).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Resume archived batch' }))
   expect(edit).toHaveBeenCalledWith({ kind: 'batch', archived: false })
@@ -345,22 +356,24 @@ test('app-wide activity navigation preserves the dirty editor instance; explicit
   navigationServer(true)
   const user = userEvent.setup()
   const view = render(<App />)
-  const title = await screen.findByLabelText('Title')
+  const title = await screen.findByLabelText('Batch title')
   await user.clear(title)
   await user.type(title, 'UNSAVED activity regression')
   await user.click(await screen.findByRole('link', { name: 'Open original run' }))
   expect(await screen.findByText(/Your unsaved input is preserved/)).toBeVisible()
-  expect(screen.getByLabelText('Title')).toBe(title)
+  expect(screen.getByLabelText('Batch title')).toBe(title)
   expect(title).toHaveValue('UNSAVED activity regression')
   expect(location.hash).toBe(`#${batchId}/batch`)
   expect(screen.queryByRole('heading', { name: 'Retained results' })).not.toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: 'Save human changes' }))
+  await user.click(screen.getByRole('button', { name: 'Save Batch settings' }))
   await screen.findByText(/Another client saved first/)
   expect(title).toHaveValue('UNSAVED activity regression')
   await user.click(
     screen.getByRole('button', { name: 'Discard local edits and load saved values' }),
   )
-  await waitFor(() => expect(screen.getByLabelText('Title')).toHaveValue('Another saved title'))
+  await waitFor(() =>
+    expect(screen.getByLabelText('Batch title')).toHaveValue('Another saved title'),
+  )
   expect(screen.queryByText(/Your unsaved input is preserved/)).not.toBeInTheDocument()
   await user.click(screen.getByRole('link', { name: 'Open original run' }))
   await screen.findByRole('heading', { name: 'Retained results' })
@@ -374,7 +387,7 @@ test('hash and browser Back cannot discard dirty input; confirmed save permits r
   navigationServer()
   const user = userEvent.setup()
   const view = render(<App />)
-  const title = await screen.findByLabelText('Title')
+  const title = await screen.findByLabelText('Batch title')
   await user.clear(title)
   await user.type(title, 'UNSAVED history regression')
   const unload = new Event('beforeunload', { cancelable: true })
@@ -382,14 +395,14 @@ test('hash and browser Back cannot discard dirty input; confirmed save permits r
   location.hash = activityDestination
   await screen.findByText(/Your unsaved input is preserved/)
   expect(location.hash).toBe(`#${batchId}/batch`)
-  expect(screen.getByLabelText('Title')).toBe(title)
+  expect(screen.getByLabelText('Batch title')).toBe(title)
   history.back()
   await waitFor(() => expect(location.hash).toBe(`#${batchId}/batch`))
   expect(title).toHaveValue('UNSAVED history regression')
   expect(screen.queryByRole('heading', { name: 'Retained results' })).not.toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: 'Save human changes' }))
+  await user.click(screen.getByRole('button', { name: 'Save Batch settings' }))
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Save human changes' })).toBeDisabled(),
+    expect(screen.getByRole('button', { name: 'Save Batch settings' })).toBeDisabled(),
   )
   expect(screen.queryByText(/Your unsaved input is preserved/)).not.toBeInTheDocument()
   expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(true)
@@ -549,26 +562,34 @@ test('a refreshed query cache cannot replace Capture input or its accepted edit 
     { wrapper: Wrapper },
   )
   await screen.findByRole('heading', { name: 'Separate packets' })
-  await user.click(screen.getByRole('button', { name: 'Batch title' }))
-  await user.clear(screen.getByLabelText('Title'))
-  await user.type(screen.getByLabelText('Title'), 'Keep my human draft')
+  await user.clear(screen.getByLabelText('Batch title'))
+  await user.type(screen.getByLabelText('Batch title'), 'Keep my human draft')
   await act(async () => {
     await cache.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'capture', batchId) })
   })
   expect(cache.getQueryData(serverQueryKey(fixtureScope, 'capture', batchId))).toEqual(
     expect.objectContaining({ revision: '9007199254740994' }),
   )
-  expect(screen.getByLabelText('Title')).toHaveValue('Keep my human draft')
+  expect(screen.getByLabelText('Batch title')).toHaveValue('Keep my human draft')
   expect(screen.getByText('Saved · revision 9007199254740993')).toBeVisible()
-  await user.click(screen.getByRole('button', { name: 'Save human changes' }))
+  await user.click(screen.getByRole('button', { name: 'Save Batch settings' }))
   await screen.findByText(/Another client saved first/)
   expect(edits).toEqual([
     {
       expected_revision: '9007199254740993',
-      change: { kind: 'batch', title: 'Keep my human draft' },
+      change: {
+        kind: 'settings',
+        title: 'Keep my human draft',
+        ...fixture.defaults,
+        context: {
+          supplier: { mode: 'unset' },
+          purchase_date: { mode: 'unset' },
+          tags: { mode: 'unset' },
+        },
+      },
     },
   ])
-  expect(screen.getByLabelText('Title')).toHaveValue('Keep my human draft')
+  expect(screen.getByLabelText('Batch title')).toHaveValue('Keep my human draft')
 })
 
 test('an unavailable bootstrap refresh within the same scope preserves the mounted human draft', async () => {
@@ -609,15 +630,14 @@ test('an unavailable bootstrap refresh within the same scope preserves the mount
   const user = userEvent.setup()
   render(<App />, { wrapper: Wrapper })
   await screen.findByRole('heading', { name: 'Separate packets' })
-  await user.click(screen.getByRole('button', { name: 'Batch title' }))
-  await user.clear(screen.getByLabelText('Title'))
-  await user.type(screen.getByLabelText('Title'), 'Keep this draft while offline')
+  await user.clear(screen.getByLabelText('Batch title'))
+  await user.type(screen.getByLabelText('Batch title'), 'Keep this draft while offline')
   bootstrapAvailable = false
   await act(async () => {
     await cache.refetchQueries({ queryKey: ['bootstrap', location.origin] })
   })
   await screen.findByText(/Application connection unavailable/)
-  expect(screen.getByLabelText('Title')).toHaveValue('Keep this draft while offline')
+  expect(screen.getByLabelText('Batch title')).toHaveValue('Keep this draft while offline')
   expect(screen.getByRole('button', { name: 'Add lot' })).toBeDisabled()
 })
 
@@ -687,4 +707,91 @@ test('following an inbox workflow filter opens Review through the actual App rou
   expect(await screen.findByRole('heading', { name: 'Review selected lots' })).toBeVisible()
   expect(location.hash).toBe(`#${batchId}/review?filter=needs_review`)
   expect(screen.getByRole('button', { name: 'Review' })).toHaveAttribute('aria-current', 'page')
+})
+
+test('uncertain composite settings save retries identical revision, payload and key; changed input requires reconciliation', async () => {
+  const user = userEvent.setup()
+  const requests: { body: string; key: string | null }[] = []
+
+  const transport: typeof fetch = async (input, init) => {
+    if (new URL(String(input)).pathname.endsWith('/edits')) {
+      requests.push({
+        body: String(init?.body),
+        key: new Headers(init?.headers).get('Idempotency-Key'),
+      })
+      throw new Error('acknowledgement_lost')
+    }
+    return response(fixture)
+  }
+
+  const client = captureClient(location.origin, 'a'.repeat(64), transport)
+  const manual = manualClient(location.origin, 'a'.repeat(64), async () => {
+    throw new Error('unexpected_manual_call')
+  })
+  const dirty = vi.fn()
+  render(
+    <Batch id={batchId} route={batchId} client={client} manual={manual} onDirtyChange={dirty} />,
+  )
+  const title = await screen.findByLabelText('Batch title')
+  await user.type(title, ' draft')
+  const save = screen.getByRole('button', { name: 'Save Batch settings' })
+  await user.click(save)
+  await screen.findByText(/Save not confirmed/)
+  await user.click(save)
+  await waitFor(() => expect(requests).toHaveLength(2))
+  expect(requests[0].key).toBeTruthy()
+  expect(requests[1]).toEqual(requests[0])
+  await user.type(title, ' changed')
+  await user.click(save)
+  await screen.findByText(/An earlier save is unconfirmed/)
+  expect(requests).toHaveLength(2)
+  expect(title).toHaveValue('Separate packets draft changed')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  await user.click(screen.getByRole('button', { name: 'Discard Batch settings edits' }))
+  await waitFor(() => expect(screen.getByLabelText('Batch title')).toHaveValue('Separate packets'))
+  await user.type(screen.getByLabelText('Batch title'), ' new intent')
+  await user.click(screen.getByRole('button', { name: 'Save Batch settings' }))
+  await waitFor(() => expect(requests).toHaveLength(3))
+  expect(requests[2].key).not.toBe(requests[0].key)
+})
+
+test('a locally refused lot context remains correctable before any delivery intent is retained', async () => {
+  const user = userEvent.setup()
+  const edits: unknown[] = []
+
+  const transport: typeof fetch = async (input, init) => {
+    if (new URL(String(input)).pathname.endsWith('/edits')) {
+      edits.push(JSON.parse(String(init?.body)))
+      return response({ ...fixture, revision: '9007199254740994' })
+    }
+    return response(fixture)
+  }
+
+  const client = captureClient(location.origin, 'a'.repeat(64), transport)
+  const manual = manualClient(location.origin, 'a'.repeat(64), async () => {
+    throw new Error('unexpected_manual_call')
+  })
+  render(
+    <Batch id={batchId} route={batchId} client={client} manual={manual} onDirtyChange={vi.fn()} />,
+  )
+  await screen.findByLabelText('Batch title')
+  await user.click(screen.getByRole('button', { name: 'Edit lot Packet A' }))
+  const lot = screen.getByRole('region', { name: 'Lot: Packet A' })
+  await user.selectOptions(within(lot).getByLabelText('Capture tags mode'), 'set')
+  const tags = within(lot).getByLabelText(/^Capture tags \(one per line\)/)
+  await user.type(tags, 'same\nsame')
+  await user.click(within(lot).getByRole('button', { name: 'Save human changes' }))
+  await screen.findByText(/No request was sent/)
+  expect(edits).toHaveLength(0)
+  await user.clear(tags)
+  await user.type(tags, 'corrected\n')
+  await user.click(within(lot).getByRole('button', { name: 'Save human changes' }))
+  await waitFor(() => expect(edits).toHaveLength(1))
+  expect(edits[0]).toEqual(
+    expect.objectContaining({
+      change: expect.objectContaining({
+        context: expect.objectContaining({ tags: { mode: 'set', value: ['corrected'] } }),
+      }),
+    }),
+  )
 })

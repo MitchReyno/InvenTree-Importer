@@ -65,6 +65,7 @@ export const CaptureEdit = object({
       location: Type.Optional(CaptureLocation),
       context: Type.Optional(CaptureContext),
       note: Type.Optional(note),
+      note_subject_id: Type.Optional(Type.Union([Id, Type.Null()])),
     }),
     object({
       kind: Type.Literal('batch'),

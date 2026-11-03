@@ -3236,6 +3236,7 @@ export interface components {
                     };
                 };
                 note?: string;
+                note_subject_id?: string | null;
             } | {
                 /** @constant */
                 kind: "batch";

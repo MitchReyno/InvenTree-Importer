@@ -295,6 +295,19 @@ test('splitting physical lots preserves explicit human context on the new childr
       await applyRestructure(client, scope, input)
       return scope.commit(input)
     })
+    await assert.rejects(
+      repo.edit(saved.id, randomUUID(), {
+        expected_revision: saved.revision,
+        change: {
+          kind: 'settings',
+          title: 'Must not change',
+          note: 'Retired lot',
+          note_subject_id: originalId,
+        },
+      }),
+      /lot_retired/,
+    )
+    assert.deepEqual(await repo.read(saved.id), saved)
     for (const lot of saved.lots.filter((lot) => lot.id !== originalId)) {
       assert.deepEqual(saved.context?.find((record) => record.subject_id === lot.id)?.value, value)
     }
@@ -401,5 +414,52 @@ test('public settings HTTP preserves new response fields and rejects active PO i
     assert.equal(rejected.status, 400)
   } finally {
     await fixture.dispose()
+  }
+})
+
+test('composite settings preserve scoped human notes and roll back foreign subjects', async () => {
+  const db = await isolatedDatabase()
+  const identity = await seedAuthority(db.pool)
+  const repo = captureRepository(db.pool, {
+    actorId: identity.actor,
+    targetId: identity.target,
+    targetContextId: identity.context,
+  })
+  try {
+    let saved = await checked(repo.create(randomUUID(), { title: 'Scoped notes', note: '' }))
+    saved = await checked(
+      repo.edit(saved.id, randomUUID(), {
+        expected_revision: saved.revision,
+        change: { kind: 'add_part', label: 'Shared Part' },
+      }),
+    )
+    const partId = saved.parts[0].id
+    saved = await checked(
+      repo.edit(saved.id, randomUUID(), {
+        expected_revision: saved.revision,
+        change: {
+          kind: 'settings',
+          title: 'Same atomic save',
+          note: 'Check marking',
+          note_subject_id: partId,
+        },
+      }),
+    )
+    assert.equal(saved.notes.at(-1)?.subject_id, partId)
+    assert.equal(saved.notes.at(-1)?.producer, 'human')
+    await assert.rejects(
+      repo.edit(saved.id, randomUUID(), {
+        expected_revision: saved.revision,
+        change: {
+          kind: 'settings',
+          title: 'Must roll back',
+          note: 'Foreign note',
+          note_subject_id: randomUUID(),
+        },
+      }),
+    )
+    assert.deepEqual(await repo.read(saved.id), saved)
+  } finally {
+    await db.dispose()
   }
 })

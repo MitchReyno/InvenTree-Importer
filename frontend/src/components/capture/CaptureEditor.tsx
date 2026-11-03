@@ -6,6 +6,8 @@ import {
   captureEditorChange,
   type CaptureEditorValues,
 } from '../../capture/editor-model'
+import { CaptureContextFields } from './CaptureContextFields'
+import { CaptureContextSummary } from './CaptureContextSummary'
 import { PartCreationFields } from './PartCreationFields'
 import { QuantityField } from './QuantityField'
 import { ReferenceField } from './ReferenceField'
@@ -31,12 +33,9 @@ export function CaptureEditor({
 }: EditorProps) {
   const lot = batch.lots.find((l) => l.id === selected)
   const part = batch.parts.find((p) => p.id === selected)
-  const defaults = selected === 'defaults'
   let labelCaption = 'Lot label'
   if (part || selected === 'add_part') {
     labelCaption = 'Part label'
-  } else if (selected === 'batch') {
-    labelCaption = 'Title'
   }
 
   // Defaults belong to this selected editor's lifetime. Polling does not reset human input.
@@ -51,12 +50,10 @@ export function CaptureEditor({
   return (
     <Form onChange={() => onDirty(true)} onSubmit={handleSubmit(saveChanges)}>
       <Fieldset disabled={frozen || formState.isSubmitting}>
-        {!defaults && selected !== 'note' && (
-          <Label>
-            {labelCaption}
-            <Input required maxLength={256} {...register('label')} />
-          </Label>
-        )}
+        <Label>
+          {labelCaption}
+          <Input required maxLength={256} {...register('label')} />
+        </Label>
         {(lot || selected === 'add_lot') && (
           <Label>
             Shared Part proposal
@@ -70,13 +67,13 @@ export function CaptureEditor({
             </Select>
           </Label>
         )}
-        {(defaults || lot) && (
+        {lot && (
           <>
             <Controller
               name="quantity"
               control={control}
               render={({ field }) => (
-                <QuantityField value={field.value} defaults={defaults} onChange={field.onChange} />
+                <QuantityField value={field.value} defaults={false} onChange={field.onChange} />
               )}
             />
             <Controller
@@ -87,13 +84,34 @@ export function CaptureEditor({
                   title="Location"
                   model="location"
                   value={field.value}
-                  defaults={defaults}
+                  defaults={false}
                   batch={batch}
                   onChange={(value) => {
                     field.onChange(value)
                     onDirty(true)
                   }}
                   observe={observe}
+                />
+              )}
+            />
+          </>
+        )}
+        {lot && (
+          <>
+            <CaptureContextSummary batch={batch} subjectId={lot.id} />
+            <Controller
+              name="captureContext"
+              control={control}
+              render={({ field }) => (
+                <CaptureContextFields
+                  value={field.value}
+                  defaults={false}
+                  batch={batch}
+                  observe={observe}
+                  onChange={(value) => {
+                    field.onChange(value)
+                    onDirty(true)
+                  }}
                 />
               )}
             />
@@ -137,27 +155,14 @@ export function CaptureEditor({
             )}
           />
         )}
-        {selected === 'note' && (
-          <Label>
-            Note relates to
-            <Select {...register('noteSubject')}>
-              <option value="">Batch</option>
-              {[...batch.parts, ...batch.lots].map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </Select>
-          </Label>
-        )}
-        {(selected === 'add_lot' || selected === 'note') && (
+        {selected === 'add_lot' && (
           <Label>
             Human observation / note
             <TextArea maxLength={8192} {...register('text')} />
           </Label>
         )}
         <Button disabled={frozen || (!dirty && !selected.startsWith('add_'))}>
-          Save {defaults ? 'shared defaults' : 'human changes'}
+          Save human changes
         </Button>
         {!dirty && !frozen && !selected.startsWith('add_') && (
           <Small>Saved values are unchanged. Edit a field to save a new revision.</Small>
@@ -166,6 +171,7 @@ export function CaptureEditor({
       {dirty && (
         <Button
           type="button"
+          disabled={formState.isSubmitting}
           onClick={() => {
             onDirty(false)
             /* Remount through explicit reset rather than silently dropping stale values. */ locationReload()
