@@ -1,0 +1,15 @@
+# Drag adapter qualification
+
+Checked 2026-11-03 against the installed React 19.3.1. The [current dnd-kit React quickstart](https://dndkit.com/react/quickstart/) and [0.5.3 release](https://github.com/clauderic/dnd-kit/releases/tag/%40dnd-kit%2Freact%400.5.3) describe the maintained React adapter; the former core API is now under [legacy documentation](https://dndkit.com/legacy/api-documentation/sensors/keyboard/). Select exact `@dnd-kit/react@0.5.3` and its public `@dnd-kit/dom@0.5.3` configuration API. Both are MIT and the React adapter explicitly supports React/ReactDOM 18/19. Registry integrity and all transitive resolutions are locked. Installation adds eight packages. The advisory comparison adds no IDs: two pre-existing moderate minimatch/glob advisories, zero high/critical. An audit or maintainer advisory list is not a general security guarantee.
+
+The legacy 6.3.1 candidate has a smaller dependency surface and a long-used API, but choosing it for a new integration would adopt the legacy family immediately. The current adapter provides the needed draggable/droppable hooks, pointer/keyboard sensors, scrolling and accessibility plugins without a custom drag engine or sortable-list framework. Its pre-1.0 API is an accepted maintenance trade-off: exact pins, frozen installs and a narrowly owned adapter limit the update surface. No competing drag package was installed.
+
+`frontend/tests/fixtures/evidence-drag.html` exercises the production adapters under React StrictMode with synthetic identity and a neighbouring draft. It contains no API, provider or inventory clients. An isolated headless Chrome profile at native 100% zoom, with focus emulation enabled for the renderer, supplied actual browser input events. A first backgrounded-page input timeout was resolved by focused-renderer configuration; no feature test was skipped or claimed passed before that correction.
+
+- Pointer: one move between groups, stable evidence identity, retained adjacent draft and zero horizontal overflow (`drag-pointer-desktop.png` / metrics).
+- Keyboard: Tab/Space pickup, arrow movement and Space confirmation through the same callback; one completed move (`drag-keyboard-desktop.png` / metrics). The supported sensor configuration uses 50px increments; dropdown selection/move remains an equivalent planned path.
+- Escape: cancellation preserves membership and completed-move count (`drag-cancel-metrics.json`).
+- Touch: actual emulated touch start/move/end at 390 CSS pixels, one completed move, draft retained and no overflow (`drag-touch-390.png` / metrics).
+- Scrolling: pointer near the bottom of a 390×420 viewport triggers real auto-scroll (scrollY 393→439), then the target move completes (`drag-scroll-390.png` / metrics).
+
+Announcements use human labels rather than internal evidence/group IDs, and distinguish dragging from retained membership confirmation. No-op drops do not create a fixture command. The callback is fenced while saving. Screenshots were visually inspected. These checks qualify the adapter, not atomic media persistence or the final grouped workspace; those remain the subsequent UI/server-integration tasks.

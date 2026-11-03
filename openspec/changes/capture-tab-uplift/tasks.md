@@ -96,7 +96,7 @@ The user authorized implementation after both proposals merged. PR-A merged as [
 - Verification: Focused MediaWorkspace/Capture/App tests, media/client contract checks, frontend typecheck/lint/build and owned browser drag/keyboard/touch checks.
 - Risks: Retained original followed by failed group move is two receipts/states, not an atomic upload; grouping cannot imply attachment/lot approval.
 
-- [ ] 4.1 Verify the chosen dnd-kit release/maintenance/advisories/license/lock impact and exercise React 19.3.1 sensors, cancellation and scrolling in an owned fixture before relying on it; record a qualified fallback if needed.
+- [x] 4.1 Verify the chosen dnd-kit release/maintenance/advisories/license/lock impact and exercise React 19.3.1 sensors, cancellation and scrolling in an owned fixture before relying on it; record a qualified fallback if needed.
 - [ ] 4.2 RED: cover visible top3 actions, media-disabled/unsupported/uncertain uploads, shared note focus, grouped/ungrouped rendering and note readback.
 - [ ] 4.3 RED: cover equivalent select/move and drag paths, preserved selection on conflict, atomic bulk-move refusal and retained-original-but-unmoved readback.
 - [ ] 4.4 GREEN: compose top actions, group names/counts/notes, per-evidence notes, create/rename/add/ungroup and explicit movement controls over existing identities.
