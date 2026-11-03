@@ -60,6 +60,16 @@ Consolidate all settings currently reached through the Shared details buttons in
 - Prerequisites: Unknown — original mockup is available; resolve its purchase-order control against current contracts and assess group/persistence support before implementation.
 - OpenSpec: [capture-tab-uplift](../openspec/changes/capture-tab-uplift/)
 
+#### BI-002 — Status signalling uplift
+
+Replace the top-right Manual workflow element with a clickable connection-status indicator that reveals connection details, with an Open InvenTree link to its right as in the original mockup. Add a distinct workflow status/actions indicator on the same header row, using the mockup's Processing in progress state as the reference. Expanding it should show current work status and steps, relevant actions and active agents while keeping connection health separate from workflow progress.
+
+- Change: `status-signalling-uplift`
+- Status: Proposed
+- Size: Unknown — assess header composition, accessible disclosures and authoritative health/progress/agent data during proposal development.
+- Prerequisites: Unknown — original mockup and existing live-update/agent-session surfaces are available; assess target-health and workflow-step data contracts. No known ordering dependency on BI-001.
+- OpenSpec: [status-signalling-uplift](../openspec/changes/status-signalling-uplift/)
+
 ## Maintenance
 
 No registered items.
