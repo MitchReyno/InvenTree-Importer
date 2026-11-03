@@ -7,7 +7,7 @@ import { createServer } from './api/server.ts'
 import { registerLive } from './live/routes.ts'
 import { compatibleSchema } from './operations/compatibility.ts'
 import { registerReadiness } from './operations/readiness.ts'
-import { devConfig, processingConfig } from './config.ts'
+import { bootstrap, devConfig, processingConfig } from './config.ts'
 import { database } from './db/database.ts'
 import type { Pool } from 'pg'
 import { readMediaStoreIdentity } from './media/store-identity.ts'
@@ -77,7 +77,7 @@ async function main() {
       server.addHook('onClose', closeDatabase)
       // Only the read closure crosses the capture boundary. No browser-supplied origin/key.
       const transport =
-        process.env.INTAKE_READ_ORIGIN && config.apiKey
+        process.env.INTAKE_READ_ORIGIN && config.apiKey && bootstrap(config).status === 'configured'
           ? inventoryTransport({
               kind: 'protected-read-only',
               origin: process.env.INTAKE_READ_ORIGIN,

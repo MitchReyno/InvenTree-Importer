@@ -57,6 +57,8 @@ This proposal documentation PR is separate from those future implementation bund
   - [x] 2.4.2 Apply active-only filtering before pagination; include deterministic ordering, current-batch preference and explicit collection limits.
 - [x] 2.5 Refactor shared read composition where useful, verify fake-only transport and PG isolation, and document contract compatibility and actual results.
 
+- [x] 2.6 Correct reviewed default-transport Content-Type loss and incomplete-configuration probe bypass; verify real owned HTTP reachability, zero unconfigured traffic and existing single-send containment.
+
 ## 3. Integrate both header indicators
 
 - Type / PR: Frontend behavior; PR-B.

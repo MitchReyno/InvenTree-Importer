@@ -70,3 +70,56 @@ test('header reads use the existing host/origin gate and serialize only scoped c
     await app.close()
   }
 })
+
+test('incomplete development configuration returns unconfigured without invoking any target probe', async () => {
+  for (const incomplete of [
+    { ...config, credentialRef: 'unconfigured' },
+    { ...config, apiKey: '   ' },
+    { ...config, apiKey: undefined },
+  ]) {
+    const app = createServer(incomplete)
+    let probes = 0
+    registerHeader(
+      app,
+      incomplete,
+      async () => {
+        probes += 1
+        return {
+          actor_id: config.actorId,
+          target_id: config.targetId,
+          target_context_id: config.targetContextId,
+          target: {
+            state: 'reachable',
+            freshness: 'fresh',
+            observed_at: new Date().toISOString(),
+            navigation_url: 'https://inventory.example.invalid/',
+            label: 'Synthetic target',
+            failure_code: null,
+          },
+        }
+      },
+      async () => {
+        throw new Error('unconfigured_work_read_refused')
+      },
+    )
+    try {
+      const result = await app.inject({
+        method: 'GET',
+        url: '/api/v1/connection-status',
+        headers: { host: '127.0.0.1:4333' },
+      })
+      assert.equal(result.statusCode, 200)
+      assert.equal(result.json().target.state, 'unconfigured')
+      assert.equal(result.json().target.navigation_url, null)
+      assert.equal(probes, 0)
+      const work = await app.inject({
+        method: 'GET',
+        url: '/api/v1/header-work',
+        headers: { host: '127.0.0.1:4333' },
+      })
+      assert.equal(work.statusCode, 503)
+    } finally {
+      await app.close()
+    }
+  }
+})

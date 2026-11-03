@@ -121,3 +121,43 @@ test('successful HTTP without JSON, denied API and redirects never become reacha
     assert.equal(observed.target.failure_code, failure)
   }
 })
+
+test('actual default HTTP transport retains JSON content type for a healthy owned probe', async () => {
+  const { createServer } = await import('node:http')
+  const { inventoryTransport } = await import('../src/inventory/transport.ts')
+  let calls = 0
+  const endpoint = createServer((request, response) => {
+    calls += 1
+    assert.equal(request.method, 'GET')
+    assert.equal(request.url, '/api/part/?limit=1')
+    assert.equal(request.headers.authorization, 'Token fake-probe-only')
+    response.setHeader('content-type', 'application/json; charset=utf-8')
+    response.setHeader('x-private-test-header', 'private-target-detail')
+    response.end('{"results":[]}')
+  })
+  await new Promise<void>((resolve) => endpoint.listen(0, '127.0.0.1', resolve))
+  const address = endpoint.address()
+  assert(address && typeof address !== 'string')
+  const origin = `http://127.0.0.1:${address.port}/`
+  const target = { targetId: binding.targetId, contextId: binding.targetContextId }
+  const adapter = inventoryTransport({
+    ...target,
+    kind: 'protected-read-only',
+    origin,
+    protectedOrigins: [origin],
+    credential: 'fake-probe-only',
+  })
+  try {
+    const read = connectionStatus(binding, origin, () => adapter.probe(target))
+    const observed = await read()
+    assert.equal(observed.target.state, 'reachable')
+    assert.equal(observed.target.failure_code, null)
+    assert.equal(calls, 1)
+    assert(!JSON.stringify(observed).includes('private-target-detail'))
+    assert(!JSON.stringify(observed).includes('fake-probe-only'))
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      endpoint.close((error) => (error ? reject(error) : resolve())),
+    )
+  }
+})

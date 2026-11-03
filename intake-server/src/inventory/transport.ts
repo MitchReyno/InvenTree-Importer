@@ -99,6 +99,7 @@ const singleSend: typeof fetch = async (input, init) => {
       (message) => {
         try {
           const status = message.statusCode!
+          const contentType = message.headers['content-type']
           if ([204, 205, 304].includes(status)) {
             message.resume()
           }
@@ -107,7 +108,11 @@ const singleSend: typeof fetch = async (input, init) => {
               [204, 205, 304].includes(status)
                 ? null
                 : (Readable.toWeb(message) as ReadableStream<Uint8Array>),
-              { status },
+              {
+                status,
+                headers:
+                  typeof contentType === 'string' ? { 'content-type': contentType } : undefined,
+              },
             ),
           )
         } catch (error) {
