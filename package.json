@@ -42,7 +42,7 @@
     "test:readability": "node --test tooling/tests/readability.test.mjs",
     "format:readability": "eslint --config eslint.config.mjs frontend/src intake-server/src contracts/src --fix --max-warnings 0",
     "dev:ui": "pnpm --filter @invimport/frontend dev",
-    "test:dev": "node --test tooling/tests/dev.test.cjs"
+    "test:dev": "node --test tooling/tests/dev.test.cjs tooling/tests/dev-environment.test.cjs"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "5.10.0",

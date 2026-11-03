@@ -6,8 +6,9 @@ import { MEDIA_CAPABILITY } from '../execution/media-plan.ts'
 import { EFFECTS_CAPABILITY } from '../execution/effects-plan.ts'
 import type { ManualRunnerConfig } from '../review/runner.ts'
 import { developmentRuntimeUrl } from './postgres-url.ts'
+import { developmentTarget, type DevelopmentTarget } from './target.ts'
 
-export interface DevState {
+export interface FakeDevState {
   version: 1
   databaseName: string
   identity: { actor: string; target: string; context: string }
@@ -19,6 +20,61 @@ export interface DevState {
   runnerConfigPath: string
   blobRoot: string
   channelSecret: string
+}
+
+export interface ReadOnlyDevState {
+  version: 2
+  databaseName: string
+  identity: { actor: string; target: string; context: string }
+  apiUrl: string
+  processingUrl: string
+  mediaUrl: string
+  schedulerUrl: string
+  blobRoot: string
+  channelSecret: string
+  target: Extract<DevelopmentTarget, { kind: 'read-only' }>
+}
+
+export type DevState = FakeDevState | ReadOnlyDevState
+
+export function schedulerUrl(state: DevState): string {
+  return state.version === 1 ? state.runnerConfig.schedulerDatabaseUrl : state.schedulerUrl
+}
+
+function readonlyState(value: Record<string, unknown>, root: string): ReadOnlyDevState {
+  if (
+    typeof value.schedulerUrl !== 'string' ||
+    value.schedulerUrl.length > 4096 ||
+    value.blobRoot !== join(root, 'retained/blobs')
+  ) {
+    throw new Error('invalid_readonly_dev_state')
+  }
+  const target = value.target
+  if (!target || typeof target !== 'object' || Array.isArray(target)) {
+    throw new Error('invalid_readonly_dev_target')
+  }
+  const fields = target as Record<string, unknown>
+  if (
+    Object.keys(fields).sort().join(',') !== 'credentialRef,kind,origin' ||
+    fields.kind !== 'read-only' ||
+    typeof fields.origin !== 'string' ||
+    typeof fields.credentialRef !== 'string'
+  ) {
+    throw new Error('invalid_readonly_dev_target')
+  }
+  const binding = developmentTarget({
+    INTAKE_TARGET_PROFILE: 'read-only',
+    INTAKE_READ_ORIGIN: fields.origin,
+    INTAKE_CREDENTIAL_REF: fields.credentialRef,
+  })
+  if (binding.kind !== 'read-only' || binding.origin !== fields.origin) {
+    throw new Error('invalid_readonly_dev_target')
+  }
+  const state = value as unknown as ReadOnlyDevState
+  for (const url of [state.apiUrl, state.processingUrl, state.mediaUrl, state.schedulerUrl]) {
+    developmentRuntimeUrl(url, state.databaseName)
+  }
+  return state
 }
 
 export async function readDevState(root: string): Promise<DevState> {
@@ -41,7 +97,7 @@ export async function readDevState(root: string): Promise<DevState> {
     !value ||
     typeof value !== 'object' ||
     !('version' in value) ||
-    value.version !== 1 ||
+    (value.version !== 1 && value.version !== 2) ||
     !('databaseName' in value) ||
     typeof value.databaseName !== 'string' ||
     !/^intake_dev_[a-f0-9]{32}$/.test(value.databaseName)
@@ -49,15 +105,7 @@ export async function readDevState(root: string): Promise<DevState> {
     throw new Error('invalid_dev_state')
   }
   const raw = value as Record<string, unknown>
-  for (const key of [
-    'apiUrl',
-    'processingUrl',
-    'mediaUrl',
-    'fakeUrl',
-    'runnerConfigPath',
-    'blobRoot',
-    'channelSecret',
-  ]) {
+  for (const key of ['apiUrl', 'processingUrl', 'mediaUrl', 'blobRoot', 'channelSecret']) {
     if (typeof raw[key] !== 'string' || (raw[key] as string).length > 4096) {
       throw new Error('invalid_dev_state')
     }
@@ -73,6 +121,17 @@ export async function readDevState(root: string): Promise<DevState> {
       !new RegExp(Id.pattern!).test(identityFields[key] as string)
     ) {
       throw new Error('invalid_dev_identity')
+    }
+  }
+  if (typeof raw.channelSecret !== 'string' || !/^[a-f0-9]{64}$/.test(raw.channelSecret)) {
+    throw new Error('invalid_dev_channel')
+  }
+  if (raw.version === 2) {
+    return readonlyState(raw, root)
+  }
+  for (const key of ['fakeUrl', 'runnerConfigPath']) {
+    if (typeof raw[key] !== 'string' || (raw[key] as string).length > 4096) {
+      throw new Error('invalid_dev_state')
     }
   }
   const runner = raw.runnerConfig
@@ -91,9 +150,6 @@ export async function readDevState(root: string): Promise<DevState> {
     if (typeof config[key] !== 'string') {
       throw new Error('invalid_dev_runner')
     }
-  }
-  if (typeof raw.channelSecret !== 'string' || !/^[a-f0-9]{64}$/.test(raw.channelSecret)) {
-    throw new Error('invalid_dev_channel')
   }
   const profile = config.profile
   if (!profile || typeof profile !== 'object') {
@@ -140,7 +196,7 @@ export async function readDevState(root: string): Promise<DevState> {
   if (canonical(retainedRunner) !== canonical(config)) {
     throw new Error('dev_runner_binding_changed')
   }
-  const state = value as DevState
+  const state = value as FakeDevState
   for (const address of [
     state.apiUrl,
     state.processingUrl,

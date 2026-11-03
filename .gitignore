@@ -1,5 +1,8 @@
 # Local environment variables
 .env
+.env.*
+!/.env.example
+!/.env.intake.example
 
 # Cache directory for downloaded data.
 # Holds DigiKey Data, which the API User Agreement forbids disclosing to third

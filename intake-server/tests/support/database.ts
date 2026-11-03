@@ -48,7 +48,10 @@ export async function isolatedDatabase(
     },
   }
 }
-export async function seedAuthority(pool: Pool) {
+export async function seedAuthority(
+  pool: Pool,
+  options: { profile?: 'protected-read-only' | 'owned-disposable'; contextHash?: Buffer } = {},
+) {
   const actor = randomUUID(),
     target = randomUUID(),
     context = randomUUID()
@@ -63,12 +66,12 @@ export async function seedAuthority(pool: Pool) {
     await client.query('INSERT INTO target(id,current_context_id,profile) VALUES ($1,$2,$3)', [
       target,
       context,
-      'owned-disposable',
+      options.profile ?? 'owned-disposable',
     ])
     await client.query('INSERT INTO target_context VALUES ($1,$2,1,$3)', [
       context,
       target,
-      Buffer.alloc(32),
+      options.contextHash ?? Buffer.alloc(32),
     ])
     await client.query('COMMIT')
   } finally {

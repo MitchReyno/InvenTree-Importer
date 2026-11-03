@@ -3,12 +3,14 @@ const { join, resolve } = require('node:path')
 const { pathToFileURL } = require('node:url')
 const { launch, stop } = require('./process.cjs')
 const { watchCode, snapshot } = require('./watch.cjs')
+const { developmentEnvironment, apiEnvironment } = require('./environment.cjs')
 
 const repository = resolve(__dirname, '../..')
 const intake = join(repository, 'intake-server')
 const intakeRequire = createRequire(join(intake, 'package.json'))
 
 async function main() {
+  const environment = apiEnvironment(await developmentEnvironment(repository))
   let child
   let restarting = false
   let closing = false
@@ -33,7 +35,7 @@ async function main() {
       'api',
       process.execPath,
       ['--import', pathToFileURL(intakeRequire.resolve('tsx')).href, 'src/main.ts'],
-      { cwd: intake, env: process.env },
+      { cwd: intake, env: environment },
       (output) => output.includes('"web_ready"'),
     )
     void child.exited.then(() => {

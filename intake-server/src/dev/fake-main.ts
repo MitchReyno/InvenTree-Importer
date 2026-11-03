@@ -4,6 +4,9 @@ import { readDevState } from './state.ts'
 
 async function main() {
   const state = await readDevState(process.env.INTAKE_APP_STATE!)
+  if (state.version !== 1) {
+    throw new Error('fake_development_state_required')
+  }
   const db = database(state.fakeUrl)
   const port = Number(new URL(state.runnerConfig.profile.origin).port)
   const fake = await inventoryFake(db.pool, port, true, true, true, false)
