@@ -2,6 +2,11 @@
 
 [Back to the register](../PLANNED_FUNCTIONALITY.md)
 
+- Notion ticket: Replace with the verified source URL.
+- Snapshot checked: Replace with the latest source verification date.
+
+Notion owns current ticket metadata; refresh this snapshot from the source instead of editing it independently.
+
 - Type: Feature | Fix | Improvement | Maintenance (choose one)
 - Priority: Unassessed
 - Status: Proposed

@@ -10,7 +10,7 @@ Link the proposal and relevant requirements. Identify the design outcomes and co
 
 ## Decisions and alternatives
 
-For each material decision, use a titled subsection and record the choice, rationale, meaningful alternatives rejected and reasons, and accepted trade-offs. If no new architectural decision is needed, state that with evidence. Do not manufacture alternatives.
+For each material decision, use a titled subsection and record the choice, rationale, meaningful alternatives rejected and reasons, and accepted trade-offs. Carry forward the proposal's reuse assessment and source links; confirm the chosen dependency/version fit, document remaining integration checks, and refresh the comparison if material assumptions change. Explain any retained custom implementation. If no new architectural decision is needed, state that with evidence. Do not manufacture alternatives.
 
 ## State, authority and failure behavior
 
