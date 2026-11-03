@@ -4,7 +4,7 @@
 
 The user requested a custom OpenSpec schema based primarily on the useful OpenSpec Plus practices, with the agreed adaptations for reduced approval overhead, source-grounded planning, repeated independent review, proportionate testing and the existing publication workflow. An external schema example supplies folder-structure inspiration only; no company schema content, tools or policies are imported.
 
-Scope: add `openspec/schemas/bench-intake/schema.yaml`, a schema README and four artifact templates; select it in `openspec/config.yaml`; update OpenSpec usage documentation and the mirrored planned-functionality skill to explain the boundary between capture and detailed planning. Keep the existing standard OpenSpec lifecycle skills, native commands, project instructions and register ownership. Update existing unmerged PR #66 rather than create a competing setup. The user's merge hold remains in force.
+Scope: add `openspec/schemas/bench-intake/schema.yaml`, a schema README and four artifact templates; select it in `openspec/config.yaml`; update OpenSpec usage documentation and the mirrored planned-functionality skill to explain the boundary between capture and detailed planning. Keep the existing standard OpenSpec lifecycle skills, native commands, project instructions and register ownership. Update existing unmerged PR #66 rather than create a competing setup. The initial merge hold applied during implementation; the user later authorized merging this PR once ready.
 
 No product features, real inventory calls, provider calls or application runtime changes are authorized here. Do not install OpenSpec Plus or add another orchestration layer. No new package is needed: the installed OpenSpec 1.16.0 CLI supports project-local schemas, artifact instructions/templates, dependency graphs, tracked checkboxes and `skip_specs: true` for changes without behavioral deltas. Upstream Plus 1.6.1 at `311dd818f2de99d38c1f0a144fc4946895d6aed4` informs the planning practices; the schema is authored for this project.
 
@@ -55,7 +55,7 @@ Markdown checks and active documentation/schema file-link checks pass. Both main
 
 Fresh independent read-only review cleared `957a76a363143ae2c2c702009e9877fc99fdb279` with no findings. It independently verified schema validation, all 8 workflow-sync tests, whitespace and a disposable CLI fixture for project schema resolution, spec skipping, strict documentation-change validation, custom apply instructions and a pending held-merge checkbox. Review also assessed capture-only, authorized plan-and-implement with a merge hold, and nonbehavioral request paths. Actual agent-generated plan quality remains a separate behavioral limit; no live product plan or application feature was generated in qualification.
 
-This evidence-only follow-up requires final exact-head review before pushing and updating PR #66. Hosted selected CI is pending. The merge hold remains in force.
+This evidence-only follow-up requires final exact-head review before pushing and updating PR #66. Hosted selected CI is pending. The user has lifted the merge hold for this PR once it is ready. Merge only after final independent exact-head clearance and selected green CI.
 
 ## Identifier refinement
 
