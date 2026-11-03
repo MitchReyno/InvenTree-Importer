@@ -51,7 +51,11 @@ An isolated synthetic behavioral change and a nonbehavioral documentation change
 
 Commands exercised: `openspec schema validate bench-intake --json`, `openspec schema which bench-intake --json`, `openspec new change`, `openspec status --change ... --json`, `openspec instructions <artifact-or-apply> --change ... --json`, `openspec validate <change> --strict --no-interactive`, and synthetic-only `openspec archive <change> --yes` followed by strict main-spec validation. Fixtures are kept outside the real register and change tree; no real archive or product operation occurred.
 
-Markdown checks and active documentation/schema file-link checks pass. Both maintenance-skill copies pass the skill validator; workflow synchronization passes 8 tests and confirms identical authored copies. The normal repository suite is running; independent exact-head review and hosted CI are pending. The merge hold remains in force.
+Markdown checks and active documentation/schema file-link checks pass. Both maintenance-skill copies pass the skill validator; workflow synchronization passes 8 tests and confirms identical authored copies. The normal repository suite passes: frontend 144 tests, contracts 33 tests, intake server 125 tests, and backend 2,039 passed with 4 skips and 43 scanner/TUI tests deselected. Execution used pinned Node 24.22.2 and available pnpm 8.15.3 to avoid the pinned package manager's dependency-refresh behavior in this worktree; no dependencies or lockfiles changed. Scanner, PostgreSQL/process tiers and live integrations were not separately run because this change touches planning/configuration only.
+
+Fresh independent read-only review cleared `957a76a363143ae2c2c702009e9877fc99fdb279` with no findings. It independently verified schema validation, all 8 workflow-sync tests, whitespace and a disposable CLI fixture for project schema resolution, spec skipping, strict documentation-change validation, custom apply instructions and a pending held-merge checkbox. Review also assessed capture-only, authorized plan-and-implement with a merge hold, and nonbehavioral request paths. Actual agent-generated plan quality remains a separate behavioral limit; no live product plan or application feature was generated in qualification.
+
+This evidence-only follow-up requires final exact-head review before pushing and updating PR #66. Hosted selected CI is pending. The merge hold remains in force.
 
 ## Identifier refinement
 
