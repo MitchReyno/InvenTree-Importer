@@ -139,7 +139,7 @@ No missing login/entitlement blocked the historical local runs. Remaining items 
 - This worktree: runtime-discovered checkout on `feat/spike-subscription-runtime`; refresh exact HEAD/status/worktrees with `bash spikes/subscription-runtime/state.sh`. Do not operate on another checkout merely because it is listed.
 - Code: `spikes/subscription-runtime/runtime.py`, `live_codex.py`, `live_claude.py`, `validate_proposal.py`; spike-only `pyproject.toml`/`uv.lock`; offline tests `backend/tests/spikes/test_subscription_runtime.py` and `test_subscription_runtime_controls.py`.
 - Evidence: `spikes/subscription-runtime/observed/`; committed originals/config `spikes/shared/fixtures/two-lots/`; shared schema `spikes/shared/schemas/message.schema.json`. Ignored owned `spikes/subscription-runtime/local/codex-1/` and `local/claude-1/` retain local SQLite/session hints/evidence, not portable credentials. Preserve them for inspection, never copy native personal auth directories.
-- External docs: current official URLs in the spike README; full external planning pack under `$HOME/.agents/handovers/intake-shared-fixtures-and-spikes/`. No Notion edits or persistent-memory writes were made.
+- External docs: current official URLs in the spike README; full external planning pack under `$HOME/.agents/handovers/intake-shared-fixtures-and-spikes/`. No external documentation edits or persistent-memory writes were made.
 - Transfer first action: read this handover, run state script, inspect diff and run offline focused tests/ruff. Do not infer a passing review from owner verification. Reviewer should especially assess whether documented partial gates are correctly represented rather than treating this as production-complete.
 
 ## 11. Next steps

@@ -22,13 +22,15 @@ openspec instructions proposal --change change-slug --json
 
 Resolve the actual project and artifact paths through the CLI. Keep this schema with its repository; do not silently substitute a global schema or assume a machine-specific checkout path. Standard lifecycle behavior remains authoritative for resolved output paths and native spec operations.
 
-## Capture and identification
+## Capture and change identity
 
-The [Notion Tickets database](https://app.notion.com/p/2415a2ee1ff1454294b708cf2319c472) owns ticket identity, current priority, size, prerequisites and product status. The [register](../../../docs/PLANNED_FUNCTIONALITY.md) and its detail files are manually refreshed repository snapshots. See [ticket workflow](../../../docs/notion-tickets.md). Use the `planned-functionality` project-level skill for capture and maintenance. Adding an idea does not start detailed OpenSpec planning or authorize implementation.
+The [functionality index](../../../docs/PLANNED_FUNCTIONALITY.md) owns current BI item metadata and links directly to OpenSpec changes for detail. Use the `planned-functionality` project-level skill to capture brief requests and maintain the index. A scaffold with a brief description can be created during capture without completing all planning artifacts or authorizing implementation.
 
-Identifiers use **BI** for **Bench Intake**: `BI-001`, `BI-002`, and so on. Notion allocates a native Sequence; the Ticket ID formula displays it with at least three numeric digits. Create and read back the Notion ticket before using its ID; never allocate from Markdown or write the system/formula fields. IDs are permanent, never recycled, and do not encode type, priority, status or release. The numeric portion can grow beyond three digits. Native `BI-1` and displayed `BI-001` refer to the same sequence; preserve the displayed form in project references. Detail filenames retain the ID and stable slug when titles change.
+BI item IDs such as `BI-001` remain stable index references, allocated from the repository index/history and never reused. They do not replace the canonical OpenSpec change name. Each change uses a short descriptive kebab-case name such as `add-bulk-lot-editing`; check active and archived names for collisions and keep the chosen name stable once referenced.
 
-A proposal links relevant existing BI Notion tickets and available repository snapshots; one change may address several related IDs. Work without a registered item can state None with a reason. Do not allocate fake IDs, treat repository snapshots as a second editable source of ticket metadata, or create a competing status history. Branches and pull requests can reference IDs, for example `feat/bi-014-bulk-lot-editing` and `feat(BI-014): add bulk lot editing`, while following governing repository conventions. Task numbers such as `1.1` remain local to the change.
+Every delivering branch and every commit/PR subject includes that exact change name. Use branches such as `feat/add-bulk-lot-editing-validation` and subjects such as `feat(add-bulk-lot-editing): validate bulk edits`. Several branches/PRs can deliver one change; a meaningful bundle suffix distinguishes them without changing its identity. Additional BI references may appear in bodies.
+
+The index provides the required short descriptions, current status, priority, relative size and prerequisites. Detailed scope, requirements, decisions, checklists and PR boundaries live in the linked OpenSpec change. One cohesive change can address several related items. Work without an indexed item can state None with a reason. Do not create a second per-item detail directory or require an external ticket service.
 
 ## Shared working practices
 
@@ -70,15 +72,23 @@ Choose verification for the kind of work. Behavioral tasks default to explicit T
 
 Never suppress failures or introduce skips to pass a gate. Report existing skips, unavailable environments, synthetic evidence and untested boundaries honestly. An environment limitation does not establish a passed criterion; retain the limitation or blocker while continuing unaffected work. Use the owning project's declared commands and required checks rather than generic language-agnostic test flags.
 
+### PR delivery planning
+
+A single OpenSpec change can be delivered through one or several PRs. Its task document defines a concrete delivery map before implementation: for each bundle, record the outcome/scope, covered task IDs and checklist work, why those changes belong together, real prerequisites and merge order, base/branch name, conventional subject and verification/merge gates. Every branch and subject retains the canonical change name. Keep coverage complete and ownership unambiguous when the plan changes.
+
+PR boundaries are a reasoned review/delivery decision. Consider coherence, compatibility, rollout/migration order, risk, independent verification and reviewer context; do not derive a fixed one-task/one-PR mapping or arbitrary line-count quota. A PR may bundle several tasks. Delivery planning does not grant publication or merge authority beyond the actual request.
+
 ### Review, corrections and completion
 
 Self-check every artifact for coverage, consistency, evidence and scope. Substantial plans should receive an independent read-only artifact review where available and authorized; record a missing independent review as a limitation. Fix findings, verify corrections and repeat review after material revisions until no new issues remain. Do not impose a single-shot review rule. Reconcile discovered conflicts rather than treating an earlier artifact as infallible.
 
 Before apply, verify the complete non-skipped artifact dependency set and refresh stale inputs. An existing tasks file can be reported done even after a prerequisite file is removed; that is not permission to implement from an incomplete plan.
 
+Before committing completed checklist work, verify the result, mark its checkbox complete in `tasks.md`, and stage that task-file update in the same commit as the work. Do not postpone completed-item updates to a later bookkeeping commit. Leave genuinely incomplete actions and pending child actions unchecked. Record review/publication/CI/merge outcomes only after they occur, before committing any corresponding evidence update; do not pre-check future events to satisfy the rule.
+
 Before raising or updating a PR, follow the repository's required independent review of the exact candidate commit. Re-review a changed candidate or establish unchanged reviewed patches using the governing process. Use the existing Git/PR skills, conventional branches, maintained handovers and selected CI. Schema instructions do not replace branch protection or the user's merge decision.
 
-Keep these facts distinct: a task implemented and verified, a plan ready, a PR under review, an implementation merged, and a change archived. Check a task only for its own completed deliverable. Keep publication or merge tasks pending while held. Mark a linked BI ticket Done only after its acceptance criteria and merged implementation are evidenced. Update Notion first, refresh affected repository snapshots, and update links when archival moves a change. Preserve only current status in repository snapshots and do not imply automatic synchronization.
+Keep these facts distinct: a task implemented and verified, a plan ready, a PR under review, an implementation merged, and a change archived. Check a task only for its own completed deliverable. Keep publication or merge tasks pending while held. Mark a linked BI item Done only after acceptance and merged implementation are evidenced. Update current metadata in the repository index and update its OpenSpec links when archival moves a change. Keep only current item status.
 
 ## Maintenance and qualification
 

@@ -2,13 +2,29 @@
 
 ## Plan context
 
-Link the proposal, design assessment, reuse/dependency recommendation and relevant specs or declared spec opt-out. Link BI Notion tickets and available repository snapshots; Notion owns current ticket metadata.
+Link the proposal, design assessment, reuse/dependency recommendation and relevant specs or declared spec opt-out. Record the canonical short descriptive kebab-case change name and link applicable BI index entries. All delivering branches and commit/PR subjects include that exact name; the repository index owns current item metadata.
+
+## Completion and commit ordering
+
+Complete and verify a checkbox action, then mark it checked before committing its corresponding completed work. Stage the `tasks.md` update in the same commit as that work; do not defer it to a later bookkeeping commit. Keep incomplete actions and parents with unfinished required subtasks unchecked. Review, publication, CI and merge actions remain pending until the actual event occurs; record them only afterward, before committing their evidence updates.
 
 ## Task map and dependencies
 
 Break the change into multiple coherent tasks with meaningful verifiable outcomes. List each task's type, actual prerequisites and acceptance references, and choose reviewable PR boundaries. Independent tasks need no artificial predecessor. A genuinely trivial change may explain why one implementation task is enough. Include necessary technical, investigation, migration, configuration, documentation or test-only work explicitly.
 
+## PR delivery map
+
+A change may deliver one or several PRs. Define the actual bundles and explain their boundaries; a PR can bundle multiple top-level tasks. Decide based on coherent outcomes, compatibility, dependencies, rollout/migration risk, verification and reviewer context rather than a fixed task count or line quota.
+
+| Bundle | Outcome and included work                      | Task/checklist coverage                | Why this boundary is sensible          | Prerequisites and merge order      | Base, branch and subject                                | Verification and merge gates                |
+| ------ | ---------------------------------------------- | -------------------------------------- | -------------------------------------- | ---------------------------------- | ------------------------------------------------------- | ------------------------------------------- |
+| PR-A   | Replace with a concrete reviewable deliverable | Identify the covered task IDs and work | Explain why this work belongs together | State actual prerequisites or None | Include the canonical change name in branch and subject | Define the required evidence and conditions |
+
+Map all planned work without unexplained gaps or duplicate ownership. Update the map if discoveries change a boundary. Use stable bundle keys before PR numbers exist; add the actual GitHub reference when published. Do not invent multiple bundles merely to populate this table.
+
 ## 1. First scoped outcome
+
+- PR delivery: Identify the delivery-map entry for this task.
 
 - Outcome: Describe what this task delivers and why it is needed.
 
@@ -37,6 +53,8 @@ Break the change into multiple coherent tasks with meaningful verifiable outcome
 
 ## 2. Next distinct outcome
 
+- PR delivery: Identify the delivery-map entry for this task.
+
 - Outcome: Describe a further meaningful deliverable rather than a duplicate of Task 1.
 
 - Scope and approach: Identify affected areas/files and the applicable design/reuse decisions.
@@ -63,32 +81,12 @@ Break the change into multiple coherent tasks with meaningful verifiable outcome
 
 <!-- Replace all illustrative descriptions with this change's actual plan. Repeat, split or remove task sections according to real outcomes; do not manufacture a second implementation task for a trivial change. Every retained task has a substantive checkbox list and enough context to execute. Use nested checkbox numbers for meaningful substeps, not one checkbox per function or test. Documentation needs reference/consistency checks; refactors may use existing/characterization coverage. Test-first exceptions need a reason and equivalent verification, not another permission ceremony. -->
 
-## 3. Independent review and publication
+## Delivery evidence and lifecycle follow-up
 
-- Outcome: A reviewable, evidenced change published through the project's normal PR workflow.
+For each PR bundle, record the actual reviewed commit, check results and published/merged state after they exist. These are delivery gates, not a substitute for the implementation tasks or permission to check future events early. Any corresponding evidence commit follows the same completion-before-commit rule and canonical change-name convention.
 
-- Prerequisites: Applicable implementation tasks and their checks are complete.
+Before publication, update affected documentation and the maintained handover, obtain independent read-only review of the exact candidate, fix/re-review findings until clear, and use the project's normal PR workflow. Merge only after the applicable authorization and selected green CI; preserve any hold. If follow-up repository work is needed after merge, describe its delivery boundary rather than silently writing to trunk.
 
-- Verification: Exact reviewed commit, actual check results and PR state; a held merge remains pending.
+Update linked BI entries to their actual current status as evidence changes. Done requires accepted and merged implementation; completed checkboxes alone are insufficient. If there are no indexed items, say so. Check direct OpenSpec links and current metadata whenever the index is updated.
 
-- [ ] 3.1 Update affected documentation and the maintained handover with decisions, validation, recovery guidance and limits.
-
-- [ ] 3.2 Obtain independent read-only review of the exact candidate commit, address findings and repeat review until clear.
-
-- [ ] 3.3 Publish or update the PR through the existing project workflow and verify selected CI at the reviewed head.
-
-- [ ] 3.4 Resolve the merge decision within the user's authorization; leave this checkbox pending while merging is held.
-
-## 4. Ticket status and spec reconciliation
-
-- Outcome: Current Notion ticket state reflects actual delivery evidence, with affected repository snapshots refreshed.
-
-- Prerequisites: Evidence for the specific status transition; Done additionally requires accepted and merged implementation.
-
-- Verification: Read-back ticket state and consistent linked snapshots. If there are no linked tickets, remove this task with a reason.
-
-- [ ] 4.1 Update linked BI Notion tickets to their actual current status; do not mark unmerged functionality Done.
-
-- [ ] 4.2 Refresh affected Markdown snapshots from those tickets and check their references and current metadata.
-
-After tracked delivery work is complete, synchronize/archive only when authorized and the relevant lifecycle conditions are met. Update Notion and snapshot links if artifact paths move. Archival is a lifecycle action, not a checkbox that must be completed before archival can start.
+After tracked work and the relevant delivery conditions are complete, synchronize/archive only when authorized. Update index links if artifact paths move. Archival is a lifecycle action, not a checkbox that must be completed before archival can start.

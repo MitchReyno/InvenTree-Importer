@@ -4,9 +4,11 @@
 
 Describe the concrete problem, who experiences it and the observable improvement sought. Reuse established answers and distinguish requested behavior from assumptions.
 
-## Linked planned items
+## Change identity and linked items
 
-Link existing BI Notion tickets and any repository detail snapshots, or state None with a reason. Notion owns ticket identity and current metadata; do not duplicate mutable priority, size, prerequisites or status here.
+Use the canonical short descriptive kebab-case change name returned by the CLI. That exact name belongs in the change directory, all delivering branches and every commit/PR subject (`type(change-name): description`). Keep it stable and use meaningful branch suffixes for separate PR bundles.
+
+Link applicable BI entries in `docs/PLANNED_FUNCTIONALITY.md`, or state None with a reason. The repository index owns current item priority, size, prerequisites and status; detailed planning lives in this OpenSpec change.
 
 ## Current behavior and evidence
 
