@@ -1,3 +1,4 @@
+import { registerLive } from '../../src/live/routes.ts'
 import fastifyStatic from '@fastify/static'
 import { access } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -34,6 +35,7 @@ interface ProcessingFixtureOptions {
 }
 
 export interface ProcessingWebOptions {
+  live?: boolean
   port?: number
   assets?: string
   mediaStore?: BlobStore
@@ -165,6 +167,9 @@ export async function processingFixture(options: ProcessingFixtureOptions = {}) 
       registerCapture(app, api.pool, config)
       registerProcessing(app, api.pool, config, lockCaptureForEdit)
       registerAgents(app, api.pool, config)
+      if (web.live) {
+        registerLive(app, api.pool, config)
+      }
       if (web.mediaStore) {
         registerMediaRoutes(app, api.pool, config, web.mediaStore)
       }

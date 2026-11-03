@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
 import type { AgentSelectionDto, AgentSettingsDto } from '@invimport/contracts'
@@ -13,6 +13,13 @@ interface Props {
 const EMPTY: AgentSelectionDto = { provider: 'codex', authentication: 'subscription', model: '' }
 
 export function AgentSettingsForm({ initial, client, onDirtyChange }: Props) {
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
   const [revision, setRevision] = useState(initial.revision)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
@@ -27,10 +34,14 @@ export function AgentSettingsForm({ initial, client, onDirtyChange }: Props) {
       : ['sonnet', 'opus', 'haiku']
 
   const save = handleSubmit(async (selection) => {
+    onDirtyChange(true)
     setBusy(true)
     setMessage('')
     try {
       const saved = await client.saveSettings({ expected_revision: revision, selection })
+      if (!mounted.current) {
+        return
+      }
       setRevision(saved.revision)
       reset(saved.selection ?? EMPTY)
       onDirtyChange(false)
@@ -38,26 +49,40 @@ export function AgentSettingsForm({ initial, client, onDirtyChange }: Props) {
         'Default saved. New attempts use this selection; queued and running sessions keep their original model.',
       )
     } catch {
+      if (!mounted.current) {
+        return
+      }
       setMessage(
         'Save was not confirmed. Your selection is preserved. A newer revision may exist; discard and reload to adopt it.',
       )
     } finally {
-      setBusy(false)
+      if (mounted.current) {
+        setBusy(false)
+      }
     }
   })
 
   const discard = async () => {
+    onDirtyChange(true)
     setBusy(true)
     try {
       const current = await client.settings()
+      if (!mounted.current) {
+        return
+      }
       setRevision(current.revision)
       reset(current.selection ?? EMPTY)
       onDirtyChange(false)
       setMessage('Loaded the current saved default.')
     } catch {
+      if (!mounted.current) {
+        return
+      }
       setMessage('Settings unavailable. Your selection is preserved.')
     } finally {
-      setBusy(false)
+      if (mounted.current) {
+        setBusy(false)
+      }
     }
   }
 

@@ -1,3 +1,4 @@
+import { processingMediaFixture } from '../support/processing-media.ts'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
@@ -15,8 +16,14 @@ for (const provider of ['codex', 'claude'] as const) {
   test(
     `supervised ${provider} worker delivers a real queued command to a controlled CLI, settles and retains model history`,
     { timeout: 45000 },
-    async () => {
+    async (t) => {
       const fixture = await processingFixture({ profileId: nativeProfileId })
+      t.after(() => fixture.dispose())
+      const capture = await fixture.seedCapture()
+      const media = await processingMediaFixture(fixture, capture.batch.id)
+      t.after(() => media.dispose())
+      await media.upload(capture.packetA.id, 'Synthetic image for native staging')
+      await media.decodeNext()
       const root = await mkdtemp(join(tmpdir(), 'native-worker-test-'))
       const executable = join(root, 'provider.cjs')
       await writeFile(
@@ -43,6 +50,7 @@ for (const provider of ['codex', 'claude'] as const) {
             INTAKE_AGENT_DATABASE_URL: fixture.runner.url,
             INTAKE_AGENT_SCHEDULER_DATABASE_URL: fixture.scheduler.url,
             INTAKE_AGENT_STATE_ROOT: stateRoot,
+            INTAKE_BLOB_ROOT: media.root,
             INTAKE_CODEX_EXECUTABLE: executable,
             INTAKE_CLAUDE_EXECUTABLE: executable,
             INTAKE_ACTOR_ID: fixture.config.actorId,
@@ -51,6 +59,7 @@ for (const provider of ['codex', 'claude'] as const) {
             INTAKE_PROCESSING_CHANNEL_SECRET: fixture.config.channelSecret,
             INTAKE_PROCESSING_PROFILE: nativeProfileId,
             OPENAI_API_KEY: 'synthetic-only',
+            ANTHROPIC_API_KEY: 'synthetic-only',
           },
           stdio: ['ignore', 'pipe', 'pipe'],
         },
@@ -73,7 +82,6 @@ for (const provider of ['codex', 'claude'] as const) {
           await delay(50)
         }
         assert.match(output, /supervisor ready/)
-        const capture = await fixture.seedCapture()
         await saveAgentSettings(fixture.api.pool, fixture.config, {
           expected_revision: '0',
           selection: {
@@ -107,6 +115,7 @@ for (const provider of ['codex', 'claude'] as const) {
           current.value.jobs[0].proposals[0].value.summary,
           'Controlled source-bound suggestion.',
         )
+        assert.equal(current.value.jobs[0].proposals[0].value.sources[0].kind, 'media_version')
         worker.kill('SIGTERM')
         const status = await Promise.race([exited, delay(10000).then(() => 'timeout')])
         assert.equal(status, 0, output)
@@ -115,7 +124,6 @@ for (const provider of ['codex', 'claude'] as const) {
           worker.kill('SIGKILL')
           await exited
         }
-        await fixture.dispose()
       }
     },
   )

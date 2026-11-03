@@ -14,7 +14,7 @@ if (args.includes('auth')) {
     if (mode === 'question' || !input.inspected_sources.length) {
       return { proposal: null, question: { kind: 'clarification', subject_id: input.subject_id, prompt: 'Read the marking?', reason: 'Insufficient evidence.' } }
     }
-    return { question: null, proposal: { schema_version: 'bench-intake-proposal/2', subject_id: input.subject_id, summary: 'Controlled source-bound suggestion.', sources: [input.inspected_sources[0]] } }
+    return { question: null, proposal: { schema_version: 'bench-intake-proposal/2', subject_id: input.subject_id, summary: 'Controlled source-bound suggestion.', sources: [input.inspected_sources.find((source) => source.kind === 'media_version') ?? input.inspected_sources[0]] } }
   }
   const lines = readline.createInterface({ input: process.stdin })
   lines.on('line', (line) => {
@@ -28,9 +28,19 @@ if (args.includes('auth')) {
     if (mode === 'hang') { fs.writeFileSync(require('node:path').join(process.cwd(), 'stub-hang-ready'), String(process.pid)); process.on('SIGTERM', () => {}); setInterval(() => {}, 1000); return }
     if (mode === 'malformed') { process.stdout.write('{bad\n'); return }
     if (mode === 'oversize') { process.stdout.write('x'.repeat(300000) + '\n'); return }
-    const result = output(codex ? frame.params.input[0].text : frame.message.content[0].text)
+    const text = codex ? frame.params.input[0].text : frame.message.content[0].text
+    const context = JSON.parse(text)
+    const delivered = codex ? frame.params.input.slice(1) : frame.message.content.slice(1)
+    const expected = context.image_order ?? []
+    if (delivered.length !== expected.length) { process.exit(87) }
+    for (let index = 0; index < delivered.length; index++) {
+      const base64 = codex ? delivered[index].url.split(',')[1] : delivered[index].source.data
+      if (require('node:crypto').createHash('sha256').update(Buffer.from(base64, 'base64')).digest('hex') !== expected[index].sha256) { process.exit(88) }
+    }
+    const result = output(text)
     if (codex) {
       send({ id: frame.id, result: { turn: { id: 'stub-turn' } } })
+      if (mode === 'started_tool') { send({ method: 'item/started', params: { threadId: 'stub-thread', turnId: 'stub-turn', item: { type: 'commandExecution' } } }); return }
       if (mode === 'tool') { send({ id: 999, method: 'item/commandExecution/requestApproval', params: {} }); return }
       send({ method: 'item/completed', params: { threadId: 'stub-thread', turnId: 'stub-turn', item: { type: 'agentMessage', text: JSON.stringify(result) } } })
       send({ method: 'turn/completed', params: { threadId: 'stub-thread', turn: { id: 'stub-turn', status: 'completed' } } })

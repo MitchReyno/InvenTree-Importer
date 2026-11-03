@@ -154,18 +154,18 @@ export async function runCodex(
       if (typeof message.method !== 'string') {
         throw new Error('agent_protocol_invalid')
       }
-      if (message.method === 'item/completed') {
+      if (message.method === 'item/started' || message.method === 'item/completed') {
         const params = record(message.params)
         if (params.threadId !== threadId || params.turnId !== turnId) {
           throw new Error('agent_protocol_invalid')
         }
         const item = record(params.item)
-        if (item.type === 'agentMessage') {
+        if (item.type === 'agentMessage' && message.method === 'item/completed') {
           if (typeof item.text !== 'string') {
             throw new Error('agent_protocol_invalid')
           }
           final = item.text
-        } else if (!['userMessage', 'reasoning'].includes(String(item.type))) {
+        } else if (!['agentMessage', 'userMessage', 'reasoning'].includes(String(item.type))) {
           throw new Error('agent_tool_refused')
         }
       }

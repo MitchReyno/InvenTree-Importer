@@ -15,7 +15,7 @@ export async function grantMedia(
   }
   if (purpose === 'processing-reader') {
     await pool.query(`GRANT USAGE ON SCHEMA public TO ${role};
-      GRANT SELECT ON media_batch,media_blob,media_group,media_evidence,media_version,
+      GRANT SELECT ON media_store_identity,media_batch,media_blob,media_group,media_evidence,media_version,
       media_decode_command,media_derivation,media_decode_result,media_preview,
       media_group_selection,media_subject_link,media_attachment_selection,
       media_command_binding,media_command_pin TO ${role}`)

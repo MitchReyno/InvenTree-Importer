@@ -68,3 +68,26 @@ test('switching providers requires choosing a new model and shows host authentic
   expect(screen.getByText('OPENAI_API_KEY')).toBeVisible()
   expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
 })
+
+for (const action of ['Save default', 'Discard and reload']) {
+  test(`a pristine ${action} protects navigation and cannot clear a new owner's dirty guard after unmount`, async () => {
+    const api = client()
+    let resolve: ((value: typeof initial) => void) | undefined
+    const deferred = new Promise<typeof initial>((done) => {
+      resolve = done
+    })
+    api.saveSettings.mockImplementation(async () => deferred)
+    api.settings.mockImplementation(async () => deferred)
+    const dirty = vi.fn()
+    const form = render(<AgentSettingsForm initial={initial} client={api} onDirtyChange={dirty} />)
+    fireEvent.click(screen.getByRole('button', { name: action }))
+    await waitFor(() => expect(dirty).toHaveBeenLastCalledWith(true))
+    form.unmount()
+    dirty(true) // A newly mounted Capture editor owns this same application-level guard.
+    resolve!(initial)
+    await deferred
+    await new Promise((done) => setTimeout(done, 0))
+    expect(dirty).not.toHaveBeenCalledWith(false)
+    expect(dirty).toHaveBeenLastCalledWith(true)
+  })
+}

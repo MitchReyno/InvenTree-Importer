@@ -190,3 +190,24 @@ test('cancellation interrupts a backpressured stdin write and reaps before retur
   await writing
   await child.close()
 })
+
+test('Codex refuses an unexpected tool when it starts, before any completed-tool output', async () => {
+  const host = await fixture('started_tool')
+  const selection: AgentSelectionDto = {
+    provider: 'codex',
+    authentication: 'api_key',
+    model: 'test',
+  }
+  await assert.rejects(
+    runCodex(
+      host,
+      selection,
+      prompt,
+      host.stateRoot,
+      agentEnvironment(host, selection, host.stateRoot),
+      AbortSignal.timeout(3000),
+      async () => {},
+    ),
+    { message: 'agent_tool_refused' },
+  )
+})
