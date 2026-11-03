@@ -49,7 +49,7 @@ HOST_ADAPTATIONS = (
 
 
 def skill_files(directory):
-    """Ignore generated Python caches, but include every authored resource."""
+    """Compare authored resources, excluding caches and root target metadata."""
     assert directory.is_dir(), f"Missing skill directory: {directory}"
     assert not directory.is_symlink(), f"Skills must be real copies: {directory}"
     files = {}
@@ -57,10 +57,25 @@ def skill_files(directory):
         if "__pycache__" in path.parts or path.suffix == ".pyc":
             continue
         assert not path.is_symlink(), f"Skills must be real copies: {path}"
+        if path == directory / ".openspec-target":
+            continue  # OpenSpec owns this host-specific target marker, not a skill.
         if path.is_file():
             files[path.relative_to(directory)] = path
     assert files, f"No skill files found in {directory}"
     return files
+
+
+
+def test_skill_files_excludes_only_root_openspec_target_metadata(tmp_path):
+    (tmp_path / ".openspec-target").write_text("agents\n", encoding="utf-8")
+    skill = tmp_path / "example"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("Example skill", encoding="utf-8")
+    (skill / ".openspec-target").write_text("Authored resource", encoding="utf-8")
+
+    assert set(skill_files(tmp_path)) == {
+        Path("example/SKILL.md"), Path("example/.openspec-target"),
+    }
 
 
 def test_project_skill_copies_have_the_same_files():
