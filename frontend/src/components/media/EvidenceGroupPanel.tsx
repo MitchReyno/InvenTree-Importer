@@ -162,18 +162,24 @@ export function EvidenceGroupPanel({
       )}
       {!evidence.length && <Paragraph>No files in this group.</Paragraph>}
       {evidence.map((item) => {
+        const duplicateName = snapshot.evidence.some(
+          (other) => other.id !== item.id && other.label === item.label,
+        )
+        const controlLabel = duplicateName
+          ? (labels.evidence.get(item.id) ?? item.label)
+          : item.label
         const owner = `note:${item.id}`
         return (
           <EvidenceDragHandle
             key={item.id}
             evidenceId={item.id}
-            label={item.label}
+            label={controlLabel}
             disabled={blocked('selection')}
           >
             <EvidenceSelection>
               <input
                 type="checkbox"
-                aria-label={`Select ${item.label}`}
+                aria-label={`Select ${controlLabel}`}
                 checked={selected.includes(item.id)}
                 disabled={blocked('selection')}
                 onChange={(event) =>
@@ -184,7 +190,7 @@ export function EvidenceGroupPanel({
                   )
                 }
               />
-              Select {item.label}
+              Select {controlLabel}
             </EvidenceSelection>
             <MediaEvidenceCard
               labels={labels}
@@ -195,11 +201,11 @@ export function EvidenceGroupPanel({
             />
             <MediaNoteSummary title="Evidence note" note={item.note} />
             <Button disabled={blocked(owner)} onClick={() => setNoteId(item.id)}>
-              Edit note for {item.label}
+              Edit note for {controlLabel}
             </Button>
             {noteId === item.id && (
               <MediaTextEditor
-                label={`Note for ${item.label}`}
+                label={`Note for ${controlLabel}`}
                 action="Save evidence note"
                 text={item.note?.text ?? ''}
                 revision={snapshot.revision}

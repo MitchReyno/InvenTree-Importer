@@ -1,5 +1,9 @@
-import { render } from '../../test/render'
-import { screen, waitFor } from '@testing-library/react'
+import { operatorReviewClient } from '@invimport/contracts/client'
+import { createServerQueryClient } from '../../queries/client'
+import { serverQueryKey } from '../../queries/scope'
+import { ServerStateProvider } from '../query/ServerStateProvider'
+import { render, fixtureScope } from '../../test/render'
+import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
@@ -106,4 +110,44 @@ test('Capture input freezes file selection until its own input is resolved', asy
   await user.type(screen.getByRole('textbox', { name: 'Batch title' }), ' updated')
   expect(upload).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Save Batch settings' })).toBeEnabled()
+})
+
+test('batch instructions cannot replace the active media query during a live invalidation', async () => {
+  const cache = createServerQueryClient()
+  const media = mediaClient()
+  const operator = operatorReviewClient(fixtureScope.origin, 'a'.repeat(64), async () => {
+    throw new Error('unexpected_instruction_request')
+  })
+  render(
+    <ServerStateProvider scope={fixtureScope} client={cache}>
+      <CaptureWorkspace
+        batch={batch}
+        busy={false}
+        media={media}
+        edit={vi.fn()}
+        observe={vi.fn()}
+        operator={operator}
+        operatorReview={{
+          batch_id: batch.id,
+          revision: batch.revision,
+          lots: [],
+          retired_lots: [],
+          instructions: [],
+          cursor: batch.cursor,
+        }}
+        reload={vi.fn()}
+      />
+    </ServerStateProvider>,
+  )
+  await waitFor(() => expect(screen.getByLabelText('Choose photos')).toBeEnabled())
+  const note = screen.getByLabelText('Batch instructions')
+  await userEvent.setup().type(note, 'Preserve this instruction draft.')
+  await act(async () => {
+    await cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'media', batch.id) })
+  })
+  expect(media.snapshot).toHaveBeenCalledTimes(2)
+  expect(cache.getQueryState(serverQueryKey(fixtureScope, 'media', batch.id))?.status).toBe(
+    'success',
+  )
+  expect(note).toHaveValue('Preserve this instruction draft.')
 })

@@ -104,6 +104,8 @@ The user authorized implementation after both proposals merged. PR-A merged as [
   - [x] 4.4.2 Preserve upload receipt/retry identity and show a retained original in ungrouped if its subsequent membership command fails.
 - [x] 4.5 Refactor duplicate per-file controls without dropping subject links/crop/attachment behavior; verify surrounding media and dirty-registry contracts and owning checks.
 
+- [x] 4.6 Correct independent-review media-query invalidation and duplicate-filename accessibility findings; verify actual shared-cache invalidation with mounted instructions and exact evidence control labels.
+
 ## 5. Qualify the complete Capture uplift
 
 - Type / PR: Integration/browser evidence and documentation; PR-C.

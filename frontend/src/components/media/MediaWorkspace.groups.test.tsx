@@ -350,3 +350,25 @@ test('exact retry closes an acknowledged new-group draft', async () => {
   expect(vi.mocked(client.edit).mock.calls[1]).toEqual(vi.mocked(client.edit).mock.calls[0])
   expect(screen.getByRole('region', { name: /Third packet/ })).toBeVisible()
 })
+
+test('duplicate filenames have distinct exact-identity selection, drag and note controls', async () => {
+  const client = mediaClient()
+  vi.mocked(client.snapshot).mockResolvedValue({
+    ...initial,
+    evidence: initial.evidence.map((item) => ({ ...item, label: 'photo.png' })),
+  })
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  const first = await screen.findByRole('checkbox', { name: /Select photo.png.*60000000/ })
+  const second = screen.getByRole('checkbox', { name: /Select photo.png.*70000000/ })
+  expect(first).not.toBe(second)
+  expect(screen.getByRole('button', { name: /Drag photo.png.*60000000/ })).toBeVisible()
+  expect(screen.getByRole('button', { name: /Edit note for photo.png.*70000000/ })).toBeVisible()
+})

@@ -161,7 +161,6 @@ export function CaptureWorkspace({
               batch={batch}
               review={operatorReview}
               client={operator}
-              includeGroups={false}
               disabled={frozen || editorDirty || mediaDirty || settingsDirty}
               reload={reload}
               onDirtyChange={reportInstructionsDirty}
