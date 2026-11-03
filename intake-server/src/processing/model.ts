@@ -75,6 +75,14 @@ export function unseal(bytes: Buffer, digest: Buffer): unknown {
   return value
 }
 
+const MAX_PROCESSING_HUMAN_NOTES = 1000
+
+function requireNoteCapacity(notes: readonly unknown[]) {
+  if (notes.length > MAX_PROCESSING_HUMAN_NOTES) {
+    fail('processing_input_capacity', 422)
+  }
+}
+
 function captureInputFields(
   snapshot: CaptureSnapshotDto,
   subjectId: string,
@@ -94,6 +102,8 @@ function captureInputFields(
       note.subject_id === subjectId ||
       note.subject_id === linkedPart?.id,
   )
+  const contextNotes = captureContextNotes(snapshot, subjectId)
+  requireNoteCapacity([...notes, ...contextNotes])
   // /1–/3 stay frozen. A create choice is scoped to this subject; newer observation
   // models and mapping fields stay out of the sealed document.
   for (const scoped of [lot ?? part, linkedPart]) {
@@ -112,7 +122,7 @@ function captureInputFields(
     defaults: snapshot.defaults,
     subject: (lot ?? part)!,
     linked_part: linkedPart ?? null,
-    notes: [...notes, ...captureContextNotes(snapshot, subjectId)],
+    notes: [...notes, ...contextNotes],
     observations: snapshot.observations.flatMap((observation) => {
       if (observation.model !== 'part' && observation.model !== 'location') {
         return []
@@ -196,13 +206,8 @@ export function mediaInputManifest(
   }
 
   const mediaNotes = [
-    ...(decodedMedia.context?.groups.flatMap((group) =>
-      group.note ? [{ ...group.note, scope: { group_id: group.id, label: group.label } }] : [],
-    ) ?? []),
-    ...(decodedMedia.context?.evidenceNotes.map((item) => ({
-      ...item.note,
-      scope: { evidence_id: item.evidenceId },
-    })) ?? []),
+    ...(decodedMedia.context?.groups.flatMap((group) => (group.note ? [group.note] : [])) ?? []),
+    ...(decodedMedia.context?.evidenceNotes.map((item) => item.note) ?? []),
   ]
     .filter((note) => note.text.trim().length > 0)
     .map((note) => ({
@@ -211,9 +216,10 @@ export function mediaInputManifest(
       producer: 'human' as const,
       actor_id: note.actor_id,
       created_at: note.created_at,
-      text: `Human evidence context, not approved inventory effects: ${canonical({ version: note.version, scope: note.scope, text: note.text })}`,
+      text: note.text,
     }))
   const notes = [...fields.notes, ...mediaNotes]
+  requireNoteCapacity(notes)
   const meaningfulNote = notes.some((note) => note.text.trim().length > 0)
   if (!meaningfulNote && decodedMedia.versions.length === 0) {
     fail('retained_evidence_required', 422)

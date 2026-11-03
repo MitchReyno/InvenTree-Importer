@@ -385,3 +385,100 @@ test('versioned media context reaches processing and invalidates stale notes wit
     /unsupported_processing_input/,
   )
 })
+
+test('maximum Unicode media notes remain verbatim and escape-heavy capture tags stay within frozen note bounds', () => {
+  const capture = manualInputFixture()
+  const subjectId = capture.lots[0].id
+  const tags = Array.from({ length: 32 }, (_, index) => `${index}`.padEnd(100, '\u0000'))
+  capture.context = [
+    {
+      id: randomUUID(),
+      subject_id: null,
+      version: '2',
+      actor_id: capture.actor_id,
+      created_at: '2026-11-03T00:00:00.000Z',
+      value: {
+        supplier: { mode: 'unset' },
+        purchase_date: { mode: 'unset' },
+        tags: { mode: 'set', value: tags },
+      },
+    },
+  ]
+  const contextInput = inputManifest(capture, subjectId, 'reading', [], null)
+  validate('ProcessingInputV1', contextInput)
+  const contextText = contextInput.notes.at(-1)!.text
+  assert.ok(contextText.length <= 8192)
+  for (const tag of tags) {
+    assert.ok(contextText.includes(tag))
+  }
+  for (const text of ['x'.repeat(8192), '😀'.repeat(8192)]) {
+    const groupId = randomUUID()
+    const note = {
+      id: randomUUID(),
+      version: '3',
+      actor_id: capture.actor_id,
+      created_at: '2026-11-03T00:00:00.000Z',
+      text,
+    }
+    const media: MediaSnapshotDto = {
+      batch_id: capture.id,
+      revision: '3',
+      groups: [{ id: groupId, label: '😀'.repeat(256), note }],
+      evidence: [
+        {
+          id: randomUUID(),
+          label: 'File',
+          group_id: groupId,
+          linked_subject_ids: [subjectId],
+          versions: [],
+          note: { ...note, id: randomUUID() },
+        },
+      ],
+      attachments: [],
+      derivations: [],
+    }
+    validate('MediaSnapshot', media)
+    const scoped = scopeMediaInputs(media, processingSubjectScope(capture, subjectId))
+    const manifest = mediaInputManifest(capture, subjectId, 'reading', [], null, {
+      manifest: scoped.bytes.toString(),
+      sha256: scoped.digest.toString('hex'),
+    })
+    validate('ProcessingInputV2', manifest)
+    assert.equal(manifest.notes.at(-1)!.text, text)
+    assert.equal(manifest.notes.at(-2)!.text, text)
+  }
+})
+
+test('human-context note overflow produces a typed capacity refusal and makes older work noncurrent', () => {
+  const capture = manualInputFixture()
+  const subjectId = capture.lots[0].id
+  capture.notes = Array.from({ length: 1000 }, () => ({
+    ...capture.notes[0],
+    id: randomUUID(),
+    text: 'a',
+    subject_id: null,
+  }))
+  const manifest = inputManifest(capture, subjectId, 'reading', [], null)
+  capture.context = [
+    {
+      id: randomUUID(),
+      subject_id: null,
+      version: '2',
+      actor_id: capture.actor_id,
+      created_at: '2026-11-03T00:00:00.000Z',
+      value: {
+        supplier: { mode: 'unset' },
+        purchase_date: { mode: 'unset' },
+        tags: { mode: 'set', value: ['new'] },
+      },
+    },
+  ]
+  assert.throws(
+    () => inputManifest(capture, subjectId, 'reading', [], null),
+    /processing_input_capacity/,
+  )
+  assert.equal(
+    processingInputIsCurrent(manifest, capture, emptyProcessingMedia(capture, subjectId)),
+    false,
+  )
+})

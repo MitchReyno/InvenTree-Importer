@@ -1,3 +1,4 @@
+import { unicodeText } from './unicode-text.ts'
 import { Value } from '@sinclair/typebox/value'
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Digest, Id, Revision } from './scalars.ts'
@@ -10,7 +11,7 @@ const object = <T extends TProperties>(properties: T) =>
 const nullableId = Type.Union([Id, Type.Null()])
 const pixel = Type.Integer({ minimum: 0, maximum: 24000000 })
 const dimension = Type.Integer({ minimum: 1, maximum: 24000000 })
-const label = Type.String({ minLength: 1, maxLength: 256 })
+const label = unicodeText(1, 256)
 
 /** Coordinates address the orientation-normalized source, before output rotation. */
 export const LegacyMediaRecipe = object({
@@ -85,7 +86,7 @@ export const MediaVersion = object({
 export const MediaHumanNote = object({
   id: Id,
   version: Revision,
-  text: Type.String({ maxLength: 8192 }),
+  text: unicodeText(0, 8192),
   actor_id: Id,
   created_at: Type.String(),
 })

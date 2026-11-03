@@ -106,6 +106,7 @@ test('bulk grouping, rename, notes and ungroup preserve evidence and reject part
       [batch.id],
     )
     assert.equal(memberships.rows[0].count, 2)
+    const capturedBeforeUngroup = await captureRepository(db.pool, binding).read(batch.id)
     saved = await edit({ kind: 'ungroup', group_id: groupId })
     assert.equal(saved.groups.length, 0)
     assert.equal(saved.evidence.length, 2)
@@ -131,6 +132,36 @@ test('bulk grouping, rename, notes and ungroup preserve evidence and reject part
         )
       ).rows[0].id,
       instructionId,
+    )
+    const { transaction } = await import('../../src/db/database.ts')
+    const { lockCaptureForOperatorCommand } = await import('../../src/capture/repository.ts')
+    const { recordInstruction } = await import('../../src/capture/operator-commands.ts')
+    await assert.rejects(
+      transaction(db.pool, async (client) => {
+        const scope = await lockCaptureForOperatorCommand(
+          client,
+          binding,
+          batch.id,
+          capturedBeforeUngroup.revision,
+        )
+        const input = {
+          expected_revision: capturedBeforeUngroup.revision,
+          group_id: groupId,
+          text: 'Unsaved stale group draft',
+        }
+        await recordInstruction(client, scope, input)
+        await scope.commit(input)
+      }),
+      /group_not_found/,
+    )
+    assert.equal(
+      (
+        await db.pool.query(
+          'SELECT count(*)::int AS count FROM capture_instruction WHERE batch_id=$1 AND group_id=$2',
+          [batch.id, groupId],
+        )
+      ).rows[0].count,
+      1,
     )
     const capture = captureRepository(db.pool, binding)
     const current = await capture.read(batch.id)

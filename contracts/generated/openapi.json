@@ -34412,9 +34412,9 @@
                   "type": "string"
                 },
                 "label": {
+                  "type": "string",
                   "minLength": 1,
-                  "maxLength": 256,
-                  "type": "string"
+                  "maxLength": 256
                 },
                 "group_id": {
                   "anyOf": [
@@ -34457,8 +34457,9 @@
                       "type": "string"
                     },
                     "text": {
-                      "maxLength": 8192,
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 0,
+                      "maxLength": 8192
                     },
                     "actor_id": {
                       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
@@ -34890,9 +34891,9 @@
                   "type": "string"
                 },
                 "label": {
+                  "type": "string",
                   "minLength": 1,
-                  "maxLength": 256,
-                  "type": "string"
+                  "maxLength": 256
                 },
                 "note": {
                   "additionalProperties": false,
@@ -34915,8 +34916,9 @@
                       "type": "string"
                     },
                     "text": {
-                      "maxLength": 8192,
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 0,
+                      "maxLength": 8192
                     },
                     "actor_id": {
                       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
@@ -35568,9 +35570,9 @@
                     "type": "string"
                   },
                   "label": {
+                    "type": "string",
                     "minLength": 1,
-                    "maxLength": 256,
-                    "type": "string"
+                    "maxLength": 256
                   }
                 }
               },
@@ -35592,9 +35594,9 @@
                     "type": "string"
                   },
                   "label": {
+                    "type": "string",
                     "minLength": 1,
-                    "maxLength": 256,
-                    "type": "string"
+                    "maxLength": 256
                   }
                 }
               },

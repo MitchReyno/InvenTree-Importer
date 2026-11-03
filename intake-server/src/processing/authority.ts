@@ -207,6 +207,7 @@ export function processingInputIsCurrent(
         'retained_evidence_required',
         'retained_manual_evidence_required',
         'unsupported_processing_input',
+        'processing_input_capacity',
       ].includes(error.code)
     if (closed) {
       return false

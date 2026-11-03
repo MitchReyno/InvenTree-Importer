@@ -41,3 +41,33 @@ test('bulk moves reject duplicate or empty selection and group context integers 
   manifest.context.evidenceNotes[0].note.version = '9223372036854775808'
   assert.throws(() => assertMediaInputManifest(manifest))
 })
+
+test('interpreted media context matches HTTP Unicode code-point limits', () => {
+  const manifest = {
+    version: 'media-inputs/3',
+    batchId: randomUUID(),
+    subjectIds: [],
+    attachments: [],
+    evidence: [],
+    versions: [],
+    context: {
+      groups: [
+        {
+          id: randomUUID(),
+          label: '😀'.repeat(256),
+          note: {
+            id: randomUUID(),
+            version: '1',
+            actor_id: randomUUID(),
+            created_at: '2026-11-03T00:00:00.000Z',
+            text: '😀'.repeat(8192),
+          },
+        },
+      ],
+      evidenceNotes: [],
+    },
+  }
+  assertMediaInputManifest(manifest)
+  manifest.context.groups[0].note.text += 'x'
+  assert.throws(() => assertMediaInputManifest(manifest))
+})

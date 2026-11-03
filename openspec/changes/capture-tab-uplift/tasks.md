@@ -41,6 +41,8 @@ These future bundles do not authorize implementation. This proposal documentatio
   - [x] 1.4.2 Integrate context dependencies into canonical input/manifest currency and Review readback projections without new automatic effects.
 - [x] 1.5 Refactor only affected helpers, validate migration upgrade/readback/consumer rollback against owned data, and record actual boundary evidence.
 
+- [x] 1.6 Correct reviewed note-bound issues: retain full maximum-length Unicode notes, bound escape-heavy Capture context without truncation, and refuse excessive note counts with a typed capacity result.
+
 ## 2. Extend durable group and evidence-note operations
 
 - Type / PR: Media contracts, persistence and contextual reads; PR-A.
@@ -59,6 +61,8 @@ These future bundles do not authorize implementation. This proposal documentatio
   - [x] 2.4.1 Retire ungrouped group's active presentation while preserving attributable historical group records/instructions.
   - [x] 2.4.2 Return retained note/instruction version identities without changing original bytes or attachment selections.
 - [x] 2.5 Verify rollback/idempotence and currentness, run owning checks and document migration/compatibility limits in the handover.
+
+- [x] 2.6 Reject group-instruction writes to retired groups under the shared Capture lock, preserving old history and proving stale-editor refusal.
 
 ## 3. Consolidate and position Batch settings
 

@@ -1,3 +1,4 @@
+import { activeMediaGroups } from '../media/context.ts'
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import type {
@@ -223,6 +224,12 @@ export async function recordInstruction(
   scope: RevisionScope,
   input: InstructionEditDto,
 ) {
+  if (input.group_id !== null) {
+    const active = await activeMediaGroups(client, scope.batchId)
+    if (!active.some((group) => group.id === input.group_id)) {
+      fail('group_not_found', 404)
+    }
+  }
   try {
     await executeDatabaseQuery(
       queryDatabase(client)
