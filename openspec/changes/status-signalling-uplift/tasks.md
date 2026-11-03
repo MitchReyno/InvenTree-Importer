@@ -55,7 +55,7 @@ This proposal documentation PR is separate from those future implementation bund
 - [x] 2.4 GREEN: add TypeBox read schemas, authenticated routes and typed/generated clients; implement bounded observations and retained projections using existing adapters/readers.
   - [x] 2.4.1 Preserve safe failure codes, observation time, actor/target/context identity and credential redaction.
   - [x] 2.4.2 Apply active-only filtering before pagination; include deterministic ordering, current-batch preference and explicit collection limits.
-- [ ] 2.5 Refactor shared read composition where useful, verify fake-only transport and PG isolation, and document contract compatibility and actual results.
+- [x] 2.5 Refactor shared read composition where useful, verify fake-only transport and PG isolation, and document contract compatibility and actual results.
 
 ## 3. Integrate both header indicators
 
