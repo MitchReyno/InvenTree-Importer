@@ -13,6 +13,8 @@ import WebSocket from 'ws'
 import sharp from 'sharp'
 import { LIVE_PROTOCOL } from '@invimport/contracts'
 import { processingCheckpoint } from '../support/processing-process.ts'
+import { database } from '../../src/db/database.ts'
+import { provisionLegacyDevApi } from '../support/dev-legacy.ts'
 
 const repository = fileURLToPath(new URL('../../../', import.meta.url))
 type Running = { supervisor: number; origin: string; children: { name: string; pid: number }[] }
@@ -52,6 +54,7 @@ test(
           PATH: process.env.PATH,
           HOME: process.env.HOME,
           TMPDIR: process.env.TMPDIR,
+          INTAKE_ENV_FILE: '',
           INTAKE_APP_STATE: root,
           INTAKE_DEV_PORT: String(port),
           INTAKE_DEV_ADMIN_URL: process.env.INTAKE_TEST_ADMIN_URL,
@@ -101,6 +104,9 @@ test(
     try {
       await start()
       assert.equal((await fetch(origin)).status, 200)
+      const connection = await request('/connection-status')
+      assert.equal(connection.status, 200)
+      assert.equal(connection.value.target.state, 'reachable', JSON.stringify(connection.value))
       const created = await request('/batches', {
         title: 'Retained full-stack smoke',
         note: 'Controlled synthetic note.',
@@ -267,14 +273,112 @@ test(
       modified = false
       await processingCheckpoint(running, (value) => pid(value, 'api') !== pid(after, 'api'), 30000)
       const final = await running()
+      const beforeUpgradeMedia = (await request(`/batches/${batch.id}/media`)).value
       await stop()
       await assert.rejects(access(join(root, 'supervisor.lock')), { code: 'ENOENT' })
       for (const owned of final.children) {
         assert.throws(() => process.kill(owned.pid, 0), { code: 'ESRCH' })
       }
       await assert.rejects(fetch(origin))
+      const legacy = await provisionLegacyDevApi(root, process.env.INTAKE_TEST_ADMIN_URL!)
+      const legacyRuntime = database(legacy.apiUrl)
+      try {
+        await assert.rejects(legacyRuntime.pool.query('SELECT 1 FROM capture_context LIMIT 1'), {
+          code: '42501',
+        })
+      } finally {
+        await legacyRuntime.close()
+      }
+      const upgradeUploadKey = randomUUID()
+      let legacyOutput = ''
+      const legacyWeb = spawn(process.execPath, ['--import', 'tsx', 'src/main.ts'], {
+        cwd: join(repository, 'intake-server'),
+        env: {
+          PATH: process.env.PATH,
+          HOME: process.env.HOME,
+          TMPDIR: process.env.TMPDIR,
+          INTAKE_ORIGIN: origin,
+          INTAKE_DATABASE_URL: legacy.apiUrl,
+          INTAKE_ACTOR_ID: legacy.identity.actor,
+          INTAKE_TARGET_ID: legacy.identity.target,
+          INTAKE_TARGET_CONTEXT_ID: legacy.identity.context,
+          INTAKE_CREDENTIAL_REF: 'owned_legacy_fixture',
+          INTAKE_DEV_API_KEY: 'owned-fake-token',
+          INTAKE_BLOB_ROOT: legacy.blobRoot,
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      for (const stream of [legacyWeb.stdout!, legacyWeb.stderr!]) {
+        stream.on('data', (bytes) => {
+          legacyOutput = (legacyOutput + bytes.toString()).slice(-8192)
+        })
+      }
+      try {
+        await processingCheckpoint(
+          async () => {
+            assert.equal(legacyWeb.exitCode, null, legacyOutput)
+            return legacyOutput
+          },
+          (value) => value.includes('"web_ready"'),
+        )
+        token = (await request('/bootstrap')).value.csrf_token
+        const failedPhoto = await fetch(`${origin}/api/v1/batches/${batch.id}/media/originals`, {
+          method: 'POST',
+          headers: {
+            origin,
+            'x-intake-csrf': token,
+            'idempotency-key': upgradeUploadKey,
+            'content-type': 'application/octet-stream',
+            'x-intake-media-revision': beforeUpgradeMedia.revision,
+            'x-intake-media-label': 'Upgrade PNG',
+          },
+          body: new Uint8Array(png),
+        })
+        assert.equal(failedPhoto.status, 500)
+      } finally {
+        if (legacyWeb.exitCode === null && legacyWeb.signalCode === null) {
+          const closed = once(legacyWeb, 'close', { signal: AbortSignal.timeout(10000) })
+          legacyWeb.kill('SIGTERM')
+          assert.equal((await closed)[0], 0)
+        }
+      }
       await start()
       assert.equal((await request(`/batches/${batch.id}`)).value.title, 'Retained full-stack smoke')
+      const mediaAfterUpgrade = await request(`/batches/${batch.id}/media`)
+      assert.equal(mediaAfterUpgrade.status, 200)
+      assert.equal(mediaAfterUpgrade.value.revision, beforeUpgradeMedia.revision)
+      const photoAfterUpgrade = await fetch(
+        `${origin}/api/v1/batches/${batch.id}/media/originals`,
+        {
+          method: 'POST',
+          headers: {
+            origin,
+            'x-intake-csrf': token,
+            'idempotency-key': upgradeUploadKey,
+            'content-type': 'application/octet-stream',
+            'x-intake-media-revision': mediaAfterUpgrade.value.revision,
+            'x-intake-media-label': 'Upgrade PNG',
+          },
+          body: new Uint8Array(png),
+        },
+      )
+      assert.equal(photoAfterUpgrade.status, 200)
+      const received = await photoAfterUpgrade.json()
+      await processingCheckpoint(
+        async () => (await request(`/batches/${batch.id}/media`)).value,
+        (value) =>
+          value.evidence.some(
+            (entry: { id: string; versions: { state: string }[] }) =>
+              entry.id === received.evidence_id &&
+              entry.versions.some((version) => version.state === 'ready'),
+          ),
+      )
+      const groupInput = (await request(`/batches/${batch.id}/media`)).value
+      const grouped = await request(`/batches/${batch.id}/media/commands`, {
+        expected_revision: groupInput.revision,
+        change: { kind: 'group', label: 'New group after upgrade' },
+      })
+      assert.equal(grouped.status, 200, JSON.stringify(grouped.value))
       await stop()
     } finally {
       if (modified) {

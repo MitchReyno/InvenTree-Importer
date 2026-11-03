@@ -71,6 +71,17 @@ export async function inventoryFake(
             await new Promise((resolve) => setTimeout(resolve, 25))
           }
         }
+        if (request.url === '/api/part/?limit=1') {
+          response.end(
+            JSON.stringify({
+              count: 1,
+              next: null,
+              previous: null,
+              results: [{ pk: 29, name: 'Existing Part 29' }],
+            }),
+          )
+          return
+        }
         const stockMatch = /^\/api\/stock\/([1-9][0-9]*)\/$/.exec(request.url!)
         if (stockMatch) {
           const stored = (

@@ -6,7 +6,7 @@ import { sha256 } from '../db/authority.ts'
 import { decodeMediaInputs } from '../media/inputs.ts'
 import { executeProcessingCommand, dispatchProcessingCommands } from '../processing/delivery.ts'
 import type { RestrictedResearchRunner } from '../processing/runner.ts'
-import { readDevState } from './state.ts'
+import { readDevState, schedulerUrl } from './state.ts'
 
 const synthetic: RestrictedResearchRunner = {
   qualification: 'fixture_only',
@@ -77,7 +77,7 @@ async function main() {
   try {
     DBOS.setConfig({
       name: 'bench-intake-dev-processing',
-      systemDatabaseUrl: state.runnerConfig.schedulerDatabaseUrl,
+      systemDatabaseUrl: schedulerUrl(state),
       applicationVersion: 'processing/2',
       executorID: `dev-${state.identity.actor}`,
       runAdminServer: false,
@@ -99,7 +99,7 @@ async function main() {
     await DBOS.launch()
     await DBOS.registerQueue('bench-research', { workerConcurrency: 1, globalConcurrency: 1 })
     scheduler = await DBOSClient.create({
-      systemDatabaseUrl: state.runnerConfig.schedulerDatabaseUrl,
+      systemDatabaseUrl: schedulerUrl(state),
       systemDatabasePoolSize: 1,
     })
     process.stdout.write('DEV_PROCESSING_READY\n')

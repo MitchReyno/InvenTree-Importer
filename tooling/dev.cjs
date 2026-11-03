@@ -10,7 +10,6 @@ const {
   realpath,
   rename,
 } = require('node:fs/promises')
-const { homedir } = require('node:os')
 const { join, resolve } = require('node:path')
 const { pathToFileURL } = require('node:url')
 const { createServer: netServer } = require('node:net')
@@ -18,6 +17,7 @@ const { spawn } = require('node:child_process')
 const { randomUUID } = require('node:crypto')
 const { watchCode, snapshot } = require('./dev/watch.cjs')
 const { launch, stop, startupGroup } = require('./dev/process.cjs')
+const { developmentEnvironment } = require('./dev/environment.cjs')
 
 const repository = resolve(__dirname, '..')
 const intake = join(repository, 'intake-server')
@@ -141,24 +141,33 @@ async function main() {
   if (major !== 24) {
     throw new Error('pinned_node_24_required')
   }
-  const port = Number(process.env.INTAKE_DEV_PORT ?? 4330)
+  const settings = await developmentEnvironment(repository)
+  // Pure config only; application processes keep their existing pinned tsx entrypoints.
+  const { developmentTarget, developmentCredential, developmentStateRoot } = await import(
+    pathToFileURL(join(intake, 'src/dev/target.ts')).href
+  )
+  const target = developmentTarget(settings)
+  const targetKey = developmentCredential(settings, target)
+  const port = Number(settings.INTAKE_DEV_PORT ?? 4330)
   if (!Number.isInteger(port) || port < 1024 || port > 65535 || port === 4310 || port === 4350) {
     throw new Error('invalid_development_port')
   }
   await freePort(port)
-  const root = resolve(
-    process.env.INTAKE_APP_STATE ?? join(homedir(), '.local/state/bench-intake/app'),
-  )
+  const root = developmentStateRoot(settings, target)
   const release = await privateState(root)
   const env = {
     ...baseEnv,
     INTAKE_APP_STATE: root,
-    ...(process.env.INTAKE_DEV_STATE ? { INTAKE_DEV_STATE: process.env.INTAKE_DEV_STATE } : {}),
+    ...(settings.INTAKE_DEV_STATE ? { INTAKE_DEV_STATE: settings.INTAKE_DEV_STATE } : {}),
   }
   const setupEnv = {
     ...env,
-    ...(process.env.INTAKE_DEV_ADMIN_URL
-      ? { INTAKE_DEV_ADMIN_URL: process.env.INTAKE_DEV_ADMIN_URL }
+    INTAKE_TARGET_PROFILE: target.kind,
+    ...(target.kind === 'read-only'
+      ? { INTAKE_READ_ORIGIN: target.origin, INTAKE_CREDENTIAL_REF: target.credentialRef }
+      : {}),
+    ...(settings.INTAKE_DEV_ADMIN_URL
+      ? { INTAKE_DEV_ADMIN_URL: settings.INTAKE_DEV_ADMIN_URL }
       : {}),
   }
   let closeWatch = () => {}
@@ -186,7 +195,7 @@ async function main() {
     process.once(signal, shutdown)
   }
   try {
-    if (!process.env.INTAKE_DEV_ADMIN_URL) {
+    if (!settings.INTAKE_DEV_ADMIN_URL) {
       await run(
         process.execPath,
         [join(intake, 'scripts/dev-services.cjs'), 'start'],
@@ -211,7 +220,7 @@ async function main() {
     const initialSources = await Promise.all(sourceRoots.map(snapshot))
     const decoderRoots = [join(intake, 'src/media'), join(repository, 'contracts/src')]
     let decoderDigest = (await Promise.all(decoderRoots.map(snapshot))).join(':')
-    let image = process.env.INTAKE_MEDIA_DECODER_IMAGE
+    let image = settings.INTAKE_MEDIA_DECODER_IMAGE
     if (!image) {
       const file = join(root, `decoder-${randomUUID()}.txt`)
       await run(
@@ -235,7 +244,7 @@ async function main() {
       INTAKE_PROCESSING_CHANNEL_SECRET: state.channelSecret,
       INTAKE_BLOB_ROOT: state.blobRoot,
     }
-    const profile = process.env.INTAKE_PROCESSING_PROFILE ?? 'synthetic-research/2'
+    const profile = settings.INTAKE_PROCESSING_PROFILE ?? 'synthetic-research/2'
     if (!['synthetic-research/2', 'native-agent/1'].includes(profile)) {
       throw new Error('unsupported_development_profile')
     }
@@ -271,9 +280,11 @@ async function main() {
         return group.watch(owned)
       }
 
-      await child('inventory', 'src/dev/fake-main.ts', {}, (text) =>
-        text.includes('DEV_FAKE_READY'),
-      ).ready()
+      if (state.version === 1) {
+        await child('inventory', 'src/dev/fake-main.ts', {}, (text) =>
+          text.includes('DEV_FAKE_READY'),
+        ).ready()
+      }
       await child(
         'api',
         'src/main.ts',
@@ -281,20 +292,25 @@ async function main() {
           INTAKE_ORIGIN: publicOrigin,
           INTAKE_DEV_LISTEN_PORT: String(apiPort),
           INTAKE_DATABASE_URL: state.apiUrl,
-          INTAKE_CREDENTIAL_REF: 'owned_development',
-          INTAKE_DEV_API_KEY: state.runnerConfig.profile.credential,
-          INTAKE_READ_ORIGIN: state.runnerConfig.profile.origin,
-          INTAKE_DEPLOYMENT_ID: state.runnerConfig.deploymentId,
+          INTAKE_CREDENTIAL_REF:
+            target.kind === 'read-only' ? target.credentialRef : 'owned_development',
+          INTAKE_DEV_API_KEY:
+            state.version === 1 ? state.runnerConfig.profile.credential : targetKey,
+          INTAKE_READ_ORIGIN:
+            target.kind === 'read-only' ? target.origin : state.runnerConfig.profile.origin,
+          ...(state.version === 1 ? { INTAKE_DEPLOYMENT_ID: state.runnerConfig.deploymentId } : {}),
           INTAKE_PROCESSING_PROFILE: profile,
         },
         (text) => text.includes('"web_ready"'),
       ).ready()
-      await child(
-        'apply',
-        'src/review/runner-main.ts',
-        { INTAKE_RUNNER_CONFIG: state.runnerConfigPath },
-        (text) => text.includes('manual runner ready'),
-      ).ready()
+      if (state.version === 1) {
+        await child(
+          'apply',
+          'src/review/runner-main.ts',
+          { INTAKE_RUNNER_CONFIG: state.runnerConfigPath },
+          (text) => text.includes('manual runner ready'),
+        ).ready()
+      }
       await child('media', 'src/dev/media-main.ts', { INTAKE_MEDIA_DECODER_IMAGE: image }, (text) =>
         text.includes('DEV_MEDIA_READY'),
       ).ready()
@@ -306,8 +322,8 @@ async function main() {
             'INTAKE_CODEX_EXECUTABLE',
             'INTAKE_CLAUDE_EXECUTABLE',
           ]
-            .filter((key) => process.env[key])
-            .map((key) => [key, process.env[key]]),
+            .filter((key) => settings[key])
+            .map((key) => [key, settings[key]]),
         )
         await child(
           'agents',
@@ -317,7 +333,8 @@ async function main() {
             INTAKE_PROCESSING_PROFILE: profile,
             INTAKE_AGENT_STATE_ROOT: join(root, 'agents'),
             INTAKE_AGENT_DATABASE_URL: state.processingUrl,
-            INTAKE_AGENT_SCHEDULER_DATABASE_URL: state.runnerConfig.schedulerDatabaseUrl,
+            INTAKE_AGENT_SCHEDULER_DATABASE_URL:
+              state.version === 1 ? state.runnerConfig.schedulerDatabaseUrl : state.schedulerUrl,
           },
           (text) => text.includes('supervisor ready'),
         ).ready()
@@ -381,7 +398,7 @@ async function main() {
                   startup.signal,
                 )
                 const nextDigest = (await Promise.all(decoderRoots.map(snapshot))).join(':')
-                if (nextDigest !== decoderDigest && !process.env.INTAKE_MEDIA_DECODER_IMAGE) {
+                if (nextDigest !== decoderDigest && !settings.INTAKE_MEDIA_DECODER_IMAGE) {
                   const file = join(root, `decoder-${randomUUID()}.txt`)
                   await run(
                     process.execPath,
@@ -415,7 +432,7 @@ async function main() {
       initialSources,
     )
     process.stdout.write(
-      `Development app ready: ${publicOrigin}\nData retained in the configured private development namespace. Processing: ${profile}.\n`,
+      `Development app ready: ${publicOrigin}\nData retained in the configured private development namespace. Processing: ${profile}. Target: ${target.kind}.\n`,
     )
     await stopped
   } finally {

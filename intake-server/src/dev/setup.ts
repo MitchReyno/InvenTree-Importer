@@ -9,8 +9,13 @@ import { grantProcessing } from '../processing/grants.ts'
 import { grantMedia } from '../media/grants.ts'
 import { grantCaptureRead } from '../capture/grants.ts'
 import { grantProjection } from '../operations/grants.ts'
-import { readDevState, type DevState } from './state.ts'
+import { readDevState, type DevState, type FakeDevState } from './state.ts'
 import { developmentAdminUrl } from './postgres-url.ts'
+import { developmentTarget, type DevelopmentTarget } from './target.ts'
+import { readonlyState } from './readonly-setup.ts'
+import { grantFoundation } from '../operations/grants.ts'
+import { grantCapture } from '../capture/grants.ts'
+import { grantManual } from '../review/grants.ts'
 
 async function adminUrl() {
   if (process.env.INTAKE_DEV_ADMIN_URL) {
@@ -48,7 +53,7 @@ async function adminUrl() {
   return url
 }
 
-async function newState(root: string): Promise<DevState> {
+async function newState(root: string, target: DevelopmentTarget): Promise<DevState> {
   await writeFile(
     join(root, 'initializing'),
     'Retained first-setup marker. app.json records completed setup; inspect interrupted setup before retrying.\n',
@@ -59,6 +64,11 @@ async function newState(root: string): Promise<DevState> {
   const admin = await adminUrl()
   process.env.INTAKE_TEST_ADMIN_URL = admin.toString()
   process.env.INTAKE_TEST_ALLOW_CREATE_DATABASE = 'owned-sandbox'
+  if (target.kind === 'read-only') {
+    const state = await readonlyState(root, target)
+    await writeFile(join(root, 'app.json'), JSON.stringify(state), { flag: 'wx', mode: 0o600 })
+    return state
+  }
   const fixture = await manualFixture({ media: true, effects: true, retainedRoot: retained })
   try {
     await fixture.stop()
@@ -110,7 +120,7 @@ async function newState(root: string): Promise<DevState> {
       return url.toString()
     }
 
-    const state: DevState = {
+    const state: FakeDevState = {
       version: 1,
       databaseName: fixture.db.name,
       identity: fixture.identity,
@@ -142,15 +152,25 @@ async function main() {
   if (!root) {
     throw new Error('dev_state_required')
   }
+  const target = developmentTarget(process.env)
   try {
     await access(join(root, 'app.json'))
   } catch (error) {
     if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'ENOENT') {
       throw error
     }
-    await newState(root)
+    await newState(root, target)
   }
   const state = await readDevState(root)
+  if (
+    (state.version === 1 && target.kind !== 'fake') ||
+    (state.version === 2 &&
+      (target.kind !== 'read-only' ||
+        state.target.origin !== target.origin ||
+        state.target.credentialRef !== target.credentialRef))
+  ) {
+    throw new Error('development_target_binding_changed')
+  }
   const url = await adminUrl()
   url.pathname = `/${state.databaseName}`
   const db = database(url.toString())
@@ -159,6 +179,10 @@ async function main() {
     const apiRole = new URL(state.apiUrl).username
     const processingRole = new URL(state.processingUrl).username
     const mediaRole = new URL(state.mediaUrl).username
+    await grantFoundation(db.pool, apiRole)
+    await grantCapture(db.pool, apiRole)
+    await grantManual(db.pool, apiRole, 'api')
+    await grantMedia(db.pool, apiRole, 'api')
     await grantProcessing(db.pool, apiRole)
     await grantProcessing(db.pool, processingRole, 'runner')
     await grantMedia(db.pool, mediaRole, 'decoder')

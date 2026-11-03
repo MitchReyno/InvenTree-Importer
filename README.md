@@ -93,4 +93,4 @@ Read the shared and owning app guidelines/architecture before changes. Keep futu
 
 Licensed under [GPLv3](LICENSE); see [third-party notices](THIRD-PARTY-NOTICES.md). DigiKey/InvenTree are their respective owners' trademarks; this independent tool is not affiliated with or endorsed by them. Vendor API obligations and credential handling are described in the [backend guide](backend/README.md#using-the-digikey-api).
 
-See [local app development](docs/development.md) for full-stack startup, source-only reload, retained data and synthetic/native Processing selection.
+See [local app development](docs/development.md) for `.env` configuration, fake or read-only external InvenTree targets, full-stack startup, source-only reload, retained data and synthetic/native Processing selection. Start from `.env.intake.example` without overwriting an existing environment file.
