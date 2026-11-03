@@ -1,6 +1,6 @@
 # Planned Bench Intake functionality
 
-This repository index tracks requested future features, fixes, improvements and maintenance for the interactive app on `interactive-app`. Each item links directly to its OpenSpec change for details. There are no registered items yet. Plans are not implementation or release commitments.
+This repository index tracks requested future features, fixes, improvements and maintenance for the interactive app on `interactive-app`. Each item links directly to its OpenSpec change for details. Plans are not implementation or release commitments.
 
 Maintain the index with the project-level `planned-functionality` skill. Use the [Bench Intake OpenSpec workflow](openspec.md) for detailed planning. Capturing an item can create a change scaffold with its brief description; it does not require completing all proposal/design/tasks artifacts or authorize implementation.
 
@@ -48,7 +48,17 @@ No registered items.
 
 ## Improvements
 
-No registered items.
+### Unassessed
+
+#### BI-001 — Capture tab uplift
+
+Consolidate all settings currently reached through the Shared details buttons into one Batch settings panel and remove those buttons. Include the original mockup's elements, with explicit proposal-time reconciliation of unsupported controls, and compare right-side versus above-content placement before choosing the layout. Uplift the main evidence panel with three prominent top actions for taking photos, adding documents and writing notes, and organize evidence using groups like the original mockup.
+
+- Change: `capture-tab-uplift`
+- Status: Proposed
+- Size: Unknown — assess settings consolidation, evidence groups and required persistence during proposal development.
+- Prerequisites: Unknown — original mockup is available; resolve its purchase-order control against current contracts and assess group/persistence support before implementation.
+- OpenSpec: [capture-tab-uplift](../openspec/changes/capture-tab-uplift/)
 
 ## Maintenance
 
