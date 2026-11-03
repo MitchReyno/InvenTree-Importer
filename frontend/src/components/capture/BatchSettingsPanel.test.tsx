@@ -148,7 +148,7 @@ test('the note action focuses the existing shared composer without replacing a s
     />,
   )
   await user.type(screen.getByLabelText('Batch title'), ' draft')
-  await user.click(screen.getByRole('button', { name: 'Add note' }))
+  await user.click(screen.getByRole('button', { name: 'Write a note' }))
   expect(screen.getByLabelText(/^Batch human note/)).toHaveFocus()
   expect(screen.getByLabelText('Batch title')).toHaveValue('Two packets draft')
   expect(screen.getAllByLabelText(/^Batch human note/)).toHaveLength(1)

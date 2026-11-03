@@ -275,3 +275,38 @@ test('same-lot inspection navigation cannot bypass the real application dirty-UR
   )
   history.replaceState(null, '', '#')
 })
+
+test('retained group and evidence notes are readable without replacing source identities', () => {
+  const note = {
+    id: '80000000-0000-4000-8000-000000000008',
+    version: '2',
+    text: 'Read the original pencil marking.',
+    actor_id: '90000000-0000-4000-8000-000000000009',
+    created_at: '2026-11-03T00:00:00Z',
+  }
+  const groupId = '70000000-0000-4000-8000-000000000007'
+  render(
+    <EvidenceViewer
+      batchId="batch"
+      evidence={[{ ...evidence, group_id: groupId, note }]}
+      groups={[
+        {
+          id: groupId,
+          label: 'Opened packet',
+          note: {
+            ...note,
+            id: '60000000-0000-4000-8000-000000000006',
+            text: 'Do not combine these physical lots.',
+          },
+        },
+      ]}
+    />,
+  )
+  expect(screen.getByText('Read the original pencil marking.')).toBeVisible()
+  expect(screen.getByText('Do not combine these physical lots.')).toBeVisible()
+  expect(screen.getByRole('img')).toHaveAttribute(
+    'src',
+    '/api/v1/batches/batch/media/previews/30000000-0000-4000-8000-000000000003',
+  )
+  expect(screen.getAllByText(/Version 2/)).toHaveLength(2)
+})

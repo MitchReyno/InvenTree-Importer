@@ -2,7 +2,7 @@
 
 ## Plan context
 
-Canonical change: `capture-tab-uplift`; linked [BI-001](../../../docs/PLANNED_FUNCTIONALITY.md#bi-001--capture-tab-uplift). Read the [proposal/reuse comparison](proposal.md), [design](design.md), [settings requirements](specs/capture-batch-settings/spec.md) and [grouped-evidence requirements](specs/capture-grouped-evidence/spec.md). The index owns mutable metadata. This is a plan for future implementation, not completed application work.
+Canonical change: `capture-tab-uplift`; linked [BI-001](../../../docs/PLANNED_FUNCTIONALITY.md#bi-001--capture-tab-uplift). Read the [proposal/reuse comparison](proposal.md), [design](design.md), [settings requirements](specs/capture-batch-settings/spec.md) and [grouped-evidence requirements](specs/capture-grouped-evidence/spec.md). The index owns mutable metadata. Implementation evidence is recorded below and in the handover; checklist completion alone does not establish a merged release.
 
 ## Completion and commit ordering
 
@@ -20,7 +20,7 @@ Tasks 1 and 2 are independent data foundations. Task 3 consumes Task 1; Task 4 c
 | PR-B | Task 3: layout comparison and single Batch settings consumer, including disabled PO controls | Complete settings behavior with a reasoned layout decision; requires PR-A, no status-signalling prerequisite | `interactive-app`; `feat/capture-tab-uplift-settings`; `feat(capture-tab-uplift): consolidate Batch settings` | Both placement comparisons, draft/conflict/disabled-PO regressions and browser evidence; independent exact-head review and selected CI |
 | PR-C | Tasks 4 and 5: three evidence actions, grouped UI and end-to-end qualification | Ship coherent evidence behavior plus its accessibility/adverse integration proof; requires PR-A and PR-B draft/layout integration | `interactive-app`; `feat/capture-tab-uplift-evidence`; `feat(capture-tab-uplift): expose grouped Capture evidence` | Dependency proof, media/group/note regressions, original-reference browser journeys and owning checks; independent exact-head review and selected CI |
 
-The user authorized implementation after both proposals merged. PR-A merged as [#75](https://github.com/MitchReyno/InvenTree-Importer/pull/75); PR-B implements the complete settings task. Record real PR references when created; update the map for coherent review, compatibility or delivery risk, never arbitrary task counts. Coverage is complete and no top-level task is shared between bundles.
+The user authorized implementation after both proposals merged. PR-A merged as [#75](https://github.com/MitchReyno/InvenTree-Importer/pull/75); PR-B merged as [#76](https://github.com/MitchReyno/InvenTree-Importer/pull/76); PR-C delivers the complete evidence and integration tasks. Record real PR references when created; update the map for coherent review, compatibility or delivery risk, never arbitrary task counts. Coverage is complete and no top-level task is shared between bundles.
 
 ## 1. Retain composite settings and human context
 
@@ -97,12 +97,12 @@ The user authorized implementation after both proposals merged. PR-A merged as [
 - Risks: Retained original followed by failed group move is two receipts/states, not an atomic upload; grouping cannot imply attachment/lot approval.
 
 - [x] 4.1 Verify the chosen dnd-kit release/maintenance/advisories/license/lock impact and exercise React 19.3.1 sensors, cancellation and scrolling in an owned fixture before relying on it; record a qualified fallback if needed.
-- [ ] 4.2 RED: cover visible top3 actions, media-disabled/unsupported/uncertain uploads, shared note focus, grouped/ungrouped rendering and note readback.
-- [ ] 4.3 RED: cover equivalent select/move and drag paths, preserved selection on conflict, atomic bulk-move refusal and retained-original-but-unmoved readback.
-- [ ] 4.4 GREEN: compose top actions, group names/counts/notes, per-evidence notes, create/rename/add/ungroup and explicit movement controls over existing identities.
-  - [ ] 4.4.1 Route drag/keyboard/touch movement through the same retained command, with screen-reader instructions and cancellation feedback.
-  - [ ] 4.4.2 Preserve upload receipt/retry identity and show a retained original in ungrouped if its subsequent membership command fails.
-- [ ] 4.5 Refactor duplicate per-file controls without dropping subject links/crop/attachment behavior; verify surrounding media and dirty-registry contracts and owning checks.
+- [x] 4.2 RED: cover visible top3 actions, media-disabled/unsupported/uncertain uploads, shared note focus, grouped/ungrouped rendering and note readback.
+- [x] 4.3 RED: cover equivalent select/move and drag paths, preserved selection on conflict, atomic bulk-move refusal and retained-original-but-unmoved readback.
+- [x] 4.4 GREEN: compose top actions, group names/counts/notes, per-evidence notes, create/rename/add/ungroup and explicit movement controls over existing identities.
+  - [x] 4.4.1 Route drag/keyboard/touch movement through the same retained command, with screen-reader instructions and cancellation feedback.
+  - [x] 4.4.2 Preserve upload receipt/retry identity and show a retained original in ungrouped if its subsequent membership command fails.
+- [x] 4.5 Refactor duplicate per-file controls without dropping subject links/crop/attachment behavior; verify surrounding media and dirty-registry contracts and owning checks.
 
 ## 5. Qualify the complete Capture uplift
 
@@ -115,11 +115,11 @@ The user authorized implementation after both proposals merged. PR-A merged as [
 - Verification: Desktop/360px/390px/200% zoom, keyboard/touch/drag, reload/conflict/adverse uploads; required contract/app/format/readability checks with owned services only.
 - Risks: Screenshot similarity cannot prove transactional containment, provider quality or real-inventory behavior; report limits separately.
 
-- [ ] 5.1 Exercise original-reference journeys with related front/back evidence, independent physical lots, notes, per-lot overrides and disabled PO controls; retain representative synthetic evidence.
-- [ ] 5.2 Verify reload/Review/viewer context, stale processing/preparation after edits, ungroup history and failed/conflicting membership without duplicated originals.
-- [ ] 5.3 Verify keyboard/touch equivalents, labelled controls/focus, long filenames/tags, all target widths and zoom without overflow or dirty form resets.
-- [ ] 5.4 Run relevant contract/server/frontend/PG/process checks and required formatting/readability/build checks; update owning architecture and handover with actual outcomes and limits.
-- [ ] 5.5 Reconcile acceptance and current index metadata; keep BI-001 short of Done until accepted merged implementation exists.
+- [x] 5.1 Exercise original-reference journeys with related front/back evidence, independent physical lots, notes, per-lot overrides and disabled PO controls; retain representative synthetic evidence.
+- [x] 5.2 Verify reload/Review/viewer context, stale processing/preparation after edits, ungroup history and failed/conflicting membership without duplicated originals.
+- [x] 5.3 Verify keyboard/touch equivalents, labelled controls/focus, long filenames/tags, all target widths and zoom without overflow or dirty form resets.
+- [x] 5.4 Run relevant contract/server/frontend/PG/process checks and required formatting/readability/build checks; update owning architecture and handover with actual outcomes and limits.
+- [x] 5.5 Reconcile acceptance and current index metadata; keep BI-001 short of Done until accepted merged implementation exists.
 
 ## Delivery evidence and lifecycle follow-up
 

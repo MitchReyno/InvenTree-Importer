@@ -13,3 +13,13 @@ The legacy 6.3.1 candidate has a smaller dependency surface and a long-used API,
 - Scrolling: pointer near the bottom of a 390×420 viewport triggers real auto-scroll (scrollY 393→439), then the target move completes (`drag-scroll-390.png` / metrics).
 
 Announcements use human labels rather than internal evidence/group IDs, and distinguish dragging from retained membership confirmation. No-op drops do not create a fixture command. The callback is fenced while saving. Screenshots were visually inspected. These checks qualify the adapter, not atomic media persistence or the final grouped workspace; those remain the subsequent UI/server-integration tasks.
+
+## Integrated Capture consumer
+
+The owned `grouped-capture.html` fixture mounts production Capture, grouped media and Review viewer components over an explicit synthetic in-memory client. It exercises two separate physical lots, front/back evidence identities, groups, human notes, dirty navigation and injected revision refusal. It intentionally contains no ready preview bytes or successful upload implementation; real byte retention and transaction guarantees come from the owning tests, not these screenshots.
+
+Integrated pointer and keyboard moves both produced one acknowledged membership command. A rapid initial keyboard attempt without focused input did not move anything; a focused handle, Space pickup, timed arrow events and Space confirmation succeeded. Explicit selection of both IDs followed by a refused move retained both IDs and dirty protection; deliberate membership reload and a new move succeeded. Review showed the retained evidence note after movement.
+
+Touch at 390 CSS pixels completed through the same consumer after the default 250ms touch activation hold. An earlier 150ms hold correctly did not activate; it was not counted as a successful move. Pointer/touch results are in `integrated-desktop.png` and `integrated-touch.png`. The adapter-only qualification above separately proves cancellation and real narrow auto-scroll.
+
+Dirty note drafts remained one mounted editor with exact text at 360/390 CSS pixels and native 100% zoom (`integrated-360.png`, `integrated-390.png`). Native browser zoom2 with visual viewport scale1, emulated widths720/780 and resulting CSS widths360/390 retained the same draft with no document overflow (`integrated-200-360.png`, `integrated-200-390.png`). These profiles are isolated; the user's existing browser zoom was not changed. Screenshots were visually inspected.

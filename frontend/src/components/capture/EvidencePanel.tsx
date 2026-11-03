@@ -1,14 +1,20 @@
 import { HeadingRow, Caption } from '../ui/primitives'
-import { Button, Heading, Panel, Paragraph, Small, Subheading, Summary } from '../ui/primitives'
+import { Heading, Panel, Paragraph, Small, Subheading, Summary } from '../ui/primitives'
 import type { Snapshot } from '../../capture/types'
 import { display } from '../../capture/display'
 import styled from 'styled-components'
 import type { MediaClient } from '../../media/types'
 import { MediaWorkspace } from '../media/MediaWorkspace'
+import type { OperatorReviewDto } from '@invimport/contracts'
+import type { OperatorReviewClient } from '../../operator/types'
+import { EvidenceActions } from '../media/EvidenceActions'
 import { HumanNote } from './HumanNote'
 
 type Props = {
   batch: Snapshot
+  operator?: OperatorReviewClient
+  review?: OperatorReviewDto
+  reload?: () => Promise<void>
   media?: MediaClient
   onMediaDirtyChange: (dirty: boolean) => void
   selected: string
@@ -27,6 +33,9 @@ export function EvidencePanel({
   frozen,
   setSelected,
   media,
+  operator,
+  review,
+  reload,
   onMediaDirtyChange,
   noteDisabled = navigationDirty || frozen,
 }: Props) {
@@ -47,15 +56,36 @@ export function EvidencePanel({
   return (
     <EvidenceArea data-area="context" aria-labelledby="evidence">
       <HeadingRow>
-        <Heading id="evidence">Human note evidence</Heading>
-        <Button disabled={noteDisabled} onClick={() => setSelected('note')}>
-          Add note
-        </Button>
+        <Heading id="evidence">Evidence</Heading>
       </HeadingRow>
       <Caption>
         Original observations are retained. A note is evidence, not an inferred or approved
         inventory fact.
       </Caption>
+      {media && (
+        <MediaWorkspace
+          operator={operator}
+          review={review}
+          reload={reload}
+          onWriteNote={() => setSelected('note')}
+          noteDisabled={noteDisabled}
+          batch={batch}
+          client={media}
+          disabled={dirty || frozen}
+          selectedSubject={selected}
+          onDirtyChange={onMediaDirtyChange}
+        />
+      )}
+      {!media && (
+        <EvidenceActions
+          mediaDisabled
+          noteDisabled={noteDisabled}
+          writeNote={() => setSelected('note')}
+          takePhotos={() => undefined}
+          addDocument={() => undefined}
+          unavailable
+        />
+      )}
       {lot && (
         <ContextCard>
           <Subheading>{lot.label}</Subheading>
@@ -89,15 +119,6 @@ export function EvidencePanel({
             <HumanNote key={n.id} note={n} batch={batch} />
           ))}
         </details>
-      )}
-      {media && (
-        <MediaWorkspace
-          batch={batch}
-          client={media}
-          disabled={dirty || frozen}
-          selectedSubject={selected}
-          onDirtyChange={onMediaDirtyChange}
-        />
       )}
       <IdentityDetails>
         <Summary>Retained source identity</Summary>

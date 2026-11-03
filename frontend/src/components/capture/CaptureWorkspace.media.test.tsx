@@ -59,13 +59,14 @@ test('pending original cannot enable Capture save or lose its request when Captu
     onDirtyChange: dirty,
   }
   const view = render(<CaptureWorkspace {...props} />)
-  const input = await screen.findByLabelText('Add a photo or PDF')
+  const input = await screen.findByLabelText('Choose photos')
   const file = new File(['original bytes'], 'bench-photo.png', { type: 'image/png' })
+  await waitFor(() => expect(input).toBeEnabled())
   await user.upload(input, file)
 
   expect(dirty).toHaveBeenLastCalledWith(true)
   expect(screen.getByRole('button', { name: 'Save Batch settings' })).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'Add note' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Write a note' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Archive batch' })).toBeDisabled()
   view.rerender(
     <CaptureWorkspace {...props} batch={{ ...batch, updated_at: '2026-11-02T00:01:00Z' }} />,
@@ -100,8 +101,8 @@ test('Capture input freezes file selection until its own input is resolved', asy
       observe={vi.fn(async () => null)}
     />,
   )
-  const upload = await screen.findByLabelText('Add a photo or PDF')
-  expect(upload).toBeEnabled()
+  const upload = await screen.findByLabelText('Choose photos')
+  await waitFor(() => expect(upload).toBeEnabled())
   await user.type(screen.getByRole('textbox', { name: 'Batch title' }), ' updated')
   expect(upload).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Save Batch settings' })).toBeEnabled()

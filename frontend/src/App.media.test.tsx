@@ -73,10 +73,10 @@ test.each([true, false, undefined])(
     render(<App />)
     await screen.findByRole('heading', { name: batch.title })
     if (enabled) {
-      expect(await screen.findByLabelText('Add a photo or PDF')).toBeEnabled()
+      expect(await screen.findByLabelText('Choose photos')).toBeEnabled()
       expect(mediaReads).toHaveBeenCalledTimes(1)
     } else {
-      expect(screen.queryByLabelText('Add a photo or PDF')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Choose photos')).not.toBeInTheDocument()
       expect(mediaReads).not.toHaveBeenCalled()
     }
   },

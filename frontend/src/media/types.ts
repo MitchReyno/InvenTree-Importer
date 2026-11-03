@@ -15,3 +15,5 @@ export interface MediaClient {
 export function mediaResource(batchId: string, kind: 'versions' | 'previews', resourceId: string) {
   return `/api/v1/batches/${encodeURIComponent(batchId)}/media/${kind}/${encodeURIComponent(resourceId)}`
 }
+
+export type EditMedia = (change: MediaEditDto['change'], revision?: string) => Promise<boolean>

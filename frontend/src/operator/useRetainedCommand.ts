@@ -12,6 +12,7 @@ export interface RetainedCommand<I, R> {
   message: string
   /** True while an uncertain intent must be retried exactly or explicitly discarded. */
   pending: boolean
+  hasPendingIntent: () => boolean
   submit: (input: I) => Promise<R | null>
   retry: () => Promise<R | null>
   discard: () => void
@@ -52,6 +53,7 @@ export function useRetainedCommand<I, R>(
     failure,
     message: failure ? failureMessage(failure) : '',
     pending: intent.current !== null,
+    hasPendingIntent: () => intent.current !== null,
 
     submit(input) {
       if (intent.current) {
