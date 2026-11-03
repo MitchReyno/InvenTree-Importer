@@ -1,0 +1,185 @@
+name: bench-intake
+version: 1
+description: Source-grounded Bench Intake planning with testable requirements, proportionate design and independently verified delivery.
+artifacts:
+  - id: proposal
+    generates: proposal.md
+    description: Problem, intended outcome, evidence, scope and capability changes.
+    template: proposal.md
+    instruction: |
+      Read openspec/schemas/bench-intake/README.md for the shared working practices.
+      Establish the problem, intended outcome, scope, non-goals and impact before
+      selecting solutions. Reuse answers from the request and conversation; batch
+      genuinely unresolved material questions with recommendations. Look up facts
+      available in project documentation, relevant source and tests. Record minor
+      assumptions explicitly instead of asking for routine implementation choices.
+
+      Link existing BI item IDs and their detail files when applicable. A change
+      may cover several related items; do not allocate an ID or create backlog
+      entries merely to fill this template. Priority, size, prerequisites and
+      current item status remain owned by the planned-functionality register.
+      Distinguish observed behavior, requested behavior and unverified assumptions.
+      Identify affected application boundaries, compatibility and evidence limits.
+      Decompose unrelated outcomes without splitting a cohesive end-to-end change
+      into artificial subsystems.
+
+      Inspect the existing capability inventory and relevant main specs in full
+      before declaring new or modified capability paths. Preserve existing paths.
+      For changes with no spec-level behavior delta, set skip_specs: true in the
+      change's .openspec.yaml and declare no capabilities. Never invent behavioral
+      requirements for documentation, tooling or behavior-preserving refactors.
+      Follow the template, keep the proposal concise, and apply the shared review
+      practice before treating the plan as ready.
+    requires: []
+
+  - id: specs
+    generates: "specs/**/*.md"
+    description: Observable behavior contracts and meaningful acceptance scenarios.
+    template: spec.md
+    instruction: |
+      Read openspec/schemas/bench-intake/README.md for the shared working practices.
+      Use the proposal's exact capability paths and inspect current behavior and
+      existing requirements before drafting deltas. Write one delta per capability.
+      A change declaring skip_specs: true must contain no delta files.
+
+      Preserve native delta headings: ADDED, MODIFIED, REMOVED and RENAMED
+      Requirements. Use ### Requirement and #### Scenario headings. Requirements
+      use SHALL or MUST and describe observable behavior rather than internal
+      implementation. Each requirement needs at least one concrete GIVEN/WHEN/THEN
+      scenario; add distinct failure or edge cases where relevant. Express measurable
+      nonfunctional requirements as criteria, with a scenario showing how they are
+      verified. Do not introduce speculative scope merely to populate a checklist.
+
+      Assess relevant missing/invalid inputs, permissions, exact IDs and quantities,
+      stale revisions, duplicate submissions, concurrency, cancellation, uncertain
+      effects, retry/recovery, provenance and compatibility. Include only applicable
+      concerns and ground them in this change's actual boundary. Mock or synthetic
+      evidence does not establish live provider or inventory guarantees.
+      Map acceptance scenarios to appropriate verification; several scenarios may
+      share parameterized tests, and some outcomes need explicit manual evidence.
+
+      For new capabilities only, include a meaningful Purpose of at least 50
+      characters. Remove the Purpose section for existing-capability deltas. Keep
+      new requirement descriptions concise; put examples and branches in scenarios.
+      For MODIFIED requirements, copy the complete existing requirement and its
+      scenarios before editing; preserve unaffected details. REMOVED requirements
+      need Reason and Migration; RENAMED uses native FROM/TO entries. Keep only
+      applicable delta sections and apply the shared review practice.
+    requires:
+      - proposal
+
+  - id: design
+    generates: design.md
+    description: Proportionate design assessment, decisions, trade-offs and verification boundaries.
+    template: design.md
+    instruction: |
+      Read openspec/schemas/bench-intake/README.md for the shared working practices.
+      Always produce a design assessment so downstream dependencies are explicit.
+      For simple changes, state why no new architectural decision, dependency or
+      migration is needed and keep the assessment short. Do not fabricate options
+      or expand a simple change to fill the template. Specs intentionally skipped
+      with skip_specs: true do not need replacement requirements.
+
+      Inspect relevant source, tests, architecture and existing patterns. Document
+      affected owners, interfaces, state and effects with repository evidence.
+      Distinguish implemented facts from proposals. For material decisions, compare
+      viable alternatives, recommend one, preserve rejected alternatives and reasons,
+      and record accepted trade-offs. Do not invent weak alternatives or require
+      approval for each section or library choice when within authorized scope.
+      Research new dependencies only when justified; prefer suitable existing tools
+      and explain custom policy or code where a package cannot own the contract.
+
+      Cover relevant data flow, authority, revision/identity rules, failure and recovery
+      behavior, compatibility, security, observability and operational limits. Define
+      tests at the boundaries that establish the claimed guarantees. Address migration,
+      rollout, rollback and retained effects when applicable; mark exclusions with reasons.
+      Resolve conflicts with the proposal/specs rather than silently weakening either.
+      Keep meaningful tables and diagrams, consolidate repetition, and write for a
+      reviewer rather than preserving the discovery transcript verbatim.
+      Apply the shared review practice.
+    requires:
+      - proposal
+      - specs
+
+  - id: tasks
+    generates: tasks.md
+    description: Verifiable slices, real dependencies, verification and delivery evidence.
+    template: tasks.md
+    instruction: |
+      Read openspec/schemas/bench-intake/README.md for the shared working practices.
+      Read the proposal, design assessment and any applicable specs. Inspect source
+      and tests when needed to ground task boundaries; surface genuine plan gaps.
+      Slice by cohesive verifiable outcomes across the layers required. Allow justified
+      investigation, maintenance, migration, configuration, test-only and documentation
+      work without inventing a user-facing behavior. Each slice states its observable
+      outcome, task type, real prerequisites, acceptance references and verification.
+      Do not force independent work into an artificial linear dependency chain.
+
+      Use numbered sections and native - [ ] numbered task checkboxes. Keep each
+      task actionable and traceable to an outcome, requirement or necessary enabling
+      work. Explain what must be delivered; include file paths or concrete checks
+      where useful without duplicating the design or prescribing line-by-line edits.
+      A task or slice is not automatically one PR; choose coherent reviewable PRs
+      under the repository's branch and publication rules.
+
+      Select checks by task type and affected boundary. Behavior changes need
+      meaningful regressions; use red/green testing where useful. Refactors may
+      rely on existing and characterization coverage; docs need reference/consistency
+      checks; migrations need validation and recovery evidence. Do not require a new
+      test for every line, a one-test-per-scenario mapping, deletion of existing work,
+      or ceremonial per-test logs. Include required project checks, meaningful failure
+      cases and honest manual or unavailable verification limits.
+
+      Separate implemented-and-verified task completion from publication and product
+      item Done. Include explicit final work for independent exact-head review, selected
+      green CI, documentation/evidence updates and the applicable merge decision.
+      A merge hold is a valid delivery boundary; never check a pending merge or mark
+      a BI item Done merely because implementation tasks are checked.
+      Apply the shared review practice before implementation begins.
+    requires:
+      - specs
+      - design
+
+apply:
+  requires:
+    - tasks
+  tracks: tasks.md
+  instruction: |
+    Read openspec/schemas/bench-intake/README.md and the project's governing
+    instructions. Preserve existing user authorization and scope. Planning-only
+    requests do not authorize implementation; a plan-and-implement request may
+    continue after planning without repeating permission. Batch unresolved material
+    questions; make and record reasonable routine choices within authorized scope.
+
+    Confirm current source, artifacts, working tree and real prerequisites before
+    each affected slice. Verify the complete required artifact dependency set,
+    allowing only explicit native skips: an existing tasks file does not prove
+    its prerequisites are present or current. Repair missing required artifacts
+    within authorized scope before executing implementation tasks.
+    Use targeted source reads and select an execution mode
+    proportional to the work and available authorization. Do not automatically spawn
+    implementers or parallelize work; follow the repository's ownership and delegation
+    rules. No skill may grant provider usage, live inventory access or write authority.
+
+    Implement pending checkboxes in dependency order without unrelated scope growth.
+    Use appropriate regression-first tests and real-boundary verification; existing
+    coverage and characterization tests can establish behavior-preserving changes.
+    Do not delete work to manufacture a red test, disable tests, or hide failures.
+    Distinguish pre-existing or environment-gated skips from a changed-boundary gap;
+    document limitations and never label an unverified acceptance criterion as passed.
+    Use owning project commands rather than appending generic filter flags blindly.
+
+    Reconcile material discoveries into the plan within authorized scope before
+    continuing. A meaningful scope, compatibility or product decision requires the
+    user; a routine correction does not require another permission round. Reassess
+    repeated failures and report the actual blocker without a fixed three-attempt
+    rule that abandons recoverable work. Continue useful authorized work.
+
+    Check each task only after its deliverable and required evidence are satisfied.
+    Keep publication/merge tasks pending until their own conditions are met. Preserve
+    the existing commit and PR workflow: isolated conventional branches, maintained
+    handovers, independent read-only review of the exact candidate, correction and
+    re-review until clear, then selected green CI. Commits are permitted within that
+    workflow. Merge and archive require applicable user authorization; obey any hold.
+    Update linked BI items only from actual current evidence. A completed task list,
+    archive or green CI alone does not establish merged product functionality.

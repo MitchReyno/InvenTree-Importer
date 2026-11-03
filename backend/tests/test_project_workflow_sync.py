@@ -49,7 +49,7 @@ HOST_ADAPTATIONS = (
 
 
 def skill_files(directory):
-    """Ignore generated Python caches, but include every authored resource."""
+    """Compare authored resources, excluding caches and root target metadata."""
     assert directory.is_dir(), f"Missing skill directory: {directory}"
     assert not directory.is_symlink(), f"Skills must be real copies: {directory}"
     files = {}
@@ -57,10 +57,25 @@ def skill_files(directory):
         if "__pycache__" in path.parts or path.suffix == ".pyc":
             continue
         assert not path.is_symlink(), f"Skills must be real copies: {path}"
+        if path == directory / ".openspec-target":
+            continue  # OpenSpec owns this host-specific target marker, not a skill.
         if path.is_file():
             files[path.relative_to(directory)] = path
     assert files, f"No skill files found in {directory}"
     return files
+
+
+def test_skill_files_excludes_only_root_openspec_target_metadata(tmp_path):
+    (tmp_path / ".openspec-target").write_text("agents\n", encoding="utf-8")
+    skill = tmp_path / "example"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("Example skill", encoding="utf-8")
+    (skill / ".openspec-target").write_text("Authored resource", encoding="utf-8")
+
+    assert set(skill_files(tmp_path)) == {
+        Path("example/SKILL.md"),
+        Path("example/.openspec-target"),
+    }
 
 
 def test_project_skill_copies_have_the_same_files():
@@ -70,8 +85,11 @@ def test_project_skill_copies_have_the_same_files():
 def test_project_skill_copies_have_identical_contents():
     source = skill_files(CLAUDE_SKILLS)
     target = skill_files(CODEX_SKILLS)
-    different = [str(name) for name in source.keys() & target.keys()
-                 if source[name].read_bytes() != target[name].read_bytes()]
+    different = [
+        str(name)
+        for name in source.keys() & target.keys()
+        if source[name].read_bytes() != target[name].read_bytes()
+    ]
     assert not different, "Skill copies differ: " + ", ".join(sorted(different))
 
 
@@ -92,13 +110,18 @@ def codex_instructions(claude_body):
     for source, target in HOST_ADAPTATIONS:
         body = body.replace(source, target)
     body = body.replace("(Skill tool)", "(a project-level skill)")
-    body = body.replace("`chip-logo-identification` skill**",
-                        "`chip-logo-identification` project-level skill**")
-    return body.replace("plain `curl` or WebFetch",
-                        "plain `curl` or the available web-fetch tool")
+    body = body.replace(
+        "`chip-logo-identification` skill**",
+        "`chip-logo-identification` project-level skill**",
+    )
+    return body.replace(
+        "plain `curl` or WebFetch", "plain `curl` or the available web-fetch tool"
+    )
 
 
-@pytest.mark.parametrize("name", sorted(path.stem for path in CLAUDE_AGENTS.glob("*.md")))
+@pytest.mark.parametrize(
+    "name", sorted(path.stem for path in CLAUDE_AGENTS.glob("*.md"))
+)
 def test_codex_agent_matches_claude_workflow(name):
     source = (CLAUDE_AGENTS / f"{name}.md").read_text(encoding="utf-8")
     delimiter, frontmatter, body = source.split("---", 2)
@@ -117,15 +140,30 @@ def test_root_workspace_command_surface_has_no_dangling_aliases_or_cycles():
     """Root scripts are the public task entry point; all delegates must resolve."""
     scripts = json.loads((ROOT / "package.json").read_text())["scripts"]
     frontend = json.loads((ROOT / "frontend/package.json").read_text())["scripts"]
-    assert {"dev", "build", "typecheck", "lint", "test", "backend", "demo",
-            "lint:backend", "lint:frontend", "test:backend", "test:frontend",
-            "test:scanner", "test:all", "workflow-sync"} <= scripts.keys()
+    assert {
+        "dev",
+        "build",
+        "typecheck",
+        "lint",
+        "test",
+        "backend",
+        "demo",
+        "lint:backend",
+        "lint:frontend",
+        "test:backend",
+        "test:frontend",
+        "test:scanner",
+        "test:all",
+        "workflow-sync",
+    } <= scripts.keys()
     edges = {}
     for name, command in scripts.items():
         assert not re.search(r"(?:^|[;&]\s*)make(?:\s|$)", command), name
         edges[name] = re.findall(r"pnpm run ([\w:-]+)", command)
         assert set(edges[name]) <= scripts.keys(), name
-        for target in re.findall(r"pnpm --filter @invimport/frontend ([\w:-]+)", command):
+        for target in re.findall(
+            r"pnpm --filter @invimport/frontend ([\w:-]+)", command
+        ):
             assert target in frontend, (name, target)
 
     def visit(name, active):
