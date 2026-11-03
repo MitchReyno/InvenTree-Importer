@@ -66,8 +66,8 @@ Replace the top-right Manual workflow element with a clickable connection-status
 
 - Change: `status-signalling-uplift`
 - Status: Proposed
-- Size: Unknown — assess header composition, accessible disclosures and authoritative health/progress/agent data during proposal development.
-- Prerequisites: Unknown — original mockup and existing live-update/agent-session surfaces are available; assess target-health and workflow-step data contracts. No known ordering dependency on BI-001.
+- Size: L — cross-layer target/work read contracts, accessible header integration and browser qualification.
+- Prerequisites: None external identified — existing retained data and target transport are available; the change includes its read-contract and package-qualification foundations. No ordering dependency on BI-001.
 - OpenSpec: [status-signalling-uplift](../openspec/changes/status-signalling-uplift/)
 
 ## Maintenance

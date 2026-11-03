@@ -1,6 +1,6 @@
 # Status signalling uplift
 
-Capture the requested application-header uplift as BI-002 in the [functionality index](../../../docs/PLANNED_FUNCTIONALITY.md), which owns its current metadata. This brief records future intent; full proposal, requirements, design and task planning remain to be developed.
+Capture the requested application-header uplift as BI-002 in the [functionality index](../../../docs/PLANNED_FUNCTIONALITY.md), which owns its current metadata. This brief records future intent; the [proposal](proposal.md), [requirements](specs/header-connection-status/spec.md), [design](design.md) and [task plan](tasks.md) now develop it. Implementation remains future work.
 
 ## Connection status and InvenTree access
 
