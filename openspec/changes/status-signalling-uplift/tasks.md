@@ -50,7 +50,7 @@ This proposal documentation PR is separate from those future implementation bund
 - Risks: Probe budget/route, partial global lists and old-context response reuse; explicit bounds are part of acceptance.
 
 - [ ] 2.1 Identify the adapter's harmless supported read route, scope/configuration source and query indexes; record its exact response/error policy before enabling observation.
-- [ ] 2.2 RED: cover sanitized URL refusal, wrong scope/context, missing configuration, timeout, duplicate/coalesced probes, 30s cache and 60s stale threshold.
+- [ ] 2.2 RED: cover sanitized URL refusal, wrong scope/context, missing configuration, timeout, duplicate/coalesced probes, 30s cache and 60s stale threshold, distinguishing fresh failed probes from stale observations.
 - [ ] 2.3 RED: add retained-reader cases for logically cancelled occupied agents, active rows beyond history page one, unknown step detail and independent truncation flags.
 - [ ] 2.4 GREEN: add TypeBox read schemas, authenticated routes and typed/generated clients; implement bounded observations and retained projections using existing adapters/readers.
   - [ ] 2.4.1 Preserve safe failure codes, observation time, actor/target/context identity and credential redaction.
@@ -68,7 +68,7 @@ This proposal documentation PR is separate from those future implementation bund
 - Verification: Focused frontend Vitest files, `pnpm typecheck`, `pnpm lint:frontend`, `pnpm build`; Task 4 supplies browser qualification in the same PR.
 - Risks: Moving provider boundaries can remount dirty forms or duplicate subscriptions; test those actual boundaries.
 
-- [ ] 3.1 RED: add regressions for healthy socket/unavailable target, missing URL, stale data, scope races and failed reads not becoming idle.
+- [ ] 3.1 RED: add regressions for healthy socket/unavailable target, missing URL, healthy-socket foreground polling, local expiry/visibility recomputation, fresh failed versus stale observations, scope races and failed reads not becoming idle.
 - [ ] 3.2 RED: cover current-batch priority, partial active-agent coverage, retained step labels and tab navigation preserving dirty inputs and query subscription identity.
 - [ ] 3.3 GREEN: integrate scoped connection/work hooks, expose read-only update health, and render independent triggers, detail panels and safe target navigation.
   - [ ] 3.3.1 Show physically occupied agents even after logical cancellation; link to owning views without introducing new mutations.

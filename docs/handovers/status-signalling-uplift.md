@@ -25,3 +25,7 @@ Author proposal, behavioral delta specs, design and detailed unchecked implement
 - [x] Validate the complete plan, metadata, links and PR ownership before committing proposal work.
 
 Full status plan validation passed: strict native delta validation, CLI planning-complete state, Markdown, direct local links and whitespace. Implementation checkboxes remain unchecked; only completed proposal-authoring actions are checked here. Four implementation tasks map wholly to two reasoned PR bundles. Size is assessed L for cross-layer read/UI work; no external ordering prerequisite was identified. Package source evidence was checked on 2026-11-03; no package was installed and no runtime qualification is claimed.
+
+Independent review of `aba97ea` found two linked freshness gaps: socket-healthy state disables existing activity polling, and freshness based on last success mislabels fresh failures. The corrected plan specifies 30-second foreground connection polling independent of socket state, local 60-second expiry/visibility recomputation, and freshness based on latest completed observation. Added explicit future regression cases and revalidated specs/Markdown.
+
+- [x] Correct both reviewed freshness gaps and verify the revised status artifacts before committing the correction.

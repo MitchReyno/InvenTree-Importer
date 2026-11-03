@@ -18,9 +18,9 @@ The application SHALL replace the masthead's Manual workflow label with a labell
 
 #### Scenario: Missing or stale target observation
 
-- **GIVEN** no configured target or no successful target observation within 60 seconds, or the last observation belongs to a previous target context
+- **GIVEN** no configured target or no completed target observation within 60 seconds, or the last observation belongs to a previous target context
 - **WHEN** the indicator renders
-- **THEN** it shows unconfigured or unknown/stale rather than connected, discards previous-context observations, and identifies the last checked time when available.
+- **THEN** it shows unconfigured or unknown/stale rather than connected, discards previous-context observations, and identifies the last checked time when available. A newly completed failed probe is fresh unavailable, not stale merely because no recent success exists.
 
 ### Requirement: Safe target details and navigation
 
