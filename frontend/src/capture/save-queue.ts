@@ -91,9 +91,12 @@ export class SaveQueue {
     const lane = this.lane<P>(id)
     lane.invalid = false
     clearTimeout(lane.timer)
-    // While this lane's command is unacknowledged, its saved value may already be stale.
+    // While a command is unacknowledged or conflicted, the saved value may already be stale.
     const matchesSaved =
-      same(payload, lane.saved) && !this.isInflight(id) && this.uncertain?.lane !== id
+      same(payload, lane.saved) &&
+      !this.isInflight(id) &&
+      this.uncertain?.lane !== id &&
+      this.blocked !== 'conflict'
     lane.draft = matchesSaved ? null : { payload }
     lane.ready = false
     if (lane.draft) {
@@ -138,6 +141,11 @@ export class SaveQueue {
     lane.saved = saved
     this.changed()
     return true
+  }
+
+  /** The latest acknowledged value of a lane, for restoring it without a server read. */
+  savedValue<P>(id: string): P | undefined {
+    return this.lanes.get(id)?.saved as P | undefined
   }
 
   /** Unsent drafts can be discarded locally; anything sent or unconfirmed needs its own recovery. */

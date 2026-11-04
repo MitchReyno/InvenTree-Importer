@@ -89,7 +89,9 @@ export function CompareMatches({
       {!candidates.length && (
         <Paragraph>
           No existing Parts have been read for this batch yet.{' '}
-          <Link href={`#${batch.id}`}>Read an existing Part in Capture</Link>
+          <Link href={`#${batch.id}/review?edit=${part.id}`}>
+            Read an existing Part in the shared Part editor
+          </Link>
         </Paragraph>
       )}
       {candidates.length > 0 && (

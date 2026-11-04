@@ -830,3 +830,20 @@ test('typed tag text reaches the navigation owner before the next render commits
   })
   expect(log[0]).toBe('dirty:true')
 })
+
+test('local discard restores the acknowledged instructions even when the follow-up read failed', async () => {
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  const read = vi.fn(async () => {
+    throw new TypeError('offline')
+  })
+  const view = render(<Host read={read} />)
+  const text = screen.getByRole('textbox', { name: 'Custom instructions' })
+  await user.type(text, 'Saved text')
+  await idle()
+  await act(async () => instructs[0].resolve())
+  await settle()
+  await user.type(text, ' unsent')
+  view.rerender(<Host read={read} connected={false} />)
+  await user.click(screen.getByRole('button', { name: 'Discard unsent settings edits' }))
+  expect(screen.getByRole('textbox', { name: 'Custom instructions' })).toHaveValue('Saved text')
+})

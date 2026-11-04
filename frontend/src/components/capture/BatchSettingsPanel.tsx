@@ -361,7 +361,10 @@ export function BatchSettingsPanel({
     setTagInput((value) => value + 1)
     reset(settingsValues(batch))
     instructionsTouched.current = false
-    setInstructions(latestInstructions(operatorReview)?.text ?? '')
+    // The queue's acknowledged text can be newer than the last projection read.
+    setInstructions(
+      queue.savedValue<string>('instructions') ?? latestInstructions(operatorReview)?.text ?? '',
+    )
     setLogo({ state: 'idle' })
   }
 

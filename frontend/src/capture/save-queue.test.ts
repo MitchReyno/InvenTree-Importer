@@ -280,3 +280,17 @@ test('an exact retry waits for the connection', async () => {
   await settle()
   expect(sent).toHaveLength(2)
 })
+
+test('a value reverted to the old baseline during a conflict is still sent when kept', async () => {
+  const q = queue()
+  q.update('settings', 'b', { immediate: true })
+  await settle()
+  replies[0].reject(new IntakeRequestError(412, 'revision_conflict'))
+  await settle()
+  expect(q.state().blocked).toBe('conflict')
+  q.update('settings', 'a', { immediate: true })
+  expect(q.state()).toMatchObject({ dirty: true, lanes: { settings: 'pending' } })
+  q.rebase('5')
+  await settle()
+  expect(sent[1]).toMatchObject({ payload: 'a', revision: '5' })
+})
