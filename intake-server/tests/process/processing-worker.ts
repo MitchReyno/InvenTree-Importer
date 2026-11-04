@@ -11,6 +11,7 @@ import {
 import type { RestrictedResearchRunner } from '../../src/processing/runner.ts'
 import { sha256 } from '../../src/db/authority.ts'
 import { decodeMediaInputs } from '../../src/media/inputs.ts'
+import { evidenceNotes } from '../../src/capture/context-input.ts'
 import type { ProcessingEnvelopeDto } from '@invimport/contracts'
 
 /** Explicit synthetic process fixture. It cannot infer, authenticate a provider or reach inventory. */
@@ -90,7 +91,7 @@ const synthetic: RestrictedResearchRunner = {
         summary: 'Synthetic replayed candidate from retained human notes; not actual AI research.',
         schema_version: 'bench-intake-proposal/2',
         sources: [
-          ...command.manifest.notes.map((note) => ({
+          ...evidenceNotes(command.manifest.notes, command.manifest.batch_id).map((note) => ({
             kind: 'note' as const,
             note_id: note.id,
             text_sha256: sha256(note.text).toString('hex'),

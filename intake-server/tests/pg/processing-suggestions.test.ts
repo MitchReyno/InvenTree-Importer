@@ -5,6 +5,9 @@ import { strictJson } from '@invimport/contracts/json'
 import { processingFixture } from '../support/processing.ts'
 import { processingMediaFixture } from '../support/processing-media.ts'
 import { acceptEnvelope, claimProcessingCommand } from '../../src/processing/runner.ts'
+import { executeProcessingCommand } from '../../src/processing/delivery.ts'
+import { syntheticDevelopmentRunner } from '../../src/dev/synthetic-runner.ts'
+import { automationNoteId } from '../../src/capture/context-input.ts'
 
 type Fixture = Awaited<ReturnType<typeof processingFixture>>
 
@@ -309,6 +312,62 @@ test(
       assert.equal(job.state, 'ready', 'the create choice no longer makes the attempt stale')
       assert.deepEqual(job.proposals[0].value.tags, ['0603'])
       assert.equal(snapshot.value.capture_revision, s.batch.revision)
+    } finally {
+      await s.media.dispose?.()
+      await s.fixture.dispose()
+    }
+  },
+)
+
+test(
+  'the development runner completes an Auto tags attempt without citing the intent note',
+  { timeout: 60000 },
+  async () => {
+    const s = await setup('Two reels in the drawer')
+    try {
+      await s.edit({
+        kind: 'batch_settings',
+        title: s.batch.title,
+        default_location: { mode: 'unset' },
+        intent: {
+          supplier: { absent: false, selection: { mode: 'unset' } },
+          order: { reference: { mode: 'auto' }, purchase_date: { mode: 'auto' } },
+          shared_tags: { manual: [], auto: true },
+        },
+        notes: { batch: null, order: null },
+        drafts: [],
+      })
+      const started = await s.fixture.http(`/batches/${s.batch.id}/processing`, {
+        schema_version: 'bench-intake-processing/1',
+        expected_capture_revision: s.batch.revision,
+        subject_ids: [s.lotId],
+        stages: ['reading'],
+      })
+      assert.equal(started.status, 202, JSON.stringify(started.value))
+      const commands = await s.fixture.db.pool.query(
+        `SELECT command.workflow_id, command.payload_bytes
+         FROM command JOIN processing_attempt attempt ON attempt.command_id = command.id
+         WHERE attempt.id = $1`,
+        [started.value.attempt_ids[0]],
+      )
+      const outcome = await executeProcessingCommand(
+        s.fixture.runner.pool,
+        s.fixture.config,
+        commands.rows[0].workflow_id,
+        strictJson(commands.rows[0].payload_bytes.toString('utf8')),
+        syntheticDevelopmentRunner,
+      )
+      assert.deepEqual(outcome, { state: 'ready' })
+      const snapshot = await s.fixture.http(`/batches/${s.batch.id}/processing`)
+      const job = snapshot.value.jobs.find(
+        (value: { attempt_id: string }) => value.attempt_id === started.value.attempt_ids[0],
+      )
+      assert.equal(job.state, 'ready')
+      const cited = job.proposals[0].value.sources.flatMap((source: { note_id?: string }) =>
+        source.note_id ? [source.note_id] : [],
+      )
+      assert.ok(cited.length > 0, 'the real batch note is still cited')
+      assert.equal(cited.includes(automationNoteId(s.batch.id)), false)
     } finally {
       await s.media.dispose?.()
       await s.fixture.dispose()

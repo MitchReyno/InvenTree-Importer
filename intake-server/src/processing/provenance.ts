@@ -1,6 +1,6 @@
 import type { ProcessingInputDto, ProcessingProposalDto } from '@invimport/contracts'
 import { sha256 } from '../db/authority.ts'
-import { isAutomationIntentNote } from '../capture/context-input.ts'
+import { evidenceNotes } from '../capture/context-input.ts'
 import { decodeMediaInputs } from '../media/inputs.ts'
 import { fail } from './model.ts'
 
@@ -15,9 +15,7 @@ export function validateProposalSources(
 
   // Requested automation is intent, not evidence, so no proposal may cite it as a source.
   const notesById = new Map(
-    manifest.notes
-      .filter((note) => !isAutomationIntentNote(note, manifest.batch_id))
-      .map((note) => [note.id, note]),
+    evidenceNotes(manifest.notes, manifest.batch_id).map((note) => [note.id, note]),
   )
   if (manifest.schema_version === 'bench-intake-input/1') {
     if (!('source_note_ids' in proposal)) {

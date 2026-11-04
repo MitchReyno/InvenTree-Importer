@@ -57,6 +57,11 @@ export function isAutomationIntentNote(note: { id: string; text: string }, batch
   return note.id === automationNoteId(batchId) && note.text === AUTOMATION_NOTE_TEXT
 }
 
+/** Notes a proposal may cite: everything except the requested-automation note. */
+export function evidenceNotes<T extends { id: string; text: string }>(notes: T[], batchId: string) {
+  return notes.filter((note) => !isAutomationIntentNote(note, batchId))
+}
+
 /**
  * Requested automation is human intent, not evidence or an approved effect. Batches without Auto
  * tags add no note, so their processing inputs keep their exact bytes.

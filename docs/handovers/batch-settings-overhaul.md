@@ -382,3 +382,9 @@ Codex reviewed exactly `f9b8fe1..12d3ab9`: no Critical or Minor findings; one Im
 
 1. Important: the requested-automation note counted as evidence. With Auto tags on and no other evidence, it admitted an input and could be the only source of a `/4` quantity estimate. `isAutomationIntentNote` (`capture/context-input.ts`) now excludes it from the `/1` and `/2`/`/5` admission checks, and provenance refuses any proposal that cites it (`runner_source_mismatch`, every proposal version). With real evidence the input is still admitted, so the quantity question path is unchanged. Regression in `processing-provenance.test.ts`; negative controls on each of the three checks fail.
 
+#### Round 4
+
+Codex reviewed exactly `f9b8fe1..71f731a`: no Critical or Minor findings; one Important. The round-3 fix was confirmed.
+
+1. Important: the producers still cited every input note, so with Auto tags on the development runner's proposal was refused (`runner_source_mismatch`) and its attempt never reached `ready`; the native prompt also offered the intent note as an inspected source. `evidenceNotes` (`capture/context-input.ts`) now filters the citable notes in provenance, the development runner (moved to `src/dev/synthetic-runner.ts` so tests run the real code), the native prompt (`agents/prompt.ts`, which still shows every note as context) and the process-test worker. Regressions: a PG test runs the development runner on an Auto batch through acceptance to `ready` (`processing-suggestions.test.ts`), and a PG test stages a native prompt for an Auto batch (`agents.test.ts`); negative controls on both filters fail. The process-test worker's filter has no failing control, because the process tests do not enable Auto.
+
