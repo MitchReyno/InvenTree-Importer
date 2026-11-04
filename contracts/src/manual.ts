@@ -22,6 +22,8 @@ const stockEffect = {
   quantity: Quantity,
   location_id: Type.Union([PositivePk, Type.Null()]),
   location_label: text,
+  /** A new location created earlier in the same run; `location_id` is then null. */
+  location_operation_key: Type.Optional(Id),
   contribution_key: Id,
   barcode: text,
 }
@@ -69,6 +71,7 @@ const capability = Type.Union([
   Type.Literal('owned-fake-stock/1'),
   Type.Literal('owned-fake-media/1'),
   Type.Literal('owned-fake-effects/1'),
+  Type.Literal('owned-fake-effects/2'),
 ])
 export const ManualPreview = object({
   id: Id,

@@ -1,3 +1,4 @@
+import { isEffectsPlan } from './effects-plan.ts'
 import { cancellationVersion } from './cancellation.ts'
 import { applySupportedEffects } from './effects-apply.ts'
 import type { BlobStore } from '../media/blob-store.ts'
@@ -66,7 +67,7 @@ export async function executeRun(
   }
   if (
     authority.plan.version === 'bench-media-plan/1' ||
-    (authority.plan.version === 'bench-effects-plan/1' && authority.plan.mediaConfigured)
+    (isEffectsPlan(authority.plan) && authority.plan.mediaConfigured)
   ) {
     if (profile.attachmentCapability !== 'owned-fake-media/1' || !deps.mediaStore) {
       throw new Error('media_apply_capability_unavailable')
@@ -91,7 +92,7 @@ export async function executeRun(
   }
 
   await health()
-  if (authority.plan.version === 'bench-effects-plan/1') {
+  if (isEffectsPlan(authority.plan)) {
     return applySupportedEffects(deps, runId, authority.plan, recoveryIds, health)
   }
 

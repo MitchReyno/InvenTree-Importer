@@ -4865,11 +4865,11 @@ export interface components {
             manufacturer: boolean;
             supplier: boolean;
         };
-        SupportedEffectKind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment";
+        SupportedEffectKind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment" | "create_location" | "create_company";
         SupportedEffectPreview: {
             operation_key: string;
             part_subject_id: string;
-            kind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment";
+            kind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment" | "create_location" | "create_company";
             label: string;
             dependencies: string[];
             inputs: {
@@ -4889,7 +4889,7 @@ export interface components {
         SupportedEffectResult: {
             operation_key: string;
             part_subject_id: string;
-            kind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment";
+            kind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment" | "create_location" | "create_company";
             label: string;
             dependencies: string[];
             inputs: {
@@ -4918,6 +4918,7 @@ export interface components {
             quantity: string;
             location_id: string | null;
             location_label: string;
+            location_operation_key?: string;
             contribution_key: string;
             barcode: string;
             /** Format: int64 */
@@ -4929,6 +4930,7 @@ export interface components {
             quantity: string;
             location_id: string | null;
             location_label: string;
+            location_operation_key?: string;
             contribution_key: string;
             barcode: string;
             part_id: null;
@@ -4943,7 +4945,7 @@ export interface components {
             review_fingerprint: string;
             /** Format: int64 */
             target_revision: string;
-            capability: "owned-fake-stock/1" | "owned-fake-media/1" | "owned-fake-effects/1";
+            capability: "owned-fake-stock/1" | "owned-fake-media/1" | "owned-fake-effects/1" | "owned-fake-effects/2";
             attachments?: {
                 version_id: string;
                 evidence_id: string;
@@ -5015,7 +5017,7 @@ export interface components {
             supported_effects?: {
                 operation_key: string;
                 part_subject_id: string;
-                kind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment";
+                kind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment" | "create_location" | "create_company";
                 label: string;
                 dependencies: string[];
                 inputs: {
@@ -5029,6 +5031,7 @@ export interface components {
                 quantity: string;
                 location_id: string | null;
                 location_label: string;
+                location_operation_key?: string;
                 contribution_key: string;
                 barcode: string;
                 /** Format: int64 */
@@ -5040,6 +5043,7 @@ export interface components {
                 quantity: string;
                 location_id: string | null;
                 location_label: string;
+                location_operation_key?: string;
                 contribution_key: string;
                 barcode: string;
                 part_id: null;
@@ -5125,7 +5129,7 @@ export interface components {
                 review_fingerprint: string;
                 /** Format: int64 */
                 target_revision: string;
-                capability: "owned-fake-stock/1" | "owned-fake-media/1" | "owned-fake-effects/1";
+                capability: "owned-fake-stock/1" | "owned-fake-media/1" | "owned-fake-effects/1" | "owned-fake-effects/2";
                 attachments?: {
                     version_id: string;
                     evidence_id: string;
@@ -5197,7 +5201,7 @@ export interface components {
                 supported_effects?: {
                     operation_key: string;
                     part_subject_id: string;
-                    kind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment";
+                    kind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment" | "create_location" | "create_company";
                     label: string;
                     dependencies: string[];
                     inputs: {
@@ -5211,6 +5215,7 @@ export interface components {
                     quantity: string;
                     location_id: string | null;
                     location_label: string;
+                    location_operation_key?: string;
                     contribution_key: string;
                     barcode: string;
                     /** Format: int64 */
@@ -5222,6 +5227,7 @@ export interface components {
                     quantity: string;
                     location_id: string | null;
                     location_label: string;
+                    location_operation_key?: string;
                     contribution_key: string;
                     barcode: string;
                     part_id: null;
@@ -5335,7 +5341,7 @@ export interface components {
             supported_effects?: {
                 operation_key: string;
                 part_subject_id: string;
-                kind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment";
+                kind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment" | "create_location" | "create_company";
                 label: string;
                 dependencies: string[];
                 inputs: {
@@ -5383,7 +5389,7 @@ export interface components {
             /** Format: int64 */
             revision: string;
             supported: boolean;
-            capability: ("owned-fake-stock/1" | "owned-fake-media/1" | "owned-fake-effects/1") | null;
+            capability: ("owned-fake-stock/1" | "owned-fake-media/1" | "owned-fake-effects/1" | "owned-fake-effects/2") | null;
             lots: {
                 lot_id: string;
                 reviewed: boolean;
@@ -5457,7 +5463,7 @@ export interface components {
                 supported_effects?: {
                     operation_key: string;
                     part_subject_id: string;
-                    kind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment";
+                    kind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment" | "create_location" | "create_company";
                     label: string;
                     dependencies: string[];
                     inputs: {
@@ -5509,7 +5515,7 @@ export interface components {
                 review_fingerprint: string;
                 /** Format: int64 */
                 target_revision: string;
-                capability: "owned-fake-stock/1" | "owned-fake-media/1" | "owned-fake-effects/1";
+                capability: "owned-fake-stock/1" | "owned-fake-media/1" | "owned-fake-effects/1" | "owned-fake-effects/2";
                 attachments?: {
                     version_id: string;
                     evidence_id: string;
@@ -5581,7 +5587,7 @@ export interface components {
                 supported_effects?: {
                     operation_key: string;
                     part_subject_id: string;
-                    kind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment";
+                    kind: "create_stock" | "create_part" | "parameter" | "manufacturer" | "supplier" | "part_attachment" | "create_location" | "create_company";
                     label: string;
                     dependencies: string[];
                     inputs: {
@@ -5595,6 +5601,7 @@ export interface components {
                     quantity: string;
                     location_id: string | null;
                     location_label: string;
+                    location_operation_key?: string;
                     contribution_key: string;
                     barcode: string;
                     /** Format: int64 */
@@ -5606,6 +5613,7 @@ export interface components {
                     quantity: string;
                     location_id: string | null;
                     location_label: string;
+                    location_operation_key?: string;
                     contribution_key: string;
                     barcode: string;
                     part_id: null;

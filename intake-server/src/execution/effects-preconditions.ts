@@ -98,6 +98,16 @@ function catalogueReads(
     reads.push({ kind: 'get_parameter_template', pk: body.template as string })
     return reads
   }
+  if (kind === 'create_location') {
+    // The parent must still exist on the bound target; a new company needs no catalogue read.
+    if (body.parent !== null) {
+      reads.push({ kind: 'get_location', pk: body.parent as string })
+    }
+    return reads
+  }
+  if (kind === 'create_company') {
+    return reads
+  }
   reads.push({ kind: 'get_company', pk: (body.manufacturer ?? body.supplier) as string })
   return reads
 }

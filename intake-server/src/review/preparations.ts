@@ -1,3 +1,4 @@
+import { isEffectsPlan } from '../execution/effects-plan.ts'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { mediaEvidence } from '../media/schema.ts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
@@ -81,7 +82,7 @@ function normalized(input: ManualScopeDto) {
 /** Report an oversized selection as a typed issue before the plan decoder refuses it. */
 export function planCapacityIssue(plan: ExecutablePlan) {
   const effectsExceeded =
-    plan.version === 'bench-effects-plan/1' &&
+    isEffectsPlan(plan) &&
     (plan.parts.length > MAX_PLAN_PARTS ||
       plan.effects.length > MAX_PLAN_EFFECTS ||
       plan.operations.length > MAX_PLAN_OPERATIONS)
@@ -581,20 +582,19 @@ export async function prepareSelection(
         review_fingerprint: sha256(retained.reviewBytes).toString('hex'),
         target_revision: binding!.targetRevision,
         capability: plan.capability,
-        effects:
-          plan.version === 'bench-effects-plan/1'
-            ? material.effects.map((effect) => {
-                const operation = plan.operations.find(
-                  (operation) => operation.operationKey === effect.lot_id,
-                )!
-                if (operation.part !== null && effect.part_id === null) {
-                  const { part_operation_key, ...fields } = effect
-                  return { ...fields, part_id: operation.part }
-                }
-                return effect
-              })
-            : material.effects,
-        ...(plan.version === 'bench-effects-plan/1'
+        effects: isEffectsPlan(plan)
+          ? material.effects.map((effect) => {
+              const operation = plan.operations.find(
+                (operation) => operation.operationKey === effect.lot_id,
+              )!
+              if (operation.part !== null && effect.part_id === null) {
+                const { part_operation_key, ...fields } = effect
+                return { ...fields, part_id: operation.part }
+              }
+              return effect
+            })
+          : material.effects,
+        ...(isEffectsPlan(plan)
           ? {
               supported_effects: supportedEffectsPreview(plan),
               part_attachments: partAttachmentsPreview(plan, material.effects),

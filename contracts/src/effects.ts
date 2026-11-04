@@ -62,11 +62,14 @@ export const SupportedEffectKind = Type.Union(
       'manufacturer',
       'supplier',
       'part_attachment',
+      'create_location',
+      'create_company',
     ] as const
   ).map((value) => Type.Literal(value)),
 )
 export const SupportedEffectPreview = object({
   operation_key: Id,
+  /** The Part subject, or the reference draft for a new location or company. */
   part_subject_id: Id,
   kind: SupportedEffectKind,
   label: text,

@@ -38,7 +38,33 @@ export async function supportedCreateBody(
   step: EffectStep,
 ): Promise<SupportedCreateBody | null> {
   if (!('kind' in step)) {
-    return stockCreateBody(pool, runId, plan, step.part, step.partOperationKey, step)
+    const location = await stockLocation(pool, runId, plan, step)
+    if (location === undefined) {
+      return null
+    }
+    return stockCreateBody(pool, runId, plan, step.part, step.partOperationKey, {
+      ...step,
+      location,
+    })
+  }
+  if (step.kind === 'create_location') {
+    const binding = plan.locations!.find((item) => item.draftId === step.partSubjectId)!
+    return {
+      name: binding.spec.name,
+      description: binding.spec.description,
+      parent: binding.spec.parent,
+    }
+  }
+  if (step.kind === 'create_company') {
+    const binding = plan.companies!.find((item) => item.draftId === step.partSubjectId)!
+    return {
+      name: binding.spec.name,
+      description: binding.spec.description,
+      is_supplier: true,
+      is_manufacturer: binding.spec.isManufacturer,
+      // Sent as a file in the multipart create; confirmation needs a retained image in the output.
+      ...(binding.spec.logo ? { image: true } : {}),
+    }
   }
   if (step.kind === 'create_part') {
     const binding = plan.parts.find((part) => part.subjectId === step.partSubjectId)!
@@ -105,4 +131,25 @@ async function supplierCreateBody(
     return null
   }
   return { ...step.input, part, manufacturer_part: manufacturer.remotePks[0] }
+}
+
+/** A new location's PK comes only from its confirmed single-PK create; `undefined` waits. */
+async function stockLocation(
+  pool: Pool,
+  runId: string,
+  plan: EffectsPlan,
+  step: { location: string | null; locationOperationKey?: string | null },
+): Promise<string | null | undefined> {
+  if (!step.locationOperationKey) {
+    return step.location
+  }
+  const state = (await supportedStates(pool, runId, plan)).find(
+    (item) => item.operationKey === step.locationOperationKey,
+  )
+  return state?.certainty === 'confirmed' &&
+    state.verification !== 'missing_or_changed' &&
+    state.verification !== 'unavailable' &&
+    state.remotePks.length === 1
+    ? state.remotePks[0]
+    : undefined
 }

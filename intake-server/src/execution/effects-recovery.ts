@@ -1,3 +1,4 @@
+import { isEffectsPlan } from './effects-plan.ts'
 import { cancellationVersion } from './cancellation.ts'
 import { randomUUID } from 'node:crypto'
 import { and, eq, inArray, ne } from 'drizzle-orm'
@@ -15,7 +16,7 @@ export async function selectSupportedRecovery(
   kind: 'resume_effect' | 'verify_effect',
 ) {
   const authority = await lockRun(client, runId)
-  if (authority.actorId !== actorId || authority.plan.version !== 'bench-effects-plan/1') {
+  if (authority.actorId !== actorId || !isEffectsPlan(authority.plan)) {
     throw new Error('recovery_scope_mismatch')
   }
   const states = await supportedStates(client, runId, authority.plan)

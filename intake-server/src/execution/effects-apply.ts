@@ -8,6 +8,7 @@ import { applyAttachments } from './attachment-apply.ts'
 import { attachmentRecoveryColumns } from './attachment-recovery.ts'
 import { lockRun, snapshot } from './authority.ts'
 import { supportedCreateBody } from './effects-body.ts'
+import { companyMultipart } from './company-wire.ts'
 import { fieldsMatch } from './effects-evidence.ts'
 import {
   recordSupportedAssessment,
@@ -104,6 +105,39 @@ export async function applySupportedEffects(
     )
     if (!complete) {
       break
+    }
+    const logo =
+      'kind' in step && step.kind === 'create_company'
+        ? plan.companies!.find((item) => item.draftId === step.partSubjectId)!.spec.logo
+        : null
+    if (logo) {
+      if (!deps.mediaStore) {
+        throw new Error('media_storage_unavailable')
+      }
+      const { image: _image, ...fields } = body as Record<string, string | boolean>
+      const multipart = companyMultipart(
+        step.operationKey,
+        fields,
+        logo,
+        await deps.mediaStore.read(logo.blobDigest),
+      )
+      await performSupportedRequest(
+        deps,
+        context,
+        step,
+        'create',
+        {
+          kind,
+          body,
+          versionId: logo.versionId,
+          blobDigest: logo.blobDigest,
+          multipartDigest: multipart.digest,
+          contentType: multipart.contentType,
+        },
+        () => transport.sendCompanyWithImage(plan, multipart.body, multipart.contentType),
+        recovery,
+      )
+      continue
     }
     await performSupportedRequest(
       deps,

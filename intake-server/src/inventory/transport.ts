@@ -23,7 +23,7 @@ export interface TargetProfile extends TargetBinding {
   protectedOrigins: readonly string[]
   credential: string
   attachmentCapability?: 'owned-fake-media/1'
-  effectsCapability?: 'owned-fake-effects/1'
+  effectsCapability?: 'owned-fake-effects/1' | 'owned-fake-effects/2'
 }
 export type ReadOperation = {
   kind:
@@ -299,13 +299,27 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
       assertBinding(binding)
       requireOwnedMutationTarget()
       if (
-        profile.effectsCapability !== 'owned-fake-effects/1' ||
+        !effectsAllowed(profile.effectsCapability, 'part_attachment') ||
         body.length > MEDIA_SOURCE_MAX_BYTES + 8192 ||
         !/^multipart\/form-data; boundary=bench-[a-f0-9-]+$/.test(contentType)
       ) {
         throw new Error('part_attachment_send_refused')
       }
       return request('/api/attachment/', 'POST', new Uint8Array(body), {
+        'content-type': contentType,
+      })
+    },
+    async sendCompanyWithImage(binding: TargetBinding, body: Buffer, contentType: string) {
+      assertBinding(binding)
+      requireOwnedMutationTarget()
+      if (
+        !effectsAllowed(profile.effectsCapability, 'create_company') ||
+        body.length > MEDIA_SOURCE_MAX_BYTES + 8192 ||
+        !/^multipart\/form-data; boundary=bench-[a-f0-9-]+$/.test(contentType)
+      ) {
+        throw new Error('company_image_send_refused')
+      }
+      return request('/api/company/', 'POST', new Uint8Array(body), {
         'content-type': contentType,
       })
     },
@@ -317,7 +331,7 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
       assertBinding(binding)
       requireOwnedMutationTarget()
       if (
-        profile.effectsCapability !== 'owned-fake-effects/1' ||
+        !effectsAllowed(profile.effectsCapability, kind) ||
         kind === 'part_attachment' ||
         !Object.hasOwn(SUPPORTED_PATHS, kind)
       ) {
@@ -333,7 +347,7 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
       assertBinding(binding)
       requireOwnedMutationTarget()
       if (
-        profile.effectsCapability !== 'owned-fake-effects/1' ||
+        !effectsAllowed(profile.effectsCapability, kind) ||
         kind === 'part_attachment' ||
         !Object.hasOwn(SUPPORTED_PATHS, kind) ||
         !new RegExp(PositivePk.pattern!).test(pk) ||
@@ -417,8 +431,29 @@ function inventoryPath(family: string, pk?: string, tags = false) {
 }
 
 export type SupportedMutationKind =
-  'create_part' | 'parameter' | 'manufacturer' | 'supplier' | 'create_stock' | 'part_attachment'
+  | 'create_part'
+  | 'parameter'
+  | 'manufacturer'
+  | 'supplier'
+  | 'create_stock'
+  | 'part_attachment'
+  | 'create_location'
+  | 'create_company'
+const RECORD_KINDS: readonly SupportedMutationKind[] = ['create_location', 'create_company']
+
+/** Record creation needs the `/2` capability; every other effect runs under either version. */
+function effectsAllowed(
+  capability: TargetProfile['effectsCapability'],
+  kind: SupportedMutationKind,
+) {
+  return RECORD_KINDS.includes(kind)
+    ? capability === 'owned-fake-effects/2'
+    : capability === 'owned-fake-effects/1' || capability === 'owned-fake-effects/2'
+}
+
 const SUPPORTED_PATHS = {
+  create_location: 'stock/location',
+  create_company: 'company',
   create_part: 'part',
   parameter: 'parameter',
   manufacturer: 'company/part/manufacturer',

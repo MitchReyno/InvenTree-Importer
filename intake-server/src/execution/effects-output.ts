@@ -1,3 +1,4 @@
+import { isEffectsPlan } from './effects-plan.ts'
 import type { Pool, PoolClient } from 'pg'
 import type { ExecutablePlan } from './media-plan.ts'
 import type { StockOperation } from './plan.ts'
@@ -24,7 +25,7 @@ export async function resolvedStockOperation(
   if (operation.part !== null) {
     return { ...operation, part: operation.part }
   }
-  if (plan.version !== 'bench-effects-plan/1' || !('partOperationKey' in operation)) {
+  if (!isEffectsPlan(plan) || !('partOperationKey' in operation)) {
     throw new Error('part_output_unavailable')
   }
   const state = (await supportedStates(client, runId, plan)).find(

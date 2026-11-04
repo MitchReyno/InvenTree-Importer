@@ -1,3 +1,4 @@
+import { isEffectsPlan } from './effects-plan.ts'
 import { cancellationVersion } from './cancellation.ts'
 import { stockIndexBytes } from './effects-output.ts'
 import { supportedStates } from './effects-state.ts'
@@ -243,8 +244,7 @@ export async function reserveApprovedStock(
     throw new Error('original_contribution_already_approved')
   }
   const mediaBatchId =
-    plan.version === 'bench-media-plan/1' ||
-    (plan.version === 'bench-effects-plan/1' && plan.mediaConfigured)
+    plan.version === 'bench-media-plan/1' || (isEffectsPlan(plan) && plan.mediaConfigured)
       ? await lockApprovedMedia(client, input.actorId, plan)
       : null
   await executeDatabaseQuery(
@@ -312,7 +312,7 @@ export async function reserveApprovedStock(
         }),
     )
   }
-  if (plan.version === 'bench-effects-plan/1') {
+  if (isEffectsPlan(plan)) {
     await retainSupportedIndex(client, input.runId, plan)
   }
   if (plan.version !== 'bench-stock-plan/1') {
@@ -412,7 +412,7 @@ export async function loadRun(client: Pool | PoolClient, runId: string): Promise
       throw new Error('operation_bytes_mismatch')
     }
   }
-  if (plan.version === 'bench-effects-plan/1') {
+  if (isEffectsPlan(plan)) {
     await requireSupportedIndex(client, runId, plan)
   }
   await requireAttachmentIndex(client, runId, plan)
@@ -557,7 +557,7 @@ export interface StockSnapshot {
 
 export async function snapshot(client: Pool | PoolClient, runId: string): Promise<StockSnapshot> {
   const authority = await loadRun(client, runId)
-  if (authority.plan.version === 'bench-effects-plan/1') {
+  if (isEffectsPlan(authority.plan)) {
     const states = await supportedStates(client, runId, authority.plan)
     const operations = states
       .filter((state) => state.kind === 'create_stock')

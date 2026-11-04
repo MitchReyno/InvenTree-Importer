@@ -65,6 +65,20 @@ export const partIdentities = pgTable(
   (table) => [primaryKey({ columns: [table.targetId, table.originalKey, table.partSubjectId] })],
 )
 
+export const recordIdentities = pgTable(
+  'executor_record_identity',
+  {
+    targetId: uuid('target_id').notNull(),
+    originalKey: uuid('original_key').notNull(),
+    draftId: uuid('draft_id').notNull(),
+    kind: text().$type<'location' | 'company'>().notNull(),
+    runId: uuid('run_id').notNull(),
+    operationKey: uuid('operation_key').notNull(),
+    specDigest: bytea('spec_digest').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.targetId, table.originalKey, table.draftId] })],
+)
+
 export const supportedRecoveries = pgTable('executor_supported_recovery', {
   id: uuid().primaryKey(),
   runId: uuid('run_id').notNull(),

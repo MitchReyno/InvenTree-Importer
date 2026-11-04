@@ -1,3 +1,4 @@
+import { isEffectsPlan } from './effects-plan.ts'
 import { and, eq } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
@@ -49,7 +50,7 @@ export async function priorPartTransfer(
   }
   const original = decodeExecutablePlan(authority.plan_bytes, authority.plan_digest)
   if (
-    original.version !== 'bench-effects-plan/1' ||
+    !isEffectsPlan(original) ||
     original.targetId !== plan.targetId ||
     original.originalSourceKey !== plan.originalSourceKey
   ) {

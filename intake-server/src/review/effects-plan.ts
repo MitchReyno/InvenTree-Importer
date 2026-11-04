@@ -1,3 +1,4 @@
+import { isEffectsPlan } from '../execution/effects-plan.ts'
 import { partTransferEffects, type PartTransfer } from '../execution/part-attachment-plan.ts'
 import { SUPPORTED_EFFECTS_MANIFEST } from '../execution/effects-capability.ts'
 import { sha256 } from '../db/authority.ts'
@@ -52,7 +53,7 @@ export async function knownPartBindings(
       fail('prior_part_spec_changed', 409)
     }
     const authority = await loadRun(client, prior.runId)
-    if (authority.plan.version !== 'bench-effects-plan/1') {
+    if (!isEffectsPlan(authority.plan)) {
       fail('prior_part_authority_invalid', 409)
     }
     const state = (await supportedStates(client, prior.runId, authority.plan)).find(

@@ -1,3 +1,4 @@
+import { isEffectsPlan } from '../execution/effects-plan.ts'
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { streams } from '../db/schema.ts'
@@ -110,7 +111,7 @@ export async function retainedPreparation(
   }
   const checked = response.preparation
   if (
-    plan.version === 'bench-effects-plan/1' &&
+    isEffectsPlan(plan) &&
     (canonical(checked.supported_effects) !== canonical(supportedEffectsPreview(plan)) ||
       canonical(checked.part_attachments) !==
         canonical(partAttachmentsPreview(plan, checked.effects)))
@@ -182,7 +183,7 @@ export async function retainedPreparation(
       operation.contributionKey !== effect.contribution_key ||
       operation.quantity !== effect.quantity ||
       operation.part !== effect.part_id ||
-      (plan.version === 'bench-effects-plan/1' &&
+      (isEffectsPlan(plan) &&
         operation.part === null &&
         (!('part_operation_key' in effect) ||
           !('partOperationKey' in operation) ||
@@ -212,7 +213,7 @@ export async function retainedPreparation(
   }
   const reviews = parsedReviews
   if (
-    plan.version === 'bench-effects-plan/1' &&
+    isEffectsPlan(plan) &&
     (plan.parts.some((part) => !reviews.some((review) => review.subjectId === part.subjectId)) ||
       plan.partAttachments.some(
         (transfer) => !reviews.some((review) => review.subjectId === transfer.partSubjectId),
@@ -356,7 +357,7 @@ export async function retainedPreparation(
       })
     }
   }
-  if (plan.version === 'bench-effects-plan/1') {
+  if (isEffectsPlan(plan)) {
     const capture = await captureInTransaction(client, config, row.batch_id)
     for (const part of plan.parts) {
       for (const reference of partSpecReferences(part.spec)) {
@@ -439,7 +440,7 @@ export async function retainedPreparation(
       fail('retained_preparation_corrupt', 409)
     }
   }
-  if (plan.version === 'bench-effects-plan/1') {
+  if (isEffectsPlan(plan)) {
     await requirePartTransferReads(client, row.batch_id, row.prepare_command_id, plan)
   }
   return { row, plan, preview: checked }
@@ -513,7 +514,7 @@ export async function manualRunSnapshot(
       certainty: operation.certainty,
       remote_pk: operation.remotePk,
       recovery_allowed:
-        preparation.plan.version !== 'bench-effects-plan/1' &&
+        !isEffectsPlan(preparation.plan) &&
         state === 'settled_incomplete' &&
         operation.certainty === 'none',
     }
@@ -559,38 +560,35 @@ export async function manualRunSnapshot(
       .from(streams)
       .where(eq(streams.id, row.stream_id)),
   )
-  const supported =
-    preparation.plan.version === 'bench-effects-plan/1'
-      ? await supportedStates(client, runId, preparation.plan)
-      : null
+  const supported = isEffectsPlan(preparation.plan)
+    ? await supportedStates(client, runId, preparation.plan)
+    : null
   const inactive = dispatchState !== 'running' && dispatchState !== 'queued'
-  const partOutputs =
-    preparation.plan.version === 'bench-effects-plan/1'
-      ? preparation.plan.parts.map((part) => {
-          const output = supported!.find(
-            (item) => item.operationKey === logicalEffectKey(part.subjectId, 'create_part'),
-          )
-          return {
-            label: part.spec.name,
-            operation_key: logicalEffectKey(part.subjectId, 'create_part'),
-            part_subject_id: part.subjectId,
-            spec_sha256: part.specDigest,
-            certainty: part.prior ? ('confirmed' as const) : output!.certainty,
-            remote_pks: part.prior ? [part.prior.pk] : output!.remotePks,
-            usable:
-              part.prior !== null ||
-              (output?.certainty === 'confirmed' &&
-                output.verification !== 'missing_or_changed' &&
-                output.verification !== 'unavailable'),
-            verification: output?.verification ?? null,
-          }
-        })
-      : null
+  const partOutputs = isEffectsPlan(preparation.plan)
+    ? preparation.plan.parts.map((part) => {
+        const output = supported!.find(
+          (item) => item.operationKey === logicalEffectKey(part.subjectId, 'create_part'),
+        )
+        return {
+          label: part.spec.name,
+          operation_key: logicalEffectKey(part.subjectId, 'create_part'),
+          part_subject_id: part.subjectId,
+          spec_sha256: part.specDigest,
+          certainty: part.prior ? ('confirmed' as const) : output!.certainty,
+          remote_pks: part.prior ? [part.prior.pk] : output!.remotePks,
+          usable:
+            part.prior !== null ||
+            (output?.certainty === 'confirmed' &&
+              output.verification !== 'missing_or_changed' &&
+              output.verification !== 'unavailable'),
+          verification: output?.verification ?? null,
+        }
+      })
+    : null
   const supportedEffects = supported?.map((item) => {
-    const effect =
-      preparation.plan.version === 'bench-effects-plan/1'
-        ? preparation.plan.effects.find((effect) => effect.operationKey === item.operationKey)
-        : undefined
+    const effect = isEffectsPlan(preparation.plan)
+      ? preparation.plan.effects.find((effect) => effect.operationKey === item.operationKey)
+      : undefined
     const stock = preparation.preview.effects.find((stock) => stock.lot_id === item.operationKey)
     return {
       operation_key: item.operationKey,
@@ -636,7 +634,7 @@ export async function manualRunSnapshot(
     cancellation_requested: journal.cancellationRequested,
     dispatch_state: dispatchState,
     operations,
-    ...(preparation.plan.version === 'bench-effects-plan/1'
+    ...(isEffectsPlan(preparation.plan)
       ? { part_attachments: preparation.preview.part_attachments }
       : {}),
     ...(partOutputs && supportedEffects

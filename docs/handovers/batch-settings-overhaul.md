@@ -429,7 +429,7 @@ Branch `feat/batch-settings-overhaul-records` from `interactive-app` at `2ba6b47
 
 - Supplier (Mitch): an approved new-supplier draft is created inside the batch's stock run with `is_supplier: true` and `is_manufacturer` from "Also set as manufacturer", and is recorded as a confirmed output for later use. It adds no supplier-part links; the batch has no SKUs.
 - Logo (Mitch): an optional retained logo is sent as the company `image` in the same multipart create request. There is no separate PATCH or attachment effect.
-- Versioning: new plan `bench-effects-plan/2`, build `bench-effects/2` and capability `owned-fake-effects/2`. `/1` decode, bodies and recovery stay byte-for-byte; a `/2` deployment also applies retained `/1` runs, because the `/2` effect set is a superset and each plan is decoded under its own version rules. A `/1` deployment never receives a `/2` plan.
+- Versioning: new plan `bench-effects-plan/2`, build `bench-effects/2` and capability `owned-fake-effects/2`, with its own supported-effects manifest. `/1` decode, bodies, manifest and recovery stay byte-for-byte. A deployment row and its runner (DBOS application version = build) run exactly one build, so retained `/1` runs stay on their `/1` deployment and runner; a `/2` deployment is a separate row. Record-creating transport calls need the `/2` capability.
 - New effects:
   - `create_location {name, description, parent}`. The parent is an existing observed location PK or null; recursive creation is out of scope. Preparation re-reads the parent; a missing, foreign or stale parent blocks before approval and the draft stays correctable.
   - `create_company {name, description, is_supplier: true, is_manufacturer, image?}`. Its output has no dependant inside the run.
