@@ -4,6 +4,7 @@ import { controlledResearchSession } from '../../src/research/child-transport.ts
 import { restrictedResearchRunner } from '../../src/research/adapter.ts'
 import type { ProcessingEnvelopeDto } from '@invimport/contracts'
 import { researchInputFixture } from '../support/research-input.ts'
+import { validateProposalSources } from '../../src/processing/provenance.ts'
 
 const fixtureScript = new URL('../fixtures/research-protocol-child.cjs', import.meta.url)
 
@@ -308,5 +309,38 @@ test(
     } finally {
       await timed.close()
     }
+  },
+)
+
+test(
+  'a media-only Auto tags input never makes the child cite the requested-automation note',
+  { timeout: 5000 },
+  async () => {
+    const fixture = researchInputFixture((capture) => {
+      capture.notes = []
+      capture.settings_intent = {
+        value: {
+          supplier: { absent: false, selection: { mode: 'unset' } },
+          order: { reference: { mode: 'auto' }, purchase_date: { mode: 'auto' } },
+          shared_tags: { manual: [], auto: true },
+        },
+        default_location_draft: null,
+        version: '2',
+        actor_id: capture.actor_id,
+        created_at: '2026-11-05T00:00:00Z',
+      } as never
+    })
+    assert.equal(fixture.manifest.notes.length, 1, 'only the requested-automation note')
+    const messages: ProcessingEnvelopeDto[] = []
+    const runner = restrictedResearchRunner({
+      createSession: async () => child('proposal'),
+      createBroker: async () => ({ call: async () => assert.fail('no broker call'), close() {} }),
+    })
+    await runner.run(fixture.input, async (message) => {
+      messages.push(message)
+    })
+    const result = messages.find((message) => message.kind === 'proposal')
+    assert.ok(result && result.kind === 'proposal')
+    assert.doesNotThrow(() => validateProposalSources(fixture.manifest, result.payload))
   },
 )

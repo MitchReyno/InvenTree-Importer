@@ -290,6 +290,7 @@ Mitch waived a review round for the docs-only round-9 fix. `interactive-app` had
 
 Limitations: draft persistence across a browser crash/reload is not promised (beforeunload protection only). Batch-level evidence edits (`Batch.edit`) and media commands remain separate owners from the settings queue; they are serialized with settings and with each other by fencing rather than by sharing the queue. The `App.media` test now waits for the photo input to enable, because the panel's initial reconnection read shifts when the first fresh media read completes.
 
+
 ## PR-C plan: location precedence and inference review (Tasks 5, 6)
 
 Branch `feat/batch-settings-overhaul-review`, stacked on the PR-B branch and targeting `interactive-app` after PR-B merges.
@@ -393,5 +394,10 @@ Codex reviewed exactly `f9b8fe1..71f731a`: no Critical or Minor findings; one Im
 Codex reviewed exactly `f9b8fe1..c526b69`: no Critical findings; one Important and one Minor. The round-4 fix was confirmed for the development runner, native prompt and process-test worker.
 
 1. Important: a lot with `quantity: inherit` and an exact human batch quantity already has a human count, but the estimate guard checked only the lot's own `set` mode, so an estimate could replace it. `ProcessingSuggestions` now receives the batch default (`defaultQuantity`) and resolves an inherited quantity before the guard. Regression in `ProcessingSuggestions.test.tsx`; negative control fails.
-2. Minor: the browser qualification fixture (`tests/fixtures/processing-browser.ts`) was another producer citing every note, and it refused input `/5`. It keeps its own question branch and now delegates proposals to `syntheticDevelopmentRunner`, which admits `/2` and `/5`, cites only evidence notes and is covered by the Auto PG test. The fixture is a long-lived manual entrypoint and was not launched. A sweep of remaining note-source producers found only `research-protocol-child.cjs`, which cites a media artifact when one exists and otherwise the first note; with no media, admission needs a human note and human notes precede the intent note.
+2. Minor: the browser qualification fixture (`tests/fixtures/processing-browser.ts`) was another producer citing every note, and it refused input `/5`. It keeps its own question branch and now delegates proposals to `syntheticDevelopmentRunner`, which admits `/2` and `/5`, cites only evidence notes and is covered by the Auto PG test. The fixture is a long-lived manual entrypoint and was not launched. A sweep of remaining note-source producers found only `research-protocol-child.cjs`; Round 6 corrected the reasoning recorded for it here.
 
+#### Round 6
+
+Codex reviewed exactly `f9b8fe1..cbac3f0`: no Critical or Important findings; one Minor. Both round-5 fixes were confirmed.
+
+1. Minor: `research-protocol-child.cjs` cited `manifest.notes[0]`. In proposal mode it never reads an artifact, so a media-only Auto input made it cite the intent note (the Round 5 note above wrongly assumed it cited media). It now cites the first note that is not the intent note (its identity mirrors `automationNoteId`) and otherwise the first media version. Regression in `tests/process/research-child.test.ts` (media-only Auto input, provenance accepts the proposal); negative control fails.

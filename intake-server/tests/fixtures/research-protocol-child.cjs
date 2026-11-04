@@ -41,7 +41,19 @@ function resultSource() {
       sha256: artifact.digest,
     }
   }
-  const note = manifest.notes[0]
+  // Mirrors automationNoteId (capture/context-input.ts): requested automation is never evidence.
+  const hex = createHash('sha256').update(`automation-intent:${manifest.batch_id}`).digest('hex')
+  const intentId = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`
+  const note = manifest.notes.find((value) => value.id !== intentId)
+  if (!note) {
+    const version = JSON.parse(manifest.media.manifest).versions[0]
+    return {
+      kind: 'media_version',
+      evidence_id: version.evidenceId,
+      version_id: version.versionId,
+      sha256: version.digest,
+    }
+  }
   return {
     kind: 'note',
     note_id: note.id,
