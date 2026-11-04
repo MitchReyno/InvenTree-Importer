@@ -117,3 +117,35 @@ After these fixes the affected PG files pass.
 Codex third review of exactly `origin/interactive-app..72f2e6e76b4dd2d63b595a2c5f5043f0878944d6` (base `7456166`) found no issues in Tasks 1–2, tests, documentation or checkboxes and confirmed both round-two fixes; its 17 targeted tests passed.
 
 Selected CI for [#85](https://github.com/MitchReyno/InvenTree-Importer/pull/85) on `72f2e6e` (run 41806847936) passed: Changed paths, Lint / Markdown, Lint / TypeScript, Test / Frontend, Test / Intake contracts and HTTP, and Test / Intake PostgreSQL and process. Backend lint/test and shared workflow sync were skipped by path selection. This commit adds only this record, the task 2.5 checkbox and the repository `.nvmrc` (the same Node 24.22.2 pin as `.node-version`); `git range-diff` shows the reviewed patches unchanged.
+
+## PR-B plan: inputs, autosave panel and Capture layout (Tasks 3, 4, 9)
+
+Branch `feat/batch-settings-overhaul-panel` was started on PR-A's reviewed head while [#85](https://github.com/MitchReyno/InvenTree-Importer/pull/85) awaited merge; it is rebased onto `interactive-app` once #85 merges and its PR always targets `interactive-app`.
+
+### Package proof (3.1)
+
+The proof ran in a disposable harness outside the repository before anything was installed here.
+
+- `react-select` 5.10.2: MIT; peers React 16.8–19 declared; runtime dependencies are Emotion (`@emotion/react`, `@emotion/cache`), `@floating-ui/dom`, `react-transition-group`, `memoize-one`, `prop-types` and `use-isomorphic-layout-effect`. Its last release was 2025-07-11, a maintenance risk to watch. Emotion is a second styling runtime; it is contained in `SearchableReferencePicker` through one `styles` adapter, and no animated components are used.
+- `fuse.js` 7.1.0: Apache-2.0 with no runtime dependencies. Stable 7.5.0 exists; the plan's inspected 7.1.0 is pinned and the 7.6 prerelease is not adopted.
+- Install delta: 55 lockfile packages (react-select, Emotion and its Babel macro chain, react-transition-group, fuse.js). `pnpm audit --prod` reports the same single pre-existing moderate advisory as before the install (minimatch through the OpenAPI generator tooling), so the delta adds none. `pnpm install --frozen-lockfile` is clean.
+- Production bundle (harness, Vite 8.3.5): +110.6 KB raw / +37.5 KB gzip for picker, react-select and Fuse.
+- jsdom with React 19.3.1 StrictMode and RHF 7.91.0 Controller: typo matches survive only with `filterOption={null}` (the default substring filter hides `Mousr`); arrows/Enter/Escape; RHF reset; stale async responses; Enter during IME composition does not select. A controlled `inputValue` must be cleared on `set-value`, `input-blur` and `menu-close`.
+- Ranking latency over 500 candidates, rebuilding the Fuse index per query: p50 6.0 ms, p95 6.6 ms, max 15.5 ms.
+- Headless Chromium (cached Playwright build, fresh context): desktop 1280 keyboard, 360px touch and emulated 200% zoom (640 CSS px at DPR 2) all offered and selected the intended record with an `aria-live` announcement and no horizontal overflow. Real browser zoom is checked again during PR-B browser qualification.
+
+### Task 3 results
+
+Components, each in its own file with a test file beside it:
+
+- `capture/reference-rank.ts`: shared ranker. Exact ID, exact name and name-prefix tiers precede Fuse suggestions (names weighted 3:1 over path/description, threshold 0.4, no fuzzy matching below three characters). Ties use numeric ID order. An all-digit query matches IDs only, so ID lookup never fuzzy-substitutes. Case, whitespace and accents fold for matching only.
+- `ui/SearchableReferencePicker.tsx`: merges the bounded candidate snapshot with current search results (deduplicated by PK), places the exact-ID detail read first, and uses `filterOption={null}`. A response is used only for the query it answered; searches are debounced 250 ms and aborted when superseded. Coverage, unavailability (selection kept, no empty catalogue claimed) and disabled reasons are visible text linked as the combobox description. The create option calls `onCreate(name)` to open a draft form; it never selects or creates a record.
+- `ui/AutoValueField.tsx`: Radix Popover trigger showing the current choice, native radio group for Auto/None/Manual, and a separate labelled text or native date input below the radios when Manual is chosen. Escape closes and returns focus to the trigger. The last manual text is restored when Manual is chosen again.
+- `ui/OptionalNotesField.tsx`: the toggle hides and shows without changing the value (hidden text is reported as kept); Remove emits `null` for a tombstone.
+- `ui/SharedTagsInput.tsx`: Enter, comma or blur add trimmed manual tags; duplicates are refused case-insensitively, keeping the first spelling; 32 tags of 100 characters; Enter during IME composition is ignored; Auto is an independent checkbox.
+- `ui/DisabledFeature.tsx`: a focusable group carries the coming-soon explanation as its description and tooltip, because a disabled checkbox cannot take focus.
+- `ui/AutosaveStatus.tsx`: textual saved/pending/saving/invalid/disconnected status, plus alerts with explicit recovery for conflict (discard and load saved values) and unconfirmed saves (retry the same save or check saved values).
+
+Found during implementation: react-select drops a passed `aria-describedby` and hides a disabled input with `visibility: hidden`, which removes the named combobox from the accessibility tree. The picker appends its status ID through a module-scope custom `Input` and keeps the input visible; tests assert the disabled combobox keeps its name and description.
+
+Verification: 38 new tests, full frontend 222/222, typecheck, ESLint and Prettier. Browser evidence for these components is gathered on the integrated panel in Tasks 4 and 9.

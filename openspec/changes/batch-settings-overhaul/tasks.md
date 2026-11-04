@@ -84,11 +84,11 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Verification: targeted Vitest files, type/lint/build, frozen install, lock/advisory/bundle deltas and owned headless desktop/360/390px/native200% browser evidence. No user's normal Chrome profile.
 - Risks: second styling runtime, async selection races and disabled-input focus. Expose tooltip on a focusable explanation wrapper.
 
-- [ ] 3.1 Run the scoped package proof with React19/RHF/StrictMode, controlled reset, async cancellation, IME, touch, keyboard, bounded fuzzy ranking latency and zoom; record license, peer, maintenance and dependency/advisory delta.
-- [ ] 3.2 RED: add meaningful input tests for name/ID identity, typo/accent/case matches, exact-first stable ranking, false positives, partial coverage, stale results, tags plus Auto, Auto/None/Manual popover keyboard/focus and manual date/text area, Hide versus Remove and disabled coming-soon explanation.
-- [ ] 3.3 GREEN: deliver the reusable components, typed adapters and shared fuzzy ranker with module-scope styled-components and native input validation; prevent default substring filtering from removing scored suggestions.
-- [ ] 3.4 Verify the same picker supports supplier/location/parent and the same notes shell supports separate scopes without losing hidden text; verify `Mousr`/`Incomming` suggestions preserve original labels/IDs and never auto-select or create records.
-- [ ] 3.5 Refactor integration seams, run frontend checks and record proof limitations before Task 4 consumes the components.
+- [x] 3.1 Run the scoped package proof with React19/RHF/StrictMode, controlled reset, async cancellation, IME, touch, keyboard, bounded fuzzy ranking latency and zoom; record license, peer, maintenance and dependency/advisory delta.
+- [x] 3.2 RED: add meaningful input tests for name/ID identity, typo/accent/case matches, exact-first stable ranking, false positives, partial coverage, stale results, tags plus Auto, Auto/None/Manual popover keyboard/focus and manual date/text area, Hide versus Remove and disabled coming-soon explanation.
+- [x] 3.3 GREEN: deliver the reusable components, typed adapters and shared fuzzy ranker with module-scope styled-components and native input validation; prevent default substring filtering from removing scored suggestions.
+- [x] 3.4 Verify the same picker supports supplier/location/parent and the same notes shell supports separate scopes without losing hidden text; verify `Mousr`/`Incomming` suggestions preserve original labels/IDs and never auto-select or create records.
+- [x] 3.5 Refactor integration seams, run frontend checks and record proof limitations before Task 4 consumes the components.
 
 ## 4. Deliver the connected autosave Batch settings panel
 
