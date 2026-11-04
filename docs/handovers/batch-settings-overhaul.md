@@ -1,6 +1,6 @@
 # Batch settings overhaul implementation
 
-Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) in progress on `feat/batch-settings-overhaul-foundations`, targeting `interactive-app`. Later bundles have not started. Reviews, CI and merges are recorded only after they occur.
+Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) is implemented on `feat/batch-settings-overhaul-panel` and in independent review; Task 4.5 stays open until that review is clean and the selected CI passes. PR-C and PR-D have not started. Reviews, CI and merges are recorded only after they occur.
 
 ## Authority and boundaries
 
@@ -117,3 +117,173 @@ After these fixes the affected PG files pass.
 Codex third review of exactly `origin/interactive-app..72f2e6e76b4dd2d63b595a2c5f5043f0878944d6` (base `7456166`) found no issues in Tasks 1–2, tests, documentation or checkboxes and confirmed both round-two fixes; its 17 targeted tests passed.
 
 Selected CI for [#85](https://github.com/MitchReyno/InvenTree-Importer/pull/85) on `72f2e6e` (run 41806847936) passed: Changed paths, Lint / Markdown, Lint / TypeScript, Test / Frontend, Test / Intake contracts and HTTP, and Test / Intake PostgreSQL and process. Backend lint/test and shared workflow sync were skipped by path selection. This commit adds only this record, the task 2.5 checkbox and the repository `.nvmrc` (the same Node 24.22.2 pin as `.node-version`); `git range-diff` shows the reviewed patches unchanged.
+
+## PR-B plan: inputs, autosave panel and Capture layout (Tasks 3, 4, 9)
+
+Branch `feat/batch-settings-overhaul-panel` was started on PR-A's reviewed head while [#85](https://github.com/MitchReyno/InvenTree-Importer/pull/85) awaited merge; it is rebased onto `interactive-app` once #85 merges and its PR always targets `interactive-app`.
+
+### Package proof (3.1)
+
+The proof ran in a disposable harness outside the repository before anything was installed here.
+
+- `react-select` 5.10.2: MIT; peers React 16.8–19 declared; runtime dependencies are Emotion (`@emotion/react`, `@emotion/cache`), `@floating-ui/dom`, `react-transition-group`, `memoize-one`, `prop-types` and `use-isomorphic-layout-effect`. Its last release was 2025-07-11, a maintenance risk to watch. Emotion is a second styling runtime; it is contained in `SearchableReferencePicker` through one `styles` adapter, and no animated components are used.
+- `fuse.js` 7.1.0: Apache-2.0 with no runtime dependencies. Stable 7.5.0 exists; the plan's inspected 7.1.0 is pinned and the 7.6 prerelease is not adopted.
+- Install delta: 55 lockfile packages (react-select, Emotion and its Babel macro chain, react-transition-group, fuse.js). `pnpm audit --prod` reports the same single pre-existing moderate advisory as before the install (minimatch through the OpenAPI generator tooling), so the delta adds none. `pnpm install --frozen-lockfile` is clean.
+- Production bundle (harness, Vite 8.3.5): +110.6 KB raw / +37.5 KB gzip for picker, react-select and Fuse.
+- jsdom with React 19.3.1 StrictMode and RHF 7.91.0 Controller: typo matches survive only with `filterOption={null}` (the default substring filter hides `Mousr`); arrows/Enter/Escape; RHF reset; stale async responses; Enter during IME composition does not select. A controlled `inputValue` must be cleared on `set-value`, `input-blur` and `menu-close`.
+- Ranking latency over 500 candidates, rebuilding the Fuse index per query: p50 6.0 ms, p95 6.6 ms, max 15.5 ms.
+- Headless Chromium (cached Playwright build, fresh context): desktop 1280 keyboard, 360px touch and emulated 200% zoom (640 CSS px at DPR 2) all offered and selected the intended record with an `aria-live` announcement and no horizontal overflow. Real browser zoom is checked again during PR-B browser qualification.
+
+### Task 3 results
+
+Components, each in its own file with a test file beside it:
+
+- `capture/reference-rank.ts`: shared ranker. Exact ID, exact name and name-prefix tiers precede Fuse suggestions (names weighted 3:1 over path/description, threshold 0.4, no fuzzy matching below three characters; within suggestions, name matches precede secondary-only matches). Ties use numeric ID order. An all-digit query matches IDs only, so ID lookup never fuzzy-substitutes. Case, whitespace and accents fold for matching only.
+- `ui/SearchableReferencePicker.tsx`: merges the bounded candidate snapshot with current search results (deduplicated by PK), places the exact-ID detail read first, and uses `filterOption={null}`. A response is used only for the query it answered; searches are debounced 250 ms and aborted when superseded. Coverage, unavailability (selection kept, no empty catalogue claimed) and disabled reasons are visible text linked as the combobox description. The create option calls `onCreate(name)` to open a draft form; it never selects or creates a record.
+- `ui/AutoValueField.tsx`: Radix Popover trigger showing the current choice, native radio group for Auto/None/Manual, and a separate labelled text or native date input below the radios when Manual is chosen. Escape closes and returns focus to the trigger. The last manual text is restored when Manual is chosen again.
+- `ui/OptionalNotesField.tsx`: the toggle hides and shows without changing the value (hidden text is reported as kept); Remove emits `null` for a tombstone.
+- `ui/SharedTagsInput.tsx`: Enter, comma or blur add trimmed manual tags; duplicates are refused case-insensitively, keeping the first spelling; 32 tags of 100 characters; Enter during IME composition is ignored; Auto is an independent checkbox.
+- `ui/DisabledFeature.tsx`: a focusable group carries the coming-soon explanation as its description and tooltip, because a disabled checkbox cannot take focus.
+- `ui/AutosaveStatus.tsx`: textual saved/pending/saving/invalid/disconnected status, plus alerts with explicit recovery for conflict (discard and load saved values) and unconfirmed saves (retry the same save or check saved values).
+
+Found during implementation: react-select drops a passed `aria-describedby` and hides a disabled input with `visibility: hidden`, which removes the named combobox from the accessibility tree. The picker appends its status ID through a module-scope custom `Input` and keeps the input visible; tests assert the disabled combobox keeps its name and description.
+
+Verification: 38 new tests, full frontend 222/222, typecheck, ESLint and Prettier. Browser evidence for these components is gathered on the integrated panel in Tasks 4 and 9.
+
+### Task 4 baseline (4.1)
+
+Before this change `BatchSettingsPanel` was an RHF form with explicit Save/Discard that sent the legacy `settings` change through `Batch.edit`. `Batch` holds the accepted snapshot as edit authority, keys `CaptureWorkspace` by `batch.id:revision:reset` (so every own save remounted Capture), and keeps one payload-bound edit intent: a 412 shows current saved values and an uncertain outcome allows only the identical retry. Batch instructions used `InstructionsPanel`/`InstructionForm` with their own retained command and a full reload after acknowledgement. Navigation dirtiness flows synchronously from Capture to `useNavigationGuard`. API availability is observed by the header's `header-connection` query; `LiveUpdates` socket frames only invalidate reads.
+
+Ownership chosen:
+
+- `capture/save-queue.ts` (`SaveQueue`) is the per-batch serialized owner, mounted by `BatchSettingsPanel` for the Capture lifetime. Capture is now keyed by `batch.id:reset` only, so own acknowledgements no longer remount it; explicit discard still remounts through `reset`.
+- Lanes: `settings` (complete-state `batch_settings`), `instructions` (existing instruct command) and `logo` (supplier logo upload). One request is in flight at a time across lanes; each freezes payload, expected revision and key. A logo upload's receipt carries no revision, so the queue takes expected + 1 (every retained command advances by exactly one); a foreign change in between surfaces as a 412 on the next command.
+- `Batch` exposes raw ports (`save`, `read`, `instruct`, `uploadLogo`, `catalogue`, `accept`, `connected`); `accept` keeps the newest snapshot when acknowledgements and reads resolve out of order. `Batch` adopts a newer polled snapshot only while Capture reports no local edits; the panel then resets to it. A dirty panel never resets.
+- Availability: editing needs a fresh scoped observation, either the shared `header-connection` read or the batch's own capture read, succeeded within 60 seconds and not now failing, and the browser must not report offline. A five-second clock and focus/visibility events re-evaluate freshness. No second probe loop. Socket health is not an input, so polling fallback keeps settings editable. Reconnection reads the batch before admitting writes.
+- Evidence media/note commands and settings commands could race on the revision, so each pauses while the other is unacknowledged (the earlier mutual-exclusion contract kept in autosave form). Capture reads the batch after an evidence change resolves so the clean panel adopts the new revision.
+
+### Task 4 results
+
+- `BatchSettingsPanel` now has the title, Add batch notes, one Default location (`DefaultLocationField`: picker, new-location draft with parent picker, remove), supplier (`SupplierField`: No supplier keeping the selection, picker, new-supplier draft with manufacturer flag, PNG/JPEG logo upload and disabled Find automatically), `PurchaseOrderPreview` directly below supplier, Shared part tags and Custom instructions, with a textual `AutosaveStatus` per lane. Quantity mode, Note relates to, Batch human note, Capture tags mode and the Save/Discard buttons are removed. The override summary links each lot to its pinned Review subject.
+- Selecting a catalogue record observes it first; only the observed reference is retained. Drafts not referenced by a current selection are omitted from the complete-state command, which retires them.
+- `settings-model.ts` builds the command as a deep copy. Found during testing: RHF mutates nested form values in place, which had silently rewritten the queue's frozen saved payload so a No supplier change compared equal and was never sent; the supplier regression failed until the copy was added.
+- Validation uses the contract with a positive placeholder revision; the queue supplies the real one.
+
+TDD record: the queue tests (10) were written before `SaveQueue` and failed for the missing module; two negative controls (dropping the in-flight guard on "matches saved", and minting a new key on retry) each failed their target test and were restored by SHA-256. The panel, Capture and App tests were written alongside the panel implementation rather than strictly first; the obsolete explicit-save assertions were replaced only by tests covering the replacement behaviour (debounce, blur, invalid title, IME, in-flight newer input, uncertain retry, conflict keep/discard, instruction serialization, disconnect/reconnect, socket-only and target-only failure, clean adoption, notes Hide/Remove, supplier observe and No supplier, override links, navigation guard).
+
+### Task 9 baseline (9.1)
+
+The original Capture screenshot and HTML put evidence actions and groups in the primary left column and shared details, overrides and Go to review on the right. The implementation before this change used a three-column queue/context/settings grid with `CaptureQueue` and a persistent `CaptureEditor` pane. Callers depending on the queue selection: `EvidencePanel` (lot/Part context cards, scoped notes, Write a note focusing the settings note), `MediaWorkspace` (subject attachment choice) and the hash `#<batch>/<subject>` (focused editor, narrow back button).
+
+### Task 9 results
+
+- `CaptureWorkspace` is two columns (evidence | Batch settings + Go to review), one column under 860px. `CaptureQueue` and `InstructionsPanel` are deleted; retained lots, Parts, links and commands are unchanged.
+- Write a note opens `EvidenceNoteForm`, an explicit append-only batch note (`kind: 'note'`), closing only when `Batch.edit` reports success (`edit` now resolves `false` when nothing was saved).
+- Review gains Add physical lot, Add shared Part proposal, Edit lot details and Edit shared Part, opening `ReviewSubjectEditor` (`?edit=<id|add_lot|add_part>`) with `CaptureEditor` and the extracted `SubjectAttachmentChoice`. Its close is disabled while dirty; the route parameter is cleared during a save and restored if it fails, so the post-save remount does not reopen it. Per-lot exact quantity correction stays in `QuickLotEdit`.
+- `Batch` redirects legacy `#<batch>/<subject>` links to Review (`/review/<lot>?edit=<lot>` or `?edit=<part|add_lot|add_part>`) with `location.replace`, which passes through the navigation guard.
+
+Verification: frontend 244 tests, typecheck, ESLint, readability lint, Prettier, Markdown lint and production build pass. PR-B changes no server code; on its head `pnpm test:intake` passes 168/168 and the affected PostgreSQL files (`capture-intent`, `capture-catalogue`) pass 7/7, covering `batch_settings` revision checks, idempotent acknowledgement and catalogue reads.
+
+Browser qualification ([evidence](../bench-intake/evidence/batch-settings-overhaul/README.md)): owned synthetic fixture at 1280, 390 and 360 CSS pixels in headless Playwright Chromium (touch enabled for the narrow runs), and at native 200% zoom (CDP `zoom: 2`, CSS 640 and 360) in Google Chrome `--headless=new` with an owned profile. Every run had zero horizontal overflow, no subject panes, an acknowledged autosave with title focus retained, keyboard fuzzy supplier selection (`Mousr` → Mouser), Escape keeping picker focus, disabled PO controls and a keyboard-reachable logo explanation. Qualification found the settings panel's leftover `grid-area` squeezing it into an implicit narrow column below 860px; it was removed and the runs repeated.
+
+### PR-B independent review
+
+#### Round 1
+
+Codex (`gpt-6.1-sol`, read-only) reviewed exactly `1514e91..bfe0a3b`: no Critical findings; six Important and four Minor. Round 2 found that 1, 2 and 4 were only partly fixed; see Round 2.
+
+1. Important: a dirty Review subject editor did not fence the Decision panel or table, whose commands remount Review and lose the draft. Review now disables each command surface while another dirty source exists (`hasOtherSources`), and the manual subject actions while anything is dirty. The Decision panel's legacy Edit in Capture link is removed. Regression: an add-lot draft disables the focused lot's quantity correction.
+2. Important: the relocated attachment choice ignored its dirty state and recovery. It now reports an `attachment` dirty source, shows retained-command errors with exact retry and discard, and reloads saved values after a confirmed change. Regression: an uncertain change keeps the editor open, and the exact retry resends the same request and then reloads.
+3. Important: saved instructions arriving after Capture never populated the textbox. A new saved instruction version is adopted while the operator has not typed; negative control confirmed.
+4. Important: instruction text finished during IME composition never reached its lane, and pending debounces kept running. Composition keeps navigation dirty and schedules the lane that owns the composed field when it ends; negative control confirmed. Round 2 replaced the per-lane pause with a queue-wide suspension.
+5. Important: a rerender during reconnection could release queued writes before the read finished. Reconciliation is tracked separately from connection; writes and exact retries wait for a successful read, and a failed read retries after two seconds. Regression rerenders while the read is pending.
+6. Important: availability did not enforce freshness. See Availability above; regression: a capture observation older than 60 seconds disables settings until a fresh read.
+7. Minor: a refused logo stayed "Uploading". The refusal is shown, the rejected draft is discarded (`SaveQueue.discard`) and a replacement file can be chosen.
+8. Minor: a failed strict search looked like no matches. The picker discloses search unavailability while keeping candidates and selection.
+9. Minor: ID tie-breaking used `Number`, losing order beyond 2^53. It now compares with `BigInt`; regression with `9999999999999999` and `10000000000000000`.
+10. Minor: the evidence README cited `results.json`, which the repository ignores. The record is committed as `browser-results.json`.
+
+Also restored: projection-mismatch coverage (a polled operator projection at a newer revision keeps the instruction draft until the Batch-level discard-and-reload), alongside the separate instruction-conflict test. Fixed in `52845e2`; frontend 257/257 tests.
+
+#### Round 2
+
+Codex reviewed exactly `1514e91..52845e2`: no Critical findings; five Important and two Minor. Round-1 findings 3 and 5–10 were confirmed fixed. Each fix below has a regression test that fails when the fix is reverted (negative controls restored by SHA-256):
+
+1. Important: after an uncertain acknowledgement, editing back to the old saved value was dropped as "matches saved", so the exact retry reported saved while the field showed another value. A lane with an unconfirmed request now keeps every draft; regressions revert before and after the lost acknowledgement.
+2. Important: the subject form and attachment choice in the Review editor shared one fence, so either save could remount Review over the other's draft. They now have separate `subjectDisabled` and `attachmentDisabled` fences, including exact retry; discarding stays reachable.
+3. Important: a reconnection read settling after Capture unmounted (explicit discard/reload) could revive the old queue. `SaveQueue.dispose` now stops all dispatch (updates, reconnection and retry), and the panel ignores late reads and retry timers after unmount.
+4. Important: a late supplier or location observation could override a newer choice (No supplier, a later record) and replace drafts created while it was pending. Each field orders choices with `useIntentTicket`: only the newest still-mounted choice applies, against current drafts read from the form. Location selection and parent choice are ordered separately; typing draft text supersedes neither.
+5. Important: an evidence note and media editing did not fence each other, so one's save could remount Capture over the other's draft. While media is dirty, Write a note and the note form are disabled; while a note is dirty, media editing is disabled. The assertion that a pending original disables Write a note is restored.
+6. Minor: composition start paused only the composed lanes, so a waiting lane could stall after composition. `SaveQueue.suspend`/`resume` now hold every dispatch during composition, and resuming sends each ready lane.
+7. Minor: tag text typed but not yet added did not protect navigation. `SharedTagsInput` reports pending text, and the panel stays dirty until it is added or cleared.
+
+Fixed in `6d07b5d`; frontend 267/267 tests.
+
+#### Round 3
+
+Codex reviewed exactly `1514e91..6d07b5d`: no Critical findings; three Important and one Minor. Round-2 fixes 1, 2, 4 and 6 were confirmed correct. Each fix below has a regression test that fails when the fix is reverted:
+
+1. Important: StrictMode's effect replay disposed the queue permanently, so development autosave never sent. `useSaveQueue` re-activates the queue on effect setup; a genuinely unmounted queue still never dispatches. Regressions are hook-level (`useSaveQueue.test.tsx`), because the integrated panel test did not reproduce the replay.
+2. Important: `Batch` rebuilds its settings ports on every render, which replaced Capture's dirty callbacks, and `useDirtySources` reported clean whenever its parent callback changed. That released navigation protection and the evidence fences while an upload stayed pending. Capture's reporting now reads current ports and callbacks through a ref, and `useDirtySources` reports clean only on unmount, giving a replaced callback the current state. Regressions: a pending original survives rerender with new ports, and a hook test replaces the callback while dirty.
+3. Important: a shared Part linked to no lot had no Review entry point after creation. Review now lists "Edit unlinked shared Part: <label>" for each such Part; regression reopens one in a batch with no lots.
+4. Minor: a comma typed during IME composition added the unfinished text as a tag. Delimiters wait for composition to end.
+
+Fixed in `35d2ed2`; frontend 272/272 tests.
+
+#### Round 4
+
+Codex reviewed exactly `1514e91..35d2ed2`: no Critical findings; two Important and two Minor. All four round-3 fixes were confirmed. Each code fix below has a regression test that fails when the fix is reverted:
+
+1. Important: a clean reset could set the instruction lane's saved baseline to empty before the projection arrived, and a later projection only changed the textbox. Clearing those instructions then compared equal to the stale baseline and showed Saved while the server kept them. A new instruction version now becomes the lane's baseline (`SaveQueue.adoptSaved`, only for a lane with no draft or unacknowledged request), and a reset without a projection leaves the instruction baseline alone rather than treating it as confirmed empty.
+2. Important: settings resumed as soon as an evidence change finished, while the read of the new revision was still pending, so a settings edit could be sent against the old revision and conflict. Settings stay paused until that read is accepted. If it fails, an alert explains that settings remain paused and offers "Refresh saved settings".
+3. Minor: unsent drafts made while disconnected had no recovery, because the fields were disabled and the host's discard needs a server read. "Discard unsent settings edits" now appears while disconnected and nothing has been sent or left unconfirmed. It drops the drafts locally and restores the saved values, and in-flight or unconfirmed requests keep their own recovery. Regressions cover instructions and the title.
+4. Minor: the status line at the top of this handover still described PR-A as in progress. It now states the current status.
+
+Fixed in `49bd191`; frontend 276/276 tests.
+
+#### Round 5
+
+Codex reviewed exactly `1514e91..49bd191`: no Critical findings; two Important and two Minor. Findings 1–3 completed round-4 fixes 1–3. Each fix below has a regression test that fails when the fix is reverted:
+
+1. Important: round-4's adoption re-sent the operator's acknowledged local instructions when a newer projection from another client arrived, overwriting it. A clean instruction lane (no draft, nothing unacknowledged) now takes the newer saved text without sending; only an outstanding draft or a composition in progress keeps the operator's text.
+2. Important: overlapping post-evidence refreshes could release the settings gate on an older read, admitting writes against a stale revision. Only the newest refresh generation may accept its snapshot, release the gate or report failure; regressions resolve the reads in both orders.
+3. Minor: local discard ignored tag text that was typed but not added (for example a refused duplicate). Pending tag text now makes discard available, and discarding remounts the tag input to clear it.
+4. Minor: inside the fuzzy tier, a record matching only in secondary fields could outrank a name match. Name matches now precede secondary-only matches, then score, then numeric ID.
+
+Fixed in `856b82e`; frontend 281/281 tests.
+
+#### Round 6
+
+Codex reviewed exactly `1514e91..856b82e`: no Critical findings; one Important and one Minor. All four round-5 fixes were confirmed. Each fix has a regression test that fails when the fix is reverted:
+
+1. Important: after an attachment acknowledgement, the workspace cleared attachment dirtiness before its follow-up read and the host reload, so a subject edit started in that gap was remounted away. The Review attachment now stays dirty from dispatch through the host reload, including exact retry. Regression delays both the read and the reload.
+2. Minor: pending tag text reached navigation only through two passive effects. The tag input now reports from the input event, and the panel forwards new pending text to its owner synchronously; clearing still goes through the effect, so an unmounting input cannot report dirty after its owner reported clean. Regressions use React `Profiler` commit ordering, because effects flush inside the test's `act`.
+
+Fixed in `84846df`; frontend 284/284 tests.
+
+#### Round 7
+
+Codex reviewed exactly `1514e91..84846df`: no Critical findings; two Important and one Minor. Both round-6 fixes were confirmed. Each fix has a regression test that fails when the fix is reverted:
+
+1. Important: during a conflict, reverting a field to its old saved value dropped the draft, so "Keep my edits" sent nothing and reported Saved while the server held another value. A conflicted queue now keeps every draft, as an unconfirmed one already did.
+2. Important: discarding unsent edits restored instructions from the last projection, which could be older than the queue's acknowledged text when the follow-up read failed. Discard now restores the lane's acknowledged value (`SaveQueue.savedValue`).
+3. Minor: the empty Compare matches dialog linked to Capture, which no longer reads Parts. The round-7 fix only changed the link target; round 8 completed it.
+
+Fixed in `867fb4f`; frontend 287/287 tests.
+
+#### Round 8
+
+Codex reviewed exactly `1514e91..867fb4f`: no Critical findings; one Important and one Minor. Round-7 fixes 1 and 2 were confirmed; fix 3 was incomplete. Each fix has a regression test that fails when the fix is reverted:
+
+1. Important: composed text does not enter the queue until composition ends, so a newer snapshot adopted during composition (for example after an instruction acknowledgement) reset the field. Clean adoption now also waits for composition.
+2. Minor: Review reads `?edit=` only when it mounts, so the dialog's new link changed the hash without opening the editor. The dialog now closes and hands over to Review's editor owner (`openEditor`); the regression clicks through to the shared Part editor.
+
+Fixed in `dd0628c`; frontend 289/289 tests.
+
+#### Round 9
+
+Codex reviewed exactly `1514e91..dd0628c`: no Critical or Important findings, and both round-8 fixes were confirmed. One Minor: the browser qualification summary above attributed every run to Google Chrome, while the evidence README records the desktop and narrow runs in Playwright Chromium. The summary now matches the README. This round changed documentation only.
+
+Still to do for 4.5: Codex re-review and selected CI.
+
+Limitations: draft persistence across a browser crash/reload is not promised (beforeunload protection only). Batch-level evidence edits (`Batch.edit`) and media commands remain separate owners from the settings queue; they are serialized with settings and with each other by fencing rather than by sharing the queue. The `App.media` test now waits for the photo input to enable, because the panel's initial reconnection read shifts when the first fresh media read completes.

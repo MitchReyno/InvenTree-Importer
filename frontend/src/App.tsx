@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   agentsClient,
   captureClient,
+  catalogueClient,
   inboxClient,
   headerClient,
   intakeClient,
@@ -84,6 +85,11 @@ export default function App() {
         : undefined,
     [bootstrap],
   )
+  const catalogue = useMemo(
+    () =>
+      bootstrap?.csrf_token ? catalogueClient(location.origin, bootstrap.csrf_token) : undefined,
+    [bootstrap],
+  )
   const media = useMemo(
     () =>
       bootstrap?.csrf_token && bootstrap.media_enabled === true
@@ -134,6 +140,7 @@ export default function App() {
         processing={processing}
         media={media}
         operator={operator}
+        catalogue={catalogue}
         route={route}
         onDirtyChange={onDirtyChange}
       />

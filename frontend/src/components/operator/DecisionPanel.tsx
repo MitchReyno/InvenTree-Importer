@@ -30,9 +30,11 @@ interface Props {
   activeLotIds: string[]
   operator?: OperatorReviewClient
   disabled: boolean
-  edit: (change: CaptureEditDto['change']) => Promise<void>
+  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   reload: () => Promise<void>
   inspect: (lotId: string) => void
+  /** Opens Review's shared Part editor for this Part. */
+  editPart?: (partId: string) => void
   /** Increments when the operator asks to edit quantity (E). */
   editSignal?: number
   onDirtyChange?: (dirty: boolean) => void
@@ -70,6 +72,7 @@ export function DecisionPanel({
   edit,
   reload,
   inspect,
+  editPart,
   editSignal = 0,
   onDirtyChange,
 }: Props) {
@@ -187,7 +190,6 @@ export function DecisionPanel({
             </Button>
           </>
         )}
-        <Link href={`#${batch.id}/${lot.id}`}>Edit in Capture</Link>
       </Actions>
       {operatorLot?.approved && (
         <Small>Approved lots keep their original identity and cannot be restructured.</Small>
@@ -215,6 +217,7 @@ export function DecisionPanel({
           edit={edit}
           onClose={() => setComparing(false)}
           onDirtyChange={drafts.forSource('compare')}
+          onEditPart={editPart && (() => editPart(part.id))}
         />
       )}
       {restructure && operator && (

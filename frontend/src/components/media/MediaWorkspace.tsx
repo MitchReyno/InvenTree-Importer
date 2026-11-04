@@ -1,5 +1,5 @@
 import { mediaIdentityLabels } from '../../media/identity-labels'
-import { useEffect, useRef, useState, useId } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type { CaptureSnapshotDto, MediaVersionDto, OperatorReviewDto } from '@invimport/contracts'
 import { Button, Heading, Label, Paragraph, Select, Small } from '../ui/primitives'
@@ -11,12 +11,13 @@ import { MediaCropDialog } from './MediaCropDialog'
 import { EvidenceDragContext } from './EvidenceDragContext'
 import { EvidenceGroupPanel } from './EvidenceGroupPanel'
 import { MediaTextEditor } from './MediaTextEditor'
+import { SubjectAttachmentChoice } from './SubjectAttachmentChoice'
 
 interface Props {
   batch: CaptureSnapshotDto
   client: MediaClient
   disabled: boolean
-  selectedSubject: string
+  selectedSubject?: string
   onDirtyChange: (dirty: boolean) => void
   onWriteNote?: () => void
   noteDisabled?: boolean
@@ -55,22 +56,7 @@ export function MediaWorkspace({
     page: number
     revision: string
   } | null>(null)
-  const attachmentControlId = useId()
-  const attachmentDescriptionId = `${attachmentControlId}-selection`
-  const selectedPart = batch.parts.find((part) => part.id === selectedSubject)
-  const subject = batch.lots.find((lot) => lot.id === selectedSubject) ?? selectedPart
-  const destination = selectedPart ? ('part_attachment' as const) : ('lot_attachment' as const)
-  const selection = snapshot?.attachments.find((item) => item.subject_id === selectedSubject)
   const identityLabels = mediaIdentityLabels(snapshot?.evidence ?? [])
-  let attachmentDescription = 'Not chosen'
-  if (selection?.version_id) {
-    attachmentDescription =
-      identityLabels.versions.get(selection.version_id) ?? `Saved version ${selection.version_id}`
-  } else if (selection?.mode === 'declined') {
-    attachmentDescription = selectedPart
-      ? 'No attachment for this Part'
-      : 'No attachment for this lot'
-  }
   const frozen = disabled || command.busy || command.pending || !snapshot || state.unavailable
 
   const blocked = (owner: string) => frozen || drafts.hasOtherSources(owner)
@@ -235,44 +221,14 @@ export function MediaWorkspace({
               ))}
             </Groups>
           </EvidenceDragContext>
-          {subject && (
-            <AttachmentChoice>
-              <Label htmlFor={attachmentControlId}>Attachment for {subject.label}</Label>
-              <Select
-                id={attachmentControlId}
-                aria-describedby={attachmentDescriptionId}
-                disabled={blocked('attachment')}
-                value={selection?.version_id ?? selection?.mode ?? 'unset'}
-                onChange={(event) => {
-                  const value = event.target.value
-                  const mode = value === 'unset' || value === 'declined' ? value : 'selected'
-                  void edit({
-                    kind: 'select_attachment',
-                    subject_id: subject.id,
-                    mode,
-                    version_id: mode === 'selected' ? value : null,
-                    destination,
-                  }).catch(() => undefined)
-                }}
-              >
-                <option value="unset">Not chosen</option>
-                <option value="declined">
-                  No attachment for this {selectedPart ? 'Part' : 'lot'}
-                </option>
-                {snapshot.evidence.flatMap((evidence) =>
-                  evidence.versions
-                    .filter((version) => version.state === 'ready')
-                    .map((version) => (
-                      <option key={version.id} value={version.id}>
-                        {identityLabels.versions.get(version.id)}
-                      </option>
-                    )),
-                )}
-              </Select>
-              <Small id={attachmentDescriptionId}>
-                Selected attachment: {attachmentDescription}
-              </Small>
-            </AttachmentChoice>
+          {selectedSubject && (
+            <SubjectAttachmentChoice
+              batch={batch}
+              subjectId={selectedSubject}
+              snapshot={snapshot}
+              disabled={blocked('attachment')}
+              edit={edit}
+            />
           )}
 
           {snapshot.derivations
@@ -319,23 +275,6 @@ const MoveControls = styled.div`
   border: 1px solid #b7ccec;
   border-radius: 6px;
   min-width: 0;
-  select {
-    max-width: 100%;
-  }
-`
-const AttachmentChoice = styled.div`
-  display: grid;
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-
-  label {
-    min-width: 0;
-    max-width: 100%;
-    overflow-wrap: anywhere;
-  }
-
   select {
     max-width: 100%;
   }

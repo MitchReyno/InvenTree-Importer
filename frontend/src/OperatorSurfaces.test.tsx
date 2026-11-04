@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import {
@@ -11,11 +11,11 @@ import { render } from './test/render'
 import { CaptureWorkspace } from './components/capture/CaptureWorkspace'
 import { CaptureHeader } from './components/capture/CaptureHeader'
 import { LotEvidence } from './components/operator/LotEvidence'
-import { InstructionsPanel } from './components/operator/InstructionsPanel'
 import { IssuePanel } from './components/operator/IssuePanel'
 import { retiredLotIds } from './operator/review-model'
 import { ProcessingWorkspace } from './components/processing/ProcessingWorkspace'
 import type { OperatorReviewClient } from './operator/types'
+import type { SettingsPorts } from './capture/types'
 import type { ProcessingClient } from './processing/types'
 
 const batchId = '10000000-0000-4000-8000-000000000001'
@@ -119,43 +119,41 @@ test('fixtures satisfy the shared runtime contracts', () => {
   validate('ProcessingSnapshot', snapshot)
 })
 
-test('batch instructions save as a new version with the loaded revision', async () => {
+test('Custom instructions keep their version and autosave with the loaded revision', async () => {
   const user = userEvent.setup()
-  const client = {
-    instruct: vi.fn(async () => review),
-  } as unknown as OperatorReviewClient
-  const reload = vi.fn(async () => undefined)
   const dirty = vi.fn()
+  const settings: SettingsPorts = {
+    connected: true,
+    save: vi.fn(),
+    accept: vi.fn(),
+    read: vi.fn(async () => batch),
+    instruct: vi.fn(async () => ({ ...review, revision: '9' })),
+  }
   render(
-    <InstructionsPanel
+    <CaptureWorkspace
       batch={batch}
-      review={review}
-      client={client}
-      disabled={false}
-      reload={reload}
+      busy={false}
+      edit={vi.fn()}
+      observe={vi.fn()}
+      operatorReview={review}
       onDirtyChange={dirty}
+      settings={settings}
     />,
   )
-  expect(
-    screen.getByText(/Instructions do not approve inventory values or create stock/),
-  ).toBeVisible()
-  const text = screen.getByLabelText('Batch instructions')
+  expect(screen.getByText(/instructions do not approve inventory values/)).toBeVisible()
+  const text = screen.getByLabelText('Custom instructions')
   expect(text).toHaveValue('Same order, separate packets.')
   expect(screen.getByText(/Version 6/)).toBeVisible()
   await user.type(text, ' Keep date codes apart.')
-  await waitFor(() => expect(dirty).toHaveBeenLastCalledWith(true))
-  await user.click(screen.getByRole('button', { name: 'Save batch instructions' }))
-  await waitFor(() => expect(client.instruct).toHaveBeenCalledTimes(1))
-  expect(client.instruct).toHaveBeenCalledWith(
-    batchId,
-    {
-      expected_revision: '8',
-      group_id: null,
-      text: 'Same order, separate packets. Keep date codes apart.',
-    },
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  await waitFor(() => expect(settings.instruct).toHaveBeenCalledTimes(1))
+  expect(settings.instruct).toHaveBeenCalledWith(
+    'Same order, separate packets. Keep date codes apart.',
+    '8',
     expect.any(String),
   )
-  await waitFor(() => expect(reload).toHaveBeenCalled())
+  await waitFor(() => expect(dirty).toHaveBeenLastCalledWith(false))
+  expect(settings.save).not.toHaveBeenCalled()
 })
 
 test('Processing keeps retired history but offers only active lots for new attempts', async () => {
@@ -252,80 +250,75 @@ test('retired lots come from the snapshot flag even without the operator project
   expect([...retiredLotIds(undefined, batch)]).toEqual([])
 })
 
-test('instruction drafts and capture edits cannot erase each other through a sibling save', async () => {
+test('a settings acknowledgement cannot erase a sibling instruction draft', async () => {
   history.replaceState(null, '', `#${batchId}`)
   const user = userEvent.setup()
   const operator = { instruct: vi.fn() } as unknown as OperatorReviewClient
-  const edit = vi.fn()
+
+  let acknowledge = () => undefined as void
+
+  const settings: SettingsPorts = {
+    connected: true,
+    save: vi.fn(
+      (change) =>
+        new Promise<CaptureSnapshotDto>((resolve) => {
+          acknowledge = () => resolve({ ...batch, title: change.title, revision: '13' })
+        }),
+    ),
+    accept: vi.fn(),
+    read: vi.fn(async () => batch),
+    instruct: vi.fn(() => new Promise<never>(() => undefined)),
+  }
   render(
     <CaptureWorkspace
       batch={batch}
       busy={false}
-      edit={edit}
+      edit={vi.fn()}
       observe={vi.fn()}
       operator={operator}
       operatorReview={review}
       reload={vi.fn()}
       onDirtyChange={vi.fn()}
+      settings={settings}
     />,
   )
-  const instructions = screen.getByLabelText('Batch instructions')
+  const instructions = screen.getByLabelText('Custom instructions')
+  await user.type(screen.getByLabelText('Batch title'), ' renamed')
   await user.type(instructions, ' Local draft')
-  expect(screen.getByLabelText('Quantity mode')).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'Save Batch settings' })).toBeDisabled()
-  await user.click(screen.getByRole('button', { name: 'Discard instruction edits' }))
-  await user.selectOptions(screen.getByLabelText('Quantity mode'), 'set')
-  await user.type(screen.getByRole('textbox', { name: /^Exact quantity \(pieces\)/ }), '7')
-  expect(instructions).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'Save batch instructions' })).toBeDisabled()
-  expect(edit).not.toHaveBeenCalled()
+  await waitFor(() => expect(settings.save).toHaveBeenCalledOnce())
+  await act(async () => acknowledge())
+  expect(instructions).toHaveValue('Same order, separate packets. Local draft')
+  await waitFor(() =>
+    expect(settings.instruct).toHaveBeenCalledWith(
+      'Same order, separate packets. Local draft',
+      '13',
+      expect.any(String),
+    ),
+  )
   expect(operator.instruct).not.toHaveBeenCalled()
 })
 
-test('instruction edits can be discarded locally when current commands become disabled', async () => {
+test('Capture omits subject panes and opens Review for subject editing', async () => {
   const user = userEvent.setup()
-  const client = { instruct: vi.fn() } as unknown as OperatorReviewClient
-  const dirty = vi.fn()
-
-  const element = (disabled: boolean) => (
-    <InstructionsPanel
+  history.replaceState(null, '', `#${batchId}/capture`)
+  const onStage = vi.fn()
+  render(
+    <CaptureWorkspace
       batch={batch}
-      review={review}
-      client={client}
-      disabled={disabled}
-      reload={vi.fn()}
-      onDirtyChange={dirty}
-    />
+      busy={false}
+      edit={vi.fn(async () => undefined)}
+      observe={vi.fn()}
+      onStage={onStage}
+      onProcessing={vi.fn()}
+    />,
   )
-
-  const view = render(element(false))
-  await user.type(screen.getByLabelText('Batch instructions'), ' Unsent')
-  view.rerender(element(true))
-  expect(screen.getByRole('button', { name: 'Discard instruction edits' })).toBeEnabled()
-  await user.click(screen.getByRole('button', { name: 'Discard instruction edits' }))
-  expect(screen.getByLabelText('Batch instructions')).toHaveValue('Same order, separate packets.')
-  expect(dirty).toHaveBeenLastCalledWith(false)
-  expect(client.instruct).not.toHaveBeenCalled()
-})
-
-test('Capture back uses its explicit list route and reload keeps the list context', async () => {
-  const user = userEvent.setup()
-  history.replaceState(null, '', `#${batchId}/${active}`)
-  const props = {
-    batch,
-    busy: false,
-    edit: vi.fn(async () => undefined),
-    observe: vi.fn(),
-    onStage: vi.fn(),
-    onProcessing: vi.fn(),
-  }
-  const view = render(<CaptureWorkspace {...props} />)
-  await user.click(screen.getByText('← Lots and shared details'))
-  expect(location.hash).toBe(`#${batchId}/capture`)
-  view.unmount()
-  render(<CaptureWorkspace {...props} />)
   expect(screen.getByRole('heading', { name: 'Batch settings' })).toBeInTheDocument()
-  expect(screen.getByText('← Lots and shared details')).not.toHaveTextContent('save or discard')
+  expect(screen.getByRole('heading', { name: 'Evidence' })).toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: /Physical lots/ })).not.toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: /Part proposals/ })).not.toBeInTheDocument()
+  expect(screen.queryByRole('region', { name: /^Lot:|^Shared Part:/ })).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Go to review →' }))
+  expect(onStage).toHaveBeenCalledWith('review')
   history.replaceState(null, '', location.pathname)
 })
 

@@ -1,6 +1,6 @@
 import { ErrorNotice } from '../ui/primitives'
 import { Button, Paragraph, Summary } from '../ui/primitives'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
@@ -15,6 +15,9 @@ import type {
   OperatorReviewDto,
 } from '@invimport/contracts'
 import type { Client } from '../../capture/client'
+import type { SettingsPorts } from '../../capture/types'
+import type { CatalogueClient } from '../../catalogue/types'
+import { useApplicationAvailable } from '../../capture/useApplicationAvailable'
 import type { MediaClient } from '../../media/types'
 import { CaptureWorkspace } from '../capture/CaptureWorkspace'
 import styled from 'styled-components'
@@ -30,11 +33,13 @@ export function Batch({
   processing,
   media,
   operator,
+  catalogue,
   route,
   onDirtyChange,
 }: {
   id: string
   client: Client
+  catalogue?: CatalogueClient
   manual: ManualClient
   processing?: ProcessingClient
   media?: MediaClient
@@ -102,9 +107,62 @@ export function Batch({
     setBatch(value)
   }
 
-  async function edit(change: CaptureEditDto['change']) {
-    if (!batch) {
+  // Autosave acknowledgements and reconnection reads may resolve out of order; keep the newest.
+  function acceptNewerBatch(value: CaptureSnapshotDto) {
+    setBatch((current) => {
+      if (current && BigInt(current.revision) > BigInt(value.revision)) {
+        return current
+      }
+      queryClient.setQueryData(queryKey, value)
+      return value
+    })
+  }
+
+  const captureDirty = useRef(false)
+  const reportCaptureDirty = useCallback(
+    (dirty: boolean) => {
+      captureDirty.current = dirty
+      onDirtyChange(dirty)
+    },
+    [onDirtyChange],
+  )
+
+  // Former Capture subject links now open the same subject in Review.
+  useEffect(() => {
+    if (!batch || stage !== 'capture' || !segment) {
       return
+    }
+    const lot = batch.lots.some((item) => item.id === segment)
+    const subject =
+      lot ||
+      batch.parts.some((item) => item.id === segment) ||
+      segment === 'add_lot' ||
+      segment === 'add_part'
+    if (subject) {
+      location.replace(
+        `#${id}/review${lot ? `/${segment}` : ''}?edit=${encodeURIComponent(segment)}`,
+      )
+    }
+  }, [batch, id, segment, stage])
+
+  // Capture follows newer saved values only while it holds no local edits.
+  useEffect(() => {
+    const latest = captureQuery.data
+    if (
+      stage === 'capture' &&
+      !processingSelected &&
+      batch &&
+      latest &&
+      !captureDirty.current &&
+      BigInt(latest.revision) > BigInt(batch.revision)
+    ) {
+      setBatch(latest)
+    }
+  }, [batch, captureQuery.data, processingSelected, stage])
+
+  async function edit(change: CaptureEditDto['change']): Promise<boolean> {
+    if (!batch) {
+      return false
     }
     const request = { expected_revision: batch.revision, change }
     try {
@@ -113,10 +171,10 @@ export function Batch({
       setError(
         'Check the entered values before saving. No request was sent for these values; the input remains editable. Any earlier unconfirmed save still needs reconciliation.',
       )
-      return
+      return false
     }
     if (editPending.current) {
-      return
+      return false
     }
     if (
       editIntent.current &&
@@ -125,7 +183,7 @@ export function Batch({
       setError(
         'An earlier save is unconfirmed. Retry its unchanged input or reload saved values deliberately before submitting different changes.',
       )
-      return
+      return false
     }
     editIntent.current ??= { request, key: crypto.randomUUID() }
     const intent = editIntent.current
@@ -136,6 +194,7 @@ export function Batch({
     try {
       acceptSavedBatch(await client.edit(id, intent.request, intent.key))
       editIntent.current = null
+      return true
     } catch (error) {
       if (error instanceof IntakeRequestError && error.status === 412) {
         setError(
@@ -151,6 +210,7 @@ export function Batch({
           'Save not confirmed. Your input is preserved. Reload saved values before deciding whether to submit again.',
         )
       }
+      return false
     } finally {
       editPending.current = false
       setBusy(false)
@@ -236,10 +296,26 @@ export function Batch({
   )
 
   const readUnavailable = captureQuery.isError || captureQuery.fetchStatus === 'paused'
+  const applicationAvailable = useApplicationAvailable(captureQuery.dataUpdatedAt, readUnavailable)
   const visibleError =
     error ||
     (readUnavailable ? 'Batch unavailable. Check connection and server-side target binding.' : '')
   const readOrCommandBusy = busy || captureQuery.isFetching
+
+  const settingsPorts: SettingsPorts = {
+    connected: applicationAvailable,
+    save: (change, revision, key) => client.edit(id, { expected_revision: revision, change }, key),
+    accept: acceptNewerBatch,
+    read: () => client.read(id),
+    instruct: operator
+      ? (text, revision, key) =>
+          operator.instruct(id, { expected_revision: revision, group_id: null, text }, key)
+      : undefined,
+    uploadLogo: media
+      ? (file, label, revision, key) => media.upload(id, revision, label, file, key)
+      : undefined,
+    catalogue,
+  }
 
   let content: ReactNode
   if (batch && processingSelected) {
@@ -268,6 +344,7 @@ export function Batch({
         runId={stage === 'results' ? segments[2] : undefined}
         preparationId={stage === 'approve' ? segments[2] : undefined}
         edit={edit}
+        observe={observe}
         navigate={navigate}
         reload={reloadSavedValues}
         onProcessing={onProcessing}
@@ -281,7 +358,7 @@ export function Batch({
   } else if (batch && activeBatch) {
     content = (
       <CaptureWorkspace
-        key={`${batch.id}:${batch.revision}:${reset}`}
+        key={`${batch.id}:${reset}`}
         batch={activeBatch}
         operatorReview={operatorReview}
         operator={operator}
@@ -296,7 +373,8 @@ export function Batch({
         observe={observe}
         onStage={navigate}
         onProcessing={onProcessing}
-        onDirtyChange={onDirtyChange}
+        onDirtyChange={reportCaptureDirty}
+        settings={settingsPorts}
       />
     )
   } else {

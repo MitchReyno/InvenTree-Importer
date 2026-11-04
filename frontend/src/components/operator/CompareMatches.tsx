@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
-import { Button, Link, Paragraph, Small } from '../ui/primitives'
+import { Button, Paragraph, Small } from '../ui/primitives'
 import { Modal } from './Modal'
 
 type Part = CaptureSnapshotDto['parts'][number]
@@ -13,9 +13,11 @@ interface Props {
   /** Active lots sharing this Part proposal, including the focused lot. */
   affectedLotIds: string[]
   disabled: boolean
-  edit: (change: CaptureEditDto['change']) => Promise<void>
+  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   onClose: () => void
   onDirtyChange?: (dirty: boolean) => void
+  /** Opens the shared Part editor in Review, where existing Parts are read. */
+  onEditPart?: () => void
 }
 
 /** Latest observation per existing Part PK; older reads stay retained but are not repeated. */
@@ -46,6 +48,7 @@ export function CompareMatches({
   edit,
   onClose,
   onDirtyChange,
+  onEditPart,
 }: Props) {
   const [saving, setSaving] = useState(false)
   const [pending, setPending] = useState<Observation | null>(null)
@@ -89,7 +92,19 @@ export function CompareMatches({
       {!candidates.length && (
         <Paragraph>
           No existing Parts have been read for this batch yet.{' '}
-          <Link href={`#${batch.id}`}>Read an existing Part in Capture</Link>
+          {onEditPart ? (
+            <InlineButton
+              type="button"
+              onClick={() => {
+                onClose()
+                onEditPart()
+              }}
+            >
+              Read an existing Part in the shared Part editor
+            </InlineButton>
+          ) : (
+            'Read one in the shared Part editor in Review.'
+          )}
         </Paragraph>
       )}
       {candidates.length > 0 && (
@@ -215,4 +230,13 @@ const Confirm = styled.section`
   border: 1px solid #e2c47e;
   background: #fffaf0;
   border-radius: 6px;
+`
+const InlineButton = styled.button`
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #164a93;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
 `

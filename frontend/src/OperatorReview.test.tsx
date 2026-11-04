@@ -813,12 +813,13 @@ test('keyboard review cannot bypass an unavailable current operator projection',
   expect(manual.review).not.toHaveBeenCalled()
 })
 
-test('Batch retains instruction drafts after a polled revision mismatch and offers explicit reload recovery', async () => {
+test('Batch keeps an autosaved instruction draft after a foreign revision and recovers only explicitly', async () => {
   history.replaceState(null, '', `#${batchId}`)
   const cache = createServerQueryClient()
   const user = userEvent.setup()
   const client = { read: vi.fn(async () => batch), edit: vi.fn() } as unknown as Client
   const operator = operatorClient()
+  vi.mocked(operator.instruct).mockRejectedValue(new IntakeRequestError(412, 'revision_conflict'))
 
   function Wrapper({ children }: { children: ReactNode }) {
     return (
@@ -839,7 +840,55 @@ test('Batch retains instruction drafts after a polled revision mismatch and offe
     />,
     { wrapper: Wrapper },
   )
-  const input = await screen.findByLabelText('Batch instructions')
+  const input = await screen.findByLabelText('Custom instructions')
+  await user.type(input, 'Retain instructions')
+  await waitFor(() => expect(operator.instruct).toHaveBeenCalledOnce())
+  expect(vi.mocked(operator.instruct).mock.calls[0][1]).toEqual({
+    expected_revision: batch.revision,
+    group_id: null,
+    text: 'Retain instructions',
+  })
+  expect(await screen.findByRole('alert')).toHaveTextContent('another change was saved first')
+  expect(input).toHaveValue('Retain instructions')
+  await user.type(input, ' still')
+  await new Promise((resolve) => setTimeout(resolve, 700))
+  expect(operator.instruct).toHaveBeenCalledOnce()
+  vi.mocked(operator.read).mockResolvedValue({ ...operatorReview, revision: '13' })
+  vi.mocked(client.read).mockResolvedValue({ ...batch, revision: '13' })
+  await user.click(screen.getByRole('button', { name: 'Discard my edits and load saved values' }))
+  await screen.findByText('Batch settings: Saved · revision 13')
+  expect(screen.getByLabelText('Custom instructions')).toHaveValue('')
+  expect(operator.instruct).toHaveBeenCalledOnce()
+})
+
+test('a polled operator projection at a newer revision keeps the instruction draft until explicit reload', async () => {
+  history.replaceState(null, '', `#${batchId}`)
+  const cache = createServerQueryClient()
+  const user = userEvent.setup()
+  const client = { read: vi.fn(async () => batch), edit: vi.fn() } as unknown as Client
+  const operator = operatorClient()
+  vi.mocked(operator.instruct).mockImplementation(() => new Promise(() => undefined))
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerStateProvider scope={fixtureScope} client={cache}>
+        {children}
+      </ServerStateProvider>
+    )
+  }
+
+  render(
+    <Batch
+      id={batchId}
+      route={batchId}
+      client={client}
+      manual={manualClient()}
+      operator={operator}
+      onDirtyChange={vi.fn()}
+    />,
+    { wrapper: Wrapper },
+  )
+  const input = await screen.findByLabelText('Custom instructions')
   await user.type(input, 'Retain instructions')
   vi.mocked(operator.read).mockResolvedValue({ ...operatorReview, revision: '13' })
   vi.mocked(client.read).mockResolvedValue({ ...batch, revision: '13' })
@@ -850,14 +899,9 @@ test('Batch retains instruction drafts after a polled revision mismatch and offe
     })
   })
   expect(input).toHaveValue('Retain instructions')
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Save batch instructions' })).toBeDisabled(),
-  )
-  await user.click(screen.getByRole('button', { name: 'Discard instruction edits' }))
-  expect(input).toHaveValue('')
-  const reload = screen.getByRole('button', { name: 'Discard local edits and load saved values' })
-  expect(reload).toBeEnabled()
+  const reload = await screen.findByRole('button', {
+    name: 'Discard local edits and load saved values',
+  })
   await user.click(reload)
-  await screen.findByText('Saved · revision 13')
-  expect(operator.instruct).not.toHaveBeenCalled()
+  await waitFor(() => expect(screen.getByLabelText('Custom instructions')).toHaveValue(''))
 })

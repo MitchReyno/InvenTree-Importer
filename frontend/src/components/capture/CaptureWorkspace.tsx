@@ -1,15 +1,17 @@
-import { Notice, HeadingRow, Caption } from '../ui/primitives'
-import { Button, Heading, Panel } from '../ui/primitives'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CaptureWorkspaceProps } from '../../capture/types'
 import styled from 'styled-components'
-import { CaptureHeader } from './CaptureHeader'
-import { CaptureQueue } from './CaptureQueue'
-import { EvidencePanel } from './EvidencePanel'
-import { CaptureEditor } from './CaptureEditor'
+import type { CaptureWorkspaceProps } from '../../capture/types'
+import { Button, Notice } from '../ui/primitives'
 import { BatchSettingsPanel } from './BatchSettingsPanel'
-import { InstructionsPanel } from '../operator/InstructionsPanel'
+import { CaptureHeader } from './CaptureHeader'
+import { EvidencePanel } from './EvidencePanel'
 
+type DirtySource = 'settings' | 'media' | 'note'
+
+/**
+ * Capture is evidence on the left and Batch settings on the right, stacking on narrow screens.
+ * Physical lots and Part proposals are edited in Review; their retained records are unchanged.
+ */
 export function CaptureWorkspace({
   batch,
   busy,
@@ -22,81 +24,66 @@ export function CaptureWorkspace({
   operatorReview,
   operator,
   reload,
+  settings,
 }: CaptureWorkspaceProps) {
-  const initialSubject = location.hash.split('/')[1]
-  const [selected, select] = useState(() => {
-    const known = [...batch.lots, ...batch.parts].some((subject) => subject.id === initialSubject)
-    return known || initialSubject === 'add_lot' || initialSubject === 'add_part'
-      ? initialSubject
-      : 'defaults'
+  const dirtyFlags = useRef<Record<DirtySource, boolean>>({
+    settings: false,
+    media: false,
+    note: false,
   })
-  const [focused, setFocused] = useState(() => selected !== 'defaults')
-  const noteRef = useRef<HTMLTextAreaElement>(null)
-  const [settingsDirty, setSettingsDirty] = useState(false)
-  const [editorDirty, setDirty] = useState(false)
-  const [mediaDirty, setMediaDirty] = useState(false)
-  const [instructionsDirty, setInstructionsDirty] = useState(false)
-  const dirtyFlags = useRef({ editor: false, media: false, instructions: false, settings: false })
-  const dirty = settingsDirty || editorDirty || mediaDirty || instructionsDirty
+  const [dirty, setDirty] = useState(false)
+  const [sources, setSources] = useState<Record<DirtySource, boolean>>(dirtyFlags.current)
 
-  const reportMediaDirty = useCallback(
-    (value: boolean) => {
-      dirtyFlags.current.media = value
-      setMediaDirty(value)
-      onDirtyChange?.(anyDirty(dirtyFlags.current))
-    },
-    [onDirtyChange],
-  )
-
-  const reportInstructionsDirty = useCallback(
-    (value: boolean) => {
-      dirtyFlags.current.instructions = value
-      setInstructionsDirty(value)
-      onDirtyChange?.(anyDirty(dirtyFlags.current))
-    },
-    [onDirtyChange],
-  )
-
-  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
-
-  function reportDirty(value: boolean) {
-    dirtyFlags.current.editor = value
-    setDirty(value)
-    onDirtyChange?.(anyDirty(dirtyFlags.current))
-  }
-
-  function reportSettingsDirty(value: boolean) {
-    dirtyFlags.current.settings = value
-    setSettingsDirty(value)
-    onDirtyChange?.(anyDirty(dirtyFlags.current))
-  }
-
-  function setSelected(value: string) {
-    if (value === 'note') {
-      noteRef.current?.focus()
-      noteRef.current?.scrollIntoView?.({ block: 'center' })
+  // Batch rebuilds its ports and callbacks on every render; reporting must not depend on them.
+  const latest = useRef({ onDirtyChange, settings })
+  latest.current = { onDirtyChange, settings }
+  const [refresh, setRefresh] = useState<'idle' | 'reading' | 'failed'>('idle')
+  // Only the newest refresh may release or fail the gate; an older read is ignored.
+  const refreshGeneration = useRef(0)
+  const refreshSettings = useCallback(() => {
+    const ports = latest.current.settings
+    if (!ports) {
       return
     }
-    select(value)
-    setFocused(true)
-    history.replaceState(null, '', `#${batch.id}/${value}`)
-  }
+    const generation = ++refreshGeneration.current
+    setRefresh('reading')
+    ports.read().then(
+      (snapshot) => {
+        if (generation === refreshGeneration.current) {
+          latest.current.settings?.accept(snapshot)
+          setRefresh('idle')
+        }
+      },
+      () => {
+        if (generation === refreshGeneration.current) {
+          setRefresh('failed')
+        }
+      },
+    )
+  }, [])
+  const report = useCallback((source: DirtySource, value: boolean) => {
+    const { onDirtyChange, settings } = latest.current
+    const evidenceWasPending = dirtyFlags.current.media || dirtyFlags.current.note
+    dirtyFlags.current = { ...dirtyFlags.current, [source]: value }
+    const any = Object.values(dirtyFlags.current).some(Boolean)
+    setSources(dirtyFlags.current)
+    setDirty(any)
+    onDirtyChange?.(any)
+    // Evidence commands advance the batch revision; settings stay paused until it is adopted.
+    if (evidenceWasPending && !dirtyFlags.current.media && !dirtyFlags.current.note && settings) {
+      refreshSettings()
+    }
+  }, [])
+  const reportSettings = useCallback((value: boolean) => report('settings', value), [report])
+  const reportMedia = useCallback((value: boolean) => report('media', value), [report])
+  const reportNote = useCallback((value: boolean) => report('note', value), [report])
 
-  const lot = batch.lots.find((l) => l.id === selected)
-  const part = batch.parts.find((p) => p.id === selected)
+  useEffect(() => {
+    latest.current.onDirtyChange?.(Object.values(dirtyFlags.current).some(Boolean))
+  }, [onDirtyChange])
+  useEffect(() => () => latest.current.onDirtyChange?.(false), [])
+
   const frozen = busy || batch.archived
-  let title: string
-  if (lot) {
-    title = `Lot: ${lot.label}`
-  } else if (part) {
-    title = `Shared Part: ${part.label}`
-  } else {
-    title =
-      {
-        add_lot: 'Add a physical lot',
-        add_part: 'Add a shared Part proposal',
-      }[selected] ?? 'Capture'
-  }
 
   return (
     <>
@@ -113,140 +100,67 @@ export function CaptureWorkspace({
           Archived, not deleted. History and original contributions are retained. Resume to edit.
         </Notice>
       )}
-      <CaptureGrid data-capture-grid $focused={focused}>
-        <BackButton
-          data-area="back"
-          disabled={dirty}
-          onClick={() => {
-            setFocused(false)
-            history.replaceState(null, '', `#${batch.id}/capture`)
-          }}
-        >
-          ← Lots and shared details{dirty ? ' · save or discard first' : ''}
-        </BackButton>
-        <CaptureQueue
-          batch={batch}
-          selected={selected}
-          dirty={dirty}
-          frozen={frozen || instructionsDirty || settingsDirty}
-          setSelected={setSelected}
-        />
-
+      <CaptureGrid data-capture-grid>
         <EvidencePanel
           batch={batch}
-          selected={selected}
-          dirty={editorDirty || settingsDirty}
-          navigationDirty={dirty}
-          noteDisabled={frozen || editorDirty || mediaDirty || instructionsDirty}
-          frozen={frozen || instructionsDirty || settingsDirty}
-          setSelected={setSelected}
+          frozen={frozen || sources.settings}
           media={media}
           operator={operator}
           review={operatorReview}
           reload={reload}
-          onMediaDirtyChange={reportMediaDirty}
-        />
-        <BatchSettingsPanel
-          batch={batch}
-          disabled={frozen || editorDirty || mediaDirty || instructionsDirty}
-          dirty={settingsDirty}
-          onDirty={reportSettingsDirty}
           edit={edit}
-          observe={observe}
-          noteRef={noteRef}
-          reload={reload}
-        >
-          {operator && operatorReview && reload && (
-            <InstructionsPanel
-              batch={batch}
-              review={operatorReview}
-              client={operator}
-              disabled={frozen || editorDirty || mediaDirty || settingsDirty}
-              reload={reload}
-              onDirtyChange={reportInstructionsDirty}
-            />
+          onMediaDirtyChange={reportMedia}
+          onNoteDirtyChange={reportNote}
+        />
+        <SettingsColumn>
+          {refresh === 'failed' && (
+            <Notice role="alert">
+              Saved settings could not be refreshed after the evidence change, so settings stay
+              paused.{' '}
+              <Button type="button" onClick={refreshSettings}>
+                Refresh saved settings
+              </Button>
+            </Notice>
           )}
-        </BatchSettingsPanel>
-        {!['defaults', 'batch', 'note'].includes(selected) && (
-          <EditorPanel role="region" data-area="editor" aria-labelledby="editor-title">
-            <HeadingRow>
-              <Heading id="editor-title">{title}</Heading>
-              <SelectionBadge $dirty={dirty}>
-                {dirty ? 'Unsaved local input' : 'Human entered'}
-              </SelectionBadge>
-            </HeadingRow>
-            <Caption>
-              {dirty
-                ? 'Save or discard before switching subjects.'
-                : 'Saved values · not inferred or approved'}
-            </Caption>
-            {part && (
-              <Notice>
-                Affects {batch.lots.filter((l) => l.part_subject_id === part.id).length} lots.
-                Sharing a Part does not combine their quantities or contribution identities.
-              </Notice>
-            )}
-            <CaptureEditor
-              key={selected}
-              batch={batch}
-              selected={selected}
-              frozen={frozen || mediaDirty || instructionsDirty || settingsDirty}
-              dirty={editorDirty}
-              onDirty={reportDirty}
-              edit={edit}
-              observe={observe}
-            />
-          </EditorPanel>
-        )}
+          <BatchSettingsPanel
+            batch={batch}
+            ports={settings}
+            paused={sources.media || sources.note || refresh !== 'idle'}
+            operatorReview={operatorReview}
+            onDirty={reportSettings}
+            observe={observe}
+            reload={reload}
+          />
+          {onStage && (
+            <ReviewEntry type="button" onClick={() => onStage('review')}>
+              Go to review →
+            </ReviewEntry>
+          )}
+        </SettingsColumn>
       </CaptureGrid>
     </>
   )
 }
 
-function anyDirty(flags: {
-  editor: boolean
-  media: boolean
-  instructions: boolean
-  settings: boolean
-}) {
-  return flags.editor || flags.media || flags.instructions || flags.settings
-}
-
-const CaptureGrid = styled.div<{ $focused: boolean }>`
+const CaptureGrid = styled.div`
   display: grid;
-  grid-template-columns: minmax(180px, 0.65fr) minmax(0, 1.4fr) minmax(300px, 1fr);
-  grid-template-areas: 'queue context settings' 'editor editor settings';
-  gap: 12px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr);
+  grid-template-areas: 'context settings';
+  gap: 16px;
   align-items: start;
-  @media (max-width: 1000px) {
-    grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.5fr);
-    grid-template-areas: 'queue context' 'editor settings';
-  }
-  @media (max-width: 700px) {
+  @media (max-width: 860px) {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: ${(p) => (p.$focused ? "'back' 'context' 'settings' 'editor'" : "'queue' 'context' 'settings'")};
-    gap: 12px;
-    > [data-area='queue'] {
-      display: ${(p) => (p.$focused ? 'none' : 'flex')};
-    }
-    > [data-area='back'] {
-      display: ${(p) => (p.$focused ? 'block' : 'none')};
-    }
+    grid-template-areas: 'context' 'settings';
   }
 `
-const BackButton = styled(Button)`
-  display: none;
-  grid-area: back;
-  justify-self: start;
-  margin-bottom: 10px;
+const SettingsColumn = styled.div`
+  grid-area: settings;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
 `
-const EditorPanel = styled(Panel)`
-  grid-area: editor;
-`
-const SelectionBadge = styled.span<{ $dirty: boolean }>`
-  font-size: 12px;
-  padding: 4px 7px;
-  border-radius: 4px;
-  background: ${(p) => (p.$dirty ? '#fff3d8' : '#edf3fc')};
-  color: ${(p) => (p.$dirty ? '#644813' : '#164a93')};
+const ReviewEntry = styled(Button)`
+  justify-self: stretch;
+  text-align: left;
+  font-weight: 550;
 `

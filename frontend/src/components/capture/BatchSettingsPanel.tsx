@@ -1,239 +1,570 @@
+import { useEffect, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { validate, type CaptureContextDto, type CaptureEditDto } from '@invimport/contracts'
-import type { CaptureWorkspaceProps, Quantity, Reference, Snapshot } from '../../capture/types'
-import { batchContext } from '../../capture/context'
+import type {
+  CaptureBatchSettingsChangeDto,
+  CaptureDefaultLocationSettingDto,
+  CaptureReferenceDraftDto,
+  MediaReceiptDto,
+  OperatorReviewDto,
+} from '@invimport/contracts'
+import type { CaptureWorkspaceProps, SettingsPorts, Snapshot } from '../../capture/types'
+import { settingsChange, settingsValues, type SettingsValues } from '../../capture/settings-model'
+import type { QueueState } from '../../capture/save-queue'
+import { useSaveQueue } from '../../capture/useSaveQueue'
+import { useCatalogue } from '../../catalogue/useCatalogue'
+import { AutosaveStatus, type AutosaveState } from '../ui/AutosaveStatus'
+import { OptionalNotesField } from '../ui/OptionalNotesField'
+import { SharedTagsInput } from '../ui/SharedTagsInput'
 import {
-  Button,
-  ErrorNotice,
   Fieldset,
   Form,
   Heading,
   Input,
   Label,
+  Link,
   Panel,
   Paragraph,
   Small,
-  Select,
   TextArea,
 } from '../ui/primitives'
-import { QuantityField } from './QuantityField'
-import { ReferenceField } from './ReferenceField'
-import { CaptureContextFields } from './CaptureContextFields'
 import { CaptureContextSummary } from './CaptureContextSummary'
+import { DefaultLocationField } from './DefaultLocationField'
+import { PurchaseOrderPreview } from './PurchaseOrderPreview'
+import { SupplierField, type LogoUpload } from './SupplierField'
 
-type Values = {
-  title: string
-  quantity: Quantity
-  location: Reference
-  context: CaptureContextDto
-  note: string
-  noteSubject: string
-}
-type Props = Pick<CaptureWorkspaceProps, 'edit' | 'observe' | 'reload'> & {
-  children?: React.ReactNode
+type Props = Pick<CaptureWorkspaceProps, 'observe' | 'reload' | 'operatorReview'> & {
   batch: Snapshot
-  disabled: boolean
-  dirty: boolean
+  ports?: SettingsPorts
+  /** An evidence change is pending; settings wait so the two commands cannot race. */
+  paused?: boolean
   onDirty: (dirty: boolean) => void
-  noteRef: React.RefObject<HTMLTextAreaElement | null>
 }
 
-function defaults(batch: Snapshot): Values {
-  return {
-    title: batch.title,
-    quantity: batch.defaults.quantity,
-    location: batch.defaults.location,
-    context: batchContext(batch),
-    note: '',
-    noteSubject: '',
+type LogoPayload = { upload_id: string; draft_id: string }
+type LogoResult = { receipt: MediaReceiptDto; draftId: string }
+
+const MAX_INSTRUCTION_CHARACTERS = 8192
+const RECONCILE_RETRY_MS = 2000
+
+const latestInstructions = (review: OperatorReviewDto | undefined) =>
+  review?.instructions.find((item) => item.group_id === null)
+
+const newer = (candidate: string, current: string) => BigInt(candidate) > BigInt(current)
+
+function laneState(state: QueueState, lane: string): AutosaveState {
+  const status = state.lanes[lane] ?? 'saved'
+  if (!state.connected && status !== 'saved') {
+    return 'disconnected'
   }
+  return status
 }
 
+/**
+ * Batch settings autosave. Valid edits are sent through one per-batch serialized queue after an
+ * idle debounce or blur; Custom instructions use their own command in the same queue.
+ */
 export function BatchSettingsPanel({
   batch,
-  children,
-  disabled,
-  dirty,
-  onDirty,
-  edit,
+  ports,
+  paused = false,
+  operatorReview,
   observe,
-  noteRef,
   reload,
+  onDirty,
 }: Props) {
-  const { register, control, handleSubmit, reset, setError, clearErrors, formState } =
-    useForm<Values>({
-      defaultValues: defaults(batch),
-    })
-  const note = register('note')
+  const initial = useRef(settingsValues(batch))
+  const [queue, state] = useSaveQueue(batch.revision)
+  const { control, register, getValues, setValue, reset, watch } = useForm<SettingsValues>({
+    defaultValues: initial.current,
+  })
+  const instructionRecord = latestInstructions(operatorReview)
+  const [instructions, setInstructions] = useState(instructionRecord?.text ?? '')
+  const [logo, setLogo] = useState<LogoUpload>({ state: 'idle' })
+  const composing = useRef(false)
+  const [composingText, setComposingText] = useState(false)
+  const [tagPending, setTagPending] = useState(false)
+  // Remounting the tag input clears text typed but not yet added.
+  const [tagInput, setTagInput] = useState(0)
+  const textEdit = useRef(false)
+  const instructionsTouched = useRef(false)
+  const files = useRef(new Map<string, File>())
+  const connected = ports?.connected ?? false
+  // The mounting read is current; only a later reconnection must reconcile before writes.
+  const reconciled = useRef(connected)
+  const reading = useRef(false)
+  const connectedNow = useRef(connected)
+  const [readAttempt, setReadAttempt] = useState(0)
+  const mounted = useRef(true)
+  const editable = ports !== undefined && connected && !batch.archived && !paused
+  const locations = useCatalogue(ports?.catalogue, batch.id, 'location', editable)
+  const suppliers = useCatalogue(ports?.catalogue, batch.id, 'supplier', editable)
+  const values = watch()
 
-  async function save(values: Values) {
-    const tags = values.context.tags
-    const context = {
-      ...values.context,
-      tags:
-        tags.mode === 'set'
-          ? { mode: 'set' as const, value: tags.value.map((tag) => tag.trim()).filter(Boolean) }
-          : tags,
-    }
-    const change: CaptureEditDto['change'] = {
-      kind: 'settings',
-      title: values.title,
-      quantity: values.quantity,
-      location: values.location,
-      context,
-      ...(values.note
-        ? {
-            note: values.note,
-            ...(values.noteSubject ? { note_subject_id: values.noteSubject } : {}),
-          }
-        : {}),
-    }
-    try {
-      validate('CaptureEdit', { expected_revision: batch.revision, change })
-    } catch {
-      setError('root', {
-        message:
-          'Check the title, calendar date, exact quantity and mapped selections. Tags must be distinct, with at most 32 tags of 100 characters each.',
-      })
+  useEffect(() => {
+    if (!ports) {
       return
     }
-    clearErrors('root')
-    await edit(change)
+    queue.register<CaptureBatchSettingsChangeDto | null, Snapshot>(
+      'settings',
+      {
+        send: (change, revision, key) => ports.save(change!, revision, key),
+        revisionOf: (snapshot) => snapshot.revision,
+        onAcknowledged: (snapshot) => ports.accept(snapshot),
+      },
+      settingsChange(initial.current),
+    )
+    const instruct = ports.instruct
+    if (instruct && operatorReview) {
+      queue.register<string, OperatorReviewDto>(
+        'instructions',
+        {
+          send: (text, revision, key) => instruct(text, revision, key),
+          revisionOf: (review) => review.revision,
+          onAcknowledged: (review) => void adoptRead(review.revision),
+        },
+        instructionRecord?.text ?? '',
+      )
+    }
+    const upload = ports.uploadLogo
+    if (upload) {
+      queue.register<LogoPayload | null, LogoResult>(
+        'logo',
+        {
+          send: async (payload, revision, key) => ({
+            receipt: await upload(
+              files.current.get(payload!.upload_id)!,
+              'Supplier logo',
+              revision,
+              key,
+            ),
+            draftId: payload!.draft_id,
+          }),
+          // Every retained command advances the batch revision by exactly one.
+          revisionOf: (_result, revision) => (BigInt(revision) + 1n).toString(),
+          onAcknowledged: (result) => attachLogo(result),
+        },
+        null,
+      )
+    }
+  })
+
+  useEffect(() => {
+    onDirty(state.dirty || composingText || tagPending)
+  }, [composingText, onDirty, state.dirty, tagPending])
+
+  useEffect(() => {
+    if (state.blocked === 'unconfirmed' && state.lanes.logo === 'pending') {
+      setLogo({
+        state: 'failed',
+        message: 'Logo upload not confirmed. Retry the same upload or reload saved values.',
+      })
+    } else if (state.lanes.logo === 'rejected') {
+      setLogo({
+        state: 'failed',
+        message: 'The logo was refused. Choose a PNG or JPEG image within the size limit.',
+      })
+      queue.discard('logo')
+    }
+  }, [queue, state.blocked, state.lanes.logo])
+
+  // Instructions can arrive after Capture. A new saved version becomes the lane's acknowledged
+  // baseline; the textbox follows it until the operator types, otherwise the draft is compared again.
+  const instructionVersion = instructionRecord?.version
+  useEffect(() => {
+    if (!operatorReview) {
+      return
+    }
+    const text = latestInstructions(operatorReview)?.text ?? ''
+    // A clean lane (no draft, nothing unacknowledged) follows the newer saved text without sending;
+    // an outstanding draft or a composition in progress keeps the operator's text.
+    const clean = queue.adoptSaved('instructions', text)
+    if ((clean || !instructionsTouched.current) && !composing.current) {
+      instructionsTouched.current = false
+      setInstructions(text)
+    }
+    // Only a new saved version (or the projection's first arrival) is adopted.
+  }, [instructionVersion, operatorReview === undefined])
+
+  // A clean editor follows newer saved values; a dirty one keeps its draft for explicit handling.
+  useEffect(() => {
+    // Composed text has not reached the queue yet, so composition also keeps the draft.
+    if (!state.dirty && !composingText && newer(batch.revision, state.revision)) {
+      const next = settingsValues(batch)
+      // Unavailable instructions are not confirmed empty: keep their baseline until a projection arrives.
+      queue.reset(batch.revision, {
+        settings: settingsChange(next),
+        ...(operatorReview && { instructions: latestInstructions(operatorReview)?.text ?? '' }),
+      })
+      reset(next)
+      if (operatorReview) {
+        instructionsTouched.current = false
+        setInstructions(latestInstructions(operatorReview)?.text ?? '')
+      }
+    }
+  }, [batch, composingText, operatorReview, queue, reset, state.dirty, state.revision])
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    connectedNow.current = connected
+    if (!ports) {
+      return
+    }
+    if (!connected) {
+      reconciled.current = false
+      queue.setConnected(false)
+      return
+    }
+    if (reconciled.current) {
+      queue.setConnected(true)
+      return
+    }
+    if (reading.current) {
+      return
+    }
+    // Reconnection reads current state before admitting writes; it never replays blindly.
+    reading.current = true
+    ports.read().then(
+      (snapshot) => {
+        reading.current = false
+        if (!mounted.current) {
+          return
+        }
+        if (connectedNow.current) {
+          reconciled.current = true
+          ports.accept(snapshot)
+          queue.setConnected(true)
+        }
+      },
+      () => {
+        reading.current = false
+        if (mounted.current) {
+          setTimeout(() => {
+            if (mounted.current) {
+              setReadAttempt((value) => value + 1)
+            }
+          }, RECONCILE_RETRY_MS)
+        }
+      },
+    )
+  }, [connected, ports, queue, readAttempt])
+
+  async function adoptRead(revision: string) {
+    try {
+      const snapshot = await ports!.read()
+      if (!newer(revision, snapshot.revision)) {
+        ports!.accept(snapshot)
+      }
+    } catch {
+      // The queue already holds the acknowledged revision; the next read reconciles the view.
+    }
   }
+
+  function schedule() {
+    const immediate = !textEdit.current
+    textEdit.current = false
+    onDirty(true)
+    if (composing.current) {
+      return
+    }
+    const change = settingsChange(getValues())
+    if (change) {
+      queue.update('settings', change, { immediate })
+    } else {
+      queue.invalid('settings')
+    }
+  }
+
+  function scheduleText() {
+    textEdit.current = true
+    schedule()
+  }
+
+  function updateInstructions(text: string) {
+    instructionsTouched.current = true
+    setInstructions(text)
+    onDirty(true)
+    if (composing.current) {
+      return
+    }
+    if ([...text].length > MAX_INSTRUCTION_CHARACTERS) {
+      queue.invalid('instructions')
+    } else {
+      queue.update('instructions', text)
+    }
+  }
+
+  function setLocation(
+    value: CaptureDefaultLocationSettingDto,
+    drafts: CaptureReferenceDraftDto[],
+  ) {
+    setValue('defaultLocation', value)
+    setValue('drafts', drafts)
+    schedule()
+  }
+
+  function uploadLogo(file: File, draftId: string) {
+    const upload_id = crypto.randomUUID()
+    files.current.set(upload_id, file)
+    setLogo({ state: 'uploading' })
+    onDirty(true)
+    queue.update('logo', { upload_id, draft_id: draftId }, { immediate: true })
+  }
+
+  function attachLogo({ receipt, draftId }: LogoResult) {
+    setLogo({ state: 'idle' })
+    const drafts = getValues('drafts').map((draft) =>
+      draft.draft_id === draftId && draft.kind === 'company'
+        ? {
+            ...draft,
+            value: {
+              ...draft.value,
+              logo: { evidence_id: receipt.evidence_id, version_id: receipt.version.id },
+            },
+          }
+        : draft,
+    )
+    setValue('drafts', drafts)
+    schedule()
+  }
+
+  async function keepEdits() {
+    try {
+      const snapshot = await ports!.read()
+      ports!.accept(snapshot)
+      queue.rebase(snapshot.revision)
+    } catch {
+      // Remain blocked; the alert stays visible with its recovery actions.
+    }
+  }
+
+  /**
+   * Navigation hears new pending tag text synchronously. Clearing waits for the dirty effect, so
+   * an unmounting input can never report the panel dirty after its owner reported clean.
+   */
+  function reportTagPending(pending: boolean) {
+    setTagPending(pending)
+    if (pending) {
+      onDirty(true)
+    }
+  }
+
+  function discardUnsent() {
+    if (!queue.discardDrafts()) {
+      return
+    }
+    setTagInput((value) => value + 1)
+    reset(settingsValues(batch))
+    instructionsTouched.current = false
+    // The queue's acknowledged text can be newer than the last projection read.
+    setInstructions(
+      queue.savedValue<string>('instructions') ?? latestInstructions(operatorReview)?.text ?? '',
+    )
+    setLogo({ state: 'idle' })
+  }
+
+  function flushAll() {
+    if (composing.current) {
+      return
+    }
+    queue.flush('settings')
+    if (state.lanes.instructions) {
+      queue.flush('instructions')
+    }
+  }
+
+  const titleInvalid = !values.title.trim()
+  const settingsStatus = laneState(state, 'settings')
 
   return (
     <Settings role="region" aria-labelledby="batch-settings-title" data-area="settings">
       <Heading id="batch-settings-title">Batch settings</Heading>
-      <Paragraph>
-        Shared defaults apply to inherited fields only. Explicit lot choices, unknowns and clears
-        stay unchanged.
-      </Paragraph>
-      <Form onChange={() => onDirty(true)} onSubmit={handleSubmit(save)}>
-        {formState.errors.root && (
-          <ErrorNotice role="alert">{formState.errors.root.message}</ErrorNotice>
-        )}
-        <Fieldset disabled={disabled || formState.isSubmitting}>
-          <Fields>
-            <Label>
-              Batch title
-              <Input required maxLength={256} {...register('title')} />
-            </Label>
-            <Controller
-              name="quantity"
-              control={control}
-              render={({ field }) => (
-                <QuantityField
-                  value={field.value}
-                  defaults
-                  onChange={(value) => {
-                    field.onChange(value)
-                    onDirty(true)
-                  }}
-                />
-              )}
+      {!ports && <Paragraph role="status">Settings editing is unavailable in this view.</Paragraph>}
+      {ports && !connected && (
+        <Paragraph role="status">
+          Application connection unavailable. Settings are read-only until it returns; unsaved edits
+          stay on this page.
+        </Paragraph>
+      )}
+      {paused && (
+        <Paragraph role="status">
+          Finish or discard the evidence change to continue editing settings.
+        </Paragraph>
+      )}
+      {state.blocked === 'conflict' && (
+        <AutosaveStatus
+          label="Batch settings"
+          state="conflict"
+          revision={state.revision}
+          onReload={reload}
+        />
+      )}
+      {state.blocked === 'conflict' && (
+        <KeepButton type="button" onClick={() => void keepEdits()}>
+          Keep my edits and save them over the newer version
+        </KeepButton>
+      )}
+      {state.blocked === 'unconfirmed' && (
+        <AutosaveStatus
+          label="Batch settings"
+          state="unconfirmed"
+          revision={state.revision}
+          onRetry={state.connected ? () => queue.retry() : undefined}
+          onReload={reload}
+        />
+      )}
+      {ports && !connected && (state.dirty || tagPending) && queue.canDiscardLocally() && (
+        <KeepButton type="button" onClick={discardUnsent}>
+          Discard unsent settings edits
+        </KeepButton>
+      )}
+      <Form
+        onSubmit={(event) => event.preventDefault()}
+        onBlur={flushAll}
+        onCompositionStart={() => {
+          composing.current = true
+          setComposingText(true)
+          queue.suspend()
+        }}
+        onCompositionEnd={(event) => {
+          composing.current = false
+          setComposingText(false)
+          const target = event.target as HTMLElement
+          if (target instanceof HTMLTextAreaElement && target.dataset.lane === 'instructions') {
+            updateInstructions(target.value)
+          } else {
+            scheduleText()
+          }
+          queue.resume()
+        }}
+      >
+        <Fieldset disabled={!editable}>
+          <Label>
+            Batch title
+            <Input
+              required
+              maxLength={256}
+              aria-invalid={titleInvalid || undefined}
+              aria-describedby={titleInvalid ? 'batch-title-error' : undefined}
+              {...register('title', { onChange: scheduleText })}
             />
-            <Controller
-              name="location"
-              control={control}
-              render={({ field }) => (
-                <ReferenceField
-                  title="Location"
-                  model="location"
-                  value={field.value}
-                  defaults
-                  batch={batch}
-                  onChange={(value) => {
-                    field.onChange(value)
-                    onDirty(true)
-                  }}
-                  observe={observe}
-                />
-              )}
-            />
-            <Controller
-              name="context"
-              control={control}
-              render={({ field }) => (
-                <CaptureContextFields
-                  value={field.value}
-                  defaults
-                  batch={batch}
-                  observe={observe}
-                  onChange={(value) => {
-                    field.onChange(value)
-                    onDirty(true)
-                  }}
-                />
-              )}
-            />
-            <Label>
-              Note relates to
-              <Select {...register('noteSubject')}>
-                <option value="">Batch</option>
-                {[...batch.parts, ...batch.lots].map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.label}
-                  </option>
-                ))}
-              </Select>
-            </Label>
-            <Label>
-              Batch human note
-              <TextArea
-                maxLength={8192}
-                {...note}
-                ref={(element) => {
-                  note.ref(element)
-                  noteRef.current = element
+          </Label>
+          {titleInvalid && (
+            <Small id="batch-title-error" role="alert">
+              Enter a batch title. The previous title stays saved until then.
+            </Small>
+          )}
+          <Controller
+            name="batchNote"
+            control={control}
+            render={({ field }) => (
+              <OptionalNotesField
+                toggleLabel="Add batch notes"
+                label="Batch notes"
+                value={field.value}
+                disabled={!editable}
+                onChange={(value) => {
+                  field.onChange(value)
+                  if (value === null) {
+                    schedule()
+                  } else {
+                    scheduleText()
+                  }
                 }}
               />
-              <Small>
-                Append a human observation to the selected batch, Part or physical lot in the same
-                settings save.
-              </Small>
-            </Label>
-          </Fields>
-          <Button disabled={disabled || !dirty}>Save Batch settings</Button>
-        </Fieldset>
-        {dirty && (
-          <Button
-            type="button"
-            disabled={formState.isSubmitting}
-            onClick={() => {
-              if (reload) {
-                void reload()
-              } else {
-                reset(defaults(batch))
-                onDirty(false)
-              }
+            )}
+          />
+          <DefaultLocationField
+            batch={batch}
+            value={values.defaultLocation}
+            drafts={values.drafts}
+            currentDrafts={() => getValues('drafts')}
+            catalogue={locations}
+            observe={observe}
+            disabled={!editable}
+            onChange={setLocation}
+            onTextEdit={() => {
+              textEdit.current = true
             }}
-          >
-            Discard Batch settings edits
-          </Button>
-        )}
+          />
+          <SupplierField
+            batch={batch}
+            value={values.intent.supplier}
+            drafts={values.drafts}
+            currentDrafts={() => getValues('drafts')}
+            catalogue={suppliers}
+            observe={observe}
+            disabled={!editable}
+            logo={logo}
+            onUploadLogo={ports?.uploadLogo ? uploadLogo : undefined}
+            onChange={(supplier, drafts) => {
+              setValue('intent.supplier', supplier)
+              setValue('drafts', drafts)
+              schedule()
+            }}
+            onTextEdit={() => {
+              textEdit.current = true
+            }}
+          />
+          <PurchaseOrderPreview order={values.intent.order} orderNote={values.orderNote} />
+          <Controller
+            name="intent.shared_tags"
+            control={control}
+            render={({ field }) => (
+              <SharedTagsInput
+                key={tagInput}
+                value={field.value}
+                disabled={!editable}
+                onPendingChange={reportTagPending}
+                onChange={(value) => {
+                  field.onChange(value)
+                  schedule()
+                }}
+              />
+            )}
+          />
+          <AutosaveStatus label="Batch settings" state={settingsStatus} revision={state.revision} />
+          {state.lanes.instructions && (
+            <Instructions>
+              <Label>
+                Custom instructions
+                <TextArea
+                  data-lane="instructions"
+                  value={instructions}
+                  maxLength={MAX_INSTRUCTION_CHARACTERS * 2}
+                  onChange={(event) => updateInstructions(event.target.value)}
+                />
+              </Label>
+              <Small>
+                {instructionRecord
+                  ? `Version ${instructionRecord.version} · ${new Date(instructionRecord.created_at).toLocaleString()}`
+                  : 'No custom instructions saved yet.'}{' '}
+                Versioned human context for research; instructions do not approve inventory values.
+              </Small>
+              <AutosaveStatus
+                label="Custom instructions"
+                state={laneState(state, 'instructions')}
+                revision={state.revision}
+              />
+            </Instructions>
+          )}
+        </Fieldset>
       </Form>
-      {children}
-      <Unavailable>
-        <legend>Purchase order · unavailable</legend>
-        <Label>
-          <input type="checkbox" disabled />
-          Create a purchase order in InvenTree
-        </Label>
-        <Paragraph>
-          Purchase-order creation is not yet available. These controls are disabled and no
-          purchase-order request is saved or sent.
-        </Paragraph>
-      </Unavailable>
-      <details open>
+      <details>
         <summary>Saved lot inheritance and overrides · {batch.lots.length} physical lots</summary>
         {batch.lots.map((lot) => (
           <div key={lot.id}>
-            <strong>{lot.label}</strong>
+            <Link href={`#${batch.id}/review/${lot.id}`}>{lot.label}</Link>
             <CaptureContextSummary batch={batch} subjectId={lot.id} />
             <Small>
-              Quantity: {lot.quantity.mode} · Location:{' '}
-              {lot.location.mode === 'inherit' ? 'Inherited' : 'Override'} · {lot.location.mode}
+              Location:{' '}
+              {lot.location.mode === 'inherit' ? 'Inherited from Default location' : 'Lot override'}
             </Small>
           </div>
         ))}
@@ -243,24 +574,26 @@ export function BatchSettingsPanel({
 }
 
 const Settings = styled(Panel)`
-  grid-area: settings;
   min-width: 0;
+  margin-bottom: 0;
   details {
     margin-top: 12px;
     overflow-wrap: anywhere;
   }
 `
-const Fields = styled.div`
+const Instructions = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr));
-  gap: 12px;
-  align-items: start;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #e3e8ef;
 `
-const Unavailable = styled.fieldset`
-  margin: 16px 0;
-  padding: 12px;
-  color: #526179;
-  background: #eef0f3;
-  border: 1px solid #cbd2dc;
-  border-radius: 5px;
+const KeepButton = styled.button`
+  min-height: 44px;
+  margin: 8px 0 12px;
+  padding: 9px 14px;
+  color: #164a93;
+  background: #edf3fc;
+  border: 1px solid #b9cde7;
+  border-radius: 6px;
+  cursor: pointer;
 `
