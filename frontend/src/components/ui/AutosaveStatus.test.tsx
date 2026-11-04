@@ -8,6 +8,7 @@ test.each([
   ['pending', 'Unsaved changes · saving shortly'],
   ['saving', 'Saving…'],
   ['invalid', 'Not saved · fix the highlighted fields'],
+  ['rejected', 'Not saved · the server refused these values. Change them to try again.'],
   ['disconnected', 'Not saved · connection unavailable; edits stay on this page'],
 ] as const)('%s is announced as text', (state, text) => {
   render(<AutosaveStatus label="Settings" state={state} revision="4" />)
@@ -25,7 +26,7 @@ test('a conflict offers explicit reload and keeps local edits', async () => {
   expect(reload).toHaveBeenCalledOnce()
 })
 
-test('an unconfirmed save offers the exact retry and reconciliation only', async () => {
+test('an unconfirmed save offers only the exact retry or an explicit discard', async () => {
   const user = userEvent.setup()
   const retry = vi.fn()
   const reload = vi.fn()
@@ -43,6 +44,6 @@ test('an unconfirmed save offers the exact retry and reconciliation only', async
   )
   await user.click(screen.getByRole('button', { name: 'Retry the same save' }))
   expect(retry).toHaveBeenCalledOnce()
-  await user.click(screen.getByRole('button', { name: 'Check saved values' }))
+  await user.click(screen.getByRole('button', { name: 'Discard my edits and load saved values' }))
   expect(reload).toHaveBeenCalledOnce()
 })

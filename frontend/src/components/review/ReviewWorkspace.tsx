@@ -29,6 +29,9 @@ import { ReviewFilters } from '../operator/ReviewFilters'
 import { LotEvidence } from '../operator/LotEvidence'
 import { DecisionPanel } from '../operator/DecisionPanel'
 import { TableWorkspace } from '../operator/TableWorkspace'
+import type { CaptureWorkspaceProps } from '../../capture/types'
+import type { MediaClient } from '../../media/types'
+import { ADD_LOT, ADD_PART, ReviewSubjectEditor } from './ReviewSubjectEditor'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -47,9 +50,36 @@ interface Props {
   review: () => void
   reviewLots: (ids: string[]) => void
   prepare: () => void
-  edit: (change: CaptureEditDto['change']) => Promise<void>
+  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   reload: () => Promise<void>
+  observe?: CaptureWorkspaceProps['observe']
+  mediaClient?: MediaClient
   onDirtyChange?: (dirty: boolean) => void
+}
+
+const EDIT_PARAM = 'edit'
+
+function editParam(hash: string) {
+  return new URLSearchParams(hash.split('?')[1] ?? '').get(EDIT_PARAM)
+}
+
+/** Adds or removes the open subject editor from a Review hash, keeping other parameters. */
+export function withEditParam(hash: string, subjectId: string | null) {
+  const [path, query = ''] = hash.split('?')
+  const params = new URLSearchParams(query)
+  if (subjectId) {
+    params.set(EDIT_PARAM, subjectId)
+  } else {
+    params.delete(EDIT_PARAM)
+  }
+  const next = params.toString()
+  return `${path}${next ? `?${next}` : ''}`
+}
+
+function initialEditor(batch: CaptureSnapshotDto) {
+  const value = editParam(location.hash)
+  const known = [...batch.lots, ...batch.parts].some((subject) => subject.id === value)
+  return value && (known || value === ADD_LOT || value === ADD_PART) ? value : null
 }
 
 function initialLocation(batch: CaptureSnapshotDto): ReviewLocation {
@@ -121,6 +151,8 @@ export function ReviewWorkspace({
   prepare,
   edit,
   reload,
+  observe,
+  mediaClient,
   onDirtyChange,
 }: Props) {
   const [acceptedOperatorReview, setAcceptedOperatorReview] = useState(
@@ -139,6 +171,7 @@ export function ReviewWorkspace({
   const [navigationBlocked, setNavigationBlocked] = useState(false)
   const [route, setRoute] = useState(() => initialLocation(batch))
   const [editSignal, setEditSignal] = useState(0)
+  const [editing, setEditing] = useState(() => initialEditor(batch))
   const evidenceRef = useRef<HTMLElement>(null)
   const queueRef = useRef<HTMLDivElement>(null)
   const previousFocus = useRef(route.lotId)
@@ -169,6 +202,26 @@ export function ReviewWorkspace({
       ? retainEvidenceQuery(reviewHash(batch.id, value), location.hash)
       : reviewHash(batch.id, value)
     history.replaceState(null, '', hash)
+  }
+
+  function openEditor(subjectId: string) {
+    if (drafts.isDirty()) {
+      setNavigationBlocked(true)
+      return
+    }
+    setNavigationBlocked(false)
+    setEditing(subjectId)
+    history.replaceState(null, '', withEditParam(location.hash, subjectId))
+  }
+
+  function closeEditor() {
+    drafts.forSource('subject')(false)
+    setEditing(null)
+    history.replaceState(null, '', withEditParam(location.hash, null))
+  }
+
+  function retainEditorRoute(retain: boolean) {
+    history.replaceState(null, '', withEditParam(location.hash, retain ? editing : null))
   }
 
   function inspect(id: string | null) {
@@ -262,6 +315,54 @@ export function ReviewWorkspace({
           Stock execution is unavailable for this target. Only a separately configured owned fake is
           qualified; the real inventory stays read-only.
         </Notice>
+      )}
+      <SubjectActions aria-label="Manual subjects">
+        <Button
+          type="button"
+          disabled={busy || batch.archived || !observe}
+          onClick={() => openEditor(ADD_LOT)}
+        >
+          Add physical lot
+        </Button>
+        <Button
+          type="button"
+          disabled={busy || batch.archived || !observe}
+          onClick={() => openEditor(ADD_PART)}
+        >
+          Add shared Part proposal
+        </Button>
+        {lot && (
+          <Button
+            type="button"
+            disabled={busy || batch.archived || !observe}
+            onClick={() => openEditor(lot.id)}
+          >
+            Edit lot details
+          </Button>
+        )}
+        {part && (
+          <Button
+            type="button"
+            disabled={busy || batch.archived || !observe}
+            onClick={() => openEditor(part.id)}
+          >
+            Edit shared Part
+          </Button>
+        )}
+      </SubjectActions>
+      {editing && observe && (
+        <ReviewSubjectEditor
+          batch={batch}
+          subjectId={editing}
+          disabled={busy || stale || batch.archived}
+          dirty={drafts.dirty}
+          edit={edit}
+          observe={observe}
+          media={mediaClient}
+          onDirtyChange={drafts.forSource('subject')}
+          onClose={closeEditor}
+          retainRoute={retainEditorRoute}
+        />
       )}
       {operatorReview && (
         <Toolbar>
@@ -404,6 +505,12 @@ const ScopeBar = styled.div`
       line-height: 1.3;
     }
   }
+`
+const SubjectActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
 `
 const KeyboardHint = styled(Small)`
   @media (max-width: 700px) {

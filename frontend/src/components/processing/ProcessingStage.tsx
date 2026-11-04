@@ -12,7 +12,7 @@ interface Props {
   client: ProcessingClient
   route: string
   disabled: boolean
-  edit: (change: CaptureEditDto['change']) => Promise<void>
+  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   navigate: (stage: ManualStage, resourceId?: string) => void
   reload: () => Promise<void>
   onDirtyChange: (dirty: boolean) => void

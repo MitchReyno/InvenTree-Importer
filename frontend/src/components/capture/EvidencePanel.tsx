@@ -1,13 +1,14 @@
 import { HeadingRow, Caption } from '../ui/primitives'
-import { Heading, Panel, Paragraph, Small, Subheading, Summary } from '../ui/primitives'
-import type { Snapshot } from '../../capture/types'
-import { display } from '../../capture/display'
+import { useState } from 'react'
+import { Heading, Panel, Paragraph, Summary } from '../ui/primitives'
+import type { CaptureWorkspaceProps, Snapshot } from '../../capture/types'
 import styled from 'styled-components'
 import type { MediaClient } from '../../media/types'
 import { MediaWorkspace } from '../media/MediaWorkspace'
 import type { OperatorReviewDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { EvidenceActions } from '../media/EvidenceActions'
+import { EvidenceNoteForm } from './EvidenceNoteForm'
 import { HumanNote } from './HumanNote'
 
 type Props = {
@@ -16,43 +17,30 @@ type Props = {
   review?: OperatorReviewDto
   reload?: () => Promise<void>
   media?: MediaClient
-  onMediaDirtyChange: (dirty: boolean) => void
-  selected: string
-  dirty: boolean
-  navigationDirty: boolean
+  edit: CaptureWorkspaceProps['edit']
   frozen: boolean
-  noteDisabled?: boolean
-  setSelected: (value: string) => void
+  onMediaDirtyChange: (dirty: boolean) => void
+  onNoteDirtyChange: (dirty: boolean) => void
 }
 
+/** Evidence actions, groups and batch notes; it no longer depends on a selected subject. */
 export function EvidencePanel({
   batch,
-  selected,
-  dirty,
-  navigationDirty,
   frozen,
-  setSelected,
   media,
   operator,
   review,
   reload,
+  edit,
   onMediaDirtyChange,
-  noteDisabled = navigationDirty || frozen,
+  onNoteDirtyChange,
 }: Props) {
-  const lot = batch.lots.find((l) => l.id === selected)
-  const part = batch.parts.find((p) => p.id === selected)
-  const sharedPart = part ?? batch.parts.find((p) => p.id === lot?.part_subject_id)
-  const relatedLots = sharedPart
-    ? batch.lots.filter((l) => l.part_subject_id === sharedPart.id)
-    : []
-  const notes = batch.notes.filter(
-    (n) =>
-      (!lot && !part) ||
-      n.subject_id === null ||
-      n.subject_id === selected ||
-      n.subject_id === sharedPart?.id,
-  )
+  const [writing, setWriting] = useState(false)
+  const notes = batch.notes
   const latestNote = notes.at(-1)
+
+  const writeNote = () => setWriting(true)
+
   return (
     <EvidenceArea data-area="context" aria-labelledby="evidence">
       <HeadingRow>
@@ -67,49 +55,31 @@ export function EvidencePanel({
           operator={operator}
           review={review}
           reload={reload}
-          onWriteNote={() => setSelected('note')}
-          noteDisabled={noteDisabled}
+          onWriteNote={writeNote}
+          noteDisabled={frozen || writing}
           batch={batch}
           client={media}
-          disabled={dirty || frozen}
-          selectedSubject={selected}
+          disabled={frozen}
           onDirtyChange={onMediaDirtyChange}
         />
       )}
       {!media && (
         <EvidenceActions
           mediaDisabled
-          noteDisabled={noteDisabled}
-          writeNote={() => setSelected('note')}
+          noteDisabled={frozen || writing}
+          writeNote={writeNote}
           takePhotos={() => undefined}
           addDocument={() => undefined}
           unavailable
         />
       )}
-      {lot && (
-        <ContextCard>
-          <Subheading>{lot.label}</Subheading>
-          <Facts>
-            <dt>Quantity</dt>
-            <dd>{display(lot.quantity, batch, 'quantity')}</dd>
-            <dt>Location</dt>
-            <dd>
-              {lot.location.mode === 'inherit' ? '' : 'Override · '}
-              {display(lot.location, batch, 'location')}
-            </dd>
-            <dt>Shared Part</dt>
-            <dd>{sharedPart?.label ?? 'Not linked yet'}</dd>
-          </Facts>
-        </ContextCard>
-      )}
-      {sharedPart && (
-        <ContextCard>
-          <Subheading>{sharedPart.label}</Subheading>
-          <Paragraph>{display(sharedPart.choice, batch, 'location')}</Paragraph>
-          <Small>
-            Shared Part · {relatedLots.length} lots. Quantities belong to each physical lot.
-          </Small>
-        </ContextCard>
+      {writing && (
+        <EvidenceNoteForm
+          disabled={frozen}
+          edit={edit}
+          onDirtyChange={onNoteDirtyChange}
+          onClose={() => setWriting(false)}
+        />
       )}
       {latestNote && <HumanNote note={latestNote} batch={batch} />}
       {notes.length > 1 && (
@@ -136,28 +106,6 @@ export function EvidencePanel({
 
 const EvidenceArea = styled(Panel)`
   grid-area: context;
-`
-const ContextCard = styled.div`
-  padding: 12px;
-  margin-bottom: 12px;
-  background: #f7f9fc;
-  border: 1px solid #d5dce5;
-  border-radius: 5px;
-  overflow-wrap: anywhere;
-  font-size: 14px;
-`
-const Facts = styled.dl`
-  display: grid;
-  grid-template-columns: 75px minmax(0, 1fr);
-  gap: 8px;
-  margin: 0;
-  font-size: 13px;
-  dt {
-    color: #526179;
-  }
-  dd {
-    margin: 0;
-  }
 `
 const IdentityDetails = styled.details`
   padding: 14px;

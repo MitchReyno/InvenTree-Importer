@@ -101,12 +101,12 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Verification: frontend type/lint/tests/build plus HTTP/PG acknowledgement/revision tests. Headless keyboard/narrow/native200% checks verify visible states and retained drafts separately from jsdom.
 - Risks: unrelated batch revisions, navigation during debounce and target/API confusion. Immediate dirty guard and explicit reconciliation must precede clearing any draft.
 
-- [ ] 4.1 Establish current save/navigation baseline and record exact queue ownership, availability and revision transitions in the handover.
-- [ ] 4.2 RED: cover debounce/blur/IME, invalid title, newer input during an in-flight save, uncertain acknowledgement, foreign revision and instructions/settings interleaving.
-  - [ ] 4.2.1 Cover API disconnect/reconnect with pending key, socket-only failure with healthy fallback, target-only failure and focus after clock advancement.
-  - [ ] 4.2.2 Cover navigation/unmount protection and prevent an old receipt from labelling newer edits saved.
-- [ ] 4.3 GREEN: assemble title/Add batch notes, one Default location, supplier/No supplier/new drafts, disabled PO preview directly below supplier, shared tags and Custom instructions; remove obsolete panel fields/buttons.
-- [ ] 4.4 Implement acknowledged serialized autosave, validation/error/conflict/unconfirmed UI and explicit recovery; preserve hidden/removed notes and existing scope restrictions.
+- [x] 4.1 Establish current save/navigation baseline and record exact queue ownership, availability and revision transitions in the handover.
+- [x] 4.2 RED: cover debounce/blur/IME, invalid title, newer input during an in-flight save, uncertain acknowledgement, foreign revision and instructions/settings interleaving.
+  - [x] 4.2.1 Cover API disconnect/reconnect with pending key, socket-only failure with healthy fallback, target-only failure and focus after clock advancement.
+  - [x] 4.2.2 Cover navigation/unmount protection and prevent an old receipt from labelling newer edits saved.
+- [x] 4.3 GREEN: assemble title/Add batch notes, one Default location, supplier/No supplier/new drafts, disabled PO preview directly below supplier, shared tags and Custom instructions; remove obsolete panel fields/buttons.
+- [x] 4.4 Implement acknowledged serialized autosave, validation/error/conflict/unconfirmed UI and explicit recovery; preserve hidden/removed notes and existing scope restrictions.
 - [ ] 4.5 Verify frontend/HTTP/PG boundaries and browser focus/drafts; update owning architecture and handover, then satisfy PR-B exact-head review and selected CI before any authorized merge.
 
 ## 5. Resolve location assignments without merging lots
@@ -188,9 +188,9 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Verification: targeted Capture/App/Review tests plus required frontend type/lint/tests/build and owned headless screenshot/focus checks against the preserved original at desktop, 360/390px and native200%.
 - Risks: selected-subject state currently drives Capture actions; separate evidence ownership and relocate subject editing before removing queue chrome. Do not preserve the removed panes under new labels.
 
-- [ ] 9.1 Record original mockup comparison and current queue/editor callers, selection dependencies and legacy route behaviour.
-- [ ] 9.2 RED: cover no Physical lots/Part proposals panes, reachable Review add/edit/Part choice/quantity correction and guarded legacy subject navigation.
-- [ ] 9.3 GREEN: implement the default two-column mockup composition and narrow stack, remove Capture queue/editor chrome and deliver the focused Review actions.
+- [x] 9.1 Record original mockup comparison and current queue/editor callers, selection dependencies and legacy route behaviour.
+- [x] 9.2 RED: cover no Physical lots/Part proposals panes, reachable Review add/edit/Part choice/quantity correction and guarded legacy subject navigation.
+- [x] 9.3 GREEN: implement the default two-column mockup composition and narrow stack, remove Capture queue/editor chrome and deliver the focused Review actions.
 - [ ] 9.4 Verify evidence upload/note/group selection, default-location override links, saved/dirty drafts and retained subjects survive route changes and reflow.
 - [ ] 9.5 Record desktop/narrow/zoom visual/accessibility evidence and owning architecture updates; complete this entire task within PR-B before its exact-head review.
 

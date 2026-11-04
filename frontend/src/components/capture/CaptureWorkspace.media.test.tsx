@@ -8,6 +8,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import type { MediaClient } from '../../media/types'
+import type { SettingsPorts } from '../../capture/types'
 import { CaptureWorkspace } from './CaptureWorkspace'
 
 const batch: CaptureSnapshotDto = {
@@ -35,6 +36,16 @@ const snapshot: MediaSnapshotDto = {
   derivations: [],
 }
 
+function ports(overrides: Partial<SettingsPorts> = {}): SettingsPorts {
+  return {
+    connected: true,
+    save: vi.fn(() => new Promise<CaptureSnapshotDto>(() => undefined)),
+    accept: vi.fn(),
+    read: vi.fn(async () => batch),
+    ...overrides,
+  }
+}
+
 function mediaClient(): MediaClient {
   return {
     snapshot: vi.fn(async () => snapshot),
@@ -49,11 +60,12 @@ afterEach(() => {
   history.replaceState(null, '', location.pathname)
 })
 
-test('pending original cannot enable Capture save or lose its request when Capture rerenders', async () => {
+test('a pending original pauses settings and keeps its request when Capture rerenders', async () => {
   const user = userEvent.setup()
   const edit = vi.fn(async () => undefined)
   const media = mediaClient()
   const dirty = vi.fn()
+  const settings = ports()
   const props = {
     batch,
     busy: false,
@@ -61,6 +73,7 @@ test('pending original cannot enable Capture save or lose its request when Captu
     edit,
     observe: vi.fn(async () => null),
     onDirtyChange: dirty,
+    settings,
   }
   const view = render(<CaptureWorkspace {...props} />)
   const input = await screen.findByLabelText('Choose photos')
@@ -69,14 +82,14 @@ test('pending original cannot enable Capture save or lose its request when Captu
   await user.upload(input, file)
 
   expect(dirty).toHaveBeenLastCalledWith(true)
-  expect(screen.getByRole('button', { name: 'Save Batch settings' })).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'Write a note' })).toBeDisabled()
+  expect(screen.getByLabelText('Batch title')).toBeDisabled()
+  expect(screen.getByText(/Finish or discard the evidence change/)).toBeVisible()
   expect(screen.getByRole('button', { name: 'Archive batch' })).toBeDisabled()
   view.rerender(
     <CaptureWorkspace {...props} batch={{ ...batch, updated_at: '2026-11-02T00:01:00Z' }} />,
   )
-  await user.click(screen.getByRole('button', { name: 'Save Batch settings' }))
-  expect(edit).not.toHaveBeenCalled()
+  expect(screen.getByLabelText('Batch title')).toBeDisabled()
+  expect(settings.save).not.toHaveBeenCalled()
   expect(screen.getByRole('button', { name: 'Retain bench-photo.png' })).toBeEnabled()
 
   await user.click(screen.getByRole('button', { name: 'Retain bench-photo.png' }))
@@ -89,13 +102,24 @@ test('pending original cannot enable Capture save or lose its request when Captu
 
   await user.click(screen.getByRole('button', { name: 'Discard selected file' }))
   expect(dirty).toHaveBeenLastCalledWith(false)
-  expect(screen.getByRole('button', { name: 'Save Batch settings' })).toBeDisabled()
+  expect(screen.getByLabelText('Batch title')).toBeEnabled()
+  expect(settings.read).toHaveBeenCalled()
   expect(screen.getByRole('button', { name: 'Archive batch' })).toBeEnabled()
 })
 
-test('Capture input freezes file selection until its own input is resolved', async () => {
-  location.hash = `${batch.id}/batch`
+test('unacknowledged settings freeze file selection until their save is acknowledged', async () => {
   const user = userEvent.setup()
+
+  let acknowledge = () => undefined as void
+
+  const settings = ports({
+    save: vi.fn(
+      (change) =>
+        new Promise<CaptureSnapshotDto>((resolve) => {
+          acknowledge = () => resolve({ ...batch, title: change.title, revision: '2' })
+        }),
+    ),
+  })
   render(
     <CaptureWorkspace
       batch={batch}
@@ -103,13 +127,17 @@ test('Capture input freezes file selection until its own input is resolved', asy
       media={mediaClient()}
       edit={vi.fn(async () => undefined)}
       observe={vi.fn(async () => null)}
+      settings={settings}
     />,
   )
   const upload = await screen.findByLabelText('Choose photos')
   await waitFor(() => expect(upload).toBeEnabled())
   await user.type(screen.getByRole('textbox', { name: 'Batch title' }), ' updated')
   expect(upload).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'Save Batch settings' })).toBeEnabled()
+  await waitFor(() => expect(settings.save).toHaveBeenCalledOnce())
+  expect(upload).toBeDisabled()
+  await act(async () => acknowledge())
+  await waitFor(() => expect(upload).toBeEnabled())
 })
 
 test('batch instructions cannot replace the active media query during a live invalidation', async () => {
@@ -136,11 +164,12 @@ test('batch instructions cannot replace the active media query during a live inv
           cursor: batch.cursor,
         }}
         reload={vi.fn()}
+        settings={ports({ instruct: vi.fn(() => new Promise<never>(() => undefined)) })}
       />
     </ServerStateProvider>,
   )
   await waitFor(() => expect(screen.getByLabelText('Choose photos')).toBeEnabled())
-  const note = screen.getByLabelText('Batch instructions')
+  const note = screen.getByLabelText('Custom instructions')
   await userEvent.setup().type(note, 'Preserve this instruction draft.')
   await act(async () => {
     await cache.invalidateQueries({ queryKey: serverQueryKey(fixtureScope, 'media', batch.id) })

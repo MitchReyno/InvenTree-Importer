@@ -149,3 +149,39 @@ Components, each in its own file with a test file beside it:
 Found during implementation: react-select drops a passed `aria-describedby` and hides a disabled input with `visibility: hidden`, which removes the named combobox from the accessibility tree. The picker appends its status ID through a module-scope custom `Input` and keeps the input visible; tests assert the disabled combobox keeps its name and description.
 
 Verification: 38 new tests, full frontend 222/222, typecheck, ESLint and Prettier. Browser evidence for these components is gathered on the integrated panel in Tasks 4 and 9.
+
+### Task 4 baseline (4.1)
+
+Before this change `BatchSettingsPanel` was an RHF form with explicit Save/Discard that sent the legacy `settings` change through `Batch.edit`. `Batch` holds the accepted snapshot as edit authority, keys `CaptureWorkspace` by `batch.id:revision:reset` (so every own save remounted Capture), and keeps one payload-bound edit intent: a 412 shows current saved values and an uncertain outcome allows only the identical retry. Batch instructions used `InstructionsPanel`/`InstructionForm` with their own retained command and a full reload after acknowledgement. Navigation dirtiness flows synchronously from Capture to `useNavigationGuard`. API availability is observed by the header's `header-connection` query; `LiveUpdates` socket frames only invalidate reads.
+
+Ownership chosen:
+
+- `capture/save-queue.ts` (`SaveQueue`) is the per-batch serialized owner, mounted by `BatchSettingsPanel` for the Capture lifetime. Capture is now keyed by `batch.id:reset` only, so own acknowledgements no longer remount it; explicit discard still remounts through `reset`.
+- Lanes: `settings` (complete-state `batch_settings`), `instructions` (existing instruct command) and `logo` (supplier logo upload). One request is in flight at a time across lanes; each freezes payload, expected revision and key. A logo upload's receipt carries no revision, so the queue takes expected + 1 (every retained command advances by exactly one); a foreign change in between surfaces as a 412 on the next command.
+- `Batch` exposes raw ports (`save`, `read`, `instruct`, `uploadLogo`, `catalogue`, `accept`, `connected`); `accept` keeps the newest snapshot when acknowledgements and reads resolve out of order. `Batch` adopts a newer polled snapshot only while Capture reports no local edits; the panel then resets to it. A dirty panel never resets.
+- Availability: editing disables when the shared `header-connection` read errors or pauses, the capture read is unavailable, or the browser reports offline. No second probe loop. Socket health is not an input, so polling fallback keeps settings editable. Reconnection reads the batch before admitting writes.
+- Evidence media/note commands and settings commands could race on the revision, so each pauses while the other is unacknowledged (the earlier mutual-exclusion contract kept in autosave form). Capture reads the batch after an evidence change resolves so the clean panel adopts the new revision.
+
+### Task 4 results
+
+- `BatchSettingsPanel` now has the title, Add batch notes, one Default location (`DefaultLocationField`: picker, new-location draft with parent picker, remove), supplier (`SupplierField`: No supplier keeping the selection, picker, new-supplier draft with manufacturer flag, PNG/JPEG logo upload and disabled Find automatically), `PurchaseOrderPreview` directly below supplier, Shared part tags and Custom instructions, with a textual `AutosaveStatus` per lane. Quantity mode, Note relates to, Batch human note, Capture tags mode and the Save/Discard buttons are removed. The override summary links each lot to its pinned Review subject.
+- Selecting a catalogue record observes it first; only the observed reference is retained. Drafts not referenced by a current selection are omitted from the complete-state command, which retires them.
+- `settings-model.ts` builds the command as a deep copy. Found during testing: RHF mutates nested form values in place, which had silently rewritten the queue's frozen saved payload so a No supplier change compared equal and was never sent; the supplier regression failed until the copy was added.
+- Validation uses the contract with a positive placeholder revision; the queue supplies the real one.
+
+TDD record: the queue tests (10) were written before `SaveQueue` and failed for the missing module; two negative controls (dropping the in-flight guard on "matches saved", and minting a new key on retry) each failed their target test and were restored by SHA-256. The panel, Capture and App tests were written alongside the panel implementation rather than strictly first; the obsolete explicit-save assertions were replaced only by tests covering the replacement behaviour (debounce, blur, invalid title, IME, in-flight newer input, uncertain retry, conflict keep/discard, instruction serialization, disconnect/reconnect, socket-only and target-only failure, clean adoption, notes Hide/Remove, supplier observe and No supplier, override links, navigation guard).
+
+### Task 9 baseline (9.1)
+
+The original Capture screenshot and HTML put evidence actions and groups in the primary left column and shared details, overrides and Go to review on the right. The implementation before this change used a three-column queue/context/settings grid with `CaptureQueue` and a persistent `CaptureEditor` pane. Callers depending on the queue selection: `EvidencePanel` (lot/Part context cards, scoped notes, Write a note focusing the settings note), `MediaWorkspace` (subject attachment choice) and the hash `#<batch>/<subject>` (focused editor, narrow back button).
+
+### Task 9 results
+
+- `CaptureWorkspace` is two columns (evidence | Batch settings + Go to review), one column under 860px. `CaptureQueue` and `InstructionsPanel` are deleted; retained lots, Parts, links and commands are unchanged.
+- Write a note opens `EvidenceNoteForm`, an explicit append-only batch note (`kind: 'note'`), closing only when `Batch.edit` reports success (`edit` now resolves `false` when nothing was saved).
+- Review gains Add physical lot, Add shared Part proposal, Edit lot details and Edit shared Part, opening `ReviewSubjectEditor` (`?edit=<id|add_lot|add_part>`) with `CaptureEditor` and the extracted `SubjectAttachmentChoice`. Its close is disabled while dirty; the route parameter is cleared during a save and restored if it fails, so the post-save remount does not reopen it. Per-lot exact quantity correction stays in `QuickLotEdit`.
+- `Batch` redirects legacy `#<batch>/<subject>` links to Review (`/review/<lot>?edit=<lot>` or `?edit=<part|add_lot|add_part>`) with `location.replace`, which passes through the navigation guard.
+
+Verification so far: frontend 244 tests, typecheck, ESLint, readability lint, Prettier and production build pass. Still to do for 4.5/9.4/9.5: HTTP/PG acknowledgement checks, owned headless browser evidence (desktop, 360/390px, native 200%), Codex exact-head review and CI.
+
+Limitations: draft persistence across a browser crash/reload is not promised (beforeunload protection only). Batch-level evidence edits (`Batch.edit`) remain a separate owner serialized with settings by pausing rather than by sharing the queue. The `App.media` test now waits for the photo input to enable, because the panel's initial reconnection read shifts when the first fresh media read completes.

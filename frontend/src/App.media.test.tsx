@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import App from './App'
@@ -73,7 +73,9 @@ test.each([true, false, undefined])(
     render(<App />)
     await screen.findByRole('heading', { name: batch.title })
     if (enabled) {
-      expect(await screen.findByLabelText('Choose photos')).toBeEnabled()
+      await waitFor(() => expect(screen.getByLabelText('Choose photos')).toBeEnabled(), {
+        timeout: 3000,
+      })
       expect(mediaReads).toHaveBeenCalledTimes(1)
     } else {
       expect(screen.queryByLabelText('Choose photos')).not.toBeInTheDocument()

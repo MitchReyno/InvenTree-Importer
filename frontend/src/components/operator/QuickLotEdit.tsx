@@ -22,7 +22,7 @@ interface Props {
   batch: CaptureSnapshotDto
   lot: Lot
   disabled: boolean
-  edit: (change: CaptureEditDto['change']) => Promise<void>
+  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   onDirtyChange?: (dirty: boolean) => void
 }
 

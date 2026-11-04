@@ -30,7 +30,7 @@ interface Props {
   activeLotIds: string[]
   operator?: OperatorReviewClient
   disabled: boolean
-  edit: (change: CaptureEditDto['change']) => Promise<void>
+  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   reload: () => Promise<void>
   inspect: (lotId: string) => void
   /** Increments when the operator asks to edit quantity (E). */

@@ -2,7 +2,14 @@ import styled from 'styled-components'
 import { Button } from './primitives'
 
 export type AutosaveState =
-  'saved' | 'pending' | 'saving' | 'invalid' | 'conflict' | 'unconfirmed' | 'disconnected'
+  | 'saved'
+  | 'pending'
+  | 'saving'
+  | 'invalid'
+  | 'rejected'
+  | 'conflict'
+  | 'unconfirmed'
+  | 'disconnected'
 
 type Props = {
   label: string
@@ -17,6 +24,7 @@ const text: Record<AutosaveState, (revision: string) => string> = {
   pending: () => 'Unsaved changes · saving shortly',
   saving: () => 'Saving…',
   invalid: () => 'Not saved · fix the highlighted fields',
+  rejected: () => 'Not saved · the server refused these values. Change them to try again.',
   disconnected: () => 'Not saved · connection unavailable; edits stay on this page',
   conflict: () => 'Not saved · another change was saved first. Your edits are kept here.',
   unconfirmed: () => 'Save not confirmed · it may or may not have been applied.',
@@ -36,7 +44,7 @@ export function AutosaveStatus({ label, state, revision, onRetry, onReload }: Pr
         )}
         {onReload && (
           <Button type="button" onClick={onReload}>
-            {state === 'conflict' ? 'Discard my edits and load saved values' : 'Check saved values'}
+            Discard my edits and load saved values
           </Button>
         )}
       </Problem>
@@ -54,6 +62,7 @@ const Status = styled.p`
   font-size: 13px;
   color: #526179;
   &[data-state='invalid'],
+  &[data-state='rejected'],
   &[data-state='disconnected'] {
     color: #8a4b00;
   }

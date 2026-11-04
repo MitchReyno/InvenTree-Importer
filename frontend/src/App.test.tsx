@@ -1,5 +1,5 @@
 import { act } from '@testing-library/react'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { captureClient, manualClient } from '@invimport/contracts/client'
 import { Batch } from './components/batches/Batch'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
@@ -126,7 +126,7 @@ afterEach(() => {
   history.replaceState(null, '', location.pathname + location.search)
 })
 
-test('no-photo capture shows human provenance, exact values and distinct lot identity; edits emit string scalars', async () => {
+test('no-photo capture shows human provenance; the Review subject editor emits exact string scalars', async () => {
   const user = userEvent.setup()
   const edit = vi.fn(async () => undefined)
   render(
@@ -134,12 +134,28 @@ test('no-photo capture shows human provenance, exact values and distinct lot ide
   )
   expect(screen.getByText('Human · Packet A')).toBeVisible()
   expect(screen.getByText('Original approx.20; human count differs.')).toBeVisible()
-  await user.click(screen.getByRole('button', { name: 'Edit lot Packet A' }))
+  expect(screen.queryByRole('button', { name: 'Edit lot Packet A' })).not.toBeInTheDocument()
+
+  function Editor() {
+    const [dirty, setDirty] = useState(false)
+    return (
+      <CaptureEditor
+        batch={fixture}
+        selected={lotId}
+        frozen={false}
+        dirty={dirty}
+        onDirty={setDirty}
+        edit={edit}
+        observe={vi.fn(async () => null)}
+      />
+    )
+  }
+
+  render(<Editor />)
   const quantity = screen.getByRole('textbox', { name: /^Exact quantity \(pieces\)/ })
   expect(quantity).toHaveValue('0.000001')
   await user.clear(quantity)
   await user.type(quantity, '9999999999999.999999')
-  expect(screen.getByRole('button', { name: 'Add lot' })).toBeDisabled()
   await user.click(screen.getByRole('button', { name: 'Save human changes' }))
   expect(edit).toHaveBeenCalledWith({
     kind: 'lot',
@@ -204,28 +220,27 @@ test('refresh URL resumes server batch and a 412 preserves local inputs while sh
   await screen.findByRole('heading', { name: 'Separate packets' })
   await user.clear(screen.getByLabelText('Batch title'))
   await user.type(screen.getByLabelText('Batch title'), 'My unsaved title')
-  await user.click(screen.getByRole('button', { name: 'Save Batch settings' }))
-  await screen.findByText(/Another client saved first/)
+  await waitFor(() => expect(sent).toHaveLength(1))
+  expect(await screen.findByRole('alert')).toHaveTextContent('another change was saved first')
   expect(screen.getByLabelText('Batch title')).toHaveValue('My unsaved title')
-  expect(screen.getByText(/Current saved revision 9007199254740994/)).toBeVisible()
   expect(sent).toEqual([
     {
       expected_revision: '9007199254740993',
       change: {
-        kind: 'settings',
+        kind: 'batch_settings',
         title: 'My unsaved title',
-        ...fixture.defaults,
-        context: {
-          supplier: { mode: 'unset' },
-          purchase_date: { mode: 'unset' },
-          tags: { mode: 'unset' },
+        default_location: { mode: 'clear' },
+        intent: {
+          supplier: { absent: false, selection: { mode: 'unset' } },
+          order: { reference: { mode: 'auto' }, purchase_date: { mode: 'auto' } },
+          shared_tags: { manual: [], auto: false },
         },
+        notes: { batch: null, order: null },
+        drafts: [],
       },
     },
   ])
-  await user.click(
-    screen.getByRole('button', { name: 'Discard local edits and load saved values' }),
-  )
+  await user.click(screen.getByRole('button', { name: 'Discard my edits and load saved values' }))
   await waitFor(() =>
     expect(screen.getByRole('heading', { name: 'Other client saved' })).toBeVisible(),
   )
@@ -243,7 +258,7 @@ test('archive is read-only until explicit resume; no approval or write button is
     />,
   )
   expect(screen.getByText(/Archived, not deleted/)).toHaveAttribute('role', 'status')
-  expect(screen.getByRole('button', { name: 'Save Batch settings' })).toBeDisabled()
+  expect(screen.getByLabelText('Batch title')).toBeDisabled()
   expect(screen.queryByRole('button', { name: /Approve|Apply|Upload/ })).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Resume archived batch' }))
   expect(edit).toHaveBeenCalledWith({ kind: 'batch', archived: false })
@@ -331,7 +346,7 @@ test('inbox resumes retained capture, filters archives and creates a batch with 
 const activityRunId = 'a0000000-0000-4000-8000-00000000000a'
 const activityDestination = `${batchId}/results/${activityRunId}`
 
-function navigationServer(conflict = false) {
+function navigationServer(conflict = false, gate?: Promise<void>) {
   let saved = fixture
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const path = new URL(String(input)).pathname
@@ -392,6 +407,7 @@ function navigationServer(conflict = false) {
     }
     if (path.endsWith('/edits')) {
       const body = JSON.parse(String(init?.body))
+      await gate
       saved = {
         ...fixture,
         title: conflict ? 'Another saved title' : body.change.title,
@@ -429,12 +445,9 @@ test('app-wide activity navigation preserves the dirty editor instance; explicit
   expect(title).toHaveValue('UNSAVED activity regression')
   expect(location.hash).toBe(`#${batchId}/batch`)
   expect(screen.queryByRole('heading', { name: 'Retained results' })).not.toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: 'Save Batch settings' }))
-  await screen.findByText(/Another client saved first/)
+  await screen.findByText(/another change was saved first/)
   expect(title).toHaveValue('UNSAVED activity regression')
-  await user.click(
-    screen.getByRole('button', { name: 'Discard local edits and load saved values' }),
-  )
+  await user.click(screen.getByRole('button', { name: 'Discard my edits and load saved values' }))
   await waitFor(() =>
     expect(screen.getByLabelText('Batch title')).toHaveValue('Another saved title'),
   )
@@ -448,7 +461,15 @@ test('app-wide activity navigation preserves the dirty editor instance; explicit
 test('hash and browser Back cannot discard dirty input; confirmed save permits retrying the history destination', async () => {
   history.replaceState(null, '', `#${activityDestination}`)
   history.pushState(null, '', `#${batchId}/batch`)
-  navigationServer()
+
+  let release = () => undefined as void
+
+  navigationServer(
+    false,
+    new Promise<void>((resolve) => {
+      release = resolve
+    }),
+  )
   const user = userEvent.setup()
   const view = render(<App />)
   const title = await screen.findByLabelText('Batch title')
@@ -464,11 +485,10 @@ test('hash and browser Back cannot discard dirty input; confirmed save permits r
   await waitFor(() => expect(location.hash).toBe(`#${batchId}/batch`))
   expect(title).toHaveValue('UNSAVED history regression')
   expect(screen.queryByRole('heading', { name: 'Retained results' })).not.toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: 'Save Batch settings' }))
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Save Batch settings' })).toBeDisabled(),
-  )
-  expect(screen.queryByText(/Your unsaved input is preserved/)).not.toBeInTheDocument()
+  await screen.findByText('Batch settings: Saving…')
+  expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(false)
+  release()
+  await screen.findByText('Batch settings: Saved · revision 9007199254740994')
   expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(true)
   history.back()
   await screen.findByRole('heading', { name: 'Retained results' })
@@ -635,23 +655,12 @@ test('a refreshed query cache cannot replace Capture input or its accepted edit 
     expect.objectContaining({ revision: '9007199254740994' }),
   )
   expect(screen.getByLabelText('Batch title')).toHaveValue('Keep my human draft')
-  expect(screen.getByText('Saved · revision 9007199254740993')).toBeVisible()
-  await user.click(screen.getByRole('button', { name: 'Save Batch settings' }))
-  await screen.findByText(/Another client saved first/)
+  await screen.findByText(/another change was saved first/)
   expect(edits).toEqual([
-    {
+    expect.objectContaining({
       expected_revision: '9007199254740993',
-      change: {
-        kind: 'settings',
-        title: 'Keep my human draft',
-        ...fixture.defaults,
-        context: {
-          supplier: { mode: 'unset' },
-          purchase_date: { mode: 'unset' },
-          tags: { mode: 'unset' },
-        },
-      },
-    },
+      change: expect.objectContaining({ kind: 'batch_settings', title: 'Keep my human draft' }),
+    }),
   ])
   expect(screen.getByLabelText('Batch title')).toHaveValue('Keep my human draft')
 })
@@ -704,9 +713,8 @@ test('an unavailable bootstrap refresh within the same scope preserves the mount
   await act(async () => {
     await cache.refetchQueries({ queryKey: ['bootstrap', location.origin] })
   })
-  await screen.findByText(/Application connection unavailable/)
+  await screen.findByText(/Showing the last development context/)
   expect(screen.getByLabelText('Batch title')).toHaveValue('Keep this draft while offline')
-  expect(screen.getByRole('button', { name: 'Add lot' })).toBeDisabled()
 })
 
 test('a batch-list refresh cannot unmount an automatically opened form with human input', async () => {
@@ -802,28 +810,25 @@ test('uncertain composite settings save retries identical revision, payload and 
   )
   const title = await screen.findByLabelText('Batch title')
   await user.type(title, ' draft')
-  const save = screen.getByRole('button', { name: 'Save Batch settings' })
-  await user.click(save)
+  await waitFor(() => expect(requests).toHaveLength(1))
   await screen.findByText(/Save not confirmed/)
-  await user.click(save)
+  await user.click(screen.getByRole('button', { name: 'Retry the same save' }))
   await waitFor(() => expect(requests).toHaveLength(2))
   expect(requests[0].key).toBeTruthy()
   expect(requests[1]).toEqual(requests[0])
   await user.type(title, ' changed')
-  await user.click(save)
-  await screen.findByText(/An earlier save is unconfirmed/)
+  await new Promise((resolve) => setTimeout(resolve, 700))
   expect(requests).toHaveLength(2)
   expect(title).toHaveValue('Separate packets draft changed')
   expect(dirty).toHaveBeenLastCalledWith(true)
-  await user.click(screen.getByRole('button', { name: 'Discard Batch settings edits' }))
+  await user.click(screen.getByRole('button', { name: 'Discard my edits and load saved values' }))
   await waitFor(() => expect(screen.getByLabelText('Batch title')).toHaveValue('Separate packets'))
   await user.type(screen.getByLabelText('Batch title'), ' new intent')
-  await user.click(screen.getByRole('button', { name: 'Save Batch settings' }))
   await waitFor(() => expect(requests).toHaveLength(3))
   expect(requests[2].key).not.toBe(requests[0].key)
 })
 
-test('a locally refused lot context remains correctable before any delivery intent is retained', async () => {
+test('a locally refused lot context in the Review editor remains correctable before any delivery intent', async () => {
   const user = userEvent.setup()
   const edits: unknown[] = []
 
@@ -836,15 +841,28 @@ test('a locally refused lot context remains correctable before any delivery inte
   }
 
   const client = captureClient(location.origin, 'a'.repeat(64), transport)
-  const manual = manualClient(location.origin, 'a'.repeat(64), async () => {
+  const manual = manualClient(location.origin, 'a'.repeat(64), async (input) => {
+    if (new URL(String(input)).pathname.endsWith('/manual')) {
+      return response({
+        batch_id: batchId,
+        revision: fixture.revision,
+        supported: true,
+        capability: 'owned-fake-stock/1',
+        lots: [{ lot_id: lotId, reviewed: false, issues: [] }],
+        runs: [],
+        preparations: [],
+        preparations_truncated: false,
+        cursor: fixture.cursor,
+      })
+    }
     throw new Error('unexpected_manual_call')
   })
+  const route = `${batchId}/review/${lotId}?edit=${lotId}`
+  history.replaceState(null, '', `#${route}`)
   render(
-    <Batch id={batchId} route={batchId} client={client} manual={manual} onDirtyChange={vi.fn()} />,
+    <Batch id={batchId} route={route} client={client} manual={manual} onDirtyChange={vi.fn()} />,
   )
-  await screen.findByLabelText('Batch title')
-  await user.click(screen.getByRole('button', { name: 'Edit lot Packet A' }))
-  const lot = screen.getByRole('region', { name: 'Lot: Packet A' })
+  const lot = await screen.findByRole('region', { name: 'Lot: Packet A' })
   await user.selectOptions(within(lot).getByLabelText('Capture tags mode'), 'set')
   const tags = within(lot).getByLabelText(/^Capture tags \(one per line\)/)
   await user.type(tags, 'same\nsame')
@@ -862,4 +880,68 @@ test('a locally refused lot context remains correctable before any delivery inte
       }),
     }),
   )
+})
+
+function reviewManual() {
+  return manualClient(location.origin, 'a'.repeat(64), async (input) => {
+    if (new URL(String(input)).pathname.endsWith('/manual')) {
+      return response({
+        batch_id: batchId,
+        revision: fixture.revision,
+        supported: true,
+        capability: 'owned-fake-stock/1',
+        lots: [{ lot_id: lotId, reviewed: false, issues: [] }],
+        runs: [],
+        preparations: [],
+        preparations_truncated: false,
+        cursor: fixture.cursor,
+      })
+    }
+    throw new Error('unexpected_manual_call')
+  })
+}
+
+test('legacy Capture subject links open the same subject in Review', async () => {
+  const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
+  for (const [subject, expected] of [
+    [lotId, `#${batchId}/review/${lotId}?edit=${lotId}`],
+    [partId, `#${batchId}/review?edit=${partId}`],
+  ]) {
+    history.replaceState(null, '', `#${batchId}/${subject}`)
+    const view = render(
+      <Batch
+        id={batchId}
+        route={`${batchId}/${subject}`}
+        client={client}
+        manual={reviewManual()}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await waitFor(() => expect(location.hash).toBe(expected))
+    view.unmount()
+  }
+})
+
+test('Review offers manual lot and Part creation; a dirty editor cannot be closed silently', async () => {
+  const user = userEvent.setup()
+  const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
+  const route = `${batchId}/review`
+  history.replaceState(null, '', `#${route}`)
+  render(
+    <Batch
+      id={batchId}
+      route={route}
+      client={client}
+      manual={reviewManual()}
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Add physical lot' }))
+  const editor = screen.getByRole('region', { name: 'Add a physical lot' })
+  expect(location.hash).toBe(`#${route}?edit=add_lot`)
+  await user.type(within(editor).getByLabelText('Lot label'), 'Packet C')
+  expect(
+    within(editor).getByRole('button', { name: /Close editor · save or discard first/ }),
+  ).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Add shared Part proposal' })).toBeVisible()
 })

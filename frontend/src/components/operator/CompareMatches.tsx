@@ -13,7 +13,7 @@ interface Props {
   /** Active lots sharing this Part proposal, including the focused lot. */
   affectedLotIds: string[]
   disabled: boolean
-  edit: (change: CaptureEditDto['change']) => Promise<void>
+  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   onClose: () => void
   onDirtyChange?: (dirty: boolean) => void
 }

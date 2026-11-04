@@ -27,6 +27,7 @@ import {
   HeadingRow,
 } from '../ui/primitives'
 import { ReviewWorkspace } from './ReviewWorkspace'
+import type { CaptureWorkspaceProps } from '../../capture/types'
 import { ApprovalWorkspace } from './ApprovalWorkspace'
 import { ResultsWorkspace } from '../results/ResultsWorkspace'
 
@@ -38,7 +39,8 @@ interface Props {
   stage: Exclude<ManualStage, 'capture'>
   runId?: string
   preparationId?: string
-  edit: (change: CaptureEditDto['change']) => Promise<void>
+  edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
+  observe?: CaptureWorkspaceProps['observe']
   navigate: (stage: ManualStage, resourceId?: string) => void
   reload: () => Promise<void>
   onProcessing?: () => void
@@ -78,6 +80,7 @@ export function ManualWorkspace({
   runId,
   preparationId,
   edit,
+  observe,
   navigate,
   reload,
   onProcessing,
@@ -312,6 +315,8 @@ export function ManualWorkspace({
         prepare={prepare}
         edit={edit}
         reload={reload}
+        observe={observe}
+        mediaClient={media}
         onDirtyChange={drafts.forSource('review')}
       />
     )
