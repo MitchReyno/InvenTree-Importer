@@ -65,10 +65,10 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Verification: `pnpm test:intake`, `pnpm db:intake test`, contracts/type checks. Controlled HTTP target tests cover deadlines/body limits, supplier flags, hierarchy, exact PKs, invalid pagination URLs and independent candidate retrieval/truncation for fuzzy matching.
 - Risks: target-version and search-field variation. Record admitted fields and unsupported responses explicitly; no live API requests required.
 
-- [ ] 2.1 Confirm supported target serializer/search shapes using versioned source or fixtures; record exact/name/fuzzy tiers, numeric-ID fallback and bounded candidate-snapshot policy independent of strict upstream query filtering.
-- [ ] 2.2 RED: cover bounded name search/page results, exact ID, ambiguous names, foreign scope, redirect/off-origin pagination, missing supplier role and a typo candidate absent from strict upstream results but present in the admitted snapshot.
-- [ ] 2.3 GREEN: implement allowlisted semantic reads, typed route/client and final selection observation binding.
-- [ ] 2.4 Verify auth before target traffic, size/deadline/rate/candidate bounds, visible partial coverage, no-match versus unavailable and stale-context response rejection.
+- [x] 2.1 Confirm supported target serializer/search shapes using versioned source or fixtures; record exact/name/fuzzy tiers, numeric-ID fallback and bounded candidate-snapshot policy independent of strict upstream query filtering.
+- [x] 2.2 RED: cover bounded name search/page results, exact ID, ambiguous names, foreign scope, redirect/off-origin pagination, missing supplier role and a typo candidate absent from strict upstream results but present in the admitted snapshot.
+- [x] 2.3 GREEN: implement allowlisted semantic reads, typed route/client and final selection observation binding.
+- [x] 2.4 Verify auth before target traffic, size/deadline/rate/candidate bounds, visible partial coverage, no-match versus unavailable and stale-context response rejection.
 - [ ] 2.5 Update read-adapter docs and handover; run affected contract/HTTP/PG checks and complete the PR-A independent review/selected-CI gates when actually reached.
 
 ## 3. Qualify and build reusable input components

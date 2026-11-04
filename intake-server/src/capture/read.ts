@@ -9,6 +9,10 @@ import { strictJson } from '@invimport/contracts/json'
 import { approvedTagsPresent } from '../inventory/tags.ts'
 import type { CaptureRead, CaptureReadOperation } from './routes.ts'
 import { fail } from './repository.ts'
+import { readBoundedBody } from './bounded-body.ts'
+
+const READ_BODY_MAX_BYTES = 64 * 1024
+const READ_BODY_DEADLINE_MS = 5000
 
 /** Receives only a semantically constrained read closure, never a stock-send capability. */
 export function captureRead(read: (operation: ReadOperation) => Promise<Response>): CaptureRead {
@@ -25,39 +29,8 @@ export function captureRead(read: (operation: ReadOperation) => Promise<Response
         await response.body?.cancel()
         return fail('inventory_read_unavailable', 503)
       }
-      const reader = response.body.getReader()
-      const chunks: Uint8Array[] = []
-      let size = 0
-      let timedOut = false
-      const timer = setTimeout(() => {
-        timedOut = true
-        void reader.cancel()
-      }, 5000)
-      let complete = false
-      try {
-        for (;;) {
-          const result = await reader.read()
-          if (result.done) {
-            complete = true
-            break
-          }
-          size += result.value.byteLength
-          if (size > 65536) {
-            fail('inventory_response_invalid', 503)
-          }
-          chunks.push(result.value)
-        }
-      } finally {
-        clearTimeout(timer)
-        if (!complete) {
-          await reader.cancel()
-        }
-        reader.releaseLock()
-      }
-      if (timedOut) {
-        fail('inventory_read_unavailable', 503)
-      }
-      return decodeInventoryObservation(operation, Buffer.concat(chunks))
+      const bytes = await readBoundedBody(response.body, READ_BODY_MAX_BYTES, READ_BODY_DEADLINE_MS)
+      return decodeInventoryObservation(operation, bytes)
     } catch {
       return fail('inventory_read_unavailable', 503)
     }

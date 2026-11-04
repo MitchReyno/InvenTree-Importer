@@ -83,3 +83,11 @@ The REST settings use `LimitOffsetPagination` with no default page size. A list 
 - Bounds: query 1–100 characters without control characters; offset at most 10,000; 512 KiB per page body and the transport's 5-second deadline per request; 15 seconds total for a snapshot; at most two concurrent catalogue reads per server process, otherwise `catalogue_busy` (429).
 - Failures: any transport error, non-2xx, malformed JSON, missing/invalid field or count is `catalogue_unavailable` (503). An HTTP 200 with an invalid body is never a usable result. Empty `results` means no matches in the searched set, reported with its coverage, never absence from the catalogue.
 - Selection binds through the existing `observations` command, which performs the final detail read and retains the observation; search results are not observations.
+
+### Task 2 results
+
+- RED: `tests/catalogue.test.ts` failed to load before `capture/catalogue.ts` existed; generated client and route paths did not exist.
+- GREEN: reader/transport fast tests 7/7 (bounded strict search, ambiguous names kept distinct by PK/path, numeric exact ID with `not_found` and missing supplier role, a 620-record catalogue snapshot capped at 500 with truncation and a typo record absent from strict search, twelve invalid HTTP 200/denied bodies, query bounds and the two-read concurrency limit, stalled/oversized body cancellation, fixed transport paths); contracts client 2/2; HTTP/PG 2/2 against a controlled loopback target with a restricted role.
+- HTTP/PG covers authorization before traffic (unknown batch, bad model, over-long or control-character query, missing query, archived, unconfigured target: zero target requests), redirect, 500 and unpaginated bodies as unavailable with the redirect sink never reached, upstream `next` links never followed, a target-context rotation during a read (409) and the refusal of the next read before traffic, and final selection through the observation command.
+- Negative control: removing only the post-read context fence made the HTTP/PG rotation case fail; the route file was restored from backup with a matching SHA-256.
+- The location model has no supplier-like role flag; `structural` locations are returned with that flag for the picker to label, not filtered.

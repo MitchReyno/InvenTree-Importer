@@ -546,6 +546,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{id}/catalogue/{model}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                model: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    q: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                    model: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description CatalogueSearch */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CatalogueSearch"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/catalogue/{model}/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                model: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    model: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description CatalogueCandidates */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CatalogueCandidates"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/connection-status": {
         parameters: {
             query?: never;
@@ -4361,6 +4463,140 @@ export interface components {
             cursor: {
                 stream_id: string;
                 sequence: string;
+            };
+        };
+        CatalogueModel: "location" | "supplier";
+        CatalogueQuery: {
+            q: string;
+        };
+        CatalogueLocation: {
+            /** @constant */
+            kind: "location";
+            /** Format: int64 */
+            pk: string;
+            name: string;
+            description: string;
+            path: string;
+            parent_pk: string | null;
+            structural: boolean;
+        };
+        CatalogueSupplier: {
+            /** @constant */
+            kind: "supplier";
+            /** Format: int64 */
+            pk: string;
+            name: string;
+            description: string;
+            manufacturer: boolean;
+        };
+        CatalogueRecord: {
+            /** @constant */
+            kind: "location";
+            /** Format: int64 */
+            pk: string;
+            name: string;
+            description: string;
+            path: string;
+            parent_pk: string | null;
+            structural: boolean;
+        } | {
+            /** @constant */
+            kind: "supplier";
+            /** Format: int64 */
+            pk: string;
+            name: string;
+            description: string;
+            manufacturer: boolean;
+        };
+        CatalogueCoverage: {
+            loaded: number;
+            total: number;
+            truncated: boolean;
+        };
+        CatalogueSearch: {
+            model: "location" | "supplier";
+            target_context_id: string;
+            query: string;
+            results: ({
+                /** @constant */
+                kind: "location";
+                /** Format: int64 */
+                pk: string;
+                name: string;
+                description: string;
+                path: string;
+                parent_pk: string | null;
+                structural: boolean;
+            } | {
+                /** @constant */
+                kind: "supplier";
+                /** Format: int64 */
+                pk: string;
+                name: string;
+                description: string;
+                manufacturer: boolean;
+            })[];
+            coverage: {
+                loaded: number;
+                total: number;
+                truncated: boolean;
+            };
+            exact_id: {
+                /** @constant */
+                status: "not_requested";
+            } | {
+                /** @constant */
+                status: "not_found";
+            } | {
+                /** @constant */
+                status: "found";
+                record: {
+                    /** @constant */
+                    kind: "location";
+                    /** Format: int64 */
+                    pk: string;
+                    name: string;
+                    description: string;
+                    path: string;
+                    parent_pk: string | null;
+                    structural: boolean;
+                } | {
+                    /** @constant */
+                    kind: "supplier";
+                    /** Format: int64 */
+                    pk: string;
+                    name: string;
+                    description: string;
+                    manufacturer: boolean;
+                };
+            };
+        };
+        CatalogueCandidates: {
+            model: "location" | "supplier";
+            target_context_id: string;
+            candidates: ({
+                /** @constant */
+                kind: "location";
+                /** Format: int64 */
+                pk: string;
+                name: string;
+                description: string;
+                path: string;
+                parent_pk: string | null;
+                structural: boolean;
+            } | {
+                /** @constant */
+                kind: "supplier";
+                /** Format: int64 */
+                pk: string;
+                name: string;
+                description: string;
+                manufacturer: boolean;
+            })[];
+            coverage: {
+                loaded: number;
+                total: number;
+                truncated: boolean;
             };
         };
         ConnectionStatus: {
@@ -9763,6 +9999,14 @@ export type CaptureObservation = components['schemas']['CaptureObservation']
 export type CaptureSummary = components['schemas']['CaptureSummary']
 export type CaptureList = components['schemas']['CaptureList']
 export type CaptureSnapshot = components['schemas']['CaptureSnapshot']
+export type CatalogueModel = components['schemas']['CatalogueModel']
+export type CatalogueQuery = components['schemas']['CatalogueQuery']
+export type CatalogueLocation = components['schemas']['CatalogueLocation']
+export type CatalogueSupplier = components['schemas']['CatalogueSupplier']
+export type CatalogueRecord = components['schemas']['CatalogueRecord']
+export type CatalogueCoverage = components['schemas']['CatalogueCoverage']
+export type CatalogueSearch = components['schemas']['CatalogueSearch']
+export type CatalogueCandidates = components['schemas']['CatalogueCandidates']
 export type ConnectionStatus = components['schemas']['ConnectionStatus']
 export type HeaderWorkQuery = components['schemas']['HeaderWorkQuery']
 export type HeaderWork = components['schemas']['HeaderWork']

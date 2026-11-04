@@ -554,6 +554,119 @@
         }
       }
     },
+    "/api/v1/batches/{id}/catalogue/{model}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        },
+        {
+          "name": "model",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "CatalogueSearch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueSearch"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[^\\u0000-\\u001f\\u007f]*$",
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/batches/{id}/catalogue/{model}/candidates": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        },
+        {
+          "name": "model",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 20000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "CatalogueCandidates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueCandidates"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/connection-status": {
       "get": {
         "x-intake-client": {
@@ -10536,6 +10649,661 @@
               "sequence": {
                 "pattern": "^(0|[1-9][0-9]{0,18})$",
                 "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "CatalogueModel": {
+        "anyOf": [
+          {
+            "const": "location",
+            "type": "string"
+          },
+          {
+            "const": "supplier",
+            "type": "string"
+          }
+        ]
+      },
+      "CatalogueQuery": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "q"
+        ],
+        "properties": {
+          "q": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]*$",
+            "type": "string"
+          }
+        }
+      },
+      "CatalogueLocation": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "pk",
+          "name",
+          "description",
+          "path",
+          "parent_pk",
+          "structural"
+        ],
+        "properties": {
+          "kind": {
+            "const": "location",
+            "type": "string"
+          },
+          "pk": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 256,
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "parent_pk": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "structural": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogueSupplier": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "pk",
+          "name",
+          "description",
+          "manufacturer"
+        ],
+        "properties": {
+          "kind": {
+            "const": "supplier",
+            "type": "string"
+          },
+          "pk": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "maxLength": 256,
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "manufacturer": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogueRecord": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "pk",
+              "name",
+              "description",
+              "path",
+              "parent_pk",
+              "structural"
+            ],
+            "properties": {
+              "kind": {
+                "const": "location",
+                "type": "string"
+              },
+              "pk": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "name": {
+                "minLength": 1,
+                "maxLength": 256,
+                "type": "string"
+              },
+              "description": {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              "path": {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              "parent_pk": {
+                "anyOf": [
+                  {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "structural": {
+                "type": "boolean"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "pk",
+              "name",
+              "description",
+              "manufacturer"
+            ],
+            "properties": {
+              "kind": {
+                "const": "supplier",
+                "type": "string"
+              },
+              "pk": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "name": {
+                "minLength": 1,
+                "maxLength": 256,
+                "type": "string"
+              },
+              "description": {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              "manufacturer": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
+      "CatalogueCoverage": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "loaded",
+          "total",
+          "truncated"
+        ],
+        "properties": {
+          "loaded": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CatalogueSearch": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "model",
+          "target_context_id",
+          "query",
+          "results",
+          "coverage",
+          "exact_id"
+        ],
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "const": "location",
+                "type": "string"
+              },
+              {
+                "const": "supplier",
+                "type": "string"
+              }
+            ]
+          },
+          "target_context_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "query": {
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]*$",
+            "type": "string"
+          },
+          "results": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "pk",
+                    "name",
+                    "description",
+                    "path",
+                    "parent_pk",
+                    "structural"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "location",
+                      "type": "string"
+                    },
+                    "pk": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "name": {
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "type": "string"
+                    },
+                    "description": {
+                      "maxLength": 2048,
+                      "type": "string"
+                    },
+                    "path": {
+                      "maxLength": 2048,
+                      "type": "string"
+                    },
+                    "parent_pk": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                          "format": "int64",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "structural": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "pk",
+                    "name",
+                    "description",
+                    "manufacturer"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "supplier",
+                      "type": "string"
+                    },
+                    "pk": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "name": {
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "type": "string"
+                    },
+                    "description": {
+                      "maxLength": 2048,
+                      "type": "string"
+                    },
+                    "manufacturer": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "coverage": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "loaded",
+              "total",
+              "truncated"
+            ],
+            "properties": {
+              "loaded": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "total": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "truncated": {
+                "type": "boolean"
+              }
+            }
+          },
+          "exact_id": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "const": "not_requested",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "const": "not_found",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "status",
+                  "record"
+                ],
+                "properties": {
+                  "status": {
+                    "const": "found",
+                    "type": "string"
+                  },
+                  "record": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "pk",
+                          "name",
+                          "description",
+                          "path",
+                          "parent_pk",
+                          "structural"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "location",
+                            "type": "string"
+                          },
+                          "pk": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          },
+                          "name": {
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "type": "string"
+                          },
+                          "description": {
+                            "maxLength": 2048,
+                            "type": "string"
+                          },
+                          "path": {
+                            "maxLength": 2048,
+                            "type": "string"
+                          },
+                          "parent_pk": {
+                            "anyOf": [
+                              {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "structural": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "pk",
+                          "name",
+                          "description",
+                          "manufacturer"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "supplier",
+                            "type": "string"
+                          },
+                          "pk": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          },
+                          "name": {
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "type": "string"
+                          },
+                          "description": {
+                            "maxLength": 2048,
+                            "type": "string"
+                          },
+                          "manufacturer": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "CatalogueCandidates": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "model",
+          "target_context_id",
+          "candidates",
+          "coverage"
+        ],
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "const": "location",
+                "type": "string"
+              },
+              {
+                "const": "supplier",
+                "type": "string"
+              }
+            ]
+          },
+          "target_context_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "candidates": {
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "pk",
+                    "name",
+                    "description",
+                    "path",
+                    "parent_pk",
+                    "structural"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "location",
+                      "type": "string"
+                    },
+                    "pk": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "name": {
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "type": "string"
+                    },
+                    "description": {
+                      "maxLength": 2048,
+                      "type": "string"
+                    },
+                    "path": {
+                      "maxLength": 2048,
+                      "type": "string"
+                    },
+                    "parent_pk": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                          "format": "int64",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "structural": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "pk",
+                    "name",
+                    "description",
+                    "manufacturer"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "supplier",
+                      "type": "string"
+                    },
+                    "pk": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "name": {
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "type": "string"
+                    },
+                    "description": {
+                      "maxLength": 2048,
+                      "type": "string"
+                    },
+                    "manufacturer": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "coverage": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "loaded",
+              "total",
+              "truncated"
+            ],
+            "properties": {
+              "loaded": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "total": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "truncated": {
+                "type": "boolean"
               }
             }
           }

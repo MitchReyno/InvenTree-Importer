@@ -17,6 +17,7 @@ import { registerProcessing } from './processing/routes.ts'
 import { BlobStore } from './media/blob-store.ts'
 import { registerMediaRoutes } from './media/routes.ts'
 import { captureRead } from './capture/read.ts'
+import { catalogueReader } from './capture/catalogue.ts'
 import { registerManual } from './review/routes.ts'
 import { inventoryTransport } from './inventory/transport.ts'
 import fastifyStatic from '@fastify/static'
@@ -92,7 +93,15 @@ async function main() {
             transport.read({ targetId: config.targetId, contextId: config.targetContextId }, op),
           )
         : undefined
-      await registerCapture(server, db.pool, config, read)
+      const targetBinding = { targetId: config.targetId, contextId: config.targetContextId }
+      const catalogue = transport
+        ? catalogueReader({
+            list: (operation) => transport.list(targetBinding, operation),
+            read: (operation) => transport.read(targetBinding, operation),
+            targetContextId: config.targetContextId,
+          })
+        : undefined
+      await registerCapture(server, db.pool, config, read, catalogue)
       const processing = processingConfig(config, process.env)
       registerProcessing(server, db.pool, processing, lockCaptureForEdit)
       registerAgents(server, db.pool, processing)
