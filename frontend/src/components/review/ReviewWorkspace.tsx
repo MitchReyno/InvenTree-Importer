@@ -484,6 +484,7 @@ export function ReviewWorkspace({
                 edit={edit}
                 reload={reload}
                 inspect={inspect}
+                editPart={openEditor}
                 editSignal={editSignal}
                 onDirtyChange={drafts.forSource('workspace')}
               />

@@ -267,9 +267,18 @@ Codex reviewed exactly `1514e91..84846df`: no Critical findings; two Important a
 
 1. Important: during a conflict, reverting a field to its old saved value dropped the draft, so "Keep my edits" sent nothing and reported Saved while the server held another value. A conflicted queue now keeps every draft, as an unconfirmed one already did.
 2. Important: discarding unsent edits restored instructions from the last projection, which could be older than the queue's acknowledged text when the follow-up read failed. Discard now restores the lane's acknowledged value (`SaveQueue.savedValue`).
-3. Minor: the empty Compare matches dialog linked to Capture, which no longer reads Parts. It now opens the shared Part editor in Review.
+3. Minor: the empty Compare matches dialog linked to Capture, which no longer reads Parts. The round-7 fix only changed the link target; round 8 completed it.
 
-After the fixes: frontend 287/287 tests, typecheck and ESLint pass. The fixed candidate needs a fresh Codex review.
+Fixed in `867fb4f`; frontend 287/287 tests.
+
+#### Round 8
+
+Codex reviewed exactly `1514e91..867fb4f`: no Critical findings; one Important and one Minor. Round-7 fixes 1 and 2 were confirmed; fix 3 was incomplete. Each fix has a regression test that fails when the fix is reverted:
+
+1. Important: composed text does not enter the queue until composition ends, so a newer snapshot adopted during composition (for example after an instruction acknowledgement) reset the field. Clean adoption now also waits for composition.
+2. Minor: Review reads `?edit=` only when it mounts, so the dialog's new link changed the hash without opening the editor. The dialog now closes and hands over to Review's editor owner (`openEditor`); the regression clicks through to the shared Part editor.
+
+After the fixes: frontend 289/289 tests, typecheck and ESLint pass. The fixed candidate needs a fresh Codex review.
 
 Still to do for 4.5: Codex re-review and selected CI.
 

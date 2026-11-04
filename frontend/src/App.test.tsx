@@ -946,6 +946,29 @@ test('Review offers manual lot and Part creation; a dirty editor cannot be close
   expect(screen.getByRole('button', { name: 'Add shared Part proposal' })).toBeVisible()
 })
 
+test('Compare matches with no candidates opens the shared Part editor in Review', async () => {
+  const user = userEvent.setup()
+  const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
+  const route = `${batchId}/review/${lotId}`
+  history.replaceState(null, '', `#${route}`)
+  render(
+    <Batch
+      id={batchId}
+      route={route}
+      client={client}
+      manual={reviewManual()}
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Compare matches' }))
+  await user.click(
+    screen.getByRole('button', { name: 'Read an existing Part in the shared Part editor' }),
+  )
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(screen.getByRole('region', { name: 'Shared Part: Shared resistor' })).toBeVisible()
+  expect(location.hash).toBe(`#${route}?edit=${partId}`)
+})
+
 test('a shared Part linked to no lot can be reopened from Review', async () => {
   const user = userEvent.setup()
   const unlinked = { ...fixture, lots: [] }

@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 import { render } from '../../test/render'
@@ -19,7 +20,9 @@ const batch = {
   defaults: { quantity: { mode: 'unset' }, location: { mode: 'unset' } },
 } as unknown as CaptureSnapshotDto
 
-test('with no observed Part candidates, the dialog points to the shared Part editor in Review', () => {
+test('with no observed Part candidates, the dialog hands over to the shared Part editor', async () => {
+  const onClose = vi.fn()
+  const onEditPart = vi.fn()
   render(
     <CompareMatches
       batch={batch}
@@ -27,10 +30,13 @@ test('with no observed Part candidates, the dialog points to the shared Part edi
       affectedLotIds={[]}
       disabled={false}
       edit={vi.fn()}
-      onClose={vi.fn()}
+      onClose={onClose}
+      onEditPart={onEditPart}
     />,
   )
-  expect(
-    screen.getByRole('link', { name: 'Read an existing Part in the shared Part editor' }),
-  ).toHaveAttribute('href', `#${batch.id}/review?edit=${part.id}`)
+  await userEvent
+    .setup()
+    .click(screen.getByRole('button', { name: 'Read an existing Part in the shared Part editor' }))
+  expect(onClose).toHaveBeenCalledOnce()
+  expect(onEditPart).toHaveBeenCalledOnce()
 })

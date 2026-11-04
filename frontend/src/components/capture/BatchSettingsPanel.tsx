@@ -188,7 +188,8 @@ export function BatchSettingsPanel({
 
   // A clean editor follows newer saved values; a dirty one keeps its draft for explicit handling.
   useEffect(() => {
-    if (!state.dirty && newer(batch.revision, state.revision)) {
+    // Composed text has not reached the queue yet, so composition also keeps the draft.
+    if (!state.dirty && !composingText && newer(batch.revision, state.revision)) {
       const next = settingsValues(batch)
       // Unavailable instructions are not confirmed empty: keep their baseline until a projection arrives.
       queue.reset(batch.revision, {
@@ -201,7 +202,7 @@ export function BatchSettingsPanel({
         setInstructions(latestInstructions(operatorReview)?.text ?? '')
       }
     }
-  }, [batch, operatorReview, queue, reset, state.dirty, state.revision])
+  }, [batch, composingText, operatorReview, queue, reset, state.dirty, state.revision])
 
   useEffect(() => {
     mounted.current = true

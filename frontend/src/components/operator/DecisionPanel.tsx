@@ -33,6 +33,8 @@ interface Props {
   edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   reload: () => Promise<void>
   inspect: (lotId: string) => void
+  /** Opens Review's shared Part editor for this Part. */
+  editPart?: (partId: string) => void
   /** Increments when the operator asks to edit quantity (E). */
   editSignal?: number
   onDirtyChange?: (dirty: boolean) => void
@@ -70,6 +72,7 @@ export function DecisionPanel({
   edit,
   reload,
   inspect,
+  editPart,
   editSignal = 0,
   onDirtyChange,
 }: Props) {
@@ -214,6 +217,7 @@ export function DecisionPanel({
           edit={edit}
           onClose={() => setComparing(false)}
           onDirtyChange={drafts.forSource('compare')}
+          onEditPart={editPart && (() => editPart(part.id))}
         />
       )}
       {restructure && operator && (
