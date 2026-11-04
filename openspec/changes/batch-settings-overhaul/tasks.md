@@ -141,7 +141,7 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - [x] 6.2 RED: cover supported evidence estimate, no-defensible-estimate question, unavailable provider, human count over stale output and manual/Auto tag combinations.
 - [x] 6.3 GREEN: retain inference intent, bind proposals/questions to exact inputs/evidence and require human review before chosen values/execution preparation.
 - [x] 6.4 Verify Auto order/date never fabricates values, manual values remain exact, old input/approval formats still read and existing-Part tags remain unmodified.
-- [ ] 6.5 Record actual tests and remaining provider limits; update Processing/Review architecture and complete PR-C review/selected-CI gates when evidenced.
+- [x] 6.5 Record actual tests and remaining provider limits; update Processing/Review architecture and complete PR-C review/selected-CI gates when evidenced.
 
 ## 7. Qualify supervised location and supplier creation
 

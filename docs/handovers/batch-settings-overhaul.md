@@ -1,6 +1,6 @@
 # Batch settings overhaul implementation
 
-Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) is implemented on `feat/batch-settings-overhaul-review` and in independent review; Task 6.5 stays open until that review is clean and the selected CI passes. PR-D has not started. Reviews, CI and merges are recorded only after they occur.
+Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) is open as #88 from `feat/batch-settings-overhaul-review`; its review is clean and its selected CI passed, so Task 6.5 is checked and the PR is ready to squash-merge. PR-D has not started. Reviews, CI and merges are recorded only after they occur.
 
 ## Authority and boundaries
 
@@ -401,3 +401,11 @@ Codex reviewed exactly `f9b8fe1..c526b69`: no Critical findings; one Important a
 Codex reviewed exactly `f9b8fe1..cbac3f0`: no Critical or Important findings; one Minor. Both round-5 fixes were confirmed.
 
 1. Minor: `research-protocol-child.cjs` cited `manifest.notes[0]`. In proposal mode it never reads an artifact, so a media-only Auto input made it cite the intent note (the Round 5 note above wrongly assumed it cited media). It now cites the first note that is not the intent note (its identity mirrors `automationNoteId`) and otherwise the first media version. Regression in `tests/process/research-child.test.ts` (media-only Auto input, provenance accepts the proposal); negative control fails.
+
+#### Round 7
+
+Codex reviewed exactly `f9b8fe1..d3ddca9`: no Critical, Important or Minor findings. The round-6 fix was confirmed, and its sweep found no other proposal producer or guard with the same defect.
+
+#### PR and CI
+
+PR #88 was opened against `interactive-app` at head `d3ddca9`. `interactive-app` had not moved (`f9b8fe1`), so no merge or rebase was needed. Selected CI on that head passed: Frontend, Intake PostgreSQL and process, Intake contracts and HTTP, TypeScript lint, Markdown lint and Changed paths. Backend lint, Backend test and Shared workflow sync were skipped because no backend or skill paths changed. This docs-only commit then checked Task 6.5.
