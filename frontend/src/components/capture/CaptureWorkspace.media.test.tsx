@@ -90,6 +90,12 @@ test('a pending original pauses settings and keeps its request when Capture rere
     <CaptureWorkspace {...props} batch={{ ...batch, updated_at: '2026-11-02T00:01:00Z' }} />,
   )
   expect(screen.getByLabelText('Batch title')).toBeDisabled()
+  // Batch rebuilds its ports on every render; that must not clear the pending original.
+  view.rerender(<CaptureWorkspace {...props} settings={ports({ read: settings.read })} />)
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  expect(screen.getByLabelText('Batch title')).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Write a note' })).toBeDisabled()
+  view.rerender(<CaptureWorkspace {...props} />)
   expect(settings.save).not.toHaveBeenCalled()
   expect(screen.getByRole('button', { name: 'Retain bench-photo.png' })).toBeEnabled()
 

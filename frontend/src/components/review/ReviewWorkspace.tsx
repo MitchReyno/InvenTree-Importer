@@ -349,6 +349,19 @@ export function ReviewWorkspace({
             Edit shared Part
           </Button>
         )}
+        {/* A Part linked to no lot has no lot to focus, so it keeps its own entry point. */}
+        {batch.parts
+          .filter((item) => !batch.lots.some((value) => value.part_subject_id === item.id))
+          .map((item) => (
+            <Button
+              key={item.id}
+              type="button"
+              disabled={busy || batch.archived || !observe || drafts.dirty}
+              onClick={() => openEditor(item.id)}
+            >
+              Edit unlinked shared Part: {item.label}
+            </Button>
+          ))}
       </SubjectActions>
       {editing && observe && (
         <ReviewSubjectEditor

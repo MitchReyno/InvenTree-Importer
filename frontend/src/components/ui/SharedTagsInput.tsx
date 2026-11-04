@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { CheckboxLabel, Input, Label, Small } from './primitives'
 
@@ -23,11 +23,14 @@ export function SharedTagsInput({ value, onChange, onPendingChange, disabled = f
   const id = useId()
   const [draft, setDraft] = useState('')
   const [problem, setProblem] = useState('')
+  const composing = useRef(false)
   const pending = draft.trim().length > 0
+  const notify = useRef(onPendingChange)
+  notify.current = onPendingChange
   useEffect(() => {
-    onPendingChange?.(pending)
+    notify.current?.(pending)
   }, [onPendingChange, pending])
-  useEffect(() => () => onPendingChange?.(false), [onPendingChange])
+  useEffect(() => () => notify.current?.(false), [])
   const full = value.manual.length >= MAX_TAGS
 
   function add(text = draft) {
@@ -78,7 +81,7 @@ export function SharedTagsInput({ value, onChange, onPendingChange, disabled = f
           onChange={(event) => {
             setProblem('')
             const next = event.target.value
-            if (next.endsWith(',')) {
+            if (next.endsWith(',') && !composing.current) {
               setDraft(next.slice(0, -1))
               add(next.slice(0, -1))
             } else {
@@ -89,6 +92,17 @@ export function SharedTagsInput({ value, onChange, onPendingChange, disabled = f
             if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
               event.preventDefault()
               add()
+            }
+          }}
+          onCompositionStart={() => {
+            composing.current = true
+          }}
+          onCompositionEnd={(event) => {
+            composing.current = false
+            const text = event.currentTarget.value
+            if (text.endsWith(',')) {
+              setDraft(text.slice(0, -1))
+              add(text.slice(0, -1))
             }
           }}
           onBlur={() => add()}

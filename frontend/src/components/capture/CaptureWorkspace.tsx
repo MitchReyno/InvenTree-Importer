@@ -34,26 +34,30 @@ export function CaptureWorkspace({
   const [dirty, setDirty] = useState(false)
   const [sources, setSources] = useState<Record<DirtySource, boolean>>(dirtyFlags.current)
 
-  const report = useCallback(
-    (source: DirtySource, value: boolean) => {
-      const evidenceWasPending = dirtyFlags.current.media || dirtyFlags.current.note
-      dirtyFlags.current = { ...dirtyFlags.current, [source]: value }
-      const any = Object.values(dirtyFlags.current).some(Boolean)
-      setSources(dirtyFlags.current)
-      setDirty(any)
-      onDirtyChange?.(any)
-      // Evidence commands advance the batch revision; refresh it before settings resume.
-      if (evidenceWasPending && !dirtyFlags.current.media && !dirtyFlags.current.note && settings) {
-        settings.read().then(settings.accept, () => undefined)
-      }
-    },
-    [onDirtyChange, settings],
-  )
+  // Batch rebuilds its ports and callbacks on every render; reporting must not depend on them.
+  const latest = useRef({ onDirtyChange, settings })
+  latest.current = { onDirtyChange, settings }
+  const report = useCallback((source: DirtySource, value: boolean) => {
+    const { onDirtyChange, settings } = latest.current
+    const evidenceWasPending = dirtyFlags.current.media || dirtyFlags.current.note
+    dirtyFlags.current = { ...dirtyFlags.current, [source]: value }
+    const any = Object.values(dirtyFlags.current).some(Boolean)
+    setSources(dirtyFlags.current)
+    setDirty(any)
+    onDirtyChange?.(any)
+    // Evidence commands advance the batch revision; refresh it before settings resume.
+    if (evidenceWasPending && !dirtyFlags.current.media && !dirtyFlags.current.note && settings) {
+      settings.read().then(settings.accept, () => undefined)
+    }
+  }, [])
   const reportSettings = useCallback((value: boolean) => report('settings', value), [report])
   const reportMedia = useCallback((value: boolean) => report('media', value), [report])
   const reportNote = useCallback((value: boolean) => report('note', value), [report])
 
-  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+  useEffect(() => {
+    latest.current.onDirtyChange?.(Object.values(dirtyFlags.current).some(Boolean))
+  }, [onDirtyChange])
+  useEffect(() => () => latest.current.onDirtyChange?.(false), [])
 
   const frozen = busy || batch.archived
 

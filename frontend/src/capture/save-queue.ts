@@ -242,6 +242,12 @@ export class SaveQueue {
     return this.cached
   }
 
+  /** Re-admits dispatch when an effect replays (StrictMode) after a cleanup disposed the queue. */
+  activate() {
+    this.disposed = false
+    this.pump()
+  }
+
   /** Stops timers and dispatch; an unmounted editor never sends or adopts a late receipt. */
   dispose() {
     this.disposed = true

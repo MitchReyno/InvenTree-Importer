@@ -217,7 +217,18 @@ Codex reviewed exactly `1514e91..52845e2`: no Critical findings; five Important 
 6. Minor: composition start paused only the composed lanes, so a waiting lane could stall after composition. `SaveQueue.suspend`/`resume` now hold every dispatch during composition, and resuming sends each ready lane.
 7. Minor: tag text typed but not yet added did not protect navigation. `SharedTagsInput` reports pending text, and the panel stays dirty until it is added or cleared.
 
-After the fixes: frontend 267/267 tests, typecheck and ESLint pass. The fixed candidate needs a fresh Codex review.
+Fixed in `6d07b5d`; frontend 267/267 tests.
+
+#### Round 3
+
+Codex reviewed exactly `1514e91..6d07b5d`: no Critical findings; three Important and one Minor. Round-2 fixes 1, 2, 4 and 6 were confirmed correct. Each fix below has a regression test that fails when the fix is reverted:
+
+1. Important: StrictMode's effect replay disposed the queue permanently, so development autosave never sent. `useSaveQueue` re-activates the queue on effect setup; a genuinely unmounted queue still never dispatches. Regressions are hook-level (`useSaveQueue.test.tsx`), because the integrated panel test did not reproduce the replay.
+2. Important: `Batch` rebuilds its settings ports on every render, which replaced Capture's dirty callbacks, and `useDirtySources` reported clean whenever its parent callback changed. That released navigation protection and the evidence fences while an upload stayed pending. Capture's reporting now reads current ports and callbacks through a ref, and `useDirtySources` reports clean only on unmount, giving a replaced callback the current state. Regressions: a pending original survives rerender with new ports, and a hook test replaces the callback while dirty.
+3. Important: a shared Part linked to no lot had no Review entry point after creation. Review now lists "Edit unlinked shared Part: <label>" for each such Part; regression reopens one in a batch with no lots.
+4. Minor: a comma typed during IME composition added the unfinished text as a tag. Delimiters wait for composition to end.
+
+After the fixes: frontend 272/272 tests, typecheck and ESLint pass. The fixed candidate needs a fresh Codex review.
 
 Still to do for 4.5: Codex re-review and selected CI.
 

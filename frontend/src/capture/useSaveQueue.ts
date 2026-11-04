@@ -6,6 +6,9 @@ export function useSaveQueue(revision: string) {
   const [queue] = useState(() => new SaveQueue({ revision }))
   const subscribe = useCallback((listener: () => void) => queue.subscribe(listener), [queue])
   const state = useSyncExternalStore(subscribe, () => queue.state())
-  useEffect(() => () => queue.dispose(), [queue])
+  useEffect(() => {
+    queue.activate()
+    return () => queue.dispose()
+  }, [queue])
   return [queue, state] as const
 }

@@ -77,3 +77,16 @@ test('Enter during IME composition does not add a partial tag; Backspace never r
   await user.type(input, '{Backspace}')
   expect(onChange).not.toHaveBeenCalled()
 })
+
+test('a comma typed during IME composition waits for the composition to end', () => {
+  const onChange = vi.fn()
+  render(<Harness onChange={onChange} />)
+  const input = screen.getByRole('textbox', { name: 'Add shared part tag' })
+  fireEvent.compositionStart(input)
+  fireEvent.change(input, { target: { value: '抵抗,' } })
+  expect(onChange).not.toHaveBeenCalled()
+  expect(input).toHaveValue('抵抗,')
+  fireEvent.compositionEnd(input)
+  expect(onChange).toHaveBeenLastCalledWith({ manual: ['抵抗'], auto: false })
+  expect(input).toHaveValue('')
+})
