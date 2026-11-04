@@ -472,8 +472,8 @@ export function BatchSettingsPanel({
 }
 
 const Settings = styled(Panel)`
-  grid-area: settings;
   min-width: 0;
+  margin-bottom: 0;
   details {
     margin-top: 12px;
     overflow-wrap: anywhere;

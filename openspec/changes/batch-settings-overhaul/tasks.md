@@ -191,8 +191,8 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - [x] 9.1 Record original mockup comparison and current queue/editor callers, selection dependencies and legacy route behaviour.
 - [x] 9.2 RED: cover no Physical lots/Part proposals panes, reachable Review add/edit/Part choice/quantity correction and guarded legacy subject navigation.
 - [x] 9.3 GREEN: implement the default two-column mockup composition and narrow stack, remove Capture queue/editor chrome and deliver the focused Review actions.
-- [ ] 9.4 Verify evidence upload/note/group selection, default-location override links, saved/dirty drafts and retained subjects survive route changes and reflow.
-- [ ] 9.5 Record desktop/narrow/zoom visual/accessibility evidence and owning architecture updates; complete this entire task within PR-B before its exact-head review.
+- [x] 9.4 Verify evidence upload/note/group selection, default-location override links, saved/dirty drafts and retained subjects survive route changes and reflow.
+- [x] 9.5 Record desktop/narrow/zoom visual/accessibility evidence and owning architecture updates; complete this entire task within PR-B before its exact-head review.
 
 ## Delivery evidence and lifecycle follow-up
 

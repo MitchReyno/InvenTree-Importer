@@ -1,5 +1,7 @@
 # Batch settings placement qualification
 
+Historical record. The fixture now serves the [batch settings overhaul qualification](../batch-settings-overhaul/README.md); the placement toggle and three-column composition described here were superseded by the two-column Capture.
+
 Synthetic Capture fixture: `frontend/tests/fixtures/capture-settings.html`, using the production components, installed React Hook Form and one mounted form. No inventory, provider or upload clients are installed in the fixture. The placement toggle changes CSS only. Original reference files are unchanged.
 
 ## Decision
