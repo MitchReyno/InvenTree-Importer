@@ -28,6 +28,28 @@ Default location, supplier and optional parent location SHALL use one labelled s
 - **WHEN** the matching ID exists and the operator uses arrows, Enter and Escape
 - **THEN** the exact match is available without claiming text search covers every ID, selection/dismissal and focus behave predictably, and disabled/empty/error states are announced.
 
+### Requirement: Typo-tolerant reference search
+
+All three reference pickers SHALL tolerate minor name typos and normalize case, whitespace and accents for matching. Exact name and ID matches SHALL outrank fuzzy suggestions; names SHALL outweigh secondary fields. Fuzzy matches MUST preserve original IDs/labels and require explicit selection. Search SHALL disclose bounded candidate coverage and never infer catalogue absence from incomplete results.
+
+#### Scenario: Misspelled supplier or location name
+
+- **GIVEN** scoped candidates including Mouser Electronics and Incoming inspection drawer
+- **WHEN** the operator enters `Mousr` in supplier or `Incomming` in Default location or parent location
+- **THEN** the intended candidate is offered despite the minor typo, using its original label and exact identity; the suggestion is not automatically selected or created.
+
+#### Scenario: Exact result precedes approximate results
+
+- **GIVEN** exact and fuzzy name matches, a matching description and an exact numeric-ID result
+- **WHEN** results are ranked for the current query
+- **THEN** exact name/ID matches precede fuzzy suggestions, name relevance outweighs secondary fields and ties have stable ordering; ID lookup never fuzzy-substitutes another record.
+
+#### Scenario: Strict upstream filtering or partial candidate coverage
+
+- **GIVEN** upstream text search would omit a misspelled candidate or only part of a large catalogue has been loaded
+- **WHEN** fuzzy search runs
+- **THEN** matching uses a bounded scoped candidate source independent of strict misspelled-query filtering, incomplete coverage is visible and no results means no matches in the searched set rather than proof that no record exists.
+
 ### Requirement: Default location precedence
 
 The batch SHALL have one optional Default location. Explicit lot, shared-Part and applicable group assignments SHALL precede it in that order, with clear suppressing fallback. Conflicting group assignments SHALL require resolution. Resolution MUST preserve physical lots and quantities; a Part assignment is an application default, not an inventory Part field.

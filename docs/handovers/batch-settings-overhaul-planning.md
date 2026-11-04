@@ -53,3 +53,11 @@ The initial sandbox dependency install could not resolve the npm registry and wa
 Changes remain on the isolated conventional `docs/batch-settings-overhaul` branch targeting `interactive-app`. Use independent exact-head review before opening the planning PR and selected green CI before any authorized merge. No new implementation is authorized by this proposal request. A planning merge does not complete BI-003 or either future item.
 
 Recovery is a normal revert of the planning commit/PR; preserve baseline/archive consistency and index links together. No data or service rollback is involved. Future implementation rollout and unknown-effect recovery are detailed in the new design/tasks rather than claimed delivered here.
+
+## Fuzzy-search planning refinement
+
+The follow-up request adds fuzzy search to the reusable picker in the existing proposal, not application implementation. Supplier, Default location and parent-location pickers now have typo/case/accent matching, exact-name/ID-first ranking and explicit selection. Original labels/IDs remain unchanged; incomplete candidate coverage never proves absence.
+
+Primary source research on 2026-11-04 inspected React Select's default substring filter and versioned Fuse.js 7.1.0 manifest/configuration/license. Fuse.js is the recommended scoring dependency, subject to exact-version integration proof and lock/advisory/bundle assessment. Candidate retrieval must be independent of strict misspelled upstream filtering, bounded and scoped; local reranking of an already empty strict result would not satisfy the requirement. The design starts with a 500-candidate cap and explicit partial-coverage/refinement behaviour, without promising whole-catalogue recall.
+
+Updated existing proposal, reference spec, design, Tasks 2–3 and BI-003 summary coherently. Task count/bundle ownership and all unchecked implementation actions are preserved. Strict change validation, scoped Markdown lint and diff whitespace checks passed. Independent exact-head review is required before publishing this follow-up planning PR.

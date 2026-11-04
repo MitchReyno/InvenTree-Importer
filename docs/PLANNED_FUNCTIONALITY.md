@@ -92,7 +92,7 @@ Replace the top-right Manual workflow element with a clickable connection-status
 
 #### BI-003 — Batch settings overhaul
 
-Replace technical selection modes and explicit settings saves with concise reusable inputs and safe autosave. Add optional batch/order notes, searchable default-location and supplier selection with new-record drafts, reviewed evidence-derived quantities, order/date choices, shared Part tags and Custom instructions. Remove the Physical lots and Part proposals panes from Capture and default to the original mockup layout. Preserve explicit location precedence and keep PO creation and automatic logo discovery disabled for separate future work.
+Replace technical selection modes and explicit settings saves with concise reusable inputs and safe autosave. Add optional batch/order notes, typo-tolerant searchable default-location and supplier selection with new-record drafts, reviewed evidence-derived quantities, order/date choices, shared Part tags and Custom instructions. Remove the Physical lots and Part proposals panes from Capture and default to the original mockup layout. Preserve explicit location precedence and keep PO creation and automatic logo discovery disabled for separate future work.
 
 - Change: `batch-settings-overhaul`
 - Status: Proposed
