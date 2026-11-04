@@ -1,6 +1,6 @@
 # Status signalling uplift
 
-BI-002 is implemented and merged into `interactive-app`; the [functionality index](../../../docs/PLANNED_FUNCTIONALITY.md) owns its current metadata. The [proposal](proposal.md), [requirements](specs/header-connection-status/spec.md), [design](design.md) and [task plan](tasks.md) preserve the accepted scope and delivery boundaries. [Accepted delivery evidence](../../../docs/handovers/status-signalling-uplift.md#accepted-delivery) records reviewed commits, CI, browser qualification and remaining runtime limits. The sections below retain the original request and proposal context.
+BI-002 is implemented and merged into `interactive-app`; the [functionality index](../../../../docs/PLANNED_FUNCTIONALITY.md) owns its current metadata. The [proposal](proposal.md), [requirements](specs/header-connection-status/spec.md), [design](design.md) and [task plan](tasks.md) preserve the accepted scope and delivery boundaries. [Accepted delivery evidence](../../../../docs/handovers/status-signalling-uplift.md#accepted-delivery) records reviewed commits, CI, browser qualification and remaining runtime limits. The sections below retain the original request and proposal context.
 
 ## Connection status and InvenTree access
 
@@ -18,9 +18,9 @@ Connection health and workflow activity are distinct concepts and must remain in
 
 ## Original references and proposal follow-up
 
-- [Original mockup and provenance](../../../docs/bench-intake/reference/README.md).
-- [Interactive original mockup](../../../docs/bench-intake/reference/bench-intake.html): select **Processing in progress** and inspect the header activity control, including while switching tabs.
-- [Original Processing screenshot](../../../docs/bench-intake/reference/04-processing.png) and [Capture header](../../../docs/bench-intake/reference/03-capture.png).
+- [Original mockup and provenance](../../../../docs/bench-intake/reference/README.md).
+- [Interactive original mockup](../../../../docs/bench-intake/reference/bench-intake.html): select **Processing in progress** and inspect the header activity control, including while switching tabs.
+- [Original Processing screenshot](../../../../docs/bench-intake/reference/04-processing.png) and [Capture header](../../../../docs/bench-intake/reference/03-capture.png).
 - Current masthead: `frontend/src/components/masthead/Masthead.tsx`.
 - Existing live-update signal: `frontend/src/components/operations/LiveUpdates.tsx`; this represents update transport and does not establish InvenTree reachability.
 - Existing agent-session UI: `frontend/src/components/agents/AgentSessions.tsx`; assess its retained data and visibility boundaries before reuse.

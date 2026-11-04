@@ -2,7 +2,7 @@
 
 ## Plan context
 
-Canonical change: `capture-tab-uplift`; linked [BI-001](../../../docs/PLANNED_FUNCTIONALITY.md#bi-001--capture-tab-uplift). Read the [proposal/reuse comparison](proposal.md), [design](design.md), [settings requirements](specs/capture-batch-settings/spec.md) and [grouped-evidence requirements](specs/capture-grouped-evidence/spec.md). The index owns mutable metadata. Implementation evidence is recorded below and in the handover; checklist completion alone does not establish a merged release.
+Canonical change: `capture-tab-uplift`; linked [BI-001](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-001--capture-tab-uplift). Read the [proposal/reuse comparison](proposal.md), [design](design.md), [settings requirements](specs/capture-batch-settings/spec.md) and [grouped-evidence requirements](specs/capture-grouped-evidence/spec.md). The index owns mutable metadata. Implementation evidence is recorded below and in the handover; checklist completion alone does not establish a merged release.
 
 ## Completion and commit ordering
 

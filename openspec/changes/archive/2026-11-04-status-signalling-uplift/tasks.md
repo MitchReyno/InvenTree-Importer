@@ -2,7 +2,7 @@
 
 ## Plan context
 
-Canonical change: `status-signalling-uplift`, linked [BI-002](../../../docs/PLANNED_FUNCTIONALITY.md#bi-002--status-signalling-uplift). Read the [proposal and reuse assessment](proposal.md), [design](design.md), [connection requirements](specs/header-connection-status/spec.md) and [workflow requirements](specs/header-workflow-status/spec.md). The index owns mutable metadata. Implementation evidence is recorded in the handover; completed checkboxes alone do not establish a merged release.
+Canonical change: `status-signalling-uplift`, linked [BI-002](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-002--status-signalling-uplift). Read the [proposal and reuse assessment](proposal.md), [design](design.md), [connection requirements](specs/header-connection-status/spec.md) and [workflow requirements](specs/header-workflow-status/spec.md). The index owns mutable metadata. Implementation evidence is recorded in the handover; completed checkboxes alone do not establish a merged release.
 
 ## Completion and commit ordering
 
