@@ -42,7 +42,9 @@ Nine whole top-level tasks are assigned to four reasoned PR bundles; none is spl
 - `openspec status --change batch-settings-overhaul`: four of four planning artifacts complete; implementation not started.
 - Scoped Markdown lint: passed across authored and moved Markdown.
 - BI allocation history: only BI-001 and BI-002 previously appeared; new IDs BI-003 through BI-005 are unique.
-- Link/identity checks and independent exact-head review: results recorded below when performed.
+- Authored relative-link checks: all 96 resolve, excluding the existing fenced illustrative item. Archive/main requirement-body equality passed.
+- Full `pnpm lint:markdown`, `openspec schema validate bench-intake --json` and `git diff --check`: passed.
+- Independent read-only review of `dadaa3ed8fc695a1f5196d98ab8836094ca72fd1`: no substantive findings; one Task 9 table-row separation issue was corrected. The corrected candidate receives a fresh review before publication.
 
 The initial sandbox dependency install could not resolve the npm registry and was stopped. An authorized host install uses the existing frozen lockfile in this isolated worktree; it adds no runtime dependency. No runtime tests are necessary for this docs-only change. Schema/skill code is unchanged, so workflow-sync is not selected.
 

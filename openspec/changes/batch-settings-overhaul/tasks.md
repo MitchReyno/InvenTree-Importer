@@ -20,7 +20,6 @@ Verify each completed action, check it before committing its work and include th
 | 6 | Behaviour: attributable inference and review | Task 1; preserve Task 5 resolution when materializing | Quantity questions, human authority, manual/Auto tags and order intent |
 | 7 | Execution: supervised new records | Tasks 1–2; Task 4 consumes results | Creation, duplicate/unknown, permissions and recovery |
 | 8 | Acceptance/docs: integrated delivery | Tasks 3–7 and 9 | Cross-layer acceptance, current docs and evidence |
-
 | 9 | Behaviour/layout: mockup Capture and relocated subject editing | Task 4 panel; existing capture/review commands | No subject panes; Review actions/deep links; responsive hierarchy |
 
 Tasks 2 and 3 need no artificial dependency on one another. Task 7 can be developed after the public foundations but is merged after the integrated context work so final qualification uses the whole slice. No task is a placeholder to explore the codebase; necessary follow-up proof is named below.
