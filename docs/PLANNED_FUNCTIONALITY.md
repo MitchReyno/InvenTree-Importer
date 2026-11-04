@@ -40,7 +40,27 @@ The index owns current item metadata; OpenSpec artifacts own detailed intent, re
 
 ## Features
 
-No registered items.
+### Unassessed
+
+#### BI-004 — Automatic supplier logos
+
+Find a suitable supplier logo automatically when creating a supplier. This is a minimal future-work placeholder; the Batch settings overhaul shows a disabled Find automatically checkbox with a coming-soon explanation, and no proposal is planned yet.
+
+- Change: `automatic-supplier-logos`
+- Status: Proposed
+- Size: Unknown
+- Prerequisites: Unknown — discovery sources, image handling and execution support need assessment; BI-003 supplies the planned entry point but is not yet implemented.
+- OpenSpec: [automatic-supplier-logos](../openspec/changes/automatic-supplier-logos/)
+
+#### BI-005 — Purchase-order support
+
+Enable purchase-order creation from retained batch supplier and order context through explicit review, approval and supervised execution. Assess order numbering, dates, line mapping, duplicate prevention and uncertain-result recovery before enabling the currently disabled controls.
+
+- Change: `purchase-order-support`
+- Status: Proposed
+- Size: Unknown
+- Prerequisites: Unknown — compatibility and execution support need assessment; BI-003 prepares the planned UI, while actual PO operations remain unsupported.
+- OpenSpec: [purchase-order-support](../openspec/changes/purchase-order-support/)
 
 ## Fixes
 
@@ -58,7 +78,7 @@ Consolidate all settings currently reached through the Shared details buttons in
 - Status: Done
 - Size: L — retained settings/context and group/note contracts, UI consolidation and responsive evidence qualification.
 - Prerequisites: None external identified — existing media/groups and form/revision infrastructure are available; the change includes missing context/group contracts and dependency qualification. PO controls remain disabled; no dependency on BI-002.
-- OpenSpec: [capture-tab-uplift](../openspec/changes/capture-tab-uplift/)
+- OpenSpec: [capture-tab-uplift](../openspec/changes/archive/2026-11-04-capture-tab-uplift/)
 
 #### BI-002 — Status signalling uplift
 
@@ -68,7 +88,17 @@ Replace the top-right Manual workflow element with a clickable connection-status
 - Status: Done
 - Size: L — cross-layer target/work read contracts, accessible header integration and browser qualification.
 - Prerequisites: None external identified — existing retained data and target transport are available; the change includes its read-contract and package-qualification foundations. No ordering dependency on BI-001.
-- OpenSpec: [status-signalling-uplift](../openspec/changes/status-signalling-uplift/)
+- OpenSpec: [status-signalling-uplift](../openspec/changes/archive/2026-11-04-status-signalling-uplift/)
+
+#### BI-003 — Batch settings overhaul
+
+Replace technical selection modes and explicit settings saves with concise reusable inputs and safe autosave. Add optional batch/order notes, searchable default-location and supplier selection with new-record drafts, reviewed evidence-derived quantities, order/date choices, shared Part tags and Custom instructions. Remove the Physical lots and Part proposals panes from Capture and default to the original mockup layout. Preserve explicit location precedence and keep PO creation and automatic logo discovery disabled for separate future work.
+
+- Change: `batch-settings-overhaul`
+- Status: Proposed
+- Size: L — cross-layer settings, search, inheritance, inference preferences and supervised new-record support.
+- Prerequisites: BI-001 and BI-002 are satisfied; existing capture, review and transport foundations are merged. New catalogue and new-record execution contracts are included in this change; future PO and logo items are not prerequisites.
+- OpenSpec: [batch-settings-overhaul](../openspec/changes/batch-settings-overhaul/)
 
 ## Maintenance
 

@@ -1,6 +1,6 @@
 # Capture tab uplift
 
-BI-001 is implemented and merged into `interactive-app`; the [functionality index](../../../docs/PLANNED_FUNCTIONALITY.md) owns its current metadata. The [proposal](proposal.md), [requirements](specs/capture-batch-settings/spec.md), [design](design.md) and [task plan](tasks.md) preserve the accepted scope and delivery boundaries. [Accepted delivery evidence](../../../docs/handovers/capture-tab-uplift.md#accepted-delivery) records reviewed commits, CI and qualification limits. The selected layout places Batch settings on the desktop right and stacks it on narrow screens; the sections below retain the original request context.
+BI-001 is implemented and merged into `interactive-app`; the [functionality index](../../../../docs/PLANNED_FUNCTIONALITY.md) owns its current metadata. The [proposal](proposal.md), [requirements](specs/capture-batch-settings/spec.md), [design](design.md) and [task plan](tasks.md) preserve the accepted scope and delivery boundaries. [Accepted delivery evidence](../../../../docs/handovers/capture-tab-uplift.md#accepted-delivery) records reviewed commits, CI and qualification limits. The selected layout places Batch settings on the desktop right and stacks it on narrow screens; the sections below retain the original request context.
 
 ## Batch settings
 
@@ -18,10 +18,10 @@ Use the original's named groups, group notes, per-evidence notes, add-to-group, 
 
 ## Original references and proposal follow-up
 
-- [Preserved original mockup and provenance](../../../docs/bench-intake/reference/README.md).
-- [Interactive original mockup](../../../docs/bench-intake/reference/bench-intake.html): Capture view.
-- [Original Capture screenshot](../../../docs/bench-intake/reference/03-capture.png).
-- [Current experience](../../../docs/bench-intake/05-experience.md) and [contracts](../../../docs/bench-intake/04-contracts.md) for implemented authority and limitations.
+- [Preserved original mockup and provenance](../../../../docs/bench-intake/reference/README.md).
+- [Interactive original mockup](../../../../docs/bench-intake/reference/bench-intake.html): Capture view.
+- [Original Capture screenshot](../../../../docs/bench-intake/reference/03-capture.png).
+- [Current experience](../../../../docs/bench-intake/05-experience.md) and [contracts](../../../../docs/bench-intake/04-contracts.md) for implemented authority and limitations.
 - Existing Capture components under `frontend/src/components/capture/` for the current settings/evidence behavior.
 
 At proposal time, assess existing components, packages/frameworks and any missing persistence contracts before custom implementation. Specify save/discard, inheritance/overrides, group identity, accessibility and adverse-state behavior, and resolve unsupported mockup controls explicitly. No dependency on the separate status-signalling uplift is implied; both should follow the same visual reference.

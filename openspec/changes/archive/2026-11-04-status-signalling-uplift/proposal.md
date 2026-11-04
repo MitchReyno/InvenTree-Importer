@@ -6,7 +6,7 @@ The masthead says “Manual workflow” while work/connection information lives 
 
 ## Change identity and linked items
 
-Canonical name: `status-signalling-uplift`; linked item: [BI-002](../../../docs/PLANNED_FUNCTIONALITY.md#bi-002--status-signalling-uplift). The index owns current metadata. Delivering branches retain the exact name, for example `feat/status-signalling-uplift-connections`; subjects use `feat(status-signalling-uplift): …`.
+Canonical name: `status-signalling-uplift`; linked item: [BI-002](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-002--status-signalling-uplift). The index owns current metadata. Delivering branches retain the exact name, for example `feat/status-signalling-uplift-connections`; subjects use `feat(status-signalling-uplift): …`.
 
 ## Current behavior and evidence
 
@@ -14,7 +14,7 @@ Canonical name: `status-signalling-uplift`; linked item: [BI-002](../../../docs/
 
 `contracts/src/index.ts` Health proves local API liveness only; Bootstrap exposes opaque target IDs but no public target URL or reachability. ProcessingActivity lacks per-job step detail. Consequently a green socket cannot prove InvenTree reachability, and header phase progress needs an explicit bounded read contract. Main `openspec/specs/` has no capabilities yet; these are new delta capabilities, not claims that existing behavior is absent from source.
 
-The [original reference](../../../docs/bench-intake/reference/README.md), [interactive prototype](../../../docs/bench-intake/reference/bench-intake.html) and [Processing screenshot](../../../docs/bench-intake/reference/04-processing.png) own composition. Its timers, fictional target and localStorage are not implementation authority.
+The [original reference](../../../../docs/bench-intake/reference/README.md), [interactive prototype](../../../../docs/bench-intake/reference/bench-intake.html) and [Processing screenshot](../../../../docs/bench-intake/reference/04-processing.png) own composition. Its timers, fictional target and localStorage are not implementation authority.
 
 ## Scope and non-goals
 

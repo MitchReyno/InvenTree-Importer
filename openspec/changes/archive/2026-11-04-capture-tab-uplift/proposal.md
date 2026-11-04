@@ -6,7 +6,7 @@ Capture fragments batch settings behind Shared details navigation buttons, while
 
 ## Change identity and linked items
 
-Canonical name: `capture-tab-uplift`; linked [BI-001](../../../docs/PLANNED_FUNCTIONALITY.md#bi-001--capture-tab-uplift). The index owns mutable metadata. Branches retain the exact name, for example `feat/capture-tab-uplift-settings`; subjects use `feat(capture-tab-uplift): …`. This plan does not implement or release the feature.
+Canonical name: `capture-tab-uplift`; linked [BI-001](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-001--capture-tab-uplift). The index owns mutable metadata. Branches retain the exact name, for example `feat/capture-tab-uplift-settings`; subjects use `feat(capture-tab-uplift): …`. This plan does not implement or release the feature.
 
 ## Current behavior and evidence
 
@@ -14,7 +14,7 @@ Canonical name: `capture-tab-uplift`; linked [BI-001](../../../docs/PLANNED_FUNC
 
 `contracts/src/media.ts` and migrations `0005_media.sql`/`0008_operator_review.sql` already retain group identity and group instructions. They do not expose rename/ungroup/bulk move or per-evidence notes. `CaptureDefaults` currently contains only quantity/location; supplier, purchase date and batch tags need explicit retained context contracts rather than ornamental unsaved inputs. Existing Part supplier/tags in `effects.ts` are distinct execution choices, not equivalent batch settings.
 
-The [original Capture](../../../docs/bench-intake/reference/03-capture.png), [interactive HTML](../../../docs/bench-intake/reference/bench-intake.html) and [provenance/limits](../../../docs/bench-intake/reference/README.md) are primary visual references. Main `openspec/specs/` contains no capability definitions yet. Prototype simulated operations do not override current authority.
+The [original Capture](../../../../docs/bench-intake/reference/03-capture.png), [interactive HTML](../../../../docs/bench-intake/reference/bench-intake.html) and [provenance/limits](../../../../docs/bench-intake/reference/README.md) are primary visual references. Main `openspec/specs/` contains no capability definitions yet. Prototype simulated operations do not override current authority.
 
 ## Scope and non-goals
 
