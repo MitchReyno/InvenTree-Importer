@@ -1,4 +1,8 @@
-import { captureContextNotes, automationIntentNotes } from '../capture/context-input.ts'
+import {
+  automationIntentNotes,
+  captureContextNotes,
+  isAutomationIntentNote,
+} from '../capture/context-input.ts'
 import { nativeProfileId, nativeInstructionDigest } from '../agents/policy.ts'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import {
@@ -167,7 +171,7 @@ export function inputManifest(
     dependencies,
     answerId,
   )
-  if (!fields.notes.length) {
+  if (!fields.notes.some((note) => !isAutomationIntentNote(note, snapshot.id))) {
     fail('retained_manual_evidence_required', 422)
   }
 
@@ -254,7 +258,9 @@ export function mediaInputManifest(
     }))
   const notes = [...fields.notes, ...mediaNotes]
   requireNoteCapacity(notes)
-  const meaningfulNote = notes.some((note) => note.text.trim().length > 0)
+  const meaningfulNote = notes.some(
+    (note) => note.text.trim().length > 0 && !isAutomationIntentNote(note, snapshot.id),
+  )
   if (!meaningfulNote && decodedMedia.versions.length === 0) {
     fail('retained_evidence_required', 422)
   }

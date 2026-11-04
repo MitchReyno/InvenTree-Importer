@@ -340,7 +340,7 @@ Plan (no new input or handler versions):
 - 6.2 RED: `contracts/tests/processing-suggestions.test.ts` failed first: a valid `/4` estimate in a `bench-intake-runner/2` envelope was refused.
 - 6.3 GREEN:
   - `ProcessingProposalV4` in contracts, admitted only by the synthetic runner envelope.
-  - The requested-automation note (`automationIntentNotes`), admitted into every input version only when Auto tags are on.
+  - The requested-automation note (`automationIntentNotes`), added to every input version only when Auto tags are on. It is intent, not evidence: it never admits an input and no proposal may cite it.
   - Acceptance rules in `processing/messages.ts`: estimates for lots only, and tags only with Auto requested.
   - `ProcessingSuggestions` in Review.
 - 6.4 verification:
@@ -375,4 +375,10 @@ Codex reviewed exactly `f9b8fe1..2c69fb6`: no Critical findings; three Important
 2. Important: automatic tag acceptance had no reachable current path, because processing inputs refused a subject or linked Part whose choice is `create`, while tags can only be added to a `create` spec. Mitch chose a new create-capable input. `bench-intake-input/5` (same `synthetic-research/2` profile and `processing/2` handler, otherwise identical to `/2`) is built only when the subject or linked Part has a create choice; inputs without one stay `/2` byte for byte, and research (`/3`), native (`/4`) and legacy (`/1`) inputs still refuse create. The currency rebuild uses the same constructor, so a create choice appearing or leaving makes a retained input stale. Regressions: a fast constructor test and a PG journey (Auto on, create choice, `/5` attempt, accepted tag suggestion, job still `ready` at the current revision); negative controls on the attempt constructor, the currency rebuild and version selection each fail.
 3. Important: discarding an unconfirmed group location cleared local state while `Batch` still held the retained command. Discard now runs the owner's explicit reload (which clears that command and remounts Capture); while the control is still mounted the reload failed, so the change and its protection stay. Regression in `CaptureWorkspace.media.test.tsx`.
 4. Minor: the status line at the top of this handover was stale. Updated, along with the Task 6 freshness note.
+
+#### Round 3
+
+Codex reviewed exactly `f9b8fe1..12d3ab9`: no Critical or Minor findings; one Important. Round-2 fixes 1–4 and input `/5` were confirmed.
+
+1. Important: the requested-automation note counted as evidence. With Auto tags on and no other evidence, it admitted an input and could be the only source of a `/4` quantity estimate. `isAutomationIntentNote` (`capture/context-input.ts`) now excludes it from the `/1` and `/2`/`/5` admission checks, and provenance refuses any proposal that cites it (`runner_source_mismatch`, every proposal version). With real evidence the input is still admitted, so the quantity question path is unchanged. Regression in `processing-provenance.test.ts`; negative controls on each of the three checks fail.
 

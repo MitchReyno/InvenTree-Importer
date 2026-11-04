@@ -52,6 +52,11 @@ export const AUTOMATION_NOTE_TEXT = [
   AUTO_TAGS_REQUESTED,
 ].join('\n')
 
+/** The server-derived intent note is never evidence, so it cannot admit an input or back a proposal. */
+export function isAutomationIntentNote(note: { id: string; text: string }, batchId: string) {
+  return note.id === automationNoteId(batchId) && note.text === AUTOMATION_NOTE_TEXT
+}
+
 /**
  * Requested automation is human intent, not evidence or an approved effect. Batches without Auto
  * tags add no note, so their processing inputs keep their exact bytes.
