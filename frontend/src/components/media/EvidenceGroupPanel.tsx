@@ -152,6 +152,7 @@ export function EvidenceGroupPanel({
               name={name}
               disabled={frozen || blocked(locationKey)}
               edit={captureEdit}
+              reload={reload}
               onDirtyChange={dirty(locationKey)}
             />
           )}

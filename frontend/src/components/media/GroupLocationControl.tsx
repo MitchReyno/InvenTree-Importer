@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CaptureAssignedLocationChangeDto, CaptureSnapshotDto } from '@invimport/contracts'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import { AssignedLocationField } from '../capture/AssignedLocationField'
@@ -10,6 +10,8 @@ interface Props {
   name: string
   disabled: boolean
   edit: CaptureWorkspaceProps['edit']
+  /** The owner's explicit discard: reloads saved values and clears its retained command. */
+  reload?: () => Promise<void>
   onDirtyChange: (dirty: boolean) => void
 }
 
@@ -23,10 +25,19 @@ export function GroupLocationControl({
   name,
   disabled,
   edit,
+  reload,
   onDirtyChange,
 }: Props) {
   const [draft, setDraft] = useState<CaptureAssignedLocationChangeDto | null>(null)
-  const [state, setState] = useState<'idle' | 'saving' | 'failed'>('idle')
+  const [state, setState] = useState<'idle' | 'saving' | 'failed' | 'discarding'>('idle')
+  const [reloadFailed, setReloadFailed] = useState(false)
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
   const saved = batch.group_locations?.find((item) => item.group_id === groupId)?.location
 
   async function save(location: CaptureAssignedLocationChangeDto) {
@@ -43,10 +54,22 @@ export function GroupLocationControl({
     onDirtyChange(false)
   }
 
-  function discard() {
-    setDraft(null)
-    setState('idle')
-    onDirtyChange(false)
+  /**
+   * The unconfirmed command is retained by the batch owner, so discard reloads saved values there.
+   * Success remounts Capture; while this control is still mounted the reload failed, so the draft
+   * and its protection stay.
+   */
+  async function discard() {
+    if (!reload) {
+      return
+    }
+    setState('discarding')
+    setReloadFailed(false)
+    await reload()
+    if (mounted.current) {
+      setState('failed')
+      setReloadFailed(true)
+    }
   }
 
   const shown = draft ? (draft.mode === 'unset' ? undefined : draft) : saved
@@ -61,6 +84,10 @@ export function GroupLocationControl({
         onChange={(location) => void save(location)}
       />
       {state === 'saving' && <Small role="status">Saving the group location…</Small>}
+      {state === 'discarding' && <Small role="status">Reloading saved values…</Small>}
+      {reloadFailed && (
+        <Small role="alert">Saved values could not be reloaded; the change is kept.</Small>
+      )}
       {state === 'failed' && draft && (
         <>
           <Small role="alert">
@@ -69,9 +96,11 @@ export function GroupLocationControl({
           <Button type="button" disabled={disabled} onClick={() => void save(draft)}>
             Retry group location
           </Button>
-          <Button type="button" onClick={discard}>
-            Discard group location change
-          </Button>
+          {reload && (
+            <Button type="button" onClick={() => void discard()}>
+              Discard group location change
+            </Button>
+          )}
         </>
       )}
     </>

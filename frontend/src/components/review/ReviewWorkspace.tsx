@@ -42,6 +42,8 @@ interface Props {
   mediaUnavailable?: boolean
   mediaLoading?: boolean
   processing?: ProcessingSnapshotDto
+  /** True only after a successful mounted Processing read at the displayed capture revision. */
+  processingCurrent?: boolean
   selected: string[]
   maxSelected: number
   busy: boolean
@@ -141,6 +143,7 @@ export function ReviewWorkspace({
   mediaUnavailable,
   mediaLoading,
   processing,
+  processingCurrent = false,
   selected,
   maxSelected,
   busy,
@@ -457,6 +460,7 @@ export function ReviewWorkspace({
                 mediaUnavailable={mediaUnavailable}
                 mediaLoading={mediaLoading}
                 processing={processing}
+                processingCurrent={processingCurrent}
                 edit={edit}
                 // Accepting remounts Review at the new revision, so any open draft fences it.
                 editDisabled={busy || stale || batch.archived || drafts.dirty}

@@ -1,6 +1,6 @@
 # Batch settings overhaul implementation
 
-Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) is implemented on `feat/batch-settings-overhaul-panel` and in independent review; Task 4.5 stays open until that review is clean and the selected CI passes. PR-C and PR-D have not started. Reviews, CI and merges are recorded only after they occur.
+Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) is implemented on `feat/batch-settings-overhaul-review` and in independent review; Task 6.5 stays open until that review is clean and the selected CI passes. PR-D has not started. Reviews, CI and merges are recorded only after they occur.
 
 ## Authority and boundaries
 
@@ -350,7 +350,7 @@ Plan (no new input or handler versions):
   - Frontend tests: acceptance is an explicit edit, a human count is kept, tags merge case-insensitively into a new Part, and an existing Part's tags are untouched.
 - Negative controls (restored by SHA-256) failed each target test: the estimated-only status, the lot-only rule, the Auto requirement, the intent note, and the human-count and existing-Part guards in Review.
 - Existing PG suites `processing`, `processing-media`, `processing-compatibility`, `research`, `capture-intent` and `operator-review` pass (30/30).
-- Provider limits: suggestions come only from the deterministic fixture path. The native runner and live inference are unchanged and unqualified; no schema pass or fixture estimate qualifies model reasoning. Review cannot tell whether an accepted suggestion's attempt input is still current, so it gates acceptance on the lot having no human count, and acceptance is always an explicit human edit.
+- Provider limits: suggestions come only from the deterministic fixture path. The native runner and live inference are unchanged and unqualified; no schema pass or fixture estimate qualifies model reasoning. Acceptance needs a ready attempt (the snapshot marks non-current inputs `superseded`) from a successful Processing read made after mount at the displayed capture revision; a quantity also needs the lot to have no human count. Acceptance is always an explicit human edit.
 - 6.5 remains open until PR-C's review and selected CI are evidenced.
 
 ### PR-C independent review
@@ -366,4 +366,13 @@ Codex (`gpt-6.1-sol`, read-only) reviewed exactly `f9b8fe1..81c0441`: no Critica
 5. Minor: Review's tag merge lowercased all Unicode. `tagKey` in contracts follows the inventory adapter (fold only all-printable-ASCII names), and a server test keeps it equal to `approvedTagNamesValid`.
 6. Minor: the Review table dropped the location source label. It now shows the value and its source.
 7. Minor: the processing test claimed unchanged bytes without the Part revision bump. It now models the revision and asserts only that the location value stays out.
+
+#### Round 2
+
+Codex reviewed exactly `f9b8fe1..2c69fb6`: no Critical findings; three Important and one Minor. Round-1 fixes 3–7 were confirmed.
+
+1. Important: cached Processing data could still enable acceptance after the capture revision moved. `ManualWorkspace` now passes `processingCurrent` only after a successful mounted read that is not refetching or failing and whose `capture_revision` matches the displayed batch; otherwise suggestions are history. Regression in `LotEvidence.test.tsx`.
+2. Important: automatic tag acceptance has no reachable current path, because synthetic inputs `/1`–`/3` refuse a subject or linked Part whose choice is `create`, while tags can only be added to a `create` spec. Open: this needs a decision (see below).
+3. Important: discarding an unconfirmed group location cleared local state while `Batch` still held the retained command. Discard now runs the owner's explicit reload (which clears that command and remounts Capture); while the control is still mounted the reload failed, so the change and its protection stay. Regression in `CaptureWorkspace.media.test.tsx`.
+4. Minor: the status line at the top of this handover was stale. Updated, along with the Task 6 freshness note.
 

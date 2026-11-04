@@ -23,6 +23,7 @@ interface Props {
   operatorLot?: OperatorLotDto
   media?: MediaSnapshotDto
   processing?: ProcessingSnapshotDto
+  processingCurrent?: boolean
   mediaUnavailable?: boolean
   mediaLoading?: boolean
   /** Explicit human edits that accept a suggestion; absent where Review is read-only. */
@@ -75,6 +76,7 @@ export function LotEvidence({
   operatorLot,
   media,
   processing,
+  processingCurrent = false,
   mediaUnavailable,
   mediaLoading,
   edit,
@@ -130,7 +132,7 @@ export function LotEvidence({
                 lot={lot}
                 part={part}
                 proposal={proposal.value}
-                current={job.state === 'ready'}
+                current={processingCurrent && job.state === 'ready'}
                 disabled={editDisabled}
                 edit={edit}
               />
