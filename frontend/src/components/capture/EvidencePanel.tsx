@@ -1,5 +1,5 @@
 import { HeadingRow, Caption } from '../ui/primitives'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Heading, Panel, Paragraph, Summary } from '../ui/primitives'
 import type { CaptureWorkspaceProps, Snapshot } from '../../capture/types'
 import styled from 'styled-components'
@@ -36,6 +36,23 @@ export function EvidencePanel({
   onNoteDirtyChange,
 }: Props) {
   const [writing, setWriting] = useState(false)
+  // Notes and media each advance the revision; one owner's save must not remount the other's draft.
+  const [mediaDirty, setMediaDirty] = useState(false)
+  const [noteDirty, setNoteDirty] = useState(false)
+  const reportMedia = useCallback(
+    (dirty: boolean) => {
+      setMediaDirty(dirty)
+      onMediaDirtyChange(dirty)
+    },
+    [onMediaDirtyChange],
+  )
+  const reportNote = useCallback(
+    (dirty: boolean) => {
+      setNoteDirty(dirty)
+      onNoteDirtyChange(dirty)
+    },
+    [onNoteDirtyChange],
+  )
   const notes = batch.notes
   const latestNote = notes.at(-1)
 
@@ -56,11 +73,11 @@ export function EvidencePanel({
           review={review}
           reload={reload}
           onWriteNote={writeNote}
-          noteDisabled={frozen || writing}
+          noteDisabled={frozen || writing || mediaDirty}
           batch={batch}
           client={media}
-          disabled={frozen}
-          onDirtyChange={onMediaDirtyChange}
+          disabled={frozen || noteDirty}
+          onDirtyChange={reportMedia}
         />
       )}
       {!media && (
@@ -75,9 +92,9 @@ export function EvidencePanel({
       )}
       {writing && (
         <EvidenceNoteForm
-          disabled={frozen}
+          disabled={frozen || mediaDirty}
           edit={edit}
-          onDirtyChange={onNoteDirtyChange}
+          onDirtyChange={reportNote}
           onClose={() => setWriting(false)}
         />
       )}

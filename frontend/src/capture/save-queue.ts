@@ -58,6 +58,8 @@ export class SaveQueue {
   private uncertain: Request<unknown> | null = null
   private readonly listeners = new Set<() => void>()
   private generation = 0
+  private suspended = false
+  private disposed = false
   private cached: QueueState | null = null
 
   constructor({ revision, debounceMs = 500 }: { revision: string; debounceMs?: number }) {
@@ -89,7 +91,9 @@ export class SaveQueue {
     const lane = this.lane<P>(id)
     lane.invalid = false
     clearTimeout(lane.timer)
-    const matchesSaved = same(payload, lane.saved) && !this.isInflight(id)
+    // While this lane's command is unacknowledged, its saved value may already be stale.
+    const matchesSaved =
+      same(payload, lane.saved) && !this.isInflight(id) && this.uncertain?.lane !== id
     lane.draft = matchesSaved ? null : { payload }
     lane.ready = false
     if (lane.draft) {
@@ -115,13 +119,14 @@ export class SaveQueue {
     this.changed()
   }
 
-  /** Pauses a scheduled send (for example during IME composition) without marking it invalid. */
-  defer(id: string) {
-    const lane = this.lanes.get(id)
-    if (lane) {
-      clearTimeout(lane.timer)
-      lane.ready = false
-    }
+  /** Holds every new dispatch (for example during IME composition); drafts keep their readiness. */
+  suspend() {
+    this.suspended = true
+  }
+
+  resume() {
+    this.suspended = false
+    this.pump()
   }
 
   /** Drops a definitely refused draft that the user chose not to correct, such as a logo file. */
@@ -149,7 +154,13 @@ export class SaveQueue {
 
   /** Resends the exact uncertain request: same payload, revision and key. */
   retry() {
-    if (this.blocked !== 'unconfirmed' || !this.uncertain || this.inflight || !this.connected) {
+    if (
+      this.disposed ||
+      this.blocked !== 'unconfirmed' ||
+      !this.uncertain ||
+      this.inflight ||
+      !this.connected
+    ) {
       return
     }
     const request = this.uncertain
@@ -231,8 +242,9 @@ export class SaveQueue {
     return this.cached
   }
 
-  /** Stops timers; an unmounted editor never adopts a late receipt. */
+  /** Stops timers and dispatch; an unmounted editor never sends or adopts a late receipt. */
   dispose() {
+    this.disposed = true
     this.generation += 1
     for (const lane of this.lanes.values()) {
       clearTimeout(lane.timer)
@@ -265,7 +277,7 @@ export class SaveQueue {
   }
 
   private pump() {
-    if (this.inflight || this.blocked || !this.connected) {
+    if (this.disposed || this.suspended || this.inflight || this.blocked || !this.connected) {
       return
     }
     for (const [id, lane] of this.lanes) {

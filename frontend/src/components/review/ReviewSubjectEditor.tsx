@@ -14,7 +14,9 @@ export const ADD_PART = 'add_part'
 type Props = {
   batch: Snapshot
   subjectId: string
-  disabled: boolean
+  /** Each surface is fenced separately, so one draft's save can never remount the other. */
+  subjectDisabled: boolean
+  attachmentDisabled: boolean
   dirty: boolean
   edit: CaptureWorkspaceProps['edit']
   observe: CaptureWorkspaceProps['observe']
@@ -32,7 +34,8 @@ type Props = {
 export function ReviewSubjectEditor({
   batch,
   subjectId,
-  disabled,
+  subjectDisabled,
+  attachmentDisabled,
   dirty,
   edit,
   observe,
@@ -89,7 +92,7 @@ export function ReviewSubjectEditor({
         key={subjectId}
         batch={batch}
         selected={subjectId}
-        frozen={disabled}
+        frozen={subjectDisabled}
         dirty={dirty}
         onDirty={onDirtyChange}
         edit={save}
@@ -100,7 +103,7 @@ export function ReviewSubjectEditor({
           batch={batch}
           subjectId={subjectId}
           client={media}
-          disabled={disabled}
+          disabled={attachmentDisabled}
           onDirtyChange={onAttachmentDirtyChange}
           reload={reload}
         />

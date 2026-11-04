@@ -354,8 +354,9 @@ export function ReviewWorkspace({
         <ReviewSubjectEditor
           batch={batch}
           subjectId={editing}
-          disabled={
-            busy || stale || batch.archived || drafts.hasOtherSources('subject', 'attachment')
+          subjectDisabled={busy || stale || batch.archived || drafts.hasOtherSources('subject')}
+          attachmentDisabled={
+            busy || stale || batch.archived || drafts.hasOtherSources('attachment')
           }
           dirty={drafts.dirty}
           edit={edit}

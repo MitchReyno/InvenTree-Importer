@@ -85,6 +85,7 @@ test('a pending original pauses settings and keeps its request when Capture rere
   expect(screen.getByLabelText('Batch title')).toBeDisabled()
   expect(screen.getByText(/Finish or discard the evidence change/)).toBeVisible()
   expect(screen.getByRole('button', { name: 'Archive batch' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Write a note' })).toBeDisabled()
   view.rerender(
     <CaptureWorkspace {...props} batch={{ ...batch, updated_at: '2026-11-02T00:01:00Z' }} />,
   )
@@ -179,4 +180,26 @@ test('batch instructions cannot replace the active media query during a live inv
     'success',
   )
   expect(note).toHaveValue('Preserve this instruction draft.')
+})
+
+test('an unsaved evidence note freezes media editing until it is saved or discarded', async () => {
+  const user = userEvent.setup()
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      media={mediaClient()}
+      edit={vi.fn(async () => true)}
+      observe={vi.fn(async () => null)}
+      onDirtyChange={vi.fn()}
+      settings={ports()}
+    />,
+  )
+  const input = await screen.findByLabelText('Choose photos')
+  await waitFor(() => expect(input).toBeEnabled())
+  await user.click(screen.getByRole('button', { name: 'Write a note' }))
+  await user.type(screen.getByRole('textbox', { name: 'Evidence note' }), 'Opened packet')
+  expect(input).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Discard note' }))
+  await waitFor(() => expect(input).toBeEnabled())
 })

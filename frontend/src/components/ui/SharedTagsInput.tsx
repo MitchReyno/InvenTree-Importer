@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import styled from 'styled-components'
 import { CheckboxLabel, Input, Label, Small } from './primitives'
 
@@ -10,6 +10,8 @@ const MAX_TAG_CHARACTERS = 100
 type Props = {
   value: SharedTags
   onChange: (value: SharedTags) => void
+  /** Reports typed text not yet added as a tag, so navigation can protect it. */
+  onPendingChange?: (pending: boolean) => void
   disabled?: boolean
 }
 
@@ -17,10 +19,15 @@ type Props = {
  * Manual shared tags are exact human values; Auto independently asks for reviewed suggestions.
  * Duplicates are compared case-insensitively and the first spelling is kept.
  */
-export function SharedTagsInput({ value, onChange, disabled = false }: Props) {
+export function SharedTagsInput({ value, onChange, onPendingChange, disabled = false }: Props) {
   const id = useId()
   const [draft, setDraft] = useState('')
   const [problem, setProblem] = useState('')
+  const pending = draft.trim().length > 0
+  useEffect(() => {
+    onPendingChange?.(pending)
+  }, [onPendingChange, pending])
+  useEffect(() => () => onPendingChange?.(false), [onPendingChange])
   const full = value.manual.length >= MAX_TAGS
 
   function add(text = draft) {

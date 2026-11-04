@@ -188,12 +188,14 @@ Browser qualification ([evidence](../bench-intake/evidence/batch-settings-overha
 
 ### PR-B independent review
 
-Codex (`gpt-6.1-sol`, read-only) reviewed exactly `1514e91..bfe0a3b`: no Critical findings; six Important and four Minor, all fixed:
+#### Round 1
+
+Codex (`gpt-6.1-sol`, read-only) reviewed exactly `1514e91..bfe0a3b`: no Critical findings; six Important and four Minor. Round 2 found that 1, 2 and 4 were only partly fixed; see Round 2.
 
 1. Important: a dirty Review subject editor did not fence the Decision panel or table, whose commands remount Review and lose the draft. Review now disables each command surface while another dirty source exists (`hasOtherSources`), and the manual subject actions while anything is dirty. The Decision panel's legacy Edit in Capture link is removed. Regression: an add-lot draft disables the focused lot's quantity correction.
 2. Important: the relocated attachment choice ignored its dirty state and recovery. It now reports an `attachment` dirty source, shows retained-command errors with exact retry and discard, and reloads saved values after a confirmed change. Regression: an uncertain change keeps the editor open, and the exact retry resends the same request and then reloads.
 3. Important: saved instructions arriving after Capture never populated the textbox. A new saved instruction version is adopted while the operator has not typed; negative control confirmed.
-4. Important: instruction text finished during IME composition never reached its lane, and pending debounces kept running. Composition start defers both lanes and keeps navigation dirty; composition end schedules the lane that owns the composed field; negative control confirmed.
+4. Important: instruction text finished during IME composition never reached its lane, and pending debounces kept running. Composition keeps navigation dirty and schedules the lane that owns the composed field when it ends; negative control confirmed. Round 2 replaced the per-lane pause with a queue-wide suspension.
 5. Important: a rerender during reconnection could release queued writes before the read finished. Reconciliation is tracked separately from connection; writes and exact retries wait for a successful read, and a failed read retries after two seconds. Regression rerenders while the read is pending.
 6. Important: availability did not enforce freshness. See Availability above; regression: a capture observation older than 60 seconds disables settings until a fresh read.
 7. Minor: a refused logo stayed "Uploading". The refusal is shown, the rejected draft is discarded (`SaveQueue.discard`) and a replacement file can be chosen.
@@ -201,8 +203,22 @@ Codex (`gpt-6.1-sol`, read-only) reviewed exactly `1514e91..bfe0a3b`: no Critica
 9. Minor: ID tie-breaking used `Number`, losing order beyond 2^53. It now compares with `BigInt`; regression with `9999999999999999` and `10000000000000000`.
 10. Minor: the evidence README cited `results.json`, which the repository ignores. The record is committed as `browser-results.json`.
 
-Also restored: projection-mismatch coverage (a polled operator projection at a newer revision keeps the instruction draft until the Batch-level discard-and-reload), alongside the separate instruction-conflict test. After the fixes: frontend 257/257 tests, typecheck, ESLint, readability lint, Prettier, Markdown lint and build pass. The fixed candidate needs a fresh Codex review.
+Also restored: projection-mismatch coverage (a polled operator projection at a newer revision keeps the instruction draft until the Batch-level discard-and-reload), alongside the separate instruction-conflict test. Fixed in `52845e2`; frontend 257/257 tests.
+
+#### Round 2
+
+Codex reviewed exactly `1514e91..52845e2`: no Critical findings; five Important and two Minor. Round-1 findings 3 and 5–10 were confirmed fixed. Each fix below has a regression test that fails when the fix is reverted (negative controls restored by SHA-256):
+
+1. Important: after an uncertain acknowledgement, editing back to the old saved value was dropped as "matches saved", so the exact retry reported saved while the field showed another value. A lane with an unconfirmed request now keeps every draft; regressions revert before and after the lost acknowledgement.
+2. Important: the subject form and attachment choice in the Review editor shared one fence, so either save could remount Review over the other's draft. They now have separate `subjectDisabled` and `attachmentDisabled` fences, including exact retry; discarding stays reachable.
+3. Important: a reconnection read settling after Capture unmounted (explicit discard/reload) could revive the old queue. `SaveQueue.dispose` now stops all dispatch (updates, reconnection and retry), and the panel ignores late reads and retry timers after unmount.
+4. Important: a late supplier or location observation could override a newer choice (No supplier, a later record) and replace drafts created while it was pending. Each field orders choices with `useIntentTicket`: only the newest still-mounted choice applies, against current drafts read from the form. Location selection and parent choice are ordered separately; typing draft text supersedes neither.
+5. Important: an evidence note and media editing did not fence each other, so one's save could remount Capture over the other's draft. While media is dirty, Write a note and the note form are disabled; while a note is dirty, media editing is disabled. The assertion that a pending original disables Write a note is restored.
+6. Minor: composition start paused only the composed lanes, so a waiting lane could stall after composition. `SaveQueue.suspend`/`resume` now hold every dispatch during composition, and resuming sends each ready lane.
+7. Minor: tag text typed but not yet added did not protect navigation. `SharedTagsInput` reports pending text, and the panel stays dirty until it is added or cleared.
+
+After the fixes: frontend 267/267 tests, typecheck and ESLint pass. The fixed candidate needs a fresh Codex review.
 
 Still to do for 4.5: Codex re-review and selected CI.
 
-Limitations: draft persistence across a browser crash/reload is not promised (beforeunload protection only). Batch-level evidence edits (`Batch.edit`) remain a separate owner serialized with settings by pausing rather than by sharing the queue. The `App.media` test now waits for the photo input to enable, because the panel's initial reconnection read shifts when the first fresh media read completes.
+Limitations: draft persistence across a browser crash/reload is not promised (beforeunload protection only). Batch-level evidence edits (`Batch.edit`) and media commands remain separate owners from the settings queue; they are serialized with settings and with each other by fencing rather than by sharing the queue. The `App.media` test now waits for the photo input to enable, because the panel's initial reconnection read shifts when the first fresh media read completes.

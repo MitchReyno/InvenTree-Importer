@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type {
   CatalogueRecordDto,
   CaptureDefaultLocationSettingDto,
@@ -6,6 +6,7 @@ import type {
 } from '@invimport/contracts'
 import type { CaptureWorkspaceProps, Snapshot } from '../../capture/types'
 import { referenceLabel } from '../../capture/settings-model'
+import { useIntentTicket } from '../../capture/useIntentTicket'
 import type { useCatalogue } from '../../catalogue/useCatalogue'
 import { SearchableReferencePicker } from '../ui/SearchableReferencePicker'
 import { Button, Field, Input, Label, Small, Subheading } from '../ui/primitives'
@@ -17,6 +18,8 @@ type Props = {
   batch: Snapshot
   value: CaptureDefaultLocationSettingDto
   drafts: CaptureReferenceDraftDto[]
+  /** Reads drafts at apply time, so a late result never replaces drafts made meanwhile. */
+  currentDrafts: () => CaptureReferenceDraftDto[]
   catalogue: Catalogue
   observe: CaptureWorkspaceProps['observe']
   disabled: boolean
@@ -34,6 +37,7 @@ export function DefaultLocationField({
   batch,
   value,
   drafts,
+  currentDrafts,
   catalogue,
   observe,
   disabled,
@@ -41,14 +45,29 @@ export function DefaultLocationField({
   onTextEdit,
 }: Props) {
   const [problem, setProblem] = useState('')
+  // Selection and parent choices are ordered separately; typing a draft name supersedes neither.
+  const selection = useIntentTicket()
+  const parentChoice = useIntentTicket()
+  const latestValue = useRef(value)
+  latestValue.current = value
   const draft =
     value.mode === 'draft'
       ? (drafts.find((item) => item.draft_id === value.draft_id) as LocationDraft | undefined)
       : undefined
 
-  async function observed(record: CatalogueRecordDto) {
+  function select(next: CaptureDefaultLocationSettingDto, nextDrafts: CaptureReferenceDraftDto[]) {
+    selection.take()
+    onChange(next, nextDrafts)
+  }
+
+  /** Resolves to null when observation fails or a newer intent superseded this choice. */
+  async function observed(record: CatalogueRecordDto, intent: ReturnType<typeof useIntentTicket>) {
     setProblem('')
+    const ticket = intent.take()
     const observation = await observe('location', record.pk)
+    if (!intent.isCurrent(ticket)) {
+      return null
+    }
     if (!observation) {
       setProblem('The selected location could not be confirmed. The previous choice is kept.')
       return null
@@ -62,9 +81,9 @@ export function DefaultLocationField({
   }
 
   async function choose(record: CatalogueRecordDto) {
-    const reference = await observed(record)
+    const reference = await observed(record, selection)
     if (reference) {
-      onChange({ mode: 'set', value: reference }, drafts)
+      onChange({ mode: 'set', value: reference }, currentDrafts())
     }
   }
 
@@ -74,7 +93,7 @@ export function DefaultLocationField({
       kind: 'location',
       value: { name, description: '', parent: null },
     }
-    onChange({ mode: 'draft', draft_id: next.draft_id }, [...drafts, next])
+    select({ mode: 'draft', draft_id: next.draft_id }, [...drafts, next])
   }
 
   function editDraft(change: Partial<LocationDraft['value']>) {
@@ -89,10 +108,20 @@ export function DefaultLocationField({
   }
 
   async function chooseParent(record: CatalogueRecordDto) {
-    const reference = await observed(record)
-    if (reference) {
-      editDraft({ parent: reference })
+    const draftId = draft?.draft_id
+    const reference = await observed(record, parentChoice)
+    if (!reference) {
+      return
     }
+    // Apply to the draft as it is now, keeping any name or description typed meanwhile.
+    onChange(
+      latestValue.current,
+      currentDrafts().map((item) =>
+        item.draft_id === draftId && item.kind === 'location'
+          ? { ...item, value: { ...item.value, parent: reference } }
+          : item,
+      ),
+    )
   }
 
   const selected =
@@ -162,7 +191,14 @@ export function DefaultLocationField({
             disabled={disabled}
           />
           {parent && (
-            <Button type="button" disabled={disabled} onClick={() => editDraft({ parent: null })}>
+            <Button
+              type="button"
+              disabled={disabled}
+              onClick={() => {
+                parentChoice.take()
+                editDraft({ parent: null })
+              }}
+            >
               No parent location
             </Button>
           )}
@@ -172,11 +208,7 @@ export function DefaultLocationField({
         </Field>
       )}
       {(value.mode === 'set' || value.mode === 'draft') && (
-        <Button
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange({ mode: 'unset' }, drafts)}
-        >
+        <Button type="button" disabled={disabled} onClick={() => select({ mode: 'unset' }, drafts)}>
           Remove default location
         </Button>
       )}

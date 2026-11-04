@@ -74,7 +74,8 @@ function Harness({ client, reload }: { client: MediaClient; reload: () => Promis
     <ReviewSubjectEditor
       batch={batch}
       subjectId={lotId}
-      disabled={false}
+      subjectDisabled={drafts.hasOtherSources('subject')}
+      attachmentDisabled={drafts.hasOtherSources('attachment')}
       dirty={drafts.dirty}
       edit={vi.fn(async () => true)}
       observe={vi.fn(async () => null)}
@@ -114,4 +115,30 @@ test('an uncertain attachment change blocks closing and offers only exact retry 
   await waitFor(() => expect(reload).toHaveBeenCalledOnce())
   expect(vi.mocked(client.edit).mock.calls[1]).toEqual(vi.mocked(client.edit).mock.calls[0])
   expect(screen.getByRole('button', { name: 'Close editor' })).toBeEnabled()
+})
+
+test('a subject draft and an attachment change fence each other', async () => {
+  const user = userEvent.setup()
+  const client: MediaClient = {
+    snapshot: vi.fn(async () => media),
+    edit: vi.fn(async () => {
+      throw new TypeError('acknowledgement_lost')
+    }),
+    upload: vi.fn(),
+  }
+  const reload = vi.fn(async () => undefined)
+  render(<Harness client={client} reload={reload} />)
+  const choice = await screen.findByLabelText('Attachment for Packet A')
+  await waitFor(() => expect(choice).toBeEnabled())
+  const label = screen.getByLabelText('Lot label')
+  await user.type(label, ' renamed')
+  expect(choice).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Discard unsaved input' }))
+  await waitFor(() => expect(choice).toBeEnabled())
+  await user.selectOptions(choice, versionId)
+  await screen.findByRole('button', { name: 'Retry exact attachment change' })
+  expect(label).toBeDisabled()
+  expect(
+    screen.getByRole('button', { name: 'Discard unconfirmed attachment change' }),
+  ).toBeEnabled()
 })

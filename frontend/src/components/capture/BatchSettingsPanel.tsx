@@ -83,6 +83,7 @@ export function BatchSettingsPanel({
   const [logo, setLogo] = useState<LogoUpload>({ state: 'idle' })
   const composing = useRef(false)
   const [composingText, setComposingText] = useState(false)
+  const [tagPending, setTagPending] = useState(false)
   const textEdit = useRef(false)
   const instructionsTouched = useRef(false)
   const files = useRef(new Map<string, File>())
@@ -92,6 +93,7 @@ export function BatchSettingsPanel({
   const reading = useRef(false)
   const connectedNow = useRef(connected)
   const [readAttempt, setReadAttempt] = useState(0)
+  const mounted = useRef(true)
   const editable = ports !== undefined && connected && !batch.archived && !paused
   const locations = useCatalogue(ports?.catalogue, batch.id, 'location', editable)
   const suppliers = useCatalogue(ports?.catalogue, batch.id, 'supplier', editable)
@@ -146,8 +148,8 @@ export function BatchSettingsPanel({
   })
 
   useEffect(() => {
-    onDirty(state.dirty || composingText)
-  }, [composingText, onDirty, state.dirty])
+    onDirty(state.dirty || composingText || tagPending)
+  }, [composingText, onDirty, state.dirty, tagPending])
 
   useEffect(() => {
     if (state.blocked === 'unconfirmed' && state.lanes.logo === 'pending') {
@@ -188,6 +190,13 @@ export function BatchSettingsPanel({
   }, [batch, operatorReview, queue, reset, state.dirty, state.revision])
 
   useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
+  useEffect(() => {
     connectedNow.current = connected
     if (!ports) {
       return
@@ -209,6 +218,9 @@ export function BatchSettingsPanel({
     ports.read().then(
       (snapshot) => {
         reading.current = false
+        if (!mounted.current) {
+          return
+        }
         if (connectedNow.current) {
           reconciled.current = true
           ports.accept(snapshot)
@@ -217,7 +229,13 @@ export function BatchSettingsPanel({
       },
       () => {
         reading.current = false
-        setTimeout(() => setReadAttempt((value) => value + 1), RECONCILE_RETRY_MS)
+        if (mounted.current) {
+          setTimeout(() => {
+            if (mounted.current) {
+              setReadAttempt((value) => value + 1)
+            }
+          }, RECONCILE_RETRY_MS)
+        }
       },
     )
   }, [connected, ports, queue, readAttempt])
@@ -367,8 +385,7 @@ export function BatchSettingsPanel({
         onCompositionStart={() => {
           composing.current = true
           setComposingText(true)
-          queue.defer('settings')
-          queue.defer('instructions')
+          queue.suspend()
         }}
         onCompositionEnd={(event) => {
           composing.current = false
@@ -379,6 +396,7 @@ export function BatchSettingsPanel({
           } else {
             scheduleText()
           }
+          queue.resume()
         }}
       >
         <Fieldset disabled={!editable}>
@@ -421,6 +439,7 @@ export function BatchSettingsPanel({
             batch={batch}
             value={values.defaultLocation}
             drafts={values.drafts}
+            currentDrafts={() => getValues('drafts')}
             catalogue={locations}
             observe={observe}
             disabled={!editable}
@@ -433,6 +452,7 @@ export function BatchSettingsPanel({
             batch={batch}
             value={values.intent.supplier}
             drafts={values.drafts}
+            currentDrafts={() => getValues('drafts')}
             catalogue={suppliers}
             observe={observe}
             disabled={!editable}
@@ -455,6 +475,7 @@ export function BatchSettingsPanel({
               <SharedTagsInput
                 value={field.value}
                 disabled={!editable}
+                onPendingChange={setTagPending}
                 onChange={(value) => {
                   field.onChange(value)
                   schedule()

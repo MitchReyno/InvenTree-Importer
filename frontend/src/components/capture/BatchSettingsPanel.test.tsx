@@ -566,3 +566,174 @@ test('a refused logo is reported and a replacement file can be chosen', async ()
   expect(within(panel).getByLabelText('Supplier logo (optional)')).toBeEnabled()
   expect(dirty).toHaveBeenLastCalledWith(false)
 })
+
+test('composing in one field resumes the other lane once composition ends', async () => {
+  const { title, panel, user } = setup()
+  await user.type(title, ' A')
+  await idle()
+  const text = within(panel).getByRole('textbox', { name: 'Custom instructions' })
+  await user.type(text, 'Keep apart')
+  await idle()
+  expect(instructs).toHaveLength(0)
+  fireEvent.compositionStart(title)
+  await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
+  await act(() => vi.advanceTimersByTimeAsync(2000))
+  expect(instructs).toHaveLength(0)
+  fireEvent.change(title, { target: { value: 'Two packets A 電子' } })
+  fireEvent.compositionEnd(title)
+  await settle()
+  expect(instructs.map((item) => item.text)).toEqual(['Keep apart'])
+})
+
+test('a reconnection read that settles after unmount never releases the old drafts', async () => {
+  let finish = () => undefined as void
+
+  const read = vi.fn(
+    () =>
+      new Promise<CaptureSnapshotDto>((resolve) => {
+        finish = () => resolve(batch)
+      }),
+  )
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  const view = render(<Host read={read} />)
+  view.rerender(<Host read={read} connected={false} />)
+  await user.type(screen.getByLabelText('Batch title'), ' offline')
+  view.rerender(<Host read={read} connected />)
+  view.unmount()
+  await act(async () => finish())
+  await act(() => vi.advanceTimersByTimeAsync(3000))
+  expect(saves).toHaveLength(0)
+})
+
+function supplierCatalogue() {
+  const record = (pk: string, name: string) => ({
+    kind: 'supplier' as const,
+    pk,
+    name,
+    description: '',
+    manufacturer: false,
+  })
+
+  return {
+    candidates: vi.fn(async () => ({
+      model: 'supplier' as const,
+      target_context_id: fixtureScope.targetContextId,
+      candidates: [record('7', 'Mouser Electronics'), record('8', 'Digi-Key')],
+      coverage: { loaded: 2, total: 2, truncated: false },
+    })),
+    search: vi.fn(async (_id: string, model: 'location' | 'supplier', q: string) => ({
+      model,
+      target_context_id: fixtureScope.targetContextId,
+      query: q,
+      results: [],
+      coverage: { loaded: 0, total: 0, truncated: false },
+      exact_id: { status: 'not_requested' as const },
+    })),
+  } as unknown as CatalogueClient
+}
+
+function observation(pk: string): CaptureObservationDto {
+  return {
+    id: `70000000-0000-4000-8000-${pk.padStart(12, '0')}`,
+    model: 'company',
+    pk,
+    target_context_id: fixtureScope.targetContextId,
+    label: `Supplier ${pk}`,
+    mapping: { kind: 'company', supplier: true },
+  } as unknown as CaptureObservationDto
+}
+
+test('a late supplier observation never overrides a newer No supplier or newer selection', async () => {
+  const pending = new Map<string, (value: CaptureObservationDto) => void>()
+  const observe = vi.fn(
+    (_model: string, pk: string) =>
+      new Promise<CaptureObservationDto | null>((resolve) => pending.set(pk, resolve)),
+  )
+  const { user, panel } = setup({ catalogue: supplierCatalogue(), observe })
+  const picker = within(panel).getByRole('combobox', { name: 'Supplier' })
+  await user.type(picker, 'Mous')
+  await user.click(await screen.findByRole('option', { name: /Mouser Electronics · #7/ }))
+  await user.click(within(panel).getByRole('checkbox', { name: 'No supplier' }))
+  await act(async () => pending.get('7')!(observation('7')))
+  await idle()
+  expect(saves.map((item) => item.change.intent.supplier)).toEqual([
+    { absent: true, selection: { mode: 'unset' } },
+  ])
+  await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
+  await user.click(within(panel).getByRole('checkbox', { name: 'No supplier' }))
+  await idle()
+  await act(async () => saves[1].resolve(nextSnapshot(batch, saves[1])))
+  await user.type(picker, 'Mous')
+  await user.click(await screen.findByRole('option', { name: /Mouser Electronics · #7/ }))
+  await user.type(picker, 'Digi')
+  await user.click(await screen.findByRole('option', { name: /Digi-Key · #8/ }))
+  await act(async () => pending.get('8')!(observation('8')))
+  await act(async () => pending.get('7')!(observation('7')))
+  await idle()
+  expect(saves.at(-1)!.change.intent.supplier).toMatchObject({
+    absent: false,
+    selection: { mode: 'existing', reference: { pk: '8' } },
+  })
+})
+
+test('a late location observation keeps a supplier draft created while it was pending', async () => {
+  let release = () => undefined as void
+
+  const location = {
+    kind: 'location' as const,
+    pk: '41',
+    name: 'Drawer',
+    description: '',
+    path: 'Bench/Drawer',
+    parent_pk: null,
+    structural: false,
+  }
+  const catalogue = {
+    candidates: vi.fn(async (_id: string, model: 'location' | 'supplier') => ({
+      model,
+      target_context_id: fixtureScope.targetContextId,
+      candidates: model === 'location' ? [location] : [],
+      coverage: { loaded: 1, total: 1, truncated: false },
+    })),
+    search: supplierCatalogue().search,
+  } as unknown as CatalogueClient
+  const observe = vi.fn(
+    (model: string, pk: string) =>
+      new Promise<CaptureObservationDto | null>((resolve) => {
+        release = () =>
+          resolve({ ...observation(pk), model, mapping: { kind: 'location' } } as never)
+      }),
+  )
+  const { user, panel } = setup({ catalogue, observe })
+  await user.type(within(panel).getByRole('combobox', { name: 'Default location' }), 'Draw')
+  await user.click(await screen.findByRole('option', { name: /Drawer/ }))
+  await user.type(within(panel).getByRole('combobox', { name: 'Supplier' }), 'Rare Parts')
+  await user.click(await screen.findByRole('option', { name: 'New supplier “Rare Parts”' }))
+  await act(async () => release())
+  await idle()
+  for (let index = 0; index < saves.length; index += 1) {
+    await act(async () => saves[index].resolve(nextSnapshot(batch, saves[index])))
+    await idle()
+  }
+  const last = saves.at(-1)!.change
+  expect(last.default_location).toMatchObject({ mode: 'set', value: { pk: '41' } })
+  expect(last.intent.supplier.selection.mode).toBe('draft')
+  expect(last.drafts.map((item) => item.kind)).toEqual(['company'])
+})
+
+test('typed tag text protects navigation before it is added', async () => {
+  const dirty = vi.fn()
+  const { user, panel } = setup({ onDirtyChange: dirty })
+  const tag = within(panel).getByRole('textbox', { name: 'Add shared part tag' })
+  await user.type(tag, 'bench')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  expect(saves).toHaveLength(0)
+  await user.clear(tag)
+  expect(dirty).toHaveBeenLastCalledWith(false)
+  await user.type(tag, 'bench{Enter}')
+  await settle()
+  expect(saves[0].change.intent.shared_tags.manual).toEqual(['bench'])
+  await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
+  await settle()
+  expect(dirty).toHaveBeenLastCalledWith(false)
+})

@@ -6,6 +6,7 @@ import type {
 } from '@invimport/contracts'
 import type { CaptureWorkspaceProps, Snapshot } from '../../capture/types'
 import { referenceLabel } from '../../capture/settings-model'
+import { useIntentTicket } from '../../capture/useIntentTicket'
 import type { useCatalogue } from '../../catalogue/useCatalogue'
 import { DisabledFeature } from '../ui/DisabledFeature'
 import { SearchableReferencePicker } from '../ui/SearchableReferencePicker'
@@ -21,6 +22,8 @@ type Props = {
   batch: Snapshot
   value: Supplier
   drafts: CaptureReferenceDraftDto[]
+  /** Reads drafts at apply time, so a late result never replaces drafts made meanwhile. */
+  currentDrafts: () => CaptureReferenceDraftDto[]
   catalogue: Catalogue
   observe: CaptureWorkspaceProps['observe']
   disabled: boolean
@@ -38,6 +41,7 @@ export function SupplierField({
   batch,
   value,
   drafts,
+  currentDrafts,
   catalogue,
   observe,
   disabled,
@@ -47,15 +51,26 @@ export function SupplierField({
   onTextEdit,
 }: Props) {
   const [problem, setProblem] = useState('')
+  // Each selection or absence change supersedes a pending observation; draft text does not.
+  const intent = useIntentTicket()
   const selection = value.selection
   const draft =
     selection.mode === 'draft'
       ? (drafts.find((item) => item.draft_id === selection.draft_id) as CompanyDraft | undefined)
       : undefined
 
+  function emit(next: Supplier, nextDrafts: CaptureReferenceDraftDto[]) {
+    intent.take()
+    onChange(next, nextDrafts)
+  }
+
   async function choose(record: CatalogueRecordDto) {
     setProblem('')
+    const ticket = intent.take()
     const observation = await observe('company', record.pk)
+    if (!intent.isCurrent(ticket)) {
+      return
+    }
     if (!observation || observation.mapping?.kind !== 'company' || !observation.mapping.supplier) {
       setProblem('The selected supplier could not be confirmed. The previous choice is kept.')
       return
@@ -73,7 +88,7 @@ export function SupplierField({
           },
         },
       },
-      drafts,
+      currentDrafts(),
     )
   }
 
@@ -83,7 +98,7 @@ export function SupplierField({
       kind: 'company',
       value: { name, description: '', also_manufacturer: false, logo: null },
     }
-    onChange({ absent: false, selection: { mode: 'draft', draft_id: next.draft_id } }, [
+    emit({ absent: false, selection: { mode: 'draft', draft_id: next.draft_id } }, [
       ...drafts,
       next,
     ])
@@ -116,7 +131,7 @@ export function SupplierField({
           type="checkbox"
           checked={value.absent}
           disabled={disabled}
-          onChange={(event) => onChange({ ...value, absent: event.target.checked }, drafts)}
+          onChange={(event) => emit({ ...value, absent: event.target.checked }, drafts)}
         />
         No supplier
       </CheckboxLabel>
