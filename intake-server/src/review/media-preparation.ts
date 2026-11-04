@@ -71,7 +71,22 @@ export async function requirePreparationMedia(
     inputsBySubject.set(retained.subjectId, inputs)
   }
   const sameManifest = mediaManifestDigest(inputsBySubject) === plan.mediaInputsDigest
-  const sameEvidence = canonical(retainedEvidence(inputsBySubject)) === canonical(plan.evidence)
+  // A new supplier logo and its original are the only evidence beyond the retained manifests.
+  const logoIds = new Set(
+    ('companies' in plan ? (plan.companies ?? []) : []).flatMap((company) =>
+      company.spec.logo ? [company.spec.logo.versionId, company.spec.logo.originalVersionId] : [],
+    ),
+  )
+  const expected = new Map(
+    [
+      ...retainedEvidence(inputsBySubject),
+      ...plan.evidence.filter((item) => logoIds.has(item.versionId)),
+    ].map((item) => [item.versionId, item]),
+  )
+  const sameEvidence =
+    canonical(
+      [...expected.values()].sort((left, right) => left.versionId.localeCompare(right.versionId)),
+    ) === canonical(plan.evidence)
   if (!sameManifest || !sameEvidence) {
     throw new Error('prepared_media_authority_changed')
   }

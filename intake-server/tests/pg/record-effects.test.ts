@@ -4,6 +4,14 @@ import { randomUUID } from 'node:crypto'
 import type { CaptureSnapshotDto, ManualPreviewDto, ManualRunDto } from '@invimport/contracts'
 import { manualFixture } from '../support/manual.ts'
 import { executeManualDispatch } from '../../src/review/runner.ts'
+import { createHash } from 'node:crypto'
+import { mediaRepository } from '../../src/media/repository.ts'
+import { processMediaCommand } from '../../src/media/worker.ts'
+
+const png = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAD0lEQVQImWP4ICLHdUIDAAhZAh0cg3OhAAAAAElFTkSuQmCC',
+  'base64',
+)
 import { companyCreateKey, locationCreateKey } from '../../src/execution/effects-plan.ts'
 
 type Fixture = Awaited<ReturnType<typeof manualFixture>>
@@ -46,8 +54,15 @@ async function apply(fixture: Fixture, runId: string) {
 }
 
 /** Packet A resolves to the batch default, which becomes a new-location draft. */
-async function draftedBatch(fixture: Fixture, parentPk: string | null = '43') {
+async function draftedBatch(
+  fixture: Fixture,
+  parentPk: string | null = '43',
+  logoFor: (
+    batchId: string,
+  ) => Promise<{ evidence_id: string; version_id: string } | null> = async () => null,
+) {
   const capture = await fixture.seedCapture()
+  const logo = await logoFor(capture.batch.id)
   const batch = capture.batch
   const parentObservation = parentPk
     ? batch.observations.find((item) => item.model === 'location' && item.pk === parentPk)!
@@ -84,7 +99,7 @@ async function draftedBatch(fixture: Fixture, parentPk: string | null = '43') {
       {
         draft_id: companyDraft,
         kind: 'company',
-        value: { name: 'Acme Reels', description: '', also_manufacturer: true, logo: null },
+        value: { name: 'Acme Reels', description: '', also_manufacturer: true, logo },
       },
     ],
   })
@@ -448,6 +463,74 @@ test(
         await fixture.db.pool.query("SELECT pk FROM fake_record WHERE family='location'")
       ).rows[0].pk
       assert.equal((await fixture.fake.stocks())[0].location, String(location))
+    } finally {
+      await fixture.dispose()
+    }
+  },
+)
+
+test(
+  'a new supplier logo is sent once as the company image and confirmed from the output',
+  { timeout: 120000 },
+  async (context) => {
+    const image = process.env.INTAKE_MEDIA_DECODER_IMAGE
+    if (!image) {
+      context.skip('explicit isolated decoder image required')
+      return
+    }
+    const fixture = await manualFixture({ records: true, media: true })
+    try {
+      const { capture, companyDraft } = await draftedBatch(fixture, '43', async (batchId) => {
+        const repository = mediaRepository(fixture.api.pool, fixture.config, fixture.store!)
+        const uploaded = (await repository.upload(batchId, randomUUID(), '1', 'logo.png', png)) as {
+          evidence_id: string
+          version: { id: string }
+        }
+        await processMediaCommand(fixture.db.pool, fixture.store!, fixture.config, image)
+        return { evidence_id: uploaded.evidence_id, version_id: uploaded.version.id }
+      })
+      const runId = await approved(fixture, capture.batch, capture.a.id)
+      await fixture.fake.fault('record_without_image')
+      assert.equal((await apply(fixture, runId)).state, 'recovery_required')
+      await fixture.fake.fault('none')
+      const unconfirmed = (await fixture.http(`/runs/${runId}`)).value as ManualRunDto
+      const pending = unconfirmed.supported_effects!.find(
+        (effect) => effect.operation_key === companyCreateKey(companyDraft),
+      )!
+      assert.equal(pending.certainty, 'unknown', 'an output without the image is not confirmed')
+      const selected = await fixture.http(`/runs/${runId}/recover`, {
+        expected_run_revision: unconfirmed.revision,
+        assessment_keys: [pending.operation_key],
+      })
+      assert.equal(selected.status, 200, JSON.stringify(selected.value))
+      const command = (
+        await fixture.db.pool.query(
+          'SELECT c.workflow_id,c.payload_bytes FROM manual_dispatch d JOIN command c ON c.id=d.command_id WHERE d.run_id=$1 ORDER BY d.sequence DESC LIMIT 1',
+          [runId],
+        )
+      ).rows[0]
+      await executeManualDispatch(
+        fixture.runner.pool,
+        fixture.runnerConfig,
+        command.workflow_id,
+        JSON.parse(command.payload_bytes.toString('utf8')),
+      )
+      const companies = (await fixture.fake.records()).filter(
+        (value) => value.method === 'POST' && value.path === '/api/company/',
+      )
+      assert.equal(companies.length, 1)
+      assert.match(companies[0].body.toString('latin1'), /name="image"; filename="bench-/)
+      const stored = (
+        await fixture.db.pool.query("SELECT image_sha256 FROM fake_record WHERE family='company'")
+      ).rows[0]
+      assert.equal(stored.image_sha256, createHash('sha256').update(png).digest('hex'))
+      const state = (await fixture.http(`/runs/${runId}`)).value as ManualRunDto
+      const create = state.supported_effects!.find(
+        (effect) => effect.operation_key === companyCreateKey(companyDraft),
+      )!
+      assert.equal(create.certainty, 'confirmed')
+      assert.equal(create.verification, 'matches', 'the stored company carries the image')
+      assert.notEqual(create.inputs.image, '')
     } finally {
       await fixture.dispose()
     }

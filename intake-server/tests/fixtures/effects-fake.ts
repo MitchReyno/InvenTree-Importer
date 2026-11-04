@@ -240,6 +240,11 @@ async function recordFakeRequest(
     response.end(JSON.stringify([{ pk: row.pk }, { pk: '7777' }]))
     return true
   }
+  if (fault === 'record_without_image') {
+    const { image: _image, ...fields } = body
+    response.end(JSON.stringify({ pk: row.pk, ...fields }))
+    return true
+  }
   if (fault === 'record_malformed') {
     response.end(JSON.stringify({ pk: row.pk }))
     return true

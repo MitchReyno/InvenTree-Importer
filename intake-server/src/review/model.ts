@@ -10,7 +10,7 @@ import {
 } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
 import { sha256 } from '../db/authority.ts'
-import type { MediaInputs } from '../media/inputs.ts'
+import type { MediaInputs, MediaInputVersion } from '../media/inputs.ts'
 import { contributionBarcode } from '../execution/plan.ts'
 import {
   EMPTY_REVIEW_CONTEXT,
@@ -48,6 +48,8 @@ export interface MaterialCompany {
   draftId: string
   spec: { name: string; description: string; isManufacturer: boolean }
   logo: { evidence_id: string; version_id: string } | null
+  /** The ready logo version, then its original when it is a crop; set only with media. */
+  logoVersions?: MediaInputVersion[]
 }
 
 export interface ManualMaterial {

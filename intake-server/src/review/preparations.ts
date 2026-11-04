@@ -142,14 +142,6 @@ async function checkedSelection(
       ),
     )
   }
-  if (material.companies?.some((company) => company.logo)) {
-    issues.push(
-      issue(
-        'company_logo_unavailable',
-        'Sending a new supplier logo is not available yet. Remove the logo to create the supplier without it.',
-      ),
-    )
-  }
   if (material.parts.length && !effectsCapable(binding?.capability)) {
     issues.push(
       issue(

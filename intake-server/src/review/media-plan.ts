@@ -14,7 +14,7 @@ import {
 import type { ManualMaterial } from './model.ts'
 import { stockPlan, type DeploymentBinding } from './authority.ts'
 
-function evidenceVersion(
+export function evidenceVersion(
   version: MediaInputVersion,
   versions: readonly MediaInputVersion[],
 ): MediaPlanEvidence {
@@ -39,9 +39,12 @@ function evidenceVersion(
   }
 }
 
-export function retainedEvidence(inputsBySubject: ReadonlyMap<string, MediaInputs>) {
+export function retainedEvidence(
+  inputsBySubject: ReadonlyMap<string, MediaInputs>,
+  extra: readonly MediaInputVersion[] = [],
+) {
   const allVersions = new Map<string, MediaInputVersion>()
-  for (const inputs of inputsBySubject.values()) {
+  for (const inputs of [...inputsBySubject.values(), { versions: extra }]) {
     for (const version of inputs.versions) {
       const existing = allVersions.get(version.versionId)
       if (existing && canonicalMedia(existing) !== canonicalMedia(version)) {

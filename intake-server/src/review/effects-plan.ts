@@ -25,7 +25,12 @@ import {
 import type { EffectsDeployment } from '../execution/effects-source.ts'
 import { supportedStates } from '../execution/effects-state.ts'
 import { loadRun } from '../execution/authority.ts'
-import { retainedEvidence, mediaManifestDigest, selectedAttachments } from './media-plan.ts'
+import {
+  evidenceVersion,
+  retainedEvidence,
+  mediaManifestDigest,
+  selectedAttachments,
+} from './media-plan.ts'
 import type { ManualMaterial } from './model.ts'
 
 /** Retained source/subject identity is authoritative even when the remote Part has disappeared. */
@@ -152,7 +157,11 @@ export async function knownRecordBindings(
   }
   const companies: CompanyBinding[] = []
   for (const company of material.companies ?? []) {
-    const spec = { ...company.spec, logo: null }
+    const versions = company.logoVersions ?? []
+    const spec = {
+      ...company.spec,
+      logo: versions.length ? evidenceVersion(versions[0], versions) : null,
+    }
     const specDigest = recordSpecDigest(spec)
     companies.push({
       draftId: company.draftId,
@@ -180,7 +189,10 @@ export function supportedPlan(
     ...parts.flatMap(partEffects),
     ...partTransferEffects(partAttachments),
   ]
-  const evidence = retainedEvidence(material.mediaInputs ?? new Map())
+  const evidence = retainedEvidence(
+    material.mediaInputs ?? new Map(),
+    (recordPlan ? (material.companies ?? []) : []).flatMap((company) => company.logoVersions ?? []),
+  )
   return {
     version,
     build: EFFECTS_VERSIONS[version].build,
