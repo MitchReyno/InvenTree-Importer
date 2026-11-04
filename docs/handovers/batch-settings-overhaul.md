@@ -284,7 +284,9 @@ Fixed in `dd0628c`; frontend 289/289 tests.
 
 Codex reviewed exactly `1514e91..dd0628c`: no Critical or Important findings, and both round-8 fixes were confirmed. One Minor: the browser qualification summary above attributed every run to Google Chrome, while the evidence README records the desktop and narrow runs in Playwright Chromium. The summary now matches the README. This round changed documentation only.
 
-Still to do for 4.5: Codex re-review and selected CI.
+#### Merge and CI
+
+Mitch waived a review round for the docs-only round-9 fix. `interactive-app` had advanced with #86, so the branch merged it (one documentation conflict). `range-diff` against the reviewed patches showed every other patch unchanged. The merged tree equalled the rebased tree that passed typecheck, lint, Prettier, build, frontend 289/289 and intake fast tests. PR #87 was opened at head `f1955b5` and squash-merged by Mitch as `f9b8fe1`. Selected CI on that head passed: Shared workflow sync, Frontend, Intake PostgreSQL and process, Intake contracts and HTTP, TypeScript lint, Markdown lint and Changed paths; Backend lint and test were skipped (no backend paths). The PostgreSQL check finished after the merge and passed.
 
 Limitations: draft persistence across a browser crash/reload is not promised (beforeunload protection only). Batch-level evidence edits (`Batch.edit`) and media commands remain separate owners from the settings queue; they are serialized with settings and with each other by fencing rather than by sharing the queue. The `App.media` test now waits for the photo input to enable, because the panel's initial reconnection read shifts when the first fresh media read completes.
 

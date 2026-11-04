@@ -107,7 +107,7 @@ All checklist work belongs to its task's bundle. Each task includes its document
   - [x] 4.2.2 Cover navigation/unmount protection and prevent an old receipt from labelling newer edits saved.
 - [x] 4.3 GREEN: assemble title/Add batch notes, one Default location, supplier/No supplier/new drafts, disabled PO preview directly below supplier, shared tags and Custom instructions; remove obsolete panel fields/buttons.
 - [x] 4.4 Implement acknowledged serialized autosave, validation/error/conflict/unconfirmed UI and explicit recovery; preserve hidden/removed notes and existing scope restrictions.
-- [ ] 4.5 Verify frontend/HTTP/PG boundaries and browser focus/drafts; update owning architecture and handover, then satisfy PR-B exact-head review and selected CI before any authorized merge.
+- [x] 4.5 Verify frontend/HTTP/PG boundaries and browser focus/drafts; update owning architecture and handover, then satisfy PR-B exact-head review and selected CI before any authorized merge.
 
 ## 5. Resolve location assignments without merging lots
 
