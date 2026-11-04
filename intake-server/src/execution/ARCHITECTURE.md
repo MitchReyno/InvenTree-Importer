@@ -69,6 +69,27 @@ completes catalogue reads; `effects-evidence` attributes every trustworthy PK. P
 attachments go through `applyPartAttachmentEffect`. Guard reads, exact cancel-version aggregates
 and source-hold updates use Drizzle on the same caller-owned client.
 
+## Supervised record creation
+
+`bench-effects-plan/2` (build `bench-effects/2`, capability `owned-fake-effects/2`, its own
+supported-effects manifest) adds `create_location` and `create_company` beside the `/1`
+effects; `/1` decode, bodies, manifest and recovery are unchanged. A deployment row and its
+runner run one build, so retained `/1` runs keep their `/1` deployment. Both new effects derive
+from typed draft bindings keyed by the stable `draft_id`, have no dependencies and run before
+any Part or stock step. A new location's parent is an existing observed PK, re-read before its
+create. A stock line takes either an observed location or a `locationOperationKey`, never both,
+and resolves that PK only from a confirmed single-PK create that no inspection found missing,
+changed or unavailable; every new
+location must be consumed by a stock line. A company is a standalone output (`is_supplier: true`,
+`is_manufacturer` from the draft) with no supplier-part links. An optional logo is plan evidence
+sent as the company `image` in one multipart create, confirmed only when the output carries an
+image. Migration `0016_record_effects.sql` admits the capability and kinds and adds
+`executor_record_identity`; a later run of the same source reuses a confirmed, verified output
+by draft identity and never creates again. A lost or malformed create stays unknown under the
+original operation; only the existing explicit `verify_effect` of an attributed PK can confirm
+it, and nothing ever searches by name. Transport record creates require `/2` on an owned
+loopback target.
+
 A new Part is one `POST /api/part/?tags=true` whose body is name, category, the approved tag
 names and `copy_category_parameters: false`. Extra observed tags still confirm. Missing
 requested tags, blank names, control characters, names over 100 characters, more than 32

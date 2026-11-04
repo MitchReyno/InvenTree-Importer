@@ -440,3 +440,20 @@ Branch `feat/batch-settings-overhaul-records` from `interactive-app` at `2ba6b47
 - Capability state: the workspace reports whether new-record creation is supported, which is only when the deployment is `owned-fake-effects/2`. The web routes still hold no write credential and autosave never creates.
 - Fake target: persisted fake locations and companies, POST `/api/stock/location/` and `/api/company/` (multipart when an image is sent), GETs that return stored rows or 404, and drop, malformed and multiple-response faults.
 - Limits: the owned fake is not InvenTree compatibility. InvenTree API v530 lists `currency` as required on Company, which the fake does not enforce; real-target creation stays unavailable. Logos keep the existing retained PNG/JPEG and media size limits.
+
+### Task 7 results
+
+- Execution (`398222d`): plan `/2` with `create_location` and `create_company`, migration `0016_record_effects.sql`, draft-keyed `executor_record_identity`, record bodies and parent read, stock location from a confirmed create, transport paths gated on `/2`, and persisted fake locations and companies (PKs from 12001 served only from stored rows).
+- Review and preparation (`408f811`): the Default-location draft resolves lots that use an unset batch default; the batch supplier draft adds one company create. Both are bound in `manual-selection/3` material only when present, so legacy bytes are unchanged; lot review facts add `locationDraft` only for lots that use it. Non-`/2` targets report `record_creation_unavailable` at review. A stale or foreign parent raises `location_draft_parent_invalid`. Prior confirmed records are reused by draft identity.
+- Adverse cases (`bb9a0de`) and logo (`ae875c8`), see below.
+- UI: Approval shows New records apart from shared Part operations and marks a stock line whose location is created in the run; Results names a confirmed record by PK and keeps an uncertain one unresolved; the draft forms state that creation happens only after approval on a supporting target. Capture's draft form does not show the confirmed PK; the run in Results is the record of creation.
+
+Tests:
+
+- `tests/record-effects-plan.test.ts` (3): `/2` derivation and order; refusals for build, capability, manifest, ambiguous or missing location output, unconsumed location, rewritten or blank spec, duplicate draft and effect-index tampering; `/1` cannot carry record fields; a logo needs configured media and matching evidence.
+- `tests/pg/record-effects.test.ts` (8): autosave and preparation send nothing and one run creates location, supplier and stock; a non-`/2` target refuses; a later lot reuses both outputs with one more stock POST; a lost acknowledgement stays unknown through restart with no resume, no new create key and no name search, and a later lot is refused (`source_history_unsettled`); a malformed attributed create is confirmed only by an explicit check; cancellation, a changed draft and an unreadable parent stop before any create; a stock line resumed alone never runs without its confirmed location; a logo is sent once as the company image and an output without the image stays unknown until inspected.
+- `tests/transport.test.ts`: record creates need `/2` and an owned loopback target; read-only, remote and protected targets are refused before any request.
+- Frontend `PreparedRecordEffects.test.tsx` (3).
+- Negative controls (each restored by SHA-256) fail for: stock waiting for its location, prior reuse, the capability gate, record-before-stock order, the logo image requirement and logo evidence admission.
+
+Limits: qualification is the owned fake only; InvenTree's real Company `currency` and image handling are not exercised. No same-name reconciliation command exists: choosing an existing record is an ordinary new selection and never settles an unknown create.

@@ -1,3 +1,4 @@
+import { PreparedRecordEffects, isRecordEffect } from './PreparedRecordEffects'
 import { PreparedPartAttachments } from './PreparedPartAttachments'
 import { PreparedMediaEffects } from './PreparedMediaEffects'
 import styled from 'styled-components'
@@ -46,6 +47,10 @@ export function ApprovalWorkspace({
         .map((value) => [value.part_id, value.part_label]) ?? [],
     ).entries(),
   ]
+  const partOperations =
+    preview?.supported_effects?.filter(
+      (effect) => effect.kind !== 'part_attachment' && !isRecordEffect(effect),
+    ) ?? []
   return (
     <ApprovalGrid>
       <Panel>
@@ -125,26 +130,27 @@ export function ApprovalWorkspace({
         </Notice>
         {preview && (
           <>
-            {preview.supported_effects?.length ? (
+            {preview.supported_effects && (
+              <PreparedRecordEffects effects={preview.supported_effects} />
+            )}
+            {partOperations.length ? (
               <>
                 <Paragraph>
-                  <strong>Shared Part operations · {preview.supported_effects.length}</strong>
+                  <strong>Shared Part operations · {partOperations.length}</strong>
                 </Paragraph>
-                {preview.supported_effects
-                  .filter((effect) => effect.kind !== 'part_attachment')
-                  .map((effect) => (
-                    <Effect key={effect.operation_key}>
-                      <strong>{effect.label}</strong>
-                      {Object.entries(effect.inputs).map(([field, value]) => (
-                        <Small key={field}>
-                          {field}: {value}
-                        </Small>
-                      ))}
-                      <Small>
-                        Only this selected operation is approved. Dependent results stay separate.
+                {partOperations.map((effect) => (
+                  <Effect key={effect.operation_key}>
+                    <strong>{effect.label}</strong>
+                    {Object.entries(effect.inputs).map(([field, value]) => (
+                      <Small key={field}>
+                        {field}: {value}
                       </Small>
-                    </Effect>
-                  ))}
+                    ))}
+                    <Small>
+                      Only this selected operation is approved. Dependent results stay separate.
+                    </Small>
+                  </Effect>
+                ))}
               </>
             ) : null}
             <Paragraph>
@@ -172,6 +178,7 @@ export function ApprovalWorkspace({
                     : `Existing Part #${effect.part_id}`}{' '}
                   · {effect.location_label}
                   {effect.location_id ? ` (#${effect.location_id})` : ''}
+                  {effect.location_operation_key ? ' · created earlier in this run' : ''}
                 </Small>
                 <Small>Original contribution preserved.</Small>
               </Effect>
@@ -206,11 +213,7 @@ export function ApprovalWorkspace({
             <strong>
               {preview.effects.length} stock lot{preview.effects.length === 1 ? '' : 's'}
             </strong>
-            <span>
-              {preview.supported_effects?.filter((effect) => effect.kind !== 'part_attachment')
-                .length ?? 0}{' '}
-              shared Part operations
-            </span>
+            <span>{partOperations.length} shared Part operations</span>
             <span>
               {preview.remaining_lot_ids.length} lot
               {preview.remaining_lot_ids.length === 1 ? '' : 's'} outside this approval

@@ -155,10 +155,10 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Risks: creation duplication and unsupported real-target attribution. Do not use a same-name lookup as proof of original-operation success.
 
 - [x] 7.1 Record effect shapes, exact dependency/output binding, optional logo operation and supported profile/target limits before implementation.
-- [ ] 7.2 RED: verify no inventory write on autosave, explicit approval required, exact parent/company roles, scoped permissions and versioned execution binding.
-- [ ] 7.3 GREEN: implement supervised fake profile, exact known-output reuse and UI transitions from draft to approved to confirmed without repeating create.
-- [ ] 7.4 Verify lost acknowledgement, cancellation, restart, changed payload, duplicate names and invalid parent; unresolved external effects remain unresolved under the original operation.
-- [ ] 7.5 Verify optional manual logo retention/attachment limits and unsupported real-target controls; record read-back/recovery evidence and owning execution docs.
+- [x] 7.2 RED: verify no inventory write on autosave, explicit approval required, exact parent/company roles, scoped permissions and versioned execution binding.
+- [x] 7.3 GREEN: implement supervised fake profile, exact known-output reuse and UI transitions from draft to approved to confirmed without repeating create.
+- [x] 7.4 Verify lost acknowledgement, cancellation, restart, changed payload, duplicate names and invalid parent; unresolved external effects remain unresolved under the original operation.
+- [x] 7.5 Verify optional manual logo retention/attachment limits and unsupported real-target controls; record read-back/recovery evidence and owning execution docs.
 
 ## 8. Verify integrated acceptance and record delivery
 
