@@ -57,35 +57,35 @@ All checklist work belongs to its task's bundle. Each task includes its document
 ## 2. Add bounded name-first catalogue search
 
 - PR delivery: PR-A.
-- Outcome: location/supplier/parent pickers can search by name with exact-ID supplementation and safe pagination, without browser target control.
+- Outcome: location/supplier/parent pickers can search names with typo tolerance and exact-ID supplementation and bounded pagination, without browser target control.
 - Scope and approach: public typed list routes, `capture/read.ts`, `inventory/transport.ts`, scoped observations and test fake target. Authorize before traffic, allowlist operations/filters and rebuild same-origin pagination requests.
 - Prerequisites: Task 1 models; inspected official API schemas are feasibility evidence, not target qualification.
 - Acceptance: [search pickers](specs/capture-reference-selection/spec.md#requirement-scoped-searchable-reference-pickers) and [invalid parent](specs/capture-reference-selection/spec.md#scenario-invalid-parent-or-unsupported-target).
 - TDD approach: RED public requests fail until list/search support exists; adverse tests ensure an HTTP200 from an invalid target response is never a valid selection.
-- Verification: `pnpm test:intake`, `pnpm db:intake test`, contracts/type checks. Controlled HTTP target tests cover deadlines/body limits, supplier flags, hierarchy, exact PKs and invalid pagination URLs.
+- Verification: `pnpm test:intake`, `pnpm db:intake test`, contracts/type checks. Controlled HTTP target tests cover deadlines/body limits, supplier flags, hierarchy, exact PKs, invalid pagination URLs and independent candidate retrieval/truncation for fuzzy matching.
 - Risks: target-version and search-field variation. Record admitted fields and unsupported responses explicitly; no live API requests required.
 
-- [ ] 2.1 Confirm supported target serializer/search shapes using versioned source or fixtures; record name-first rank and numeric-ID fallback policy.
-- [ ] 2.2 RED: cover bounded name search/page results, exact ID, ambiguous names, foreign scope, redirect/off-origin pagination and missing supplier role.
+- [ ] 2.1 Confirm supported target serializer/search shapes using versioned source or fixtures; record exact/name/fuzzy tiers, numeric-ID fallback and bounded candidate-snapshot policy independent of strict upstream query filtering.
+- [ ] 2.2 RED: cover bounded name search/page results, exact ID, ambiguous names, foreign scope, redirect/off-origin pagination, missing supplier role and a typo candidate absent from strict upstream results but present in the admitted snapshot.
 - [ ] 2.3 GREEN: implement allowlisted semantic reads, typed route/client and final selection observation binding.
-- [ ] 2.4 Verify auth before target traffic, size/deadline/rate bounds, empty versus unavailable and stale-context response rejection.
+- [ ] 2.4 Verify auth before target traffic, size/deadline/rate/candidate bounds, visible partial coverage, no-match versus unavailable and stale-context response rejection.
 - [ ] 2.5 Update read-adapter docs and handover; run affected contract/HTTP/PG checks and complete the PR-A independent review/selected-CI gates when actually reached.
 
 ## 3. Qualify and build reusable input components
 
 - PR delivery: PR-B.
 - Outcome: accessible, controlled inputs support searchable references, optional notes, Auto/None/manual values and manual-plus-Auto tags.
-- Scope and approach: isolated exact React Select 5.10.2 proof first, then a small styled/RHF adapter and one component per TSX file. Reuse native date/text controls and installed upload primitives. No package option object becomes a domain reference.
+- Scope and approach: isolated exact React Select 5.10.2 and Fuse.js 7.1.0 proof first, then a small styled/RHF adapter and one component per TSX file. Reuse native date/text controls and installed upload primitives. No package option object becomes a domain reference.
 - Prerequisites: Task 1 types. If package proof fails, revise the dependency decision before adopting a replacement.
-- Acceptance: [keyboard picker](specs/capture-reference-selection/spec.md#scenario-numeric-id-and-keyboard-interaction), [notes](specs/capture-batch-settings/spec.md#scenario-optional-batch-and-order-notes), [logo explanation](specs/capture-reference-selection/spec.md#scenario-inspect-future-logo-discovery).
+- Acceptance: [keyboard picker](specs/capture-reference-selection/spec.md#scenario-numeric-id-and-keyboard-interaction), [fuzzy search](specs/capture-reference-selection/spec.md#requirement-typo-tolerant-reference-search), [notes](specs/capture-batch-settings/spec.md#scenario-optional-batch-and-order-notes), [logo explanation](specs/capture-reference-selection/spec.md#scenario-inspect-future-logo-discovery).
 - TDD approach: package qualification uses a disposable harness rather than a false RED claim. Then RED component behaviours precede production wrappers; a new browser dependency is gated on real interaction evidence.
 - Verification: targeted Vitest files, type/lint/build, frozen install, lock/advisory/bundle deltas and owned headless desktop/360/390px/native200% browser evidence. No user's normal Chrome profile.
 - Risks: second styling runtime, async selection races and disabled-input focus. Expose tooltip on a focusable explanation wrapper.
 
-- [ ] 3.1 Run the scoped package proof with React19/RHF/StrictMode, controlled reset, async cancellation, IME, touch, keyboard and zoom; record license, peer, maintenance and dependency/advisory delta.
-- [ ] 3.2 RED: add meaningful input tests for name/ID identity, stale results, tags plus Auto, manual date/text, Hide versus Remove and disabled coming-soon explanation.
-- [ ] 3.3 GREEN: deliver the reusable components and typed adapters, with module-scope styled-components and native input validation.
-- [ ] 3.4 Verify the same picker supports supplier/location/parent and the same notes shell supports separate scopes without losing hidden text.
+- [ ] 3.1 Run the scoped package proof with React19/RHF/StrictMode, controlled reset, async cancellation, IME, touch, keyboard, bounded fuzzy ranking latency and zoom; record license, peer, maintenance and dependency/advisory delta.
+- [ ] 3.2 RED: add meaningful input tests for name/ID identity, typo/accent/case matches, exact-first stable ranking, false positives, partial coverage, stale results, tags plus Auto, manual date/text, Hide versus Remove and disabled coming-soon explanation.
+- [ ] 3.3 GREEN: deliver the reusable components, typed adapters and shared fuzzy ranker with module-scope styled-components and native input validation; prevent default substring filtering from removing scored suggestions.
+- [ ] 3.4 Verify the same picker supports supplier/location/parent and the same notes shell supports separate scopes without losing hidden text; verify `Mousr`/`Incomming` suggestions preserve original labels/IDs and never auto-select or create records.
 - [ ] 3.5 Refactor integration seams, run frontend checks and record proof limitations before Task 4 consumes the components.
 
 ## 4. Deliver the connected autosave Batch settings panel
