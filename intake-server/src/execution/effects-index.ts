@@ -275,43 +275,29 @@ export async function requirePriorRecord(
       .select({
         specDigest: recordIdentities.specDigest,
         operationKey: recordIdentities.operationKey,
-        remotePks: supportedEffects.remotePks,
-        certainty: supportedEffects.certainty,
       })
       .from(recordIdentities)
-      .innerJoin(
-        supportedIntents,
-        and(
-          eq(supportedIntents.runId, recordIdentities.runId),
-          eq(supportedIntents.operationKey, recordIdentities.operationKey),
-          eq(supportedIntents.kind, 'create'),
-        ),
-      )
-      .innerJoin(supportedEffects, eq(supportedEffects.intentId, supportedIntents.id))
       .where(
         and(
           eq(recordIdentities.targetId, plan.targetId),
           eq(recordIdentities.originalKey, plan.originalSourceKey),
           eq(recordIdentities.draftId, draftId),
           eq(recordIdentities.runId, prior.runId),
-          eq(supportedIntents.id, prior.intentId),
         ),
       ),
   )
   const row = rows[0]
-  if (
-    !row ||
-    row.specDigest.toString('hex') !== specDigest ||
-    row.certainty !== 'confirmed' ||
-    row.remotePks.length !== 1 ||
-    row.remotePks[0] !== prior.pk
-  ) {
+  if (!row || row.specDigest.toString('hex') !== specDigest) {
     throw new Error('prior_record_binding_invalid')
   }
+  // Journal-derived state: an explicit positive inspection confirms an uncertain create.
   const states = await supportedStates(client, prior.runId, await priorPlan(client, prior.runId))
   const state = states.find((item) => item.operationKey === row.operationKey)
   if (
     state?.certainty !== 'confirmed' ||
+    state.createIntentId !== prior.intentId ||
+    state.remotePks.length !== 1 ||
+    state.remotePks[0] !== prior.pk ||
     state.verification === 'missing_or_changed' ||
     state.verification === 'unavailable'
   ) {

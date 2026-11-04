@@ -41,9 +41,12 @@ async function unavailableMedia(
   return material
 }
 
-function requireBoundedClosure(inputsBySubject: ReadonlyMap<string, MediaInputs>) {
+export function requireBoundedClosure(
+  inputsBySubject: ReadonlyMap<string, MediaInputs>,
+  extra: readonly MediaInputVersion[] = [],
+) {
   const unique = new Map<string, string>()
-  for (const inputs of inputsBySubject.values()) {
+  for (const inputs of [...inputsBySubject.values(), { versions: extra }]) {
     for (const version of inputs.versions) {
       unique.set(version.versionId, version.byteSize)
     }
@@ -127,6 +130,16 @@ export async function materializeWithMedia(
         material.issues.push(logoUnavailable())
       }
     }
+  }
+  // The approved closure includes a new supplier logo and its original.
+  const logos = (material.companies ?? []).flatMap((company) => company.logoVersions ?? [])
+  if (logos.length && !requireBoundedClosure(inputsBySubject, logos)) {
+    material.issues.push(
+      issue(
+        'media_scope_limit',
+        'Choose a smaller scope: one preparation supports at most 64 media versions and 256 MiB of exact retained bytes.',
+      ),
+    )
   }
   return material
 }

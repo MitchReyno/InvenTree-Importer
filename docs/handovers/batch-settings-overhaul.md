@@ -451,9 +451,21 @@ Branch `feat/batch-settings-overhaul-records` from `interactive-app` at `2ba6b47
 Tests:
 
 - `tests/record-effects-plan.test.ts` (3): `/2` derivation and order; refusals for build, capability, manifest, ambiguous or missing location output, unconsumed location, rewritten or blank spec, duplicate draft and effect-index tampering; `/1` cannot carry record fields; a logo needs configured media and matching evidence.
-- `tests/pg/record-effects.test.ts` (8): autosave and preparation send nothing and one run creates location, supplier and stock; a non-`/2` target refuses; a later lot reuses both outputs with one more stock POST; a lost acknowledgement stays unknown through restart with no resume, no new create key and no name search, and a later lot is refused (`source_history_unsettled`); a malformed attributed create is confirmed only by an explicit check; cancellation, a changed draft and an unreadable parent stop before any create; a stock line resumed alone never runs without its confirmed location; a logo is sent once as the company image and an output without the image stays unknown until inspected.
+- `tests/pg/record-effects.test.ts` (9): autosave and preparation send nothing and one run creates location, supplier and stock; a non-`/2` target refuses; a later lot reuses both outputs with one more stock POST; a lost acknowledgement stays unknown through restart with no resume, no new create key and no name search, and a later lot is refused (`source_history_unsettled`); a malformed attributed create is confirmed only by an explicit check, then completes and is reused by a later lot; cancellation, a changed draft and an unreadable parent stop before any create; a stock line resumed alone never runs without its confirmed location; a logo is sent once as the company image and an output without the image stays unknown until inspected; a stock attachment completes on stock placed in a location created by the same run.
 - `tests/transport.test.ts`: record creates need `/2` and an owned loopback target; read-only, remote and protected targets are refused before any request.
 - Frontend `PreparedRecordEffects.test.tsx` (3).
 - Negative controls (each restored by SHA-256) fail for: stock waiting for its location, prior reuse, the capability gate, record-before-stock order, the logo image requirement and logo evidence admission.
 
 Limits: qualification is the owned fake only; InvenTree's real Company `currency` and image handling are not exercised. No same-name reconciliation command exists: choosing an existing record is an ordinary new selection and never settles an unknown create.
+
+### PR-D independent review
+
+#### Round 1 (Task 7)
+
+Codex (`gpt-6.1-sol`, read-only) reviewed exactly `2ba6b47..125da0f`: no Critical findings; two Important and one Minor.
+
+1. Important: a record confirmed by explicit verification after an uncertain create could not be reused, because `requirePriorRecord` read the immutable effect row (`unknown`) rather than the journal-derived state. It now requires the derived state to be confirmed with the original create intent and PK and no failed inspection. Regression: the malformed-create test now completes the run and reuses the recovered location for Packet B; negative control fails.
+2. Important: stock attachments and stock verification compared remote stock against an operation whose new location was unresolved, so an approved attachment was skipped. `resolvedStockOperation` now resolves a new location's confirmed output (and refuses when it is unusable) alongside the Part. Regression: a stock attachment completes on stock placed in a newly created location; negative control fails.
+3. Minor: the logo and its original bypassed the 64-version/256 MiB preparation check and failed later in plan decoding. The closure check now includes them and raises `media_scope_limit`. Regression `tests/record-media-closure.test.ts` (count, byte boundary, a logo already in subject evidence); negative control fails.
+
+Codex also noted that development-stack admission is still `/1`-only; that belongs to Task 8.

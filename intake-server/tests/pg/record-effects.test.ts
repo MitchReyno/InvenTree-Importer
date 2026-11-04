@@ -7,6 +7,7 @@ import { executeManualDispatch } from '../../src/review/runner.ts'
 import { createHash } from 'node:crypto'
 import { mediaRepository } from '../../src/media/repository.ts'
 import { processMediaCommand } from '../../src/media/worker.ts'
+import { editMedia } from '../../src/media/edit.ts'
 
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAD0lEQVQImWP4ICLHdUIDAAhZAh0cg3OhAAAAAElFTkSuQmCC',
@@ -375,6 +376,40 @@ test(
       assert.equal(confirmed.certainty, 'confirmed')
       assert.equal(confirmed.verification, 'matches')
       assert.equal(await posts(fixture, '/api/stock/location/'), 1, 'never created twice')
+      async function resume(key: string) {
+        const current = (await fixture.http(`/runs/${runId}`)).value as ManualRunDto
+        const chosen = await fixture.http(`/runs/${runId}/recover`, {
+          expected_run_revision: current.revision,
+          effect_keys: [key],
+        })
+        assert.equal(chosen.status, 200, JSON.stringify(chosen.value))
+        const next = (
+          await fixture.db.pool.query(
+            'SELECT c.workflow_id,c.payload_bytes FROM manual_dispatch d JOIN command c ON c.id=d.command_id WHERE d.run_id=$1 ORDER BY d.sequence DESC LIMIT 1',
+            [runId],
+          )
+        ).rows[0]
+        return executeManualDispatch(
+          fixture.runner.pool,
+          fixture.runnerConfig,
+          next.workflow_id,
+          JSON.parse(next.payload_bytes.toString('utf8')),
+        )
+      }
+      const company = verified.supported_effects!.find(
+        (effect) => effect.kind === 'create_company',
+      )!
+      await resume(company.operation_key)
+      assert.equal((await resume(capture.a.id)).state, 'settled_complete')
+      // The recovered output is reused by a later lot through approval, never created again.
+      await capture.edit({ kind: 'lot', id: capture.b.id, location: { mode: 'inherit' } })
+      const laterRun = await approved(fixture, capture.batch, capture.b.id)
+      assert.equal((await apply(fixture, laterRun)).state, 'settled_complete')
+      assert.equal(await posts(fixture, '/api/stock/location/'), 1)
+      assert.equal(await posts(fixture, '/api/company/'), 1)
+      const stocks = await fixture.fake.stocks()
+      assert.equal(stocks.length, 2)
+      assert.equal(stocks[1].location, confirmed.remote_pks[0])
     } finally {
       await fixture.dispose()
     }
@@ -531,6 +566,65 @@ test(
       assert.equal(create.certainty, 'confirmed')
       assert.equal(create.verification, 'matches', 'the stored company carries the image')
       assert.notEqual(create.inputs.image, '')
+    } finally {
+      await fixture.dispose()
+    }
+  },
+)
+
+test(
+  'a stock attachment completes on stock placed in a location created by the same run',
+  { timeout: 120000 },
+  async (context) => {
+    const image = process.env.INTAKE_MEDIA_DECODER_IMAGE
+    if (!image) {
+      context.skip('explicit isolated decoder image required')
+      return
+    }
+    const fixture = await manualFixture({ records: true, media: true })
+    try {
+      const { capture } = await draftedBatch(fixture)
+      const repository = mediaRepository(fixture.api.pool, fixture.config, fixture.store!)
+      const uploaded = (await repository.upload(
+        capture.batch.id,
+        randomUUID(),
+        '1',
+        'label.png',
+        png,
+      )) as { evidence_id: string; version: { id: string } }
+      await processMediaCommand(fixture.db.pool, fixture.store!, fixture.config, image)
+      const linked = await editMedia(
+        fixture.api.pool,
+        fixture.config,
+        capture.batch.id,
+        randomUUID(),
+        {
+          expected_revision: (await repository.snapshot(capture.batch.id)).revision,
+          change: {
+            kind: 'link',
+            evidence_id: uploaded.evidence_id,
+            subject_id: capture.a.id,
+            linked: true,
+          },
+        } as never,
+      )
+      await editMedia(fixture.api.pool, fixture.config, capture.batch.id, randomUUID(), {
+        expected_revision: (linked as { revision: string }).revision,
+        change: {
+          kind: 'select_attachment',
+          subject_id: capture.a.id,
+          mode: 'selected',
+          version_id: uploaded.version.id,
+          destination: 'lot_attachment',
+        },
+      })
+      const refreshed = (await fixture.http(`/batches/${capture.batch.id}`))
+        .value as CaptureSnapshotDto
+      const runId = await approved(fixture, refreshed, capture.a.id)
+      assert.equal((await apply(fixture, runId)).state, 'settled_complete')
+      assert.equal(await posts(fixture, '/api/stock/attachment/'), 1)
+      const state = (await fixture.http(`/runs/${runId}`)).value as ManualRunDto
+      assert.equal(state.attachments?.[0].certainty, 'confirmed', JSON.stringify(state.attachments))
     } finally {
       await fixture.dispose()
     }
