@@ -184,7 +184,7 @@ The original Capture screenshot and HTML put evidence actions and groups in the 
 
 Verification: frontend 244 tests, typecheck, ESLint, readability lint, Prettier, Markdown lint and production build pass. PR-B changes no server code; on its head `pnpm test:intake` passes 168/168 and the affected PostgreSQL files (`capture-intent`, `capture-catalogue`) pass 7/7, covering `batch_settings` revision checks, idempotent acknowledgement and catalogue reads.
 
-Browser qualification ([evidence](../bench-intake/evidence/batch-settings-overhaul/README.md)): owned synthetic fixture at 1280, 390 and 360 CSS pixels and at native 200% zoom (CDP `zoom: 2`, CSS 640 and 360) in Google Chrome `--headless=new` with an owned profile. Every run had zero horizontal overflow, no subject panes, an acknowledged autosave with title focus retained, keyboard fuzzy supplier selection (`Mousr` → Mouser), Escape keeping picker focus, disabled PO controls and a keyboard-reachable logo explanation. Qualification found the settings panel's leftover `grid-area` squeezing it into an implicit narrow column below 860px; it was removed and the runs repeated.
+Browser qualification ([evidence](../bench-intake/evidence/batch-settings-overhaul/README.md)): owned synthetic fixture at 1280, 390 and 360 CSS pixels in headless Playwright Chromium (touch enabled for the narrow runs), and at native 200% zoom (CDP `zoom: 2`, CSS 640 and 360) in Google Chrome `--headless=new` with an owned profile. Every run had zero horizontal overflow, no subject panes, an acknowledged autosave with title focus retained, keyboard fuzzy supplier selection (`Mousr` → Mouser), Escape keeping picker focus, disabled PO controls and a keyboard-reachable logo explanation. Qualification found the settings panel's leftover `grid-area` squeezing it into an implicit narrow column below 860px; it was removed and the runs repeated.
 
 ### PR-B independent review
 
@@ -278,7 +278,11 @@ Codex reviewed exactly `1514e91..867fb4f`: no Critical findings; one Important a
 1. Important: composed text does not enter the queue until composition ends, so a newer snapshot adopted during composition (for example after an instruction acknowledgement) reset the field. Clean adoption now also waits for composition.
 2. Minor: Review reads `?edit=` only when it mounts, so the dialog's new link changed the hash without opening the editor. The dialog now closes and hands over to Review's editor owner (`openEditor`); the regression clicks through to the shared Part editor.
 
-After the fixes: frontend 289/289 tests, typecheck and ESLint pass. The fixed candidate needs a fresh Codex review.
+Fixed in `dd0628c`; frontend 289/289 tests.
+
+#### Round 9
+
+Codex reviewed exactly `1514e91..dd0628c`: no Critical or Important findings, and both round-8 fixes were confirmed. One Minor: the browser qualification summary above attributed every run to Google Chrome, while the evidence README records the desktop and narrow runs in Playwright Chromium. The summary now matches the README. This round changed documentation only.
 
 Still to do for 4.5: Codex re-review and selected CI.
 
