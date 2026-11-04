@@ -41,6 +41,7 @@ test('an estimate is accepted only by an explicit human edit when no count exist
       lot={lot}
       part={creating}
       proposal={proposal}
+      defaultQuantity={{ mode: 'unset' }}
       current
       disabled={false}
       edit={edit}
@@ -65,6 +66,23 @@ test('a human count is kept and the estimate stays history', () => {
       lot={{ ...lot, quantity: { mode: 'set', value: '37' } }}
       part={creating}
       proposal={proposal}
+      defaultQuantity={{ mode: 'unset' }}
+      current
+      disabled={false}
+      edit={vi.fn()}
+    />,
+  )
+  expect(screen.getByText(/the human count is kept/)).toBeVisible()
+  expect(screen.queryByRole('button', { name: /Use estimated quantity/ })).not.toBeInTheDocument()
+})
+
+test('an inherited exact batch count is a human count too', () => {
+  render(
+    <ProcessingSuggestions
+      lot={lot}
+      part={creating}
+      proposal={proposal}
+      defaultQuantity={{ mode: 'set', value: '37' }}
       current
       disabled={false}
       edit={vi.fn()}
@@ -81,6 +99,7 @@ test('suggested tags merge case-insensitively into a new Part and never touch an
       lot={lot}
       part={creating}
       proposal={proposal}
+      defaultQuantity={{ mode: 'unset' }}
       current
       disabled={false}
       edit={edit}
@@ -99,6 +118,7 @@ test('suggested tags merge case-insensitively into a new Part and never touch an
       lot={lot}
       part={existing}
       proposal={proposal}
+      defaultQuantity={{ mode: 'unset' }}
       current
       disabled={false}
       edit={edit}
@@ -114,6 +134,7 @@ test('a superseded attempt is history only and offers no acceptance', () => {
       lot={lot}
       part={creating}
       proposal={proposal}
+      defaultQuantity={{ mode: 'unset' }}
       current={false}
       disabled={false}
       edit={vi.fn()}

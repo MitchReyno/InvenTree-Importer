@@ -132,6 +132,7 @@ export function LotEvidence({
                 lot={lot}
                 part={part}
                 proposal={proposal.value}
+                defaultQuantity={batch.defaults.quantity}
                 current={processingCurrent && job.state === 'ready'}
                 disabled={editDisabled}
                 edit={edit}

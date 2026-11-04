@@ -332,7 +332,7 @@ Plan (no new input or handler versions):
 
 1. Auto intent: a labelled capture-context note states "Shared part tags: Auto requested" when intent asks for it, so existing manifests for legacy batches keep their bytes and an intent change makes earlier attempts stale.
 2. Output: `bench-intake-proposal/4` adds an optional evidence-bound `quantity` suggestion (`value`, `status: 'estimated'`, lot subjects only) and optional `tags` suggestions (accepted only when Auto was requested), with the `/2`/`/3` source rules. No defensible estimate stays a quantity question.
-3. Review shows a suggestion's source and estimated status. "Use this quantity" is a human lot edit and is offered only while the attempt is current and the lot has no human count. Tag suggestions are shown apart from human tags; accepting adds them, deduplicated, to a shared Part's `create` spec. An existing Part's tags are never changed, and Review says so.
+3. Review shows a suggestion's source and estimated status. "Use this quantity" is a human lot edit and is offered only while the attempt is current and the lot has no human count (its own or an inherited exact batch default). Tag suggestions are shown apart from human tags; accepting adds them, deduplicated, to a shared Part's `create` spec. An existing Part's tags are never changed, and Review says so.
 4. Order Auto/None/Manual: verify no Auto value is fabricated and manual values stay exact; PO stays inactive.
 
 ### Task 6 results
@@ -350,7 +350,7 @@ Plan (no new input or handler versions):
   - Frontend tests: acceptance is an explicit edit, a human count is kept, tags merge case-insensitively into a new Part, and an existing Part's tags are untouched.
 - Negative controls (restored by SHA-256) failed each target test: the estimated-only status, the lot-only rule, the Auto requirement, the intent note, and the human-count and existing-Part guards in Review.
 - Existing PG suites `processing`, `processing-media`, `processing-compatibility`, `research`, `capture-intent` and `operator-review` pass (30/30).
-- Provider limits: suggestions come only from the deterministic fixture path. The native runner and live inference are unchanged and unqualified; no schema pass or fixture estimate qualifies model reasoning. Acceptance needs a ready attempt (the snapshot marks non-current inputs `superseded`) from a successful Processing read made after mount at the displayed capture revision; a quantity also needs the lot to have no human count. Acceptance is always an explicit human edit.
+- Provider limits: suggestions come only from the deterministic fixture path. The native runner and live inference are unchanged and unqualified; no schema pass or fixture estimate qualifies model reasoning. Acceptance needs a ready attempt (the snapshot marks non-current inputs `superseded`) from a successful Processing read made after mount at the displayed capture revision; a quantity also needs the lot to have no human count, including an exact batch default it inherits. Acceptance is always an explicit human edit.
 - 6.5 remains open until PR-C's review and selected CI are evidenced.
 
 ### PR-C independent review
@@ -387,4 +387,11 @@ Codex reviewed exactly `f9b8fe1..12d3ab9`: no Critical or Minor findings; one Im
 Codex reviewed exactly `f9b8fe1..71f731a`: no Critical or Minor findings; one Important. The round-3 fix was confirmed.
 
 1. Important: the producers still cited every input note, so with Auto tags on the development runner's proposal was refused (`runner_source_mismatch`) and its attempt never reached `ready`; the native prompt also offered the intent note as an inspected source. `evidenceNotes` (`capture/context-input.ts`) now filters the citable notes in provenance, the development runner (moved to `src/dev/synthetic-runner.ts` so tests run the real code), the native prompt (`agents/prompt.ts`, which still shows every note as context) and the process-test worker. Regressions: a PG test runs the development runner on an Auto batch through acceptance to `ready` (`processing-suggestions.test.ts`), and a PG test stages a native prompt for an Auto batch (`agents.test.ts`); negative controls on both filters fail. The process-test worker's filter has no failing control, because the process tests do not enable Auto.
+
+#### Round 5
+
+Codex reviewed exactly `f9b8fe1..c526b69`: no Critical findings; one Important and one Minor. The round-4 fix was confirmed for the development runner, native prompt and process-test worker.
+
+1. Important: a lot with `quantity: inherit` and an exact human batch quantity already has a human count, but the estimate guard checked only the lot's own `set` mode, so an estimate could replace it. `ProcessingSuggestions` now receives the batch default (`defaultQuantity`) and resolves an inherited quantity before the guard. Regression in `ProcessingSuggestions.test.tsx`; negative control fails.
+2. Minor: the browser qualification fixture (`tests/fixtures/processing-browser.ts`) was another producer citing every note, and it refused input `/5`. It keeps its own question branch and now delegates proposals to `syntheticDevelopmentRunner`, which admits `/2` and `/5`, cites only evidence notes and is covered by the Auto PG test. The fixture is a long-lived manual entrypoint and was not launched. A sweep of remaining note-source producers found only `research-protocol-child.cjs`, which cites a media artifact when one exists and otherwise the first note; with no media, admission needs a human note and human notes precede the intent note.
 

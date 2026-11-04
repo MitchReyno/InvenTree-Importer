@@ -13,6 +13,8 @@ interface Props {
   lot: Lot
   part: Part | undefined
   proposal: ProcessingProposalDto
+  /** The batch quantity an `inherit` lot resolves to; an exact human default is a human count. */
+  defaultQuantity: CaptureSnapshotDto['defaults']['quantity']
   /** Only a finished attempt whose input is still current may be accepted; others are history. */
   current: boolean
   disabled: boolean
@@ -34,13 +36,22 @@ export function mergeTags(existing: readonly string[], added: readonly string[])
  * Structured suggestions stay candidates. Accepting one is an explicit human edit; an existing
  * human count is never replaced and an existing inventory Part's tags are never changed.
  */
-export function ProcessingSuggestions({ lot, part, proposal, current, disabled, edit }: Props) {
+export function ProcessingSuggestions({
+  lot,
+  part,
+  proposal,
+  defaultQuantity,
+  current,
+  disabled,
+  edit,
+}: Props) {
   if (!('schema_version' in proposal) || proposal.schema_version !== 'bench-intake-proposal/4') {
     return null
   }
   const quantity = proposal.subject_id === lot.id ? proposal.quantity : undefined
   const tags = proposal.tags ?? []
-  const humanCount = lot.quantity.mode === 'set'
+  const effective = lot.quantity.mode === 'inherit' ? defaultQuantity : lot.quantity
+  const humanCount = effective.mode === 'set'
   const creating = part?.choice.mode === 'create' ? part.choice : null
   const newTags = creating ? mergeTags(creating.spec.tags, tags) : []
   return (
