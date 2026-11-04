@@ -198,7 +198,9 @@ export function processingInputIsCurrent(
     } else if (manifest.schema_version === 'bench-intake-input/3') {
       current = researchInputManifest(...argumentsForInput, descriptor, manifest.source_urls)
     } else {
-      current = mediaInputManifest(...argumentsForInput, descriptor)
+      // `/2` and `/5` share the synthetic handler; a create choice appearing or leaving changes
+      // the rebuilt version, so the retained input is stale either way.
+      current = mediaInputManifest(...argumentsForInput, descriptor, { allowCreate: true })
     }
   } catch (error) {
     const closed =

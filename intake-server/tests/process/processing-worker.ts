@@ -52,7 +52,10 @@ const synthetic: RestrictedResearchRunner = {
       profile_id: 'synthetic-research/2' as const,
       handler_version: 'processing/2' as const,
     }
-    if (command.manifest.schema_version !== 'bench-intake-input/2') {
+    if (
+      command.manifest.schema_version !== 'bench-intake-input/2' &&
+      command.manifest.schema_version !== 'bench-intake-input/5'
+    ) {
       throw new Error('synthetic_v2_input_required')
     }
     const media = decodeMediaInputs(

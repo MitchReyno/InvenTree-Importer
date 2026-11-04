@@ -13,7 +13,10 @@ const synthetic: RestrictedResearchRunner = {
   profileId: 'synthetic-research/2',
   async run(command, emit) {
     const input = command.manifest
-    if (input.schema_version !== 'bench-intake-input/2') {
+    if (
+      input.schema_version !== 'bench-intake-input/2' &&
+      input.schema_version !== 'bench-intake-input/5'
+    ) {
       throw new Error('synthetic_input_required')
     }
     const binding = {

@@ -560,3 +560,60 @@ test('Auto order context adds no value and Auto tags add one requested-automatio
     'Auto never fabricates a purchase date or order number',
   )
 })
+
+test('a new-Part create choice is admitted only through media input /5, never older versions', () => {
+  const base = manualInputFixture()
+  const partId = randomUUID()
+  const create = {
+    mode: 'create' as const,
+    spec: {
+      name: 'Reel',
+      category: {
+        observation_id: randomUUID(),
+        target_context_id: base.target_context_id,
+        model: 'category' as const,
+        pk: '3',
+      },
+      parameters: [],
+      manufacturer: null,
+      supplier: null,
+      tags: ['smd'],
+    },
+  }
+  const input = {
+    ...base,
+    parts: [{ id: partId, label: 'New reel', revision: '1', choice: create }],
+    lots: base.lots.map((lot) => ({ ...lot, part_subject_id: partId })),
+  }
+  const subject = input.lots[0].id
+  const descriptor = (snapshot: typeof input | typeof base) => {
+    const text = canonicalMedia({
+      version: 'media-inputs/1',
+      batchId: snapshot.id,
+      subjectIds: processingSubjectScope(snapshot as never, subject),
+      evidence: [],
+      attachments: [],
+      versions: [],
+    })
+    return { manifest: text, sha256: sha256(Buffer.from(text)).toString('hex') }
+  }
+  const media = descriptor(input)
+  assert.throws(
+    () => inputManifest(input as never, subject, 'reading', [], null),
+    /unsupported_processing_input/,
+  )
+  const manifest = mediaInputManifest(input as never, subject, 'reading', [], null, media, {
+    allowCreate: true,
+  })
+  assert.equal(manifest.schema_version, 'bench-intake-input/5')
+  assert.equal(manifest.profile_id, 'synthetic-research/2')
+  validate('ProcessingInput', manifest)
+  assert.throws(
+    () => mediaInputManifest(input as never, subject, 'reading', [], null, media),
+    /unsupported_processing_input/,
+  )
+  const withoutCreate = mediaInputManifest(base, subject, 'reading', [], null, descriptor(base), {
+    allowCreate: true,
+  })
+  assert.equal(withoutCreate.schema_version, 'bench-intake-input/2')
+})

@@ -234,3 +234,84 @@ test(
     }
   },
 )
+
+test(
+  'a new-Part create choice runs as input /5, so Auto tag suggestions stay current for acceptance',
+  { timeout: 60000 },
+  async () => {
+    const s = await setup()
+    try {
+      const categoryId = (await import('node:crypto')).randomUUID()
+      const identity = await s.fixture.db.pool.query(
+        'SELECT target_id, target_context_id FROM capture_batch WHERE id=$1',
+        [s.batch.id],
+      )
+      await s.fixture.db.pool.query(
+        `INSERT INTO capture_observation(id,batch_id,target_id,target_context_id,model,pk,label,mapping)
+         VALUES($1,$2,$3,$4,'category','81','Reels',$5)`,
+        [
+          categoryId,
+          s.batch.id,
+          identity.rows[0].target_id,
+          identity.rows[0].target_context_id,
+          { kind: 'category' },
+        ],
+      )
+      await s.edit({
+        kind: 'batch_settings',
+        title: s.batch.title,
+        default_location: { mode: 'unset' },
+        intent: {
+          supplier: { absent: false, selection: { mode: 'unset' } },
+          order: { reference: { mode: 'auto' }, purchase_date: { mode: 'auto' } },
+          shared_tags: { manual: [], auto: true },
+        },
+        notes: { batch: null, order: null },
+        drafts: [],
+      })
+      await s.edit({
+        kind: 'part',
+        id: s.partId,
+        choice: {
+          mode: 'create',
+          spec: {
+            name: 'Reel',
+            category: {
+              observation_id: categoryId,
+              target_context_id: identity.rows[0].target_context_id,
+              model: 'category',
+              pk: '81',
+            },
+            parameters: [],
+            manufacturer: null,
+            supplier: null,
+            tags: [],
+          },
+        },
+      })
+      const reading = await s.start(s.lotId)
+      assert.equal(reading.manifest.schema_version, 'bench-intake-input/5')
+      const accept = (envelope: ProcessingEnvelopeV2Dto) =>
+        acceptEnvelope(s.fixture.runner.pool, s.fixture.config, reading.channelToken, envelope)
+      assert.equal(
+        await accept(proposal(reading, '1', { ...base(s.lotId, s.source), tags: ['0603'] })),
+        'accepted',
+      )
+      await accept({
+        ...proposal(reading, '2', {}),
+        kind: 'terminal',
+        payload: { state: 'ready' },
+      } as ProcessingEnvelopeV2Dto)
+      const snapshot = await s.fixture.http(`/batches/${s.batch.id}/processing`)
+      const job = snapshot.value.jobs.find(
+        (value: { attempt_id: string }) => value.attempt_id === reading.payload.attempt_id,
+      )
+      assert.equal(job.state, 'ready', 'the create choice no longer makes the attempt stale')
+      assert.deepEqual(job.proposals[0].value.tags, ['0603'])
+      assert.equal(snapshot.value.capture_revision, s.batch.revision)
+    } finally {
+      await s.media.dispose?.()
+      await s.fixture.dispose()
+    }
+  },
+)
