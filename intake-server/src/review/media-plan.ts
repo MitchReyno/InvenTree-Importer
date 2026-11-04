@@ -1,3 +1,4 @@
+import { effectsCapable } from '../execution/effects-plan.ts'
 import { canonical } from '@invimport/contracts/json'
 import { sha256 } from '../db/authority.ts'
 import { canonicalMedia } from '../media/encoding.ts'
@@ -97,7 +98,7 @@ export function preparedPlan(
   originalSourceKey: string,
   material: ManualMaterial,
 ): ExecutablePlan {
-  if (binding.capability === 'owned-fake-effects/1') {
+  if (effectsCapable(binding.capability)) {
     throw new Error('effects_preparation_requires_retained_bindings')
   }
   if (binding.capability === CAPABILITY) {

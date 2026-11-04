@@ -189,6 +189,8 @@ export async function retainedPreparation(
           !('partOperationKey' in operation) ||
           operation.partOperationKey !== effect.part_operation_key)) ||
       operation.location !== effect.location_id ||
+      (('locationOperationKey' in operation ? operation.locationOperationKey : null) ??
+        undefined) !== effect.location_operation_key ||
       operation.barcode !== effect.barcode
     ) {
       fail('retained_preparation_corrupt', 409)
@@ -348,7 +350,11 @@ export async function retainedPreparation(
         label: effect.part_label,
       })
     }
-    if (effect.location_id) {
+    // A reused new-location output is read before the stock create, not at preparation.
+    const reusedRecord =
+      isEffectsPlan(plan) &&
+      plan.locations?.some((location) => location.prior?.pk === effect.location_id)
+    if (effect.location_id && !reusedRecord) {
       expectedReads.set(`location:${effect.location_id}`, {
         model: 'location',
         pk: effect.location_id,
@@ -359,6 +365,20 @@ export async function retainedPreparation(
   }
   if (isEffectsPlan(plan)) {
     const capture = await captureInTransaction(client, config, row.batch_id)
+    for (const location of plan.locations ?? []) {
+      const parent = location.spec.parent
+      if (parent) {
+        const observation = capture.snapshot.observations.find(
+          (item) => item.model === 'location' && item.pk === parent,
+        )
+        expectedReads.set(`location:${parent}`, {
+          model: 'location',
+          pk: parent,
+          outcome: 'found',
+          label: observation?.label ?? location.spec.name,
+        })
+      }
+    }
     for (const part of plan.parts) {
       for (const reference of partSpecReferences(part.spec)) {
         const observation = capture.snapshot.observations.find(

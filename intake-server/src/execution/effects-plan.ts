@@ -39,6 +39,11 @@ export function isEffectsVersion(version: unknown): version is EffectsVersion {
   return version === 'bench-effects-plan/1' || version === 'bench-effects-plan/2'
 }
 
+/** Part, media and Part-attachment support exist under either effects capability. */
+export function effectsCapable(capability: string | undefined) {
+  return capability === EFFECTS_CAPABILITY || capability === RECORD_EFFECTS_CAPABILITY
+}
+
 export function isEffectsPlan<T extends { version: string }>(
   plan: T,
 ): plan is Extract<T, { version: EffectsVersion }> {

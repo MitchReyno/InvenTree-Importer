@@ -1,3 +1,4 @@
+import { effectsCapable } from '../execution/effects-plan.ts'
 import { and, desc, eq } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { manualReviews } from './schema.ts'
@@ -23,6 +24,12 @@ export interface ManualConfig extends DevConfig {
   mediaEnabled?: boolean
 }
 export type DeploymentBinding = StockDeployment | MediaDeployment | EffectsDeployment
+
+export function isEffectsBinding(
+  binding: DeploymentBinding | null | undefined,
+): binding is EffectsDeployment {
+  return effectsCapable(binding?.capability)
+}
 
 export async function deploymentBinding(
   client: PoolClient,
