@@ -50,6 +50,7 @@ export type ListOperation = {
 export const LIST_MAX_PAGE_SIZE = 100
 export const LIST_MAX_OFFSET = 10000
 export const LIST_SEARCH_MAX_CHARACTERS = 100
+export const LIST_MAX_TIMEOUT_MS = 5000
 const LIST_PATHS = {
   list_locations: { path: '/api/stock/location/', filters: [] },
   list_supplier_companies: { path: '/api/company/', filters: [['is_supplier', 'true']] },
@@ -260,9 +261,13 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
         'GET',
       )
     },
-    async list(binding: TargetBinding, operation: ListOperation) {
+    /** `timeoutMs` lets a caller's overall budget shorten, never extend, the request deadline. */
+    async list(binding: TargetBinding, operation: ListOperation, timeoutMs = LIST_MAX_TIMEOUT_MS) {
       assertBinding(binding)
-      return request(listPath(operation), 'GET')
+      if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > LIST_MAX_TIMEOUT_MS) {
+        throw new Error('list_operation_refused')
+      }
+      return request(listPath(operation), 'GET', undefined, {}, timeoutMs)
     },
     async sendStock(binding: TargetBinding, retainedRequestBytes: string) {
       assertBinding(binding)

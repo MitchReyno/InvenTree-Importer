@@ -147,7 +147,7 @@ test('catalogue HTTP reads authorize before traffic, fence context and never fol
     config,
     captureRead((operation) => transport.read(binding, operation)),
     catalogueReader({
-      list: (operation) => transport.list(binding, operation),
+      list: (operation, timeoutMs) => transport.list(binding, operation, timeoutMs),
       read: (operation) => transport.read(binding, operation),
       targetContextId: identity.context,
     }),

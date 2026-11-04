@@ -104,3 +104,12 @@ A Claude review subagent was stopped by Mitch before reporting; independent revi
 4. Minor: the handover overclaimed byte-identical upgrade snapshots. The upgrade regression now asserts the exact pre-0014 field set and the claim is narrowed to that plus unchanged legacy values.
 
 Codex found no issues in append-only/FK enforcement, draft identity/retirement, reference validation, revision/idempotency, grants, authorization/context fences, pagination URL handling, concurrency cleanup or write-capability isolation. After the fixes: affected PG 13/13. The corrected candidate needs a fresh Codex review before publication.
+
+Full PostgreSQL tier on `164e761`: 139/139, no skips.
+
+Codex re-review of exactly `origin/interactive-app..164e761ca37825d200a84f6e9f12d56f00fc97aa` confirmed the parser-limit and upgrade-claim fixes and found two remaining issues:
+
+1. Important: the legacy comparison used `JSON.stringify`, so unchanged intent sent with reordered keys still rederived a field and could erase a retained `unknown`. `nextLegacyContext` now uses key-order-independent structural equality. Contract and PG regressions send reordered keys; the contract regression fails with the old comparison (negative control, restored by SHA-256).
+2. Minor: the snapshot budget excluded waiting for response headers, so a read could run to about 20 seconds. The transport `list` now accepts a caller timeout that may only shorten its 5-second deadline (integer 1–5000, otherwise refused), and each snapshot request and body read receives only the remaining budget. The injected-clock regression now proves refusal by 15,000 ms with request timeouts `[5000, 5000, 5000, 3]`.
+
+After these fixes the affected PG files pass. The corrected candidate needs another Codex review.

@@ -21,7 +21,8 @@ export interface CatalogueReader {
 }
 
 interface CatalogueTarget {
-  list: (operation: ListOperation) => Promise<Response>
+  /** `timeoutMs` bounds the whole request, including waiting for response headers. */
+  list: (operation: ListOperation, timeoutMs: number) => Promise<Response>
   read: (operation: ReadOperation) => Promise<Response>
   targetContextId: string
   /** Injectable monotonic clock in milliseconds; defaults to performance.now. */
@@ -209,7 +210,7 @@ export function catalogueReader(target: CatalogueTarget): CatalogueReader {
     operation: ListOperation,
     deadlineMs = BODY_DEADLINE_MS,
   ) {
-    return decodePage(model, await target.list(operation), operation, deadlineMs)
+    return decodePage(model, await target.list(operation, deadlineMs), operation, deadlineMs)
   }
 
   async function exactId(model: CatalogueModelDto, pk: string) {
@@ -269,10 +270,14 @@ export function catalogueReader(target: CatalogueTarget): CatalogueReader {
       for (let offset = 0; offset < CATALOGUE_CANDIDATE_LIMIT; offset += SNAPSHOT_PAGE_SIZE) {
         const limit = Math.min(SNAPSHOT_PAGE_SIZE, CATALOGUE_CANDIDATE_LIMIT - offset)
         const operation = { kind: listKind(model), limit, offset }
-        const response = await target.list(operation)
-        // Each body read gets only what remains of the whole snapshot budget.
-        const remaining = Math.min(BODY_DEADLINE_MS, deadline - now())
-        const page = await decodePage(model, response, operation, remaining)
+        // Every request and body read gets only what remains of the whole snapshot budget.
+        const requestBudget = Math.min(BODY_DEADLINE_MS, Math.floor(deadline - now()))
+        if (requestBudget < 1) {
+          invalid()
+        }
+        const response = await target.list(operation, requestBudget)
+        const bodyBudget = Math.min(BODY_DEADLINE_MS, Math.floor(deadline - now()))
+        const page = await decodePage(model, response, operation, bodyBudget)
         if (now() > deadline) {
           invalid()
         }

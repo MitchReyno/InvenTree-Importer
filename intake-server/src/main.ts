@@ -96,7 +96,7 @@ async function main() {
       const targetBinding = { targetId: config.targetId, contextId: config.targetContextId }
       const catalogue = transport
         ? catalogueReader({
-            list: (operation) => transport.list(targetBinding, operation),
+            list: (operation, timeoutMs) => transport.list(targetBinding, operation, timeoutMs),
             read: (operation) => transport.read(targetBinding, operation),
             targetContextId: config.targetContextId,
           })

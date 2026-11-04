@@ -554,7 +554,13 @@ test('an unrelated batch_settings save keeps legacy unknown and clear context mo
       }),
     )
     const before = saved.context?.find((record) => record.subject_id === null)
-    const intent = effectiveSettingsIntent(saved)
+    const mapped = effectiveSettingsIntent(saved)
+    // Same values with reordered keys, as another client could serialize them.
+    const intent: CaptureSettingsIntentDto = {
+      shared_tags: { auto: mapped.shared_tags.auto, manual: mapped.shared_tags.manual },
+      order: { purchase_date: mapped.order.purchase_date, reference: mapped.order.reference },
+      supplier: { selection: mapped.supplier.selection, absent: mapped.supplier.absent },
+    }
     saved = await checked(
       f.repo.edit(
         saved.id,

@@ -256,6 +256,12 @@ test('transport list builds fixed paginated paths and refuses unbounded or forei
       /list_operation_refused/,
     )
   }
+  for (const timeoutMs of [0, 5001, 1.5]) {
+    await assert.rejects(
+      transport.list(binding, { kind: 'list_locations', limit: 1, offset: 0 }, timeoutMs),
+      /list_operation_refused/,
+    )
+  }
   await assert.rejects(
     transport.list(
       { targetId: 'other', contextId: 'context' },
@@ -308,21 +314,26 @@ test('valid pages up to the page limit parse; the snapshot budget covers every p
   )
 
   let clock = 0
+  const timeouts: number[] = []
   const slow = catalogueReader({
     targetContextId: CONTEXT,
     now: () => clock,
     read: async () => new Response('{}', { status: 404 }),
-    list: async (operation) => {
-      clock += 4000
+    list: async (operation, timeoutMs) => {
+      timeouts.push(timeoutMs)
+      // A slow target uses almost all of whatever request deadline it is given.
+      clock += Math.min(4999, timeoutMs)
       const rows = Array.from({ length: operation.limit }, (_, index) =>
         location(operation.offset + index + 1, `Location ${operation.offset + index}`),
       )
       return page(rows, 500)
     },
   })
-  await assert.rejects(
-    slow.candidates('location'),
-    /catalogue_unavailable/,
-    'four 4 s pages exceed 15 s',
+  await assert.rejects(slow.candidates('location'), /catalogue_unavailable/)
+  assert.ok(clock <= 15000, `snapshot work stops within its 15 s budget (stopped at ${clock} ms)`)
+  assert.deepEqual(
+    timeouts,
+    [5000, 5000, 5000, 3],
+    'later requests receive only the remaining budget',
   )
 })

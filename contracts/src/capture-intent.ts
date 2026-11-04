@@ -195,7 +195,31 @@ export function legacyContextFromIntent(intent: CaptureSettingsIntentDto): Captu
   return { supplier, purchase_date: purchaseDate, tags }
 }
 
-const sameValue = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right)
+/** Structural equality independent of object key order; arrays keep their order. */
+function sameStructure(left: unknown, right: unknown): boolean {
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((item, index) => sameStructure(item, right[index]))
+    )
+  }
+  if (left && right && typeof left === 'object' && typeof right === 'object') {
+    const leftKeys = Object.keys(left).sort()
+    const rightKeys = Object.keys(right).sort()
+    return (
+      sameStructure(leftKeys, rightKeys) &&
+      leftKeys.every((key) =>
+        sameStructure(
+          (left as Record<string, unknown>)[key],
+          (right as Record<string, unknown>)[key],
+        ),
+      )
+    )
+  }
+  return left === right
+}
 
 /**
  * Next batch-level legacy context after an intent save. A field keeps its retained legacy mode
@@ -222,15 +246,17 @@ export function nextLegacyContext(
       current?.tags.mode === 'inherit' ? { mode: 'unset' } : (current?.tags ?? { mode: 'unset' }),
   }
   const result: CaptureContextDto = {
-    supplier: sameValue(previous.supplier, next.supplier) ? retained.supplier : derived.supplier,
-    purchase_date: sameValue(previous.order.purchase_date, next.order.purchase_date)
+    supplier: sameStructure(previous.supplier, next.supplier)
+      ? retained.supplier
+      : derived.supplier,
+    purchase_date: sameStructure(previous.order.purchase_date, next.order.purchase_date)
       ? retained.purchase_date
       : derived.purchase_date,
-    tags: sameValue(previous.shared_tags.manual, next.shared_tags.manual)
+    tags: sameStructure(previous.shared_tags.manual, next.shared_tags.manual)
       ? retained.tags
       : derived.tags,
   }
-  if (current === undefined && sameValue(result, retained)) {
+  if (current === undefined && sameStructure(result, retained)) {
     return undefined
   }
   return result

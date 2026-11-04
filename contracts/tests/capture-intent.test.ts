@@ -259,4 +259,12 @@ test('unrelated intent saves keep retained legacy modes; only changed fields are
     'Auto alone is not legacy context',
   )
   assert.equal(nextLegacyContext(undefined, previous, previous), undefined, 'no row is invented')
+  const reordered = JSON.parse(
+    '{"shared_tags":{"auto":false,"manual":[]},"order":{"purchase_date":{"mode":"auto"},"reference":{"mode":"auto"}},"supplier":{"selection":{"mode":"unset"},"absent":false}}',
+  )
+  assert.deepEqual(
+    nextLegacyContext(current, previous, reordered),
+    current,
+    'reordered but unchanged intent keys keep retained modes',
+  )
 })
