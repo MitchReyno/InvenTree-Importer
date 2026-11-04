@@ -75,7 +75,7 @@ All checklist work belongs to its task's bundle. Each task includes its document
 
 - PR delivery: PR-B.
 - Outcome: accessible, controlled inputs support searchable references, optional notes, Auto/None/manual values and manual-plus-Auto tags.
-- Scope and approach: isolated exact React Select 5.10.2 and Fuse.js 7.1.0 proof first, then a small styled/RHF adapter and one component per TSX file. Reuse native date/text controls and installed upload primitives. No package option object becomes a domain reference.
+- Scope and approach: isolated exact React Select 5.10.2 and Fuse.js 7.1.0 proof first, then a small styled/RHF adapter and one component per TSX file. Auto/None/Manual fields use Radix Popover dropdowns with a dedicated manual-input area; React Select serves only the searchable reference pickers. Reuse native date/text controls and installed upload primitives. No package option object becomes a domain reference.
 - Prerequisites: Task 1 types. If package proof fails, revise the dependency decision before adopting a replacement.
 - Acceptance: [keyboard picker](specs/capture-reference-selection/spec.md#scenario-numeric-id-and-keyboard-interaction), [fuzzy search](specs/capture-reference-selection/spec.md#requirement-typo-tolerant-reference-search), [notes](specs/capture-batch-settings/spec.md#scenario-optional-batch-and-order-notes), [logo explanation](specs/capture-reference-selection/spec.md#scenario-inspect-future-logo-discovery).
 - TDD approach: package qualification uses a disposable harness rather than a false RED claim. Then RED component behaviours precede production wrappers; a new browser dependency is gated on real interaction evidence.
@@ -83,7 +83,7 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Risks: second styling runtime, async selection races and disabled-input focus. Expose tooltip on a focusable explanation wrapper.
 
 - [ ] 3.1 Run the scoped package proof with React19/RHF/StrictMode, controlled reset, async cancellation, IME, touch, keyboard, bounded fuzzy ranking latency and zoom; record license, peer, maintenance and dependency/advisory delta.
-- [ ] 3.2 RED: add meaningful input tests for name/ID identity, typo/accent/case matches, exact-first stable ranking, false positives, partial coverage, stale results, tags plus Auto, manual date/text, Hide versus Remove and disabled coming-soon explanation.
+- [ ] 3.2 RED: add meaningful input tests for name/ID identity, typo/accent/case matches, exact-first stable ranking, false positives, partial coverage, stale results, tags plus Auto, Auto/None/Manual popover keyboard/focus and manual date/text area, Hide versus Remove and disabled coming-soon explanation.
 - [ ] 3.3 GREEN: deliver the reusable components, typed adapters and shared fuzzy ranker with module-scope styled-components and native input validation; prevent default substring filtering from removing scored suggestions.
 - [ ] 3.4 Verify the same picker supports supplier/location/parent and the same notes shell supports separate scopes without losing hidden text; verify `Mousr`/`Incomming` suggestions preserve original labels/IDs and never auto-select or create records.
 - [ ] 3.5 Refactor integration seams, run frontend checks and record proof limitations before Task 4 consumes the components.
