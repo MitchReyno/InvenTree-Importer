@@ -48,11 +48,11 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Verification: `pnpm typecheck`, `pnpm contracts:check`, `pnpm test:intake`, `pnpm db:intake test`; disposable DB migration/restart and restricted-role grants. Capture snapshot permissions and exact lexical IDs are part of the test boundary.
 - Risks: implicit activation of old capture tags/notes; contain through explicit read mapping and unchanged approved history.
 
-- [ ] 1.1 Establish baseline old snapshot/command/input fixtures and record the concrete additive schema/format plan in the maintained handover.
-- [ ] 1.2 RED: add regressions for new intent round-trip, distinct batch/order notes, hide/remove history and manual tags with Auto off on migration.
-- [ ] 1.3 GREEN: implement versioned DTOs, facade generation, additive tables/columns, bounded validation and scoped transactional reads/edits.
-- [ ] 1.4 Verify old quantity/context choices, archived/frozen permissions, parent/logo references and immutable history survive migrations and restart.
-- [ ] 1.5 Refactor by owning responsibility; update server/contract documentation and record checks/limitations before the PR-A review gate.
+- [x] 1.1 Establish baseline old snapshot/command/input fixtures and record the concrete additive schema/format plan in the maintained handover.
+- [x] 1.2 RED: add regressions for new intent round-trip, distinct batch/order notes, hide/remove history and manual tags with Auto off on migration.
+- [x] 1.3 GREEN: implement versioned DTOs, facade generation, additive tables/columns, bounded validation and scoped transactional reads/edits.
+- [x] 1.4 Verify old quantity/context choices, archived/frozen permissions, parent/logo references and immutable history survive migrations and restart.
+- [x] 1.5 Refactor by owning responsibility; update server/contract documentation and record checks/limitations before the PR-A review gate.
 
 ## 2. Add bounded name-first catalogue search
 

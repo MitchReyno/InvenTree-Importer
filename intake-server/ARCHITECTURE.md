@@ -164,6 +164,16 @@ Relevant group labels/notes and evidence notes enter additive `media-inputs/3` m
 
 These are additive backend contracts. Capture UI consolidation follows separately. Older frontend builds fail closed on unknown response fields after new context is stored and need reload; stale old revisions cannot erase context. Deploy compatible generated clients with consumers, preserve drafts and do not remove additive APIs before rolling consumers back.
 
+## Batch settings intent
+
+Migration `0014_capture_settings_intent.sql` adds append-only `capture_settings_intent`, `capture_setting_note`, `capture_reference_draft_identity` and `capture_reference_draft` records, owned by `capture/settings-intent.ts`. The complete-state `batch_settings` edit writes title, the Default location selection, supplier/order/tag intent, batch and order notes and the active new-record draft set under one revision, using the existing batch lock, expected revision and payload-bound idempotency. Only facts that differ from retained state receive a new version.
+
+Intent is human request, not an effect. Supplier absence is separate from its selection so it can be restored. Order reference and purchase date are Auto, None or Manual; Manual keeps exact text and calendar strings. Shared tags keep manual values and an independent Auto flag. Batch and order notes are distinct scopes; Remove writes a `null` tombstone and earlier text stays in history. These notes never append to the immutable human-note table.
+
+Drafts have a stable client-generated ID whose kind is fixed by an identity row. Location parents must be same-batch, same-target location observations. Company logos are proved same-batch media by a composite FK, and the media-owned `retainedImageVersion` seam admits only PNG/JPEG versions. A draft omitted from a complete save is retired, not deleted. A location draft chosen as Default location is recorded on the intent record through a kind-checked FK, and the existing location selection becomes `unset`. No draft reaches the inventory transport; supervised creation is separate work.
+
+Each intent change also writes the derived batch-level `capture_context` row, so Processing context notes, Review fingerprints and lot inheritance keep their existing inputs. Batches without intent map deterministically at read time through `effectiveSettingsIntent` in contracts; nothing is rewritten. Once intent exists, legacy `settings`/`defaults` writes of batch context or location are refused with `settings_intent_superseded`, because older clients cannot see the intent they would contradict. Snapshot fields `settings_intent`, `setting_notes` and `reference_drafts` are omitted when absent, keeping legacy bytes unchanged.
+
 ## Header observation foundations
 
 `header/` supplies read-only `GET /api/v1/connection-status` and `GET /api/v1/header-work` under the existing development Host/Origin and scoped authority boundary. The consumer header remains separate work. Connection reads reuse the fixed inventory adapter's authenticated `GET /api/part/?limit=1`, manual redirect refusal and 3-second abort deadline. Only HTTP status/JSON content type is observed; the body is cancelled and no Part data is retained. This establishes API reachability, not import compatibility or write permission. No browser-supplied target/credentials are accepted.

@@ -3369,6 +3369,991 @@
           }
         }
       },
+      "CaptureSettingsIntent": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "supplier",
+          "order",
+          "shared_tags"
+        ],
+        "properties": {
+          "supplier": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "absent",
+              "selection"
+            ],
+            "properties": {
+              "absent": {
+                "type": "boolean"
+              },
+              "selection": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "unset",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode",
+                      "reference"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "existing",
+                        "type": "string"
+                      },
+                      "reference": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "observation_id",
+                          "target_context_id",
+                          "model",
+                          "pk"
+                        ],
+                        "properties": {
+                          "observation_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "target_context_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "model": {
+                            "const": "company",
+                            "type": "string"
+                          },
+                          "pk": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode",
+                      "draft_id"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "draft",
+                        "type": "string"
+                      },
+                      "draft_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "order": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "reference",
+              "purchase_date"
+            ],
+            "properties": {
+              "reference": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "auto",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "none",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode",
+                      "value"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "manual",
+                        "type": "string"
+                      },
+                      "value": {
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "pattern": "[^\\s]",
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              },
+              "purchase_date": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "auto",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "none",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "mode",
+                      "value"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "const": "manual",
+                        "type": "string"
+                      },
+                      "value": {
+                        "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}(?![\\s\\S])",
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "shared_tags": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "manual",
+              "auto"
+            ],
+            "properties": {
+              "manual": {
+                "maxItems": 32,
+                "uniqueItems": true,
+                "type": "array",
+                "items": {
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "[^\\s]",
+                  "type": "string"
+                }
+              },
+              "auto": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "CaptureSettingsIntentRecord": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "value",
+          "default_location_draft",
+          "version",
+          "actor_id",
+          "created_at"
+        ],
+        "properties": {
+          "value": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "supplier",
+              "order",
+              "shared_tags"
+            ],
+            "properties": {
+              "supplier": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "absent",
+                  "selection"
+                ],
+                "properties": {
+                  "absent": {
+                    "type": "boolean"
+                  },
+                  "selection": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "reference"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "existing",
+                            "type": "string"
+                          },
+                          "reference": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "const": "company",
+                                "type": "string"
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "draft_id"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "draft",
+                            "type": "string"
+                          },
+                          "draft_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "order": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "reference",
+                  "purchase_date"
+                ],
+                "properties": {
+                  "reference": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "auto",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "none",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "manual",
+                            "type": "string"
+                          },
+                          "value": {
+                            "minLength": 1,
+                            "maxLength": 128,
+                            "pattern": "[^\\s]",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "purchase_date": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "auto",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "none",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "manual",
+                            "type": "string"
+                          },
+                          "value": {
+                            "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "shared_tags": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "manual",
+                  "auto"
+                ],
+                "properties": {
+                  "manual": {
+                    "maxItems": 32,
+                    "uniqueItems": true,
+                    "type": "array",
+                    "items": {
+                      "minLength": 1,
+                      "maxLength": 100,
+                      "pattern": "[^\\s]",
+                      "type": "string"
+                    }
+                  },
+                  "auto": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          },
+          "default_location_draft": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "actor_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        }
+      },
+      "CaptureSettingNoteRecord": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "scope",
+          "text",
+          "version",
+          "actor_id",
+          "created_at"
+        ],
+        "properties": {
+          "scope": {
+            "anyOf": [
+              {
+                "const": "batch",
+                "type": "string"
+              },
+              {
+                "const": "order",
+                "type": "string"
+              }
+            ]
+          },
+          "text": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "maxLength": 8192,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "actor_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        }
+      },
+      "CaptureReferenceDraft": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "draft_id",
+              "kind",
+              "value"
+            ],
+            "properties": {
+              "draft_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "kind": {
+                "const": "location",
+                "type": "string"
+              },
+              "value": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "name",
+                  "description",
+                  "parent"
+                ],
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "[^\\s]",
+                    "type": "string"
+                  },
+                  "description": {
+                    "maxLength": 250,
+                    "type": "string"
+                  },
+                  "parent": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "observation_id",
+                          "target_context_id",
+                          "model",
+                          "pk"
+                        ],
+                        "properties": {
+                          "observation_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "target_context_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "model": {
+                            "const": "location",
+                            "type": "string"
+                          },
+                          "pk": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "draft_id",
+              "kind",
+              "value"
+            ],
+            "properties": {
+              "draft_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "kind": {
+                "const": "company",
+                "type": "string"
+              },
+              "value": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "name",
+                  "description",
+                  "also_manufacturer",
+                  "logo"
+                ],
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "[^\\s]",
+                    "type": "string"
+                  },
+                  "description": {
+                    "maxLength": 250,
+                    "type": "string"
+                  },
+                  "also_manufacturer": {
+                    "type": "boolean"
+                  },
+                  "logo": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "evidence_id",
+                          "version_id"
+                        ],
+                        "properties": {
+                          "evidence_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "version_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CaptureReferenceDraftRecord": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "draft_id",
+              "kind",
+              "value",
+              "version",
+              "actor_id",
+              "created_at"
+            ],
+            "properties": {
+              "draft_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "kind": {
+                "const": "location",
+                "type": "string"
+              },
+              "value": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "name",
+                  "description",
+                  "parent"
+                ],
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "[^\\s]",
+                    "type": "string"
+                  },
+                  "description": {
+                    "maxLength": 250,
+                    "type": "string"
+                  },
+                  "parent": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "observation_id",
+                          "target_context_id",
+                          "model",
+                          "pk"
+                        ],
+                        "properties": {
+                          "observation_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "target_context_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "model": {
+                            "const": "location",
+                            "type": "string"
+                          },
+                          "pk": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "version": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "actor_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "created_at": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "draft_id",
+              "kind",
+              "value",
+              "version",
+              "actor_id",
+              "created_at"
+            ],
+            "properties": {
+              "draft_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "kind": {
+                "const": "company",
+                "type": "string"
+              },
+              "value": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "name",
+                  "description",
+                  "also_manufacturer",
+                  "logo"
+                ],
+                "properties": {
+                  "name": {
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "[^\\s]",
+                    "type": "string"
+                  },
+                  "description": {
+                    "maxLength": 250,
+                    "type": "string"
+                  },
+                  "also_manufacturer": {
+                    "type": "boolean"
+                  },
+                  "logo": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "evidence_id",
+                          "version_id"
+                        ],
+                        "properties": {
+                          "evidence_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "version_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "version": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "actor_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "created_at": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "CaptureDefaultLocationSetting": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "const": "unset",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "const": "unknown",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "const": "clear",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "mode",
+              "value"
+            ],
+            "properties": {
+              "mode": {
+                "const": "set",
+                "type": "string"
+              },
+              "value": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "observation_id",
+                  "target_context_id",
+                  "model",
+                  "pk"
+                ],
+                "properties": {
+                  "observation_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "target_context_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "model": {
+                    "const": "location",
+                    "type": "string"
+                  },
+                  "pk": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "mode",
+              "draft_id"
+            ],
+            "properties": {
+              "mode": {
+                "const": "draft",
+                "type": "string"
+              },
+              "draft_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
       "CaptureListQuery": {
         "additionalProperties": false,
         "type": "object",
@@ -6821,6 +7806,554 @@
                     "type": "string"
                   }
                 }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "title",
+                  "default_location",
+                  "intent",
+                  "notes",
+                  "drafts"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "batch_settings",
+                    "type": "string"
+                  },
+                  "title": {
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "type": "string"
+                  },
+                  "default_location": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unknown",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "const": "location",
+                                "type": "string"
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "draft_id"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "draft",
+                            "type": "string"
+                          },
+                          "draft_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "intent": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "supplier",
+                      "order",
+                      "shared_tags"
+                    ],
+                    "properties": {
+                      "supplier": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "absent",
+                          "selection"
+                        ],
+                        "properties": {
+                          "absent": {
+                            "type": "boolean"
+                          },
+                          "selection": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "mode"
+                                ],
+                                "properties": {
+                                  "mode": {
+                                    "const": "unset",
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "mode",
+                                  "reference"
+                                ],
+                                "properties": {
+                                  "mode": {
+                                    "const": "existing",
+                                    "type": "string"
+                                  },
+                                  "reference": {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "observation_id",
+                                      "target_context_id",
+                                      "model",
+                                      "pk"
+                                    ],
+                                    "properties": {
+                                      "observation_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "target_context_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "model": {
+                                        "const": "company",
+                                        "type": "string"
+                                      },
+                                      "pk": {
+                                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                        "format": "int64",
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "mode",
+                                  "draft_id"
+                                ],
+                                "properties": {
+                                  "mode": {
+                                    "const": "draft",
+                                    "type": "string"
+                                  },
+                                  "draft_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "order": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "reference",
+                          "purchase_date"
+                        ],
+                        "properties": {
+                          "reference": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "mode"
+                                ],
+                                "properties": {
+                                  "mode": {
+                                    "const": "auto",
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "mode"
+                                ],
+                                "properties": {
+                                  "mode": {
+                                    "const": "none",
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "mode",
+                                  "value"
+                                ],
+                                "properties": {
+                                  "mode": {
+                                    "const": "manual",
+                                    "type": "string"
+                                  },
+                                  "value": {
+                                    "minLength": 1,
+                                    "maxLength": 128,
+                                    "pattern": "[^\\s]",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "purchase_date": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "mode"
+                                ],
+                                "properties": {
+                                  "mode": {
+                                    "const": "auto",
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "mode"
+                                ],
+                                "properties": {
+                                  "mode": {
+                                    "const": "none",
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "mode",
+                                  "value"
+                                ],
+                                "properties": {
+                                  "mode": {
+                                    "const": "manual",
+                                    "type": "string"
+                                  },
+                                  "value": {
+                                    "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}(?![\\s\\S])",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "shared_tags": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "manual",
+                          "auto"
+                        ],
+                        "properties": {
+                          "manual": {
+                            "maxItems": 32,
+                            "uniqueItems": true,
+                            "type": "array",
+                            "items": {
+                              "minLength": 1,
+                              "maxLength": 100,
+                              "pattern": "[^\\s]",
+                              "type": "string"
+                            }
+                          },
+                          "auto": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "notes": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "batch",
+                      "order"
+                    ],
+                    "properties": {
+                      "batch": {
+                        "anyOf": [
+                          {
+                            "minLength": 1,
+                            "maxLength": 8192,
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "order": {
+                        "anyOf": [
+                          {
+                            "minLength": 1,
+                            "maxLength": 8192,
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "drafts": {
+                    "maxItems": 16,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "draft_id",
+                            "kind",
+                            "value"
+                          ],
+                          "properties": {
+                            "draft_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "kind": {
+                              "const": "location",
+                              "type": "string"
+                            },
+                            "value": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "parent"
+                              ],
+                              "properties": {
+                                "name": {
+                                  "minLength": 1,
+                                  "maxLength": 100,
+                                  "pattern": "[^\\s]",
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "maxLength": 250,
+                                  "type": "string"
+                                },
+                                "parent": {
+                                  "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "observation_id",
+                                        "target_context_id",
+                                        "model",
+                                        "pk"
+                                      ],
+                                      "properties": {
+                                        "observation_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "target_context_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "model": {
+                                          "const": "location",
+                                          "type": "string"
+                                        },
+                                        "pk": {
+                                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                          "format": "int64",
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "draft_id",
+                            "kind",
+                            "value"
+                          ],
+                          "properties": {
+                            "draft_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "kind": {
+                              "const": "company",
+                              "type": "string"
+                            },
+                            "value": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "name",
+                                "description",
+                                "also_manufacturer",
+                                "logo"
+                              ],
+                              "properties": {
+                                "name": {
+                                  "minLength": 1,
+                                  "maxLength": 100,
+                                  "pattern": "[^\\s]",
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "maxLength": 250,
+                                  "type": "string"
+                                },
+                                "also_manufacturer": {
+                                  "type": "boolean"
+                                },
+                                "logo": {
+                                  "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "evidence_id",
+                                        "version_id"
+                                      ],
+                                      "properties": {
+                                        "evidence_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "version_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
               }
             ]
           }
@@ -7667,6 +9200,512 @@
                   "type": "string"
                 }
               }
+            }
+          },
+          "settings_intent": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "value",
+              "default_location_draft",
+              "version",
+              "actor_id",
+              "created_at"
+            ],
+            "properties": {
+              "value": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "supplier",
+                  "order",
+                  "shared_tags"
+                ],
+                "properties": {
+                  "supplier": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "absent",
+                      "selection"
+                    ],
+                    "properties": {
+                      "absent": {
+                        "type": "boolean"
+                      },
+                      "selection": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "unset",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "reference"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "existing",
+                                "type": "string"
+                              },
+                              "reference": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "const": "company",
+                                    "type": "string"
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "draft_id"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "draft",
+                                "type": "string"
+                              },
+                              "draft_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "order": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "reference",
+                      "purchase_date"
+                    ],
+                    "properties": {
+                      "reference": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "auto",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "none",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "manual",
+                                "type": "string"
+                              },
+                              "value": {
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "pattern": "[^\\s]",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "purchase_date": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "auto",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "none",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "manual",
+                                "type": "string"
+                              },
+                              "value": {
+                                "pattern": "^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}(?![\\s\\S])",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "shared_tags": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "manual",
+                      "auto"
+                    ],
+                    "properties": {
+                      "manual": {
+                        "maxItems": 32,
+                        "uniqueItems": true,
+                        "type": "array",
+                        "items": {
+                          "minLength": 1,
+                          "maxLength": 100,
+                          "pattern": "[^\\s]",
+                          "type": "string"
+                        }
+                      },
+                      "auto": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              },
+              "default_location_draft": {
+                "anyOf": [
+                  {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "version": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "actor_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "created_at": {
+                "type": "string"
+              }
+            }
+          },
+          "setting_notes": {
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "scope",
+                "text",
+                "version",
+                "actor_id",
+                "created_at"
+              ],
+              "properties": {
+                "scope": {
+                  "anyOf": [
+                    {
+                      "const": "batch",
+                      "type": "string"
+                    },
+                    {
+                      "const": "order",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "text": {
+                  "anyOf": [
+                    {
+                      "minLength": 1,
+                      "maxLength": 8192,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "version": {
+                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                  "format": "int64",
+                  "type": "string"
+                },
+                "actor_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "reference_drafts": {
+            "maxItems": 16,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "draft_id",
+                    "kind",
+                    "value",
+                    "version",
+                    "actor_id",
+                    "created_at"
+                  ],
+                  "properties": {
+                    "draft_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "location",
+                      "type": "string"
+                    },
+                    "value": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "description",
+                        "parent"
+                      ],
+                      "properties": {
+                        "name": {
+                          "minLength": 1,
+                          "maxLength": 100,
+                          "pattern": "[^\\s]",
+                          "type": "string"
+                        },
+                        "description": {
+                          "maxLength": 250,
+                          "type": "string"
+                        },
+                        "parent": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "observation_id",
+                                "target_context_id",
+                                "model",
+                                "pk"
+                              ],
+                              "properties": {
+                                "observation_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "target_context_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "model": {
+                                  "const": "location",
+                                  "type": "string"
+                                },
+                                "pk": {
+                                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                  "format": "int64",
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "version": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "actor_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "draft_id",
+                    "kind",
+                    "value",
+                    "version",
+                    "actor_id",
+                    "created_at"
+                  ],
+                  "properties": {
+                    "draft_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "company",
+                      "type": "string"
+                    },
+                    "value": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "description",
+                        "also_manufacturer",
+                        "logo"
+                      ],
+                      "properties": {
+                        "name": {
+                          "minLength": 1,
+                          "maxLength": 100,
+                          "pattern": "[^\\s]",
+                          "type": "string"
+                        },
+                        "description": {
+                          "maxLength": 250,
+                          "type": "string"
+                        },
+                        "also_manufacturer": {
+                          "type": "boolean"
+                        },
+                        "logo": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "evidence_id",
+                                "version_id"
+                              ],
+                              "properties": {
+                                "evidence_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "version_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "version": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "actor_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
             }
           },
           "parts": {

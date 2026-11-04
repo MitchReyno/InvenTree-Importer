@@ -42,7 +42,7 @@ export async function readCaptureContexts(
   })
 }
 
-async function validateSupplier(
+export async function validateSupplierReference(
   client: PoolClient,
   owner: ContextOwner,
   value: CaptureLotContextDto['supplier'],
@@ -99,7 +99,7 @@ export async function retainCaptureContext(
       fail('invalid_calendar_date')
     }
   }
-  await validateSupplier(client, owner, value.supplier)
+  await validateSupplierReference(client, owner, value.supplier)
   await executeDatabaseQuery(
     queryDatabase(client)
       .insert(captureContexts)

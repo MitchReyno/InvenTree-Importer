@@ -29,6 +29,12 @@ import type { DevConfig } from '../config.ts'
 import { transaction } from '../db/database.ts'
 import { validatePartSpec, PartSpecError } from './part-spec.ts'
 import { readCaptureContexts, retainCaptureContext } from './context.ts'
+import {
+  applyBatchSettingsIntent,
+  readReferenceDrafts,
+  readSettingNotes,
+  readSettingsIntent,
+} from './settings-intent.ts'
 import { appendEvent, idempotent, sha256 } from '../db/authority.ts'
 
 export class CaptureError extends Error {
@@ -201,9 +207,16 @@ async function snapshot(
   )
   const cursor = streamRows[0].head.toString()
   const context = await readCaptureContexts(client, id)
+  const settingsIntent = await readSettingsIntent(client, id)
+  const settingNotes = await readSettingNotes(client, id)
+  const referenceDrafts = await readReferenceDrafts(client, id)
   const result = {
     ...summary(b),
     ...(context.length ? { context } : {}),
+    // Optional additive fields are omitted when absent so legacy snapshot bytes are unchanged.
+    ...(settingsIntent ? { settings_intent: settingsIntent } : {}),
+    ...(settingNotes.length ? { setting_notes: settingNotes } : {}),
+    ...(referenceDrafts.length ? { reference_drafts: referenceDrafts } : {}),
     actor_id: b.actor_id,
     target_context_id: b.target_context_id,
     defaults: {
@@ -498,7 +511,19 @@ async function applyLockedCaptureEdit(
       value,
     )
 
+  const intentRetained = (await readSettingsIntent(c, id)) !== undefined
+  const legacyLocationWrite =
+    (change.kind === 'settings' || change.kind === 'defaults') && change.location !== undefined
+  const legacyContextWrite = change.kind === 'settings' && change.context !== undefined
+  if (intentRetained && (legacyLocationWrite || legacyContextWrite)) {
+    // Legacy clients cannot see intent; their batch-level writes would silently diverge from it.
+    fail('settings_intent_superseded', 409)
+  }
+
   switch (change.kind) {
+    case 'batch_settings':
+      await applyBatchSettings(c, b, change, nextRevision)
+      break
     case 'settings':
       await executeDatabaseQuery(
         queryDatabase(c)
@@ -615,6 +640,44 @@ async function applyLockedCaptureEdit(
       .where(eq(captureBatches.id, id)),
   )
   await retainRevision(c, b, input, false)
+}
+
+type BatchSettingsChange = Extract<CaptureEditDto['change'], { kind: 'batch_settings' }>
+
+/** Complete-state settings: Default location selection here, retained intent in its owner. */
+async function applyBatchSettings(
+  c: PoolClient,
+  b: Batch,
+  change: BatchSettingsChange,
+  nextRevision: string,
+) {
+  const binding = {
+    actorId: b.actor_id,
+    targetId: b.target_id,
+    targetContextId: b.target_context_id,
+  }
+  const current = await snapshot(c, binding, b.id)
+  await executeDatabaseQuery(
+    queryDatabase(c)
+      .update(captureBatches)
+      .set({ title: change.title })
+      .where(eq(captureBatches.id, b.id)),
+  )
+
+  const requested = change.default_location
+  const selection: Selection = requested.mode === 'draft' ? unset : requested
+  if (canonical(selection) !== canonical(current.defaults.location)) {
+    await insertSelection(c, b, null, 'location', selection, nextRevision)
+  }
+
+  const batchContext = current.context?.find((record) => record.subject_id === null)
+  await applyBatchSettingsIntent(
+    c,
+    { batchId: b.id, ...binding },
+    change,
+    batchContext,
+    nextRevision,
+  )
 }
 
 export interface LockedCaptureEdit {
