@@ -13,8 +13,8 @@ const FUZZY_MIN_QUERY = 3
 const FUZZY_THRESHOLD = 0.4
 
 /**
- * Exact ID, exact name and name-prefix tiers precede Fuse suggestions; ties keep numeric ID
- * order. A numeric query matches IDs only, so it can never substitute another record.
+ * Exact ID, exact name and name-prefix tiers precede Fuse suggestions, where name matches precede
+ * secondary-only matches; ties keep numeric ID order. A numeric query matches IDs only, so it can never substitute another record.
  */
 export function rankReferences<T extends RankableReference>(
   records: readonly T[],
@@ -60,11 +60,23 @@ export function rankReferences<T extends RankableReference>(
             threshold: FUZZY_THRESHOLD,
             ignoreLocation: true,
             includeScore: true,
+            includeMatches: true,
           },
         )
           .search(q)
           .filter((match) => !seen.has(match.item.record))
-          .sort((a, b) => a.score! - b.score! || byId(a.item.record, b.item.record))
+          // A name match always precedes a match found only in secondary fields.
+          .map((match) => ({
+            match,
+            secondaryOnly: !match.matches?.some((item) => item.key === 'name'),
+          }))
+          .sort(
+            (a, b) =>
+              Number(a.secondaryOnly) - Number(b.secondaryOnly) ||
+              a.match.score! - b.match.score! ||
+              byId(a.match.item.record, b.match.item.record),
+          )
+          .map(({ match }) => match)
           .map((match) => match.item.record)
   return [
     ...exact.map((record) => ({ record, tier: 'exact_name' as const })),

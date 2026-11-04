@@ -244,3 +244,43 @@ test('settings stay paused until the revision after an evidence change is adopte
   expect(settings.accept).toHaveBeenCalledWith({ ...batch, revision: '2' })
   await waitFor(() => expect(screen.getByLabelText('Batch title')).toBeEnabled())
 })
+
+for (const order of ['older first', 'newer first'] as const) {
+  test(`only the newest post-evidence refresh releases settings (${order})`, async () => {
+    const user = userEvent.setup()
+    const reads: ((value: CaptureSnapshotDto) => void)[] = []
+    const read = vi.fn(() => new Promise<CaptureSnapshotDto>((resolve) => reads.push(resolve)))
+    const settings = ports({ read })
+    render(
+      <CaptureWorkspace
+        batch={batch}
+        busy={false}
+        media={mediaClient()}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+        settings={settings}
+      />,
+    )
+    const input = await screen.findByLabelText('Choose photos')
+    await waitFor(() => expect(input).toBeEnabled())
+    for (const name of ['a.png', 'b.png']) {
+      await user.upload(input, new File(['x'], name, { type: 'image/png' }))
+      await user.click(screen.getByRole('button', { name: 'Discard selected file' }))
+    }
+    expect(reads).toHaveLength(2)
+    const older = { ...batch, revision: '2' }
+    const newer = { ...batch, revision: '3' }
+    if (order === 'older first') {
+      await act(async () => reads[0](older))
+      expect(screen.getByLabelText('Batch title')).toBeDisabled()
+      await act(async () => reads[1](newer))
+    } else {
+      await act(async () => reads[1](newer))
+      await act(async () => reads[0](older))
+    }
+    expect(settings.accept).toHaveBeenCalledTimes(1)
+    expect(settings.accept).toHaveBeenCalledWith(newer)
+    await waitFor(() => expect(screen.getByLabelText('Batch title')).toBeEnabled())
+  })
+}

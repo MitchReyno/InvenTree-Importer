@@ -71,3 +71,17 @@ test('IDs beyond the safe integer range keep exact numeric order', () => {
     '10000000000000000',
   ])
 })
+
+test('a fuzzy name match precedes a record matching only in its secondary fields', () => {
+  const ranked = rankReferences(
+    [
+      { pk: '1', name: 'Resistor drawer', secondary: ['inspection'] },
+      { pk: '2', name: 'Incoming inspection drawer', secondary: ['Bench'] },
+    ],
+    'inspection',
+  )
+  expect(ranked.map((item) => [item.record.name, item.tier])).toEqual([
+    ['Incoming inspection drawer', 'fuzzy'],
+    ['Resistor drawer', 'fuzzy'],
+  ])
+})

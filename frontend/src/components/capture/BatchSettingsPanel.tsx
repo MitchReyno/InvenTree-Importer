@@ -84,6 +84,8 @@ export function BatchSettingsPanel({
   const composing = useRef(false)
   const [composingText, setComposingText] = useState(false)
   const [tagPending, setTagPending] = useState(false)
+  // Remounting the tag input clears text typed but not yet added.
+  const [tagInput, setTagInput] = useState(0)
   const textEdit = useRef(false)
   const instructionsTouched = useRef(false)
   const files = useRef(new Map<string, File>())
@@ -169,18 +171,17 @@ export function BatchSettingsPanel({
   // Instructions can arrive after Capture. A new saved version becomes the lane's acknowledged
   // baseline; the textbox follows it until the operator types, otherwise the draft is compared again.
   const instructionVersion = instructionRecord?.version
-  const instructionsNow = useRef(instructions)
-  instructionsNow.current = instructions
   useEffect(() => {
     if (!operatorReview) {
       return
     }
     const text = latestInstructions(operatorReview)?.text ?? ''
-    queue.adoptSaved('instructions', text)
-    if (!instructionsTouched.current) {
+    // A clean lane (no draft, nothing unacknowledged) follows the newer saved text without sending;
+    // an outstanding draft or a composition in progress keeps the operator's text.
+    const clean = queue.adoptSaved('instructions', text)
+    if ((clean || !instructionsTouched.current) && !composing.current) {
+      instructionsTouched.current = false
       setInstructions(text)
-    } else if (state.lanes.instructions === 'saved' && instructionsNow.current !== text) {
-      queue.update('instructions', instructionsNow.current)
     }
     // Only a new saved version (or the projection's first arrival) is adopted.
   }, [instructionVersion, operatorReview === undefined])
@@ -346,6 +347,7 @@ export function BatchSettingsPanel({
     if (!queue.discardDrafts()) {
       return
     }
+    setTagInput((value) => value + 1)
     reset(settingsValues(batch))
     instructionsTouched.current = false
     setInstructions(latestInstructions(operatorReview)?.text ?? '')
@@ -402,7 +404,7 @@ export function BatchSettingsPanel({
           onReload={reload}
         />
       )}
-      {ports && !connected && state.dirty && queue.canDiscardLocally() && (
+      {ports && !connected && (state.dirty || tagPending) && queue.canDiscardLocally() && (
         <KeepButton type="button" onClick={discardUnsent}>
           Discard unsent settings edits
         </KeepButton>
@@ -501,6 +503,7 @@ export function BatchSettingsPanel({
             control={control}
             render={({ field }) => (
               <SharedTagsInput
+                key={tagInput}
                 value={field.value}
                 disabled={!editable}
                 onPendingChange={setTagPending}

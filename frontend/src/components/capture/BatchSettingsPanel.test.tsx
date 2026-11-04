@@ -779,3 +779,40 @@ test('a locally discarded unsent title returns to the saved value', async () => 
   await act(() => vi.advanceTimersByTimeAsync(3000))
   expect(saves).toHaveLength(0)
 })
+
+test('a newer saved instruction from elsewhere replaces an acknowledged local edit without resending it', async () => {
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  const view = render(<Host />)
+  const text = screen.getByRole('textbox', { name: 'Custom instructions' })
+  await user.type(text, 'Mine')
+  await idle()
+  await act(async () => instructs[0].resolve())
+  await settle()
+  const external = { ...savedInstruction, text: 'From another client', version: '9' }
+  view.rerender(
+    <Host
+      operatorReview={{ ...review, revision: '3', instructions: [external] } as OperatorReviewDto}
+    />,
+  )
+  await act(() => vi.advanceTimersByTimeAsync(3000))
+  expect(text).toHaveValue('From another client')
+  expect(instructs.map((item) => item.text)).toEqual(['Mine'])
+})
+
+test('local discard while disconnected also clears tag text not yet added', async () => {
+  const dirty = vi.fn()
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  const view = render(<Host onDirtyChange={dirty} />)
+  const tag = screen.getByRole('textbox', { name: 'Add shared part tag' })
+  await user.type(tag, 'bench{Enter}')
+  await settle()
+  await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
+  await settle()
+  // A refused duplicate keeps its text pending, even after the disconnect blurs the input.
+  await user.type(tag, 'Bench{Enter}')
+  view.rerender(<Host onDirtyChange={dirty} connected={false} />)
+  await user.click(screen.getByRole('button', { name: 'Discard unsent settings edits' }))
+  expect(screen.getByRole('textbox', { name: 'Add shared part tag' })).toHaveValue('')
+  expect(dirty).toHaveBeenLastCalledWith(false)
+  expect(saves).toHaveLength(1)
+})

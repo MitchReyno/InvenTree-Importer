@@ -38,18 +38,27 @@ export function CaptureWorkspace({
   const latest = useRef({ onDirtyChange, settings })
   latest.current = { onDirtyChange, settings }
   const [refresh, setRefresh] = useState<'idle' | 'reading' | 'failed'>('idle')
+  // Only the newest refresh may release or fail the gate; an older read is ignored.
+  const refreshGeneration = useRef(0)
   const refreshSettings = useCallback(() => {
     const ports = latest.current.settings
     if (!ports) {
       return
     }
+    const generation = ++refreshGeneration.current
     setRefresh('reading')
     ports.read().then(
       (snapshot) => {
-        latest.current.settings?.accept(snapshot)
-        setRefresh('idle')
+        if (generation === refreshGeneration.current) {
+          latest.current.settings?.accept(snapshot)
+          setRefresh('idle')
+        }
       },
-      () => setRefresh('failed'),
+      () => {
+        if (generation === refreshGeneration.current) {
+          setRefresh('failed')
+        }
+      },
     )
   }, [])
   const report = useCallback((source: DirtySource, value: boolean) => {

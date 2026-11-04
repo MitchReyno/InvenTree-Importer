@@ -138,7 +138,7 @@ The proof ran in a disposable harness outside the repository before anything was
 
 Components, each in its own file with a test file beside it:
 
-- `capture/reference-rank.ts`: shared ranker. Exact ID, exact name and name-prefix tiers precede Fuse suggestions (names weighted 3:1 over path/description, threshold 0.4, no fuzzy matching below three characters). Ties use numeric ID order. An all-digit query matches IDs only, so ID lookup never fuzzy-substitutes. Case, whitespace and accents fold for matching only.
+- `capture/reference-rank.ts`: shared ranker. Exact ID, exact name and name-prefix tiers precede Fuse suggestions (names weighted 3:1 over path/description, threshold 0.4, no fuzzy matching below three characters; within suggestions, name matches precede secondary-only matches). Ties use numeric ID order. An all-digit query matches IDs only, so ID lookup never fuzzy-substitutes. Case, whitespace and accents fold for matching only.
 - `ui/SearchableReferencePicker.tsx`: merges the bounded candidate snapshot with current search results (deduplicated by PK), places the exact-ID detail read first, and uses `filterOption={null}`. A response is used only for the query it answered; searches are debounced 250 ms and aborted when superseded. Coverage, unavailability (selection kept, no empty catalogue claimed) and disabled reasons are visible text linked as the combobox description. The create option calls `onCreate(name)` to open a draft form; it never selects or creates a record.
 - `ui/AutoValueField.tsx`: Radix Popover trigger showing the current choice, native radio group for Auto/None/Manual, and a separate labelled text or native date input below the radios when Manual is chosen. Escape closes and returns focus to the trigger. The last manual text is restored when Manual is chosen again.
 - `ui/OptionalNotesField.tsx`: the toggle hides and shows without changing the value (hidden text is reported as kept); Remove emits `null` for a tombstone.
@@ -239,7 +239,18 @@ Codex reviewed exactly `1514e91..35d2ed2`: no Critical findings; two Important a
 3. Minor: unsent drafts made while disconnected had no recovery, because the fields were disabled and the host's discard needs a server read. "Discard unsent settings edits" now appears while disconnected and nothing has been sent or left unconfirmed. It drops the drafts locally and restores the saved values, and in-flight or unconfirmed requests keep their own recovery. Regressions cover instructions and the title.
 4. Minor: the status line at the top of this handover still described PR-A as in progress. It now states the current status.
 
-After the fixes: frontend 276/276 tests, typecheck and ESLint pass. The fixed candidate needs a fresh Codex review.
+Fixed in `49bd191`; frontend 276/276 tests.
+
+#### Round 5
+
+Codex reviewed exactly `1514e91..49bd191`: no Critical findings; two Important and two Minor. Findings 1–3 completed round-4 fixes 1–3. Each fix below has a regression test that fails when the fix is reverted:
+
+1. Important: round-4's adoption re-sent the operator's acknowledged local instructions when a newer projection from another client arrived, overwriting it. A clean instruction lane (no draft, nothing unacknowledged) now takes the newer saved text without sending; only an outstanding draft or a composition in progress keeps the operator's text.
+2. Important: overlapping post-evidence refreshes could release the settings gate on an older read, admitting writes against a stale revision. Only the newest refresh generation may accept its snapshot, release the gate or report failure; regressions resolve the reads in both orders.
+3. Minor: local discard ignored tag text that was typed but not added (for example a refused duplicate). Pending tag text now makes discard available, and discarding remounts the tag input to clear it.
+4. Minor: inside the fuzzy tier, a record matching only in secondary fields could outrank a name match. Name matches now precede secondary-only matches, then score, then numeric ID.
+
+After the fixes: frontend 281/281 tests, typecheck and ESLint pass. The fixed candidate needs a fresh Codex review.
 
 Still to do for 4.5: Codex re-review and selected CI.
 
