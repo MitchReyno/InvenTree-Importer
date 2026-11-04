@@ -35,7 +35,11 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
   const workText = workflowSummary(workData, preferred, workUnavailable, now)
   const navigation = safeTargetNavigation(target?.navigation_url)
   const workFresh = !workUnavailable && !!workData && observationFresh(workData.observed_at, now)
-  const targetGood = !connectionUnavailable && targetText === 'Target reachable'
+  const targetGood =
+    !connectionUnavailable &&
+    target?.state === 'reachable' &&
+    target.freshness === 'fresh' &&
+    observationFresh(target.observed_at, now)
   return (
     <StatusRow aria-label="Application status">
       <HeaderDisclosure
@@ -143,11 +147,11 @@ const Scope = styled.small`
 `
 const Dot = styled.span<{ $good: boolean }>`
   display: inline-block;
-  width: 9px;
-  height: 9px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex: none;
-  background: ${(p) => (p.$good ? '#208158' : '#9a6b18')};
+  background: ${(p) => (p.$good ? '#4eaa3d' : '#9a6b18')};
 `
 const Segments = styled.span`
   display: flex;
@@ -162,11 +166,20 @@ const Segment = styled.span`
   border-radius: 2px;
 `
 const TargetLink = styled.a`
-  min-height: 44px;
+  min-height: 2rem;
   display: inline-flex;
   align-items: center;
-  color: #164a93;
+  color: #233349;
   font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  padding: 0.25rem 0.5rem;
+  &:hover {
+    border-color: #266ac5;
+    background: #edf4ff;
+  }
 `
 const UnavailableLink = styled.span`
   font-size: 12px;
