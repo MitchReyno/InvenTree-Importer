@@ -154,7 +154,7 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Verification: `pnpm test:intake`, `pnpm db:intake test`, `pnpm db:intake test:process`, contract/type checks and fake inventory read-back. Old profiles and pending operations remain valid.
 - Risks: creation duplication and unsupported real-target attribution. Do not use a same-name lookup as proof of original-operation success.
 
-- [ ] 7.1 Record effect shapes, exact dependency/output binding, optional logo operation and supported profile/target limits before implementation.
+- [x] 7.1 Record effect shapes, exact dependency/output binding, optional logo operation and supported profile/target limits before implementation.
 - [ ] 7.2 RED: verify no inventory write on autosave, explicit approval required, exact parent/company roles, scoped permissions and versioned execution binding.
 - [ ] 7.3 GREEN: implement supervised fake profile, exact known-output reuse and UI transitions from draft to approved to confirmed without repeating create.
 - [ ] 7.4 Verify lost acknowledgement, cancellation, restart, changed payload, duplicate names and invalid parent; unresolved external effects remain unresolved under the original operation.

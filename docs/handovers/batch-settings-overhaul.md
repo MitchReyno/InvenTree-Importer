@@ -1,6 +1,6 @@
 # Batch settings overhaul implementation
 
-Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) is open as #88 from `feat/batch-settings-overhaul-review`; its review is clean and its selected CI passed, so Task 6.5 is checked and the PR is ready to squash-merge. PR-D has not started. Reviews, CI and merges are recorded only after they occur.
+Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) merged as #88 (`2ba6b47`). PR-D (Tasks 7 and 8) is in progress on `feat/batch-settings-overhaul-records`. PR-D has not started. Reviews, CI and merges are recorded only after they occur.
 
 ## Authority and boundaries
 
@@ -409,3 +409,34 @@ Codex reviewed exactly `f9b8fe1..d3ddca9`: no Critical, Important or Minor findi
 #### PR and CI
 
 PR #88 was opened against `interactive-app` at head `d3ddca9`. `interactive-app` had not moved (`f9b8fe1`), so no merge or rebase was needed. Selected CI on that head passed: Frontend, Intake PostgreSQL and process, Intake contracts and HTTP, TypeScript lint, Markdown lint and Changed paths. Backend lint, Backend test and Shared workflow sync were skipped because no backend or skill paths changed. This docs-only commit then checked Task 6.5.
+
+#### Merge
+
+PR #88 was squash-merged at head `be8ce3d` as `2ba6b47`. Selected CI on that head passed with the same checks as `d3ddca9`; Backend lint, Backend test and Shared workflow sync were skipped.
+
+## PR-D plan: supervised location and supplier creation (Task 7)
+
+Branch `feat/batch-settings-overhaul-records` from `interactive-app` at `2ba6b47`.
+
+### Baseline (7.1)
+
+- Drafts are retained intent only. A Default-location draft is stored as an `unset` default selection (`capture/repository.ts`) and Review raises `location_required`; a supplier draft maps to legacy context `supplier: unknown`. Review, preparation and execution never read `reference_drafts`. The UI states "not created yet" from static text.
+- Execution runs one plan per stock run: `bench-effects-plan/1`, build `bench-effects/1`, capability `owned-fake-effects/1`. The plan decoder rebuilds every effect from typed specs, requires at least one stock operation and binds the supported-effects manifest digest, so changing `/1` would invalidate retained plans.
+- A stock operation's location is an observed PK only. Parts already show the known-output pattern: `executor_part_identity` keyed by target, original source key and subject, reused only from a confirmed, verified single PK with an unchanged spec digest.
+- The owned fake answers any `GET /api/stock/location/N/` and `GET /api/company/N/` with a synthetic record, so it cannot prove a created output.
+
+### Decisions
+
+- Supplier (Mitch): an approved new-supplier draft is created inside the batch's stock run with `is_supplier: true` and `is_manufacturer` from "Also set as manufacturer", and is recorded as a confirmed output for later use. It adds no supplier-part links; the batch has no SKUs.
+- Logo (Mitch): an optional retained logo is sent as the company `image` in the same multipart create request. There is no separate PATCH or attachment effect.
+- Versioning: new plan `bench-effects-plan/2`, build `bench-effects/2` and capability `owned-fake-effects/2`. `/1` decode, bodies and recovery stay byte-for-byte; a `/2` deployment also applies retained `/1` runs, because the `/2` effect set is a superset and each plan is decoded under its own version rules. A `/1` deployment never receives a `/2` plan.
+- New effects:
+  - `create_location {name, description, parent}`. The parent is an existing observed location PK or null; recursive creation is out of scope. Preparation re-reads the parent; a missing, foreign or stale parent blocks before approval and the draft stays correctable.
+  - `create_company {name, description, is_supplier: true, is_manufacturer, image?}`. Its output has no dependant inside the run.
+- Binding: logical keys derive from the stable `draft_id` and kind. A stock operation's location is either an observed PK or a `location_operation_key`, never both; its body resolves the PK only from a confirmed single-PK state. Every created location must be consumed by a stock operation that uses it; a company is a declared standalone output.
+- Review: lots that resolve to the batch default while the default selection is `unset` and the settings intent holds a Default-location draft resolve to that draft instead of `location_required`. Capture bytes stay unchanged. The draft version is part of the material, so editing it makes a preparation stale.
+- Known-output reuse: new identity tables keyed by target, original source key and `draft_id` with a spec digest. A later run reuses a confirmed, verified PK and never creates again. An approved run pins the draft bytes in its plan; retiring or editing the draft later changes only future preparations.
+- Uncertainty: no lookup by name ever adopts or proves a create. A lost acknowledgement, cancellation or restart leaves the original operation unknown; the only recovery is the existing explicit `verify_effect` of an attributed PK. Choosing an existing record of the same name is an ordinary new selection that makes the preparation stale; it does not settle the original operation.
+- Capability state: the workspace reports whether new-record creation is supported, which is only when the deployment is `owned-fake-effects/2`. The web routes still hold no write credential and autosave never creates.
+- Fake target: persisted fake locations and companies, POST `/api/stock/location/` and `/api/company/` (multipart when an image is sent), GETs that return stored rows or 404, and drop, malformed and multiple-response faults.
+- Limits: the owned fake is not InvenTree compatibility. InvenTree API v530 lists `currency` as required on Company, which the fake does not enforce; real-target creation stays unavailable. Logos keep the existing retained PNG/JPEG and media size limits.
