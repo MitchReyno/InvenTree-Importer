@@ -71,7 +71,7 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - [x] 2.3 GREEN: implement allowlisted semantic reads, typed route/client and final selection observation binding.
 - [x] 2.4 Verify auth before target traffic, size/deadline/rate/candidate bounds, visible partial coverage, no-match versus unavailable and stale-context response rejection.
 - [x] 2.6 Correct review findings: the strict parser honours the 512 KiB page limit and the 15-second snapshot budget bounds every page request and body read.
-- [ ] 2.5 Update read-adapter docs and handover; run affected contract/HTTP/PG checks and complete the PR-A independent review/selected-CI gates when actually reached.
+- [x] 2.5 Update read-adapter docs and handover; run affected contract/HTTP/PG checks and complete the PR-A independent review/selected-CI gates when actually reached.
 
 ## 3. Qualify and build reusable input components
 

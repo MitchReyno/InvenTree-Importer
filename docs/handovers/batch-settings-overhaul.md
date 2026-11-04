@@ -112,4 +112,8 @@ Codex re-review of exactly `origin/interactive-app..164e761ca37825d200a84f6e9f12
 1. Important: the legacy comparison used `JSON.stringify`, so unchanged intent sent with reordered keys still rederived a field and could erase a retained `unknown`. `nextLegacyContext` now uses key-order-independent structural equality. Contract and PG regressions send reordered keys; the contract regression fails with the old comparison (negative control, restored by SHA-256).
 2. Minor: the snapshot budget excluded waiting for response headers, so a read could run to about 20 seconds. The transport `list` now accepts a caller timeout that may only shorten its 5-second deadline (integer 1–5000, otherwise refused), and each snapshot request and body read receives only the remaining budget. The injected-clock regression now proves refusal by 15,000 ms with request timeouts `[5000, 5000, 5000, 3]`.
 
-After these fixes the affected PG files pass. The corrected candidate needs another Codex review.
+After these fixes the affected PG files pass.
+
+Codex third review of exactly `origin/interactive-app..72f2e6e76b4dd2d63b595a2c5f5043f0878944d6` (base `7456166`) found no issues in Tasks 1–2, tests, documentation or checkboxes and confirmed both round-two fixes; its 17 targeted tests passed.
+
+Selected CI for [#85](https://github.com/MitchReyno/InvenTree-Importer/pull/85) on `72f2e6e` (run 41806847936) passed: Changed paths, Lint / Markdown, Lint / TypeScript, Test / Frontend, Test / Intake contracts and HTTP, and Test / Intake PostgreSQL and process. Backend lint/test and shared workflow sync were skipped by path selection. This commit adds only this record, the task 2.5 checkbox and the repository `.nvmrc` (the same Node 24.22.2 pin as `.node-version`); `git range-diff` shows the reviewed patches unchanged.
