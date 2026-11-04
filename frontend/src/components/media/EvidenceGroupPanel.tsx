@@ -1,5 +1,5 @@
 import type { CaptureWorkspaceProps } from '../../capture/types'
-import { AssignedLocationField } from '../capture/AssignedLocationField'
+import { GroupLocationControl } from './GroupLocationControl'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type {
@@ -70,6 +70,7 @@ export function EvidenceGroupPanel({
   const evidence = snapshot.evidence.filter((item) => item.group_id === groupId)
   const renameKey = `rename:${groupId}`
   const instructionKey = `instructions:${groupId}`
+  const locationKey = `location:${groupId}`
 
   const acceptedConfirmation = useRef(confirmation)
   useEffect(() => {
@@ -145,15 +146,13 @@ export function EvidenceGroupPanel({
           )}
           <MediaNoteSummary title="Group note" note={group.note} />
           {captureEdit && (
-            <AssignedLocationField
-              label={`Location for group ${name}`}
-              scope="Applies to lots linked to this group's evidence when they use the batch default and their shared Part has no location. Different group locations for one lot must be resolved in Review."
-              value={batch.group_locations?.find((item) => item.group_id === group.id)?.location}
+            <GroupLocationControl
               batch={batch}
-              disabled={frozen || pending}
-              onChange={(location) =>
-                void captureEdit({ kind: 'group_location', group_id: group.id, location })
-              }
+              groupId={group.id}
+              name={name}
+              disabled={frozen || blocked(locationKey)}
+              edit={captureEdit}
+              onDirtyChange={dirty(locationKey)}
             />
           )}
           {operator && review && reload && (

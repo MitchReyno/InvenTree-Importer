@@ -130,6 +130,7 @@ export function LotEvidence({
                 lot={lot}
                 part={part}
                 proposal={proposal.value}
+                current={job.state === 'ready'}
                 disabled={editDisabled}
                 edit={edit}
               />

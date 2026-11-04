@@ -14,6 +14,7 @@ import type { OperatorReviewClient } from '../../operator/types'
 import { Button, Heading, Link, Notice, Paragraph, Small } from '../ui/primitives'
 import { CompareMatches } from './CompareMatches'
 import { FactRow } from './FactRow'
+import { SharedTagsChoice } from './SharedTagsChoice'
 import { IssuePanel } from './IssuePanel'
 import { QUICK_QUANTITY_INPUT_ID, QuickLotEdit } from './QuickLotEdit'
 import { RestructureDialog, type RestructureKind } from './RestructureDialog'
@@ -125,6 +126,14 @@ export function DecisionPanel({
                 </span>
               ))}
             </SharedLine>
+          )}
+          {part && (
+            <SharedTagsChoice
+              batch={batch}
+              part={part}
+              disabled={disabled || drafts.dirty}
+              edit={edit}
+            />
           )}
           {part && part.choice.mode !== 'create' && (
             <span>

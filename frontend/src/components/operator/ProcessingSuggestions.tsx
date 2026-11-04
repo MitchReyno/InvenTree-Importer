@@ -1,7 +1,8 @@
-import type {
-  CaptureEditDto,
-  CaptureSnapshotDto,
-  ProcessingProposalDto,
+import {
+  tagKey,
+  type CaptureEditDto,
+  type CaptureSnapshotDto,
+  type ProcessingProposalDto,
 } from '@invimport/contracts'
 import { Button, Small } from '../ui/primitives'
 
@@ -12,15 +13,17 @@ interface Props {
   lot: Lot
   part: Part | undefined
   proposal: ProcessingProposalDto
+  /** Only a finished attempt whose input is still current may be accepted; others are history. */
+  current: boolean
   disabled: boolean
   edit?: (change: CaptureEditDto['change']) => Promise<boolean | void>
 }
 
-/** Matches the inventory tag adapter: exact or ASCII case-insensitive duplicates are one tag. */
-function mergeTags(existing: readonly string[], suggested: readonly string[]) {
+/** Uses the inventory adapter's duplicate policy, so only all-ASCII names fold case. */
+export function mergeTags(existing: readonly string[], added: readonly string[]) {
   const merged = [...existing]
-  for (const tag of suggested) {
-    if (!merged.some((value) => value === tag || value.toLowerCase() === tag.toLowerCase())) {
+  for (const tag of added) {
+    if (!merged.some((value) => tagKey(value) === tagKey(tag))) {
       merged.push(tag)
     }
   }
@@ -31,7 +34,7 @@ function mergeTags(existing: readonly string[], suggested: readonly string[]) {
  * Structured suggestions stay candidates. Accepting one is an explicit human edit; an existing
  * human count is never replaced and an existing inventory Part's tags are never changed.
  */
-export function ProcessingSuggestions({ lot, part, proposal, disabled, edit }: Props) {
+export function ProcessingSuggestions({ lot, part, proposal, current, disabled, edit }: Props) {
   if (!('schema_version' in proposal) || proposal.schema_version !== 'bench-intake-proposal/4') {
     return null
   }
@@ -45,10 +48,14 @@ export function ProcessingSuggestions({ lot, part, proposal, disabled, edit }: P
       {quantity && (
         <Small>
           Estimated quantity {quantity.value} · from the evidence above ·{' '}
-          {humanCount ? 'the human count is kept' : 'not yet chosen'}
+          {!current
+            ? 'superseded by newer input, history only'
+            : humanCount
+              ? 'the human count is kept'
+              : 'not yet chosen'}
         </Small>
       )}
-      {quantity && !humanCount && edit && (
+      {quantity && current && !humanCount && edit && (
         <Button
           type="button"
           disabled={disabled}
@@ -61,6 +68,7 @@ export function ProcessingSuggestions({ lot, part, proposal, disabled, edit }: P
       )}
       {tags.length > 0 && <Small>Suggested shared part tags (Auto): {tags.join(', ')}</Small>}
       {tags.length > 0 &&
+        current &&
         creating &&
         part &&
         edit &&

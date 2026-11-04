@@ -43,9 +43,9 @@ function proposal(command: Claimed, sequence: string, payload: Record<string, un
   } as ProcessingEnvelopeV2Dto
 }
 
-async function setup() {
+async function setup(note = '') {
   const fixture = await processingFixture()
-  const created = await fixture.http('/batches', { title: 'Estimated packets', note: '' })
+  const created = await fixture.http('/batches', { title: 'Estimated packets', note })
   assert.equal(created.status, 201)
   let batch = created.value
   async function edit(change: unknown) {
@@ -104,7 +104,10 @@ test(
   'an evidence-bound quantity estimate is retained for a lot and refused for a Part',
   { timeout: 60000 },
   async () => {
-    const s = await setup()
+    // Ordinary evidence quoting the marker is not requested automation.
+    const s = await setup(
+      'Requested automation, not approved inventory effects:\nShared part tags: Auto requested',
+    )
     try {
       const reading = await s.start(s.lotId)
       const accept = (envelope: ProcessingEnvelopeV2Dto) =>

@@ -483,7 +483,7 @@ test('human-context note overflow produces a typed capacity refusal and makes ol
   )
 })
 
-test('a shared-Part location assignment leaves processing input bytes unchanged', () => {
+test('a shared-Part location assignment never enters sealed processing inputs', () => {
   const base = manualInputFixture()
   const partId = randomUUID()
   const input = {
@@ -492,12 +492,23 @@ test('a shared-Part location assignment leaves processing input bytes unchanged'
     lots: base.lots.map((lot) => ({ ...lot, part_subject_id: partId })),
   }
   const subject = input.lots[0].id
-  const before = inputManifest(input, subject, 'reading', [], null)
+  // The production Part edit also bumps the Part revision, which stays in the input as before.
   const assigned = {
     ...input,
-    parts: input.parts.map((part) => ({ ...part, location: { mode: 'clear' as const } })),
+    parts: input.parts.map((part) => ({
+      ...part,
+      revision: '2',
+      location: { mode: 'clear' as const },
+    })),
   }
-  assert.deepEqual(inputManifest(assigned, subject, 'reading', [], null), before)
+  const revised = {
+    ...input,
+    parts: input.parts.map((part) => ({ ...part, revision: '2' })),
+  }
+  const manifest = inputManifest(assigned, subject, 'reading', [], null)
+  assert.equal(manifest.linked_part && 'location' in manifest.linked_part, false)
+  assert.deepEqual(manifest, inputManifest(revised, subject, 'reading', [], null))
+  assert.notDeepEqual(manifest, inputManifest(input, subject, 'reading', [], null))
 })
 
 test('Auto order context adds no value and Auto tags add one requested-automation note', () => {

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, ProcessingProposalDto } from '@invimport/contracts'
 import { render } from '../../test/render'
-import { ProcessingSuggestions } from './ProcessingSuggestions'
+import { ProcessingSuggestions, mergeTags } from './ProcessingSuggestions'
 
 const lot = {
   id: '30000000-0000-4000-8000-000000000003',
@@ -41,6 +41,7 @@ test('an estimate is accepted only by an explicit human edit when no count exist
       lot={lot}
       part={creating}
       proposal={proposal}
+      current
       disabled={false}
       edit={edit}
     />,
@@ -64,6 +65,7 @@ test('a human count is kept and the estimate stays history', () => {
       lot={{ ...lot, quantity: { mode: 'set', value: '37' } }}
       part={creating}
       proposal={proposal}
+      current
       disabled={false}
       edit={vi.fn()}
     />,
@@ -79,6 +81,7 @@ test('suggested tags merge case-insensitively into a new Part and never touch an
       lot={lot}
       part={creating}
       proposal={proposal}
+      current
       disabled={false}
       edit={edit}
     />,
@@ -96,10 +99,30 @@ test('suggested tags merge case-insensitively into a new Part and never touch an
       lot={lot}
       part={existing}
       proposal={proposal}
+      current
       disabled={false}
       edit={edit}
     />,
   )
   expect(screen.queryByRole('button', { name: /Add suggested tags/ })).not.toBeInTheDocument()
   expect(screen.getByText(/existing inventory Part.s tags are not changed/)).toBeVisible()
+})
+
+test('a superseded attempt is history only and offers no acceptance', () => {
+  render(
+    <ProcessingSuggestions
+      lot={lot}
+      part={creating}
+      proposal={proposal}
+      current={false}
+      disabled={false}
+      edit={vi.fn()}
+    />,
+  )
+  expect(screen.getByText(/superseded by newer input, history only/)).toBeVisible()
+  expect(screen.queryByRole('button')).not.toBeInTheDocument()
+})
+
+test('accented tags stay distinct while ASCII aliases merge, matching the inventory policy', () => {
+  expect(mergeTags(['É', 'SMD'], ['é', 'smd', 'Reel'])).toEqual(['É', 'SMD', 'é', 'Reel'])
 })

@@ -97,3 +97,37 @@ test('a Part edit retains a location only when the assignment changed', () => {
     captureEditorChange(batch, partId, { ...values, partLocation: { mode: 'clear' } }),
   ).toMatchObject({ kind: 'part', id: partId, location: { mode: 'clear' } })
 })
+
+test('the Review table names the location source next to the value', async () => {
+  const { render, screen } = await import('@testing-library/react')
+  const { createElement } = await import('react')
+  const { ReviewTable } = await import('../components/operator/ReviewTable')
+  const review = {
+    lots: batch.lots.map((value) => ({
+      lot_id: value.id,
+      label: value.label,
+      shared_lot_ids: [],
+      predecessor_lot_ids: [],
+      issues: [],
+      warnings: [],
+      review_state: 'not_reviewed',
+      approved: false,
+    })),
+  } as never
+  render(
+    createElement(ReviewTable, {
+      batch,
+      review,
+      media,
+      lotIds: batch.lots.map((value) => value.id),
+      selected: new Set<string>(),
+      disabled: false,
+      toggle: () => undefined,
+      toggleAll: () => undefined,
+      inspect: () => undefined,
+    }),
+  )
+  expect(screen.getByText('Drawer 2 (#2) · Human choice · From shared Part')).toBeTruthy()
+  expect(screen.getByText(/Bag X · From evidence group$/)).toBeTruthy()
+  expect(screen.getByText(/· Groups disagree$/)).toBeTruthy()
+})

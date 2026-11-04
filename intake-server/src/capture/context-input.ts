@@ -38,11 +38,19 @@ export function captureContextNotes(snapshot: CaptureSnapshotDto, subjectId: str
   }))
 }
 
-/** A stable UUID-shaped identity for a derived note, so equal intent yields equal input bytes. */
-function derivedNoteId(batchId: string, version: string) {
-  const hex = createHash('sha256').update(`automation-intent:${batchId}:${version}`).digest('hex')
+/**
+ * The requested-automation note has a server-derived identity per batch. Human and media notes
+ * have server-assigned random IDs, so ordinary text containing the marker can never match it.
+ */
+export function automationNoteId(batchId: string) {
+  const hex = createHash('sha256').update(`automation-intent:${batchId}`).digest('hex')
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`
 }
+
+export const AUTOMATION_NOTE_TEXT = [
+  'Requested automation, not approved inventory effects:',
+  AUTO_TAGS_REQUESTED,
+].join('\n')
 
 /**
  * Requested automation is human intent, not evidence or an approved effect. Batches without Auto
@@ -55,11 +63,9 @@ export function automationIntentNotes(snapshot: CaptureSnapshotDto) {
   }
   return [
     {
-      id: derivedNoteId(snapshot.id, intent.version),
+      id: automationNoteId(snapshot.id),
       subject_id: null,
-      text: ['Requested automation, not approved inventory effects:', AUTO_TAGS_REQUESTED].join(
-        '\n',
-      ),
+      text: AUTOMATION_NOTE_TEXT,
       actor_id: intent.actor_id,
       created_at: intent.created_at,
       producer: 'human' as const,

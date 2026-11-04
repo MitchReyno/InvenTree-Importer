@@ -314,3 +314,41 @@ test('an evidence group location is saved through the capture command', async ()
     location: { mode: 'clear' },
   })
 })
+
+test('an unconfirmed group location stays chosen and dirty until retried or discarded', async () => {
+  const user = userEvent.setup()
+  const groupId = '70000000-0000-4000-8000-000000000007'
+  const media = mediaClient()
+  vi.mocked(media.snapshot).mockResolvedValue({
+    ...snapshot,
+    groups: [{ id: groupId, label: 'Bag X' }],
+  } as MediaSnapshotDto)
+  const edit = vi.fn(async () => false)
+  const dirty = vi.fn()
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      media={media}
+      edit={edit}
+      observe={vi.fn(async () => null)}
+      onDirtyChange={dirty}
+      settings={ports()}
+    />,
+  )
+  const field = await screen.findByLabelText('Location for group Bag X')
+  await waitFor(() => expect(field).toBeEnabled())
+  await user.selectOptions(field, 'clear')
+  await screen.findByText(/group location was not confirmed/)
+  expect(field).toHaveValue('clear')
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  expect(screen.getByLabelText('Batch title')).toBeDisabled()
+  edit.mockResolvedValue(true as never)
+  await user.click(screen.getByRole('button', { name: 'Retry group location' }))
+  expect(edit).toHaveBeenLastCalledWith({
+    kind: 'group_location',
+    group_id: groupId,
+    location: { mode: 'clear' },
+  })
+  await waitFor(() => expect(dirty).toHaveBeenLastCalledWith(false))
+})

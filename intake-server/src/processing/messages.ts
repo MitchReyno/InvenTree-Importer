@@ -16,7 +16,7 @@ import {
 } from './schema.ts'
 import { appendEvent, sha256, verifyBytes } from '../db/authority.ts'
 import { lockCaptureForInputSettlement } from '../capture/repository.ts'
-import { AUTO_TAGS_REQUESTED } from '../capture/context-input.ts'
+import { AUTOMATION_NOTE_TEXT, automationNoteId } from '../capture/context-input.ts'
 import { lockLane } from './scope.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { MAX_RUNNER_MESSAGE_BYTES } from './limits.ts'
@@ -85,8 +85,12 @@ function validateSuggestions(manifest: Authority['manifest'], proposal: Processi
   if (proposal.quantity && !('quantity' in manifest.subject)) {
     fail('invalid_proposal', 422)
   }
+  // Only the server-derived note counts; marker text in ordinary evidence is just text.
   const autoRequested = manifest.notes.some(
-    (note) => note.subject_id === null && note.text.split('\n').includes(AUTO_TAGS_REQUESTED),
+    (note) =>
+      note.id === automationNoteId(manifest.batch_id) &&
+      note.subject_id === null &&
+      note.text === AUTOMATION_NOTE_TEXT,
   )
   if (proposal.tags && !autoRequested) {
     fail('auto_tags_not_requested', 422)

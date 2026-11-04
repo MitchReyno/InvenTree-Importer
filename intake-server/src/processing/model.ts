@@ -84,8 +84,8 @@ function requireNoteCapacity(notes: readonly unknown[]) {
 }
 
 /**
- * Processing never consumes locations, so Part location assignments stay out of every sealed
- * input version; Review and preparations own location freshness.
+ * Processing never consumes locations, so a Part location's value stays out of every sealed input
+ * version. The Part edit still bumps the Part revision, making earlier attempts stale as any edit does.
  */
 function withoutAssignedLocation<T extends object>(subject: T): T {
   if ('choice' in subject && 'location' in subject) {

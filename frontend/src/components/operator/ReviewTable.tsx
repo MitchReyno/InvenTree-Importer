@@ -6,7 +6,12 @@ import type {
   OperatorReviewDto,
 } from '@invimport/contracts'
 import { display } from '../../capture/display'
-import { blockingIssues, lotLocationFact, openWarnings } from '../../operator/review-model'
+import {
+  PROVENANCE_LABELS,
+  blockingIssues,
+  lotLocationFact,
+  openWarnings,
+} from '../../operator/review-model'
 import { StatusChip } from './StatusChip'
 
 export interface ReviewTableProps {
@@ -107,6 +112,7 @@ export function ReviewTable({
         <tbody>
           {lots.map((lot) => {
             const capture = batch.lots.find((value) => value.id === lot.lot_id)!
+            const location = lotLocationFact(batch, capture, media)
             return (
               <tr key={lot.lot_id} aria-selected={selected.has(lot.lot_id)}>
                 <td>
@@ -130,7 +136,9 @@ export function ReviewTable({
                   </ItemButton>
                 </td>
                 <td>{display(capture.quantity, batch, 'quantity')}</td>
-                <td>{lotLocationFact(batch, capture, media).value}</td>
+                <td>
+                  {location.value} · {PROVENANCE_LABELS[location.provenance]}
+                </td>
                 <td>
                   {partCell(batch, lot)}
                   {lot.shared_lot_ids.length > 0 && (

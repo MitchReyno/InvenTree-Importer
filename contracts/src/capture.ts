@@ -26,6 +26,7 @@ import {
 } from './capture-intent.ts'
 
 export { CaptureRef }
+export { tagKey } from './capture-primitives.ts'
 export * from './capture-location.ts'
 
 export const CaptureQuantity = inheritable(Quantity)

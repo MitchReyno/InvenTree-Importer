@@ -34,22 +34,46 @@ function tool(name, args) {
 
 function resultSource() {
   if (artifact) {
-    return { kind: 'media_version', evidence_id: artifact.evidenceId, version_id: artifact.versionId, sha256: artifact.digest }
+    return {
+      kind: 'media_version',
+      evidence_id: artifact.evidenceId,
+      version_id: artifact.versionId,
+      sha256: artifact.digest,
+    }
   }
   const note = manifest.notes[0]
-  return { kind: 'note', note_id: note.id, text_sha256: createHash('sha256').update(note.text).digest('hex') }
+  return {
+    kind: 'note',
+    note_id: note.id,
+    text_sha256: createHash('sha256').update(note.text).digest('hex'),
+  }
 }
 
 function finishResearch() {
   if (mode.includes('question')) {
-    tool('ask_question', { kind: 'quantity', subject_id: manifest.subject_id, prompt: 'Count this synthetic packet.', reason: 'Controlled child requests human confirmation.' })
+    tool('ask_question', {
+      kind: 'quantity',
+      subject_id: manifest.subject_id,
+      prompt: 'Count this synthetic packet.',
+      reason: 'Controlled child requests human confirmation.',
+    })
     return
   }
-  tool('submit_proposal', { schema_version: 'bench-intake-proposal/3', subject_id: manifest.subject_id, summary: 'SYNTHETIC controlled child byte receipt; no inference.', sources: [resultSource()] })
+  tool('submit_proposal', {
+    schema_version: 'bench-intake-proposal/3',
+    subject_id: manifest.subject_id,
+    summary: 'SYNTHETIC controlled child byte receipt; no inference.',
+    sources: [resultSource()],
+  })
 }
 
 function readArtifact() {
-  tool('read_evidence', { version_id: artifact.versionId, sha256: artifact.digest, offset: String(artifactOffset), length: '98304' })
+  tool('read_evidence', {
+    version_id: artifact.versionId,
+    sha256: artifact.digest,
+    offset: String(artifactOffset),
+    length: '98304',
+  })
 }
 
 if (mode === 'ignore-term') {
@@ -58,7 +82,11 @@ if (mode === 'ignore-term') {
   setInterval(() => {}, 1000)
   write({ pid: process.pid, ready: true })
 } else if (mode === 'environment') {
-  write({ pid: process.pid, keys: Object.keys(process.env).sort(), canary: process.env.BENCH_RESEARCH_TEST_CANARY || null })
+  write({
+    pid: process.pid,
+    keys: Object.keys(process.env).sort(),
+    canary: process.env.BENCH_RESEARCH_TEST_CANARY || null,
+  })
   process.stdin.resume()
 } else if (mode === 'malformed') {
   process.stdout.write('{"duplicate":1,"duplicate":2}\n')
@@ -112,7 +140,10 @@ if (mode === 'ignore-term') {
         finishResearch()
       }
     } else if ('result' in frame && pending === 'submit_proposal') {
-      write({ method: 'turn/completed', params: { threadId, turn: { id: turnId, status: 'completed' } } })
+      write({
+        method: 'turn/completed',
+        params: { threadId, turn: { id: turnId, status: 'completed' } },
+      })
     }
   })
   lines.on('close', () => process.exit(0))
