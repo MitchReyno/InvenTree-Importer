@@ -83,6 +83,18 @@ function requireNoteCapacity(notes: readonly unknown[]) {
   }
 }
 
+/**
+ * Processing never consumes locations, so Part location assignments stay out of every sealed
+ * input version; Review and preparations own location freshness.
+ */
+function withoutAssignedLocation<T extends object>(subject: T): T {
+  if ('choice' in subject && 'location' in subject) {
+    const { location: _location, ...rest } = subject
+    return rest as T
+  }
+  return subject
+}
+
 function captureInputFields(
   snapshot: CaptureSnapshotDto,
   subjectId: string,
@@ -120,8 +132,8 @@ function captureInputFields(
     dependencies,
     answer_id: answerId,
     defaults: snapshot.defaults,
-    subject: (lot ?? part)!,
-    linked_part: linkedPart ?? null,
+    subject: withoutAssignedLocation((lot ?? part)!),
+    linked_part: linkedPart ? withoutAssignedLocation(linkedPart) : null,
     notes: [...notes, ...contextNotes],
     observations: snapshot.observations.flatMap((observation) => {
       if (observation.model !== 'part' && observation.model !== 'location') {

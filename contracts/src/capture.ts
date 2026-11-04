@@ -2,6 +2,12 @@ import { Type, type Static } from '@sinclair/typebox'
 import { Id, PositivePk, Quantity, Revision } from './scalars.ts'
 import { InventoryModel, InventoryPartSpec, InventoryMapping, mappedReference } from './effects.ts'
 import {
+  CaptureAssignedLocation,
+  CaptureAssignedLocationChange,
+  CaptureGroupLocation,
+  CaptureGroupLocationChange,
+} from './capture-location.ts'
+import {
   CaptureRef,
   calendarDate,
   captureTags,
@@ -20,6 +26,7 @@ import {
 } from './capture-intent.ts'
 
 export { CaptureRef }
+export * from './capture-location.ts'
 
 export const CaptureQuantity = inheritable(Quantity)
 export const CaptureLocation = inheritable(CaptureRef)
@@ -89,7 +96,9 @@ export const CaptureEdit = object({
       id: Id,
       label: Type.Optional(label),
       choice: Type.Optional(CapturePartChoice),
+      location: Type.Optional(CaptureAssignedLocationChange),
     }),
+    CaptureGroupLocationChange,
     object({ kind: Type.Literal('note'), subject_id: Type.Union([Id, Type.Null()]), text: note }),
     CaptureBatchSettingsChange,
   ]),
@@ -156,7 +165,17 @@ export const CaptureSnapshot = object({
   settings_intent: Type.Optional(CaptureSettingsIntentRecord),
   setting_notes: Type.Optional(Type.Array(CaptureSettingNoteRecord, { maxItems: 2 })),
   reference_drafts: Type.Optional(Type.Array(CaptureReferenceDraftRecord, { maxItems: 16 })),
-  parts: Type.Array(object({ id: Id, label, revision: Revision, choice: CapturePartChoice })),
+  parts: Type.Array(
+    object({
+      id: Id,
+      label,
+      revision: Revision,
+      choice: CapturePartChoice,
+      /** An application default for the Part's lots, never an InvenTree Part field. */
+      location: Type.Optional(CaptureAssignedLocation),
+    }),
+  ),
+  group_locations: Type.Optional(Type.Array(CaptureGroupLocation, { maxItems: 256 })),
   lots: Type.Array(
     object({
       id: Id,
@@ -195,6 +214,9 @@ export const captureSchemas = {
   CaptureRef,
   CaptureQuantity,
   CaptureLocation,
+  CaptureAssignedLocation,
+  CaptureAssignedLocationChange,
+  CaptureGroupLocation,
   CapturePartChoice,
   CaptureDefaults,
   CaptureContext,

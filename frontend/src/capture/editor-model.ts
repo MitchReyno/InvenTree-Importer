@@ -1,4 +1,5 @@
 import type {
+  CaptureAssignedLocationChangeDto,
   CaptureEditDto,
   CaptureLotContextDto,
   InventoryPartSpecDto,
@@ -15,6 +16,7 @@ export type CaptureEditorValues = {
   quantity: Quantity
   location: Reference
   choice: Reference
+  partLocation: CaptureAssignedLocationChangeDto
   partMode: 'reuse' | 'create'
   partName: string
   categoryId: string
@@ -53,6 +55,7 @@ export function captureEditorDefaults(batch: Snapshot, selected: string): Captur
     quantity: lot?.quantity ?? empty,
     location: lot?.location ?? empty,
     choice: part?.choice.mode === 'create' ? empty : (part?.choice ?? empty),
+    partLocation: part?.location ?? empty,
     partId: lot?.part_subject_id ?? '',
     text: '',
   }
@@ -82,10 +85,16 @@ export function captureEditorChange(
     }
   }
   if (part) {
+    // Only a changed assignment is retained, so ordinary Part edits add no location history.
+    const location =
+      JSON.stringify(values.partLocation) !== JSON.stringify(part.location ?? empty)
+        ? { location: values.partLocation }
+        : {}
     return {
       kind: 'part',
       id: part.id,
       label,
+      ...location,
       choice:
         values.partMode === 'create'
           ? { mode: 'create', spec: partSpecFromValues(batch, values) }

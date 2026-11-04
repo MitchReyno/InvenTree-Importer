@@ -120,11 +120,11 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Verification: PG resolver/transaction tests, Processing/Review stale-input tests and targeted UI tests, plus affected frontend/server checks.
 - Risks: confusing shared Part defaults with inventory Part fields or ambiguous many-group evidence; keep scope and effective-source labels explicit.
 
-- [ ] 5.1 Establish legacy lot-default behaviour and enumerate explicit assignment/unknown/clear compatibility rules.
-- [ ] 5.2 RED: cover each precedence level, matching/conflicting groups, higher override over group conflict, clear suppression and batch default edits.
-- [ ] 5.3 GREEN: implement attributable assignments, necessary scope controls, resolution and Review source labels without stock splitting.
-- [ ] 5.4 Verify evidence-link/group edits invalidate affected inputs/preparations transactionally, while chosen values/approved history and distinct lots remain intact.
-- [ ] 5.5 Refactor resolver ownership, run affected PG/UI/contract checks and update docs/handover within PR-C.
+- [x] 5.1 Establish legacy lot-default behaviour and enumerate explicit assignment/unknown/clear compatibility rules.
+- [x] 5.2 RED: cover each precedence level, matching/conflicting groups, higher override over group conflict, clear suppression and batch default edits.
+- [x] 5.3 GREEN: implement attributable assignments, necessary scope controls, resolution and Review source labels without stock splitting.
+- [x] 5.4 Verify evidence-link/group edits invalidate affected inputs/preparations transactionally, while chosen values/approved history and distinct lots remain intact.
+- [x] 5.5 Refactor resolver ownership, run affected PG/UI/contract checks and update docs/handover within PR-C.
 
 ## 6. Carry inference preferences through Processing and Review
 

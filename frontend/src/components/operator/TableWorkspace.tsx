@@ -7,7 +7,7 @@ import type { OperatorReviewClient } from '../../operator/types'
 import { Button, Small } from '../ui/primitives'
 import { BulkEditPanel } from './BulkEditPanel'
 import { RestructureDialog } from './RestructureDialog'
-import { ReviewTable } from './ReviewTable'
+import { ReviewTable, type ReviewTableProps } from './ReviewTable'
 
 const MAX_MERGE_LOTS = 10
 
@@ -15,6 +15,7 @@ interface Props {
   batch: CaptureSnapshotDto
   review: OperatorReviewDto
   client: OperatorReviewClient
+  media?: ReviewTableProps['media']
   lotIds: string[]
   activeLotIds: string[]
   disabled: boolean
@@ -41,6 +42,7 @@ export function TableWorkspace({
   batch,
   review,
   client,
+  media,
   lotIds,
   activeLotIds,
   disabled,
@@ -85,6 +87,7 @@ export function TableWorkspace({
       <ReviewTable
         batch={batch}
         review={review}
+        media={media}
         lotIds={lotIds}
         selected={selection}
         disabled={disabled}

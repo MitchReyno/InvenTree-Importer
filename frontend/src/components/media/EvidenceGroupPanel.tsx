@@ -1,3 +1,5 @@
+import type { CaptureWorkspaceProps } from '../../capture/types'
+import { AssignedLocationField } from '../capture/AssignedLocationField'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type {
@@ -36,6 +38,8 @@ type Props = {
   operator?: OperatorReviewClient
   review?: OperatorReviewDto
   reload?: () => Promise<void>
+  /** Capture command for the group's location assignment; absent where capture is read-only. */
+  captureEdit?: CaptureWorkspaceProps['edit']
 }
 
 export function EvidenceGroupPanel({
@@ -56,6 +60,7 @@ export function EvidenceGroupPanel({
   operator,
   review,
   reload,
+  captureEdit,
 }: Props) {
   const [rename, setRename] = useState(false)
   const [noteId, setNoteId] = useState<string | null>(null)
@@ -139,6 +144,18 @@ export function EvidenceGroupPanel({
             />
           )}
           <MediaNoteSummary title="Group note" note={group.note} />
+          {captureEdit && (
+            <AssignedLocationField
+              label={`Location for group ${name}`}
+              scope="Applies to lots linked to this group's evidence when they use the batch default and their shared Part has no location. Different group locations for one lot must be resolved in Review."
+              value={batch.group_locations?.find((item) => item.group_id === group.id)?.location}
+              batch={batch}
+              disabled={frozen || pending}
+              onChange={(location) =>
+                void captureEdit({ kind: 'group_location', group_id: group.id, location })
+              }
+            />
+          )}
           {operator && review && reload && (
             <>
               <Button disabled={blocked(instructionKey)} onClick={() => setInstructions(true)}>

@@ -284,3 +284,33 @@ for (const order of ['older first', 'newer first'] as const) {
     await waitFor(() => expect(screen.getByLabelText('Batch title')).toBeEnabled())
   })
 }
+
+test('an evidence group location is saved through the capture command', async () => {
+  const user = userEvent.setup()
+  const groupId = '70000000-0000-4000-8000-000000000007'
+  const media = mediaClient()
+  vi.mocked(media.snapshot).mockResolvedValue({
+    ...snapshot,
+    groups: [{ id: groupId, label: 'Bag X' }],
+  } as MediaSnapshotDto)
+  const edit = vi.fn(async () => true)
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      media={media}
+      edit={edit}
+      observe={vi.fn(async () => null)}
+      onDirtyChange={vi.fn()}
+      settings={ports()}
+    />,
+  )
+  const field = await screen.findByLabelText('Location for group Bag X')
+  await waitFor(() => expect(field).toBeEnabled())
+  await user.selectOptions(field, 'clear')
+  expect(edit).toHaveBeenCalledWith({
+    kind: 'group_location',
+    group_id: groupId,
+    location: { mode: 'clear' },
+  })
+})

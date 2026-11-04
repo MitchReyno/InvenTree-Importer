@@ -287,3 +287,32 @@ Codex reviewed exactly `1514e91..dd0628c`: no Critical or Important findings, an
 Still to do for 4.5: Codex re-review and selected CI.
 
 Limitations: draft persistence across a browser crash/reload is not promised (beforeunload protection only). Batch-level evidence edits (`Batch.edit`) and media commands remain separate owners from the settings queue; they are serialized with settings and with each other by fencing rather than by sharing the queue. The `App.media` test now waits for the photo input to enable, because the panel's initial reconnection read shifts when the first fresh media read completes.
+
+## PR-C plan: location precedence and inference review (Tasks 5, 6)
+
+Branch `feat/batch-settings-overhaul-review`, stacked on the PR-B branch and targeting `interactive-app` after PR-B merges.
+
+### Task 5 baseline (5.1)
+
+- Representation: lot `location` is `inherit | unset | unknown | clear | set{CaptureRef}`; the batch default is the same without `inherit`, stored as append-only `capture_selection` rows (`subject_id` null for the default). A `draft` Default location (PR-A) is stored as `unset`. Shared Parts and evidence groups carry no location.
+- The only resolver is `intake-server/src/review/model.ts`: `inherit` takes the batch default; anything but `set` or `clear` blocks with `location_required`. The result is sealed as `effectiveLocation` in the lot's review facts and becomes `ManualEffect.location_id`, which execution plans, preconditions and verification read. Processing does not resolve locations; its inputs embed the raw lot, linked Part and batch defaults.
+- Operator commands set lot locations (bulk edit), copy them to split children and keep them on merge only when every source agrees.
+- Staleness is recomputed, not recorded: processing compares rebuilt input bytes, and preparations compare rebuilt review material. Group moves and evidence links already change a lot's media digest.
+
+Compatibility rules for the new assignments:
+
+1. Part and group assignments are `set` or `clear`; absence means no assignment. Commands use `unset` to remove one. `unknown` is not an assignment.
+2. Resolution per physical lot: a lot value other than `inherit` wins (including `unset`/`unknown`, which still block); otherwise the linked shared Part's assignment; otherwise the assignments of every group holding evidence linked to that lot, which must agree; otherwise the batch default. `clear` at any level stops the fallback.
+3. Different group assignments with no higher-precedence value block approval with `location_conflict`; nothing arbitrary is chosen. When media is unavailable and the lot would fall through to group level while any group assignment exists, resolution blocks instead of guessing.
+4. New fields are additive and omitted when absent, so existing snapshots, processing inputs, review facts and sealed approvals keep their exact bytes. A lot resolved from a Part or group records that source in its review facts.
+5. A Part assignment is an application default for its lots, never an InvenTree Part field. Quantities and lot identities are unchanged by resolution.
+
+### Task 5 results
+
+- 5.2 RED: `contracts/tests/capture-location.test.ts` was written first and failed for the missing resolver. It covers each precedence level, agreeing and conflicting groups, a Part over conflicting groups, `clear` at lot, Part and group level, unread group membership, and a batch-default change moving only fallback lots with quantities unchanged.
+- 5.3 GREEN: `contracts/src/capture-location.ts` (schemas, `resolveLotLocation`, `lotLocationGroups`), migration `0015`, `capture/locations.ts`, the `part.location` and `group_location` edits, Review materialization through the resolver, the Review editor's Part location control, evidence-group location controls and Review source labels (`From shared Part`, `From evidence group`, `Groups disagree`, `Groups unconfirmed`).
+- 5.4: `intake-server/tests/pg/capture-locations.test.ts` checks storage, validation (unknown or retired group, unobserved reference, immutability) and, through real media groups, per-lot resolution, conflict blocking, Part precedence, group `clear`, a default change changing only the fallback lot's dependency digest, and an evidence move changing only the moved lot's digest. Preparations compare exactly these rebuilt dependency bytes, so the same changes make affected preparations stale. Pinned review vectors are unchanged, and a processing test shows a Part assignment leaves input bytes unchanged.
+- The PG tests were written alongside the server code, not strictly first. Negative controls (restored by SHA-256) made the resolver's conflict check and Part `clear`, the Review wiring, the processing stripping and the frontend group label each fail their tests. One control first passed and exposed a missing Part-`clear` case, which was added.
+- Checks: contracts 8/8 location tests and the full contract suite; intake fast tests; PG `capture-locations` 3/3 plus `operator-review`, `manual`, `capture-intent`, `capture-groups`, `media-input-scopes`, `processing-compatibility` and `capture` (36/36); frontend typecheck, ESLint and tests; readability and Markdown lint; Prettier; generated contracts.
+- Limitations: group membership comes from evidence linked to the lot itself, not evidence linked only to its shared Part. Operator split and merge commands copy only lot-level locations, as before.
+

@@ -1,9 +1,13 @@
-import type {
-  CaptureSnapshotDto,
-  OperatorIssueDto,
-  OperatorLotDto,
-  OperatorReviewDto,
+import {
+  lotLocationGroups,
+  resolveLotLocation,
+  type CaptureSnapshotDto,
+  type MediaSnapshotDto,
+  type OperatorIssueDto,
+  type OperatorLotDto,
+  type OperatorReviewDto,
 } from '@invimport/contracts'
+import { display } from '../capture/display'
 
 export const REVIEW_FILTERS = [
   'all',
@@ -139,7 +143,17 @@ export function retiredLotIds(
   return new Set([...fromReview, ...fromSnapshot])
 }
 
-export type Provenance = 'human' | 'inherited' | 'override' | 'unknown' | 'cleared' | 'unset'
+export type Provenance =
+  | 'human'
+  | 'inherited'
+  | 'override'
+  | 'unknown'
+  | 'cleared'
+  | 'unset'
+  | 'shared_part'
+  | 'evidence_group'
+  | 'conflict'
+  | 'unconfirmed'
 
 export const PROVENANCE_LABELS: Record<Provenance, string> = {
   human: 'Human set',
@@ -148,6 +162,57 @@ export const PROVENANCE_LABELS: Record<Provenance, string> = {
   unknown: 'Unknown',
   cleared: 'Cleared',
   unset: 'Unset',
+  shared_part: 'From shared Part',
+  evidence_group: 'From evidence group',
+  conflict: 'Groups disagree',
+  unconfirmed: 'Groups unconfirmed',
+}
+
+type MediaGroups = Pick<MediaSnapshotDto, 'evidence' | 'groups'>
+
+/**
+ * The lot's effective location and where it came from: lot, shared Part, evidence group or
+ * batch default. Without a media read, group membership is unknown rather than empty.
+ */
+export function lotLocationFact(
+  batch: CaptureSnapshotDto,
+  lot: CaptureSnapshotDto['lots'][number],
+  media: MediaGroups | undefined,
+): { value: string; provenance: Provenance } {
+  const resolution = resolveLotLocation(
+    batch,
+    lot,
+    media ? lotLocationGroups(media.evidence) : null,
+  )
+
+  const groupLabels = (ids: readonly string[]) =>
+    ids
+      .map((id) => media?.groups.find((group) => group.id === id)?.label ?? 'Evidence group')
+      .join(', ')
+
+  if (resolution.status === 'conflict') {
+    return {
+      value: `Evidence groups assign different locations: ${groupLabels(resolution.group_ids)}`,
+      provenance: 'conflict',
+    }
+  }
+  if (resolution.status === 'groups_unavailable') {
+    return { value: 'Evidence group locations could not be confirmed', provenance: 'unconfirmed' }
+  }
+  const value = display(resolution.location, batch, 'location')
+  switch (resolution.source) {
+    case 'part':
+      return { value, provenance: 'shared_part' }
+    case 'group':
+      return {
+        value: `${value} · ${groupLabels(resolution.group_ids)}`,
+        provenance: 'evidence_group',
+      }
+    case 'batch':
+      return { value: display(lot.location, batch, 'location'), provenance: 'inherited' }
+    default:
+      return { value, provenance: lotProvenance(lot.location, batch.defaults.location) }
+  }
 }
 
 type Selection = CaptureSnapshotDto['lots'][number]['quantity' | 'location']

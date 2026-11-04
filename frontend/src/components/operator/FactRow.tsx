@@ -10,6 +10,10 @@ const PROVENANCE_TONES: Record<Provenance, ChipTone> = {
   unknown: 'amber',
   cleared: 'neutral',
   unset: 'amber',
+  shared_part: 'neutral',
+  evidence_group: 'neutral',
+  conflict: 'amber',
+  unconfirmed: 'amber',
 }
 
 interface Props {

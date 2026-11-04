@@ -414,6 +414,7 @@ export function ReviewWorkspace({
           batch={batch}
           review={operatorReview}
           client={operator}
+          media={mediaUnavailable ? undefined : media}
           lotIds={route.filter === 'retired' ? [] : visibleIds}
           activeLotIds={activeLotIds}
           disabled={busy || stale || reviewUnavailable || drafts.hasOtherSources('workspace')}
@@ -472,6 +473,7 @@ export function ReviewWorkspace({
                 part={part}
                 workspace={workspace}
                 operatorLot={operatorLot}
+                media={mediaUnavailable ? undefined : media}
                 activeLotIds={activeLotIds}
                 operator={operator}
                 disabled={

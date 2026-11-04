@@ -10,6 +10,7 @@ import { CaptureContextFields } from './CaptureContextFields'
 import { CaptureContextSummary } from './CaptureContextSummary'
 import { PartCreationFields } from './PartCreationFields'
 import { QuantityField } from './QuantityField'
+import { AssignedLocationField } from './AssignedLocationField'
 import { ReferenceField } from './ReferenceField'
 
 type EditorProps = {
@@ -116,6 +117,24 @@ export function CaptureEditor({
               )}
             />
           </>
+        )}
+        {part && (
+          <Controller
+            name="partLocation"
+            control={control}
+            render={({ field }) => (
+              <AssignedLocationField
+                label="Location for this Part's lots"
+                scope="Applies to linked lots that use the batch default. A lot's own location still wins; this is not an inventory Part field."
+                value={field.value.mode === 'unset' ? undefined : field.value}
+                batch={batch}
+                onChange={(value) => {
+                  field.onChange(value)
+                  onDirty(true)
+                }}
+              />
+            )}
+          />
         )}
         {part && (
           <Label>

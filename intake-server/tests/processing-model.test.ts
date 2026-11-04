@@ -482,3 +482,20 @@ test('human-context note overflow produces a typed capacity refusal and makes ol
     false,
   )
 })
+
+test('a shared-Part location assignment leaves processing input bytes unchanged', () => {
+  const base = manualInputFixture()
+  const partId = randomUUID()
+  const input = {
+    ...base,
+    parts: [{ id: partId, label: 'Shared', revision: '1', choice: { mode: 'unset' as const } }],
+    lots: base.lots.map((lot) => ({ ...lot, part_subject_id: partId })),
+  }
+  const subject = input.lots[0].id
+  const before = inputManifest(input, subject, 'reading', [], null)
+  const assigned = {
+    ...input,
+    parts: input.parts.map((part) => ({ ...part, location: { mode: 'clear' as const } })),
+  }
+  assert.deepEqual(inputManifest(assigned, subject, 'reading', [], null), before)
+})

@@ -3244,6 +3244,56 @@ export interface components {
             /** @constant */
             mode: "inherit";
         };
+        CaptureAssignedLocation: {
+            /** @constant */
+            mode: "clear";
+        } | {
+            /** @constant */
+            mode: "set";
+            value: {
+                observation_id: string;
+                target_context_id: string;
+                model: "part" | "location";
+                /** Format: int64 */
+                pk: string;
+            };
+        };
+        CaptureAssignedLocationChange: {
+            /** @constant */
+            mode: "unset";
+        } | {
+            /** @constant */
+            mode: "clear";
+        } | {
+            /** @constant */
+            mode: "set";
+            value: {
+                observation_id: string;
+                target_context_id: string;
+                model: "part" | "location";
+                /** Format: int64 */
+                pk: string;
+            };
+        };
+        CaptureGroupLocation: {
+            group_id: string;
+            /** Format: int64 */
+            version: string;
+            location: {
+                /** @constant */
+                mode: "clear";
+            } | {
+                /** @constant */
+                mode: "set";
+                value: {
+                    observation_id: string;
+                    target_context_id: string;
+                    model: "part" | "location";
+                    /** Format: int64 */
+                    pk: string;
+                };
+            };
+        };
         CapturePartChoice: {
             /** @constant */
             mode: "unset";
@@ -3886,6 +3936,44 @@ export interface components {
                         tags: string[];
                     };
                 };
+                location?: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            } | {
+                /** @constant */
+                kind: "group_location";
+                group_id: string;
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
             } | {
                 /** @constant */
                 kind: "note";
@@ -4368,6 +4456,39 @@ export interface components {
                             sku: string;
                         };
                         tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            }[];
+            group_locations?: {
+                group_id: string;
+                /** Format: int64 */
+                version: string;
+                location: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
                     };
                 };
             }[];
@@ -5689,6 +5810,20 @@ export interface components {
                         tags: string[];
                     };
                 };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
             };
             linked_part: {
                 id: string;
@@ -5769,6 +5904,20 @@ export interface components {
                             sku: string;
                         };
                         tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
                     };
                 };
             } | null;
@@ -6099,6 +6248,20 @@ export interface components {
                         tags: string[];
                     };
                 };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
             };
             linked_part: {
                 id: string;
@@ -6179,6 +6342,20 @@ export interface components {
                             sku: string;
                         };
                         tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
                     };
                 };
             } | null;
@@ -6413,6 +6590,20 @@ export interface components {
                         tags: string[];
                     };
                 };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
             };
             linked_part: {
                 id: string;
@@ -6493,6 +6684,20 @@ export interface components {
                             sku: string;
                         };
                         tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
                     };
                 };
             } | null;
@@ -6730,6 +6935,20 @@ export interface components {
                         tags: string[];
                     };
                 };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
             };
             linked_part: {
                 id: string;
@@ -6810,6 +7029,20 @@ export interface components {
                             sku: string;
                         };
                         tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
                     };
                 };
             } | null;
@@ -7374,6 +7607,20 @@ export interface components {
                         tags: string[];
                     };
                 };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
             };
             linked_part: {
                 id: string;
@@ -7454,6 +7701,20 @@ export interface components {
                             sku: string;
                         };
                         tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
                     };
                 };
             } | null;
@@ -7687,6 +7948,20 @@ export interface components {
                         tags: string[];
                     };
                 };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
             };
             linked_part: {
                 id: string;
@@ -7767,6 +8042,20 @@ export interface components {
                             sku: string;
                         };
                         tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
                     };
                 };
             } | null;
@@ -8003,6 +8292,20 @@ export interface components {
                         tags: string[];
                     };
                 };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
             };
             linked_part: {
                 id: string;
@@ -8083,6 +8386,20 @@ export interface components {
                             sku: string;
                         };
                         tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
                     };
                 };
             } | null;
@@ -8320,6 +8637,20 @@ export interface components {
                         tags: string[];
                     };
                 };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
             };
             linked_part: {
                 id: string;
@@ -8400,6 +8731,20 @@ export interface components {
                             sku: string;
                         };
                         tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
                     };
                 };
             } | null;
@@ -9988,6 +10333,9 @@ export type InboxList = components['schemas']['InboxList']
 export type CaptureRef = components['schemas']['CaptureRef']
 export type CaptureQuantity = components['schemas']['CaptureQuantity']
 export type CaptureLocation = components['schemas']['CaptureLocation']
+export type CaptureAssignedLocation = components['schemas']['CaptureAssignedLocation']
+export type CaptureAssignedLocationChange = components['schemas']['CaptureAssignedLocationChange']
+export type CaptureGroupLocation = components['schemas']['CaptureGroupLocation']
 export type CapturePartChoice = components['schemas']['CapturePartChoice']
 export type CaptureDefaults = components['schemas']['CaptureDefaults']
 export type CaptureContext = components['schemas']['CaptureContext']

@@ -4980,6 +4980,243 @@
           }
         ]
       },
+      "CaptureAssignedLocation": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "const": "clear",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "mode",
+              "value"
+            ],
+            "properties": {
+              "mode": {
+                "const": "set",
+                "type": "string"
+              },
+              "value": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "observation_id",
+                  "target_context_id",
+                  "model",
+                  "pk"
+                ],
+                "properties": {
+                  "observation_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "target_context_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "model": {
+                    "anyOf": [
+                      {
+                        "const": "part",
+                        "type": "string"
+                      },
+                      {
+                        "const": "location",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "pk": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CaptureAssignedLocationChange": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "const": "unset",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "const": "clear",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "mode",
+              "value"
+            ],
+            "properties": {
+              "mode": {
+                "const": "set",
+                "type": "string"
+              },
+              "value": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "observation_id",
+                  "target_context_id",
+                  "model",
+                  "pk"
+                ],
+                "properties": {
+                  "observation_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "target_context_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "model": {
+                    "anyOf": [
+                      {
+                        "const": "part",
+                        "type": "string"
+                      },
+                      {
+                        "const": "location",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "pk": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CaptureGroupLocation": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "group_id",
+          "version",
+          "location"
+        ],
+        "properties": {
+          "group_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "mode"
+                ],
+                "properties": {
+                  "mode": {
+                    "const": "clear",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "mode",
+                  "value"
+                ],
+                "properties": {
+                  "mode": {
+                    "const": "set",
+                    "type": "string"
+                  },
+                  "value": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "observation_id",
+                      "target_context_id",
+                      "model",
+                      "pk"
+                    ],
+                    "properties": {
+                      "observation_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "target_context_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "model": {
+                        "anyOf": [
+                          {
+                            "const": "part",
+                            "type": "string"
+                          },
+                          {
+                            "const": "location",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "pk": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
       "CapturePartChoice": {
         "anyOf": [
           {
@@ -7887,6 +8124,187 @@
                         }
                       }
                     ]
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "group_id",
+                  "location"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "group_location",
+                    "type": "string"
+                  },
+                  "group_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "unset",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
                   }
                 }
               },
@@ -10187,6 +10605,166 @@
                                 "pattern": "[^\\s]",
                                 "type": "string"
                               }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "location": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "mode"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "const": "clear",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "mode",
+                        "value"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "const": "set",
+                          "type": "string"
+                        },
+                        "value": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "observation_id",
+                            "target_context_id",
+                            "model",
+                            "pk"
+                          ],
+                          "properties": {
+                            "observation_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "target_context_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "model": {
+                              "anyOf": [
+                                {
+                                  "const": "part",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "location",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "pk": {
+                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                              "format": "int64",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "group_locations": {
+            "maxItems": 256,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "group_id",
+                "version",
+                "location"
+              ],
+              "properties": {
+                "group_id": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                },
+                "version": {
+                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                  "format": "int64",
+                  "type": "string"
+                },
+                "location": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "mode"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "const": "clear",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "mode",
+                        "value"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "const": "set",
+                          "type": "string"
+                        },
+                        "value": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "observation_id",
+                            "target_context_id",
+                            "model",
+                            "pk"
+                          ],
+                          "properties": {
+                            "observation_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "target_context_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "model": {
+                              "anyOf": [
+                                {
+                                  "const": "part",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "location",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "pk": {
+                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                              "format": "int64",
+                              "type": "string"
                             }
                           }
                         }
@@ -18670,6 +19248,74 @@
                         }
                       }
                     ]
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
                   }
                 }
               }
@@ -19041,6 +19687,74 @@
                                   "pattern": "[^\\s]",
                                   "type": "string"
                                 }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
                               }
                             }
                           }
@@ -20599,6 +21313,74 @@
                         }
                       }
                     ]
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
                   }
                 }
               }
@@ -20970,6 +21752,74 @@
                                   "pattern": "[^\\s]",
                                   "type": "string"
                                 }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
                               }
                             }
                           }
@@ -22098,6 +22948,74 @@
                         }
                       }
                     ]
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
                   }
                 }
               }
@@ -22469,6 +23387,74 @@
                                   "pattern": "[^\\s]",
                                   "type": "string"
                                 }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
                               }
                             }
                           }
@@ -23608,6 +24594,74 @@
                         }
                       }
                     ]
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
                   }
                 }
               }
@@ -23979,6 +25033,74 @@
                                   "pattern": "[^\\s]",
                                   "type": "string"
                                 }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "location": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "clear",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "mode",
+                          "value"
+                        ],
+                        "properties": {
+                          "mode": {
+                            "const": "set",
+                            "type": "string"
+                          },
+                          "value": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "anyOf": [
+                                  {
+                                    "const": "part",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "location",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
                               }
                             }
                           }
@@ -26605,6 +27727,74 @@
                             }
                           }
                         ]
+                      },
+                      "location": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "anyOf": [
+                                      {
+                                        "const": "part",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "location",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
                       }
                     }
                   }
@@ -26976,6 +28166,74 @@
                                       "pattern": "[^\\s]",
                                       "type": "string"
                                     }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "location": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "anyOf": [
+                                      {
+                                        "const": "part",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "location",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
                                   }
                                 }
                               }
@@ -28104,6 +29362,74 @@
                             }
                           }
                         ]
+                      },
+                      "location": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "anyOf": [
+                                      {
+                                        "const": "part",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "location",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
                       }
                     }
                   }
@@ -28475,6 +29801,74 @@
                                       "pattern": "[^\\s]",
                                       "type": "string"
                                     }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "location": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "anyOf": [
+                                      {
+                                        "const": "part",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "location",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
                                   }
                                 }
                               }
@@ -29614,6 +31008,74 @@
                             }
                           }
                         ]
+                      },
+                      "location": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "anyOf": [
+                                      {
+                                        "const": "part",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "location",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
                       }
                     }
                   }
@@ -29985,6 +31447,74 @@
                                       "pattern": "[^\\s]",
                                       "type": "string"
                                     }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "location": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "anyOf": [
+                                      {
+                                        "const": "part",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "location",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
                                   }
                                 }
                               }
@@ -31135,6 +32665,74 @@
                             }
                           }
                         ]
+                      },
+                      "location": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "anyOf": [
+                                      {
+                                        "const": "part",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "location",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
                       }
                     }
                   }
@@ -31506,6 +33104,74 @@
                                       "pattern": "[^\\s]",
                                       "type": "string"
                                     }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "location": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "clear",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "mode",
+                              "value"
+                            ],
+                            "properties": {
+                              "mode": {
+                                "const": "set",
+                                "type": "string"
+                              },
+                              "value": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "observation_id",
+                                  "target_context_id",
+                                  "model",
+                                  "pk"
+                                ],
+                                "properties": {
+                                  "observation_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "target_context_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "model": {
+                                    "anyOf": [
+                                      {
+                                        "const": "part",
+                                        "type": "string"
+                                      },
+                                      {
+                                        "const": "location",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "pk": {
+                                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                    "format": "int64",
+                                    "type": "string"
                                   }
                                 }
                               }
