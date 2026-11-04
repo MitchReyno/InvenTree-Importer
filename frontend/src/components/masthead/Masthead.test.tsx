@@ -29,11 +29,12 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-test('shows the brand and workflow label over a decorative canvas', () => {
+test('shows the brand, dev mode label and workflow label over a decorative canvas', () => {
   render(<Masthead />)
 
   expect(screen.getByText('Bench')).toBeVisible()
   expect(screen.getByText('Intake')).toBeVisible()
+  expect(screen.getByText('Dev mode')).toBeVisible()
   expect(screen.getByText('Manual workflow')).toBeVisible()
   expect(screen.getByTestId('electronics-current')).toHaveAttribute('aria-hidden', 'true')
   expect(screen.getByRole('banner')).toHaveTextContent('Bench Intake')

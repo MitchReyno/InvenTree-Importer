@@ -45,10 +45,10 @@ export function HeaderDisclosure({
 }
 
 const Trigger = styled.button`
-  min-height: 44px;
+  min-height: 2rem;
   max-width: 100%;
   border: 1px solid #c5cfdd;
-  border-radius: 8px;
+  border-radius: 1rem;
   padding: 8px 12px;
   color: #233349;
   background: #fff;
@@ -57,7 +57,12 @@ const Trigger = styled.button`
     border-color: #266ac5;
     background: #edf4ff;
   }
+  &:hover {
+    border-color: #266ac5;
+    background: #edf4ff;
+  }
 `
+
 const Content = styled(Popover.Content)`
   z-index: 1000;
   width: min(360px, calc(100vw - 24px));
@@ -74,16 +79,19 @@ const Content = styled(Popover.Content)`
   font-size: 14px;
   overflow-wrap: anywhere;
 `
+
 const TitleRow = styled.div`
   display: flex;
   gap: 12px;
   align-items: center;
   justify-content: space-between;
 `
+
 const Title = styled.h2`
   margin: 0;
   font-size: 16px;
 `
+
 const Close = styled.button`
   min-height: 44px;
   border: 1px solid #c5cfdd;
