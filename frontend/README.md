@@ -22,7 +22,7 @@ The root `pnpm lint`/`pnpm test` also run backend checks, which need the Python/
 
 ## Current and future scope
 
-The visible development banner and owned-fake/provider capability notices are intentional. Component tests cover exact text scalars, human attribution, retained URL resume, revision conflicts and archive/resume. Real HTTP/PG/process/browser evidence is in the [T02 handover](../docs/handovers/bench-intake-T02.md); jsdom alone is not end-to-end proof. Read the [primary original prototype and screenshots](../docs/bench-intake/reference/README.md) before changing layout; preserve the user-approved current light/blue palette.
+The visible `Dev mode` header badge, diagnostics attribution and owned-fake/provider capability notices are intentional. Component tests cover exact text scalars, human attribution, retained URL resume, revision conflicts and archive/resume. Real HTTP/PG/process/browser evidence is in the [T02 handover](../docs/handovers/bench-intake-T02.md); jsdom alone is not end-to-end proof. Read the [primary original prototype and screenshots](../docs/bench-intake/reference/README.md) before changing layout; preserve the user-approved current light/blue palette.
 
 The inbox provides explicit Capture, Processing, Review and Results links, a recent-batch card and server-wide title search with ten-row paging, retained original thumbnails and workflow observations. Search is explicitly submitted; typing sends no requests. Counts and latest-round outcomes come from the scoped inbox projection and do not authorize commands. Compact shared headers retain all five stages, visible development attribution and the decorative masthead.
 

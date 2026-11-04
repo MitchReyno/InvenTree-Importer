@@ -59,27 +59,31 @@ export function targetSummary(
   now: number,
 ) {
   if (unavailable) {
-    return 'Connection unavailable'
+    return 'InvenTree unavailable'
   }
   if (!target) {
     return 'Reading connection…'
   }
   if (target.state === 'unconfigured') {
-    return 'Target unconfigured'
+    return 'InvenTree target unconfigured'
   }
   if (!target.observed_at || target.freshness === 'unobserved') {
-    return 'Target status unknown'
+    return 'InvenTree status unknown'
   }
   if (target.freshness === 'stale' || !observationFresh(target.observed_at, now)) {
-    return 'Target status stale'
+    return 'InvenTree status stale'
   }
   if (target.state === 'reachable') {
-    return 'Target reachable'
+    const safeUrl = safeTargetNavigation(target.navigation_url)
+    if (safeUrl) {
+      return new URL(safeUrl).hostname
+    }
+    return 'InvenTree connected'
   }
   if (target.state === 'unavailable') {
-    return 'Target unavailable'
+    return 'InvenTree unavailable'
   }
-  return 'Target status unknown'
+  return 'InvenTree status unknown'
 }
 
 export type HeaderWorkItem = HeaderWorkDto['work'][number]

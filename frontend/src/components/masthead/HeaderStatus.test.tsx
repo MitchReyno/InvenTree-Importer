@@ -57,7 +57,7 @@ test('healthy live transport never implies target reachability and the isolated 
       <HeaderStatus client={client()} batchId={batchId} />
     </UpdateHealthContext.Provider>,
   )
-  await screen.findByText('Target unavailable')
+  await screen.findByText('InvenTree unavailable')
   const trigger = screen.getByRole('button', { name: 'Connection status' })
   const link = screen.getByRole('link', { name: 'Open InvenTree' })
   expect(link).toHaveAttribute('href', 'https://inventory.example.test/')
@@ -101,7 +101,7 @@ test('local expiry and visibility recomputation mark an old successful observati
     target: { ...connection().target, state: 'reachable', observed_at: old },
   })
   render(<HeaderStatus client={api} />)
-  await screen.findByText('Target status stale')
+  await screen.findByText('InvenTree status stale')
   await user.click(screen.getByRole('button', { name: 'Connection status' }))
   expect(screen.getByText(/Last target check/)).toHaveTextContent(new Date(old).toLocaleString())
   fireEvent(document, new Event('visibilitychange'))
@@ -198,7 +198,9 @@ test('healthy sockets retain foreground target polling and local expiry while a 
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1)
   })
-  expect(screen.getByText('Target reachable')).toBeVisible()
+  const connectedLabel = screen.getByText('inventory.example.test')
+  expect(connectedLabel).toBeVisible()
+  expect(connectedLabel.previousElementSibling).toHaveStyle({ backgroundColor: '#4eaa3d' })
   await act(async () => {
     await vi.advanceTimersByTimeAsync(30_100)
   })
@@ -206,7 +208,9 @@ test('healthy sockets retain foreground target polling and local expiry while a 
   await act(async () => {
     await vi.advanceTimersByTimeAsync(30_100)
   })
-  expect(screen.getByText('Target status stale')).toBeVisible()
+  const staleLabel = screen.getByText('InvenTree status stale')
+  expect(staleLabel).toBeVisible()
+  expect(staleLabel.previousElementSibling).toHaveStyle({ backgroundColor: '#9a6b18' })
 })
 
 test('tab-level rerenders preserve the draft and the same scoped query subscriptions', async () => {
@@ -222,7 +226,7 @@ test('tab-level rerenders preserve the draft and the same scoped query subscript
   )
 
   const view = render(element('Capture'))
-  await screen.findByText('Target unavailable')
+  await screen.findByText('InvenTree unavailable')
   const draft = screen.getByRole('textbox', { name: 'Unsaved draft' })
   await user.type(draft, ' plus unsaved input')
   view.rerender(element('Review'))
@@ -386,7 +390,7 @@ test('live transport without a retained frame observation remains unknown', asyn
       <HeaderStatus client={client()} />
     </UpdateHealthContext.Provider>,
   )
-  await screen.findByText('Target unavailable')
+  await screen.findByText('InvenTree unavailable')
   await userEvent.setup().click(screen.getByRole('button', { name: 'Connection status' }))
   expect(screen.getByText(/Live-update health unknown/)).toBeVisible()
   expect(screen.queryByText('Live updates connected')).toBeNull()

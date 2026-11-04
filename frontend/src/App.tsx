@@ -163,10 +163,12 @@ export default function App() {
                 <span>{bootstrap ? 'Local setup required' : 'Connecting to application…'}</span>
               )
             }
-          />
-          <DevelopmentBanner>
-            {bootstrap?.banner ?? 'Connecting to local application…'}
-          </DevelopmentBanner>
+          >
+            <MainNav aria-label="Application">
+              <a href="#">Batches</a>
+              <a href="#settings">Agent settings</a>
+            </MainNav>
+          </Masthead>
           {bootstrapUnavailable && bootstrap && (
             <Notice role="alert">
               Application connection unavailable. Showing the last development context; retained
@@ -179,11 +181,6 @@ export default function App() {
               navigating, then choose the destination again.
             </Notice>
           )}
-          <MainNav aria-label="Application">
-            <a href="#">Batches</a>
-            <a href="#agents">Agent sessions</a>
-            <a href="#settings">Agent settings</a>
-          </MainNav>
           <Main>{content}</Main>
           {manual && <Diagnostics />}
         </LiveUpdates>
@@ -205,18 +202,8 @@ const AppShell = styled.div`
     padding: 0 12px;
   }
 `
-const DevelopmentBanner = styled.p`
-  padding: 5px 10px;
-  margin: 6px 0;
-  color: #644813;
-  background: #fff3d8;
-  border: 1px solid #e7d09c;
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 1.5;
-`
 const Main = styled.main`
-  margin: 10px auto;
+  margin: 0 auto 16px auto;
 `
 const Footer = styled.footer`
   padding: 24px 0;
@@ -227,8 +214,9 @@ const Footer = styled.footer`
 `
 
 const MainNav = styled.nav`
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: 20px;
-  margin: 16px 0;
+  padding: 0 12px 12px 12px;
 `
