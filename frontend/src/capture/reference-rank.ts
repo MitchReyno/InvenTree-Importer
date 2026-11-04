@@ -25,7 +25,12 @@ export function rankReferences<T extends RankableReference>(
     return records.map((record) => ({ record, tier: 'browse' }))
   }
 
-  const byId = (a: T, b: T) => Number(a.pk) - Number(b.pk) || a.pk.localeCompare(b.pk)
+  // PKs are exact decimal strings; BigInt keeps 64-bit IDs ordered exactly.
+  const byId = (a: T, b: T) => {
+    const left = BigInt(a.pk)
+    const right = BigInt(b.pk)
+    return left < right ? -1 : left > right ? 1 : 0
+  }
 
   if (/^\d+$/.test(q)) {
     return records

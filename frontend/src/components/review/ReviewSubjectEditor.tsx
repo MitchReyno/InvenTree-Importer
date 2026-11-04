@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import styled from 'styled-components'
+import type { MediaEditDto } from '@invimport/contracts'
 import type { CaptureWorkspaceProps, Snapshot } from '../../capture/types'
 import type { MediaClient } from '../../media/types'
 import { useEvidenceWorkspace } from '../../media/useEvidenceWorkspace'
@@ -19,6 +20,9 @@ type Props = {
   observe: CaptureWorkspaceProps['observe']
   media?: MediaClient
   onDirtyChange: (dirty: boolean) => void
+  onAttachmentDirtyChange: (dirty: boolean) => void
+  /** Reloads saved values after a confirmed attachment change advances the revision. */
+  reload: () => Promise<void>
   onClose: () => void
   /** Keeps the subject in the URL while the editor is open; cleared while a save is in flight. */
   retainRoute: (retain: boolean) => void
@@ -34,6 +38,8 @@ export function ReviewSubjectEditor({
   observe,
   media,
   onDirtyChange,
+  onAttachmentDirtyChange,
+  reload,
   onClose,
   retainRoute,
 }: Props) {
@@ -90,7 +96,14 @@ export function ReviewSubjectEditor({
         observe={observe}
       />
       {media && (lot || part) && (
-        <ReviewAttachment batch={batch} subjectId={subjectId} client={media} disabled={disabled} />
+        <ReviewAttachment
+          batch={batch}
+          subjectId={subjectId}
+          client={media}
+          disabled={disabled}
+          onDirtyChange={onAttachmentDirtyChange}
+          reload={reload}
+        />
       )}
     </EditorPanel>
   )
@@ -101,28 +114,65 @@ function ReviewAttachment({
   subjectId,
   client,
   disabled,
+  onDirtyChange,
+  reload,
 }: {
   batch: Snapshot
   subjectId: string
   client: MediaClient
   disabled: boolean
+  onDirtyChange: (dirty: boolean) => void
+  reload: () => Promise<void>
 }) {
-  const ignoreDirty = useCallback(() => undefined, [])
-  const state = useEvidenceWorkspace(batch.id, client, disabled, ignoreDirty)
+  const state = useEvidenceWorkspace(batch.id, client, disabled, onDirtyChange)
+  const { command } = state
+
+  async function choose(change: MediaEditDto['change']) {
+    if (await state.edit(change)) {
+      await reload()
+    }
+  }
+
+  async function retry() {
+    await state.retry()
+    if (!command.hasPendingIntent()) {
+      await reload()
+    }
+  }
+
   if (!state.snapshot) {
     return <Small role="status">Reading retained attachments…</Small>
   }
   return (
-    <SubjectAttachmentChoice
-      batch={batch}
-      subjectId={subjectId}
-      snapshot={state.snapshot}
-      disabled={disabled || state.command.busy || state.unavailable}
-      edit={state.edit}
-    />
+    <>
+      <SubjectAttachmentChoice
+        batch={batch}
+        subjectId={subjectId}
+        snapshot={state.snapshot}
+        disabled={disabled || command.busy || command.pending || state.unavailable}
+        edit={choose}
+      />
+      {state.error && <Small role="alert">{state.error}</Small>}
+      {command.message && <Small role="alert">{command.message}</Small>}
+      {command.pending && (
+        <Actions>
+          <Button type="button" disabled={command.busy || disabled} onClick={() => void retry()}>
+            Retry exact attachment change
+          </Button>
+          <Button type="button" disabled={command.busy} onClick={state.discard}>
+            Discard unconfirmed attachment change
+          </Button>
+        </Actions>
+      )}
+    </>
   )
 }
 
+const Actions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+`
 const EditorPanel = styled(Panel)`
   display: grid;
   gap: 10px;

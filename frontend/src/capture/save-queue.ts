@@ -115,6 +115,29 @@ export class SaveQueue {
     this.changed()
   }
 
+  /** Pauses a scheduled send (for example during IME composition) without marking it invalid. */
+  defer(id: string) {
+    const lane = this.lanes.get(id)
+    if (lane) {
+      clearTimeout(lane.timer)
+      lane.ready = false
+    }
+  }
+
+  /** Drops a definitely refused draft that the user chose not to correct, such as a logo file. */
+  discard(id: string) {
+    const lane = this.lane(id)
+    if (this.isInflight(id)) {
+      return
+    }
+    clearTimeout(lane.timer)
+    lane.draft = null
+    lane.rejected = null
+    lane.invalid = false
+    lane.ready = false
+    this.changed()
+  }
+
   flush(id: string) {
     const lane = this.lane(id)
     if (lane.draft && !lane.invalid) {
@@ -126,7 +149,7 @@ export class SaveQueue {
 
   /** Resends the exact uncertain request: same payload, revision and key. */
   retry() {
-    if (this.blocked !== 'unconfirmed' || !this.uncertain || this.inflight) {
+    if (this.blocked !== 'unconfirmed' || !this.uncertain || this.inflight || !this.connected) {
       return
     }
     const request = this.uncertain

@@ -64,6 +64,7 @@ const location = (pk: string, name: string, path: string): CatalogueRecordDto =>
   parent_pk: null,
   structural: false,
 })
+
 const supplier = (pk: string, name: string): CatalogueRecordDto => ({
   kind: 'supplier',
   pk,
@@ -71,6 +72,7 @@ const supplier = (pk: string, name: string): CatalogueRecordDto => ({
   description: '',
   manufacturer: false,
 })
+
 const records: Record<CatalogueModelDto, CatalogueRecordDto[]> = {
   location: [
     location('41', 'Incoming inspection drawer', 'Bench/Incoming inspection drawer'),
@@ -79,6 +81,7 @@ const records: Record<CatalogueModelDto, CatalogueRecordDto[]> = {
   ],
   supplier: [supplier('7', 'Mouser Electronics'), supplier('8', 'Digi-Key')],
 }
+
 const coverage = (model: CatalogueModelDto) => ({
   loaded: records[model].length,
   total: records[model].length,

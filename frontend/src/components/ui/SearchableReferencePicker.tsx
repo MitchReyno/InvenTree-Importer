@@ -86,6 +86,7 @@ export function SearchableReferencePicker({
     query: string
     results: readonly CatalogueRecordDto[]
     exact: CatalogueRecordDto | null
+    failed: boolean
   } | null>(null)
   const [searching, setSearching] = useState(false)
   const generation = useRef(0)
@@ -103,13 +104,13 @@ export function SearchableReferencePicker({
       search(query, controller.signal).then(
         (result) => {
           if (generation.current === mine) {
-            setRemote({ query, ...result })
+            setRemote({ query, ...result, failed: false })
             setSearching(false)
           }
         },
         () => {
           if (generation.current === mine) {
-            setRemote({ query, results: [], exact: null })
+            setRemote({ query, results: [], exact: null, failed: true })
             setSearching(false)
           }
         },
@@ -162,6 +163,7 @@ export function SearchableReferencePicker({
     }
   }
 
+  const searchFailed = remote?.failed === true && remote.query === input.trim()
   const describedBy = `${id}-status`
   const truncated = coverage?.truncated
     ? `Suggestions use ${coverage.loaded.toLocaleString('en')} of ${coverage.total.toLocaleString('en')} ${noun}. Refine the search or enter an exact ID.`
@@ -171,7 +173,9 @@ export function SearchableReferencePicker({
       ? `${label} search unavailable. The current selection is kept; no empty catalogue is assumed.`
       : disabled && disabledReason
         ? disabledReason
-        : truncated
+        : searchFailed
+          ? `${label} search unavailable for this query; suggestions use only the loaded ${noun}.`
+          : truncated
 
   return (
     <Label as="div">
@@ -204,9 +208,11 @@ export function SearchableReferencePicker({
         noOptionsMessage={() =>
           status === 'unavailable'
             ? `${label} search unavailable`
-            : input.trim()
-              ? `No matches in the loaded ${noun}`
-              : `No ${noun} loaded`
+            : searchFailed
+              ? `${label} search unavailable; no matches in the loaded ${noun}`
+              : input.trim()
+                ? `No matches in the loaded ${noun}`
+                : `No ${noun} loaded`
         }
         placeholder={`Search ${noun} by name or ID`}
         styles={styles}

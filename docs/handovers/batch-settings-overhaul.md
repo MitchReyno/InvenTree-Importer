@@ -159,7 +159,7 @@ Ownership chosen:
 - `capture/save-queue.ts` (`SaveQueue`) is the per-batch serialized owner, mounted by `BatchSettingsPanel` for the Capture lifetime. Capture is now keyed by `batch.id:reset` only, so own acknowledgements no longer remount it; explicit discard still remounts through `reset`.
 - Lanes: `settings` (complete-state `batch_settings`), `instructions` (existing instruct command) and `logo` (supplier logo upload). One request is in flight at a time across lanes; each freezes payload, expected revision and key. A logo upload's receipt carries no revision, so the queue takes expected + 1 (every retained command advances by exactly one); a foreign change in between surfaces as a 412 on the next command.
 - `Batch` exposes raw ports (`save`, `read`, `instruct`, `uploadLogo`, `catalogue`, `accept`, `connected`); `accept` keeps the newest snapshot when acknowledgements and reads resolve out of order. `Batch` adopts a newer polled snapshot only while Capture reports no local edits; the panel then resets to it. A dirty panel never resets.
-- Availability: editing disables when the shared `header-connection` read errors or pauses, the capture read is unavailable, or the browser reports offline. No second probe loop. Socket health is not an input, so polling fallback keeps settings editable. Reconnection reads the batch before admitting writes.
+- Availability: editing needs a fresh scoped observation, either the shared `header-connection` read or the batch's own capture read, succeeded within 60 seconds and not now failing, and the browser must not report offline. A five-second clock and focus/visibility events re-evaluate freshness. No second probe loop. Socket health is not an input, so polling fallback keeps settings editable. Reconnection reads the batch before admitting writes.
 - Evidence media/note commands and settings commands could race on the revision, so each pauses while the other is unacknowledged (the earlier mutual-exclusion contract kept in autosave form). Capture reads the batch after an evidence change resolves so the clean panel adopts the new revision.
 
 ### Task 4 results
@@ -186,6 +186,23 @@ Verification: frontend 244 tests, typecheck, ESLint, readability lint, Prettier,
 
 Browser qualification ([evidence](../bench-intake/evidence/batch-settings-overhaul/README.md)): owned synthetic fixture at 1280, 390 and 360 CSS pixels and at native 200% zoom (CDP `zoom: 2`, CSS 640 and 360) in Google Chrome `--headless=new` with an owned profile. Every run had zero horizontal overflow, no subject panes, an acknowledged autosave with title focus retained, keyboard fuzzy supplier selection (`Mousr` → Mouser), Escape keeping picker focus, disabled PO controls and a keyboard-reachable logo explanation. Qualification found the settings panel's leftover `grid-area` squeezing it into an implicit narrow column below 860px; it was removed and the runs repeated.
 
-Still to do for 4.5: Codex exact-head review and selected CI.
+### PR-B independent review
+
+Codex (`gpt-6.1-sol`, read-only) reviewed exactly `1514e91..bfe0a3b`: no Critical findings; six Important and four Minor, all fixed:
+
+1. Important: a dirty Review subject editor did not fence the Decision panel or table, whose commands remount Review and lose the draft. Review now disables each command surface while another dirty source exists (`hasOtherSources`), and the manual subject actions while anything is dirty. The Decision panel's legacy Edit in Capture link is removed. Regression: an add-lot draft disables the focused lot's quantity correction.
+2. Important: the relocated attachment choice ignored its dirty state and recovery. It now reports an `attachment` dirty source, shows retained-command errors with exact retry and discard, and reloads saved values after a confirmed change. Regression: an uncertain change keeps the editor open, and the exact retry resends the same request and then reloads.
+3. Important: saved instructions arriving after Capture never populated the textbox. A new saved instruction version is adopted while the operator has not typed; negative control confirmed.
+4. Important: instruction text finished during IME composition never reached its lane, and pending debounces kept running. Composition start defers both lanes and keeps navigation dirty; composition end schedules the lane that owns the composed field; negative control confirmed.
+5. Important: a rerender during reconnection could release queued writes before the read finished. Reconciliation is tracked separately from connection; writes and exact retries wait for a successful read, and a failed read retries after two seconds. Regression rerenders while the read is pending.
+6. Important: availability did not enforce freshness. See Availability above; regression: a capture observation older than 60 seconds disables settings until a fresh read.
+7. Minor: a refused logo stayed "Uploading". The refusal is shown, the rejected draft is discarded (`SaveQueue.discard`) and a replacement file can be chosen.
+8. Minor: a failed strict search looked like no matches. The picker discloses search unavailability while keeping candidates and selection.
+9. Minor: ID tie-breaking used `Number`, losing order beyond 2^53. It now compares with `BigInt`; regression with `9999999999999999` and `10000000000000000`.
+10. Minor: the evidence README cited `results.json`, which the repository ignores. The record is committed as `browser-results.json`.
+
+Also restored: projection-mismatch coverage (a polled operator projection at a newer revision keeps the instruction draft until the Batch-level discard-and-reload), alongside the separate instruction-conflict test. After the fixes: frontend 257/257 tests, typecheck, ESLint, readability lint, Prettier, Markdown lint and build pass. The fixed candidate needs a fresh Codex review.
+
+Still to do for 4.5: Codex re-review and selected CI.
 
 Limitations: draft persistence across a browser crash/reload is not promised (beforeunload protection only). Batch-level evidence edits (`Batch.edit`) remain a separate owner serialized with settings by pausing rather than by sharing the queue. The `App.media` test now waits for the photo input to enable, because the panel's initial reconnection read shifts when the first fresh media read completes.

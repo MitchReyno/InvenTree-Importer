@@ -319,14 +319,14 @@ export function ReviewWorkspace({
       <SubjectActions aria-label="Manual subjects">
         <Button
           type="button"
-          disabled={busy || batch.archived || !observe}
+          disabled={busy || batch.archived || !observe || drafts.dirty}
           onClick={() => openEditor(ADD_LOT)}
         >
           Add physical lot
         </Button>
         <Button
           type="button"
-          disabled={busy || batch.archived || !observe}
+          disabled={busy || batch.archived || !observe || drafts.dirty}
           onClick={() => openEditor(ADD_PART)}
         >
           Add shared Part proposal
@@ -334,7 +334,7 @@ export function ReviewWorkspace({
         {lot && (
           <Button
             type="button"
-            disabled={busy || batch.archived || !observe}
+            disabled={busy || batch.archived || !observe || drafts.dirty}
             onClick={() => openEditor(lot.id)}
           >
             Edit lot details
@@ -343,7 +343,7 @@ export function ReviewWorkspace({
         {part && (
           <Button
             type="button"
-            disabled={busy || batch.archived || !observe}
+            disabled={busy || batch.archived || !observe || drafts.dirty}
             onClick={() => openEditor(part.id)}
           >
             Edit shared Part
@@ -354,12 +354,16 @@ export function ReviewWorkspace({
         <ReviewSubjectEditor
           batch={batch}
           subjectId={editing}
-          disabled={busy || stale || batch.archived}
+          disabled={
+            busy || stale || batch.archived || drafts.hasOtherSources('subject', 'attachment')
+          }
           dirty={drafts.dirty}
           edit={edit}
           observe={observe}
           media={mediaClient}
           onDirtyChange={drafts.forSource('subject')}
+          onAttachmentDirtyChange={drafts.forSource('attachment')}
+          reload={reload}
           onClose={closeEditor}
           retainRoute={retainEditorRoute}
         />
@@ -398,7 +402,7 @@ export function ReviewWorkspace({
           client={operator}
           lotIds={route.filter === 'retired' ? [] : visibleIds}
           activeLotIds={activeLotIds}
-          disabled={busy || stale || reviewUnavailable}
+          disabled={busy || stale || reviewUnavailable || drafts.hasOtherSources('workspace')}
           maxReviewLots={maxSelected}
           inspect={inspect}
           reviewLots={reviewLots}
@@ -456,7 +460,13 @@ export function ReviewWorkspace({
                 operatorLot={operatorLot}
                 activeLotIds={activeLotIds}
                 operator={operator}
-                disabled={busy || stale || reviewUnavailable || batch.archived}
+                disabled={
+                  busy ||
+                  stale ||
+                  reviewUnavailable ||
+                  batch.archived ||
+                  drafts.hasOtherSources('workspace')
+                }
                 edit={edit}
                 reload={reload}
                 inspect={inspect}

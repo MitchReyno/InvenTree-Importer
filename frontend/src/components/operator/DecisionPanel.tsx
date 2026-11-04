@@ -187,7 +187,6 @@ export function DecisionPanel({
             </Button>
           </>
         )}
-        <Link href={`#${batch.id}/${lot.id}`}>Edit in Capture</Link>
       </Actions>
       {operatorLot?.approved && (
         <Small>Approved lots keep their original identity and cannot be restructured.</Small>

@@ -10,7 +10,7 @@ Owned synthetic fixture: `frontend/tests/fixtures/capture-settings.html` renders
 | `narrow-390`, `narrow-360` | Playwright Chromium, touch enabled | 1 | 390, 360 |
 | `native-zoom-200-1280`, `native-zoom-200-720` | Google Chrome `--headless=new`, profile preference `partition.default_zoom_level` (`x`) = 200% | 2 | 640, 360 |
 
-Each run follows the same journey and records it in `results.json`:
+Each run follows the same journey and records it in `browser-results.json`:
 
 - Layout: evidence and Batch settings side by side at 1280 (evidence x16 w708, settings x740 w524); one column at 640 and below, with settings full width. No Physical lots or Part proposals headings. Zero document horizontal overflow before and after edits.
 - Autosave: typing in Batch title produced an acknowledged save (`Batch settings: Saved · revision 2`) while the same title node kept focus.

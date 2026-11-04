@@ -60,6 +60,9 @@ function Host({
   onDirtyChange = () => undefined,
   catalogue,
   observe = async () => null,
+  operatorReview = review,
+  withoutReview = false,
+  uploadLogo,
 }: {
   initial?: CaptureSnapshotDto
   connected?: boolean
@@ -67,6 +70,9 @@ function Host({
   onDirtyChange?: (dirty: boolean) => void
   catalogue?: CatalogueClient
   observe?: (model: string, pk: string) => Promise<CaptureObservationDto | null>
+  operatorReview?: OperatorReviewDto
+  withoutReview?: boolean
+  uploadLogo?: SettingsPorts['uploadLogo']
 }) {
   const [current, setCurrent] = useState(initial)
   const ports: SettingsPorts = {
@@ -85,6 +91,7 @@ function Host({
         }),
       ),
     catalogue,
+    uploadLogo,
   }
   return (
     <CaptureWorkspace
@@ -92,7 +99,7 @@ function Host({
       busy={false}
       edit={vi.fn(async () => true)}
       observe={observe as never}
-      operatorReview={review}
+      operatorReview={withoutReview ? undefined : operatorReview}
       operator={{} as never}
       onDirtyChange={onDirtyChange}
       settings={ports}
@@ -475,4 +482,87 @@ test('lot overrides stay visible and link to the pinned Review subject', () => {
     `#${batch.id}/review/${lotId}`,
   )
   expect(screen.getByText(/Location: Lot override/)).toBeInTheDocument()
+})
+
+const savedInstruction = {
+  group_id: null,
+  text: 'Keep date codes apart.',
+  version: '4',
+  actor_id: batch.actor_id,
+  created_at: '2026-11-03T00:00:00Z',
+}
+
+test('saved instructions that load after Capture populate the clean textbox', async () => {
+  const view = render(<Host withoutReview />)
+  expect(screen.queryByRole('textbox', { name: 'Custom instructions' })).not.toBeInTheDocument()
+  view.rerender(
+    <Host operatorReview={{ ...review, instructions: [savedInstruction] } as OperatorReviewDto} />,
+  )
+  await settle()
+  expect(screen.getByRole('textbox', { name: 'Custom instructions' })).toHaveValue(
+    'Keep date codes apart.',
+  )
+})
+
+test('composed instructions are saved and stay dirty while composing', async () => {
+  const dirty = vi.fn()
+  const { title, panel } = setup({ onDirtyChange: dirty })
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  await user.type(title, ' A')
+  await idle()
+  const text = within(panel).getByRole('textbox', { name: 'Custom instructions' })
+  fireEvent.compositionStart(text)
+  fireEvent.change(text, { target: { value: '電子' } })
+  await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
+  await settle()
+  expect(dirty).toHaveBeenLastCalledWith(true)
+  await act(() => vi.advanceTimersByTimeAsync(2000))
+  expect(instructs).toHaveLength(0)
+  fireEvent.compositionEnd(text)
+  await idle()
+  expect(instructs.map((item) => item.text)).toEqual(['電子'])
+})
+
+test('a rerender during reconnection cannot release writes before the read completes', async () => {
+  let finish = () => undefined as void
+
+  const read = vi.fn(
+    () =>
+      new Promise<CaptureSnapshotDto>((resolve) => {
+        finish = () => resolve(batch)
+      }),
+  )
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  const view = render(<Host read={read} />)
+  await user.type(screen.getByLabelText('Batch title'), ' A')
+  view.rerender(<Host read={read} connected={false} />)
+  view.rerender(<Host read={read} connected />)
+  view.rerender(<Host read={read} connected />)
+  await idle()
+  expect(saves).toHaveLength(0)
+  expect(read).toHaveBeenCalledOnce()
+  await act(async () => finish())
+  await settle()
+  expect(saves.map((item) => item.change.title)).toEqual(['Two packets A'])
+})
+
+test('a refused logo is reported and a replacement file can be chosen', async () => {
+  const uploadLogo = vi.fn(async () => {
+    throw new IntakeRequestError(415, 'unsupported_media')
+  })
+  const dirty = vi.fn()
+  const { user, panel } = setup({ uploadLogo, onDirtyChange: dirty })
+  const supplier = within(panel).getByRole('combobox', { name: 'Supplier' })
+  await user.type(supplier, 'Rare Parts')
+  await user.click(await screen.findByRole('option', { name: 'New supplier “Rare Parts”' }))
+  await settle()
+  await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
+  await settle()
+  const file = new File(['png'], 'logo.png', { type: 'image/png' })
+  await user.upload(within(panel).getByLabelText('Supplier logo (optional)'), file)
+  await settle()
+  expect(uploadLogo).toHaveBeenCalledOnce()
+  expect(await within(panel).findByText(/The logo was refused/)).toBeVisible()
+  expect(within(panel).getByLabelText('Supplier logo (optional)')).toBeEnabled()
+  expect(dirty).toHaveBeenLastCalledWith(false)
 })

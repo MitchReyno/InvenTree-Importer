@@ -945,3 +945,64 @@ test('Review offers manual lot and Part creation; a dirty editor cannot be close
   ).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Add shared Part proposal' })).toBeVisible()
 })
+
+test('a dirty Review subject editor fences sibling lot commands that would remount it', async () => {
+  const user = userEvent.setup()
+  const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
+  const route = `${batchId}/review/${lotId}?edit=add_lot`
+  history.replaceState(null, '', `#${route}`)
+  render(
+    <Batch
+      id={batchId}
+      route={route}
+      client={client}
+      manual={reviewManual()}
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  const editor = await screen.findByRole('region', { name: 'Add a physical lot' })
+  await user.click(await screen.findByRole('button', { name: 'Edit lot values' }))
+  const quick = screen.getByRole('form', { name: 'Edit Packet A' })
+  expect(within(quick).getByLabelText('Quantity')).toBeEnabled()
+  await user.type(within(editor).getByLabelText('Lot label'), 'Packet C')
+  expect(within(quick).getByLabelText('Quantity')).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Add shared Part proposal' })).toBeDisabled()
+})
+
+test('stale application observations disable settings until a fresh read', async () => {
+  const cache = createServerQueryClient()
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
+
+    function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <ServerStateProvider scope={fixtureScope} client={cache}>
+          {children}
+        </ServerStateProvider>
+      )
+    }
+
+    render(
+      <Batch
+        id={batchId}
+        route={batchId}
+        client={client}
+        manual={reviewManual()}
+        onDirtyChange={vi.fn()}
+      />,
+      { wrapper: Wrapper },
+    )
+    const title = await screen.findByLabelText('Batch title')
+    expect(title).toBeEnabled()
+    await act(() => vi.advanceTimersByTimeAsync(65_000))
+    expect(screen.getByLabelText('Batch title')).toBeDisabled()
+    await act(async () => {
+      await cache.refetchQueries({ queryKey: serverQueryKey(fixtureScope, 'capture', batchId) })
+      await vi.advanceTimersByTimeAsync(5_000)
+    })
+    await waitFor(() => expect(screen.getByLabelText('Batch title')).toBeEnabled())
+  } finally {
+    vi.useRealTimers()
+  }
+})

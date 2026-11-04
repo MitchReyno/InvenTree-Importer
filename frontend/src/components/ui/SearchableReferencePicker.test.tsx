@@ -171,3 +171,19 @@ test('disabled picker cannot open and explains why', async () => {
   expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   expect(within(document.body).getByText('No supplier is selected.')).toBeVisible()
 })
+
+test('a failed search is disclosed instead of reported as an empty result', async () => {
+  const user = userEvent.setup()
+
+  const search: PickerSearch = async () => {
+    throw new Error('catalogue_unavailable')
+  }
+
+  const { input } = picker({ search })
+  await user.type(input, 'Oscilloscope')
+  expect(await screen.findByText(/Supplier search unavailable for this query/)).toBeVisible()
+  expect(
+    screen.getByText(/Supplier search unavailable; no matches in the loaded suppliers/),
+  ).toBeVisible()
+  expect(screen.queryByText('No matches in the loaded suppliers')).not.toBeInTheDocument()
+})

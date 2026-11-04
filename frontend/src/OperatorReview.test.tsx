@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { createServerQueryClient } from './queries/client'
+import { serverQueryKey } from './queries/scope'
 import { fixtureScope } from './test/render'
 import { beforeEach, expect, test, vi } from 'vitest'
 import {
@@ -858,4 +859,49 @@ test('Batch keeps an autosaved instruction draft after a foreign revision and re
   await screen.findByText('Batch settings: Saved · revision 13')
   expect(screen.getByLabelText('Custom instructions')).toHaveValue('')
   expect(operator.instruct).toHaveBeenCalledOnce()
+})
+
+test('a polled operator projection at a newer revision keeps the instruction draft until explicit reload', async () => {
+  history.replaceState(null, '', `#${batchId}`)
+  const cache = createServerQueryClient()
+  const user = userEvent.setup()
+  const client = { read: vi.fn(async () => batch), edit: vi.fn() } as unknown as Client
+  const operator = operatorClient()
+  vi.mocked(operator.instruct).mockImplementation(() => new Promise(() => undefined))
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerStateProvider scope={fixtureScope} client={cache}>
+        {children}
+      </ServerStateProvider>
+    )
+  }
+
+  render(
+    <Batch
+      id={batchId}
+      route={batchId}
+      client={client}
+      manual={manualClient()}
+      operator={operator}
+      onDirtyChange={vi.fn()}
+    />,
+    { wrapper: Wrapper },
+  )
+  const input = await screen.findByLabelText('Custom instructions')
+  await user.type(input, 'Retain instructions')
+  vi.mocked(operator.read).mockResolvedValue({ ...operatorReview, revision: '13' })
+  vi.mocked(client.read).mockResolvedValue({ ...batch, revision: '13' })
+  await act(async () => {
+    cache.setQueryData(serverQueryKey(fixtureScope, 'operator-review', batchId), {
+      ...operatorReview,
+      revision: '13',
+    })
+  })
+  expect(input).toHaveValue('Retain instructions')
+  const reload = await screen.findByRole('button', {
+    name: 'Discard local edits and load saved values',
+  })
+  await user.click(reload)
+  await waitFor(() => expect(screen.getByLabelText('Custom instructions')).toHaveValue(''))
 })

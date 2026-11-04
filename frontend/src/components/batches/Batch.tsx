@@ -126,7 +126,6 @@ export function Batch({
     },
     [onDirtyChange],
   )
-  const applicationAvailable = useApplicationAvailable()
 
   // Former Capture subject links now open the same subject in Review.
   useEffect(() => {
@@ -297,13 +296,14 @@ export function Batch({
   )
 
   const readUnavailable = captureQuery.isError || captureQuery.fetchStatus === 'paused'
+  const applicationAvailable = useApplicationAvailable(captureQuery.dataUpdatedAt, readUnavailable)
   const visibleError =
     error ||
     (readUnavailable ? 'Batch unavailable. Check connection and server-side target binding.' : '')
   const readOrCommandBusy = busy || captureQuery.isFetching
 
   const settingsPorts: SettingsPorts = {
-    connected: applicationAvailable && !readUnavailable,
+    connected: applicationAvailable,
     save: (change, revision, key) => client.edit(id, { expected_revision: revision, change }, key),
     accept: acceptNewerBatch,
     read: () => client.read(id),

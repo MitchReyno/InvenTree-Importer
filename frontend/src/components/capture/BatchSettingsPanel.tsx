@@ -45,6 +45,7 @@ type LogoPayload = { upload_id: string; draft_id: string }
 type LogoResult = { receipt: MediaReceiptDto; draftId: string }
 
 const MAX_INSTRUCTION_CHARACTERS = 8192
+const RECONCILE_RETRY_MS = 2000
 
 const latestInstructions = (review: OperatorReviewDto | undefined) =>
   review?.instructions.find((item) => item.group_id === null)
@@ -81,10 +82,16 @@ export function BatchSettingsPanel({
   const [instructions, setInstructions] = useState(instructionRecord?.text ?? '')
   const [logo, setLogo] = useState<LogoUpload>({ state: 'idle' })
   const composing = useRef(false)
+  const [composingText, setComposingText] = useState(false)
   const textEdit = useRef(false)
+  const instructionsTouched = useRef(false)
   const files = useRef(new Map<string, File>())
-  const wasConnected = useRef(ports?.connected ?? false)
   const connected = ports?.connected ?? false
+  // The mounting read is current; only a later reconnection must reconcile before writes.
+  const reconciled = useRef(connected)
+  const reading = useRef(false)
+  const connectedNow = useRef(connected)
+  const [readAttempt, setReadAttempt] = useState(0)
   const editable = ports !== undefined && connected && !batch.archived && !paused
   const locations = useCatalogue(ports?.catalogue, batch.id, 'location', editable)
   const suppliers = useCatalogue(ports?.catalogue, batch.id, 'supplier', editable)
@@ -139,8 +146,8 @@ export function BatchSettingsPanel({
   })
 
   useEffect(() => {
-    onDirty(state.dirty)
-  }, [onDirty, state.dirty])
+    onDirty(state.dirty || composingText)
+  }, [composingText, onDirty, state.dirty])
 
   useEffect(() => {
     if (state.blocked === 'unconfirmed' && state.lanes.logo === 'pending') {
@@ -148,8 +155,23 @@ export function BatchSettingsPanel({
         state: 'failed',
         message: 'Logo upload not confirmed. Retry the same upload or reload saved values.',
       })
+    } else if (state.lanes.logo === 'rejected') {
+      setLogo({
+        state: 'failed',
+        message: 'The logo was refused. Choose a PNG or JPEG image within the size limit.',
+      })
+      queue.discard('logo')
     }
-  }, [state.blocked, state.lanes.logo])
+  }, [queue, state.blocked, state.lanes.logo])
+
+  // Instructions can arrive after Capture; show them until the operator types their own.
+  const instructionVersion = instructionRecord?.version
+  useEffect(() => {
+    if (instructionVersion !== undefined && !instructionsTouched.current) {
+      setInstructions(latestInstructions(operatorReview)?.text ?? '')
+    }
+    // Only a new saved version is adopted; the text itself comes from the same record.
+  }, [instructionVersion])
 
   // A clean editor follows newer saved values; a dirty one keeps its draft for explicit handling.
   useEffect(() => {
@@ -160,43 +182,45 @@ export function BatchSettingsPanel({
         instructions: latestInstructions(operatorReview)?.text ?? '',
       })
       reset(next)
+      instructionsTouched.current = false
       setInstructions(latestInstructions(operatorReview)?.text ?? '')
     }
   }, [batch, operatorReview, queue, reset, state.dirty, state.revision])
 
   useEffect(() => {
+    connectedNow.current = connected
     if (!ports) {
       return
     }
     if (!connected) {
-      wasConnected.current = false
+      reconciled.current = false
       queue.setConnected(false)
       return
     }
-    if (wasConnected.current) {
+    if (reconciled.current) {
       queue.setConnected(true)
       return
     }
-    wasConnected.current = true
-    let current = true
+    if (reading.current) {
+      return
+    }
     // Reconnection reads current state before admitting writes; it never replays blindly.
+    reading.current = true
     ports.read().then(
       (snapshot) => {
-        if (current) {
+        reading.current = false
+        if (connectedNow.current) {
+          reconciled.current = true
           ports.accept(snapshot)
           queue.setConnected(true)
         }
       },
       () => {
-        if (current) {
-          wasConnected.current = false
-        }
+        reading.current = false
+        setTimeout(() => setReadAttempt((value) => value + 1), RECONCILE_RETRY_MS)
       },
     )
-    return () => {
-      current = false
-    }
-  }, [connected, ports, queue])
+  }, [connected, ports, queue, readAttempt])
 
   async function adoptRead(revision: string) {
     try {
@@ -230,6 +254,7 @@ export function BatchSettingsPanel({
   }
 
   function updateInstructions(text: string) {
+    instructionsTouched.current = true
     setInstructions(text)
     onDirty(true)
     if (composing.current) {
@@ -332,7 +357,7 @@ export function BatchSettingsPanel({
           label="Batch settings"
           state="unconfirmed"
           revision={state.revision}
-          onRetry={connected ? () => queue.retry() : undefined}
+          onRetry={state.connected ? () => queue.retry() : undefined}
           onReload={reload}
         />
       )}
@@ -341,10 +366,19 @@ export function BatchSettingsPanel({
         onBlur={flushAll}
         onCompositionStart={() => {
           composing.current = true
+          setComposingText(true)
+          queue.defer('settings')
+          queue.defer('instructions')
         }}
-        onCompositionEnd={() => {
+        onCompositionEnd={(event) => {
           composing.current = false
-          scheduleText()
+          setComposingText(false)
+          const target = event.target as HTMLElement
+          if (target instanceof HTMLTextAreaElement && target.dataset.lane === 'instructions') {
+            updateInstructions(target.value)
+          } else {
+            scheduleText()
+          }
         }}
       >
         <Fieldset disabled={!editable}>
@@ -434,6 +468,7 @@ export function BatchSettingsPanel({
               <Label>
                 Custom instructions
                 <TextArea
+                  data-lane="instructions"
                   value={instructions}
                   maxLength={MAX_INSTRUCTION_CHARACTERS * 2}
                   onChange={(event) => updateInstructions(event.target.value)}

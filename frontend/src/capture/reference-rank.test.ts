@@ -60,3 +60,14 @@ test('unrelated and very short queries do not produce noisy suggestions', () => 
 test('an empty query keeps the candidate order for browsing', () => {
   expect(order('')).toEqual(records.map((record) => record.pk))
 })
+
+test('IDs beyond the safe integer range keep exact numeric order', () => {
+  const large = [
+    { pk: '10000000000000000', name: 'Drawer', secondary: [] },
+    { pk: '9999999999999999', name: 'Drawer', secondary: [] },
+  ]
+  expect(rankReferences(large, 'drawer').map((item) => item.record.pk)).toEqual([
+    '9999999999999999',
+    '10000000000000000',
+  ])
+})
