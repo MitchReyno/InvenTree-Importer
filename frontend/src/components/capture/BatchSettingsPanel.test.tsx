@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useState } from 'react'
+import { Profiler, useState } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import type {
   CaptureBatchSettingsChangeDto,
@@ -815,4 +815,18 @@ test('local discard while disconnected also clears tag text not yet added', asyn
   expect(screen.getByRole('textbox', { name: 'Add shared part tag' })).toHaveValue('')
   expect(dirty).toHaveBeenLastCalledWith(false)
   expect(saves).toHaveLength(1)
+})
+
+test('typed tag text reaches the navigation owner before the next render commits', () => {
+  const log: string[] = []
+  render(
+    <Profiler id="capture" onRender={() => log.push('commit')}>
+      <Host onDirtyChange={(dirty) => log.push(`dirty:${dirty}`)} />
+    </Profiler>,
+  )
+  log.length = 0
+  fireEvent.change(screen.getByRole('textbox', { name: 'Add shared part tag' }), {
+    target: { value: 'b' },
+  })
+  expect(log[0]).toBe('dirty:true')
 })

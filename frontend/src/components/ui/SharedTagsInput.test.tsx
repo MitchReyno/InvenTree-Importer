@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useState } from 'react'
+import { Profiler, useState } from 'react'
 import { expect, test, vi } from 'vitest'
 import { SharedTagsInput, type SharedTags } from './SharedTagsInput'
 
@@ -89,4 +89,28 @@ test('a comma typed during IME composition waits for the composition to end', ()
   fireEvent.compositionEnd(input)
   expect(onChange).toHaveBeenLastCalledWith({ manual: ['抵抗'], auto: false })
   expect(input).toHaveValue('')
+})
+
+test('pending text is reported from the input event, before the next render commits', () => {
+  const log: string[] = []
+
+  function Ordered() {
+    const [value, setValue] = useState<SharedTags>({ manual: [], auto: false })
+    return (
+      <Profiler id="tags" onRender={() => log.push('commit')}>
+        <SharedTagsInput
+          value={value}
+          onChange={setValue}
+          onPendingChange={(pending) => log.push(`pending:${pending}`)}
+        />
+      </Profiler>
+    )
+  }
+
+  render(<Ordered />)
+  log.length = 0
+  fireEvent.change(screen.getByRole('textbox', { name: 'Add shared part tag' }), {
+    target: { value: 'b' },
+  })
+  expect(log[0]).toBe('pending:true')
 })

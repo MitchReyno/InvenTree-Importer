@@ -24,13 +24,16 @@ export function SharedTagsInput({ value, onChange, onPendingChange, disabled = f
   const [draft, setDraft] = useState('')
   const [problem, setProblem] = useState('')
   const composing = useRef(false)
-  const pending = draft.trim().length > 0
   const notify = useRef(onPendingChange)
   notify.current = onPendingChange
-  useEffect(() => {
-    notify.current?.(pending)
-  }, [onPendingChange, pending])
   useEffect(() => () => notify.current?.(false), [])
+
+  // Reported from the input event itself, so navigation sees pending text before effects flush.
+  function changeDraft(next: string) {
+    setDraft(next)
+    notify.current?.(next.trim().length > 0)
+  }
+
   const full = value.manual.length >= MAX_TAGS
 
   function add(text = draft) {
@@ -44,7 +47,7 @@ export function SharedTagsInput({ value, onChange, onPendingChange, disabled = f
       return
     }
     setProblem('')
-    setDraft('')
+    changeDraft('')
     onChange({ ...value, manual: [...value.manual, tag] })
   }
 
@@ -82,10 +85,10 @@ export function SharedTagsInput({ value, onChange, onPendingChange, disabled = f
             setProblem('')
             const next = event.target.value
             if (next.endsWith(',') && !composing.current) {
-              setDraft(next.slice(0, -1))
+              changeDraft(next.slice(0, -1))
               add(next.slice(0, -1))
             } else {
-              setDraft(next)
+              changeDraft(next)
             }
           }}
           onKeyDown={(event) => {
@@ -101,7 +104,7 @@ export function SharedTagsInput({ value, onChange, onPendingChange, disabled = f
             composing.current = false
             const text = event.currentTarget.value
             if (text.endsWith(',')) {
-              setDraft(text.slice(0, -1))
+              changeDraft(text.slice(0, -1))
               add(text.slice(0, -1))
             }
           }}

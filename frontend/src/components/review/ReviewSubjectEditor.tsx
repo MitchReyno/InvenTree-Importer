@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import styled from 'styled-components'
 import type { MediaEditDto } from '@invimport/contracts'
 import type { CaptureWorkspaceProps, Snapshot } from '../../capture/types'
@@ -127,21 +127,43 @@ function ReviewAttachment({
   onDirtyChange: (dirty: boolean) => void
   reload: () => Promise<void>
 }) {
-  const state = useEvidenceWorkspace(batch.id, client, disabled, onDirtyChange)
+  // The attachment stays dirty from dispatch until the host reload after acknowledgement, so a
+  // sibling draft cannot start in the gap and then be remounted by that reload.
+  const workspaceDirty = useRef(false)
+  const reconciling = useRef(false)
+  const report = useCallback(() => {
+    onDirtyChange(workspaceDirty.current || reconciling.current)
+  }, [onDirtyChange])
+  const reportWorkspace = useCallback(
+    (dirty: boolean) => {
+      workspaceDirty.current = dirty
+      report()
+    },
+    [report],
+  )
+  const state = useEvidenceWorkspace(batch.id, client, disabled, reportWorkspace)
   const { command } = state
 
-  async function choose(change: MediaEditDto['change']) {
-    if (await state.edit(change)) {
-      await reload()
+  async function reconcile(send: () => Promise<boolean>) {
+    reconciling.current = true
+    report()
+    try {
+      if (await send()) {
+        await reload()
+      }
+    } finally {
+      reconciling.current = false
+      report()
     }
   }
 
-  async function retry() {
-    await state.retry()
-    if (!command.hasPendingIntent()) {
-      await reload()
-    }
-  }
+  const choose = (change: MediaEditDto['change']) => reconcile(() => state.edit(change))
+
+  const retry = () =>
+    reconcile(async () => {
+      await state.retry()
+      return !command.hasPendingIntent()
+    })
 
   if (!state.snapshot) {
     return <Small role="status">Reading retained attachments…</Small>

@@ -343,6 +343,17 @@ export function BatchSettingsPanel({
     }
   }
 
+  /**
+   * Navigation hears new pending tag text synchronously. Clearing waits for the dirty effect, so
+   * an unmounting input can never report the panel dirty after its owner reported clean.
+   */
+  function reportTagPending(pending: boolean) {
+    setTagPending(pending)
+    if (pending) {
+      onDirty(true)
+    }
+  }
+
   function discardUnsent() {
     if (!queue.discardDrafts()) {
       return
@@ -506,7 +517,7 @@ export function BatchSettingsPanel({
                 key={tagInput}
                 value={field.value}
                 disabled={!editable}
-                onPendingChange={setTagPending}
+                onPendingChange={reportTagPending}
                 onChange={(value) => {
                   field.onChange(value)
                   schedule()

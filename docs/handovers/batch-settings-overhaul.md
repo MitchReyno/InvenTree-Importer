@@ -250,7 +250,16 @@ Codex reviewed exactly `1514e91..49bd191`: no Critical findings; two Important a
 3. Minor: local discard ignored tag text that was typed but not added (for example a refused duplicate). Pending tag text now makes discard available, and discarding remounts the tag input to clear it.
 4. Minor: inside the fuzzy tier, a record matching only in secondary fields could outrank a name match. Name matches now precede secondary-only matches, then score, then numeric ID.
 
-After the fixes: frontend 281/281 tests, typecheck and ESLint pass. The fixed candidate needs a fresh Codex review.
+Fixed in `856b82e`; frontend 281/281 tests.
+
+#### Round 6
+
+Codex reviewed exactly `1514e91..856b82e`: no Critical findings; one Important and one Minor. All four round-5 fixes were confirmed. Each fix has a regression test that fails when the fix is reverted:
+
+1. Important: after an attachment acknowledgement, the workspace cleared attachment dirtiness before its follow-up read and the host reload, so a subject edit started in that gap was remounted away. The Review attachment now stays dirty from dispatch through the host reload, including exact retry. Regression delays both the read and the reload.
+2. Minor: pending tag text reached navigation only through two passive effects. The tag input now reports from the input event, and the panel forwards new pending text to its owner synchronously; clearing still goes through the effect, so an unmounting input cannot report dirty after its owner reported clean. Regressions use React `Profiler` commit ordering, because effects flush inside the test's `act`.
+
+After the fixes: frontend 284/284 tests, typecheck and ESLint pass. The fixed candidate needs a fresh Codex review.
 
 Still to do for 4.5: Codex re-review and selected CI.
 

@@ -142,3 +142,39 @@ test('a subject draft and an attachment change fence each other', async () => {
     screen.getByRole('button', { name: 'Discard unconfirmed attachment change' }),
   ).toBeEnabled()
 })
+
+test('a confirmed attachment change keeps the subject form fenced until the reload finishes', async () => {
+  const user = userEvent.setup()
+
+  let finishRead = () => undefined as void
+
+  const snapshot = vi
+    .fn<MediaClient['snapshot']>()
+    .mockResolvedValueOnce(media)
+    .mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishRead = () => resolve({ ...media, revision: '5' })
+        }),
+    )
+  const client: MediaClient = {
+    snapshot,
+    edit: vi.fn(async () => ({ ...media, revision: '5' })),
+    upload: vi.fn(),
+  }
+
+  let finishReload = () => undefined as void
+
+  const reload = vi.fn(() => new Promise<void>((resolve) => (finishReload = resolve)))
+  render(<Harness client={client} reload={reload} />)
+  const choice = await screen.findByLabelText('Attachment for Packet A')
+  await waitFor(() => expect(choice).toBeEnabled())
+  await user.selectOptions(choice, versionId)
+  await waitFor(() => expect(client.edit).toHaveBeenCalledOnce())
+  expect(screen.getByLabelText('Lot label')).toBeDisabled()
+  finishRead()
+  await waitFor(() => expect(reload).toHaveBeenCalledOnce())
+  expect(screen.getByLabelText('Lot label')).toBeDisabled()
+  finishReload()
+  await waitFor(() => expect(screen.getByLabelText('Lot label')).toBeEnabled())
+})
