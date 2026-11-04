@@ -233,3 +233,30 @@ test('snapshot exposes retained intent, current notes and drafts only as optiona
     ],
   })
 })
+
+test('unrelated intent saves keep retained legacy modes; only changed fields are rederived', async () => {
+  const { nextLegacyContext } = await import('../src/index.ts')
+  const current: CaptureContextDto = {
+    supplier: { mode: 'unknown' },
+    purchase_date: { mode: 'unknown' },
+    tags: { mode: 'clear' },
+  }
+  const previous = captureIntentFromLegacy(current)
+  assert.deepEqual(nextLegacyContext(current, previous, previous), current)
+  const tagsChanged = {
+    ...previous,
+    shared_tags: { manual: ['reel'], auto: true },
+  }
+  assert.deepEqual(nextLegacyContext(current, previous, tagsChanged), {
+    supplier: { mode: 'unknown' },
+    purchase_date: { mode: 'unknown' },
+    tags: { mode: 'set', value: ['reel'] },
+  })
+  const autoOnly = { ...previous, shared_tags: { manual: [], auto: true } }
+  assert.deepEqual(
+    nextLegacyContext(current, previous, autoOnly),
+    current,
+    'Auto alone is not legacy context',
+  )
+  assert.equal(nextLegacyContext(undefined, previous, previous), undefined, 'no row is invented')
+})

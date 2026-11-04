@@ -53,6 +53,7 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - [x] 1.3 GREEN: implement versioned DTOs, facade generation, additive tables/columns, bounded validation and scoped transactional reads/edits.
 - [x] 1.4 Verify old quantity/context choices, archived/frozen permissions, parent/logo references and immutable history survive migrations and restart.
 - [x] 1.5 Refactor by owning responsibility; update server/contract documentation and record checks/limitations before the PR-A review gate.
+- [x] 1.6 Correct review findings: unrelated settings saves keep unchanged legacy context modes, and the upgrade regression asserts the exact legacy snapshot field set.
 
 ## 2. Add bounded name-first catalogue search
 
@@ -69,6 +70,7 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - [x] 2.2 RED: cover bounded name search/page results, exact ID, ambiguous names, foreign scope, redirect/off-origin pagination, missing supplier role and a typo candidate absent from strict upstream results but present in the admitted snapshot.
 - [x] 2.3 GREEN: implement allowlisted semantic reads, typed route/client and final selection observation binding.
 - [x] 2.4 Verify auth before target traffic, size/deadline/rate/candidate bounds, visible partial coverage, no-match versus unavailable and stale-context response rejection.
+- [x] 2.6 Correct review findings: the strict parser honours the 512 KiB page limit and the 15-second snapshot budget bounds every page read.
 - [ ] 2.5 Update read-adapter docs and handover; run affected contract/HTTP/PG checks and complete the PR-A independent review/selected-CI gates when actually reached.
 
 ## 3. Qualify and build reusable input components

@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { and, asc, desc, eq } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
 import {
-  legacyContextFromIntent,
+  captureIntentFromLegacy,
+  nextLegacyContext,
   validate,
   type CaptureBatchSettingsChangeDto,
   type CaptureContextRecordDto,
@@ -343,10 +344,12 @@ async function applyIntent(
     )
   }
 
-  // Consumers of legacy context (Processing, Review fingerprints, lot inheritance) stay current.
-  const derived = legacyContextFromIntent(change.intent)
-  if (!batchContext || canonical(batchContext.value) !== canonical(derived)) {
-    await retainCaptureContext(client, owner, null, version, derived)
+  // Consumers of legacy context (Processing, Review fingerprints, lot inheritance) stay current;
+  // fields whose intent did not change keep their retained legacy mode.
+  const previous = current?.value ?? captureIntentFromLegacy(batchContext?.value)
+  const nextContext = nextLegacyContext(batchContext?.value, previous, change.intent)
+  if (nextContext && (!batchContext || canonical(batchContext.value) !== canonical(nextContext))) {
+    await retainCaptureContext(client, owner, null, version, nextContext)
   }
 }
 

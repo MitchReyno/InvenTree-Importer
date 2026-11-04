@@ -294,3 +294,35 @@ test('bounded body reader cancels a stalled or oversized target body', async () 
   })
   assert.equal(cancelled, 2)
 })
+
+test('valid pages up to the page limit parse; the snapshot budget covers every page read', async () => {
+  const large = Array.from({ length: 100 }, (_, index) => ({
+    ...location(index + 1, `Location ${index}`),
+    description: 'é'.repeat(2000),
+  }))
+  const big = await reader(async () => page(large, 100)).candidates('location')
+  assert.equal(
+    big.candidates.length,
+    100,
+    'a ~400 KB page between the 256 KiB default and the 512 KiB limit is valid',
+  )
+
+  let clock = 0
+  const slow = catalogueReader({
+    targetContextId: CONTEXT,
+    now: () => clock,
+    read: async () => new Response('{}', { status: 404 }),
+    list: async (operation) => {
+      clock += 4000
+      const rows = Array.from({ length: operation.limit }, (_, index) =>
+        location(operation.offset + index + 1, `Location ${operation.offset + index}`),
+      )
+      return page(rows, 500)
+    },
+  })
+  await assert.rejects(
+    slow.candidates('location'),
+    /catalogue_unavailable/,
+    'four 4 s pages exceed 15 s',
+  )
+})

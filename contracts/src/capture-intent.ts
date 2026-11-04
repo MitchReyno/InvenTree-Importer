@@ -195,6 +195,47 @@ export function legacyContextFromIntent(intent: CaptureSettingsIntentDto): Captu
   return { supplier, purchase_date: purchaseDate, tags }
 }
 
+const sameValue = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right)
+
+/**
+ * Next batch-level legacy context after an intent save. A field keeps its retained legacy mode
+ * (including `unknown` and `clear`) unless that field's intent changed, so an unrelated save
+ * never collapses human distinctions the intent mapping cannot represent. Returns undefined
+ * when nothing changes and no legacy row exists yet.
+ */
+export function nextLegacyContext(
+  current: CaptureContextDto | CaptureLotContextDto | undefined,
+  previous: CaptureSettingsIntentDto,
+  next: CaptureSettingsIntentDto,
+): CaptureContextDto | undefined {
+  const derived = legacyContextFromIntent(next)
+  const retained: CaptureContextDto = {
+    supplier:
+      current?.supplier.mode === 'inherit'
+        ? { mode: 'unset' }
+        : (current?.supplier ?? { mode: 'unset' }),
+    purchase_date:
+      current?.purchase_date.mode === 'inherit'
+        ? { mode: 'unset' }
+        : (current?.purchase_date ?? { mode: 'unset' }),
+    tags:
+      current?.tags.mode === 'inherit' ? { mode: 'unset' } : (current?.tags ?? { mode: 'unset' }),
+  }
+  const result: CaptureContextDto = {
+    supplier: sameValue(previous.supplier, next.supplier) ? retained.supplier : derived.supplier,
+    purchase_date: sameValue(previous.order.purchase_date, next.order.purchase_date)
+      ? retained.purchase_date
+      : derived.purchase_date,
+    tags: sameValue(previous.shared_tags.manual, next.shared_tags.manual)
+      ? retained.tags
+      : derived.tags,
+  }
+  if (current === undefined && sameValue(result, retained)) {
+    return undefined
+  }
+  return result
+}
+
 /** Retained intent when present, otherwise the deterministic legacy mapping. */
 export function effectiveSettingsIntent(snapshot: CaptureSnapshotDto): CaptureSettingsIntentDto {
   if (snapshot.settings_intent) {

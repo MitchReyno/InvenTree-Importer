@@ -24,6 +24,8 @@ interface CatalogueTarget {
   list: (operation: ListOperation) => Promise<Response>
   read: (operation: ReadOperation) => Promise<Response>
   targetContextId: string
+  /** Injectable monotonic clock in milliseconds; defaults to performance.now. */
+  now?: () => number
 }
 
 const PAGE_BODY_MAX_BYTES = 512 * 1024
@@ -100,12 +102,16 @@ function decodeRecord(model: CatalogueModelDto, value: unknown): CatalogueRecord
   return { kind: 'supplier', pk, name, description, manufacturer: row.is_manufacturer }
 }
 
-async function responseBytes(response: Response, maxBytes: number) {
+async function responseBytes(response: Response, maxBytes: number, deadlineMs = BODY_DEADLINE_MS) {
   if (!response.ok || !response.body) {
     await response.body?.cancel()
     invalid()
   }
-  return readBoundedBody(response.body, maxBytes, BODY_DEADLINE_MS)
+  if (deadlineMs <= 0) {
+    await response.body.cancel()
+    invalid()
+  }
+  return readBoundedBody(response.body, maxBytes, deadlineMs)
 }
 
 interface Page {
@@ -117,9 +123,11 @@ async function decodePage(
   model: CatalogueModelDto,
   response: Response,
   operation: ListOperation,
+  deadlineMs: number,
 ): Promise<Page> {
-  const bytes = await responseBytes(response, PAGE_BODY_MAX_BYTES)
-  const value: unknown = strictJson(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
+  const bytes = await responseBytes(response, PAGE_BODY_MAX_BYTES, deadlineMs)
+  const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  const value: unknown = strictJson(text, PAGE_BODY_MAX_BYTES)
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     invalid()
   }
@@ -178,6 +186,7 @@ function numericId(query: string) {
 
 export function catalogueReader(target: CatalogueTarget): CatalogueReader {
   let inFlight = 0
+  const now = target.now ?? (() => performance.now())
 
   async function bounded<T>(work: () => Promise<T>): Promise<T> {
     if (inFlight >= MAX_CONCURRENT_READS) {
@@ -195,8 +204,12 @@ export function catalogueReader(target: CatalogueTarget): CatalogueReader {
     }
   }
 
-  async function listPage(model: CatalogueModelDto, operation: ListOperation) {
-    return decodePage(model, await target.list(operation), operation)
+  async function listPage(
+    model: CatalogueModelDto,
+    operation: ListOperation,
+    deadlineMs = BODY_DEADLINE_MS,
+  ) {
+    return decodePage(model, await target.list(operation), operation, deadlineMs)
   }
 
   async function exactId(model: CatalogueModelDto, pk: string) {
@@ -249,16 +262,20 @@ export function catalogueReader(target: CatalogueTarget): CatalogueReader {
   /** Name-ordered snapshot independent of strict search, so typo matches can still be ranked. */
   async function candidates(model: CatalogueModelDto): Promise<CatalogueCandidatesDto> {
     const result = await bounded(async () => {
-      const started = Date.now()
+      const deadline = now() + SNAPSHOT_DEADLINE_MS
       const byPk = new Map<string, CatalogueRecordDto>()
       let total = 0
       let exhausted = false
       for (let offset = 0; offset < CATALOGUE_CANDIDATE_LIMIT; offset += SNAPSHOT_PAGE_SIZE) {
-        if (Date.now() - started > SNAPSHOT_DEADLINE_MS) {
+        const limit = Math.min(SNAPSHOT_PAGE_SIZE, CATALOGUE_CANDIDATE_LIMIT - offset)
+        const operation = { kind: listKind(model), limit, offset }
+        const response = await target.list(operation)
+        // Each body read gets only what remains of the whole snapshot budget.
+        const remaining = Math.min(BODY_DEADLINE_MS, deadline - now())
+        const page = await decodePage(model, response, operation, remaining)
+        if (now() > deadline) {
           invalid()
         }
-        const limit = Math.min(SNAPSHOT_PAGE_SIZE, CATALOGUE_CANDIDATE_LIMIT - offset)
-        const page = await listPage(model, { kind: listKind(model), limit, offset })
         total = page.count
         for (const record of page.records) {
           if (!byPk.has(record.pk)) {

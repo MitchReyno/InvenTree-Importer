@@ -538,6 +538,63 @@ test('legacy context writes cannot diverge from intent, and archived batches ref
   }
 })
 
+test('an unrelated batch_settings save keeps legacy unknown and clear context modes', async () => {
+  const f = await fixture()
+  try {
+    let saved = await checked(f.repo.create(randomUUID(), { title: 'Modes', note: '' }))
+    const legacy = {
+      supplier: { mode: 'unknown' as const },
+      purchase_date: { mode: 'unknown' as const },
+      tags: { mode: 'clear' as const },
+    }
+    saved = await checked(
+      f.repo.edit(saved.id, randomUUID(), {
+        expected_revision: saved.revision,
+        change: { kind: 'settings', context: legacy },
+      }),
+    )
+    const before = saved.context?.find((record) => record.subject_id === null)
+    const intent = effectiveSettingsIntent(saved)
+    saved = await checked(
+      f.repo.edit(
+        saved.id,
+        randomUUID(),
+        settings(saved, {
+          title: 'Renamed only',
+          default_location: { mode: 'unset' },
+          intent,
+          notes: { batch: null, order: null },
+          drafts: [],
+        }),
+      ),
+    )
+    assert.deepEqual(
+      saved.context?.find((record) => record.subject_id === null),
+      before,
+      'a title-only save writes no new legacy context version',
+    )
+    saved = await checked(
+      f.repo.edit(
+        saved.id,
+        randomUUID(),
+        settings(saved, {
+          title: 'Renamed only',
+          default_location: { mode: 'unset' },
+          intent: { ...intent, shared_tags: { manual: ['reel'], auto: false } },
+          notes: { batch: null, order: null },
+          drafts: [],
+        }),
+      ),
+    )
+    assert.deepEqual(saved.context?.find((record) => record.subject_id === null)?.value, {
+      ...legacy,
+      tags: { mode: 'set', value: ['reel'] },
+    })
+  } finally {
+    await f.dispose()
+  }
+})
+
 test('migration 0014 upgrades a legacy batch without rewriting choices, then retains new intent across restart', async () => {
   const { readFile, readdir } = await import('node:fs/promises')
   const { migrate } = await import('../../src/operations/migrate.ts')
@@ -629,9 +686,27 @@ test('migration 0014 upgrades a legacy batch without rewriting choices, then ret
     }
     let repo = captureRepository(db.pool, binding)
     let saved = await checked(repo.read(batchId))
-    assert.equal(saved.settings_intent, undefined)
-    assert.equal(saved.setting_notes, undefined)
-    assert.equal(saved.reference_drafts, undefined)
+    assert.deepEqual(
+      Object.keys(saved).sort(),
+      [
+        'actor_id',
+        'archived',
+        'context',
+        'cursor',
+        'defaults',
+        'id',
+        'lots',
+        'notes',
+        'observations',
+        'parts',
+        'revision',
+        'source_id',
+        'target_context_id',
+        'title',
+        'updated_at',
+      ],
+      'an upgraded legacy snapshot has exactly the pre-0014 field set',
+    )
     assert.deepEqual(saved.defaults.quantity, { mode: 'set', value: '9999999999999.999999' })
     assert.deepEqual(saved.context?.[0].value, legacyContext)
     assert.deepEqual(effectiveSettingsIntent(saved), {

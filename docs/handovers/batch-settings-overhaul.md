@@ -55,7 +55,7 @@ RED first: contract tests reject the new change until DTOs exist; PG tests for i
 - RED: `contracts/tests/capture-intent.test.ts` failed to load before `capture-intent.ts` existed; the PG regressions in `tests/pg/capture-intent.test.ts` could not run before the migration and owner module.
 - GREEN: contracts 11/11 for intent and existing settings tests; PG 4/4 new tests (restricted runtime role) plus the existing capture/settings PG files 7/7.
 - Negative control: disabling only the `settings_intent_superseded` guard made exactly the divergence regression fail; the source was restored from a pre-mutation backup and its SHA-256 matched.
-- Upgrade: a legacy batch written directly under migrations ≤0013 reads byte-identical after 0014 (no new fields), maps to intent, accepts a location draft with an observed parent, survives a reopened pool and keeps revision digests unchanged; DELETE on every new table fails with `23000`.
+- Upgrade: a legacy batch written directly under migrations ≤0013 reads after 0014 with exactly the pre-0014 snapshot field set and its legacy context/quantity values unchanged, maps to intent, accepts a location draft with an observed parent, survives a reopened pool and keeps revision digests unchanged; DELETE on every new table fails with `23000`.
 - Whole workspace: `pnpm typecheck`, `pnpm contracts:check`, `pnpm lint:readability`, `pnpm test:intake` (contracts 48, server 160) and `pnpm test:frontend` (184) passed.
 - Full PG tier first ran 124/136 passing with 4 environmental failures (no `docker` on PATH for operations dump/restore, missing `INTAKE_MEDIA_DECODER_IMAGE`) and 8 decoder-gated skips. With Docker's bundled CLI on PATH and the newest retained immutable decoder image `sha256:9f3d6918…cfcf59`, the inbox, operations and processing-media files passed 8/8. No decoder source changed on this branch. The full tier is rerun with that environment before review.
 
@@ -91,3 +91,16 @@ The REST settings use `LimitOffsetPagination` with no default page size. A list 
 - HTTP/PG covers authorization before traffic (unknown batch, bad model, over-long or control-character query, missing query, archived, unconfigured target: zero target requests), redirect, 500 and unpaginated bodies as unavailable with the redirect sink never reached, upstream `next` links never followed, a target-context rotation during a read (409) and the refusal of the next read before traffic, and final selection through the observation command.
 - Negative control: removing only the post-read context fence made the HTTP/PG rotation case fail; the route file was restored from backup with a matching SHA-256.
 - The location model has no supplier-like role flag; `structural` locations are returned with that flag for the picker to label, not filtered.
+
+### PR-A tier results and independent review
+
+Full tiers on `bd4c751` content with Docker's bundled CLI on PATH and decoder image `sha256:9f3d6918…cfcf59`: PostgreSQL 138/138 with no skips; process 36/40 with the four unchanged test-only `INTAKE_MEDIA_PROBE_IMAGE` kernel-probe gates skipped (the same gate earlier PRs retained).
+
+A Claude review subagent was stopped by Mitch before reporting; independent reviews now use Codex (`gpt-6.1-sol`, read-only sandbox). Codex reviewed exactly `origin/interactive-app..bd4c751a13c1e9baf377f20613c05016a60b5a6d` and found:
+
+1. Important: a title-only `batch_settings` save rederived every legacy field, collapsing retained `unknown` supplier/date and `clear` tags to `unset`. Fixed with the pure `nextLegacyContext`, which rederives only fields whose intent changed. Contract and PG regressions cover a title-only save (no new legacy version) and a tags-only change (supplier/date stay `unknown`).
+2. Minor: `strictJson` kept its 256 KiB default below the advertised 512 KiB page limit. The parser now receives the page limit; a ~400 KB valid page regression fails with the old default (negative control, restored by SHA-256) and passes now.
+3. Minor: the snapshot deadline was checked only before each page. Each page body read now receives only the remaining budget and the deadline is rechecked after every page; an injected-clock regression with four 4-second pages is refused.
+4. Minor: the handover overclaimed byte-identical upgrade snapshots. The upgrade regression now asserts the exact pre-0014 field set and the claim is narrowed to that plus unchanged legacy values.
+
+Codex found no issues in append-only/FK enforcement, draft identity/retirement, reference validation, revision/idempotency, grants, authorization/context fences, pagination URL handling, concurrency cleanup or write-capability isolation. After the fixes: affected PG 13/13. The corrected candidate needs a fresh Codex review before publication.
