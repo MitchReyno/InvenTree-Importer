@@ -1,6 +1,6 @@
 # Batch settings overhaul implementation
 
-Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) in progress on `feat/batch-settings-overhaul-foundations`, targeting `interactive-app`. Later bundles have not started. Reviews, CI and merges are recorded only after they occur.
+Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) is implemented on `feat/batch-settings-overhaul-panel` and in independent review; Task 4.5 stays open until that review is clean and the selected CI passes. PR-C and PR-D have not started. Reviews, CI and merges are recorded only after they occur.
 
 ## Authority and boundaries
 
@@ -228,7 +228,18 @@ Codex reviewed exactly `1514e91..6d07b5d`: no Critical findings; three Important
 3. Important: a shared Part linked to no lot had no Review entry point after creation. Review now lists "Edit unlinked shared Part: <label>" for each such Part; regression reopens one in a batch with no lots.
 4. Minor: a comma typed during IME composition added the unfinished text as a tag. Delimiters wait for composition to end.
 
-After the fixes: frontend 272/272 tests, typecheck and ESLint pass. The fixed candidate needs a fresh Codex review.
+Fixed in `35d2ed2`; frontend 272/272 tests.
+
+#### Round 4
+
+Codex reviewed exactly `1514e91..35d2ed2`: no Critical findings; two Important and two Minor. All four round-3 fixes were confirmed. Each code fix below has a regression test that fails when the fix is reverted:
+
+1. Important: a clean reset could set the instruction lane's saved baseline to empty before the projection arrived, and a later projection only changed the textbox. Clearing those instructions then compared equal to the stale baseline and showed Saved while the server kept them. A new instruction version now becomes the lane's baseline (`SaveQueue.adoptSaved`, only for a lane with no draft or unacknowledged request), and a reset without a projection leaves the instruction baseline alone rather than treating it as confirmed empty.
+2. Important: settings resumed as soon as an evidence change finished, while the read of the new revision was still pending, so a settings edit could be sent against the old revision and conflict. Settings stay paused until that read is accepted. If it fails, an alert explains that settings remain paused and offers "Refresh saved settings".
+3. Minor: unsent drafts made while disconnected had no recovery, because the fields were disabled and the host's discard needs a server read. "Discard unsent settings edits" now appears while disconnected and nothing has been sent or left unconfirmed. It drops the drafts locally and restores the saved values, and in-flight or unconfirmed requests keep their own recovery. Regressions cover instructions and the title.
+4. Minor: the status line at the top of this handover still described PR-A as in progress. It now states the current status.
+
+After the fixes: frontend 276/276 tests, typecheck and ESLint pass. The fixed candidate needs a fresh Codex review.
 
 Still to do for 4.5: Codex re-review and selected CI.
 

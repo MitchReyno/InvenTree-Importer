@@ -209,3 +209,38 @@ test('an unsaved evidence note freezes media editing until it is saved or discar
   await user.click(screen.getByRole('button', { name: 'Discard note' }))
   await waitFor(() => expect(input).toBeEnabled())
 })
+
+test('settings stay paused until the revision after an evidence change is adopted', async () => {
+  const user = userEvent.setup()
+  let respond: { resolve: (value: CaptureSnapshotDto) => void; reject: (error: unknown) => void }
+  const read = vi.fn(
+    () =>
+      new Promise<CaptureSnapshotDto>((resolve, reject) => {
+        respond = { resolve, reject }
+      }),
+  )
+  const settings = ports({ read })
+  render(
+    <CaptureWorkspace
+      batch={batch}
+      busy={false}
+      media={mediaClient()}
+      edit={vi.fn(async () => true)}
+      observe={vi.fn(async () => null)}
+      onDirtyChange={vi.fn()}
+      settings={settings}
+    />,
+  )
+  const input = await screen.findByLabelText('Choose photos')
+  await waitFor(() => expect(input).toBeEnabled())
+  await user.upload(input, new File(['x'], 'a.png', { type: 'image/png' }))
+  await user.click(screen.getByRole('button', { name: 'Discard selected file' }))
+  expect(screen.getByLabelText('Batch title')).toBeDisabled()
+  await act(async () => respond.reject(new TypeError('offline')))
+  expect(await screen.findByText(/could not be refreshed after the evidence change/)).toBeVisible()
+  expect(screen.getByLabelText('Batch title')).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Refresh saved settings' }))
+  await act(async () => respond.resolve({ ...batch, revision: '2' }))
+  expect(settings.accept).toHaveBeenCalledWith({ ...batch, revision: '2' })
+  await waitFor(() => expect(screen.getByLabelText('Batch title')).toBeEnabled())
+})

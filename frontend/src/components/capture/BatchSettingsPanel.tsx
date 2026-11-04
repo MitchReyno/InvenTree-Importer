@@ -166,26 +166,39 @@ export function BatchSettingsPanel({
     }
   }, [queue, state.blocked, state.lanes.logo])
 
-  // Instructions can arrive after Capture; show them until the operator types their own.
+  // Instructions can arrive after Capture. A new saved version becomes the lane's acknowledged
+  // baseline; the textbox follows it until the operator types, otherwise the draft is compared again.
   const instructionVersion = instructionRecord?.version
+  const instructionsNow = useRef(instructions)
+  instructionsNow.current = instructions
   useEffect(() => {
-    if (instructionVersion !== undefined && !instructionsTouched.current) {
-      setInstructions(latestInstructions(operatorReview)?.text ?? '')
+    if (!operatorReview) {
+      return
     }
-    // Only a new saved version is adopted; the text itself comes from the same record.
-  }, [instructionVersion])
+    const text = latestInstructions(operatorReview)?.text ?? ''
+    queue.adoptSaved('instructions', text)
+    if (!instructionsTouched.current) {
+      setInstructions(text)
+    } else if (state.lanes.instructions === 'saved' && instructionsNow.current !== text) {
+      queue.update('instructions', instructionsNow.current)
+    }
+    // Only a new saved version (or the projection's first arrival) is adopted.
+  }, [instructionVersion, operatorReview === undefined])
 
   // A clean editor follows newer saved values; a dirty one keeps its draft for explicit handling.
   useEffect(() => {
     if (!state.dirty && newer(batch.revision, state.revision)) {
       const next = settingsValues(batch)
+      // Unavailable instructions are not confirmed empty: keep their baseline until a projection arrives.
       queue.reset(batch.revision, {
         settings: settingsChange(next),
-        instructions: latestInstructions(operatorReview)?.text ?? '',
+        ...(operatorReview && { instructions: latestInstructions(operatorReview)?.text ?? '' }),
       })
       reset(next)
-      instructionsTouched.current = false
-      setInstructions(latestInstructions(operatorReview)?.text ?? '')
+      if (operatorReview) {
+        instructionsTouched.current = false
+        setInstructions(latestInstructions(operatorReview)?.text ?? '')
+      }
     }
   }, [batch, operatorReview, queue, reset, state.dirty, state.revision])
 
@@ -329,6 +342,16 @@ export function BatchSettingsPanel({
     }
   }
 
+  function discardUnsent() {
+    if (!queue.discardDrafts()) {
+      return
+    }
+    reset(settingsValues(batch))
+    instructionsTouched.current = false
+    setInstructions(latestInstructions(operatorReview)?.text ?? '')
+    setLogo({ state: 'idle' })
+  }
+
   function flushAll() {
     if (composing.current) {
       return
@@ -378,6 +401,11 @@ export function BatchSettingsPanel({
           onRetry={state.connected ? () => queue.retry() : undefined}
           onReload={reload}
         />
+      )}
+      {ports && !connected && state.dirty && queue.canDiscardLocally() && (
+        <KeepButton type="button" onClick={discardUnsent}>
+          Discard unsent settings edits
+        </KeepButton>
       )}
       <Form
         onSubmit={(event) => event.preventDefault()}

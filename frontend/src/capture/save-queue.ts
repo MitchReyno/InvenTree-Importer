@@ -129,6 +129,39 @@ export class SaveQueue {
     this.pump()
   }
 
+  /** Adopts a newly observed saved value for a lane with no draft or unacknowledged request. */
+  adoptSaved<P>(id: string, saved: P) {
+    const lane = this.lanes.get(id)
+    if (!lane || lane.draft || lane.invalid || this.isInflight(id) || this.uncertain?.lane === id) {
+      return false
+    }
+    lane.saved = saved
+    this.changed()
+    return true
+  }
+
+  /** Unsent drafts can be discarded locally; anything sent or unconfirmed needs its own recovery. */
+  canDiscardLocally() {
+    return this.inflight === null && this.blocked === null && this.uncertain === null
+  }
+
+  /** Drops every unsent draft, keeping saved values and the revision; needs no server read. */
+  discardDrafts() {
+    if (!this.canDiscardLocally()) {
+      return false
+    }
+    for (const lane of this.lanes.values()) {
+      clearTimeout(lane.timer)
+      lane.timer = undefined
+      lane.draft = null
+      lane.invalid = false
+      lane.ready = false
+      lane.rejected = null
+    }
+    this.changed()
+    return true
+  }
+
   /** Drops a definitely refused draft that the user chose not to correct, such as a logo file. */
   discard(id: string) {
     const lane = this.lane(id)

@@ -737,3 +737,45 @@ test('typed tag text protects navigation before it is added', async () => {
   await settle()
   expect(dirty).toHaveBeenLastCalledWith(false)
 })
+
+test('instructions that arrive later become the saved baseline, so clearing them is sent', async () => {
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  const view = render(<Host />)
+  view.rerender(
+    <Host operatorReview={{ ...review, instructions: [savedInstruction] } as OperatorReviewDto} />,
+  )
+  await settle()
+  const text = screen.getByRole('textbox', { name: 'Custom instructions' })
+  expect(text).toHaveValue('Keep date codes apart.')
+  await user.clear(text)
+  await idle()
+  expect(instructs.map((item) => item.text)).toEqual([''])
+})
+
+test('unsent drafts can be discarded locally while the connection is unavailable', async () => {
+  const dirty = vi.fn()
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  const view = render(<Host onDirtyChange={dirty} />)
+  // Typing without leaving the field keeps the edit unsent; leaving it would flush the save.
+  await user.type(screen.getByRole('textbox', { name: 'Custom instructions' }), 'Draft')
+  view.rerender(<Host onDirtyChange={dirty} connected={false} />)
+  await idle()
+  expect(screen.getByRole('textbox', { name: 'Custom instructions' })).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Discard unsent settings edits' }))
+  expect(screen.getByRole('textbox', { name: 'Custom instructions' })).toHaveValue('')
+  expect(dirty).toHaveBeenLastCalledWith(false)
+  expect(saves).toHaveLength(0)
+  expect(instructs).toHaveLength(0)
+})
+
+test('a locally discarded unsent title returns to the saved value', async () => {
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  const view = render(<Host />)
+  await user.type(screen.getByLabelText('Batch title'), ' offline')
+  view.rerender(<Host connected={false} />)
+  await user.click(screen.getByRole('button', { name: 'Discard unsent settings edits' }))
+  expect(screen.getByLabelText('Batch title')).toHaveValue('Two packets')
+  view.rerender(<Host />)
+  await act(() => vi.advanceTimersByTimeAsync(3000))
+  expect(saves).toHaveLength(0)
+})

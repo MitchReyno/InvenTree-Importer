@@ -37,6 +37,21 @@ export function CaptureWorkspace({
   // Batch rebuilds its ports and callbacks on every render; reporting must not depend on them.
   const latest = useRef({ onDirtyChange, settings })
   latest.current = { onDirtyChange, settings }
+  const [refresh, setRefresh] = useState<'idle' | 'reading' | 'failed'>('idle')
+  const refreshSettings = useCallback(() => {
+    const ports = latest.current.settings
+    if (!ports) {
+      return
+    }
+    setRefresh('reading')
+    ports.read().then(
+      (snapshot) => {
+        latest.current.settings?.accept(snapshot)
+        setRefresh('idle')
+      },
+      () => setRefresh('failed'),
+    )
+  }, [])
   const report = useCallback((source: DirtySource, value: boolean) => {
     const { onDirtyChange, settings } = latest.current
     const evidenceWasPending = dirtyFlags.current.media || dirtyFlags.current.note
@@ -45,9 +60,9 @@ export function CaptureWorkspace({
     setSources(dirtyFlags.current)
     setDirty(any)
     onDirtyChange?.(any)
-    // Evidence commands advance the batch revision; refresh it before settings resume.
+    // Evidence commands advance the batch revision; settings stay paused until it is adopted.
     if (evidenceWasPending && !dirtyFlags.current.media && !dirtyFlags.current.note && settings) {
-      settings.read().then(settings.accept, () => undefined)
+      refreshSettings()
     }
   }, [])
   const reportSettings = useCallback((value: boolean) => report('settings', value), [report])
@@ -89,10 +104,19 @@ export function CaptureWorkspace({
           onNoteDirtyChange={reportNote}
         />
         <SettingsColumn>
+          {refresh === 'failed' && (
+            <Notice role="alert">
+              Saved settings could not be refreshed after the evidence change, so settings stay
+              paused.{' '}
+              <Button type="button" onClick={refreshSettings}>
+                Refresh saved settings
+              </Button>
+            </Notice>
+          )}
           <BatchSettingsPanel
             batch={batch}
             ports={settings}
-            paused={sources.media || sources.note}
+            paused={sources.media || sources.note || refresh !== 'idle'}
             operatorReview={operatorReview}
             onDirty={reportSettings}
             observe={observe}
