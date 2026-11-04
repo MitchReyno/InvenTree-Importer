@@ -30,8 +30,11 @@ export function literalResearchPdf() {
 }
 
 /** Literal artifact transport fixture, never model/content-understanding evidence. */
-export function researchInputFixture() {
+export function researchInputFixture(
+  adjust: (capture: ReturnType<typeof manualInputFixture>) => void = () => {},
+) {
   const capture = manualInputFixture()
+  adjust(capture)
   const png = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jLZkAAAAASUVORK5CYII=',
     'base64',

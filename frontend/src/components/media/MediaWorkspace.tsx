@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type { CaptureSnapshotDto, MediaVersionDto, OperatorReviewDto } from '@invimport/contracts'
 import { Button, Heading, Label, Paragraph, Select, Small } from '../ui/primitives'
+import type { CaptureWorkspaceProps } from '../../capture/types'
 import type { MediaClient } from '../../media/types'
 import type { OperatorReviewClient } from '../../operator/types'
 import { useEvidenceWorkspace } from '../../media/useEvidenceWorkspace'
@@ -24,6 +25,7 @@ interface Props {
   operator?: OperatorReviewClient
   review?: OperatorReviewDto
   reload?: () => Promise<void>
+  captureEdit?: CaptureWorkspaceProps['edit']
 }
 
 export function MediaWorkspace({
@@ -37,6 +39,7 @@ export function MediaWorkspace({
   operator,
   review,
   reload,
+  captureEdit,
 }: Props) {
   const state = useEvidenceWorkspace(batch.id, client, disabled, onDirtyChange)
   const { snapshot, drafts, command, edit } = state
@@ -202,6 +205,7 @@ export function MediaWorkspace({
                   pending={command.pending}
                   selected={state.selected}
                   edit={edit}
+                  captureEdit={captureEdit}
                   blocked={(owner) =>
                     owner === 'selection'
                       ? frozen || drafts.hasOtherSources('selection', 'drag')

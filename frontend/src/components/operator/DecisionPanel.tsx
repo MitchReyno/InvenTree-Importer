@@ -4,15 +4,17 @@ import type {
   CaptureEditDto,
   CaptureSnapshotDto,
   ManualWorkspaceDto,
+  MediaSnapshotDto,
   OperatorLotDto,
 } from '@invimport/contracts'
 import { useDirtySources } from '../../operator/useDirtySources'
 import { display } from '../../capture/display'
-import { lotProvenance, partProvenance } from '../../operator/review-model'
+import { lotLocationFact, lotProvenance, partProvenance } from '../../operator/review-model'
 import type { OperatorReviewClient } from '../../operator/types'
 import { Button, Heading, Link, Notice, Paragraph, Small } from '../ui/primitives'
 import { CompareMatches } from './CompareMatches'
 import { FactRow } from './FactRow'
+import { SharedTagsChoice } from './SharedTagsChoice'
 import { IssuePanel } from './IssuePanel'
 import { QUICK_QUANTITY_INPUT_ID, QuickLotEdit } from './QuickLotEdit'
 import { RestructureDialog, type RestructureKind } from './RestructureDialog'
@@ -26,6 +28,8 @@ interface Props {
   part: Part | undefined
   workspace: ManualWorkspaceDto
   operatorLot?: OperatorLotDto
+  /** Evidence group membership for group location assignments; undefined while unread. */
+  media?: Pick<MediaSnapshotDto, 'evidence' | 'groups'>
   /** Active lot IDs, used for shared-Part counts and impact previews. */
   activeLotIds: string[]
   operator?: OperatorReviewClient
@@ -66,6 +70,7 @@ export function DecisionPanel({
   part,
   workspace,
   operatorLot,
+  media,
   activeLotIds,
   operator,
   disabled,
@@ -122,6 +127,14 @@ export function DecisionPanel({
               ))}
             </SharedLine>
           )}
+          {part && (
+            <SharedTagsChoice
+              batch={batch}
+              part={part}
+              disabled={disabled || drafts.dirty}
+              edit={edit}
+            />
+          )}
           {part && part.choice.mode !== 'create' && (
             <span>
               <Button disabled={disabled || drafts.dirty} onClick={() => setComparing(true)}>
@@ -135,11 +148,7 @@ export function DecisionPanel({
           value={display(lot.quantity, batch, 'quantity')}
           provenance={lotProvenance(lot.quantity, batch.defaults.quantity)}
         />
-        <FactRow
-          label="Location"
-          value={display(lot.location, batch, 'location')}
-          provenance={lotProvenance(lot.location, batch.defaults.location)}
-        />
+        <FactRow label="Location" {...lotLocationFact(batch, lot, media)} />
       </dl>
       {operatorLot ? (
         <IssuePanel

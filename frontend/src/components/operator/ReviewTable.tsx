@@ -1,12 +1,24 @@
 import styled from 'styled-components'
-import type { CaptureSnapshotDto, OperatorLotDto, OperatorReviewDto } from '@invimport/contracts'
+import type {
+  CaptureSnapshotDto,
+  MediaSnapshotDto,
+  OperatorLotDto,
+  OperatorReviewDto,
+} from '@invimport/contracts'
 import { display } from '../../capture/display'
-import { blockingIssues, openWarnings } from '../../operator/review-model'
+import {
+  PROVENANCE_LABELS,
+  blockingIssues,
+  lotLocationFact,
+  openWarnings,
+} from '../../operator/review-model'
 import { StatusChip } from './StatusChip'
 
-interface Props {
+export interface ReviewTableProps {
   batch: CaptureSnapshotDto
   review: OperatorReviewDto
+  /** Evidence group membership for group location assignments; undefined while unread. */
+  media?: Pick<MediaSnapshotDto, 'evidence' | 'groups'>
   lotIds: string[]
   selected: ReadonlySet<string>
   disabled: boolean
@@ -59,13 +71,14 @@ function partCell(batch: CaptureSnapshotDto, lot: OperatorLotDto) {
 export function ReviewTable({
   batch,
   review,
+  media,
   lotIds,
   selected,
   disabled,
   toggle,
   toggleAll,
   inspect,
-}: Props) {
+}: ReviewTableProps) {
   const lots = lotIds
     .map((id) => review.lots.find((lot) => lot.lot_id === id))
     .filter((lot): lot is OperatorLotDto => lot !== undefined)
@@ -99,6 +112,7 @@ export function ReviewTable({
         <tbody>
           {lots.map((lot) => {
             const capture = batch.lots.find((value) => value.id === lot.lot_id)!
+            const location = lotLocationFact(batch, capture, media)
             return (
               <tr key={lot.lot_id} aria-selected={selected.has(lot.lot_id)}>
                 <td>
@@ -122,7 +136,9 @@ export function ReviewTable({
                   </ItemButton>
                 </td>
                 <td>{display(capture.quantity, batch, 'quantity')}</td>
-                <td>{display(capture.location, batch, 'location')}</td>
+                <td>
+                  {location.value} · {PROVENANCE_LABELS[location.provenance]}
+                </td>
                 <td>
                   {partCell(batch, lot)}
                   {lot.shared_lot_ids.length > 0 && (

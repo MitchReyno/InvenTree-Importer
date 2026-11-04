@@ -482,3 +482,138 @@ test('human-context note overflow produces a typed capacity refusal and makes ol
     false,
   )
 })
+
+test('a shared-Part location assignment never enters sealed processing inputs', () => {
+  const base = manualInputFixture()
+  const partId = randomUUID()
+  const input = {
+    ...base,
+    parts: [{ id: partId, label: 'Shared', revision: '1', choice: { mode: 'unset' as const } }],
+    lots: base.lots.map((lot) => ({ ...lot, part_subject_id: partId })),
+  }
+  const subject = input.lots[0].id
+  // The production Part edit also bumps the Part revision, which stays in the input as before.
+  const assigned = {
+    ...input,
+    parts: input.parts.map((part) => ({
+      ...part,
+      revision: '2',
+      location: { mode: 'clear' as const },
+    })),
+  }
+  const revised = {
+    ...input,
+    parts: input.parts.map((part) => ({ ...part, revision: '2' })),
+  }
+  const manifest = inputManifest(assigned, subject, 'reading', [], null)
+  assert.equal(manifest.linked_part && 'location' in manifest.linked_part, false)
+  assert.deepEqual(manifest, inputManifest(revised, subject, 'reading', [], null))
+  assert.notDeepEqual(manifest, inputManifest(input, subject, 'reading', [], null))
+})
+
+test('Auto order context adds no value and Auto tags add one requested-automation note', () => {
+  const base = manualInputFixture()
+  const subject = base.lots[0].id
+  const intent = (auto: boolean, date: { mode: 'auto' } | { mode: 'manual'; value: string }) => ({
+    ...base,
+    settings_intent: {
+      value: {
+        supplier: { absent: false, selection: { mode: 'unset' as const } },
+        order: { reference: { mode: 'auto' as const }, purchase_date: date },
+        shared_tags: { manual: ['reel'], auto },
+      },
+      default_location_draft: null,
+      version: '2',
+      actor_id: base.actor_id,
+      created_at: '2026-11-05T00:00:00Z',
+    },
+  })
+  const without = inputManifest(
+    intent(false, { mode: 'auto' }) as never,
+    subject,
+    'reading',
+    [],
+    null,
+  )
+  assert.deepEqual(without, inputManifest(base, subject, 'reading', [], null))
+  assert.equal(
+    without.notes.some((note) => note.text.includes('Auto requested')),
+    false,
+  )
+  const withAuto = inputManifest(
+    intent(true, { mode: 'auto' }) as never,
+    subject,
+    'reading',
+    [],
+    null,
+  )
+  const requested = withAuto.notes.filter((note) =>
+    note.text.includes('Shared part tags: Auto requested'),
+  )
+  assert.equal(requested.length, 1)
+  assert.equal(requested[0].subject_id, null)
+  assert.equal(
+    withAuto.notes.some(
+      (note) => /20\d\d-\d\d-\d\d/.test(note.text) && !note.text.includes('2026-11-05T'),
+    ),
+    false,
+    'Auto never fabricates a purchase date or order number',
+  )
+})
+
+test('a new-Part create choice is admitted only through media input /5, never older versions', () => {
+  const base = manualInputFixture()
+  const partId = randomUUID()
+  const create = {
+    mode: 'create' as const,
+    spec: {
+      name: 'Reel',
+      category: {
+        observation_id: randomUUID(),
+        target_context_id: base.target_context_id,
+        model: 'category' as const,
+        pk: '3',
+      },
+      parameters: [],
+      manufacturer: null,
+      supplier: null,
+      tags: ['smd'],
+    },
+  }
+  const input = {
+    ...base,
+    parts: [{ id: partId, label: 'New reel', revision: '1', choice: create }],
+    lots: base.lots.map((lot) => ({ ...lot, part_subject_id: partId })),
+  }
+  const subject = input.lots[0].id
+  const descriptor = (snapshot: typeof input | typeof base) => {
+    const text = canonicalMedia({
+      version: 'media-inputs/1',
+      batchId: snapshot.id,
+      subjectIds: processingSubjectScope(snapshot as never, subject),
+      evidence: [],
+      attachments: [],
+      versions: [],
+    })
+    return { manifest: text, sha256: sha256(Buffer.from(text)).toString('hex') }
+  }
+  const media = descriptor(input)
+  assert.throws(
+    () => inputManifest(input as never, subject, 'reading', [], null),
+    /unsupported_processing_input/,
+  )
+  const manifest = mediaInputManifest(input as never, subject, 'reading', [], null, media, {
+    allowCreate: true,
+  })
+  assert.equal(manifest.schema_version, 'bench-intake-input/5')
+  assert.equal(manifest.profile_id, 'synthetic-research/2')
+  validate('ProcessingInput', manifest)
+  assert.throws(
+    () => mediaInputManifest(input as never, subject, 'reading', [], null, media),
+    /unsupported_processing_input/,
+  )
+  const withoutCreate = mediaInputManifest(base, subject, 'reading', [], null, descriptor(base), {
+    allowCreate: true,
+  })
+  assert.equal(withoutCreate.schema_version, 'bench-intake-input/2')
+})

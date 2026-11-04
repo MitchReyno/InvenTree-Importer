@@ -305,6 +305,14 @@ export function ManualWorkspace({
         mediaUnavailable={mediaQuery.isError || mediaQuery.fetchStatus === 'paused'}
         mediaLoading={media !== undefined && mediaQuery.isPending}
         processing={processingQuery.data}
+        // Cached data is history: acceptance needs this mount's successful read at this revision.
+        processingCurrent={
+          processingQuery.isFetchedAfterMount &&
+          processingQuery.status === 'success' &&
+          !processingQuery.isRefetchError &&
+          !processingQuery.isFetching &&
+          processingQuery.data?.capture_revision === batch.revision
+        }
         selected={selected}
         maxSelected={MAX_SELECTED_LOTS}
         busy={disabled}

@@ -42,6 +42,8 @@ interface Props {
   mediaUnavailable?: boolean
   mediaLoading?: boolean
   processing?: ProcessingSnapshotDto
+  /** True only after a successful mounted Processing read at the displayed capture revision. */
+  processingCurrent?: boolean
   selected: string[]
   maxSelected: number
   busy: boolean
@@ -141,6 +143,7 @@ export function ReviewWorkspace({
   mediaUnavailable,
   mediaLoading,
   processing,
+  processingCurrent = false,
   selected,
   maxSelected,
   busy,
@@ -414,6 +417,7 @@ export function ReviewWorkspace({
           batch={batch}
           review={operatorReview}
           client={operator}
+          media={mediaUnavailable ? undefined : media}
           lotIds={route.filter === 'retired' ? [] : visibleIds}
           activeLotIds={activeLotIds}
           disabled={busy || stale || reviewUnavailable || drafts.hasOtherSources('workspace')}
@@ -456,6 +460,10 @@ export function ReviewWorkspace({
                 mediaUnavailable={mediaUnavailable}
                 mediaLoading={mediaLoading}
                 processing={processing}
+                processingCurrent={processingCurrent}
+                edit={edit}
+                // Accepting remounts Review at the new revision, so any open draft fences it.
+                editDisabled={busy || stale || batch.archived || drafts.dirty}
               />
             ) : (
               <Paragraph>
@@ -472,6 +480,7 @@ export function ReviewWorkspace({
                 part={part}
                 workspace={workspace}
                 operatorLot={operatorLot}
+                media={mediaUnavailable ? undefined : media}
                 activeLotIds={activeLotIds}
                 operator={operator}
                 disabled={

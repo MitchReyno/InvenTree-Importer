@@ -9,7 +9,8 @@ export async function grantCaptureRead(pool: Pool, role: string): Promise<void> 
   await pool.query(`GRANT SELECT ON capture_source,capture_batch,capture_subject,capture_part,
     capture_lot,capture_note,capture_observation,capture_selection,capture_revision,
     capture_lot_lineage,capture_lot_retirement,capture_issue_disposition,capture_instruction,capture_context,
-    capture_settings_intent,capture_setting_note,capture_reference_draft_identity,capture_reference_draft TO ${role}`)
+    capture_settings_intent,capture_setting_note,capture_reference_draft_identity,capture_reference_draft,
+    capture_group_location TO ${role}`)
 }
 
 /** Row-lock capability only; immutable subject identity rejects updates and selections stay denied. */
@@ -25,7 +26,7 @@ export async function grantCapture(pool: Pool, role: string) {
   await pool.query(`GRANT SELECT ON media_group,media_group_history TO ${role};
     GRANT SELECT(id,batch_id,evidence_id,media_type) ON media_version TO ${role}`)
 
-  await pool.query(`GRANT INSERT ON capture_source,capture_batch,capture_subject,capture_part,capture_lot,capture_note,capture_observation,capture_selection,capture_revision,capture_lot_lineage,capture_lot_retirement,capture_issue_disposition,capture_instruction,capture_context,capture_settings_intent,capture_setting_note,capture_reference_draft_identity,capture_reference_draft TO ${role};
+  await pool.query(`GRANT INSERT ON capture_source,capture_batch,capture_subject,capture_part,capture_lot,capture_note,capture_observation,capture_selection,capture_revision,capture_lot_lineage,capture_lot_retirement,capture_issue_disposition,capture_instruction,capture_context,capture_settings_intent,capture_setting_note,capture_reference_draft_identity,capture_reference_draft,capture_group_location TO ${role};
     GRANT UPDATE(title,revision,archived,updated_at) ON capture_batch TO ${role};
     GRANT UPDATE(label,revision) ON capture_subject TO ${role};
     GRANT UPDATE(part_subject_id) ON capture_lot TO ${role};

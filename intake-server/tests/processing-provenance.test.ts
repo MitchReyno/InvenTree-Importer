@@ -12,6 +12,7 @@ import {
   sealed,
 } from '../src/processing/model.ts'
 import { validateProposalSources } from '../src/processing/provenance.ts'
+import { AUTOMATION_NOTE_TEXT, automationNoteId } from '../src/capture/context-input.ts'
 import { manualInputFixture } from './support/processing-input.ts'
 
 /** Descriptor fixture only; no decoder, media bytes, model or provider is invoked. */
@@ -183,6 +184,77 @@ test('typed provenance binds exact note text and media evidence/version/digest, 
         source_note_ids: [capture.notes[0].id],
       }),
     /runner_source_version_mismatch/,
+  )
+})
+
+test('the requested-automation note is never evidence for admission or a proposal source', () => {
+  const base = manualInputFixture()
+  const capture = {
+    ...base,
+    settings_intent: {
+      value: {
+        supplier: { absent: false, selection: { mode: 'unset' as const } },
+        order: { reference: { mode: 'auto' as const }, purchase_date: { mode: 'auto' as const } },
+        shared_tags: { manual: [], auto: true },
+      },
+      default_location_draft: null,
+      version: '2',
+      actor_id: base.actor_id,
+      created_at: '2026-11-05T00:00:00Z',
+    },
+  } as typeof base
+  const subject = capture.lots[0].id
+  const media = mediaFixture(capture.id, subject)
+  media.manifest.versions = []
+  media.manifest.evidence = []
+  const bytes = canonicalMedia(media.manifest)
+  const empty = { manifest: bytes, sha256: sha256(bytes).toString('hex') }
+
+  const intentOnly = { ...capture, notes: [] }
+  assert.throws(
+    () => inputManifest(intentOnly, subject, 'reading', [], null),
+    /retained_manual_evidence_required/,
+  )
+  assert.throws(
+    () => mediaInputManifest(intentOnly, subject, 'reading', [], null, empty),
+    /retained_evidence_required/,
+  )
+
+  // Real evidence keeps the input admitted, so a quantity question stays available.
+  const input = mediaInputManifest(capture, subject, 'reading', [], null, empty)
+  const intentSource = {
+    kind: 'note' as const,
+    note_id: automationNoteId(capture.id),
+    text_sha256: sha256(AUTOMATION_NOTE_TEXT).toString('hex'),
+  }
+  assert.ok(input.notes.some((note) => note.id === intentSource.note_id))
+  const estimate = {
+    schema_version: 'bench-intake-proposal/4' as const,
+    subject_id: subject,
+    summary: 'Synthetic estimate fixture; no actual model inference.',
+    quantity: { value: '40', status: 'estimated' as const },
+    sources: [intentSource],
+  }
+  assert.doesNotThrow(() => validate('ProcessingProposal', estimate))
+  assert.throws(() => validateProposalSources(input, estimate), /runner_source_mismatch/)
+  const evidenceSource = {
+    kind: 'note' as const,
+    note_id: capture.notes[0].id,
+    text_sha256: sha256(capture.notes[0].text).toString('hex'),
+  }
+  assert.doesNotThrow(() =>
+    validateProposalSources(input, { ...estimate, sources: [evidenceSource] }),
+  )
+
+  const legacy = inputManifest(capture, subject, 'reading', [], null)
+  assert.throws(
+    () =>
+      validateProposalSources(legacy, {
+        subject_id: subject,
+        summary: 'Intent cannot back a legacy proposal either.',
+        source_note_ids: [intentSource.note_id],
+      }),
+    /runner_source_mismatch/,
   )
 })
 

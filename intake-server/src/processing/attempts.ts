@@ -76,7 +76,7 @@ export async function createAttempt(
   } else if (restricted) {
     manifestValue = researchInputManifest(...argumentsForInput, config.approvedSourceUrls ?? [])
   } else {
-    manifestValue = mediaInputManifest(...argumentsForInput)
+    manifestValue = mediaInputManifest(...argumentsForInput, { allowCreate: true })
   }
   validate('ProcessingInput', manifestValue)
   const manifest = sealed(manifestValue)

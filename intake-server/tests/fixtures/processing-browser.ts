@@ -7,13 +7,10 @@ import {
   validate,
   type CaptureEditDto,
   type CaptureSnapshotDto,
-  type ProcessingEnvelopeV2Dto,
   type ProcessingSnapshotDto,
-  type ProcessingSourceDto,
 } from '@invimport/contracts'
 import { captureRepository } from '../../src/capture/repository.ts'
-import { sha256 } from '../../src/db/authority.ts'
-import { decodeMediaInputs } from '../../src/media/inputs.ts'
+import { syntheticDevelopmentRunner } from '../../src/dev/synthetic-runner.ts'
 import {
   dispatchProcessingCommands,
   executeProcessingCommand,
@@ -96,7 +93,8 @@ function syntheticRunner(questionSubjectId: string): RestrictedResearchRunner {
     profileId: 'synthetic-research/2',
     qualification: 'fixture_only',
     async run(command, emit) {
-      if (command.manifest.schema_version !== 'bench-intake-input/2') {
+      const version = command.manifest.schema_version
+      if (version !== 'bench-intake-input/2' && version !== 'bench-intake-input/5') {
         throw new Error('processing_preview_v2_required')
       }
       const binding = {
@@ -127,37 +125,8 @@ function syntheticRunner(questionSubjectId: string): RestrictedResearchRunner {
         })
         return
       }
-      const media = decodeMediaInputs(
-        Buffer.from(command.manifest.media.manifest),
-        Buffer.from(command.manifest.media.sha256, 'hex'),
-      )
-      const sources: ProcessingSourceDto[] = [
-        ...media.versions.map((version) => ({
-          kind: 'media_version' as const,
-          evidence_id: version.evidenceId,
-          version_id: version.versionId,
-          sha256: version.digest,
-        })),
-        ...command.manifest.notes.map((note) => ({
-          kind: 'note' as const,
-          note_id: note.id,
-          text_sha256: sha256(note.text).toString('hex'),
-        })),
-      ]
-      const proposal: ProcessingEnvelopeV2Dto = {
-        ...binding,
-        sequence: '1',
-        kind: 'proposal',
-        payload: {
-          schema_version: 'bench-intake-proposal/2',
-          subject_id: command.manifest.subject_id,
-          summary:
-            'SYNTHETIC fixture receipt from staged notes and media descriptors. No image inspection, model inference or inventory lookup occurred.',
-          sources: sources.slice(0, 100),
-        },
-      }
-      await emit(proposal)
-      await emit({ ...binding, sequence: '2', kind: 'terminal', payload: { state: 'ready' } })
+      // Proposals come from the development runner, which cites only evidence notes.
+      await syntheticDevelopmentRunner.run(command, emit)
     },
   }
 }

@@ -1,5 +1,6 @@
 import styled from 'styled-components'
 import type {
+  CaptureEditDto,
   CaptureSnapshotDto,
   MediaSnapshotDto,
   OperatorLotDto,
@@ -8,6 +9,7 @@ import type {
 import { Field, Heading, Paragraph, Small, Subheading } from '../ui/primitives'
 import { EvidenceViewer } from './EvidenceViewer'
 import { ProcessingSources } from '../processing/ProcessingSources'
+import { ProcessingSuggestions } from './ProcessingSuggestions'
 import { StatusChip } from './StatusChip'
 
 type Lot = CaptureSnapshotDto['lots'][number]
@@ -21,8 +23,12 @@ interface Props {
   operatorLot?: OperatorLotDto
   media?: MediaSnapshotDto
   processing?: ProcessingSnapshotDto
+  processingCurrent?: boolean
   mediaUnavailable?: boolean
   mediaLoading?: boolean
+  /** Explicit human edits that accept a suggestion; absent where Review is read-only. */
+  edit?: (change: CaptureEditDto['change']) => Promise<boolean | void>
+  editDisabled?: boolean
 }
 
 interface SourcedNote {
@@ -70,8 +76,11 @@ export function LotEvidence({
   operatorLot,
   media,
   processing,
+  processingCurrent = false,
   mediaUnavailable,
   mediaLoading,
+  edit,
+  editDisabled = true,
 }: Props) {
   const predecessorIds = operatorLot?.predecessor_lot_ids ?? []
   const notes = evidenceNotes(batch, lot, part, predecessorIds)
@@ -119,6 +128,15 @@ export function LotEvidence({
               </span>
               <Paragraph>{proposal.value.summary}</Paragraph>
               <ProcessingSources proposal={proposal.value} />
+              <ProcessingSuggestions
+                lot={lot}
+                part={part}
+                proposal={proposal.value}
+                defaultQuantity={batch.defaults.quantity}
+                current={processingCurrent && job.state === 'ready'}
+                disabled={editDisabled}
+                edit={edit}
+              />
               <Small>A candidate, not a chosen value. Choose facts explicitly below.</Small>
             </Field>
           ))}

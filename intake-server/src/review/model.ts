@@ -3,6 +3,11 @@ import { validatePartSpec, PartSpecError } from '../capture/part-spec.ts'
 import { logicalEffectKey } from '../execution/effects-plan.ts'
 import type { InventoryPartSpecDto } from '@invimport/contracts'
 import type { CaptureSnapshotDto, ManualEffectDto, ManualIssueDto } from '@invimport/contracts'
+import {
+  resolveLotLocation,
+  type LotLocationGroups,
+  type LotLocationResolution,
+} from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
 import { sha256 } from '../db/authority.ts'
 import type { MediaInputs } from '../media/inputs.ts'
@@ -153,6 +158,18 @@ function currentDisposition(
   return matching ?? null
 }
 
+const unresolvedLocation = { mode: 'unknown' } as const
+
+function locationSourceFact(resolution: LotLocationResolution) {
+  if (resolution.status === 'resolved' && resolution.source === 'part') {
+    return { locationSource: { scope: 'part' } }
+  }
+  if (resolution.status === 'resolved' && resolution.source === 'group') {
+    return { locationSource: { scope: 'group', groupIds: resolution.group_ids } }
+  }
+  return {}
+}
+
 /** Exact selected dependency closure: explicit overrides exclude irrelevant default changes. */
 export function materialize(
   snapshot: CaptureSnapshotDto,
@@ -161,6 +178,8 @@ export function materialize(
   context: CaptureReviewContext = EMPTY_REVIEW_CONTEXT,
   /** Subjects with linked media, including retired predecessors; presence only, never sealed. */
   linkedMediaSubjects: ReadonlySet<string> = new Set(),
+  /** Groups holding each lot's linked evidence; null while media membership is unknown. */
+  lotGroups: LotLocationGroups | null = null,
 ): ManualMaterial {
   const selected = [...selectedIds].sort()
   const issues: ManualIssueDto[] = []
@@ -243,7 +262,8 @@ export function materialize(
     }
     const part = snapshot.parts.find((value) => value.id === lot.part_subject_id)
     const quantity = lot.quantity.mode === 'inherit' ? snapshot.defaults.quantity : lot.quantity
-    const location = lot.location.mode === 'inherit' ? snapshot.defaults.location : lot.location
+    const resolution = resolveLotLocation(snapshot, lot, lotGroups)
+    const location = resolution.status === 'resolved' ? resolution.location : unresolvedLocation
     if (!part || (part.choice.mode !== 'set' && part.choice.mode !== 'create')) {
       issues.push(
         issue(
@@ -258,7 +278,23 @@ export function materialize(
         issue('quantity_required', 'Choose an exact positive quantity for this lot.', lotId),
       )
     }
-    if (location.mode !== 'set' && location.mode !== 'clear') {
+    if (resolution.status === 'conflict') {
+      issues.push(
+        issue(
+          'location_conflict',
+          'Evidence groups for this lot assign different locations. Choose a lot, shared Part or single group location.',
+          lotId,
+        ),
+      )
+    } else if (resolution.status === 'groups_unavailable') {
+      issues.push(
+        issue(
+          'location_groups_unavailable',
+          'Evidence group locations could not be confirmed. Retry when media is available or choose a lot location.',
+          lotId,
+        ),
+      )
+    } else if (location.mode !== 'set' && location.mode !== 'clear') {
       issues.push(
         issue(
           'location_required',
@@ -308,6 +344,8 @@ export function materialize(
       lot,
       effectiveQuantity: quantity,
       effectiveLocation: location,
+      // Lot and batch sources keep the original fact bytes; other sources are recorded.
+      ...locationSourceFact(resolution),
       partDigest: part ? subjects.get(part.id)!.digest.toString('hex') : null,
       notes,
     }

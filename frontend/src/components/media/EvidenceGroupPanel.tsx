@@ -1,3 +1,5 @@
+import type { CaptureWorkspaceProps } from '../../capture/types'
+import { GroupLocationControl } from './GroupLocationControl'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type {
@@ -36,6 +38,8 @@ type Props = {
   operator?: OperatorReviewClient
   review?: OperatorReviewDto
   reload?: () => Promise<void>
+  /** Capture command for the group's location assignment; absent where capture is read-only. */
+  captureEdit?: CaptureWorkspaceProps['edit']
 }
 
 export function EvidenceGroupPanel({
@@ -56,6 +60,7 @@ export function EvidenceGroupPanel({
   operator,
   review,
   reload,
+  captureEdit,
 }: Props) {
   const [rename, setRename] = useState(false)
   const [noteId, setNoteId] = useState<string | null>(null)
@@ -65,6 +70,7 @@ export function EvidenceGroupPanel({
   const evidence = snapshot.evidence.filter((item) => item.group_id === groupId)
   const renameKey = `rename:${groupId}`
   const instructionKey = `instructions:${groupId}`
+  const locationKey = `location:${groupId}`
 
   const acceptedConfirmation = useRef(confirmation)
   useEffect(() => {
@@ -139,6 +145,17 @@ export function EvidenceGroupPanel({
             />
           )}
           <MediaNoteSummary title="Group note" note={group.note} />
+          {captureEdit && (
+            <GroupLocationControl
+              batch={batch}
+              groupId={group.id}
+              name={name}
+              disabled={frozen || blocked(locationKey)}
+              edit={captureEdit}
+              reload={reload}
+              onDirtyChange={dirty(locationKey)}
+            />
+          )}
           {operator && review && reload && (
             <>
               <Button disabled={blocked(instructionKey)} onClick={() => setInstructions(true)}>

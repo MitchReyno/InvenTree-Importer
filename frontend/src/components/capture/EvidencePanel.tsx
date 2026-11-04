@@ -78,6 +78,7 @@ export function EvidencePanel({
           client={media}
           disabled={frozen || noteDirty}
           onDirtyChange={reportMedia}
+          captureEdit={edit}
         />
       )}
       {!media && (

@@ -1,4 +1,4 @@
-import { effectsFakeRequest,initializeEffectsFake } from './effects-fake.ts'
+import { effectsFakeRequest, initializeEffectsFake } from './effects-fake.ts'
 import { attachmentFakeRequest, initializeAttachmentFake } from './attachment-fake.ts'
 import { createServer } from 'node:http'
 import type { Pool } from 'pg'
@@ -20,7 +20,9 @@ export async function inventoryFake(
       CREATE TABLE IF NOT EXISTS fake_stock (pk bigint GENERATED ALWAYS AS IDENTITY (START WITH 7101) PRIMARY KEY,request_id bigint NOT NULL REFERENCES fake_request(id),part text NOT NULL,location text,quantity text NOT NULL,barcode text NOT NULL);
       CREATE TABLE IF NOT EXISTS fake_control (id integer PRIMARY KEY CHECK (id=1),fault text NOT NULL);
       INSERT INTO fake_control VALUES (1,'none') ON CONFLICT DO NOTHING;`)
-    if(effects) {await initializeEffectsFake(pool)}
+    if (effects) {
+      await initializeEffectsFake(pool)
+    }
     if (media) {
       await initializeAttachmentFake(pool)
     }
@@ -51,7 +53,9 @@ export async function inventoryFake(
         }
         return { row, fault, stock }
       })
-      if(effects && await effectsFakeRequest(pool,request,response,bytes,fault,row.id)) {return}
+      if (effects && (await effectsFakeRequest(pool, request, response, bytes, fault, row.id))) {
+        return
+      }
       if (media && (await attachmentFakeRequest(pool, request, response, bytes, fault))) {
         return
       }
@@ -102,7 +106,8 @@ export async function inventoryFake(
         }
         const name = match[1] === 'part' ? `Existing Part ${match[2]}` : `Location ${match[2]}`
         // Existing fake Parts carry no tags; the optional field appears only with ?tags=true.
-        const tags = match[1] === 'part' && url.searchParams.get('tags') === 'true' ? { tags: [] } : {}
+        const tags =
+          match[1] === 'part' && url.searchParams.get('tags') === 'true' ? { tags: [] } : {}
         response.end(JSON.stringify({ pk: match[2], ...(names ? { name } : {}), ...tags }))
         return
       }

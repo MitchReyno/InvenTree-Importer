@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { mediaBatches } from '../media/schema.ts'
 import type { PoolClient } from 'pg'
-import type { CaptureSnapshotDto } from '@invimport/contracts'
+import { lotLocationGroups, type CaptureSnapshotDto } from '@invimport/contracts'
 import { CaptureError } from '../capture/repository.ts'
 import { lockMediaRevision } from '../media/commands.ts'
 import { mediaSnapshot } from '../media/read.ts'
@@ -104,7 +104,14 @@ export async function materializeWithMedia(
     return base
   }
   const linkedMediaSubjects = new Set(media.evidence.flatMap((value) => value.linked_subject_ids))
-  const material = materialize(snapshot, selectedIds, digests, context, linkedMediaSubjects)
+  const material = materialize(
+    snapshot,
+    selectedIds,
+    digests,
+    context,
+    linkedMediaSubjects,
+    lotLocationGroups(media.evidence),
+  )
   material.mediaConfigured = true
   material.mediaInputs = inputsBySubject
   return material

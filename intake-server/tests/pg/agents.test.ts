@@ -10,6 +10,9 @@ import { claimProcessingCommand, acceptEnvelope } from '../../src/processing/run
 import { acquireAgentSupervisor } from '../../src/agents/worker.ts'
 import { startProcessing } from '../../src/processing/commands.ts'
 import { nativeProfileId } from '../../src/agents/policy.ts'
+import { stageNativePrompt } from '../../src/agents/prompt.ts'
+import { automationNoteId } from '../../src/capture/context-input.ts'
+import type { BlobStore } from '../../src/media/blob-store.ts'
 
 const first = { provider: 'codex', authentication: 'subscription', model: 'gpt-test-one' } as const
 const second = { provider: 'claude', authentication: 'api_key', model: 'sonnet' } as const
@@ -198,6 +201,67 @@ test('session history pages every retained attempt in queue order and refuses id
       ),
       /agent_session_identity_immutable/,
     )
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('a native prompt shows requested automation as context but never offers it as a source', async () => {
+  const fixture = await processingFixture({ profileId: nativeProfileId })
+  try {
+    const capture = await fixture.seedCapture()
+    await capture.edit({
+      kind: 'batch_settings',
+      title: capture.batch.title,
+      default_location: { mode: 'unset' },
+      intent: {
+        supplier: { absent: false, selection: { mode: 'unset' } },
+        order: { reference: { mode: 'auto' }, purchase_date: { mode: 'auto' } },
+        shared_tags: { manual: [], auto: true },
+      },
+      notes: { batch: null, order: null },
+      drafts: [],
+    })
+    await saveAgentSettings(fixture.api.pool, fixture.config, {
+      expected_revision: '0',
+      selection: first,
+    })
+    const queued = receipt(
+      await startProcessing(fixture.api.pool, fixture.config, capture.batch.id, randomUUID(), {
+        schema_version: 'bench-intake-processing/1',
+        expected_capture_revision: capture.batch.revision,
+        subject_ids: [capture.packetA.id],
+        stages: ['reading'],
+      }),
+    )
+    const retained = await fixture.db.pool.query(
+      'SELECT workflow_id,payload_bytes FROM command WHERE id=(SELECT command_id FROM processing_attempt WHERE id=$1)',
+      [queued.attempt_ids[0]],
+    )
+    const claimed = await claimProcessingCommand(
+      fixture.runner.pool,
+      fixture.config,
+      retained.rows[0].workflow_id,
+      strictJson(retained.rows[0].payload_bytes.toString()),
+      'processing/4',
+    )
+    assert.ok(claimed)
+    assert.equal(claimed.manifest.schema_version, 'bench-intake-input/4')
+    const intentId = automationNoteId(capture.batch.id)
+    assert.ok(claimed.manifest.notes.some((note) => note.id === intentId))
+    const prompt = await stageNativePrompt(
+      fixture.runner.pool,
+      fixture.config,
+      {} as BlobStore,
+      claimed,
+      claimed.manifest,
+    )
+    const cited = prompt.sources.flatMap((source) =>
+      source.kind === 'note' ? [source.note_id] : [],
+    )
+    assert.ok(cited.length > 0, 'real notes remain citable')
+    assert.equal(cited.includes(intentId), false)
+    assert.ok(prompt.text.includes(intentId), 'the request is still visible as context')
   } finally {
     await fixture.dispose()
   }

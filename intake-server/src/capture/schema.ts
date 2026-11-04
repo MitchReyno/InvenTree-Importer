@@ -172,6 +172,17 @@ export const captureSettingsIntents = pgTable('capture_settings_intent', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+export const captureGroupLocations = pgTable('capture_group_location', {
+  id: uuid().primaryKey(),
+  batchId: uuid('batch_id').notNull(),
+  groupId: uuid('group_id').notNull(),
+  version: bigint({ mode: 'bigint' }).notNull(),
+  value: jsonb().notNull(),
+  observationId: uuid('observation_id'),
+  actorId: uuid('actor_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 export const captureSettingNotes = pgTable('capture_setting_note', {
   id: uuid().primaryKey(),
   batchId: uuid('batch_id').notNull(),

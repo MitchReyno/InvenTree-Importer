@@ -29,6 +29,7 @@ import type { DevConfig } from '../config.ts'
 import { transaction } from '../db/database.ts'
 import { validatePartSpec, PartSpecError } from './part-spec.ts'
 import { readCaptureContexts, retainCaptureContext } from './context.ts'
+import { applyGroupLocation, readGroupLocations } from './locations.ts'
 import {
   applyBatchSettingsIntent,
   readReferenceDrafts,
@@ -153,6 +154,10 @@ async function snapshot(
   const value = (subject: string | null, field: string, fallback: Selection) =>
     selections.find((s) => s.subject_id === subject && s.field === field)?.value ?? fallback
 
+  // A Part assignment is omitted unless set or cleared, so existing Part bytes are unchanged.
+  const partLocation = (location: Selection) =>
+    location.mode === 'set' || location.mode === 'clear' ? { location } : {}
+
   const lots = await executeDatabaseQuery(
     queryDatabase(client)
       .select({
@@ -210,6 +215,7 @@ async function snapshot(
   const settingsIntent = await readSettingsIntent(client, id)
   const settingNotes = await readSettingNotes(client, id)
   const referenceDrafts = await readReferenceDrafts(client, id)
+  const groupLocations = await readGroupLocations(client, id)
   const result = {
     ...summary(b),
     ...(context.length ? { context } : {}),
@@ -217,6 +223,7 @@ async function snapshot(
     ...(settingsIntent ? { settings_intent: settingsIntent } : {}),
     ...(settingNotes.length ? { setting_notes: settingNotes } : {}),
     ...(referenceDrafts.length ? { reference_drafts: referenceDrafts } : {}),
+    ...(groupLocations.length ? { group_locations: groupLocations } : {}),
     actor_id: b.actor_id,
     target_context_id: b.target_context_id,
     defaults: {
@@ -230,6 +237,7 @@ async function snapshot(
         label: s.label,
         revision: s.revision,
         choice: value(s.id, 'choice', unset),
+        ...partLocation(value(s.id, 'location', unset) as Selection),
       })),
     lots: lots.map((l) => {
       const s = subjects.find((s) => s.id === l.id)!
@@ -611,6 +619,7 @@ async function applyLockedCaptureEdit(
     case 'part':
       subject(change.id, 'part')
       await select(change.id, 'choice', change.choice)
+      await select(change.id, 'location', change.location)
       await executeDatabaseQuery(
         queryDatabase(c)
           .update(captureSubjects)
@@ -620,6 +629,9 @@ async function applyLockedCaptureEdit(
           })
           .where(eq(captureSubjects.id, change.id)),
       )
+      break
+    case 'group_location':
+      await applyGroupLocation(c, b, change.group_id, change.location, nextRevision)
       break
     case 'defaults':
       await select(null, 'quantity', change.quantity)

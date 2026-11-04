@@ -1,4 +1,8 @@
-import { captureContextNotes } from '../capture/context-input.ts'
+import {
+  automationIntentNotes,
+  captureContextNotes,
+  isAutomationIntentNote,
+} from '../capture/context-input.ts'
 import { nativeProfileId, nativeInstructionDigest } from '../agents/policy.ts'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import {
@@ -7,6 +11,7 @@ import {
   type ProcessingInputDto,
   type ProcessingInputV1Dto,
   type ProcessingInputV2Dto,
+  type ProcessingInputV5Dto,
   type ProcessingInputV3Dto,
   type ProcessingInputV4Dto,
   type AgentSettingsDto,
@@ -83,12 +88,25 @@ function requireNoteCapacity(notes: readonly unknown[]) {
   }
 }
 
+/**
+ * Processing never consumes locations, so a Part location's value stays out of every sealed input
+ * version. The Part edit still bumps the Part revision, making earlier attempts stale as any edit does.
+ */
+function withoutAssignedLocation<T extends object>(subject: T): T {
+  if ('choice' in subject && 'location' in subject) {
+    const { location: _location, ...rest } = subject
+    return rest as T
+  }
+  return subject
+}
+
 function captureInputFields(
   snapshot: CaptureSnapshotDto,
   subjectId: string,
   stage: Stage,
   dependencies: string[],
   answerId: string | null,
+  allowCreate = false,
 ) {
   const lot = snapshot.lots.find((item) => item.id === subjectId)
   const part = snapshot.parts.find((item) => item.id === subjectId)
@@ -102,16 +120,21 @@ function captureInputFields(
       note.subject_id === subjectId ||
       note.subject_id === linkedPart?.id,
   )
-  const contextNotes = captureContextNotes(snapshot, subjectId)
+  const contextNotes = [
+    ...captureContextNotes(snapshot, subjectId),
+    ...automationIntentNotes(snapshot),
+  ]
   requireNoteCapacity([...notes, ...contextNotes])
   // /1–/3 stay frozen. A create choice is scoped to this subject; newer observation
   // models and mapping fields stay out of the sealed document.
-  for (const scoped of [lot ?? part, linkedPart]) {
-    if (scoped && 'choice' in scoped && scoped.choice.mode === 'create') {
-      fail('unsupported_processing_input')
-    }
+  const creates = [lot ?? part, linkedPart].some(
+    (scoped) => scoped && 'choice' in scoped && scoped.choice.mode === 'create',
+  )
+  if (creates && !allowCreate) {
+    fail('unsupported_processing_input')
   }
   return {
+    creates,
     batch_id: snapshot.id,
     source_id: snapshot.source_id,
     capture_revision: snapshot.revision,
@@ -120,8 +143,8 @@ function captureInputFields(
     dependencies,
     answer_id: answerId,
     defaults: snapshot.defaults,
-    subject: (lot ?? part)!,
-    linked_part: linkedPart ?? null,
+    subject: withoutAssignedLocation((lot ?? part)!),
+    linked_part: linkedPart ? withoutAssignedLocation(linkedPart) : null,
     notes: [...notes, ...contextNotes],
     observations: snapshot.observations.flatMap((observation) => {
       if (observation.model !== 'part' && observation.model !== 'location') {
@@ -141,8 +164,14 @@ export function inputManifest(
   dependencies: string[],
   answerId: string | null,
 ): ProcessingInputV1Dto {
-  const fields = captureInputFields(snapshot, subjectId, stage, dependencies, answerId)
-  if (!fields.notes.length) {
+  const { creates: _creates, ...fields } = captureInputFields(
+    snapshot,
+    subjectId,
+    stage,
+    dependencies,
+    answerId,
+  )
+  if (!fields.notes.some((note) => !isAutomationIntentNote(note, snapshot.id))) {
     fail('retained_manual_evidence_required', 422)
   }
 
@@ -186,8 +215,17 @@ export function mediaInputManifest(
   dependencies: string[],
   answerId: string | null,
   media: RetainedMediaDescriptor,
-): ProcessingInputV2Dto {
-  const fields = captureInputFields(snapshot, subjectId, stage, dependencies, answerId)
+  /** Only the synthetic media handler admits a create choice, and only as input `/5`. */
+  { allowCreate = false }: { allowCreate?: boolean } = {},
+): ProcessingInputV2Dto | ProcessingInputV5Dto {
+  const { creates, ...fields } = captureInputFields(
+    snapshot,
+    subjectId,
+    stage,
+    dependencies,
+    answerId,
+    allowCreate,
+  )
   const decodedMedia = decodeMediaInputs(
     Buffer.from(media.manifest, 'utf8'),
     Buffer.from(media.sha256, 'hex'),
@@ -220,7 +258,9 @@ export function mediaInputManifest(
     }))
   const notes = [...fields.notes, ...mediaNotes]
   requireNoteCapacity(notes)
-  const meaningfulNote = notes.some((note) => note.text.trim().length > 0)
+  const meaningfulNote = notes.some(
+    (note) => note.text.trim().length > 0 && !isAutomationIntentNote(note, snapshot.id),
+  )
   if (!meaningfulNote && decodedMedia.versions.length === 0) {
     fail('retained_evidence_required', 422)
   }
@@ -228,7 +268,7 @@ export function mediaInputManifest(
   return {
     ...fields,
     notes,
-    schema_version: 'bench-intake-input/2',
+    schema_version: creates ? 'bench-intake-input/5' : 'bench-intake-input/2',
     profile_id: mediaProfileId,
     instruction_version: mediaInstructionVersion,
     instruction_sha256: mediaInstructionDigest,

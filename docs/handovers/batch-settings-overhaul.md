@@ -1,6 +1,6 @@
 # Batch settings overhaul implementation
 
-Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) is implemented on `feat/batch-settings-overhaul-panel` and in independent review; Task 4.5 stays open until that review is clean and the selected CI passes. PR-C and PR-D have not started. Reviews, CI and merges are recorded only after they occur.
+Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) is open as #88 from `feat/batch-settings-overhaul-review`; its review is clean and its selected CI passed, so Task 6.5 is checked and the PR is ready to squash-merge. PR-D has not started. Reviews, CI and merges are recorded only after they occur.
 
 ## Authority and boundaries
 
@@ -284,6 +284,128 @@ Fixed in `dd0628c`; frontend 289/289 tests.
 
 Codex reviewed exactly `1514e91..dd0628c`: no Critical or Important findings, and both round-8 fixes were confirmed. One Minor: the browser qualification summary above attributed every run to Google Chrome, while the evidence README records the desktop and narrow runs in Playwright Chromium. The summary now matches the README. This round changed documentation only.
 
-Still to do for 4.5: Codex re-review and selected CI.
+#### Merge and CI
+
+Mitch waived a review round for the docs-only round-9 fix. `interactive-app` had advanced with #86, so the branch merged it (one documentation conflict). `range-diff` against the reviewed patches showed every other patch unchanged. The merged tree equalled the rebased tree that passed typecheck, lint, Prettier, build, frontend 289/289 and intake fast tests. PR #87 was opened at head `f1955b5` and squash-merged by Mitch as `f9b8fe1`. Selected CI on that head passed: Shared workflow sync, Frontend, Intake PostgreSQL and process, Intake contracts and HTTP, TypeScript lint, Markdown lint and Changed paths; Backend lint and test were skipped (no backend paths). The PostgreSQL check finished after the merge and passed.
 
 Limitations: draft persistence across a browser crash/reload is not promised (beforeunload protection only). Batch-level evidence edits (`Batch.edit`) and media commands remain separate owners from the settings queue; they are serialized with settings and with each other by fencing rather than by sharing the queue. The `App.media` test now waits for the photo input to enable, because the panel's initial reconnection read shifts when the first fresh media read completes.
+
+
+## PR-C plan: location precedence and inference review (Tasks 5, 6)
+
+Branch `feat/batch-settings-overhaul-review`, stacked on the PR-B branch and targeting `interactive-app` after PR-B merges.
+
+### Task 5 baseline (5.1)
+
+- Representation: lot `location` is `inherit | unset | unknown | clear | set{CaptureRef}`; the batch default is the same without `inherit`, stored as append-only `capture_selection` rows (`subject_id` null for the default). A `draft` Default location (PR-A) is stored as `unset`. Shared Parts and evidence groups carry no location.
+- The only resolver is `intake-server/src/review/model.ts`: `inherit` takes the batch default; anything but `set` or `clear` blocks with `location_required`. The result is sealed as `effectiveLocation` in the lot's review facts and becomes `ManualEffect.location_id`, which execution plans, preconditions and verification read. Processing does not resolve locations; its inputs embed the raw lot, linked Part and batch defaults.
+- Operator commands set lot locations (bulk edit), copy them to split children and keep them on merge only when every source agrees.
+- Staleness is recomputed, not recorded: processing compares rebuilt input bytes, and preparations compare rebuilt review material. Group moves and evidence links already change a lot's media digest.
+
+Compatibility rules for the new assignments:
+
+1. Part and group assignments are `set` or `clear`; absence means no assignment. Commands use `unset` to remove one. `unknown` is not an assignment.
+2. Resolution per physical lot: a lot value other than `inherit` wins (including `unset`/`unknown`, which still block); otherwise the linked shared Part's assignment; otherwise the assignments of every group holding evidence linked to that lot, which must agree; otherwise the batch default. `clear` at any level stops the fallback.
+3. Different group assignments with no higher-precedence value block approval with `location_conflict`; nothing arbitrary is chosen. When media is unavailable and the lot would fall through to group level while any group assignment exists, resolution blocks instead of guessing.
+4. New fields are additive and omitted when absent, so existing snapshots, processing inputs, review facts and sealed approvals keep their exact bytes. A lot resolved from a Part or group records that source in its review facts.
+5. A Part assignment is an application default for its lots, never an InvenTree Part field. Quantities and lot identities are unchanged by resolution.
+
+### Task 5 results
+
+- 5.2 RED: `contracts/tests/capture-location.test.ts` was written first and failed for the missing resolver. It covers each precedence level, agreeing and conflicting groups, a Part over conflicting groups, `clear` at lot, Part and group level, unread group membership, and a batch-default change moving only fallback lots with quantities unchanged.
+- 5.3 GREEN: `contracts/src/capture-location.ts` (schemas, `resolveLotLocation`, `lotLocationGroups`), migration `0015`, `capture/locations.ts`, the `part.location` and `group_location` edits, Review materialization through the resolver, the Review editor's Part location control, evidence-group location controls and Review source labels (`From shared Part`, `From evidence group`, `Groups disagree`, `Groups unconfirmed`).
+- 5.4: `intake-server/tests/pg/capture-locations.test.ts` checks storage, validation (unknown or retired group, unobserved reference, immutability) and, through real media groups, per-lot resolution, conflict blocking, Part precedence, group `clear`, a default change changing only the fallback lot's dependency digest, and an evidence move changing only the moved lot's digest. Preparations compare exactly these rebuilt dependency bytes, so the same changes make affected preparations stale. Pinned review vectors are unchanged. A processing test shows the Part assignment's value never enters sealed inputs; the Part edit's revision bump still makes earlier attempts for its lots stale, as any Part edit does.
+- The PG tests were written alongside the server code, not strictly first. Negative controls (restored by SHA-256) made the resolver's conflict check and Part `clear`, the Review wiring, the processing stripping and the frontend group label each fail their tests. One control first passed and exposed a missing Part-`clear` case, which was added.
+- Checks: contracts 8/8 location tests and the full contract suite; intake fast tests; PG `capture-locations` 3/3 plus `operator-review`, `manual`, `capture-intent`, `capture-groups`, `media-input-scopes`, `processing-compatibility` and `capture` (36/36); frontend typecheck, ESLint and tests; readability and Markdown lint; Prettier; generated contracts.
+- Limitations: group membership comes from evidence linked to the lot itself, not evidence linked only to its shared Part. Operator split and merge commands copy only lot-level locations, as before.
+
+
+### Task 6 baseline and plan (6.1)
+
+Current seams:
+
+- Inputs `bench-intake-input/1`–`/4` (and, from round 2, `/5`) embed the raw subject, linked Part, batch defaults, human notes and labelled capture-context notes (`capture/context-input.ts`); manual shared tags reach processing only as a context note, and Auto is not represented.
+- Outputs are free-text proposals (`/1`–`/3`, summary plus note/media/research sources) or questions (`quantity` for lot subjects, `clarification`). A quantity answer is the only materialization path: `processing/answers.ts` turns it into a human `lot` quantity edit. `basis` (`counted`/`estimated`) is retained only in the sealed answer.
+- Staleness: `processingInputIsCurrent` rebuilds the input and compares bytes. A stale output is retained as `disposition: 'stale'` and never becomes a proposal or question; a stale question cannot be answered. A newer human count changes the lot bytes, so any earlier attempt is stale.
+- New-Part tags come only from `InventoryPartSpec.tags` in a Part `create` choice (deduplicated exactly or ASCII case-insensitively by `inventory/tags.ts`). Existing Parts have no tag mutation.
+
+Plan (no new input or handler versions):
+
+1. Auto intent: a labelled capture-context note states "Shared part tags: Auto requested" when intent asks for it, so existing manifests for legacy batches keep their bytes and an intent change makes earlier attempts stale.
+2. Output: `bench-intake-proposal/4` adds an optional evidence-bound `quantity` suggestion (`value`, `status: 'estimated'`, lot subjects only) and optional `tags` suggestions (accepted only when Auto was requested), with the `/2`/`/3` source rules. No defensible estimate stays a quantity question.
+3. Review shows a suggestion's source and estimated status. "Use this quantity" is a human lot edit and is offered only while the attempt is current and the lot has no human count (its own or an inherited exact batch default). Tag suggestions are shown apart from human tags; accepting adds them, deduplicated, to a shared Part's `create` spec. An existing Part's tags are never changed, and Review says so.
+4. Order Auto/None/Manual: verify no Auto value is fabricated and manual values stay exact; PO stays inactive.
+
+### Task 6 results
+
+- 6.2 RED: `contracts/tests/processing-suggestions.test.ts` failed first: a valid `/4` estimate in a `bench-intake-runner/2` envelope was refused.
+- 6.3 GREEN:
+  - `ProcessingProposalV4` in contracts, admitted only by the synthetic runner envelope.
+  - The requested-automation note (`automationIntentNotes`), added to every input version only when Auto tags are on. It is intent, not evidence: it never admits an input and no proposal may cite it.
+  - Acceptance rules in `processing/messages.ts`: estimates for lots only, and tags only with Auto requested.
+  - `ProcessingSuggestions` in Review.
+- 6.4 verification:
+  - `tests/pg/processing-suggestions.test.ts`: a lot estimate is retained and never becomes a count, a Part estimate is refused, tags without Auto are refused, tags with Auto are accepted, and a newer human count makes a later estimate `stale` with the human count kept.
+  - A fast test shows Auto order context adds no value and batches without Auto tags keep their input bytes.
+  - Only the server-derived requested-automation note (fixed per-batch identity and exact text) admits tag suggestions; the PG test quotes the marker in an ordinary batch note and is still refused.
+  - Frontend tests: acceptance is an explicit edit, a human count is kept, tags merge case-insensitively into a new Part, and an existing Part's tags are untouched.
+- Negative controls (restored by SHA-256) failed each target test: the estimated-only status, the lot-only rule, the Auto requirement, the intent note, and the human-count and existing-Part guards in Review.
+- Existing PG suites `processing`, `processing-media`, `processing-compatibility`, `research`, `capture-intent` and `operator-review` pass (30/30).
+- Provider limits: suggestions come only from the deterministic fixture path. The native runner and live inference are unchanged and unqualified; no schema pass or fixture estimate qualifies model reasoning. Acceptance needs a ready attempt (the snapshot marks non-current inputs `superseded`) from a successful Processing read made after mount at the displayed capture revision; a quantity also needs the lot to have no human count, including an exact batch default it inherits. Acceptance is always an explicit human edit.
+- 6.5 remains open until PR-C's review and selected CI are evidenced.
+
+### PR-C independent review
+
+#### Round 1
+
+Codex (`gpt-6.1-sol`, read-only) reviewed exactly `f9b8fe1..81c0441`: no Critical findings; four Important and three Minor. It found no issues in the precedence/clear/conflict resolver, retired-group filtering, the migration, FKs and grants, legacy absent-field compatibility, quantity preservation, `/4` source binding, older-format admission or Auto order values. Each fix has a regression test that fails when the fix is reverted (negative controls restored by SHA-256):
+
+1. Important: Review offered a suggestion after its attempt was superseded (changed evidence, Auto turned off, a tag removed). Acceptance now needs the attempt `ready`; the snapshot marks any attempt whose input is no longer current `superseded`, and Review shows it as history only.
+2. Important: the group location control called the capture command directly, with no retained choice, dirtiness or fences. `GroupLocationControl` keeps the chosen value dirty until acknowledgement, reports through the media dirty sources (so settings and notes are fenced), respects sibling fences and offers retry of the same change or discard.
+3. Important: batch manual shared tags never reached a new Part's tags. `SharedTagsChoice` in the decision panel shows them as human tags and offers an explicit edit adding them to a new shared Part's create spec; existing Parts are only explained.
+4. Important: any note containing the marker text admitted tag suggestions. Admission now needs the server-derived note: a fixed per-batch identity (`automationNoteId`) and the exact text.
+5. Minor: Review's tag merge lowercased all Unicode. `tagKey` in contracts follows the inventory adapter (fold only all-printable-ASCII names), and a server test keeps it equal to `approvedTagNamesValid`.
+6. Minor: the Review table dropped the location source label. It now shows the value and its source.
+7. Minor: the processing test claimed unchanged bytes without the Part revision bump. It now models the revision and asserts only that the location value stays out.
+
+#### Round 2
+
+Codex reviewed exactly `f9b8fe1..2c69fb6`: no Critical findings; three Important and one Minor. Round-1 fixes 3–7 were confirmed.
+
+1. Important: cached Processing data could still enable acceptance after the capture revision moved. `ManualWorkspace` now passes `processingCurrent` only after a successful mounted read that is not refetching or failing and whose `capture_revision` matches the displayed batch; otherwise suggestions are history. Regression in `LotEvidence.test.tsx`.
+2. Important: automatic tag acceptance had no reachable current path, because processing inputs refused a subject or linked Part whose choice is `create`, while tags can only be added to a `create` spec. Mitch chose a new create-capable input. `bench-intake-input/5` (same `synthetic-research/2` profile and `processing/2` handler, otherwise identical to `/2`) is built only when the subject or linked Part has a create choice; inputs without one stay `/2` byte for byte, and research (`/3`), native (`/4`) and legacy (`/1`) inputs still refuse create. The currency rebuild uses the same constructor, so a create choice appearing or leaving makes a retained input stale. Regressions: a fast constructor test and a PG journey (Auto on, create choice, `/5` attempt, accepted tag suggestion, job still `ready` at the current revision); negative controls on the attempt constructor, the currency rebuild and version selection each fail.
+3. Important: discarding an unconfirmed group location cleared local state while `Batch` still held the retained command. Discard now runs the owner's explicit reload (which clears that command and remounts Capture); while the control is still mounted the reload failed, so the change and its protection stay. Regression in `CaptureWorkspace.media.test.tsx`.
+4. Minor: the status line at the top of this handover was stale. Updated, along with the Task 6 freshness note.
+
+#### Round 3
+
+Codex reviewed exactly `f9b8fe1..12d3ab9`: no Critical or Minor findings; one Important. Round-2 fixes 1–4 and input `/5` were confirmed.
+
+1. Important: the requested-automation note counted as evidence. With Auto tags on and no other evidence, it admitted an input and could be the only source of a `/4` quantity estimate. `isAutomationIntentNote` (`capture/context-input.ts`) now excludes it from the `/1` and `/2`/`/5` admission checks, and provenance refuses any proposal that cites it (`runner_source_mismatch`, every proposal version). With real evidence the input is still admitted, so the quantity question path is unchanged. Regression in `processing-provenance.test.ts`; negative controls on each of the three checks fail.
+
+#### Round 4
+
+Codex reviewed exactly `f9b8fe1..71f731a`: no Critical or Minor findings; one Important. The round-3 fix was confirmed.
+
+1. Important: the producers still cited every input note, so with Auto tags on the development runner's proposal was refused (`runner_source_mismatch`) and its attempt never reached `ready`; the native prompt also offered the intent note as an inspected source. `evidenceNotes` (`capture/context-input.ts`) now filters the citable notes in provenance, the development runner (moved to `src/dev/synthetic-runner.ts` so tests run the real code), the native prompt (`agents/prompt.ts`, which still shows every note as context) and the process-test worker. Regressions: a PG test runs the development runner on an Auto batch through acceptance to `ready` (`processing-suggestions.test.ts`), and a PG test stages a native prompt for an Auto batch (`agents.test.ts`); negative controls on both filters fail. The process-test worker's filter has no failing control, because the process tests do not enable Auto.
+
+#### Round 5
+
+Codex reviewed exactly `f9b8fe1..c526b69`: no Critical findings; one Important and one Minor. The round-4 fix was confirmed for the development runner, native prompt and process-test worker.
+
+1. Important: a lot with `quantity: inherit` and an exact human batch quantity already has a human count, but the estimate guard checked only the lot's own `set` mode, so an estimate could replace it. `ProcessingSuggestions` now receives the batch default (`defaultQuantity`) and resolves an inherited quantity before the guard. Regression in `ProcessingSuggestions.test.tsx`; negative control fails.
+2. Minor: the browser qualification fixture (`tests/fixtures/processing-browser.ts`) was another producer citing every note, and it refused input `/5`. It keeps its own question branch and now delegates proposals to `syntheticDevelopmentRunner`, which admits `/2` and `/5`, cites only evidence notes and is covered by the Auto PG test. The fixture is a long-lived manual entrypoint and was not launched. A sweep of remaining note-source producers found only `research-protocol-child.cjs`; Round 6 corrected the reasoning recorded for it here.
+
+#### Round 6
+
+Codex reviewed exactly `f9b8fe1..cbac3f0`: no Critical or Important findings; one Minor. Both round-5 fixes were confirmed.
+
+1. Minor: `research-protocol-child.cjs` cited `manifest.notes[0]`. In proposal mode it never reads an artifact, so a media-only Auto input made it cite the intent note (the Round 5 note above wrongly assumed it cited media). It now cites the first note that is not the intent note (its identity mirrors `automationNoteId`) and otherwise the first media version. Regression in `tests/process/research-child.test.ts` (media-only Auto input, provenance accepts the proposal); negative control fails.
+
+#### Round 7
+
+Codex reviewed exactly `f9b8fe1..d3ddca9`: no Critical, Important or Minor findings. The round-6 fix was confirmed, and its sweep found no other proposal producer or guard with the same defect.
+
+#### PR and CI
+
+PR #88 was opened against `interactive-app` at head `d3ddca9`. `interactive-app` had not moved (`f9b8fe1`), so no merge or rebase was needed. Selected CI on that head passed: Frontend, Intake PostgreSQL and process, Intake contracts and HTTP, TypeScript lint, Markdown lint and Changed paths. Backend lint, Backend test and Shared workflow sync were skipped because no backend or skill paths changed. This docs-only commit then checked Task 6.5.

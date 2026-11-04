@@ -1,7 +1,11 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import { and, eq } from 'drizzle-orm'
-import { validate, type ProcessingEnvelopeDto } from '@invimport/contracts'
+import {
+  validate,
+  type ProcessingEnvelopeDto,
+  type ProcessingProposalDto,
+} from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
 import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
 import {
@@ -12,6 +16,7 @@ import {
 } from './schema.ts'
 import { appendEvent, sha256, verifyBytes } from '../db/authority.ts'
 import { lockCaptureForInputSettlement } from '../capture/repository.ts'
+import { isAutomationIntentNote } from '../capture/context-input.ts'
 import { lockLane } from './scope.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { MAX_RUNNER_MESSAGE_BYTES } from './limits.ts'
@@ -63,11 +68,29 @@ function validatePayloadReferences(
 
   if (envelope.kind === 'proposal') {
     validateProposalSources(authority.manifest, envelope.payload)
+    validateSuggestions(authority.manifest, envelope.payload)
   }
 
   const quantityQuestion = envelope.kind === 'question' && envelope.payload.kind === 'quantity'
   if (quantityQuestion && !('quantity' in authority.manifest.subject)) {
     fail('invalid_question', 422)
+  }
+}
+
+/** A quantity estimate needs a lot subject; tag suggestions need Auto tags in the sealed input. */
+function validateSuggestions(manifest: Authority['manifest'], proposal: ProcessingProposalDto) {
+  if (!('schema_version' in proposal) || proposal.schema_version !== 'bench-intake-proposal/4') {
+    return
+  }
+  if (proposal.quantity && !('quantity' in manifest.subject)) {
+    fail('invalid_proposal', 422)
+  }
+  // Only the server-derived note counts; marker text in ordinary evidence is just text.
+  const autoRequested = manifest.notes.some(
+    (note) => note.subject_id === null && isAutomationIntentNote(note, manifest.batch_id),
+  )
+  if (proposal.tags && !autoRequested) {
+    fail('auto_tags_not_requested', 422)
   }
 }
 

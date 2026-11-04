@@ -10,6 +10,7 @@ import { sha256 } from '../db/authority.ts'
 import type { BlobStore } from '../media/blob-store.ts'
 import { mediaContent } from '../media/content.ts'
 import { decodeMediaInputs } from '../media/inputs.ts'
+import { evidenceNotes } from '../capture/context-input.ts'
 import type { ProcessingConfig } from '../processing/attempts.ts'
 import type { ResearchInput } from '../processing/runner.ts'
 import { loadProcessingAuthority } from '../processing/authority.ts'
@@ -39,11 +40,13 @@ export async function stageNativePrompt(
       throw new Error('agent_input_invalid')
     }
   })
-  const sources: ProcessingSourceDto[] = manifest.notes.map((note) => ({
-    kind: 'note',
-    note_id: note.id,
-    text_sha256: sha256(Buffer.from(note.text)).toString('hex'),
-  }))
+  const sources: ProcessingSourceDto[] = evidenceNotes(manifest.notes, manifest.batch_id).map(
+    (note) => ({
+      kind: 'note',
+      note_id: note.id,
+      text_sha256: sha256(Buffer.from(note.text)).toString('hex'),
+    }),
+  )
   const images: NativePrompt['images'] = []
   const unavailable: string[] = []
   const media = decodeMediaInputs(

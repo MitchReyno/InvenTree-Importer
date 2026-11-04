@@ -32,3 +32,11 @@ export const captureTags = Type.Array(
   Type.String({ minLength: 1, maxLength: 100, pattern: '[^\\s]' }),
   { maxItems: 32, uniqueItems: true },
 )
+
+/**
+ * Native tag names are case-insensitive; only unambiguous all-ASCII names are folded, so `É` and
+ * `é` stay distinct. Shared by the inventory adapter and Review's tag deduplication.
+ */
+export function tagKey(value: string) {
+  return /^[\x20-\x7e]+$/.test(value) ? value.toLowerCase() : value
+}

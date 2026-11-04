@@ -107,7 +107,7 @@ All checklist work belongs to its task's bundle. Each task includes its document
   - [x] 4.2.2 Cover navigation/unmount protection and prevent an old receipt from labelling newer edits saved.
 - [x] 4.3 GREEN: assemble title/Add batch notes, one Default location, supplier/No supplier/new drafts, disabled PO preview directly below supplier, shared tags and Custom instructions; remove obsolete panel fields/buttons.
 - [x] 4.4 Implement acknowledged serialized autosave, validation/error/conflict/unconfirmed UI and explicit recovery; preserve hidden/removed notes and existing scope restrictions.
-- [ ] 4.5 Verify frontend/HTTP/PG boundaries and browser focus/drafts; update owning architecture and handover, then satisfy PR-B exact-head review and selected CI before any authorized merge.
+- [x] 4.5 Verify frontend/HTTP/PG boundaries and browser focus/drafts; update owning architecture and handover, then satisfy PR-B exact-head review and selected CI before any authorized merge.
 
 ## 5. Resolve location assignments without merging lots
 
@@ -120,11 +120,11 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Verification: PG resolver/transaction tests, Processing/Review stale-input tests and targeted UI tests, plus affected frontend/server checks.
 - Risks: confusing shared Part defaults with inventory Part fields or ambiguous many-group evidence; keep scope and effective-source labels explicit.
 
-- [ ] 5.1 Establish legacy lot-default behaviour and enumerate explicit assignment/unknown/clear compatibility rules.
-- [ ] 5.2 RED: cover each precedence level, matching/conflicting groups, higher override over group conflict, clear suppression and batch default edits.
-- [ ] 5.3 GREEN: implement attributable assignments, necessary scope controls, resolution and Review source labels without stock splitting.
-- [ ] 5.4 Verify evidence-link/group edits invalidate affected inputs/preparations transactionally, while chosen values/approved history and distinct lots remain intact.
-- [ ] 5.5 Refactor resolver ownership, run affected PG/UI/contract checks and update docs/handover within PR-C.
+- [x] 5.1 Establish legacy lot-default behaviour and enumerate explicit assignment/unknown/clear compatibility rules.
+- [x] 5.2 RED: cover each precedence level, matching/conflicting groups, higher override over group conflict, clear suppression and batch default edits.
+- [x] 5.3 GREEN: implement attributable assignments, necessary scope controls, resolution and Review source labels without stock splitting.
+- [x] 5.4 Verify evidence-link/group edits invalidate affected inputs/preparations transactionally, while chosen values/approved history and distinct lots remain intact.
+- [x] 5.5 Refactor resolver ownership, run affected PG/UI/contract checks and update docs/handover within PR-C.
 
 ## 6. Carry inference preferences through Processing and Review
 
@@ -137,11 +137,11 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Verification: contract, PG/Processing and frontend Review tests; controlled process input/output tests as applicable. Neither a schema pass nor a deterministic suggestion qualifies live model reasoning.
 - Risks: a plausible estimate becoming a chosen count, Auto inventing values and existing-Part mutation creep.
 
-- [ ] 6.1 Confirm current protocol and review authority seams; record exact new input/output versions and tag deduplication/removal policy.
-- [ ] 6.2 RED: cover supported evidence estimate, no-defensible-estimate question, unavailable provider, human count over stale output and manual/Auto tag combinations.
-- [ ] 6.3 GREEN: retain inference intent, bind proposals/questions to exact inputs/evidence and require human review before chosen values/execution preparation.
-- [ ] 6.4 Verify Auto order/date never fabricates values, manual values remain exact, old input/approval formats still read and existing-Part tags remain unmodified.
-- [ ] 6.5 Record actual tests and remaining provider limits; update Processing/Review architecture and complete PR-C review/selected-CI gates when evidenced.
+- [x] 6.1 Confirm current protocol and review authority seams; record exact new input/output versions and tag deduplication/removal policy.
+- [x] 6.2 RED: cover supported evidence estimate, no-defensible-estimate question, unavailable provider, human count over stale output and manual/Auto tag combinations.
+- [x] 6.3 GREEN: retain inference intent, bind proposals/questions to exact inputs/evidence and require human review before chosen values/execution preparation.
+- [x] 6.4 Verify Auto order/date never fabricates values, manual values remain exact, old input/approval formats still read and existing-Part tags remain unmodified.
+- [x] 6.5 Record actual tests and remaining provider limits; update Processing/Review architecture and complete PR-C review/selected-CI gates when evidenced.
 
 ## 7. Qualify supervised location and supplier creation
 
