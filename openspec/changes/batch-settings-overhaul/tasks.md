@@ -48,11 +48,12 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Verification: `pnpm typecheck`, `pnpm contracts:check`, `pnpm test:intake`, `pnpm db:intake test`; disposable DB migration/restart and restricted-role grants. Capture snapshot permissions and exact lexical IDs are part of the test boundary.
 - Risks: implicit activation of old capture tags/notes; contain through explicit read mapping and unchanged approved history.
 
-- [ ] 1.1 Establish baseline old snapshot/command/input fixtures and record the concrete additive schema/format plan in the maintained handover.
-- [ ] 1.2 RED: add regressions for new intent round-trip, distinct batch/order notes, hide/remove history and manual tags with Auto off on migration.
-- [ ] 1.3 GREEN: implement versioned DTOs, facade generation, additive tables/columns, bounded validation and scoped transactional reads/edits.
-- [ ] 1.4 Verify old quantity/context choices, archived/frozen permissions, parent/logo references and immutable history survive migrations and restart.
-- [ ] 1.5 Refactor by owning responsibility; update server/contract documentation and record checks/limitations before the PR-A review gate.
+- [x] 1.1 Establish baseline old snapshot/command/input fixtures and record the concrete additive schema/format plan in the maintained handover.
+- [x] 1.2 RED: add regressions for new intent round-trip, distinct batch/order notes, hide/remove history and manual tags with Auto off on migration.
+- [x] 1.3 GREEN: implement versioned DTOs, facade generation, additive tables/columns, bounded validation and scoped transactional reads/edits.
+- [x] 1.4 Verify old quantity/context choices, archived/frozen permissions, parent/logo references and immutable history survive migrations and restart.
+- [x] 1.5 Refactor by owning responsibility; update server/contract documentation and record checks/limitations before the PR-A review gate.
+- [x] 1.6 Correct review findings: unrelated settings saves keep unchanged legacy context modes regardless of key order, and the upgrade regression asserts the exact legacy snapshot field set.
 
 ## 2. Add bounded name-first catalogue search
 
@@ -65,17 +66,18 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Verification: `pnpm test:intake`, `pnpm db:intake test`, contracts/type checks. Controlled HTTP target tests cover deadlines/body limits, supplier flags, hierarchy, exact PKs, invalid pagination URLs and independent candidate retrieval/truncation for fuzzy matching.
 - Risks: target-version and search-field variation. Record admitted fields and unsupported responses explicitly; no live API requests required.
 
-- [ ] 2.1 Confirm supported target serializer/search shapes using versioned source or fixtures; record exact/name/fuzzy tiers, numeric-ID fallback and bounded candidate-snapshot policy independent of strict upstream query filtering.
-- [ ] 2.2 RED: cover bounded name search/page results, exact ID, ambiguous names, foreign scope, redirect/off-origin pagination, missing supplier role and a typo candidate absent from strict upstream results but present in the admitted snapshot.
-- [ ] 2.3 GREEN: implement allowlisted semantic reads, typed route/client and final selection observation binding.
-- [ ] 2.4 Verify auth before target traffic, size/deadline/rate/candidate bounds, visible partial coverage, no-match versus unavailable and stale-context response rejection.
-- [ ] 2.5 Update read-adapter docs and handover; run affected contract/HTTP/PG checks and complete the PR-A independent review/selected-CI gates when actually reached.
+- [x] 2.1 Confirm supported target serializer/search shapes using versioned source or fixtures; record exact/name/fuzzy tiers, numeric-ID fallback and bounded candidate-snapshot policy independent of strict upstream query filtering.
+- [x] 2.2 RED: cover bounded name search/page results, exact ID, ambiguous names, foreign scope, redirect/off-origin pagination, missing supplier role and a typo candidate absent from strict upstream results but present in the admitted snapshot.
+- [x] 2.3 GREEN: implement allowlisted semantic reads, typed route/client and final selection observation binding.
+- [x] 2.4 Verify auth before target traffic, size/deadline/rate/candidate bounds, visible partial coverage, no-match versus unavailable and stale-context response rejection.
+- [x] 2.6 Correct review findings: the strict parser honours the 512 KiB page limit and the 15-second snapshot budget bounds every page request and body read.
+- [x] 2.5 Update read-adapter docs and handover; run affected contract/HTTP/PG checks and complete the PR-A independent review/selected-CI gates when actually reached.
 
 ## 3. Qualify and build reusable input components
 
 - PR delivery: PR-B.
 - Outcome: accessible, controlled inputs support searchable references, optional notes, Auto/None/manual values and manual-plus-Auto tags.
-- Scope and approach: isolated exact React Select 5.10.2 and Fuse.js 7.1.0 proof first, then a small styled/RHF adapter and one component per TSX file. Reuse native date/text controls and installed upload primitives. No package option object becomes a domain reference.
+- Scope and approach: isolated exact React Select 5.10.2 and Fuse.js 7.1.0 proof first, then a small styled/RHF adapter and one component per TSX file. Auto/None/Manual fields use Radix Popover dropdowns with a dedicated manual-input area; React Select serves only the searchable reference pickers. Reuse native date/text controls and installed upload primitives. No package option object becomes a domain reference.
 - Prerequisites: Task 1 types. If package proof fails, revise the dependency decision before adopting a replacement.
 - Acceptance: [keyboard picker](specs/capture-reference-selection/spec.md#scenario-numeric-id-and-keyboard-interaction), [fuzzy search](specs/capture-reference-selection/spec.md#requirement-typo-tolerant-reference-search), [notes](specs/capture-batch-settings/spec.md#scenario-optional-batch-and-order-notes), [logo explanation](specs/capture-reference-selection/spec.md#scenario-inspect-future-logo-discovery).
 - TDD approach: package qualification uses a disposable harness rather than a false RED claim. Then RED component behaviours precede production wrappers; a new browser dependency is gated on real interaction evidence.
@@ -83,7 +85,7 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Risks: second styling runtime, async selection races and disabled-input focus. Expose tooltip on a focusable explanation wrapper.
 
 - [ ] 3.1 Run the scoped package proof with React19/RHF/StrictMode, controlled reset, async cancellation, IME, touch, keyboard, bounded fuzzy ranking latency and zoom; record license, peer, maintenance and dependency/advisory delta.
-- [ ] 3.2 RED: add meaningful input tests for name/ID identity, typo/accent/case matches, exact-first stable ranking, false positives, partial coverage, stale results, tags plus Auto, manual date/text, Hide versus Remove and disabled coming-soon explanation.
+- [ ] 3.2 RED: add meaningful input tests for name/ID identity, typo/accent/case matches, exact-first stable ranking, false positives, partial coverage, stale results, tags plus Auto, Auto/None/Manual popover keyboard/focus and manual date/text area, Hide versus Remove and disabled coming-soon explanation.
 - [ ] 3.3 GREEN: deliver the reusable components, typed adapters and shared fuzzy ranker with module-scope styled-components and native input validation; prevent default substring filtering from removing scored suggestions.
 - [ ] 3.4 Verify the same picker supports supplier/location/parent and the same notes shell supports separate scopes without losing hidden text; verify `Mousr`/`Incomming` suggestions preserve original labels/IDs and never auto-select or create records.
 - [ ] 3.5 Refactor integration seams, run frontend checks and record proof limitations before Task 4 consumes the components.

@@ -546,6 +546,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{id}/catalogue/{model}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                model: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    q: string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                    model: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description CatalogueSearch */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CatalogueSearch"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/catalogue/{model}/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                model: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    model: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description CatalogueCandidates */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CatalogueCandidates"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/connection-status": {
         parameters: {
             query?: never;
@@ -2826,6 +2928,218 @@ export interface components {
             /** @constant */
             api_version: "bench-intake-app/1";
         };
+        CaptureSettingsIntent: {
+            supplier: {
+                absent: boolean;
+                selection: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "existing";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "company";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "draft";
+                    draft_id: string;
+                };
+            };
+            order: {
+                reference: {
+                    /** @constant */
+                    mode: "auto";
+                } | {
+                    /** @constant */
+                    mode: "none";
+                } | {
+                    /** @constant */
+                    mode: "manual";
+                    value: string;
+                };
+                purchase_date: {
+                    /** @constant */
+                    mode: "auto";
+                } | {
+                    /** @constant */
+                    mode: "none";
+                } | {
+                    /** @constant */
+                    mode: "manual";
+                    value: string;
+                };
+            };
+            shared_tags: {
+                manual: string[];
+                auto: boolean;
+            };
+        };
+        CaptureSettingsIntentRecord: {
+            value: {
+                supplier: {
+                    absent: boolean;
+                    selection: {
+                        /** @constant */
+                        mode: "unset";
+                    } | {
+                        /** @constant */
+                        mode: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "company";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                    } | {
+                        /** @constant */
+                        mode: "draft";
+                        draft_id: string;
+                    };
+                };
+                order: {
+                    reference: {
+                        /** @constant */
+                        mode: "auto";
+                    } | {
+                        /** @constant */
+                        mode: "none";
+                    } | {
+                        /** @constant */
+                        mode: "manual";
+                        value: string;
+                    };
+                    purchase_date: {
+                        /** @constant */
+                        mode: "auto";
+                    } | {
+                        /** @constant */
+                        mode: "none";
+                    } | {
+                        /** @constant */
+                        mode: "manual";
+                        value: string;
+                    };
+                };
+                shared_tags: {
+                    manual: string[];
+                    auto: boolean;
+                };
+            };
+            default_location_draft: string | null;
+            /** Format: int64 */
+            version: string;
+            actor_id: string;
+            created_at: string;
+        };
+        CaptureSettingNoteRecord: {
+            scope: "batch" | "order";
+            text: string | null;
+            /** Format: int64 */
+            version: string;
+            actor_id: string;
+            created_at: string;
+        };
+        CaptureReferenceDraft: {
+            draft_id: string;
+            /** @constant */
+            kind: "location";
+            value: {
+                name: string;
+                description: string;
+                parent: null | {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "location";
+                    /** Format: int64 */
+                    pk: string;
+                };
+            };
+        } | {
+            draft_id: string;
+            /** @constant */
+            kind: "company";
+            value: {
+                name: string;
+                description: string;
+                also_manufacturer: boolean;
+                logo: null | {
+                    evidence_id: string;
+                    version_id: string;
+                };
+            };
+        };
+        CaptureReferenceDraftRecord: {
+            draft_id: string;
+            /** @constant */
+            kind: "location";
+            value: {
+                name: string;
+                description: string;
+                parent: null | {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "location";
+                    /** Format: int64 */
+                    pk: string;
+                };
+            };
+            /** Format: int64 */
+            version: string;
+            actor_id: string;
+            created_at: string;
+        } | {
+            draft_id: string;
+            /** @constant */
+            kind: "company";
+            value: {
+                name: string;
+                description: string;
+                also_manufacturer: boolean;
+                logo: null | {
+                    evidence_id: string;
+                    version_id: string;
+                };
+            };
+            /** Format: int64 */
+            version: string;
+            actor_id: string;
+            created_at: string;
+        };
+        CaptureDefaultLocationSetting: {
+            /** @constant */
+            mode: "unset";
+        } | {
+            /** @constant */
+            mode: "unknown";
+        } | {
+            /** @constant */
+            mode: "clear";
+        } | {
+            /** @constant */
+            mode: "set";
+            value: {
+                observation_id: string;
+                target_context_id: string;
+                /** @constant */
+                model: "location";
+                /** Format: int64 */
+                pk: string;
+            };
+        } | {
+            /** @constant */
+            mode: "draft";
+            draft_id: string;
+        };
         CaptureListQuery: {
             q?: string;
             archived?: "include" | "exclude";
@@ -3577,6 +3891,121 @@ export interface components {
                 kind: "note";
                 subject_id: string | null;
                 text: string;
+            } | {
+                /** @constant */
+                kind: "batch_settings";
+                title: string;
+                default_location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "draft";
+                    draft_id: string;
+                };
+                intent: {
+                    supplier: {
+                        absent: boolean;
+                        selection: {
+                            /** @constant */
+                            mode: "unset";
+                        } | {
+                            /** @constant */
+                            mode: "existing";
+                            reference: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                        } | {
+                            /** @constant */
+                            mode: "draft";
+                            draft_id: string;
+                        };
+                    };
+                    order: {
+                        reference: {
+                            /** @constant */
+                            mode: "auto";
+                        } | {
+                            /** @constant */
+                            mode: "none";
+                        } | {
+                            /** @constant */
+                            mode: "manual";
+                            value: string;
+                        };
+                        purchase_date: {
+                            /** @constant */
+                            mode: "auto";
+                        } | {
+                            /** @constant */
+                            mode: "none";
+                        } | {
+                            /** @constant */
+                            mode: "manual";
+                            value: string;
+                        };
+                    };
+                    shared_tags: {
+                        manual: string[];
+                        auto: boolean;
+                    };
+                };
+                notes: {
+                    batch: string | null;
+                    order: string | null;
+                };
+                drafts: ({
+                    draft_id: string;
+                    /** @constant */
+                    kind: "location";
+                    value: {
+                        name: string;
+                        description: string;
+                        parent: null | {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "location";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                    };
+                } | {
+                    draft_id: string;
+                    /** @constant */
+                    kind: "company";
+                    value: {
+                        name: string;
+                        description: string;
+                        also_manufacturer: boolean;
+                        logo: null | {
+                            evidence_id: string;
+                            version_id: string;
+                        };
+                    };
+                })[];
             };
         };
         CaptureObserve: {
@@ -3755,6 +4184,111 @@ export interface components {
                 actor_id: string;
                 created_at: string;
             }[];
+            settings_intent?: {
+                value: {
+                    supplier: {
+                        absent: boolean;
+                        selection: {
+                            /** @constant */
+                            mode: "unset";
+                        } | {
+                            /** @constant */
+                            mode: "existing";
+                            reference: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                        } | {
+                            /** @constant */
+                            mode: "draft";
+                            draft_id: string;
+                        };
+                    };
+                    order: {
+                        reference: {
+                            /** @constant */
+                            mode: "auto";
+                        } | {
+                            /** @constant */
+                            mode: "none";
+                        } | {
+                            /** @constant */
+                            mode: "manual";
+                            value: string;
+                        };
+                        purchase_date: {
+                            /** @constant */
+                            mode: "auto";
+                        } | {
+                            /** @constant */
+                            mode: "none";
+                        } | {
+                            /** @constant */
+                            mode: "manual";
+                            value: string;
+                        };
+                    };
+                    shared_tags: {
+                        manual: string[];
+                        auto: boolean;
+                    };
+                };
+                default_location_draft: string | null;
+                /** Format: int64 */
+                version: string;
+                actor_id: string;
+                created_at: string;
+            };
+            setting_notes?: {
+                scope: "batch" | "order";
+                text: string | null;
+                /** Format: int64 */
+                version: string;
+                actor_id: string;
+                created_at: string;
+            }[];
+            reference_drafts?: ({
+                draft_id: string;
+                /** @constant */
+                kind: "location";
+                value: {
+                    name: string;
+                    description: string;
+                    parent: null | {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+                /** Format: int64 */
+                version: string;
+                actor_id: string;
+                created_at: string;
+            } | {
+                draft_id: string;
+                /** @constant */
+                kind: "company";
+                value: {
+                    name: string;
+                    description: string;
+                    also_manufacturer: boolean;
+                    logo: null | {
+                        evidence_id: string;
+                        version_id: string;
+                    };
+                };
+                /** Format: int64 */
+                version: string;
+                actor_id: string;
+                created_at: string;
+            })[];
             parts: {
                 id: string;
                 label: string;
@@ -3929,6 +4463,140 @@ export interface components {
             cursor: {
                 stream_id: string;
                 sequence: string;
+            };
+        };
+        CatalogueModel: "location" | "supplier";
+        CatalogueQuery: {
+            q: string;
+        };
+        CatalogueLocation: {
+            /** @constant */
+            kind: "location";
+            /** Format: int64 */
+            pk: string;
+            name: string;
+            description: string;
+            path: string;
+            parent_pk: string | null;
+            structural: boolean;
+        };
+        CatalogueSupplier: {
+            /** @constant */
+            kind: "supplier";
+            /** Format: int64 */
+            pk: string;
+            name: string;
+            description: string;
+            manufacturer: boolean;
+        };
+        CatalogueRecord: {
+            /** @constant */
+            kind: "location";
+            /** Format: int64 */
+            pk: string;
+            name: string;
+            description: string;
+            path: string;
+            parent_pk: string | null;
+            structural: boolean;
+        } | {
+            /** @constant */
+            kind: "supplier";
+            /** Format: int64 */
+            pk: string;
+            name: string;
+            description: string;
+            manufacturer: boolean;
+        };
+        CatalogueCoverage: {
+            loaded: number;
+            total: number;
+            truncated: boolean;
+        };
+        CatalogueSearch: {
+            model: "location" | "supplier";
+            target_context_id: string;
+            query: string;
+            results: ({
+                /** @constant */
+                kind: "location";
+                /** Format: int64 */
+                pk: string;
+                name: string;
+                description: string;
+                path: string;
+                parent_pk: string | null;
+                structural: boolean;
+            } | {
+                /** @constant */
+                kind: "supplier";
+                /** Format: int64 */
+                pk: string;
+                name: string;
+                description: string;
+                manufacturer: boolean;
+            })[];
+            coverage: {
+                loaded: number;
+                total: number;
+                truncated: boolean;
+            };
+            exact_id: {
+                /** @constant */
+                status: "not_requested";
+            } | {
+                /** @constant */
+                status: "not_found";
+            } | {
+                /** @constant */
+                status: "found";
+                record: {
+                    /** @constant */
+                    kind: "location";
+                    /** Format: int64 */
+                    pk: string;
+                    name: string;
+                    description: string;
+                    path: string;
+                    parent_pk: string | null;
+                    structural: boolean;
+                } | {
+                    /** @constant */
+                    kind: "supplier";
+                    /** Format: int64 */
+                    pk: string;
+                    name: string;
+                    description: string;
+                    manufacturer: boolean;
+                };
+            };
+        };
+        CatalogueCandidates: {
+            model: "location" | "supplier";
+            target_context_id: string;
+            candidates: ({
+                /** @constant */
+                kind: "location";
+                /** Format: int64 */
+                pk: string;
+                name: string;
+                description: string;
+                path: string;
+                parent_pk: string | null;
+                structural: boolean;
+            } | {
+                /** @constant */
+                kind: "supplier";
+                /** Format: int64 */
+                pk: string;
+                name: string;
+                description: string;
+                manufacturer: boolean;
+            })[];
+            coverage: {
+                loaded: number;
+                total: number;
+                truncated: boolean;
             };
         };
         ConnectionStatus: {
@@ -9308,6 +9976,12 @@ export type WorkerEnvelope = components['schemas']['WorkerEnvelope']
 export type ErrorDto = components['schemas']['ErrorDto']
 export type Bootstrap = components['schemas']['Bootstrap']
 export type Health = components['schemas']['Health']
+export type CaptureSettingsIntent = components['schemas']['CaptureSettingsIntent']
+export type CaptureSettingsIntentRecord = components['schemas']['CaptureSettingsIntentRecord']
+export type CaptureSettingNoteRecord = components['schemas']['CaptureSettingNoteRecord']
+export type CaptureReferenceDraft = components['schemas']['CaptureReferenceDraft']
+export type CaptureReferenceDraftRecord = components['schemas']['CaptureReferenceDraftRecord']
+export type CaptureDefaultLocationSetting = components['schemas']['CaptureDefaultLocationSetting']
 export type CaptureListQuery = components['schemas']['CaptureListQuery']
 export type InboxWorkflow = components['schemas']['InboxWorkflow']
 export type InboxList = components['schemas']['InboxList']
@@ -9325,6 +9999,14 @@ export type CaptureObservation = components['schemas']['CaptureObservation']
 export type CaptureSummary = components['schemas']['CaptureSummary']
 export type CaptureList = components['schemas']['CaptureList']
 export type CaptureSnapshot = components['schemas']['CaptureSnapshot']
+export type CatalogueModel = components['schemas']['CatalogueModel']
+export type CatalogueQuery = components['schemas']['CatalogueQuery']
+export type CatalogueLocation = components['schemas']['CatalogueLocation']
+export type CatalogueSupplier = components['schemas']['CatalogueSupplier']
+export type CatalogueRecord = components['schemas']['CatalogueRecord']
+export type CatalogueCoverage = components['schemas']['CatalogueCoverage']
+export type CatalogueSearch = components['schemas']['CatalogueSearch']
+export type CatalogueCandidates = components['schemas']['CatalogueCandidates']
 export type ConnectionStatus = components['schemas']['ConnectionStatus']
 export type HeaderWorkQuery = components['schemas']['HeaderWorkQuery']
 export type HeaderWork = components['schemas']['HeaderWork']

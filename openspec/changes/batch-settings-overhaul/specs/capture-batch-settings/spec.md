@@ -60,7 +60,7 @@ Valid editable settings SHALL autosave to retained application state with loaded
 
 ### Requirement: Disabled purchase-order controls
 
-Create a purchase order SHALL appear directly below supplier, disabled and greyed out with an explanation. Its future dependent order/purchase inputs SHALL be prepared as a disabled expandable preview: order/receipt number and purchase date each have Auto, None and Manual choices, Auto initially selected; manual values use text and calendar-date inputs respectively, with Add order notes revealing optional multiline notes. No preview action SHALL save active PO intent or cause a purchase-order operation. Future PO enablement is a separate change.
+Create a purchase order SHALL appear directly below supplier, disabled and greyed out with an explanation. Its future dependent order/purchase inputs SHALL be prepared as a disabled expandable preview: order/receipt number and purchase date each have Auto, None and Manual choices in a dropdown-style popover, Auto initially selected; manual values use a dedicated text or calendar-date input area inside that popover rather than an input embedded in a selectable option, with Add order notes revealing optional multiline notes. No preview action SHALL save active PO intent or cause a purchase-order operation. Future PO enablement is a separate change.
 
 #### Scenario: PO controls visible but inactive
 
@@ -72,7 +72,7 @@ Create a purchase order SHALL appear directly below supplier, disabled and greye
 
 - **GIVEN** the PO preview is expanded
 - **WHEN** the operator examines its inactive controls
-- **THEN** Auto/None/manual number and date options and the order-notes affordance are visible with the intended conditional layout; collapsing it does not erase retained order context.
+- **THEN** Auto/None/manual number and date popovers, their manual input areas and the order-notes affordance are visible with the intended conditional layout; collapsing it does not erase retained order context.
 
 ### Requirement: Evidence-based responsive placement
 

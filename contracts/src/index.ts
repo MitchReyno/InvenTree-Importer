@@ -14,6 +14,7 @@ export * from './effects.ts'
 import { headerSchemas } from './header.ts'
 export * from './header.ts'
 import { captureSchemas } from './capture.ts'
+import { catalogueSchemas } from './catalogue.ts'
 import { manualSchemas } from './manual.ts'
 import { mediaSchemas } from './media.ts'
 import { processingSchemas } from './processing.ts'
@@ -25,6 +26,8 @@ import { liveSchemas } from './live.ts'
 export * from './live.ts'
 export * from './scalars.ts'
 export * from './capture.ts'
+export * from './capture-intent.ts'
+export * from './catalogue.ts'
 export * from './manual.ts'
 export * from './processing.ts'
 export * from './research.ts'
@@ -157,6 +160,7 @@ export const schemas = {
   Bootstrap,
   Health,
   ...captureSchemas,
+  ...catalogueSchemas,
   ...headerSchemas,
   ...effectsSchemas,
   ...manualSchemas,

@@ -160,3 +160,50 @@ export const captureContexts = pgTable('capture_context', {
   actorId: uuid('actor_id').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+export const captureSettingsIntents = pgTable('capture_settings_intent', {
+  id: uuid().primaryKey(),
+  batchId: uuid('batch_id').notNull(),
+  version: bigint({ mode: 'bigint' }).notNull(),
+  value: jsonb().notNull(),
+  defaultLocationDraftId: uuid('default_location_draft_id'),
+  defaultLocationDraftKind: text('default_location_draft_kind').$type<'location'>(),
+  actorId: uuid('actor_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const captureSettingNotes = pgTable('capture_setting_note', {
+  id: uuid().primaryKey(),
+  batchId: uuid('batch_id').notNull(),
+  scope: text().$type<'batch' | 'order'>().notNull(),
+  version: bigint({ mode: 'bigint' }).notNull(),
+  text: text(),
+  actorId: uuid('actor_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const captureReferenceDraftIdentities = pgTable(
+  'capture_reference_draft_identity',
+  {
+    batchId: uuid('batch_id').notNull(),
+    draftId: uuid('draft_id').notNull(),
+    kind: text().$type<'location' | 'company'>().notNull(),
+    actorId: uuid('actor_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.batchId, table.draftId] })],
+)
+
+export const captureReferenceDrafts = pgTable('capture_reference_draft', {
+  id: uuid().primaryKey(),
+  batchId: uuid('batch_id').notNull(),
+  draftId: uuid('draft_id').notNull(),
+  kind: text().$type<'location' | 'company'>().notNull(),
+  version: bigint({ mode: 'bigint' }).notNull(),
+  value: jsonb().notNull(),
+  retired: boolean().notNull(),
+  logoEvidenceId: uuid('logo_evidence_id'),
+  logoVersionId: uuid('logo_version_id'),
+  actorId: uuid('actor_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})

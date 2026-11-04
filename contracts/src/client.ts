@@ -12,6 +12,7 @@ import type {
 } from '../generated/api.d.ts'
 import type { HeaderWorkQueryDto } from './header.ts'
 import type { CaptureListQueryDto } from './capture.ts'
+import type { CatalogueModelDto } from './catalogue.ts'
 import { validate } from './index.ts'
 import { successfulData } from './client-policy.ts'
 import { typedClient, commandHeaders } from './client-runtime.ts'
@@ -47,6 +48,31 @@ export function captureClient(baseUrl: string, csrfToken: string, transport: typ
           params: { path: { id } },
           body: input,
           headers: commandHeaders(key),
+        }),
+      ),
+  }
+}
+
+/** Read-only bounded catalogue reads for reference pickers; results are not selections. */
+export function catalogueClient(
+  baseUrl: string,
+  csrfToken: string,
+  transport: typeof fetch = fetch,
+) {
+  const client = typedClient(baseUrl, transport, csrfToken)
+
+  return {
+    search: (id: string, model: CatalogueModelDto, q: string) =>
+      successfulData(
+        client.GET('/api/v1/batches/{id}/catalogue/{model}', {
+          params: { path: { id, model }, query: { q } },
+        }),
+      ),
+
+    candidates: (id: string, model: CatalogueModelDto) =>
+      successfulData(
+        client.GET('/api/v1/batches/{id}/catalogue/{model}/candidates', {
+          params: { path: { id, model } },
         }),
       ),
   }

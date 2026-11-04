@@ -4,6 +4,7 @@ import type { Pool } from 'pg'
 import {
   Id,
   schemas,
+  type CatalogueModelDto,
   validate,
   type CaptureEditDto,
   type CaptureListQueryDto,
@@ -12,6 +13,8 @@ import {
 } from '@invimport/contracts'
 import type { DevConfig } from '../config.ts'
 import { CaptureError, captureRepository, fail } from './repository.ts'
+import type { CatalogueReader } from './catalogue.ts'
+import { requireCurrentTargetContext } from './target-context.ts'
 
 export type CaptureReadOperation = CaptureObserveDto & { includeTags?: true }
 export type CaptureRead = (operation: CaptureReadOperation) => Promise<{
@@ -28,6 +31,14 @@ const resourceId = (request: FastifyRequest) => {
   return id
 }
 
+const catalogueModel = (request: FastifyRequest): CatalogueModelDto => {
+  const model = (request.params as { model: string }).model
+  if (model !== 'location' && model !== 'supplier') {
+    fail('invalid_catalogue_model', 400)
+  }
+  return model
+}
+
 const commandKey = (request: FastifyRequest) => {
   const key = request.headers['idempotency-key']
   if (typeof key !== 'string' || !new RegExp(Id.pattern!).test(key)) {
@@ -42,8 +53,23 @@ export function registerCapture(
   pool: Pool,
   config: DevConfig,
   read?: CaptureRead,
+  catalogue?: CatalogueReader,
 ) {
   const repo = captureRepository(pool, config)
+
+  /** Scope, archive and target-context checks all precede any catalogue traffic. */
+  async function authorizeCatalogue(id: string): Promise<CatalogueReader> {
+    const saved = await repo.read(id)
+    if (saved.archived) {
+      fail('batch_archived', 409)
+    }
+    await requireCurrentTargetContext(pool, config)
+    if (!catalogue) {
+      fail('catalogue_unavailable', 503)
+    }
+    return catalogue
+  }
+
   app.register(async (scope) => {
     scope.addHook('preHandler', async () => {
       if (!config.apiKey?.trim() || config.credentialRef === 'unconfigured') {
@@ -85,6 +111,30 @@ export function registerCapture(
       '/api/v1/batches/:id/edits',
       { schema: { body: schemas.CaptureEdit, response: { 200: schemas.CaptureSnapshot } } },
       (req) => repo.edit(resourceId(req), commandKey(req), req.body),
+    )
+    scope.get<{ Querystring: { q: string } }>(
+      '/api/v1/batches/:id/catalogue/:model',
+      {
+        schema: { querystring: schemas.CatalogueQuery, response: { 200: schemas.CatalogueSearch } },
+      },
+      async (req) => {
+        const model = catalogueModel(req)
+        const reader = await authorizeCatalogue(resourceId(req))
+        const result = await reader.search(model, req.query.q)
+        await requireCurrentTargetContext(pool, config)
+        return result
+      },
+    )
+    scope.get(
+      '/api/v1/batches/:id/catalogue/:model/candidates',
+      { schema: { response: { 200: schemas.CatalogueCandidates } } },
+      async (req) => {
+        const model = catalogueModel(req)
+        const reader = await authorizeCatalogue(resourceId(req))
+        const result = await reader.candidates(model)
+        await requireCurrentTargetContext(pool, config)
+        return result
+      },
     )
     scope.post<{ Body: CaptureObserveDto }>(
       '/api/v1/batches/:id/observations',

@@ -77,6 +77,22 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/batches/{id}/catalogue/{model}",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "CatalogueSearch"
+    }
+  ],
+  [
+    "GET /api/v1/batches/{id}/catalogue/{model}/candidates",
+    {
+      "timeoutMs": 20000,
+      "errorMode": "typed",
+      "responseSchema": "CatalogueCandidates"
+    }
+  ],
+  [
     "GET /api/v1/connection-status",
     {
       "timeoutMs": 10000,

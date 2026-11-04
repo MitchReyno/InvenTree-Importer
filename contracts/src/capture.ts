@@ -1,29 +1,25 @@
-import { Type, type Static, type TProperties, type TSchema } from '@sinclair/typebox'
+import { Type, type Static } from '@sinclair/typebox'
 import { Id, PositivePk, Quantity, Revision } from './scalars.ts'
 import { InventoryModel, InventoryPartSpec, InventoryMapping, mappedReference } from './effects.ts'
+import {
+  CaptureRef,
+  calendarDate,
+  captureTags,
+  inheritable,
+  label,
+  note,
+  object,
+  selection,
+} from './capture-primitives.ts'
+import {
+  CaptureBatchSettingsChange,
+  CaptureReferenceDraftRecord,
+  CaptureSettingNoteRecord,
+  CaptureSettingsIntentRecord,
+  captureIntentSchemas,
+} from './capture-intent.ts'
 
-const object = <T extends TProperties>(properties: T) =>
-  Type.Object(properties, { additionalProperties: false })
-
-const label = Type.String({ minLength: 1, maxLength: 256 })
-const note = Type.String({ maxLength: 8192 })
-export const CaptureRef = object({
-  observation_id: Id,
-  target_context_id: Id,
-  model: Type.Union([Type.Literal('part'), Type.Literal('location')]),
-  pk: PositivePk,
-})
-
-const selection = <T extends TSchema>(value: T) =>
-  Type.Union([
-    object({ mode: Type.Literal('unset') }),
-    object({ mode: Type.Literal('unknown') }),
-    object({ mode: Type.Literal('clear') }),
-    object({ mode: Type.Literal('set'), value }),
-  ])
-
-const inheritable = <T extends TSchema>(value: T) =>
-  Type.Union([...selection(value).anyOf, object({ mode: Type.Literal('inherit') })])
+export { CaptureRef }
 
 export const CaptureQuantity = inheritable(Quantity)
 export const CaptureLocation = inheritable(CaptureRef)
@@ -32,11 +28,6 @@ export const CapturePartChoice = Type.Union([
   object({ mode: Type.Literal('create'), spec: InventoryPartSpec }),
 ])
 export const CaptureDefaults = object({ quantity: CaptureQuantity, location: CaptureLocation })
-const calendarDate = Type.String({ pattern: '^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}(?![\\s\\S])' })
-const captureTags = Type.Array(Type.String({ minLength: 1, maxLength: 100, pattern: '[^\\s]' }), {
-  maxItems: 32,
-  uniqueItems: true,
-})
 export const CaptureContext = object({
   supplier: selection(mappedReference('company')),
   purchase_date: selection(calendarDate),
@@ -100,6 +91,7 @@ export const CaptureEdit = object({
       choice: Type.Optional(CapturePartChoice),
     }),
     object({ kind: Type.Literal('note'), subject_id: Type.Union([Id, Type.Null()]), text: note }),
+    CaptureBatchSettingsChange,
   ]),
 })
 export const CaptureObserve = object({
@@ -161,6 +153,9 @@ export const CaptureSnapshot = object({
   target_context_id: Id,
   defaults: CaptureDefaults,
   context: Type.Optional(Type.Array(CaptureContextRecord, { maxItems: 101 })),
+  settings_intent: Type.Optional(CaptureSettingsIntentRecord),
+  setting_notes: Type.Optional(Type.Array(CaptureSettingNoteRecord, { maxItems: 2 })),
+  reference_drafts: Type.Optional(Type.Array(CaptureReferenceDraftRecord, { maxItems: 16 })),
   parts: Type.Array(object({ id: Id, label, revision: Revision, choice: CapturePartChoice })),
   lots: Type.Array(
     object({
@@ -193,6 +188,7 @@ export type InboxWorkflowDto = Static<typeof InboxWorkflow>
 export type InboxListDto = Static<typeof InboxList>
 
 export const captureSchemas = {
+  ...captureIntentSchemas,
   CaptureListQuery,
   InboxWorkflow,
   InboxList,

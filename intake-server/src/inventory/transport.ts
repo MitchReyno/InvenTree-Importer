@@ -37,6 +37,57 @@ export type ReadOperation = {
     | 'get_company'
   pk: string
 }
+/**
+ * Bounded catalogue list reads. InvenTree's LimitOffsetPagination has no default page size, so an
+ * omitted limit would return the entire catalogue; every list request therefore carries one.
+ */
+export type ListOperation = {
+  kind: 'list_locations' | 'list_supplier_companies'
+  limit: number
+  offset: number
+  search?: string
+}
+export const LIST_MAX_PAGE_SIZE = 100
+export const LIST_MAX_OFFSET = 10000
+export const LIST_SEARCH_MAX_CHARACTERS = 100
+export const LIST_MAX_TIMEOUT_MS = 5000
+const LIST_PATHS = {
+  list_locations: { path: '/api/stock/location/', filters: [] },
+  list_supplier_companies: { path: '/api/company/', filters: [['is_supplier', 'true']] },
+} as const
+
+function listPath(operation: ListOperation) {
+  const validPage =
+    Number.isSafeInteger(operation.limit) &&
+    operation.limit >= 1 &&
+    operation.limit <= LIST_MAX_PAGE_SIZE &&
+    Number.isSafeInteger(operation.offset) &&
+    operation.offset >= 0 &&
+    operation.offset <= LIST_MAX_OFFSET
+  const search = operation.search
+  const validSearch =
+    search === undefined ||
+    (typeof search === 'string' &&
+      search.length >= 1 &&
+      [...search].length <= LIST_SEARCH_MAX_CHARACTERS &&
+      !/[\x00-\x1f\x7f]/.test(search))
+  if (!operation || !Object.hasOwn(LIST_PATHS, operation.kind) || !validPage || !validSearch) {
+    throw new Error('list_operation_refused')
+  }
+  const target = LIST_PATHS[operation.kind]
+  const query = new URLSearchParams()
+  for (const [name, value] of target.filters) {
+    query.set(name, value)
+  }
+  query.set('limit', String(operation.limit))
+  query.set('offset', String(operation.offset))
+  query.set('ordering', 'name')
+  if (search !== undefined) {
+    query.set('search', search)
+  }
+  return `${target.path}?${query.toString()}`
+}
+
 const READ_PATHS = {
   get_part: 'part',
   get_tagged_part: 'part',
@@ -209,6 +260,14 @@ export function inventoryTransport(input: TargetProfile, send: typeof fetch = si
         ),
         'GET',
       )
+    },
+    /** `timeoutMs` lets a caller's overall budget shorten, never extend, the request deadline. */
+    async list(binding: TargetBinding, operation: ListOperation, timeoutMs = LIST_MAX_TIMEOUT_MS) {
+      assertBinding(binding)
+      if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > LIST_MAX_TIMEOUT_MS) {
+        throw new Error('list_operation_refused')
+      }
+      return request(listPath(operation), 'GET', undefined, {}, timeoutMs)
     },
     async sendStock(binding: TargetBinding, retainedRequestBytes: string) {
       assertBinding(binding)
