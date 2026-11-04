@@ -137,10 +137,10 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Verification: contract, PG/Processing and frontend Review tests; controlled process input/output tests as applicable. Neither a schema pass nor a deterministic suggestion qualifies live model reasoning.
 - Risks: a plausible estimate becoming a chosen count, Auto inventing values and existing-Part mutation creep.
 
-- [ ] 6.1 Confirm current protocol and review authority seams; record exact new input/output versions and tag deduplication/removal policy.
-- [ ] 6.2 RED: cover supported evidence estimate, no-defensible-estimate question, unavailable provider, human count over stale output and manual/Auto tag combinations.
-- [ ] 6.3 GREEN: retain inference intent, bind proposals/questions to exact inputs/evidence and require human review before chosen values/execution preparation.
-- [ ] 6.4 Verify Auto order/date never fabricates values, manual values remain exact, old input/approval formats still read and existing-Part tags remain unmodified.
+- [x] 6.1 Confirm current protocol and review authority seams; record exact new input/output versions and tag deduplication/removal policy.
+- [x] 6.2 RED: cover supported evidence estimate, no-defensible-estimate question, unavailable provider, human count over stale output and manual/Auto tag combinations.
+- [x] 6.3 GREEN: retain inference intent, bind proposals/questions to exact inputs/evidence and require human review before chosen values/execution preparation.
+- [x] 6.4 Verify Auto order/date never fabricates values, manual values remain exact, old input/approval formats still read and existing-Part tags remain unmodified.
 - [ ] 6.5 Record actual tests and remaining provider limits; update Processing/Review architecture and complete PR-C review/selected-CI gates when evidenced.
 
 ## 7. Qualify supervised location and supplier creation

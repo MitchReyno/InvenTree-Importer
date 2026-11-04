@@ -1,6 +1,7 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { CursorSequence, Digest, Id, Quantity, Revision } from './scalars.ts'
 import { CaptureDefaults, CaptureSnapshot } from './capture.ts'
+import { captureTags } from './capture-primitives.ts'
 import { AgentSelection } from './agent-selection.ts'
 import { ResearchReceiptSource } from './research.ts'
 
@@ -172,10 +173,21 @@ export const ProcessingProposalV3 = object({
   schema_version: Type.Literal('bench-intake-proposal/3'),
   sources: Type.Array(ProcessingSourceV3, { minItems: 1, maxItems: 100, uniqueItems: true }),
 })
+/**
+ * Reviewable suggestions bound to the same evidence as `/2`. A quantity is only ever an
+ * estimate for a human to accept or correct; tags apply only when Auto tags were requested.
+ */
+export const ProcessingProposalV4 = object({
+  ...ProcessingProposalV2.properties,
+  schema_version: Type.Literal('bench-intake-proposal/4'),
+  quantity: Type.Optional(object({ value: Quantity, status: Type.Literal('estimated') })),
+  tags: Type.Optional(captureTags),
+})
 export const ProcessingProposal = Type.Union([
   ProcessingProposalV1,
   ProcessingProposalV2,
   ProcessingProposalV3,
+  ProcessingProposalV4,
 ])
 
 const runnerBinding = {
@@ -217,7 +229,11 @@ const runnerBindingV2 = {
   handler_version: Type.Literal('processing/2'),
 }
 export const ProcessingEnvelopeV2 = Type.Union([
-  object({ ...runnerBindingV2, kind: Type.Literal('proposal'), payload: ProcessingProposalV2 }),
+  object({
+    ...runnerBindingV2,
+    kind: Type.Literal('proposal'),
+    payload: Type.Union([ProcessingProposalV2, ProcessingProposalV4]),
+  }),
   object({ ...runnerBindingV2, kind: Type.Literal('question'), payload: ProcessingQuestionSpec }),
   object({
     ...runnerBindingV2,
@@ -354,6 +370,7 @@ export const processingSchemas = {
   ProcessingAnswer,
   ProcessingQuestionSpec,
   ProcessingProposal,
+  ProcessingProposalV4,
   ProcessingEnvelope,
   ProcessingQuestion,
   ProcessingJob,

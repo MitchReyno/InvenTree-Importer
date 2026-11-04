@@ -1,4 +1,4 @@
-import { captureContextNotes } from '../capture/context-input.ts'
+import { captureContextNotes, automationIntentNotes } from '../capture/context-input.ts'
 import { nativeProfileId, nativeInstructionDigest } from '../agents/policy.ts'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import {
@@ -114,7 +114,10 @@ function captureInputFields(
       note.subject_id === subjectId ||
       note.subject_id === linkedPart?.id,
   )
-  const contextNotes = captureContextNotes(snapshot, subjectId)
+  const contextNotes = [
+    ...captureContextNotes(snapshot, subjectId),
+    ...automationIntentNotes(snapshot),
+  ]
   requireNoteCapacity([...notes, ...contextNotes])
   // /1–/3 stay frozen. A create choice is scoped to this subject; newer observation
   // models and mapping fields stay out of the sealed document.

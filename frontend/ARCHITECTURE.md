@@ -84,7 +84,7 @@ Review is an evidence workspace over the same retained facts; it adds no second 
 
 Components under `components/operator/` own focused responsibilities:
 
-- `LotEvidence` shows lot, Part, batch and predecessor-lot notes, linked media previews and Processing proposals labelled fixture-only. Proposals are candidates, never chosen values.
+- `LotEvidence` shows lot, Part, batch and predecessor-lot notes, linked media previews and Processing proposals labelled fixture-only. Proposals are candidates, never chosen values. A `/4` estimate is labelled estimated; "Use estimated quantity" is a human lot edit offered only while the lot has no human count. Suggested tags are listed apart from human tags and can be merged (ASCII case-insensitively) into a new shared Part's create spec only; an existing inventory Part's tags are never changed.
 - `DecisionPanel` shows fact rows with provenance (human set, inherited default, override, unknown, cleared, unset), the lots sharing a Part proposal, blocking problems and warnings. `CompareMatches` sets observed Part candidates side by side and confirms the shared edit with the exact affected lots before the capture edit. `QuickLotEdit` makes lot-only quantity/location edits.
 - `IssuePanel` and `DismissWarning` record a reasoned dismissal bound to the warning's dependency digest. Blocking issues have no dismissal control.
 - `TableWorkspace`, `ReviewTable` and `BulkEditPanel` provide the table projection, explicit row selection and bulk quantity/location edits. `RestructureDialog` splits, merges (with explicit same-contribution confirmation) and moves lots between Part proposals. Every bulk or structural change shows the server dry-run `ImpactSummary` first, then applies the same change.

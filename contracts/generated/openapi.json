@@ -26205,90 +26205,209 @@
                 "type": "string"
               },
               "payload": {
-                "additionalProperties": false,
-                "type": "object",
-                "required": [
-                  "schema_version",
-                  "subject_id",
-                  "summary",
-                  "sources"
-                ],
-                "properties": {
-                  "schema_version": {
-                    "const": "bench-intake-proposal/2",
-                    "type": "string"
-                  },
-                  "subject_id": {
-                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                    "type": "string"
-                  },
-                  "summary": {
-                    "minLength": 1,
-                    "maxLength": 2048,
-                    "type": "string"
-                  },
-                  "sources": {
-                    "minItems": 1,
-                    "maxItems": 100,
-                    "uniqueItems": true,
-                    "type": "array",
-                    "items": {
-                      "anyOf": [
-                        {
-                          "additionalProperties": false,
-                          "type": "object",
-                          "required": [
-                            "kind",
-                            "note_id",
-                            "text_sha256"
-                          ],
-                          "properties": {
-                            "kind": {
-                              "const": "note",
-                              "type": "string"
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "schema_version",
+                      "subject_id",
+                      "summary",
+                      "sources"
+                    ],
+                    "properties": {
+                      "schema_version": {
+                        "const": "bench-intake-proposal/2",
+                        "type": "string"
+                      },
+                      "subject_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "summary": {
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "type": "string"
+                      },
+                      "sources": {
+                        "minItems": 1,
+                        "maxItems": 100,
+                        "uniqueItems": true,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "note_id",
+                                "text_sha256"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "note",
+                                  "type": "string"
+                                },
+                                "note_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "text_sha256": {
+                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              }
                             },
-                            "note_id": {
-                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                              "type": "string"
-                            },
-                            "text_sha256": {
-                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
-                              "type": "string"
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "evidence_id",
+                                "version_id",
+                                "sha256"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "media_version",
+                                  "type": "string"
+                                },
+                                "evidence_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "version_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "sha256": {
+                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              }
                             }
-                          }
-                        },
-                        {
-                          "additionalProperties": false,
-                          "type": "object",
-                          "required": [
-                            "kind",
-                            "evidence_id",
-                            "version_id",
-                            "sha256"
-                          ],
-                          "properties": {
-                            "kind": {
-                              "const": "media_version",
-                              "type": "string"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "schema_version",
+                      "subject_id",
+                      "summary",
+                      "sources"
+                    ],
+                    "properties": {
+                      "schema_version": {
+                        "const": "bench-intake-proposal/4",
+                        "type": "string"
+                      },
+                      "subject_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "summary": {
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "type": "string"
+                      },
+                      "sources": {
+                        "minItems": 1,
+                        "maxItems": 100,
+                        "uniqueItems": true,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "note_id",
+                                "text_sha256"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "note",
+                                  "type": "string"
+                                },
+                                "note_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "text_sha256": {
+                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              }
                             },
-                            "evidence_id": {
-                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                              "type": "string"
-                            },
-                            "version_id": {
-                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                              "type": "string"
-                            },
-                            "sha256": {
-                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
-                              "type": "string"
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "evidence_id",
+                                "version_id",
+                                "sha256"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "media_version",
+                                  "type": "string"
+                                },
+                                "evidence_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "version_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "sha256": {
+                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              }
                             }
+                          ]
+                        }
+                      },
+                      "quantity": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "value",
+                          "status"
+                        ],
+                        "properties": {
+                          "value": {
+                            "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "status": {
+                            "const": "estimated",
+                            "type": "string"
                           }
                         }
-                      ]
+                      },
+                      "tags": {
+                        "maxItems": 32,
+                        "uniqueItems": true,
+                        "type": "array",
+                        "items": {
+                          "minLength": 1,
+                          "maxLength": 100,
+                          "pattern": "[^\\s]",
+                          "type": "string"
+                        }
+                      }
                     }
                   }
-                }
+                ]
               }
             }
           },
@@ -34346,8 +34465,238 @@
                 }
               }
             }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "subject_id",
+              "summary",
+              "sources"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-proposal/4",
+                "type": "string"
+              },
+              "subject_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "summary": {
+                "minLength": 1,
+                "maxLength": 2048,
+                "type": "string"
+              },
+              "sources": {
+                "minItems": 1,
+                "maxItems": 100,
+                "uniqueItems": true,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "note_id",
+                        "text_sha256"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "note",
+                          "type": "string"
+                        },
+                        "note_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "text_sha256": {
+                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "evidence_id",
+                        "version_id",
+                        "sha256"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "media_version",
+                          "type": "string"
+                        },
+                        "evidence_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "version_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "sha256": {
+                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "quantity": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "value",
+                  "status"
+                ],
+                "properties": {
+                  "value": {
+                    "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "status": {
+                    "const": "estimated",
+                    "type": "string"
+                  }
+                }
+              },
+              "tags": {
+                "maxItems": 32,
+                "uniqueItems": true,
+                "type": "array",
+                "items": {
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "[^\\s]",
+                  "type": "string"
+                }
+              }
+            }
           }
         ]
+      },
+      "ProcessingProposalV4": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_version",
+          "subject_id",
+          "summary",
+          "sources"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "bench-intake-proposal/4",
+            "type": "string"
+          },
+          "subject_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "summary": {
+            "minLength": 1,
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "sources": {
+            "minItems": 1,
+            "maxItems": 100,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "note_id",
+                    "text_sha256"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "note",
+                      "type": "string"
+                    },
+                    "note_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "text_sha256": {
+                      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "evidence_id",
+                    "version_id",
+                    "sha256"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "media_version",
+                      "type": "string"
+                    },
+                    "evidence_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "version_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "sha256": {
+                      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "quantity": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "value",
+              "status"
+            ],
+            "properties": {
+              "value": {
+                "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                "type": "string"
+              },
+              "status": {
+                "const": "estimated",
+                "type": "string"
+              }
+            }
+          },
+          "tags": {
+            "maxItems": 32,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "[^\\s]",
+              "type": "string"
+            }
+          }
+        }
       },
       "ProcessingEnvelope": {
         "anyOf": [
@@ -35004,90 +35353,209 @@
                     "type": "string"
                   },
                   "payload": {
-                    "additionalProperties": false,
-                    "type": "object",
-                    "required": [
-                      "schema_version",
-                      "subject_id",
-                      "summary",
-                      "sources"
-                    ],
-                    "properties": {
-                      "schema_version": {
-                        "const": "bench-intake-proposal/2",
-                        "type": "string"
-                      },
-                      "subject_id": {
-                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                        "type": "string"
-                      },
-                      "summary": {
-                        "minLength": 1,
-                        "maxLength": 2048,
-                        "type": "string"
-                      },
-                      "sources": {
-                        "minItems": 1,
-                        "maxItems": 100,
-                        "uniqueItems": true,
-                        "type": "array",
-                        "items": {
-                          "anyOf": [
-                            {
-                              "additionalProperties": false,
-                              "type": "object",
-                              "required": [
-                                "kind",
-                                "note_id",
-                                "text_sha256"
-                              ],
-                              "properties": {
-                                "kind": {
-                                  "const": "note",
-                                  "type": "string"
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "schema_version",
+                          "subject_id",
+                          "summary",
+                          "sources"
+                        ],
+                        "properties": {
+                          "schema_version": {
+                            "const": "bench-intake-proposal/2",
+                            "type": "string"
+                          },
+                          "subject_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "summary": {
+                            "minLength": 1,
+                            "maxLength": 2048,
+                            "type": "string"
+                          },
+                          "sources": {
+                            "minItems": 1,
+                            "maxItems": 100,
+                            "uniqueItems": true,
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "kind",
+                                    "note_id",
+                                    "text_sha256"
+                                  ],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "note",
+                                      "type": "string"
+                                    },
+                                    "note_id": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "text_sha256": {
+                                      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                      "type": "string"
+                                    }
+                                  }
                                 },
-                                "note_id": {
-                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                  "type": "string"
-                                },
-                                "text_sha256": {
-                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
-                                  "type": "string"
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "kind",
+                                    "evidence_id",
+                                    "version_id",
+                                    "sha256"
+                                  ],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "media_version",
+                                      "type": "string"
+                                    },
+                                    "evidence_id": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "version_id": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "sha256": {
+                                      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                      "type": "string"
+                                    }
+                                  }
                                 }
-                              }
-                            },
-                            {
-                              "additionalProperties": false,
-                              "type": "object",
-                              "required": [
-                                "kind",
-                                "evidence_id",
-                                "version_id",
-                                "sha256"
-                              ],
-                              "properties": {
-                                "kind": {
-                                  "const": "media_version",
-                                  "type": "string"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "schema_version",
+                          "subject_id",
+                          "summary",
+                          "sources"
+                        ],
+                        "properties": {
+                          "schema_version": {
+                            "const": "bench-intake-proposal/4",
+                            "type": "string"
+                          },
+                          "subject_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "summary": {
+                            "minLength": 1,
+                            "maxLength": 2048,
+                            "type": "string"
+                          },
+                          "sources": {
+                            "minItems": 1,
+                            "maxItems": 100,
+                            "uniqueItems": true,
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "kind",
+                                    "note_id",
+                                    "text_sha256"
+                                  ],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "note",
+                                      "type": "string"
+                                    },
+                                    "note_id": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "text_sha256": {
+                                      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                      "type": "string"
+                                    }
+                                  }
                                 },
-                                "evidence_id": {
-                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                  "type": "string"
-                                },
-                                "version_id": {
-                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
-                                  "type": "string"
-                                },
-                                "sha256": {
-                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
-                                  "type": "string"
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "kind",
+                                    "evidence_id",
+                                    "version_id",
+                                    "sha256"
+                                  ],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "media_version",
+                                      "type": "string"
+                                    },
+                                    "evidence_id": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "version_id": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "sha256": {
+                                      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                      "type": "string"
+                                    }
+                                  }
                                 }
+                              ]
+                            }
+                          },
+                          "quantity": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "value",
+                              "status"
+                            ],
+                            "properties": {
+                              "value": {
+                                "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "status": {
+                                "const": "estimated",
+                                "type": "string"
                               }
                             }
-                          ]
+                          },
+                          "tags": {
+                            "maxItems": 32,
+                            "uniqueItems": true,
+                            "type": "array",
+                            "items": {
+                              "minLength": 1,
+                              "maxLength": 100,
+                              "pattern": "[^\\s]",
+                              "type": "string"
+                            }
+                          }
                         }
                       }
-                    }
+                    ]
                   }
                 }
               },
@@ -36111,6 +36579,121 @@
                           }
                         }
                       }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "schema_version",
+                        "subject_id",
+                        "summary",
+                        "sources"
+                      ],
+                      "properties": {
+                        "schema_version": {
+                          "const": "bench-intake-proposal/4",
+                          "type": "string"
+                        },
+                        "subject_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "summary": {
+                          "minLength": 1,
+                          "maxLength": 2048,
+                          "type": "string"
+                        },
+                        "sources": {
+                          "minItems": 1,
+                          "maxItems": 100,
+                          "uniqueItems": true,
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "note_id",
+                                  "text_sha256"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "const": "note",
+                                    "type": "string"
+                                  },
+                                  "note_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "text_sha256": {
+                                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "kind",
+                                  "evidence_id",
+                                  "version_id",
+                                  "sha256"
+                                ],
+                                "properties": {
+                                  "kind": {
+                                    "const": "media_version",
+                                    "type": "string"
+                                  },
+                                  "evidence_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "version_id": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "sha256": {
+                                    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "quantity": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "value",
+                            "status"
+                          ],
+                          "properties": {
+                            "value": {
+                              "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "status": {
+                              "const": "estimated",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "tags": {
+                          "maxItems": 32,
+                          "uniqueItems": true,
+                          "type": "array",
+                          "items": {
+                            "minLength": 1,
+                            "maxLength": 100,
+                            "pattern": "[^\\s]",
+                            "type": "string"
+                          }
+                        }
+                      }
                     }
                   ]
                 }
@@ -36641,6 +37224,121 @@
                                       }
                                     }
                                   ]
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "schema_version",
+                              "subject_id",
+                              "summary",
+                              "sources"
+                            ],
+                            "properties": {
+                              "schema_version": {
+                                "const": "bench-intake-proposal/4",
+                                "type": "string"
+                              },
+                              "subject_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "summary": {
+                                "minLength": 1,
+                                "maxLength": 2048,
+                                "type": "string"
+                              },
+                              "sources": {
+                                "minItems": 1,
+                                "maxItems": 100,
+                                "uniqueItems": true,
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "kind",
+                                        "note_id",
+                                        "text_sha256"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "note",
+                                          "type": "string"
+                                        },
+                                        "note_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "text_sha256": {
+                                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "kind",
+                                        "evidence_id",
+                                        "version_id",
+                                        "sha256"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "media_version",
+                                          "type": "string"
+                                        },
+                                        "evidence_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "version_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "sha256": {
+                                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              },
+                              "quantity": {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "value",
+                                  "status"
+                                ],
+                                "properties": {
+                                  "value": {
+                                    "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "const": "estimated",
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "tags": {
+                                "maxItems": 32,
+                                "uniqueItems": true,
+                                "type": "array",
+                                "items": {
+                                  "minLength": 1,
+                                  "maxLength": 100,
+                                  "pattern": "[^\\s]",
+                                  "type": "string"
                                 }
                               }
                             }

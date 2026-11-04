@@ -457,6 +457,9 @@ export function ReviewWorkspace({
                 mediaUnavailable={mediaUnavailable}
                 mediaLoading={mediaLoading}
                 processing={processing}
+                edit={edit}
+                // Accepting remounts Review at the new revision, so any open draft fences it.
+                editDisabled={busy || stale || batch.archived || drafts.dirty}
               />
             ) : (
               <Paragraph>

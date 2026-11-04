@@ -316,3 +316,37 @@ Compatibility rules for the new assignments:
 - Checks: contracts 8/8 location tests and the full contract suite; intake fast tests; PG `capture-locations` 3/3 plus `operator-review`, `manual`, `capture-intent`, `capture-groups`, `media-input-scopes`, `processing-compatibility` and `capture` (36/36); frontend typecheck, ESLint and tests; readability and Markdown lint; Prettier; generated contracts.
 - Limitations: group membership comes from evidence linked to the lot itself, not evidence linked only to its shared Part. Operator split and merge commands copy only lot-level locations, as before.
 
+
+### Task 6 baseline and plan (6.1)
+
+Current seams:
+
+- Inputs `bench-intake-input/1`–`/4` embed the raw subject, linked Part, batch defaults, human notes and labelled capture-context notes (`capture/context-input.ts`); manual shared tags reach processing only as a context note, and Auto is not represented.
+- Outputs are free-text proposals (`/1`–`/3`, summary plus note/media/research sources) or questions (`quantity` for lot subjects, `clarification`). A quantity answer is the only materialization path: `processing/answers.ts` turns it into a human `lot` quantity edit. `basis` (`counted`/`estimated`) is retained only in the sealed answer.
+- Staleness: `processingInputIsCurrent` rebuilds the input and compares bytes. A stale output is retained as `disposition: 'stale'` and never becomes a proposal or question; a stale question cannot be answered. A newer human count changes the lot bytes, so any earlier attempt is stale.
+- New-Part tags come only from `InventoryPartSpec.tags` in a Part `create` choice (deduplicated exactly or ASCII case-insensitively by `inventory/tags.ts`). Existing Parts have no tag mutation.
+
+Plan (no new input or handler versions):
+
+1. Auto intent: a labelled capture-context note states "Shared part tags: Auto requested" when intent asks for it, so existing manifests for legacy batches keep their bytes and an intent change makes earlier attempts stale.
+2. Output: `bench-intake-proposal/4` adds an optional evidence-bound `quantity` suggestion (`value`, `status: 'estimated'`, lot subjects only) and optional `tags` suggestions (accepted only when Auto was requested), with the `/2`/`/3` source rules. No defensible estimate stays a quantity question.
+3. Review shows a suggestion's source and estimated status. "Use this quantity" is a human lot edit and is offered only while the attempt is current and the lot has no human count. Tag suggestions are shown apart from human tags; accepting adds them, deduplicated, to a shared Part's `create` spec. An existing Part's tags are never changed, and Review says so.
+4. Order Auto/None/Manual: verify no Auto value is fabricated and manual values stay exact; PO stays inactive.
+
+### Task 6 results
+
+- 6.2 RED: `contracts/tests/processing-suggestions.test.ts` failed first: a valid `/4` estimate in a `bench-intake-runner/2` envelope was refused.
+- 6.3 GREEN:
+  - `ProcessingProposalV4` in contracts, admitted only by the synthetic runner envelope.
+  - The requested-automation note (`automationIntentNotes`), admitted into every input version only when Auto tags are on.
+  - Acceptance rules in `processing/messages.ts`: estimates for lots only, and tags only with Auto requested.
+  - `ProcessingSuggestions` in Review.
+- 6.4 verification:
+  - `tests/pg/processing-suggestions.test.ts`: a lot estimate is retained and never becomes a count, a Part estimate is refused, tags without Auto are refused, tags with Auto are accepted, and a newer human count makes a later estimate `stale` with the human count kept.
+  - A fast test shows Auto order context adds no value and batches without Auto tags keep their input bytes.
+  - Frontend tests: acceptance is an explicit edit, a human count is kept, tags merge case-insensitively into a new Part, and an existing Part's tags are untouched.
+- Negative controls (restored by SHA-256) failed each target test: the estimated-only status, the lot-only rule, the Auto requirement, the intent note, and the human-count and existing-Part guards in Review.
+- Existing PG suites `processing`, `processing-media`, `processing-compatibility`, `research`, `capture-intent` and `operator-review` pass (30/30).
+- Provider limits: suggestions come only from the deterministic fixture path. The native runner and live inference are unchanged and unqualified; no schema pass or fixture estimate qualifies model reasoning. Review cannot tell whether an accepted suggestion's attempt input is still current, so it gates acceptance on the lot having no human count, and acceptance is always an explicit human edit.
+- 6.5 remains open until PR-C's review and selected CI are evidenced.
+

@@ -7304,6 +7304,29 @@ export interface components {
                     version_id: string;
                     sha256: string;
                 })[];
+            } | {
+                /** @constant */
+                schema_version: "bench-intake-proposal/4";
+                subject_id: string;
+                summary: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                quantity?: {
+                    value: string;
+                    /** @constant */
+                    status: "estimated";
+                };
+                tags?: string[];
             };
         } | {
             /** @constant */
@@ -8962,6 +8985,53 @@ export interface components {
                 receipt_id: string;
                 sha256: string;
             })[];
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-proposal/4";
+            subject_id: string;
+            summary: string;
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+            quantity?: {
+                value: string;
+                /** @constant */
+                status: "estimated";
+            };
+            tags?: string[];
+        };
+        ProcessingProposalV4: {
+            /** @constant */
+            schema_version: "bench-intake-proposal/4";
+            subject_id: string;
+            summary: string;
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+            quantity?: {
+                value: string;
+                /** @constant */
+                status: "estimated";
+            };
+            tags?: string[];
         };
         ProcessingEnvelope: ({
             /** @constant */
@@ -9126,6 +9196,29 @@ export interface components {
                     version_id: string;
                     sha256: string;
                 })[];
+            } | {
+                /** @constant */
+                schema_version: "bench-intake-proposal/4";
+                subject_id: string;
+                summary: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                quantity?: {
+                    value: string;
+                    /** @constant */
+                    status: "estimated";
+                };
+                tags?: string[];
             };
         } | {
             /** @constant */
@@ -9319,6 +9412,29 @@ export interface components {
                         receipt_id: string;
                         sha256: string;
                     })[];
+                } | {
+                    /** @constant */
+                    schema_version: "bench-intake-proposal/4";
+                    subject_id: string;
+                    summary: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    quantity?: {
+                        value: string;
+                        /** @constant */
+                        status: "estimated";
+                    };
+                    tags?: string[];
                 };
             }[];
             questions: {
@@ -9402,6 +9518,29 @@ export interface components {
                             receipt_id: string;
                             sha256: string;
                         })[];
+                    } | {
+                        /** @constant */
+                        schema_version: "bench-intake-proposal/4";
+                        subject_id: string;
+                        summary: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        quantity?: {
+                            value: string;
+                            /** @constant */
+                            status: "estimated";
+                        };
+                        tags?: string[];
                     };
                 }[];
                 questions: {
@@ -10409,6 +10548,7 @@ export type ProcessingQuestionValue = components['schemas']['ProcessingQuestionV
 export type ProcessingAnswer = components['schemas']['ProcessingAnswer']
 export type ProcessingQuestionSpec = components['schemas']['ProcessingQuestionSpec']
 export type ProcessingProposal = components['schemas']['ProcessingProposal']
+export type ProcessingProposalV4 = components['schemas']['ProcessingProposalV4']
 export type ProcessingEnvelope = components['schemas']['ProcessingEnvelope']
 export type ProcessingQuestion = components['schemas']['ProcessingQuestion']
 export type ProcessingJob = components['schemas']['ProcessingJob']

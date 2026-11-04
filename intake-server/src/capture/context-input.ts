@@ -1,5 +1,9 @@
 import type { CaptureSnapshotDto } from '@invimport/contracts'
+import { createHash } from 'node:crypto'
 import { canonical } from '@invimport/contracts/json'
+
+/** Marks the one requested-automation note; acceptance checks it before admitting tag suggestions. */
+export const AUTO_TAGS_REQUESTED = 'Shared part tags: Auto requested'
 
 /** Human field selections remain context, never approved inventory effects. */
 export function captureContextRecords(snapshot: CaptureSnapshotDto, subjectId: string | null) {
@@ -32,4 +36,33 @@ export function captureContextNotes(snapshot: CaptureSnapshotDto, subjectId: str
     created_at: record.created_at,
     producer: 'human' as const,
   }))
+}
+
+/** A stable UUID-shaped identity for a derived note, so equal intent yields equal input bytes. */
+function derivedNoteId(batchId: string, version: string) {
+  const hex = createHash('sha256').update(`automation-intent:${batchId}:${version}`).digest('hex')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`
+}
+
+/**
+ * Requested automation is human intent, not evidence or an approved effect. Batches without Auto
+ * tags add no note, so their processing inputs keep their exact bytes.
+ */
+export function automationIntentNotes(snapshot: CaptureSnapshotDto) {
+  const intent = snapshot.settings_intent
+  if (!intent?.value.shared_tags.auto) {
+    return []
+  }
+  return [
+    {
+      id: derivedNoteId(snapshot.id, intent.version),
+      subject_id: null,
+      text: ['Requested automation, not approved inventory effects:', AUTO_TAGS_REQUESTED].join(
+        '\n',
+      ),
+      actor_id: intent.actor_id,
+      created_at: intent.created_at,
+      producer: 'human' as const,
+    },
+  ]
 }

@@ -499,3 +499,53 @@ test('a shared-Part location assignment leaves processing input bytes unchanged'
   }
   assert.deepEqual(inputManifest(assigned, subject, 'reading', [], null), before)
 })
+
+test('Auto order context adds no value and Auto tags add one requested-automation note', () => {
+  const base = manualInputFixture()
+  const subject = base.lots[0].id
+  const intent = (auto: boolean, date: { mode: 'auto' } | { mode: 'manual'; value: string }) => ({
+    ...base,
+    settings_intent: {
+      value: {
+        supplier: { absent: false, selection: { mode: 'unset' as const } },
+        order: { reference: { mode: 'auto' as const }, purchase_date: date },
+        shared_tags: { manual: ['reel'], auto },
+      },
+      default_location_draft: null,
+      version: '2',
+      actor_id: base.actor_id,
+      created_at: '2026-11-05T00:00:00Z',
+    },
+  })
+  const without = inputManifest(
+    intent(false, { mode: 'auto' }) as never,
+    subject,
+    'reading',
+    [],
+    null,
+  )
+  assert.deepEqual(without, inputManifest(base, subject, 'reading', [], null))
+  assert.equal(
+    without.notes.some((note) => note.text.includes('Auto requested')),
+    false,
+  )
+  const withAuto = inputManifest(
+    intent(true, { mode: 'auto' }) as never,
+    subject,
+    'reading',
+    [],
+    null,
+  )
+  const requested = withAuto.notes.filter((note) =>
+    note.text.includes('Shared part tags: Auto requested'),
+  )
+  assert.equal(requested.length, 1)
+  assert.equal(requested[0].subject_id, null)
+  assert.equal(
+    withAuto.notes.some(
+      (note) => /20\d\d-\d\d-\d\d/.test(note.text) && !note.text.includes('2026-11-05T'),
+    ),
+    false,
+    'Auto never fabricates a purchase date or order number',
+  )
+})
