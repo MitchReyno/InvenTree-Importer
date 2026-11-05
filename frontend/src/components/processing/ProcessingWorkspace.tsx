@@ -57,6 +57,7 @@ interface Props {
   /** The batch instructions and how to save them; absent where this setup has none. */
   instructions?: {
     text: string | undefined
+    unavailable?: boolean
     instruct?: (text: string, revision: string, key: string) => Promise<unknown>
   }
 }
@@ -390,17 +391,25 @@ export function ProcessingWorkspace({
             </details>
           </Panel>
           {questionId && pinned?.question.id === questionId ? (
-            <QuestionAnswer
-              key={pinned.question.id}
-              question={pinned.question}
-              captureRevision={pinned.captureRevision}
-              currentQuestion={currentQuestion}
-              currentCaptureRevision={snapshot.capture_revision}
-              disabled={runnerDisabled}
-              readOnly={batch.archived}
-              answer={answer}
-              onDirtyChange={drafts.forSource('answer')}
-            />
+            <>
+              <QuestionAnswer
+                key={pinned.question.id}
+                question={pinned.question}
+                captureRevision={pinned.captureRevision}
+                currentQuestion={currentQuestion}
+                currentCaptureRevision={snapshot.capture_revision}
+                disabled={runnerDisabled || drafts.isDirty('instructions')}
+                readOnly={batch.archived}
+                answer={answer}
+                onDirtyChange={drafts.forSource('answer')}
+              />
+              {drafts.isDirty('instructions') && (
+                <Small>
+                  Save or discard the batch instructions first; saving the answer reloads
+                  Processing.
+                </Small>
+              )}
+            </>
           ) : (
             questionId && (
               <Notice>
@@ -421,6 +430,15 @@ export function ProcessingWorkspace({
                   text={instructions ? instructions.text : ''}
                   revision={batch.revision}
                   instruct={batch.archived ? undefined : instructions?.instruct}
+                  unavailable={instructions?.unavailable}
+                  readOnlyReason={
+                    batch.archived ? 'Resume the batch to change its instructions.' : undefined
+                  }
+                  saveBlockedReason={
+                    drafts.isDirty('answer')
+                      ? 'Save or discard the answer first; saving reloads Processing.'
+                      : undefined
+                  }
                   onDirtyChange={drafts.forSource('instructions')}
                 />
               }
@@ -462,6 +480,12 @@ export function ProcessingWorkspace({
                 .map((question) => (
                   <a
                     key={question.id}
+                    onClick={() => {
+                      // The current question's link changes no route, so close here.
+                      if (question.id === questionId) {
+                        setSessionJobId(null)
+                      }
+                    }}
                     href={batchHref(batch.id, {
                       tab: 'processing',
                       step: processingStepFor(sessionJob.stage),

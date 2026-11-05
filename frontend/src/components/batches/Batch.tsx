@@ -406,6 +406,7 @@ export function Batch({
             ? (currentOperatorReview.instructions.find((item) => item.group_id === null)?.text ??
               '')
             : undefined,
+          unavailable: operatorQuery.isError || operatorQuery.fetchStatus === 'paused',
           instruct: settingsPorts.instruct
             ? async (text, revision, key) => {
                 await settingsPorts.instruct?.(text, revision, key)

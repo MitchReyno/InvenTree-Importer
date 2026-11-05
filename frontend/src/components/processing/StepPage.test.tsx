@@ -84,7 +84,7 @@ describe('StepPage', () => {
         name: 'Is it a P?',
       }),
     ).toHaveAttribute('href', `#${b}/processing/examine/q1`)
-    await userEvent.click(screen.getByRole('button', { name: 'Open Examine session for Packet B' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Open session: Examine · Packet B' }))
     expect(onOpenSession).toHaveBeenCalledWith('j2')
     expect(
       within(screen.getByRole('region', { name: 'Outputs' })).getByText('Output cards'),

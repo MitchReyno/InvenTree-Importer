@@ -237,7 +237,7 @@ Branch `feat/redesign-batch-workspace-processing` from `4080ea9`. Mitch authoris
   - **Instructions:** `InstructionField` saves explicitly with the batch revision through the same `instruct` command as Capture, reports a conflict without losing the draft, and keeps its own navigation-guard source apart from the answer form.
   - The removed `ProcessingStageSummary` and `ProcessingNeedsYou` are replaced by the Overview; their Review link per lot question is kept.
   - Tests first for each new component (Overview 8, step page 2, adapter 7) and for the workspace (fixture profile shows jobs and questions by step with no session; a session job opens its drawer; the instruction guard), then GREEN. One existing test moved to the new Needs you wording. Frontend suite 506/506.
-- **12 Agents page:** `AgentSessionList` gains `sessions_supported` (`sessionsSupported(config)`: whether the configured profile is a session profile); contract, unit and agents PostgreSQL tests cover it (agents PG 4/4 locally). `AgentSessions` shows the summary (slots in use from `occupies_lane` against `session_concurrency`, waiting sessions holding no slot, the model for new sessions), filter chips (all, running, waiting for you, queued, finished today), and per-batch groups named from a capture read with an Open Processing link; each session shows step, subject, latest status line, state and when that state started (finish, start or queue time). Without session support it says so and links to Agent settings, with no summary or filters. Tests first: four new page tests failed, then passed; the history-failure test is kept. Frontend 509/509, intake 193/193.
+- **12 Agents page:** `AgentSessionList` gains `sessions_supported` (`sessionsSupported(config)`: whether the configured profile is a session profile); contract, unit and agents PostgreSQL tests cover it (agents PG 4/4 locally). `AgentSessions` shows the summary (slots in use from `occupies_lane` against `session_concurrency`, waiting sessions holding no slot, the model for new sessions), filter chips (all, running, waiting for you, queued, finished today), and per-batch groups named from a capture read with an Open Processing link; each session shows step, subject, latest status line, state and when that state started (finish, start or queue time). Without session support it says the server's processing profile does not run agent sessions, with no summary or filters. Tests first: four new page tests failed, then passed; the history-failure test is kept. Frontend 509/509, intake 193/193.
 - **Browser check:** `frontend/tests/fixtures/processing.html` renders the real `ProcessingWorkspace` and `AgentSessions` from synthetic clients (no API, provider or InvenTree traffic): a session profile (`#overview`, `#examine`, `#agents`) and the fixture profile (`#overview-fixture`, `#research-fixture`, `#agents-fixture`). No horizontal overflow at 1440 or 390px. Screenshots checked: Overview, the Examine step with its session drawer, the Agents page, and the not-available state. Fixes from it: `Modal` had no background (white in dark mode, also the evidence viewer) and now uses the surface token with accent links; session rows no longer stretch the state pill; links inside a `Banner` inherit its tone. The screenshot script's dark theme did not take effect in these fixtures (the PR-B captures were affected too), so dark mode was checked only through the token and contrast checks.
 
 ### PR-C review round 1
@@ -258,4 +258,17 @@ Fresh read-only Claude reviewer at `8f86faf`: 1 Important, 6 Minor, 3 Nitpick. A
   - **Drawer closing:** the drawer closes when the route's question changes, not on the link click, so a guard-blocked click leaves it open.
   - **Handover wording:** corrected.
 - **Checks:** frontend 512/512, contracts 76, agents PG 4/4. One intake run hit the known `media-startup` start-up timeout under load; it passed on its own.
+
+### PR-C review round 2
+
+Fresh read-only Claude reviewer at `eafda58`: 1 Important, 4 Minor, 1 Nitpick, all fixed test-first.
+
+- **Saving one draft discarded the other (Important):** an instruction or answer save calls `reload`, which remounts `ProcessingStage` (keyed by revision and reset), so the other draft was lost and the guard released. Each save is now held back while the other draft is unsaved, with a note saying why. The workspace test opens both drafts and asserts both saves are disabled. Discarding the instructions releases only their source, so the guard stays on for the answer.
+- **Minor:**
+  - **Unavailable instructions:** the field shows an alert when the saved instructions are unavailable (operator read failed or paused) instead of "Reading…" forever.
+  - **Button names:** session and Review buttons now start with their visible text ("Open session: Examine · Packet A", "Open in Review: Packet A").
+  - **Drawer link:** a drawer link to the question already open closes the drawer (tested).
+  - **Agents banner:** the not-available banner names the server profile instead of pointing to Agent settings, which has no profile control.
+- **Nitpick:** an archived batch reads "Resume the batch to change its instructions."
+- **Checks:** frontend 515/515.
 

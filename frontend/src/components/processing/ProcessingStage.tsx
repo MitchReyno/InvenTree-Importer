@@ -18,6 +18,7 @@ interface Props {
   attention?: BatchAttentionDto
   instructions?: {
     text: string | undefined
+    unavailable?: boolean
     instruct?: (text: string, revision: string, key: string) => Promise<unknown>
   }
 }

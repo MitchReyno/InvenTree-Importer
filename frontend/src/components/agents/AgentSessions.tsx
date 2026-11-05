@@ -119,8 +119,8 @@ export function AgentSessions({ client, batches }: Props) {
       {query.isPending && <Muted role="status">Loading sessions…</Muted>}
       {query.data && !supported && (
         <Banner tone="info">
-          Agent sessions are not available for this setup. Choose a session profile in{' '}
-          <a href="#settings">Agent settings</a>.
+          Agent sessions are not available for this setup: the server's processing profile does not
+          run agent sessions. Processing still shows its retained work.
         </Banner>
       )}
       {query.data && supported && (

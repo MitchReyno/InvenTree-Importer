@@ -12,12 +12,26 @@ type Props = {
   /** Absent where this setup cannot save instructions. */
   instruct: ((text: string, revision: string, key: string) => Promise<unknown>) | undefined
   onDirtyChange: (dirty: boolean) => void
+  /** The saved instructions could not be read, so they are not assumed empty. */
+  unavailable?: boolean
+  /** Why instructions cannot change here, such as an archived batch. */
+  readOnlyReason?: string
+  /** Why saving is held back, such as another unsaved draft that a save would reload. */
+  saveBlockedReason?: string
 }
 
 const MAX_CHARACTERS = 8192
 
 /** Instructions for every agent working on the batch, saved explicitly from Processing. */
-export function InstructionField({ text, revision, instruct, onDirtyChange }: Props) {
+export function InstructionField({
+  text,
+  revision,
+  instruct,
+  onDirtyChange,
+  unavailable = false,
+  readOnlyReason,
+  saveBlockedReason,
+}: Props) {
   const [draft, setDraft] = useState(text ?? '')
   const [edited, setEdited] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -75,10 +89,21 @@ export function InstructionField({ text, revision, instruct, onDirtyChange }: Pr
         }}
       />
       {error && <Problem role="alert">{error}</Problem>}
-      {!loaded && <Small role="status">Reading the saved instructions…</Small>}
+      {!loaded && unavailable && (
+        <Problem role="alert">
+          The saved instructions are unavailable, so they cannot be changed here right now.
+        </Problem>
+      )}
+      {!loaded && !unavailable && <Small role="status">Reading the saved instructions…</Small>}
+      {dirty && saveBlockedReason && <Small>{saveBlockedReason}</Small>}
       {instruct ? (
         <Actions>
-          <Button size="sm" disabled={!dirty} busy={saving} onClick={() => void save()}>
+          <Button
+            size="sm"
+            disabled={!dirty || Boolean(saveBlockedReason)}
+            busy={saving}
+            onClick={() => void save()}
+          >
             Save instructions
           </Button>
           <Button size="sm" variant="ghost" disabled={!dirty || saving} onClick={discard}>
@@ -86,7 +111,7 @@ export function InstructionField({ text, revision, instruct, onDirtyChange }: Pr
           </Button>
         </Actions>
       ) : (
-        <Small>Instructions are not available in this setup.</Small>
+        <Small>{readOnlyReason ?? 'Instructions are not available in this setup.'}</Small>
       )}
       <Small>Every agent on this batch reads them. They do not approve inventory values.</Small>
     </Field>

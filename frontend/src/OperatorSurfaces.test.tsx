@@ -190,7 +190,7 @@ test('Processing keeps retired history but offers only active lots for new attem
     `#${batchId}/processing/examine/${questionId}`,
   )
   expect(
-    within(needsYou).getByRole('link', { name: 'Open Active packet in Review' }),
+    within(needsYou).getByRole('link', { name: 'Open in Review: Active packet' }),
   ).toHaveAttribute('href', `#${batchId}/review/lots/${active}`)
   expect(screen.queryByRole('link', { name: 'Open this lot in Review' })).not.toBeInTheDocument()
 })

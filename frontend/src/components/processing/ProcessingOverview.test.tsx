@@ -96,7 +96,7 @@ describe('ProcessingOverview', () => {
     )
     expect(within(needs).getByText(/Assuming ATmega328P/)).toBeInTheDocument()
     expect(within(needs).getByText(/Examine · Packet A/)).toBeInTheDocument()
-    expect(within(needs).getByRole('link', { name: 'Open Packet A in Review' })).toHaveAttribute(
+    expect(within(needs).getByRole('link', { name: 'Open in Review: Packet A' })).toHaveAttribute(
       'href',
       `#${b}/review/lots/l1`,
     )
@@ -123,7 +123,7 @@ describe('ProcessingOverview', () => {
     expect(within(sessions).getByText('Research · Packet B')).toBeInTheDocument()
     expect(within(sessions).getByText('Waiting for you')).toBeInTheDocument()
     await userEvent.click(
-      within(sessions).getByRole('button', { name: 'Open Research session for Packet B' }),
+      within(sessions).getByRole('button', { name: 'Open session: Research · Packet B' }),
     )
     expect(onOpenSession).toHaveBeenCalledWith('j2')
   })
@@ -222,6 +222,36 @@ describe('InstructionField', () => {
 
     expect(screen.getByLabelText('Instructions for the whole batch')).toHaveValue('Saved.')
     expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+  })
+
+  it('says the saved instructions are unavailable instead of reading forever', () => {
+    render(
+      <InstructionField
+        text={undefined}
+        unavailable
+        revision="4"
+        instruct={vi.fn()}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('alert')).toHaveTextContent('The saved instructions are unavailable')
+    expect(screen.queryByText(/Reading the saved instructions/)).not.toBeInTheDocument()
+  })
+
+  it('gives the archive as the reason instructions cannot change', () => {
+    render(
+      <InstructionField
+        text="Saved."
+        revision="4"
+        instruct={undefined}
+        readOnlyReason="Resume the batch to change its instructions."
+        onDirtyChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Resume the batch to change its instructions.')).toBeInTheDocument()
+    expect(screen.queryByText(/not available in this setup/)).not.toBeInTheDocument()
   })
 
   it('says where to set instructions when this setup cannot save them', () => {

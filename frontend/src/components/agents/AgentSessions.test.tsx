@@ -157,7 +157,8 @@ test('a setup without agent sessions says so and links to Agent settings', async
   )
 
   expect(await screen.findByText(/Agent sessions are not available for this setup/)).toBeVisible()
-  expect(screen.getByRole('link', { name: 'Agent settings' })).toHaveAttribute('href', '#settings')
+  expect(screen.getByText(/server's processing profile does not run agent sessions/)).toBeVisible()
+  expect(screen.queryByRole('link', { name: 'Agent settings' })).not.toBeInTheDocument()
   expect(screen.queryByText(/Nothing running|0 of 3 slots/)).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /^Running/ })).not.toBeInTheDocument()
 })

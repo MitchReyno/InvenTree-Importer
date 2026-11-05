@@ -65,7 +65,7 @@ export function SessionRows({
           <Button
             size="sm"
             variant="ghost"
-            aria-label={`Open ${STEP_LABEL[session.step]} session for ${session.subject}`}
+            aria-label={`Open session: ${STEP_LABEL[session.step]} · ${session.subject}`}
             onClick={() => onOpen(session.jobId)}
           >
             Open session
@@ -104,7 +104,7 @@ export function QuestionRows({
           </span>
           {question.lotId && (
             <a
-              aria-label={`Open ${question.subject} in Review`}
+              aria-label={`Open in Review: ${question.subject}`}
               href={batchHref(batchId, { tab: 'review', view: 'lots', lotId: question.lotId })}
             >
               Open in Review

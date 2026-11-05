@@ -482,7 +482,7 @@ test('a job with a session opens its timeline and chat in a drawer', async () =>
   } as ProcessingClient
   mountView(client, 'examine')
   await userEvent.click(
-    await screen.findByRole('button', { name: 'Open Examine session for Packet A' }),
+    await screen.findByRole('button', { name: 'Open session: Examine · Packet A' }),
   )
   const drawer = screen.getByRole('dialog', { name: 'Examine · Packet A' })
 
@@ -494,7 +494,7 @@ test('a job with a session opens its timeline and chat in a drawer', async () =>
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 
-test('an instruction save leaves the answer draft guarded', async () => {
+test('with both drafts open, neither can save until the other is saved or discarded', async () => {
   const dirty = vi.fn()
   const instruct = vi.fn().mockResolvedValue(undefined)
   render(
@@ -514,12 +514,19 @@ test('an instruction save leaves the answer draft guarded', async () => {
   const form = await screen.findByRole('form', { name: 'Pinned application question' })
   await userEvent.type(within(form).getByLabelText('Quantity'), '51')
   await userEvent.type(screen.getByLabelText('Instructions for the whole batch'), 'Keep apart')
-  expect(dirty).toHaveBeenLastCalledWith(true)
 
-  await userEvent.click(screen.getByRole('button', { name: 'Save instructions' }))
-  expect(instruct).toHaveBeenCalledWith('Keep apart', batch.revision, expect.any(String))
-  // The answer is still unsaved, so the guard stays on.
+  // Saving either reloads Processing, which would drop the other draft.
+  expect(screen.getByRole('button', { name: 'Save instructions' })).toBeDisabled()
+  expect(screen.getByText(/Save or discard the answer first/)).toBeInTheDocument()
+  expect(
+    within(form).getByRole('button', { name: 'Save answer and queue continuation' }),
+  ).toBeDisabled()
+  expect(screen.getByText(/Save or discard the batch instructions first/)).toBeInTheDocument()
+
+  await userEvent.click(screen.getByRole('button', { name: 'Discard changes' }))
+  expect(screen.getByRole('button', { name: 'Save instructions' })).toBeDisabled()
   expect(dirty).toHaveBeenLastCalledWith(true)
+  expect(instruct).not.toHaveBeenCalled()
 })
 
 test('a step with no retained work has no empty outputs region', async () => {
@@ -538,4 +545,43 @@ test('a step with no retained work has no empty outputs region', async () => {
 
   expect(await screen.findByText('No retained work on Research yet.')).toBeInTheDocument()
   expect(screen.queryByRole('region', { name: 'Outputs' })).not.toBeInTheDocument()
+})
+
+test('the drawer closes when its link points at the question already open', async () => {
+  const withSession: ProcessingSnapshotDto = {
+    ...snapshot,
+    jobs: [{ ...snapshot.jobs[0], session_state: 'waiting_input' }],
+  }
+  const client = {
+    ...clientFixture(),
+    read: vi.fn().mockResolvedValue(withSession),
+    session: vi.fn().mockResolvedValue({
+      job_id: jobId,
+      attempt_id: attemptId,
+      session_state: 'waiting_input',
+      outbox: [],
+      inbox: [],
+    }),
+    chat: vi.fn(),
+  } as ProcessingClient
+  render(
+    <ServerStateProvider scope={scope} client={createServerQueryClient()}>
+      <ProcessingWorkspace
+        batch={batch}
+        client={client}
+        view="examine"
+        questionId={questionId}
+        navigate={vi.fn()}
+        onDirtyChange={vi.fn()}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+      />
+    </ServerStateProvider>,
+  )
+  await userEvent.click(
+    await screen.findByRole('button', { name: 'Open session: Examine · Packet A' }),
+  )
+  const drawer = screen.getByRole('dialog', { name: 'Examine · Packet A' })
+  await userEvent.click(within(drawer).getByRole('link', { name: 'How many are in Packet A?' }))
+
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
