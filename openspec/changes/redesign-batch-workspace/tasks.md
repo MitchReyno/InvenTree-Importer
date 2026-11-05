@@ -124,8 +124,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **Verification:** contract and OpenAPI checks; intake tests for counts across states, including uncertain results and changed-after-review lots.
 
 - [x] 4.1 Add the `BatchAttention` contract and the generated client.
-- [ ] 4.2 Write failing route tests for each item group and its route target (RED).
-- [ ] 4.3 Implement the projection and route under the existing batch read authority until they pass (GREEN).
+- [x] 4.2 Write failing route tests for each item group and its route target (RED).
+- [x] 4.3 Implement the projection and route under the existing batch read authority until they pass (GREEN).
 
 ## 5. Batch navigation and redirects
 

@@ -133,3 +133,10 @@ Reviews from PR-B on use a fresh read-only Claude reviewer subagent per round, a
 
 Contract and OpenAPI checks, intake tests, frontend checks, redirect tests, and a browser check of Capture at 1440, 860 and 390px and 200% zoom (under 2,500px tall for an 11-file fixture).
 
+## PR-B results
+
+### Task 4
+
+- **4.1 contract:** `contracts/src/attention.ts` (`BatchAttention`, `AttentionItem`); routes are in-app hash routes under the batch, limited by pattern to Processing, Review and Changes. 3 contract tests failed first (missing `attentionClient`), then passed; contracts suite 75/75 and `pnpm contracts:check` clean.
+- **4.2–4.3 projection and route:** `intake-server/src/attention/` holds the pure projection, the route and a reader composing the existing processing, operator-review and manual repositories, registered in `main.ts` beside the manual routes. Questions route to their step (Reading and Identifying to Examine); changed-after-review lots and open blocking issues route to Review › Lots; runs needing recovery or with unknown or mixed certainty route to Changes › Added. Counts stay exact when the 200 items are truncated. 4 projection and 3 route tests failed first (modules missing), then passed. A PostgreSQL test through the manual fixture (now also serving the route when processing is enabled) reviews two lots, bulk-edits one and checks that the attention read agrees with the operator-review and manual reads; it passed against the owned dev Postgres. Intake unit suite 188/188.
+

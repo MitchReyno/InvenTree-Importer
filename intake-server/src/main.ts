@@ -19,6 +19,8 @@ import { registerMediaRoutes } from './media/routes.ts'
 import { captureRead } from './capture/read.ts'
 import { catalogueReader } from './capture/catalogue.ts'
 import { registerManual } from './review/routes.ts'
+import { registerAttention } from './attention/routes.ts'
+import { attentionReader } from './attention/reader.ts'
 import { inventoryTransport } from './inventory/transport.ts'
 import fastifyStatic from '@fastify/static'
 import { existsSync } from 'node:fs'
@@ -130,15 +132,21 @@ async function main() {
       if (mediaStore) {
         registerMediaRoutes(server, db.pool, config, mediaStore)
       }
+      const manualConfig = {
+        ...config,
+        mediaEnabled: mediaStore !== undefined,
+        deploymentId: process.env.INTAKE_DEPLOYMENT_ID,
+        readOrigin: process.env.INTAKE_READ_ORIGIN,
+      }
+      registerAttention(
+        server,
+        config,
+        attentionReader(db.pool, manualConfig, processing, lockCaptureForEdit),
+      )
       registerManual(
         server,
         db.pool,
-        {
-          ...config,
-          mediaEnabled: mediaStore !== undefined,
-          deploymentId: process.env.INTAKE_DEPLOYMENT_ID,
-          readOrigin: process.env.INTAKE_READ_ORIGIN,
-        },
+        manualConfig,
         read,
         transport
           ? {
