@@ -38,6 +38,12 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
   const workText = workflowSummary(workData, preferred, workUnavailable, now)
   const navigation = safeTargetNavigation(target?.navigation_url)
   const workFresh = !workUnavailable && !!workData && observationFresh(workData.observed_at, now)
+  const workShort = compactWorkWord({
+    unavailable: workUnavailable,
+    loaded: !!workData,
+    fresh: workFresh,
+    hasWork: !!preferred,
+  })
   const workActive =
     workFresh && !!preferred && preferred.steps.some((step) => stepTone(step.state) === 'running')
   return (
@@ -57,6 +63,7 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
                 {batchId && preferred?.batch_id === batchId ? 'Current batch' : 'Application-wide'}
               </Scope>
             </ActivityLabels>
+            {!(workFresh && preferred) && <ShortText aria-hidden="true" data-short={workShort} />}
             {workFresh && preferred && (
               <Segments role="list" aria-label="Known retained steps">
                 {preferred.steps.map((step, index) => {
@@ -128,6 +135,23 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
       )}
     </StatusRow>
   )
+}
+
+type WorkView = { unavailable: boolean; loaded: boolean; fresh: boolean; hasWork: boolean }
+
+/** At phone width the activity labels hide; without segments to show, this word stands in. */
+function compactWorkWord({ unavailable, loaded, fresh, hasWork }: WorkView) {
+  if (unavailable) {
+    return 'Offline'
+  }
+  if (!loaded) {
+    return 'Reading…'
+  }
+  if (!fresh) {
+    return 'Stale'
+  }
+
+  return hasWork ? 'Active' : 'Idle'
 }
 
 type StepTone = 'done' | 'running' | 'failed' | 'other'

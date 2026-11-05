@@ -25,7 +25,7 @@ export function MastheadMenu({ themeController }: { themeController?: ThemeContr
         </Trigger>
       </Popover.Trigger>
       <Popover.Portal>
-        <Content align="end" sideOffset={8} collisionPadding={12}>
+        <Content align="end" sideOffset={8} collisionPadding={12} aria-label="Application options">
           <Links aria-label="Application">
             <a href="#agents">Agents</a>
             <a href="#settings">Agent settings</a>

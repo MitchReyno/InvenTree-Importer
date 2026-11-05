@@ -76,6 +76,7 @@ const Trigger = styled.button`
     border-color: ${color.accent};
   }
   ${media.compact} {
+    min-width: 44px;
     min-height: 44px;
   }
 `

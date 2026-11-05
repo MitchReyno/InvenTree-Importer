@@ -88,6 +88,10 @@ test('failed activity reads stay unavailable and a missing target URL has no inv
   render(<HeaderStatus client={api} batchId={batchId} />)
   await screen.findByText('Workflow unavailable')
   expect(screen.queryByText('Idle')).toBeNull()
+  // At phone width a short drawn word keeps the control from going blank.
+  expect(
+    screen.getByRole('button', { name: 'Workflow activity' }).querySelector('[data-short]'),
+  ).toHaveAttribute('data-short', 'Offline')
   expect(screen.queryByRole('link', { name: 'Open InvenTree' })).toBeNull()
   expect(screen.getByText(/Open InvenTree unavailable/)).toBeVisible()
 })

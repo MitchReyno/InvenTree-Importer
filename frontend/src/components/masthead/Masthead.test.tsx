@@ -111,6 +111,7 @@ test('the overflow menu links to Agents and Agent settings and switches the them
   render(<Masthead themeController={controller} />)
 
   await user.click(screen.getByRole('button', { name: 'More' }))
+  expect(screen.getByRole('dialog', { name: 'Application options' })).toBeVisible()
   expect(screen.getByRole('link', { name: 'Agents' })).toHaveAttribute('href', '#agents')
   expect(screen.getByRole('link', { name: 'Agent settings' })).toHaveAttribute('href', '#settings')
   const theme = screen.getByRole('radiogroup', { name: 'Theme' })
