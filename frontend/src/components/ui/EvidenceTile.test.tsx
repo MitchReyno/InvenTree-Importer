@@ -95,6 +95,18 @@ describe('EvidenceGroup', () => {
     expect(onRename).toHaveBeenCalledWith('New name')
   })
 
+  it('lets the same rename be retried when the parent keeps the old name', async () => {
+    const onRename = vi.fn()
+    render(<EvidenceGroup name="Bag" count={1} onRename={onRename} />)
+    const name = screen.getByRole('textbox', { name: 'Group name' })
+
+    await userEvent.clear(name)
+    await userEvent.type(name, 'New name{Enter}')
+    await userEvent.type(name, '{Enter}')
+
+    expect(onRename).toHaveBeenCalledTimes(2)
+  })
+
   it('sends a later identical rename after the saved name changed back', async () => {
     const onRename = vi.fn()
     const { rerender } = render(<EvidenceGroup name="Bag" count={1} onRename={onRename} />)

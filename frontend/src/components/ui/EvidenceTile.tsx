@@ -219,6 +219,7 @@ const Retry = styled.button`
   text-decoration: underline;
   cursor: pointer;
   ${media.compact} {
+    min-width: 44px;
     min-height: 44px;
   }
 `

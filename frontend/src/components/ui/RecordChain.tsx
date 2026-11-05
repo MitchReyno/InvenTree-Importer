@@ -1,5 +1,6 @@
 import styled, { css } from 'styled-components'
 import { color, radius, space } from '../../theme/generated/tokens'
+import { media } from './media'
 
 export type RecordState = 'exists' | 'new' | 'update' | 'choose' | 'none'
 
@@ -63,13 +64,16 @@ const states = {
   `,
 }
 
+// Scrolls inside itself when one record's label is wider than the page.
 const Chain = styled.ol`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: ${space[1]};
+  max-width: 100%;
   margin: 0;
   padding: 0;
+  overflow-x: auto;
   list-style: none;
 `
 
@@ -98,6 +102,10 @@ const Link = styled.a<{ $state: RecordState }>`
   ${({ $state }) => states[$state]}
   &:hover {
     background: ${color.surface2};
+  }
+  ${media.compact} {
+    justify-content: center;
+    min-height: 44px;
   }
 `
 

@@ -1,6 +1,7 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 import { color, radius, space } from '../../theme/generated/tokens'
+import { media } from './media'
 
 type EvidenceGroupProps = {
   name: string
@@ -23,13 +24,12 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
   const { name, count, note, actions, dropState = 'none', ungrouped = false, children } = props
   const [draft, setDraft] = useState(name)
   const [shownName, setShownName] = useState(name)
-  // The last name sent, so Enter then blur doesn't send it twice before the parent catches up.
-  const submitted = useRef<string | null>(null)
+  // Enter already sent this draft, so the blur that follows must not send it again.
+  const sentOnEnter = useRef(false)
 
   if (shownName !== name) {
     setShownName(name)
     setDraft(name)
-    submitted.current = null
   }
 
   function commit() {
@@ -38,16 +38,21 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
       setDraft(name)
       return
     }
-    if (trimmed === submitted.current) {
+    props.onRename?.(trimmed)
+  }
+
+  function handleBlur() {
+    if (sentOnEnter.current) {
+      sentOnEnter.current = false
       return
     }
-    submitted.current = trimmed
-    props.onRename?.(trimmed)
+    commit()
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === 'Enter') {
       event.preventDefault()
+      sentOnEnter.current = true
       commit()
     } else if (event.key === 'Escape') {
       event.preventDefault()
@@ -64,9 +69,12 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
           <NameField
             aria-label="Group name"
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => {
+              sentOnEnter.current = false
+              setDraft(event.target.value)
+            }}
             onKeyDown={handleKeyDown}
-            onBlur={commit}
+            onBlur={handleBlur}
           />
         )}
         <Count>{fileCount(count)}</Count>
@@ -120,6 +128,9 @@ const NameField = styled.input`
   &:focus {
     border-color: ${color.lineStrong};
     background: ${color.surface};
+  }
+  ${media.compact} {
+    min-height: 44px;
   }
 `
 
