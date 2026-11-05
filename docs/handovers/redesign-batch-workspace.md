@@ -202,3 +202,9 @@ Fresh read-only Claude reviewer at `007e80d`: 2 Minor, both fixed test-first.
 - **Choice made from a cached read (Minor):** returning to Changes remounts the workspace on cached data, so a preparation approved elsewhere could still be chosen and then shown as unavailable. The bare choice now waits for the mount's own read (`isFetchedAfterMount`). The test seeds a cache listing the remembered preparation and a fresh read without it, and expects the newest.
 - **`Batch` memory untested (Minor):** a `Batch` test again goes from a shown preparation through Capture to bare Ready to add and asserts the hash returns to it with no new history entry; removing the prop from `Batch` makes it fail (checked).
 
+### PR-B review round 6
+
+Fresh read-only Claude reviewer at `e088b56`: 1 Minor, fixed test-first.
+
+- **A failed first read opened the gate (Minor):** `isFetchedAfterMount` also turns true on an error, leaving the cached list in place, so the bare choice could still pick a gone preparation. The choice now also waits while the read is in error. The test fails the mount's first read, lets the failure settle (asserting no choice yet), then refetches and expects the newest; without the fix it fails (checked).
+

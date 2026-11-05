@@ -158,8 +158,8 @@ export function ManualWorkspace({
       return
     }
     // Bare Ready to add opens the remembered preparation, or the newest once that is gone,
-    // judged by this mount's own read rather than a cached one.
-    if (waitingForFirstRead) {
+    // judged by this mount's own successful read rather than a cached one.
+    if (waitingForFirstRead || connectionLost) {
       return
     }
     const shown =
@@ -172,6 +172,7 @@ export function ManualWorkspace({
   }, [
     workspace,
     waitingForFirstRead,
+    connectionLost,
     stage,
     preparationId,
     rememberedPreparationId,
