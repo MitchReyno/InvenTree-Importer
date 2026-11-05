@@ -208,3 +208,7 @@ Fresh read-only Claude reviewer at `e088b56`: 1 Minor, fixed test-first.
 
 - **A failed first read opened the gate (Minor):** `isFetchedAfterMount` also turns true on an error, leaving the cached list in place, so the bare choice could still pick a gone preparation. The choice now also waits while the read is in error. The test fails the mount's first read, lets the failure settle (asserting no choice yet), then refetches and expects the newest; without the fix it fails (checked).
 
+### PR-B review round 7
+
+Fresh read-only Claude reviewer at `7c42f99`: clean, no findings. Later commits on the branch change only this handover.
+
