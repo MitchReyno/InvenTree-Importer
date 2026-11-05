@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "node scripts/check-contrast.cjs && tsc -b && vite build",
     "typecheck": "tsc -b",
-    "lint": "node scripts/generate-tokens.cjs --check && node scripts/check-contrast.cjs && eslint . --max-warnings 0",
+    "lint": "node scripts/generate-tokens.cjs --check && node scripts/check-contrast.cjs && node scripts/check-literal-colors.cjs && eslint . --max-warnings 0",
     "tokens": "node scripts/generate-tokens.cjs",
     "test": "vitest run"
   },

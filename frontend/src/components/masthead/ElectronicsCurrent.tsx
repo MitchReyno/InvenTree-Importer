@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import styled from 'styled-components'
+import { media } from '../ui/media'
 import type { ElectronicsCurrentController } from '../../electronics-current/scene'
 
 // three.js r163+ renders through WebGL 2 only. Detect it before loading the
@@ -15,6 +16,9 @@ function prefersReducedMotion(): boolean {
 
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
+
+// Mask opacity, not a colour: parts under compact text stay at a quarter strength.
+const DIMMED = 'color-mix(in srgb, black 25%, transparent)'
 
 /**
  * Decorative isometric electronics drifting behind the masthead title. Purely
@@ -79,7 +83,7 @@ export function ElectronicsCurrent() {
   return <Canvas ref={canvasRef} aria-hidden="true" data-testid="electronics-current" />
 }
 
-// Parts fade out under the title (left) and the workflow label (right).
+// Parts show only between the left text (wordmark, badge, breadcrumb) and the status controls.
 const Canvas = styled.canvas`
   position: absolute;
   inset: 0;
@@ -90,22 +94,22 @@ const Canvas = styled.canvas`
   mask-image: linear-gradient(
     to right,
     transparent 0,
-    transparent 140px,
-    #000 330px,
-    #000 calc(100% - 230px),
-    transparent calc(100% - 120px)
+    transparent 460px,
+    black 600px,
+    black calc(100% - 420px),
+    transparent calc(100% - 300px)
   );
 
-  /* Narrow screens leave little room between title and label, so parts dim under
-     the text instead of disappearing. */
-  @media (max-width: 700px) {
+  /* The compact bar leaves little room between its ends, so parts dim under the text
+     instead of disappearing. */
+  ${media.compact} {
     mask-image: linear-gradient(
       to right,
-      rgb(0 0 0 / 25%) 0,
-      rgb(0 0 0 / 25%) 140px,
-      #000 175px,
-      #000 calc(100% - 150px),
-      rgb(0 0 0 / 25%) calc(100% - 125px)
+      ${DIMMED} 0,
+      ${DIMMED} 200px,
+      black 240px,
+      black calc(100% - 200px),
+      ${DIMMED} calc(100% - 170px)
     );
   }
 `

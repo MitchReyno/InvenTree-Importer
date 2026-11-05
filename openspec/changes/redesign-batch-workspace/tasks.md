@@ -77,7 +77,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - [x] 1.2 Add the contrast script: every text token against its documented grounds in both themes. It fails the build below threshold.
 - [x] 1.3 Add the theme controller: OS default, Light/Dark/System override, try/catch storage, `color-scheme`, and a pre-paint attribute script. Write tests for switching, persistence and throwing storage.
 - [x] 1.4 Add `@fontsource-variable/public-sans` and `@fontsource/ibm-plex-mono` (400, 500) at 5.3.0, and check that 650 and 750 render. Update the frontend architecture styling paragraph.
-- [ ] 1.5 Add the literal-colour check `frontend/scripts/check-literal-colors.cjs` to `lint:frontend`, allowlisting photo-stage fixtures.
+- [x] 1.5 Add the literal-colour check `frontend/scripts/check-literal-colors.cjs` to `lint:frontend`, allowlisting photo-stage fixtures.
 
 ## 2. Component library
 
