@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, space } from '../../theme/generated/tokens'
 import type {
   CaptureBatchSettingsChangeDto,
   CaptureDefaultLocationSettingDto,
@@ -543,9 +543,9 @@ export function BatchSettingsPanel({
                   onChange={(event) => updateInstructions(event.target.value)}
                 />
               </Label>
-              <Small>
+              <Small data-version={instructionRecord?.version}>
                 {instructionRecord
-                  ? `Version ${instructionRecord.version} · ${new Date(instructionRecord.created_at).toLocaleString()}`
+                  ? `Saved ${new Date(instructionRecord.created_at).toLocaleString()}`
                   : 'No custom instructions saved yet.'}{' '}
                 Versioned human context for research; instructions do not approve inventory values.
               </Small>
@@ -581,14 +581,14 @@ const Settings = styled(Panel)`
   min-width: 0;
   margin-bottom: 0;
   details {
-    margin-top: 12px;
+    margin-top: ${space[3]};
     overflow-wrap: anywhere;
   }
 `
 const Instructions = styled.div`
   display: grid;
-  gap: 8px;
-  padding-top: 12px;
+  gap: ${space[2]};
+  padding-top: ${space[3]};
   border-top: 1px solid ${color.line};
 `
 const KeepButton = styled.button`

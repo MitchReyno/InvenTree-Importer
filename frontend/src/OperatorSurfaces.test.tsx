@@ -143,7 +143,8 @@ test('Custom instructions keep their version and autosave with the loaded revisi
   expect(screen.getByText(/instructions do not approve inventory values/)).toBeVisible()
   const text = screen.getByLabelText('Custom instructions')
   expect(text).toHaveValue('Same order, separate packets.')
-  expect(screen.getByText(/Version 6/)).toBeVisible()
+  // The loaded version stays checkable without being shown inline.
+  expect(screen.getByText(/^Saved .*Versioned human context/)).toHaveAttribute('data-version', '6')
   await user.type(text, ' Keep date codes apart.')
   expect(dirty).toHaveBeenLastCalledWith(true)
   await waitFor(() => expect(settings.instruct).toHaveBeenCalledTimes(1))
@@ -316,6 +317,8 @@ test('Capture omits subject panes and opens Review for subject editing', async (
   expect(screen.queryByRole('heading', { name: /Physical lots/ })).not.toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: /Part proposals/ })).not.toBeInTheDocument()
   expect(screen.queryByRole('region', { name: /^Lot:|^Shared Part:/ })).not.toBeInTheDocument()
+  // Provenance on demand: no revision or version numbers inline on Capture.
+  expect(screen.queryByText(/revision \d|Version \d/)).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Go to review →' }))
   expect(onStage).toHaveBeenCalledWith('review')
   history.replaceState(null, '', location.pathname)

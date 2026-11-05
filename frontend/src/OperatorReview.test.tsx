@@ -21,6 +21,14 @@ import { ManualWorkspace } from './components/review/ManualWorkspace'
 import type { ManualClient } from './manual/types'
 import type { OperatorReviewClient } from './operator/types'
 
+/** The revision behind a "<label>: Saved" status; the number is kept off the visible text. */
+function savedRevision(label: string) {
+  return screen
+    .queryAllByRole('status')
+    .find((item) => item.textContent === `${label}: Saved`)
+    ?.getAttribute('data-revision')
+}
+
 const batchId = '10000000-0000-4000-8000-000000000001'
 const partId = '20000000-0000-4000-8000-000000000002'
 const a = '30000000-0000-4000-8000-000000000003'
@@ -859,7 +867,7 @@ test('Batch keeps an autosaved instruction draft after a foreign revision and re
   vi.mocked(operator.read).mockResolvedValue({ ...operatorReview, revision: '13' })
   vi.mocked(client.read).mockResolvedValue({ ...batch, revision: '13' })
   await user.click(screen.getByRole('button', { name: 'Discard my edits and load saved values' }))
-  await screen.findByText('Batch settings: Saved · revision 13')
+  await waitFor(() => expect(savedRevision('Batch settings')).toBe('13'))
   expect(screen.getByLabelText('Custom instructions')).toHaveValue('')
   expect(operator.instruct).toHaveBeenCalledOnce()
 })

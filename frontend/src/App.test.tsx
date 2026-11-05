@@ -18,6 +18,14 @@ import type { Client } from './capture/client'
 import { CaptureWorkspace } from './components/capture/CaptureWorkspace'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
 
+/** The revision behind a "<label>: Saved" status; the number is kept off the visible text. */
+function savedRevision(label: string) {
+  return screen
+    .queryAllByRole('status')
+    .find((item) => item.textContent === `${label}: Saved`)
+    ?.getAttribute('data-revision')
+}
+
 const batchId = '10000000-0000-4000-8000-000000000001'
 const partId = '20000000-0000-4000-8000-000000000002'
 const lotId = '30000000-0000-4000-8000-000000000003'
@@ -503,7 +511,7 @@ test('hash and browser Back cannot discard dirty input; confirmed save permits r
   await screen.findByText('Batch settings: Saving…')
   expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(false)
   release()
-  await screen.findByText('Batch settings: Saved · revision 9007199254740994')
+  await waitFor(() => expect(savedRevision('Batch settings')).toBe('9007199254740994'))
   expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(true)
   history.back()
   await screen.findByRole('heading', { name: 'Retained results' })

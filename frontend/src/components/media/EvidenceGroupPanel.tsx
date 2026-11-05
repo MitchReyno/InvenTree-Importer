@@ -11,7 +11,8 @@ import type {
 import type { OperatorReviewClient } from '../../operator/types'
 import type { MediaIdentityLabels } from '../../media/identity-labels'
 import type { EditMedia } from '../../media/types'
-import { Button, Paragraph, Subheading } from '../ui/primitives'
+import { Button, Paragraph } from '../ui/primitives'
+import { color, space, type } from '../../theme/generated/tokens'
 import { EvidenceDropZone } from './EvidenceDropZone'
 import { EvidenceDragHandle } from './EvidenceDragHandle'
 import { MediaEvidenceCard } from './MediaEvidenceCard'
@@ -111,9 +112,10 @@ export function EvidenceGroupPanel({
       label={`${name} · ${evidence.length} files`}
       disabled={frozen}
     >
-      <Subheading>
-        {name} · {evidence.length}
-      </Subheading>
+      <GroupHead>
+        <GroupName>{name}</GroupName>
+        <FileCount>{evidence.length === 1 ? '1 file' : `${evidence.length} files`}</FileCount>
+      </GroupHead>
       {group && (
         <>
           <GroupActions>
@@ -269,9 +271,24 @@ export function EvidenceGroupPanel({
   )
 }
 
+const GroupHead = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: ${space[2]};
+`
+
+const GroupName = styled.h3`
+  margin: 0;
+  ${type.h3}
+`
+
+const FileCount = styled.span`
+  font-size: 12.5px;
+  color: ${color.muted};
+`
+
 const GroupActions = styled.div`
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
-  margin: 12px 0;
+  gap: ${space['1-5']};
 `
