@@ -141,7 +141,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - [x] 5.2 Build BatchHeader with the tabs, the second row and badges from the attention read.
 - [x] 5.3 Build the need-you panel on the Radix popover, with focus return.
 - [x] 5.4 Mount the existing Review, Approve and Results components under the new routes temporarily, until tasks 8 and 11 replace them.
-- [ ] 5.5 Add a target-kind field (owned test target or configured target) to the header connection contract, and show the `info` "Test InvenTree" connection state from it, test-first. This is the single place the test target is named outside Changes.
+- [x] 5.5 Add a target-kind field (owned test target or configured target) to the header connection contract, and show the `info` "Test InvenTree" connection state from it, test-first. This is the single place the test target is named outside Changes.
 
 ## 6. Batches home and Capture
 

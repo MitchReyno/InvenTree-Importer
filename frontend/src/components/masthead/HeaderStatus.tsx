@@ -228,6 +228,7 @@ const Scope = styled.small`
 
 const dotTone = {
   ok: color.ok,
+  info: color.info,
   warn: color.warn,
   bad: color.bad,
   muted: color.muted,

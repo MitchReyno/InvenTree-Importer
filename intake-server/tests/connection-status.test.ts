@@ -161,3 +161,19 @@ test('actual default HTTP transport retains JSON content type for a healthy owne
     )
   }
 })
+
+test('the connection names the owned test target, and anything else as configured', async () => {
+  const healthy = async () =>
+    new Response('{}', { headers: { 'content-type': 'application/json' } })
+  const owned = await connectionStatus(
+    { ...binding, targetKind: 'owned_test' },
+    'http://127.0.0.1:4999/',
+    healthy,
+  )()
+  const configured = await connectionStatus(binding, 'https://inventory.example.test/', healthy)()
+  const unconfigured = await connectionStatus({ ...binding, targetKind: 'owned_test' }, undefined)()
+
+  assert.equal(owned.target.kind, 'owned_test')
+  assert.equal(configured.target.kind, 'configured')
+  assert.equal(unconfigured.target.kind, 'owned_test')
+})
