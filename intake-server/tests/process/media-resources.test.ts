@@ -5,9 +5,11 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { MEDIA_LIMITS } from '../../src/media/decoder-protocol.ts'
 import { decodeIsolated } from '../../src/media/decoder-runner.ts'
 
 const run = promisify(execFile)
+const MEMORY_LIMIT_BYTES = MEDIA_LIMITS.memoryMiB * 1024 * 1024
 const image = process.env.INTAKE_MEDIA_PROBE_IMAGE
 if (image && (image.length !== 71 || !/^sha256:[a-f0-9]{64}$/.test(image))) {
   throw new Error('explicit_immutable_probe_image_required')
@@ -121,8 +123,8 @@ resourceTest(
       const policy = inspected.HostConfig
       assert.equal(policy.ReadonlyRootfs, true)
       assert.equal(policy.NetworkMode, 'none')
-      assert.equal(policy.Memory, 536870912)
-      assert.equal(policy.MemorySwap, 536870912)
+      assert.equal(policy.Memory, MEMORY_LIMIT_BYTES)
+      assert.equal(policy.MemorySwap, MEMORY_LIMIT_BYTES)
       assert.equal(policy.NanoCpus, 1000000000)
       assert.equal(policy.PidsLimit, 32)
       assert.deepEqual(policy.CapDrop, ['ALL'])
@@ -132,7 +134,7 @@ resourceTest(
       assert.equal(inspected.Config.User, '1000:1000')
       assert.match(policy.Tmpfs['/tmp'], /noexec/)
       assert.match(policy.Tmpfs['/tmp'], /nosuid/)
-      assert.match(policy.Tmpfs['/tmp'], /size=67108864/)
+      assert.match(policy.Tmpfs['/tmp'], new RegExp(`(^|,)size=${MEDIA_LIMITS.scratchMiB}m(,|$)`))
       const kernel = JSON.parse(
         await docker([
           'exec',
@@ -143,7 +145,7 @@ resourceTest(
         ]),
       )
       assert.deepEqual(kernel, {
-        memory: '536870912',
+        memory: String(MEMORY_LIMIT_BYTES),
         swap: '0',
         pids: '32',
         cpu: '100000 100000',
