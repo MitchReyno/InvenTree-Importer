@@ -6,6 +6,7 @@ import Select, {
   type StylesConfig,
 } from 'react-select'
 import styled from 'styled-components'
+import { color, radius, shadow } from '../../theme/generated/tokens'
 import type { CatalogueCoverageDto, CatalogueRecordDto } from '@invimport/contracts'
 import { rankReferences, type RankTier } from '../../capture/reference-rank'
 import { Label, Small } from './primitives'
@@ -240,19 +241,38 @@ const styles: StylesConfig<Option, false> = {
   control: (base, state) => ({
     ...base,
     minHeight: 44,
-    borderColor: '#acbacb',
+    borderColor: state.isFocused ? color.accent : color.lineStrong,
+    borderRadius: radius.input,
     borderStyle: state.isDisabled ? 'dashed' : 'solid',
-    background: state.isDisabled ? '#f3f5f8' : '#fff',
+    boxShadow: state.isFocused ? `0 0 0 2px ${color.accent}` : 'none',
+    '&:hover': { borderColor: state.isFocused ? color.accent : color.lineStrong },
+    background: state.isDisabled ? color.surface2 : color.surface,
   }),
   singleValue: (base, state) => ({
     ...base,
-    color: state.isDisabled ? '#526179' : '#233349',
+    color: state.isDisabled ? color.muted : color.fg,
   }),
+  placeholder: (base) => ({ ...base, color: color.muted }),
   // react-select hides a disabled input, which removes the named combobox from assistive tech.
-  input: (base) => ({ ...base, visibility: 'visible' }),
-  placeholder: (base) => ({ ...base, color: '#526179' }),
-  menu: (base) => ({ ...base, zIndex: 5 }),
-  option: (base) => ({ ...base, overflowWrap: 'anywhere' }),
+  input: (base) => ({ ...base, visibility: 'visible', color: color.fg }),
+  menu: (base) => ({
+    ...base,
+    zIndex: 5,
+    padding: 4,
+    border: `1px solid ${color.line}`,
+    borderRadius: radius.card,
+    background: color.surface,
+    boxShadow: shadow,
+  }),
+  option: (base, state) => ({
+    ...base,
+    padding: '6px 8px',
+    borderRadius: radius.input,
+    overflowWrap: 'anywhere',
+    color: color.fg,
+    background: state.isSelected || state.isFocused ? color.accentWeak : 'transparent',
+  }),
+  noOptionsMessage: (base) => ({ ...base, color: color.muted }),
 }
 
 const Status = styled(Small)`

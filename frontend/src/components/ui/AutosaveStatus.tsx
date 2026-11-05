@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { color, radius, space } from '../../theme/generated/tokens'
 import { Button } from './primitives'
 
 export type AutosaveState =
@@ -35,7 +36,7 @@ export function AutosaveStatus({ label, state, revision, onRetry, onReload }: Pr
   const message = `${label}: ${text[state](revision)}`
   if (state === 'conflict' || state === 'unconfirmed') {
     return (
-      <Problem role="alert">
+      <Problem role="alert" data-state={state}>
         <span>{message}</span>
         {state === 'unconfirmed' && onRetry && (
           <Button type="button" onClick={onRetry}>
@@ -57,25 +58,50 @@ export function AutosaveStatus({ label, state, revision, onRetry, onReload }: Pr
   )
 }
 
-const Status = styled.p`
+const dotTone: Record<AutosaveState, string> = {
+  saved: color.ok,
+  pending: color.accent,
+  saving: color.accent,
+  invalid: color.warn,
+  rejected: color.warn,
+  unconfirmed: color.warn,
+  disconnected: color.warn,
+  conflict: color.bad,
+}
+
+const Status = styled.p<{ 'data-state': AutosaveState }>`
+  display: inline-flex;
+  align-items: center;
+  gap: ${space['1-5']};
   margin: 0;
-  font-size: 13px;
-  color: #526179;
+  font-size: 12.5px;
+  color: ${color.muted};
+  &::before {
+    content: '';
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: ${(props) => dotTone[props['data-state']]};
+  }
   &[data-state='invalid'],
   &[data-state='rejected'],
   &[data-state='disconnected'] {
-    color: #8a4b00;
+    color: ${color.warn};
   }
 `
-const Problem = styled.div`
+
+const Problem = styled.div<{ 'data-state': 'conflict' | 'unconfirmed' }>`
   display: grid;
-  gap: 8px;
-  padding: 10px 12px;
-  border: 1px solid #cd8585;
-  border-radius: 6px;
-  background: #fff0f0;
-  font-size: 14px;
+  gap: ${space[2]};
+  padding: ${space['2-5']} ${space[3]};
+  border: 1px solid ${(props) => (props['data-state'] === 'conflict' ? color.bad : color.warn)};
+  border-radius: ${radius.input};
+  background: ${(props) => (props['data-state'] === 'conflict' ? color.badWeak : color.warnWeak)};
+  color: ${(props) => (props['data-state'] === 'conflict' ? color.bad : color.warn)};
+  font-size: 12.5px;
   ${Button} {
     justify-self: start;
+    color: ${color.fg};
   }
 `

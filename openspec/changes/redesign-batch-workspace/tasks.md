@@ -93,7 +93,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - [x] 2.2 Build Tabs, SubTabs, SegmentedControl, FilterChips and Breadcrumb, with tests for roving focus and selection.
 - [x] 2.3 Build EvidenceTile, EvidenceGroup, KeyValue, RecordChain, DataTable with BulkBar, ChangeSummary and StickyFooter.
 - [x] 2.4 Build PhaseRow, QuestionCard, StatusTimeline, NeedsYou and SessionChat.
-- [ ] 2.5 Restyle the AutosaveStatus, reference picker, AutoValueField, tags input and DisabledFeature to tokens, keeping their tests green.
+- [x] 2.5 Restyle the AutosaveStatus, reference picker, AutoValueField, tags input and DisabledFeature to tokens, keeping their tests green.
 - [ ] 2.6 Sweep the remaining components off module-scope colour literals.
 
 ## 3. Masthead option A and dark current
