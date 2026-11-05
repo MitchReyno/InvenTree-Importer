@@ -4,7 +4,7 @@
 
 ### Requirement: Evidence-based responsive placement
 
-Capture SHALL default to the original mockup's composition: evidence on the left, settings on the right. It SHALL remove the editable Physical lots and Part proposals panes and the persistent subject-editor chrome. It MAY show a read-only Proposed lots glance in the settings column, giving each lot's name, state and its agent's latest status line, with a link to Review. It SHALL use the design-system tokens in both themes, and keep the three evidence actions, the groups and a compact stage hierarchy. Narrow layouts SHALL reflow without horizontal overflow of the page or loss of drafts. Current requested field behaviour overrides obsolete mockup controls.
+Capture SHALL default to the original mockup's composition: evidence on the left, settings on the right. It SHALL remove the editable Physical lots and Part proposals panes and the persistent subject-editor chrome. It MAY show a read-only Proposed lots glance in the settings column, giving each lot's name and state, and its agent's latest status line when agent sessions exist, with a link to Review. It SHALL use the design-system tokens in both themes, and keep the three evidence actions, the groups and a compact stage hierarchy. Narrow layouts SHALL reflow without horizontal overflow of the page or loss of drafts. Current requested field behaviour overrides obsolete mockup controls.
 
 #### Scenario: Select a layout after comparison
 
@@ -28,4 +28,4 @@ Capture SHALL default to the original mockup's composition: evidence on the left
 
 - **GIVEN** a batch with proposed lots
 - **WHEN** Capture shows the Proposed lots glance
-- **THEN** each lot shows its name, state and latest status line without any edit control, and selecting a lot opens it in Review.
+- **THEN** each lot shows its name and state (and its agent's latest status line when sessions exist) without any edit control, and selecting a lot opens it in Review.

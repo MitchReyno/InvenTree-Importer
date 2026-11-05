@@ -15,7 +15,7 @@
   - Build record edits on `CaptureEdit` and `InventoryPartSpec`.
 - **Change name.** `redesign-batch-workspace`, delivering [BI-008](../../../docs/PLANNED_FUNCTIONALITY.md#bi-008--batch-workspace-redesign).
 - **Branches and subjects.** Branches are `feat/redesign-batch-workspace-<bundle>`, targeting `interactive-app`. Subjects are `type(redesign-batch-workspace): …`.
-- **Dependency.** Agent-backed data (sessions, live lots, regions) comes from BI-006 `simplify-intake-entry` (revised for the Examine lead session and `processing-lot-forming`). Until then, tasks use the `ProcessingSource` adapter over retained jobs (design D9). If BI-006 merges first, the PR for task 7 also adds its session and observation adapter. Otherwise BI-006 adds it, per its design D11.
+- **Dependency.** Agent-backed data (sessions, live lots, regions) comes from BI-006 `simplify-intake-entry` (revised for the Examine lead session and `processing-lot-forming`, merged in #95). Until then, tasks use the `ProcessingSource` adapter over retained jobs (design D9). BI-006 supplies only data and contracts (its design D11). This change's `ProcessingSource` gains the session and observation adapter whenever those contracts exist: in task 14: one conditional PR (PR-G) after PR-C, PR-D and PR-E, which doesn't block any task, PR or BI-008.
 
 ## Completion and commit ordering
 
@@ -30,18 +30,19 @@ Keep a parent unchecked while any of its required subtasks are open. Review, pub
 | Task | Type | Prerequisites | Acceptance |
 | --- | --- | --- | --- |
 | 1 Tokens, themes and fonts | Enabling/UI | None | ui-design-system: Token-driven themes; Legible in both themes; Typography and self-hosted fonts |
-| 2 Component library | UI | 1 | ui-design-system: Provenance on demand; Limits stated once (component level) |
+| 2 Component library | UI | 1 | ui-design-system: the source chip, Details disclosure and disabled-feature box at component level (Provenance on demand is owned end to end by tasks 6 and 8, and Limits stated once by task 11) |
 | 3 Masthead option A and dark current | UI | 1 | header-workflow-status delta; ui-design-system: Masthead and electronics current |
 | 4 Attention read model | Behavior (backend) | None | batch-navigation: Need-you panel (data) |
 | 5 Batch navigation and redirects | UI/behavior | 2, 4 | batch-navigation: all requirements |
-| 6 Batches home and Capture | UI | 2, 5 | capture-batch-settings delta; ui-design-system content rules |
-| 7 Processing workspace | UI | 2, 5 | processing-workspace: all requirements |
-| 8 Review Lots and Map | UI | 2, 5 | review-workspace: all requirements |
-| 9 Record edits backend | Behavior (contracts/server) | None | review-records: Record-level edits; Supported record edits; Unsupported record changes |
-| 10 Records UI | UI | 2, 5, 9 | review-records: Records by type; Steering routed to the proposing step |
-| 11 Preparation tree and Changes | Behavior/UI | 2, 5 | changes-commit: all requirements |
-| 12 Agents page | UI | 2, 7 | agents-overview |
-| 13 Documentation and browser qualification | Docs/evidence | 6–12 | All specs: browser evidence |
+| 6 Batches home and Capture | UI | 2, 5 | capture-batch-settings delta (read-only glance without sessions); ui-design-system: Provenance on demand (Capture-tile half of No internal identifiers inline) |
+| 7 Processing workspace | UI | 2, 5 | processing-workspace: Processing overview and Step page pattern without sessions; Works before agent sessions exist |
+| 8 Review Lots and Map | UI | 2, 5 | review-workspace in its no-observation, no-session forms: file-level evidence, no agent line, Map before agent sessions; ui-design-system: No internal identifiers inline for the Review lot |
+| 9 Record edits backend | Behavior (contracts/server) | None | review-records: Record-level edits; Supported record edits; Unsupported record changes are honest (requirement text; its proposal scenario is task 14's) |
+| 10 Records UI | UI | 2, 5, 9 | review-records: Records by type and Record sources, as far as Before agent proposals exist; Steering routed to the proposing step (no-sessions scenario) |
+| 11 Preparation tree and Changes | Behavior/UI | 2, 5 | changes-commit: all requirements; ui-design-system: Test target stated once, end to end |
+| 12 Agents page | UI | 2, 7 | agents-overview: layout and the No session support yet scenario |
+| 13 Documentation and browser qualification | Docs/evidence | 6–12 | All specs in their pre-BI-006 forms: browser evidence |
+| 14 BI-006 sessions, observations and proposals (conditional) | Behavior/UI | 6, 7, 8, 9, 10, 12, and BI-006's contracts on `interactive-app` | capture-batch-settings: Read-only lots glance (with sessions); processing-workspace: Overview with running agents and the session drawer; agents-overview: Waiting sessions do not count as running; review-workspace region crops, agent line, and Map at region level with its instruction field; review-records: Ask scenario, New company with a likely match, New category proposed |
 
 Tasks 4 and 9 are backend work and can run in parallel with the UI tasks.
 
@@ -55,6 +56,7 @@ Tasks 4 and 9 are backend work and can run in parallel with the UI tasks.
 | PR-D | Review Lots (Workspace and Table) and Map | 8 | The lot-centred half of Review, independent of record editing. | PR-B | `interactive-app` ← `feat/redesign-batch-workspace-review-lots`; `feat(redesign-batch-workspace): review lots and map` | Frontend checks; browser check; review; CI |
 | PR-E | Record edits on capture authority, records projection, and the Records UI | 9–10 | Backend and UI for one capability, reviewable together; the server half has its own integration tests. | PR-B (UI); task 9 may start earlier | `interactive-app` ← `feat/redesign-batch-workspace-records`; `feat(redesign-batch-workspace): review and edit records` | Contracts, intake and PostgreSQL tests; frontend checks; browser check; review; CI |
 | PR-F | Preparation tree, Changes Ready to add (By type and Tree) and Added; removal of the old Approve and Results screens | 11, 13 | Commits the batch on the existing authority, and ends the migration by removing the old screens. Documentation and qualification close the change. | PR-D, PR-E | `interactive-app` ← `feat/redesign-batch-workspace-changes`; `feat(redesign-batch-workspace): changes ready to add and added` | All checks; full browser qualification recorded in the handover; review; CI |
+| PR-G | Task 14: the `ProcessingSource` adapter for BI-006's sessions and observations, live sessions on Processing and Agents, Tell Examine and region-level Map links, Ask, and BI-006's catalogue proposals in the records projection | 14 | One conditional PR after the screens it switches on exist, so nothing ships before its adapter or screen | PR-C, PR-D, PR-E, and BI-006's contracts on `interactive-app` | `interactive-app` ← `feat/redesign-batch-workspace-agent-data`; `feat(redesign-batch-workspace): wire agent sessions, observations and proposals` | `pnpm contracts:check`, `pnpm test:intake`, `test:intake:pg`, frontend checks; synthetic-session browser check; review; CI |
 
 PR-C and PR-D can be reviewed in parallel after PR-B.
 
@@ -66,8 +68,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
   - `frontend/src/theme/` (tokens.json, generated `tokens.css` and `tokens.ts`);
   - `GlobalStyle`, `index.html` (pre-paint script), `package.json`;
   - `frontend/scripts/`.
-- **Acceptance:** Token-driven themes; Legible in both themes; Typography and self-hosted fonts.
-- **Approach:** design D1–D3. Copy the design system's `tokens.json` exactly and generate from it, never by hand.
+- **Acceptance:** Token-driven themes; Legible in both themes; Typography and self-hosted fonts. Values, theme control and the token changes listed there (`photo-scrim`, `photo-fg`, dark `part-*`, the `font-sans` stack, `color-scheme: light`) follow [handoff-pr-a.md](handoff-pr-a.md).
+- **Approach:** design D1–D3. Copy the design system's `tokens.json`, apply the token changes in the handoff (and make the same changes in the artifact), and generate from it, never by hand.
 - **TDD approach:** Generators and checks are written test-first: write a failing check (stale generated file, low-contrast pair, literal colour, theme switch) before each implementation. Font loading is verified in the browser.
 - **Verification:** `pnpm --filter frontend typecheck lint test build`; the contrast script; a browser reload in dark mode with no wrong-theme flash.
 
@@ -82,7 +84,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **PR delivery:** PR-A.
 - **Outcome:** `components/ui/` provides the design-system components, and existing screens render with them, with no behaviour change.
 - **Scope:** `frontend/src/components/ui/`, plus a sweep of existing components onto the token map.
-- **Acceptance:** Provenance on demand and Limits stated once, at component level: the source chip, the details disclosure and the disabled-feature box.
+- **Acceptance:** the component building blocks for Provenance on demand and Limits stated once: the source chip, the details disclosure and the disabled-feature box. The "No internal identifiers inline" scenario is split between task 6 (Capture tile, with 6.4) and task 8 (Review lot), and "Test target stated once" is task 11's. Each component's props, measurements, states, motion and accessibility follow [handoff-pr-a.md](handoff-pr-a.md).
 - **Approach:** design D10. Retain the behaviour of AutosaveStatus, the reference picker, AutoValueField and the tags input, restyling only.
 - **TDD approach:** Each new component starts from a failing component test of its states, keyboard and ARIA. Restyling existing controls relies on their existing tests staying green.
 - **Verification:** component tests for each new component (states, keyboard, ARIA); existing frontend tests pass unchanged; the literal-colour check is clean.
@@ -99,7 +101,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **PR delivery:** PR-A.
 - **Outcome:** one masthead bar with the breadcrumb; parts never cross the text; a visible dark finish.
 - **Scope:** `components/masthead/`, `src/electronics-current/finishes.ts`, `scene.ts` and the mask.
-- **Acceptance:** the header-workflow-status delta, and the masthead requirement of ui-design-system.
+- **Acceptance:** the header-workflow-status delta, and the masthead requirement of ui-design-system. Layout, order, compact behaviour and mask follow the Masthead section of [handoff-pr-a.md](handoff-pr-a.md).
 - **Approach:** design D4.
 - **TDD approach:** Slot order and phone-width hiding are test-first in masthead tests. Mask and finish are visual, so they are verified by the frame-sampling browser check and the contrast check.
 - **Verification:**
@@ -139,6 +141,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - [ ] 5.2 Build BatchHeader with the tabs, the second row and badges from the attention read.
 - [ ] 5.3 Build the need-you panel on the Radix popover, with focus return.
 - [ ] 5.4 Mount the existing Review, Approve and Results components under the new routes temporarily, until tasks 8 and 11 replace them.
+- [ ] 5.5 Add a target-kind field (owned test target or configured target) to the header connection contract, and show the `info` "Test InvenTree" connection state from it, test-first. This is the single place the test target is named outside Changes.
 
 ## 6. Batches home and Capture
 
@@ -148,9 +151,9 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
   - The Batches home matches the canvas.
 - **Scope:** `components/batches/`, `components/capture/`, `components/media/`.
 - **Acceptance:**
-  - capture-batch-settings delta (layout, read-only glance);
+  - capture-batch-settings delta (layout, read-only glance without sessions; its status line is task 14's);
   - capture-grouped-evidence (unchanged behaviour);
-  - ui-design-system Provenance on demand.
+  - ui-design-system Provenance on demand, including the Capture-tile half of the No internal identifiers inline scenario (6.4 removes inline IDs and revisions); task 8 owns the Review-lot half.
 - **TDD approach:** The Proposed lots glance and the moved viewer controls start from failing component tests. Layout and restyling are verified by existing tests and the browser check.
 - **Verification:**
   - Existing capture and media tests stay green, adjusted only for moved controls.
@@ -159,7 +162,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 
 - [ ] 6.1 Redesign the Batches home: continue card with counted actions, compact list, search toolbar.
 - [ ] 6.2 Replace evidence cards with EvidenceTile, moving crop, rotation, download and identity into the viewer and its Details.
-- [ ] 6.3 Add the read-only Proposed lots glance from the `ProcessingSource` adapter, linking to Review.
+- [ ] 6.3 Add the read-only Proposed lots glance from the `ProcessingSource` adapter, linking to Review. The per-lot agent status line appears with task 14 (PR-G).
 - [ ] 6.4 Restyle Batch settings and the evidence groups. Remove inline IDs and revisions.
 
 ## 7. Processing workspace
@@ -167,7 +170,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **PR delivery:** PR-C.
 - **Outcome:** Processing › Overview and the Examine, Research, Images and Inventory step pages, each with a session drawer, over the `ProcessingSource` adapter.
 - **Scope:** `frontend/src/processing/` (adapter), `components/processing/`.
-- **Acceptance:** processing-workspace, all requirements.
+- **Acceptance:** processing-workspace: the Processing overview and Step page pattern requirements in their no-session form (steps, questions, outputs, links; no session drawer), and Works before agent sessions exist (Fixture profile scenario). The session-dependent scenarios are task 14's.
 - **Approach:** design D9. The retained-jobs adapter maps reading and identifying to Examine, and has no sessions.
 - **TDD approach:** Before the adapter, write failing tests mapping each fixture job kind to its step, and asserting that no session appears (RED). GREEN: implement the adapter. Screen layout is verified in the browser.
 - **Verification:** component tests with the fixture profile (no fabricated sessions); a browser check.
@@ -185,7 +188,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
   - a Table with scoped bulk edits;
   - a file-level Map with direct lot edits.
 - **Scope:** `components/review/`, `components/operator/`.
-- **Acceptance:** review-workspace, all requirements.
+- **Acceptance:** review-workspace in its no-observation, no-session forms: Lots workspace and table; Lot details without the agent line; Evidence pane with the lot's linked files; Problems route to their owner; Review map with file-level links and the Map before agent sessions scenario. Also ui-design-system Provenance on demand: No internal identifiers inline for the Review lot. Region crops, agent lines, region-level Map links and the instruction field are task 14's.
 - **Approach:**
   - Reuse the existing operator-review commands for merge, split and move, and the existing bulk edit.
   - "Tell Examine" uses the adapter's message path, and is hidden when there are no sessions.
@@ -202,7 +205,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **PR delivery:** PR-E.
 - **Outcome:** record-level edits and the records projection on the existing capture authority.
 - **Scope:** `contracts/src/capture.ts` (`record` change, `RecordRef`), `contracts/src/effects.ts` (optional Part description), `contracts/src/` (records projection), `intake-server/src/capture/` (apply), `intake-server/src/execution/` (description in `partEffects`, `decodeEffectsPlan`, `supportedCreateBody`), the owned fake, and the `/api/v1/batches/:id/records` route.
-- **Acceptance:** Record-level edits with stated scope; Supported record edits; Unsupported record changes are honest.
+- **Acceptance:** Record-level edits with stated scope; Supported record edits; Unsupported record changes are honest (the requirement: unsupported values never enter a spec and are kept with a reason; its New category proposed scenario needs BI-006's proposals and is evidenced end to end in task 14).
 - **Approach:** design D6–D7, as one transaction per edit at `expected_revision`.
 - **TDD approach:** Baseline: confirm the intake and PostgreSQL suites pass. For each operation, first write a failing integration test (RED) covering CAS 412, fan-out, `set_category` refusal and `changed_after_review` read-back. GREEN: implement it, then refactor.
 - **Verification:** `pnpm contracts:check`; intake and PostgreSQL integration tests for each operation, CAS 412, multi-Part fan-out, `changed_after_review`, re-validation failures, and unsupported items never entering a spec.
@@ -225,7 +228,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **PR delivery:** PR-E.
 - **Outcome:** Review › Records with a type rail, list and detail; edits with stated scope; per-field "Ask".
 - **Scope:** `components/review/records/`.
-- **Acceptance:** Records by type; Steering routed to the proposing step; the UI half of the other review-records requirements.
+- **Acceptance:** Records by type and Record sources as far as Before agent proposals exist; Steering routed to the proposing step, for its no-sessions scenario (the proposing step shown, Ask hidden); the UI half of the other review-records requirements. The decision and "Not supported yet" views are built and component-tested with fixture proposals here; the end-to-end evidence for New company with a likely match, New category proposed and the Ask scenario is task 14's.
 - **Approach:** the canvas screens for Companies, a Part and Parameters. "Ask" is hidden when the adapter has no sessions.
 - **TDD approach:** Before each screen, write failing component tests for the scope text, the 412 path keeping drafts, and unsupported fields (RED). GREEN: implement them.
 - **Verification:** component tests for each record type, the 412 path keeping drafts, and the scope text; a browser check.
@@ -244,7 +247,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
   - Changes › Added, with outcomes and recovery;
   - removal of the old Approve and Results screens.
 - **Scope:** `contracts/src/` (preparation `tree`), `intake-server/src/review/` (tree from plan), `components/changes/`; remove `components/results/` presentation once replaced.
-- **Acceptance:** changes-commit, all requirements.
+- **Acceptance:** changes-commit, all requirements; ui-design-system Test target stated once, end to end, with its connection half from task 5.5 and its Changes footer and outcome strip here.
 - **Approach:** design D7. Reuse the existing preparation, approval, queueing and results certainty and recovery actions.
 - **TDD approach:** Before the tree, write a failing test reading a stored preparation that predates it (RED) and the node-count property test. GREEN: implement the read-time projection. Port the existing manual workflow tests before removing old screens.
 - **Verification:**
@@ -262,9 +265,9 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **PR delivery:** PR-C.
 - **Outcome:** an app-level Agents page from the adapter's sessions across batches.
 - **Scope:** `components/agents/`.
-- **Acceptance:** agents-overview.
-- **TDD approach:** Before the page, write failing tests for slot counting and the no-session-support state (RED). GREEN: implement it.
-- **Verification:** component tests for slot counting and the no-session-support state.
+- **Acceptance:** agents-overview: page layout, summary and filters, and the No session support yet scenario. Waiting sessions do not count as running is task 14's.
+- **TDD approach:** Before the page, write failing tests for the summary's no-session state, the filters and the "not available for this setup" state (RED). GREEN: implement it. Slot-counting tests belong to 14.4.
+- **Verification:** component tests for the no-session summary, the filters and the "not available for this setup" state.
 
 - [ ] 12.1 Build the Agents page with summary, filters and per-batch groups.
 - [ ] 12.2 Add the explicit "not available for this setup" state for adapters without sessions.
@@ -274,12 +277,31 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **PR delivery:** PR-F.
 - **Outcome:** documentation matches the code, and browser evidence exists for every redesigned screen.
 - **Scope:** `frontend/ARCHITECTURE.md`, `intake-server/ARCHITECTURE.md`, `frontend/README.md`, `docs/handovers/redesign-batch-workspace.md`.
-- **Acceptance:** all specs, browser evidence.
+- **Acceptance:** all specs in their pre-BI-006 forms, browser evidence. Step 14.8 records the session and proposal scenarios.
 - **TDD approach:** Documentation only, so test-first does not apply. It is verified by checking each statement against the merged code, plus the markdown lint.
 - **Verification:** headless screenshots of each canvas screen in both themes at 1440, 860 and 390 and 200%, against the owned fake and the fixture profile, linked from the handover, with stated limits (no live provider, no real InvenTree).
 
 - [ ] 13.1 Rewrite the frontend architecture styling, navigation and screen sections, and update `intake-server/ARCHITECTURE.md` for the record edit, records, attention and preparation-tree reads.
 - [ ] 13.2 Record the browser qualification and any deviations from the canvas in the handover.
+
+## 14. BI-006 sessions, observations and proposals (conditional)
+
+- **PR delivery:** PR-G, as one PR, once PR-C, PR-D and PR-E have merged and BI-006's contracts are on `interactive-app`. It never ships early inside another bundle, so no part can land before the adapter it needs or before its screen exists.
+- **Outcome:** Processing, the Agents page, the Capture lots glance, Review › Map and Records show live sessions, region-level observations and BI-006's proposed-new and unsupported catalogue values.
+- **Scope:** `frontend/src/processing/` (a second `ProcessingSource` adapter); the Processing overview session list and session drawer; the Agents page; the Capture Proposed lots glance's status line; the Review evidence pane's region crops and Lot details' agent line; the Map's region links and instruction field; the Records Ask control; and the records projection's reading of BI-006's structured catalogue proposals (`bench-intake-proposal/5`) in `contracts/src/` and `intake-server/src/` (the `/api/v1/batches/:id/records` read from task 9).
+- **Prerequisites:** tasks 6, 7, 8, 9, 10 and 12, and BI-006's contracts merged. It is not a prerequisite of any other task, and BI-008 can be marked Done without it; until then the screens keep their honest "not available" states.
+- **Acceptance:** capture-batch-settings: Read-only lots glance, with sessions; processing-workspace: Overview with running agents and the session drawer; agents-overview: Waiting sessions do not count as running; review-workspace: Evidence pane with region crops, Lot details with the agent line, and the Map at region level with its instruction field; review-records Steering routed to the proposing step, for the Ask scenario; review-records New company with a likely match and New category proposed, end to end.
+- **TDD approach:** write failing adapter tests against BI-006's `synthetic-session/1` fixture data, and failing records-projection tests with `bench-intake-proposal/5` fixtures, first (RED), then implement (GREEN).
+- **Verification:** `pnpm contracts:check`, `pnpm test:intake`, `test:intake:pg`, frontend checks, and a browser check of each screen with the synthetic session profile.
+
+- [ ] 14.1 Write failing tests mapping BI-006 sessions, questions, inbox state and evidence observations into `ProcessingSource` (RED).
+- [ ] 14.2 Implement the adapter and switch to it when the contracts are present (GREEN).
+- [ ] 14.3 Turn on the Processing overview session list and the session drawer.
+- [ ] 14.4 Turn on live sessions and slot counts on the Agents page, and each lot's latest agent status line in the Capture Proposed lots glance.
+- [ ] 14.5 Turn on region crops in the Review evidence pane, each lot's agent line in Lot details, and Tell Examine and region-level Map links in Review › Map.
+- [ ] 14.6 Turn on Ask on Records.
+- [ ] 14.7 Write failing projection tests (RED), then read BI-006's structured catalogue proposals into the records projection (GREEN): proposed-new values, unsupported values with reasons, and the GCT and new-category scenarios end to end.
+- [ ] 14.8 Record the browser check of every screen above in the handover.
 
 ## Delivery evidence and lifecycle follow-up
 
@@ -288,6 +310,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - [ ] D.3 PR-C: same gates.
 - [ ] D.4 PR-D: same gates.
 - [ ] D.5 PR-E: same gates.
-- [ ] D.6 PR-F: same gates. BI-008 is updated to Done only after acceptance and merge are evidenced.
+- [ ] D.6 PR-F: same gates. BI-008 is updated to Done only after acceptance and merge are evidenced. Task 14 is tracked separately by D.7.
+- [ ] D.7 PR-G (task 14): same gates, once PR-C, PR-D, PR-E and BI-006's contracts are on `interactive-app`.
 
 After delivery, sync and archive only when authorized, and update the index link if the change moves.

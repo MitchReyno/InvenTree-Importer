@@ -83,10 +83,16 @@ Retained proposals the executor cannot apply SHALL be shown as “Not supported 
 
 ### Requirement: Steering routed to the proposing step
 
-Each record SHALL show which step proposed each field. An “Ask” control SHALL send a message to that step's session. Direct edits SHALL apply immediately, independently of the message.
+Each record SHALL show which step proposed each field. When agent sessions exist, an “Ask” control SHALL send a message to that step's session; when they don't, Ask SHALL be hidden. Direct edits SHALL apply immediately, independently of the message.
 
 #### Scenario: Ask about a missing value
 
 - **GIVEN** a required parameter missing on a Part, proposed by Research
 - **WHEN** the operator asks Research to find it
 - **THEN** the message is queued to Research for that Part, and the parameter shows “Asked Research” until a value or reply arrives.
+
+#### Scenario: No agent sessions yet
+
+- **GIVEN** a profile without agent sessions
+- **WHEN** a Part record opens
+- **THEN** each field still shows its proposing step, no Ask control appears, and direct edits work.

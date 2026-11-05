@@ -18,7 +18,7 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
   - **Edits.** Edits go through `CaptureEdit`, carrying `expected_revision` and a CAS on the batch revision.
   - **Review state.** `changed_after_review` is not stored. `intake-server/src/operator-review/review-state.ts` computes it when a review is read, by comparing the retained review bytes with the lot's current material (`subjectReviewState`, `lotReviewState`). Any change to a Part's `choice` selection changes that material.
   - **Selections.** A Part's spec is one `capture_selection` row (`field: 'choice'`) with one `actor_id` (`intake-server/src/capture/schema.ts`), so provenance is recorded per selection, not per field.
-- **Agent-backed data.** Sessions, Needs you, regions and live lots come from `simplify-intake-entry`, which isn't implemented yet. Until it lands, the UI reads the existing retained processing jobs and questions (`frontend/src/processing/`).
+- **Agent-backed data.** Sessions, Needs you, regions and live lots come from `simplify-intake-entry` (planned, revised in #95), which isn't implemented yet. Until it lands, the UI reads the existing retained processing jobs and questions (`frontend/src/processing/`).
 
 **Evidence for the visual target.** The design system artifact (tokens, 41 components, content rules) and the redesign canvas, both read on 2026-11-05.
 
@@ -73,9 +73,10 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
 
 - **Decision.** Split `electronics-current/finishes.ts` into `finishes.light` and `finishes.dark`.
   - The scene controller reads the active theme and re-tints the existing materials when `data-theme` changes. It observes the attribute rather than rebuilding geometry.
-  - The dark finish uses outline `#9fb0c8`, crease `#4a5566` and fill tints lowered towards `masthead-ground` dark (`#141a17`). It is checked with a contrast script for outlines at least 3:1 against the ground.
+  - The dark finish uses outline `#9fb0c8`, crease `#4a5566` and fill tints mixed 72% towards the dark `part-base` (`#1d2430`). It is checked with a contrast script for outlines at least 3:1 against the ground.
   - The mask becomes: transparent 0–460 px, opaque from 600 px to (width − 420 px), transparent in the last 300 px. At phone width it uses the existing dim-under-text behaviour.
 - **Rejected.** Hiding the current in dark mode, which would lose the brand element.
+- **Values.** The dark `part-base` is `#1d2430`. The values are recorded as tokens in [handoff-pr-a.md](handoff-pr-a.md) and copied back into the design system artifact.
 
 ### D5. Routes and redirects
 
@@ -194,7 +195,7 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
   - Reading/Identifying shows as Examine;
   - research, image and inventory jobs map to their steps.
   
-  Questions map to Needs you, and the adapter has no sessions. The `simplify-intake-entry` adapter replaces it once those contracts land. Region-level Map links need observations, so the Map renders file-level links until then (spec: Review map). In the revised `simplify-intake-entry`, observations are stored in BI-006's observation tables (their names belong to that change; `capture_observation` is already the target-observation table), and a lot's file-level evidence links are derived from them, so the file-level Map keeps working after it lands. Per its design D11, whichever change merges second adds the session and observation adapter.
+  Questions map to Needs you, and the adapter has no sessions. The `simplify-intake-entry` adapter replaces it once those contracts land. Region-level Map links need observations, so the Map renders file-level links until then (spec: Review map). In the revised `simplify-intake-entry`, observations are stored in `capture_evidence_observation` and `capture_lot_evidence_observation` (merged in #95; distinct from the target-read `capture_observation`), and a lot's file-level evidence links are derived from them, so the file-level Map keeps working after it lands. Per its design D11 (merged), BI-006 supplies data and contracts, and builds any UI it needs on whichever components are on `interactive-app`. This change's `ProcessingSource` adapter takes its sessions and observations once those contracts exist.
 - **Rejected.** Blocking this change on `simplify-intake-entry`.
 
 ### D10. Component library
@@ -262,5 +263,5 @@ browser ──CaptureEdit{record}──▶ capture repository (CAS on batch revi
 
 - **Scope.** Mitigated by the bundle order and by keeping agent-backed data behind the `ProcessingSource` adapter.
 - **Record fan-out.** Editing a shared reference key could change more Parts than expected. Every control states its scope from the server response, and the edit is one revision, so it can be inspected and corrected.
-- **`simplify-intake-entry` revision.** It is needed for the Examine lead session and observations. Region-level Map links and live sessions arrive with it. Tracked as a dependency.
+- **`simplify-intake-entry` implementation.** Its revision merged in #95, but none of it is built yet. Region-level Map links, live sessions and proposed-new catalogue values arrive with its implementation.
 - **Open decisions.** None.

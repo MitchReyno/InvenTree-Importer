@@ -67,11 +67,11 @@ Sources:
   - processing results rendered as paragraphs of agent text instead of phase outcomes;
   - an empty Review middle and right pane until "Inspect" is pressed;
   - approval-boundary warnings repeated on each page.
-- **Planned agent work.** `simplify-intake-entry` plans the agent sessions, the outbox and inbox, AI-proposed lots and the Examine stage, but none of it is implemented yet. The canvas has since refined the model:
+- **Planned agent work.** `simplify-intake-entry` plans the agent sessions, the outbox and inbox, AI-proposed lots and the Examine stage, but none of it is implemented yet. The canvas, and its revision merged in #95, refined the model:
   - a single **Examine lead session** finds observations (regions of photos), groups them into lots and identifies them in one loop;
   - Sort is no longer a separate step.
 
-  That refinement belongs to `simplify-intake-entry`, which needs a revision. This change only consumes its contracts.
+  That refinement is in `simplify-intake-entry` (#95). This change only consumes its contracts.
 
 ## Scope and non-goals
 
@@ -185,7 +185,7 @@ Sources:
 - **State:** no new tables are expected for records. Shared references and Part specs already live in capture state. Design confirms this.
 - **Dependencies:**
   - Agent-backed panels (sessions, Needs you questions, live lots, regions) depend on `simplify-intake-entry`. They render the current retained jobs and questions until it lands.
-  - `simplify-intake-entry` needs a revision for the Examine lead session and the observations → lots model. That revision is out of this change and recorded as a dependency.
+  - `simplify-intake-entry`'s revision for the Examine lead session and the observations → lots model merged in #95. Its implementation is out of this change.
 - **Evidence limits:** screens are qualified in a headless browser against the owned fake and fixture profiles. No live provider or real InvenTree.
 
 ## Open decisions and assumptions
@@ -195,7 +195,7 @@ Sources:
   - Records includes backend editing;
   - masthead option A.
 - **Assumption:** new effect kinds (new category, new parameter template, supplier price breaks, updates to existing Part fields) are out of scope and shown as "Not supported yet". They become a follow-up BI item. An optional description on created Parts is in scope because the executor already sends descriptions for locations and companies.
-- **Dependency:** `simplify-intake-entry` is being revised separately (branch `docs/simplify-intake-entry-examine-revision`) for the Examine lead session and the observations → lots model. Its `processing-lot-forming` spec stores observations (evidence version plus a region: a normalised rectangle or a document line range) and their links to lots. Region-level Map links read those. The table names belong to that change, and must not reuse `capture_observation`, which already holds target observations. Its design D11 assigns the redesigned screens to this change, and whichever change lands second wires its sessions and observations into the `ProcessingSource` adapter.
+- **Dependency:** `simplify-intake-entry` was revised for the Examine lead session and the observations → lots model, and merged in #95. Its `processing-lot-forming` spec stores observations (evidence version plus a region: a normalised rectangle or a document line range) in `capture_evidence_observation`, and links them to lots through `capture_lot_evidence_observation`. Region-level Map links read those tables. Its design D11 has BI-006 supply only data and contracts. This change's `ProcessingSource` adapter takes its sessions and observations once those exist.
 - **Assumption:** the theme choice is stored per browser as a convenience, not server state.
 - **Assumption:** the dark finish for electronics-current parts is designed in this change: the outline and fills are re-tinted and checked against `masthead-ground` dark.
 - **Open:** none blocking.

@@ -59,7 +59,7 @@ Review › Map SHALL show how evidence became lots:
 - evidence on one side and lots on the other, with links between them;
 - flags for evidence used by no lot and for lots resting on a single piece of evidence;
 - direct edits: merge, split, move evidence to a lot, and create a lot from evidence;
-- a free-text instruction sent to the lot-forming agent.
+- a free-text instruction sent to the lot-forming agent, shown only when agent sessions exist.
 
 Links SHALL be drawn at region level when observations exist, and at file level until then.
 
@@ -68,3 +68,9 @@ Links SHALL be drawn at region level when observations exist, and at file level 
 - **GIVEN** a photo that supports no lot
 - **WHEN** the Map opens
 - **THEN** that photo is flagged, and “New lot from this” creates a draft lot attributed to the operator.
+
+#### Scenario: Map before agent sessions
+
+- **GIVEN** a profile without agent sessions or observations
+- **WHEN** the Map opens
+- **THEN** it shows file-level links and the direct edits, and no instruction field appears.
