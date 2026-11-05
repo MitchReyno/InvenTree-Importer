@@ -52,6 +52,23 @@ describe('Button', () => {
     )
   })
 
+  it('gives links no busy or disabled state', () => {
+    render(
+      <>
+        {/* @ts-expect-error Links navigate; busy belongs to buttons. */}
+        <Button as="a" href="#a" busy>
+          A
+        </Button>
+        {/* @ts-expect-error Links navigate; a disabled reason belongs to buttons. */}
+        <Button as="a" href="#b" disabledReason="No">
+          B
+        </Button>
+      </>,
+    )
+
+    expect(screen.getByRole('link', { name: 'A' })).not.toHaveAttribute('aria-busy')
+  })
+
   it('defaults to a non-submitting button', () => {
     render(<Button>Retry</Button>)
 

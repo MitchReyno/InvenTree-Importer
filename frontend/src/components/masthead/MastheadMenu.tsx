@@ -126,4 +126,7 @@ const Choice = styled.label`
   gap: ${space[2]};
   min-height: 28px;
   cursor: pointer;
+  ${media.compact} {
+    min-height: 44px;
+  }
 `

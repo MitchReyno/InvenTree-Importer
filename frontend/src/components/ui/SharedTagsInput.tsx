@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { color, radius, space } from '../../theme/generated/tokens'
+import { media } from './media'
 import { CheckboxLabel, Input, Label, Small } from './primitives'
 
 export type SharedTags = { manual: string[]; auto: boolean }
@@ -160,6 +161,10 @@ const Chip = styled.li`
   button {
     min-width: 32px;
     min-height: 32px;
+    ${media.compact} {
+      min-width: 44px;
+      min-height: 44px;
+    }
     border: none;
     border-radius: ${radius.pill};
     background: transparent;

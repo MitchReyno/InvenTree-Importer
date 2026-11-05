@@ -56,4 +56,8 @@ const Action = styled(Button)`
   border-color: ${color.accent};
   color: ${color.onAccent};
   font-weight: 650;
+  &:hover:not(:disabled) {
+    background: ${color.accent};
+    filter: brightness(1.07);
+  }
 `

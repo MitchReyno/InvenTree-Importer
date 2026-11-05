@@ -42,7 +42,7 @@ const Frame = styled.div`
     padding: 8px;
     font-size: 12px;
     text-align: center;
-    color: ${color.muted};
+    color: ${color.photoFg};
   }
   img {
     width: 100%;

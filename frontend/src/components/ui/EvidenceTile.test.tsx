@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { EvidenceGroup } from './EvidenceGroup'
@@ -38,6 +38,24 @@ describe('EvidenceTile', () => {
     expect(screen.getByText('The preview couldn’t be made.')).toBeVisible()
     await userEvent.click(screen.getByRole('button', { name: 'Retry preview for IMG_2041.jpg' }))
     expect(onRetry).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to the file name when a preview fails to load, per preview URL', () => {
+    const { rerender } = render(
+      <EvidenceTile {...base} preview="/missing.jpg" state="ready" onOpen={() => {}} />,
+    )
+    const image = screen.getByRole('button', { name: 'Open IMG_2041.jpg' }).querySelector('img')!
+
+    fireEvent.error(image)
+    expect(
+      screen.getByRole('button', { name: 'Open IMG_2041.jpg' }).querySelector('img'),
+    ).toBeNull()
+    expect(screen.getAllByText('IMG_2041.jpg')).toHaveLength(2)
+
+    rerender(<EvidenceTile {...base} preview="/replacement.jpg" state="ready" onOpen={() => {}} />)
+    expect(
+      screen.getByRole('button', { name: 'Open IMG_2041.jpg' }).querySelector('img'),
+    ).toHaveAttribute('src', '/replacement.jpg')
   })
 
   it('shows the file name instead of a broken image and tags documents', () => {

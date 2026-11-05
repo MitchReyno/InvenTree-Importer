@@ -78,3 +78,11 @@ Headless Chrome 155 over the DevTools protocol against the Vite dev server (`pnp
 - **Masthead:** the frame-sampling check and the live theme switch are recorded under Task 3.
 - **Not covered:** Safari and Firefox, real GPUs (SwiftShader rendered WebGL), and the full app against the dev stack; screens beyond the masthead are restyled only through tokens in PR-A and get their own browser checks in later bundles.
 
+### PR-A independent review
+
+Codex `gpt-6.1-sol`, read-only, against `origin/interactive-app...<head>`; every finding was checked against the code before fixing.
+
+| Round | Head | Findings | Outcome |
+| --- | --- | --- | --- |
+| 1 | `41ec49d` | 2 Important, 4 Minor | All fixed. Evidence actions kept the accent fill on hover (the primitive's hover rule had dropped them to `surface-2`, about 1.2:1); browser hover check now reads accent with `on-accent` and `brightness(1.07)` in both themes. Thumbnail fallback text uses `photo-fg` on `photo-stage`. "Preparing…" sits on a `photo-scrim` pill over the skeleton. Below 760px source chips get a 44px hit area and tag removal and theme choices are 44px tall. Evidence tiles fall back to the file name when a preview fails to load, per URL (tested). Link buttons no longer accept `busy` or `disabledReason` (type-checked test) |
+

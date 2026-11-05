@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import styled, { css } from 'styled-components'
 import { color, radius, space } from '../../theme/generated/tokens'
 import { Skeleton } from './Progress'
@@ -22,11 +23,14 @@ type EvidenceTileProps = {
 }
 
 function Stage({ preview, name, state }: Pick<EvidenceTileProps, 'preview' | 'name' | 'state'>) {
+  // Keyed by URL, so a replacement preview gets its own attempt.
+  const [failedPreview, setFailedPreview] = useState<string>()
+
   if (state === 'preparing') {
     return (
       <Placeholder>
         <Skeleton width="100%" height="100%" />
-        <PhotoText>Preparing…</PhotoText>
+        <ScrimText>Preparing…</ScrimText>
       </Placeholder>
     )
   }
@@ -37,7 +41,7 @@ function Stage({ preview, name, state }: Pick<EvidenceTileProps, 'preview' | 'na
       </Placeholder>
     )
   }
-  if (!preview) {
+  if (!preview || failedPreview === preview) {
     return (
       <Placeholder>
         <PhotoText aria-hidden="true">▧</PhotoText>
@@ -46,7 +50,7 @@ function Stage({ preview, name, state }: Pick<EvidenceTileProps, 'preview' | 'na
     )
   }
 
-  return <Image src={preview} alt="" />
+  return <Image src={preview} alt="" onError={() => setFailedPreview(preview)} />
 }
 
 /** One evidence file. No IDs on the tile; the viewer's Details hold them. */
@@ -146,6 +150,12 @@ const PhotoText = styled.span`
   white-space: nowrap;
   font-size: 11.5px;
   color: ${color.photoFg};
+`
+
+const ScrimText = styled(PhotoText)`
+  padding: 1px ${space['1-5']};
+  border-radius: ${radius.sm};
+  background: ${color.photoScrim};
 `
 
 const overlay = css`

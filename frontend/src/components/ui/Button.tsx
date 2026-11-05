@@ -18,14 +18,25 @@ type CommonProps = {
   size?: ButtonSize
   /** Decorative glyph shown before the label. */
   icon?: ReactNode
-  busy?: boolean
-  /** Shown beside a disabled button and linked as its description. */
-  disabledReason?: string
   children: ReactNode
 }
 
-type AsButton = CommonProps & ButtonHTMLAttributes<HTMLButtonElement> & { as?: 'button' }
-type AsLink = CommonProps & AnchorHTMLAttributes<HTMLAnchorElement> & { as: 'a'; href: string }
+type AsButton = CommonProps &
+  ButtonHTMLAttributes<HTMLButtonElement> & {
+    as?: 'button'
+    busy?: boolean
+    /** Shown beside a disabled button and linked as its description. */
+    disabledReason?: string
+  }
+
+/** Links navigate, so they have no busy or disabled state; use a button for those. */
+type AsLink = CommonProps &
+  AnchorHTMLAttributes<HTMLAnchorElement> & {
+    as: 'a'
+    href: string
+    busy?: never
+    disabledReason?: never
+  }
 
 export type ButtonProps = AsButton | AsLink
 
@@ -33,7 +44,11 @@ export function Button(props: ButtonProps) {
   return props.as === 'a' ? <LinkButton {...props} /> : <NativeButton {...props} />
 }
 
-function Content({ icon, busy, children }: Pick<CommonProps, 'icon' | 'busy' | 'children'>) {
+function Content({
+  icon,
+  busy,
+  children,
+}: Pick<CommonProps, 'icon' | 'children'> & { busy?: boolean }) {
   const lead = busy ? <Spinner /> : icon
 
   return (
