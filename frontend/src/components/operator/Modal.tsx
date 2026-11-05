@@ -64,6 +64,10 @@ const Dialog = styled.dialog`
   border: 1px solid ${color.line};
   border-radius: 8px;
   color: ${color.fg};
+  background: ${color.surface};
+  a {
+    color: ${color.accent};
+  }
   &::backdrop {
     background: ${color.overlay};
   }

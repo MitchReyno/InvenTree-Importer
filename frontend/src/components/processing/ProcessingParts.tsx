@@ -152,7 +152,7 @@ const Rows = styled.ul`
   li:first-child {
     border-top: 0;
   }
-  li > span {
+  li > :first-child {
     display: grid;
     flex: 1;
     min-width: 0;
