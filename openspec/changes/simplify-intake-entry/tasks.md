@@ -385,7 +385,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 
 CI no longer runs the PostgreSQL and process tiers (disabled for Actions usage). For PR-B onward, "selected CI green" covers the jobs CI still runs, and the local `pnpm db:intake test` and `pnpm db:intake test:process` results recorded in the handover stand in for the skipped job.
 
-- [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization.
+- [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Review clear at `114589a` (docs-only head `cbad77d`); CI green apart from the base-inherited media-limit failure fixed by #98; merged on Mitch's instruction as `10f9e7d`. See the handover.
 - [ ] D.2 PR-B: same gates.
 - [ ] D.3 PR-C: same gates; BI-006 is updated to Done only after acceptance and merge are evidenced.
 - [ ] D.4 PR-D: held until live authorization; same gates once run.
