@@ -1,0 +1,67 @@
+import styled from 'styled-components'
+import { color, radius, space } from '../../theme/generated/tokens'
+
+export type Option = { id: string; title: string; detail: string }
+
+type OptionRowProps = {
+  name: string
+  /** Names the radio group when it isn't already inside a labelled fieldset. */
+  legend?: string
+  options: Option[]
+  /** Always offered last, so the operator is never forced into a wrong answer. */
+  escape: Option
+  value: string | undefined
+  onChange: (id: string) => void
+}
+
+export function OptionRow({ name, legend, options, escape, value, onChange }: OptionRowProps) {
+  return (
+    <Options role={legend ? 'radiogroup' : undefined} aria-label={legend}>
+      {[...options, escape].map((option) => (
+        <Choice key={option.id}>
+          <input
+            type="radio"
+            name={name}
+            value={option.id}
+            checked={value === option.id}
+            onChange={() => onChange(option.id)}
+          />
+          <span>
+            <strong>{option.title}</strong> <Detail>{option.detail}</Detail>
+          </span>
+        </Choice>
+      ))}
+    </Options>
+  )
+}
+
+const Options = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${space['1-5']};
+`
+
+const Choice = styled.label`
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: ${space['2-5']};
+  padding: 9px 11px;
+  border: 1px solid ${color.lineStrong};
+  border-radius: ${radius.btn};
+  background: ${color.surface};
+  cursor: pointer;
+  input {
+    margin-top: 3px;
+  }
+  &:has(input:checked) {
+    border-color: ${color.accent};
+    background: ${color.accentWeak};
+  }
+`
+
+const Detail = styled.span`
+  display: block;
+  font-size: 12.5px;
+  color: ${color.muted};
+`
