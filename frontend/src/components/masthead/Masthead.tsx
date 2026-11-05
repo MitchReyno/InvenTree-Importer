@@ -118,7 +118,8 @@ const Lead = styled.div`
 
 const End = styled.div`
   display: flex;
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
   flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;

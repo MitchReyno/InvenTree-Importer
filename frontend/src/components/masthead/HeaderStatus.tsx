@@ -92,7 +92,12 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
         trigger={
           <TriggerContent>
             <Dot data-tone={connectionStatus.tone} />
-            <ConnectionText role="status" aria-live="polite" data-compact="visually-hidden">
+            <ConnectionText
+              role="status"
+              aria-live="polite"
+              data-compact="visually-hidden"
+              title={connectionStatus.summary}
+            >
               {connectionStatus.summary}
             </ConnectionText>
             <ShortText aria-hidden="true" data-short={connectionStatus.short} />
@@ -213,6 +218,10 @@ const Dot = styled.span<{ 'data-tone': keyof typeof dotTone }>`
 `
 
 const ConnectionText = styled.span`
+  min-width: 0;
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: ${color.fg};
   white-space: nowrap;
   ${media.compact} {

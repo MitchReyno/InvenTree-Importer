@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, font, radius } from '../../theme/generated/tokens'
+import { media } from './media'
 
 type InlineEditProps = {
   label: string
@@ -87,6 +88,9 @@ const Trigger = styled.button`
     border-color: ${color.line};
     background: ${color.surface2};
   }
+  ${media.compact} {
+    min-height: 44px;
+  }
 `
 
 const Field = styled.input<{ $mono: boolean }>`
@@ -97,4 +101,7 @@ const Field = styled.input<{ $mono: boolean }>`
   border-radius: ${radius.input};
   background: ${color.surface};
   font-family: ${({ $mono }) => ($mono ? font.mono : 'inherit')};
+  ${media.compact} {
+    min-height: 44px;
+  }
 `

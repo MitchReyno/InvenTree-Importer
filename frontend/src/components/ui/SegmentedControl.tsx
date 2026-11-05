@@ -57,8 +57,12 @@ const Segment = styled.button`
     background: ${color.fg};
     color: ${color.bg};
   }
+  /* An inset accent ring with a bg band inside it, so the ring never sits on the fg fill. */
   &:focus-visible {
-    outline-offset: -2px;
+    outline: none;
+    box-shadow:
+      inset 0 0 0 2px ${color.accent},
+      inset 0 0 0 4px ${color.bg};
   }
   ${media.compact} {
     min-width: 44px;

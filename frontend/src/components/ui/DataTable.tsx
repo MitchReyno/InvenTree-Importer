@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import styled, { css } from 'styled-components'
 import { color, font, radius, space, type } from '../../theme/generated/tokens'
 import { InlineEdit } from './InlineEdit'
+import { media } from './media'
 import { VisuallyHidden } from './Progress'
 
 export type DataColumn = { id: string; header: string; editable?: boolean; mono?: boolean }
@@ -36,13 +37,15 @@ function SelectAll({ rows, selection }: { rows: DataRow[]; selection: TableSelec
   }, [count, all])
 
   return (
-    <input
-      ref={box}
-      type="checkbox"
-      aria-label="Select all rows"
-      checked={all}
-      onChange={selection.onToggleAll}
-    />
+    <Hit>
+      <input
+        ref={box}
+        type="checkbox"
+        aria-label="Select all rows"
+        checked={all}
+        onChange={selection.onToggleAll}
+      />
+    </Hit>
   )
 }
 
@@ -85,12 +88,14 @@ export function DataTable({ caption, columns, rows, selection, onCellEdit }: Dat
               <tr key={row.id} data-selected={selected}>
                 {selection && (
                   <td>
-                    <input
-                      type="checkbox"
-                      aria-label={`Select ${row.label}`}
-                      checked={selected}
-                      onChange={() => selection.onToggle(row.id)}
-                    />
+                    <Hit>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${row.label}`}
+                        checked={selected}
+                        onChange={() => selection.onToggle(row.id)}
+                      />
+                    </Hit>
                   </td>
                 )}
                 {columns.map((column) => {
@@ -123,6 +128,18 @@ export function DataTable({ caption, columns, rows, selection, onCellEdit }: Dat
     </TableWrap>
   )
 }
+
+/** A checkbox's clickable area, 44px square below 760px. */
+const Hit = styled.label`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  ${media.compact} {
+    min-width: 44px;
+    min-height: 44px;
+  }
+`
 
 /** Horizontal scroll container so wide tables never widen the page. */
 export const TableWrap = styled.div`
