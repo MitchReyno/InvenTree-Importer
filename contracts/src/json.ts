@@ -84,3 +84,30 @@ export function canonical(value: unknown): string {
   }
   throw new Error('canonical_documents_require_exact_string_scalars')
 }
+
+/**
+ * `canonical` that also keeps safe integers, for retained command records whose inputs carry
+ * pixel geometry. Documents without numbers serialize to exactly the same bytes.
+ */
+export function canonicalRecord(value: unknown): string {
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value)) {
+      throw new Error('canonical_record_requires_safe_integers')
+    }
+    return JSON.stringify(value)
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalRecord).join(',')}]`
+  }
+  if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    return `{${Object.keys(value)
+      .sort()
+      .filter((key) => (value as Record<string, unknown>)[key] !== undefined)
+      .map(
+        (key) =>
+          `${JSON.stringify(key)}:${canonicalRecord((value as Record<string, unknown>)[key])}`,
+      )
+      .join(',')}}`
+  }
+  return canonical(value)
+}

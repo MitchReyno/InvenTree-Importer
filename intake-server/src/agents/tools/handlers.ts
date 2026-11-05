@@ -3,6 +3,9 @@ import { and, eq, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import {
   validate,
+  type ProposeLotArgsDto,
+  type RecordObservationArgsDto,
+  type RegroupArgsDto,
   type ProcessingProposalV5Dto,
   type ProcessingSourceDto,
   type SessionAskArgsDto,
@@ -12,7 +15,17 @@ import {
 import { executeDatabaseQuery, queryDatabase, transaction } from '../../db/database.ts'
 import { appendEvent } from '../../db/authority.ts'
 import { captureBatches } from '../../capture/schema.ts'
-import { lockCaptureForInputSettlement } from '../../capture/repository.ts'
+import {
+  CaptureError,
+  lockCaptureForAgentWrite,
+  lockCaptureForInputSettlement,
+} from '../../capture/repository.ts'
+import {
+  proposeLot,
+  recordObservation,
+  regroup,
+  type LotFormingResult,
+} from '../../capture/evidence-observations.ts'
 import type { ProcessingConfig } from '../../processing/attempts.ts'
 import { sealed } from '../../processing/model.ts'
 import { MAX_JOB_RESULTS, MAX_PROCESSING_SNAPSHOT_BYTES } from '../../processing/limits.ts'
@@ -38,6 +51,8 @@ const SUPPORTED_IMAGES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 export interface SessionToolContext {
   pool: Pool
+  /** The `agent_writer` pool for the Examine lead session's capture writes. */
+  writerPool?: Pool
   config: ProcessingConfig
   store?: BlobStore
   statusIntervalMs: number
@@ -135,6 +150,91 @@ async function withSession(
       }
       const output = await work(client, found, capture)
       return 'result' in output ? output : { result: output }
+    })
+  } catch (error) {
+    if (!(error instanceof ToolRefusal)) {
+      throw error
+    }
+    const pending = await transaction(context.pool, async (client) => {
+      const principal = await resolveSessionCapability(client, token)
+      return principal ? pendingSessionInbox(client, principal.lineageId!) : 0
+    })
+    return {
+      result: { ok: false, error: error.code, message: error.message, pending_inbox: pending },
+    }
+  }
+}
+
+/**
+ * Lot-forming tools: Examine lead session only, on the `agent_writer` pool. Capture is locked
+ * first, then job and attempt; every session change locks those too, so a plain read of the
+ * session row under them is current.
+ */
+async function withLeadSession(
+  context: SessionToolContext,
+  token: string,
+  work: (client: PoolClient, principal: SessionPrincipal) => Promise<LotFormingResult>,
+): Promise<SessionToolOutput> {
+  try {
+    const found =
+      (await resolveSessionCapability(context.pool, token)) ??
+      refuse('capability_refused', 'This session capability is not valid.')
+    // The column's TypeScript type predates the Examine stage.
+    if ((found.stage as string) !== 'examine' || found.subjectId !== null) {
+      refuse('tool_not_allowed', 'Only the batch Examine lead session can form lots.')
+    }
+    const pool =
+      context.writerPool ?? refuse('tool_not_allowed', 'This worker cannot write capture state.')
+    return await transaction(pool, async (client) => {
+      try {
+        await lockCaptureForAgentWrite(client, context.config, found.batchId)
+      } catch (error) {
+        if (error instanceof CaptureError && error.code === 'batch_archived') {
+          refuse('session_not_running', 'This session can no longer publish results.')
+        }
+        throw error
+      }
+      const { job, attempt } = await lockProcessingAttempt(client, found.jobId, found.attemptId)
+      const live = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({ attemptId: agentSessions.attemptId })
+          .from(agentSessions)
+          .where(
+            and(
+              eq(agentSessions.attemptId, found.attemptId),
+              eq(agentSessions.capabilitySha256, capabilityDigest(token)),
+              eq(agentSessions.sessionState, 'running'),
+            ),
+          ),
+      )
+      if (!live.length || attempt.state !== 'running' || job.current_attempt_id !== attempt.id) {
+        refuse('capability_refused', 'This session capability is not valid.')
+      }
+      let result: LotFormingResult
+      try {
+        result = await work(client, found)
+      } catch (error) {
+        if (error instanceof CaptureError) {
+          refuse('validation_failed', `The capture change was refused: ${error.code}.`)
+        }
+        throw error
+      }
+      const pending = await pendingSessionInbox(client, found.lineageId!)
+      if (!result.ok) {
+        return {
+          result: {
+            ok: false,
+            error: 'stale',
+            message: 'Rows changed after base_revision; re-read and re-plan.',
+            pending_inbox: pending,
+            revision: result.revision,
+            conflicts: result.conflicts,
+          },
+        }
+      }
+      return {
+        result: { ok: true, pending_inbox: pending, revision: result.revision, id: result.id },
+      }
     })
   } catch (error) {
     if (!(error instanceof ToolRefusal)) {
@@ -308,7 +408,63 @@ async function retainSessionMessage(
 }
 
 export function sessionTools(context: SessionToolContext) {
+  const writer = (principal: SessionPrincipal) => ({
+    config: context.config,
+    batchId: principal.batchId,
+    sessionId: principal.attemptId,
+  })
+
+  /** Each lot-forming write also lands in the session's outbox, so the timeline shows it. */
+  const outboxed = async (
+    client: PoolClient,
+    principal: SessionPrincipal,
+    result: LotFormingResult,
+    item: (id: string) => Parameters<typeof appendSessionOutbox>[2],
+  ) => {
+    if (result.ok) {
+      await appendSessionOutbox(client, principal.attemptId, item(result.id))
+    }
+    return result
+  }
+
   return {
+    record_observation: (token: string, args: unknown) =>
+      withLeadSession(context, token, async (client, principal) =>
+        outboxed(
+          client,
+          principal,
+          await recordObservation(
+            client,
+            writer(principal),
+            validated<RecordObservationArgsDto>('RecordObservationArgs', args),
+          ),
+          (id) => ({ kind: 'observation', payload: { evidence_observation_id: id } }),
+        ),
+      ),
+
+    propose_lot: (token: string, args: unknown) =>
+      withLeadSession(context, token, async (client, principal) =>
+        outboxed(
+          client,
+          principal,
+          await proposeLot(
+            client,
+            writer(principal),
+            validated<ProposeLotArgsDto>('ProposeLotArgs', args),
+          ),
+          (id) => ({ kind: 'lot', payload: { lot_id: id } }),
+        ),
+      ),
+
+    regroup: (token: string, args: unknown) =>
+      withLeadSession(context, token, async (client, principal) => {
+        const input = validated<RegroupArgsDto>('RegroupArgs', args)
+        return outboxed(client, principal, await regroup(client, writer(principal), input), () => ({
+          kind: 'regroup',
+          payload: { lot_ids: [...new Set(input.moves.map((move) => move.to_lot_id))] },
+        }))
+      }),
+
     status: (token: string, args: unknown) =>
       withSession(context, token, { capture: false }, async (client, principal) => {
         const { text } = validated<{ text: string }>('SessionStatusArgs', args)

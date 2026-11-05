@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg'
 import { and, eq, getTableColumns, inArray } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
-import { canonical } from '@invimport/contracts/json'
+import { canonicalRecord } from '@invimport/contracts/json'
 import {
   validate,
   type CaptureSnapshotDto,
@@ -305,7 +305,7 @@ export async function processingSnapshot(
     cursor: capture.cursor,
   }
   validate('ProcessingSnapshot', snapshot)
-  if (Buffer.byteLength(canonical(snapshot)) > MAX_PROCESSING_SNAPSHOT_BYTES) {
+  if (Buffer.byteLength(canonicalRecord(snapshot)) > MAX_PROCESSING_SNAPSHOT_BYTES) {
     fail('processing_capacity')
   }
   return snapshot

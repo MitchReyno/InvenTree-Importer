@@ -14,6 +14,21 @@ import { sessionTools, type SessionToolOutput } from './handlers.ts'
 const DEFAULT_STATUS_INTERVAL_MS = 2000
 
 const TOOLS = {
+  record_observation: {
+    schema: 'RecordObservationArgs',
+    description:
+      'Examine lead session only. Record an item seen in a region of one evidence version, or revise one of your observations. Pass the batch revision you last read.',
+  },
+  propose_lot: {
+    schema: 'ProposeLotArgs',
+    description:
+      'Examine lead session only. Form a draft lot from observations of the same physical thing, or extend one of your lots. Quantities are estimates with a basis; never add up the same items twice.',
+  },
+  regroup: {
+    schema: 'RegroupArgs',
+    description:
+      'Examine lead session only. Move observations between your lots. Operator-edited lots and observations only receive suggestions.',
+  },
   status: {
     schema: 'SessionStatusArgs',
     description: 'Report the step you are on: one line of at most 120 characters.',
@@ -41,6 +56,8 @@ const TOOLS = {
       'Read pending inbox items after a sequence. Passing a sequence acknowledges every item up to it.',
   },
 } as const satisfies Record<string, { schema: keyof typeof schemas; description: string }>
+
+const LEAD_ONLY = new Set(['record_observation', 'propose_lot', 'regroup'])
 
 /**
  * Agents see the contract's own JSON Schema. Validation stays with the handler, so an invalid
@@ -76,6 +93,7 @@ function toolResult(output: SessionToolOutput) {
 
 export interface SessionToolServerOptions {
   pool: Pool
+  writerPool?: Pool
   config: ProcessingConfig
   store?: BlobStore
   statusIntervalMs?: number
@@ -85,6 +103,7 @@ export interface SessionToolServerOptions {
 export async function startSessionToolServer(options: SessionToolServerOptions) {
   const tools = sessionTools({
     pool: options.pool,
+    writerPool: options.writerPool,
     config: options.config,
     store: options.store,
     statusIntervalMs: options.statusIntervalMs ?? DEFAULT_STATUS_INTERVAL_MS,
@@ -110,11 +129,30 @@ export async function startSessionToolServer(options: SessionToolServerOptions) 
       return
     }
     const server = new McpServer({ name: 'intake', version: '1' })
+    // Lot-forming tools exist only for the batch's Examine lead session; handlers check again.
+    const lead = (principal.stage as string) === 'examine'
     for (const [name, tool] of Object.entries(TOOLS)) {
+      if (!lead && LEAD_ONLY.has(name)) {
+        continue
+      }
       server.registerTool(
         name,
         { description: tool.description, inputSchema: contractSchema(tool.schema) },
-        async (args: unknown) => toolResult(await tools[name as keyof typeof TOOLS](token, args)),
+        async (args: unknown) => {
+          try {
+            return toolResult(await tools[name as keyof typeof TOOLS](token, args))
+          } catch {
+            // The call's transaction rolled back; answer instead of leaving the agent waiting.
+            return toolResult({
+              result: {
+                ok: false,
+                error: 'tool_failed',
+                message: 'The tool failed unexpectedly and changed nothing. Try again later.',
+                pending_inbox: 0,
+              },
+            })
+          }
+        },
       )
     }
     const transport = new NodeStreamableHTTPServerTransport({

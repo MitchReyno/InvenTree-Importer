@@ -24,7 +24,7 @@ import {
   type CaptureSnapshotDto,
   type CaptureObservationDto,
 } from '@invimport/contracts'
-import { canonical } from '@invimport/contracts/json'
+import { canonical, canonicalRecord } from '@invimport/contracts/json'
 import type { DevConfig } from '../config.ts'
 import { transaction } from '../db/database.ts'
 import { validatePartSpec, PartSpecError } from './part-spec.ts'
@@ -37,6 +37,8 @@ import {
   readSettingsIntent,
 } from './settings-intent.ts'
 import { appendEvent, idempotent, sha256 } from '../db/authority.ts'
+import { readEvidenceObservations } from './evidence-observation-read.ts'
+import { applyObservationEdit, markLotEdited } from './evidence-observations.ts'
 
 export class CaptureError extends Error {
   constructor(
@@ -164,6 +166,12 @@ async function snapshot(
         id: captureLots.id,
         contribution_key: captureLots.contributionKey,
         part_subject_id: captureLots.partSubjectId,
+        origin: captureLots.origin,
+        agent_session_id: captureLots.agentSessionId,
+        operator_edited: captureLots.operatorEdited,
+        estimated_quantity: captureLots.estimatedQuantity,
+        quantity_basis: captureLots.quantityBasis,
+        observation_set_version: captureLots.observationSetVersion,
       })
       .from(captureLots)
       .where(eq(captureLots.batchId, id))
@@ -216,6 +224,7 @@ async function snapshot(
   const settingNotes = await readSettingNotes(client, id)
   const referenceDrafts = await readReferenceDrafts(client, id)
   const groupLocations = await readGroupLocations(client, id)
+  const evidence = await readEvidenceObservations(client, id)
   const result = {
     ...summary(b),
     ...(context.length ? { context } : {}),
@@ -241,8 +250,32 @@ async function snapshot(
       })),
     lots: lots.map((l) => {
       const s = subjects.find((s) => s.id === l.id)!
+      const {
+        origin,
+        agent_session_id,
+        operator_edited,
+        estimated_quantity,
+        quantity_basis,
+        observation_set_version,
+        ...lot
+      } = l
+      const members = evidence.activeByLot.get(l.id) ?? []
+      // Lot-forming fields are omitted for operator lots so legacy snapshot bytes are unchanged.
+      const forming = {
+        ...(origin === 'agent' && agent_session_id
+          ? { origin: 'agent' as const, agent_session_id }
+          : {}),
+        ...(operator_edited && origin === 'agent' ? { operator_edited: true as const } : {}),
+        ...(estimated_quantity ? { estimated_quantity } : {}),
+        ...(quantity_basis ? { quantity_basis } : {}),
+        ...(members.length ? { evidence_observation_ids: members } : {}),
+        ...(observation_set_version > 0n
+          ? { observation_set_version: observation_set_version.toString() }
+          : {}),
+      }
       return {
-        ...l,
+        ...lot,
+        ...forming,
         label: s.label,
         revision: s.revision,
         quantity: value(l.id, 'quantity', inherit),
@@ -252,6 +285,7 @@ async function snapshot(
       }
     }),
     notes: notes.map((n) => ({ ...n, created_at: n.created_at.toISOString(), producer: 'human' })),
+    ...(evidence.observations.length ? { evidence_observations: evidence.observations } : {}),
     observations: observations.map(({ mapping, ...o }) => ({
       ...o,
       ...(mapping ? { mapping } : {}),
@@ -260,7 +294,7 @@ async function snapshot(
     cursor: { stream_id: b.stream_id, sequence: cursor },
   }
   validate('CaptureSnapshot', result)
-  if (Buffer.byteLength(canonical(result)) > 245760) {
+  if (Buffer.byteLength(canonicalRecord(result)) > 245760) {
     fail('capture_capacity', 409)
   }
   // The complete runtime DTO check above is the narrowing boundary for SQL JSONB.
@@ -268,7 +302,7 @@ async function snapshot(
 }
 
 async function retainRevision(c: PoolClient, b: Batch, payload: unknown, publish = true) {
-  const bytes = Buffer.from(canonical(payload))
+  const bytes = Buffer.from(canonicalRecord(payload))
   await executeDatabaseQuery(
     queryDatabase(c)
       .insert(captureRevisions)
@@ -592,6 +626,8 @@ async function applyLockedCaptureEdit(
     }
     case 'lot':
       subject(change.id, 'lot')
+      // Any operator change to a lot keeps the lead session to suggestions for it.
+      await markLotEdited(c, change.id, BigInt(nextRevision))
       if (change.part_subject_id !== undefined) {
         checkPart(change.part_subject_id)
         await executeDatabaseQuery(
@@ -642,6 +678,11 @@ async function applyLockedCaptureEdit(
         subject(change.subject_id)
       }
       await note(c, b, change.subject_id, change.text)
+      break
+    case 'observation':
+    case 'observation_move':
+    case 'observation_suggestion':
+      await applyObservationEdit(c, id, change, nextRevision)
       break
   }
   b.revision = nextRevision
@@ -760,6 +801,67 @@ export async function lockCaptureForEdit(
         fail('capture_edit_publication_required')
       }
       return snapshot(client, config, batchId)
+    },
+  }
+}
+
+/** A locked agent write: the batch row is held until the caller's transaction ends. */
+export interface AgentCaptureWrite {
+  batchId: string
+  sourceId: string
+  revision: string
+  nextRevision: string
+  subjects: Subject[]
+  /** Advances the batch revision, retains the command attributed to the session and publishes. */
+  finish(payload: unknown, sessionId: string): Promise<string>
+}
+
+/**
+ * Agent writes skip the batch-wide expected-revision check of operator edits: they lock the rows
+ * they touch instead, so an unrelated operator edit does not make them stale (design D8).
+ */
+export async function lockCaptureForAgentWrite(
+  client: PoolClient,
+  config: CaptureBinding,
+  batchId: string,
+): Promise<AgentCaptureWrite> {
+  const retained = await batch(client, config, batchId, true)
+  if (retained.archived) {
+    fail('batch_archived', 409)
+  }
+  const subjects = await lockCaptureSubjectHeads(client, batchId)
+  const nextRevision = (BigInt(retained.revision) + 1n).toString()
+  return {
+    batchId,
+    sourceId: retained.source_id,
+    revision: retained.revision,
+    nextRevision,
+    subjects,
+    async finish(payload, sessionId) {
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .update(captureBatches)
+          .set({ revision: BigInt(nextRevision), updatedAt: sql`now()` })
+          .where(eq(captureBatches.id, batchId)),
+      )
+      const bytes = Buffer.from(canonicalRecord(payload))
+      await executeDatabaseQuery(
+        queryDatabase(client)
+          .insert(captureRevisions)
+          .values({
+            batchId,
+            revision: BigInt(nextRevision),
+            actorId: retained.actor_id,
+            agentSessionId: sessionId,
+            commandBytes: bytes,
+            commandDigest: sha256(bytes),
+          }),
+      )
+      await appendEvent(client, retained.stream_id, 'capture_changed', {
+        batch_id: batchId,
+        revision: nextRevision,
+      })
+      return nextRevision
     },
   }
 }

@@ -433,3 +433,22 @@ Codex (`gpt-6.1-sol`, read-only) reviewed `8f4a81c..114589a` and found no critic
 - `pnpm spikes:check`: 35 passed (the existing shared-contract suite; the new spike adds no test there).
 - Prettier and the configured remark lint pass on the spike.
 - `openspec validate simplify-intake-entry --strict` passes after the plan updates.
+
+## PR-B task 7: observations and agent-attributed draft lots
+
+Branch `feat/simplify-intake-entry-lot-forming`, worktree `.claude/worktrees/simplify-intake-entry-lot-forming`.
+
+- **Baseline (7.1):** the capture, media and operator PostgreSQL files passed 53 of 53 before any change.
+- **Schema (7.3):** migration `0019_evidence_observations.sql` as described in `intake-server/ARCHITECTURE.md` (Evidence observations and agent-formed lots).
+  - `capture_lot.changed_revision` was added beyond design D12's column list. Lot staleness needs the batch revision of a lot's last change, and the subject `revision` is a per-subject counter.
+  - The agent guards identify agent principals by direct membership of the cluster-wide `intake_agent_writer_marker` role. `pg_has_role` is true for superusers, which wrongly refused the migration owner and test setup in the first run.
+- **Role and pool:** `grantAgentWriter` (processing grants) with `grantCaptureAgentWrites` (capture grants); the PG fixture creates a real `writer` role.
+  - `UPDATE(progress)` on `agent_session` exists only because `appendSessionOutbox` locks the session row `FOR UPDATE`.
+  - The session worker reads an optional `INTAKE_AGENT_WRITER_DATABASE_URL`; without it the lot-forming tools refuse with `tool_not_allowed`. Dev setup does not yet create this role, because changing owned dev state is out of scope until the lead session runs in the launcher (task 8).
+- **Tools:** `record_observation`, `propose_lot`, `regroup` are registered on the session tool server. They are refused (`tool_not_allowed`) for any session that is not the batch's Examine lead, and each write is appended to the lead session's outbox.
+- **Robustness fix found while testing:** an unexpected handler exception left the MCP call hanging until the client's 60-second timeout. The server now returns a typed `tool_failed` result (new `SessionToolError` code). No dedicated regression test yet.
+- **Canonical bytes:** observation regions carry integers, which `canonical` rejects. `canonicalRecord` (contracts `json.ts`) is used for capture revisions, idempotent request and response bytes and the snapshot size checks. For documents without numbers it produces the same bytes.
+- **Deferred to task 8:** wiring `fetch_evidence` to region crops and lead-session paging; widening the processing stage type for the null-subject lead job (the tool handler compares the stage as a string for now).
+
+Tests (7.2): `tests/pg/evidence-observations.test.ts` (8 tests, run as the real `agent_writer`, `api` and runner roles) and `tests/region-crops.test.ts`.
+

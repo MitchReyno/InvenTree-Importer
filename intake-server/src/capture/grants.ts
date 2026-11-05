@@ -10,7 +10,7 @@ export async function grantCaptureRead(pool: Pool, role: string): Promise<void> 
     capture_lot,capture_note,capture_observation,capture_selection,capture_revision,
     capture_lot_lineage,capture_lot_retirement,capture_issue_disposition,capture_instruction,capture_context,
     capture_settings_intent,capture_setting_note,capture_reference_draft_identity,capture_reference_draft,
-    capture_group_location TO ${role}`)
+    capture_group_location,capture_evidence_observation,capture_lot_evidence_observation TO ${role}`)
 }
 
 /** Row-lock capability only; immutable subject identity rejects updates and selections stay denied. */
@@ -29,7 +29,28 @@ export async function grantCapture(pool: Pool, role: string) {
   await pool.query(`GRANT INSERT ON capture_source,capture_batch,capture_subject,capture_part,capture_lot,capture_note,capture_observation,capture_selection,capture_revision,capture_lot_lineage,capture_lot_retirement,capture_issue_disposition,capture_instruction,capture_context,capture_settings_intent,capture_setting_note,capture_reference_draft_identity,capture_reference_draft,capture_group_location TO ${role};
     GRANT UPDATE(title,revision,archived,updated_at) ON capture_batch TO ${role};
     GRANT UPDATE(label,revision) ON capture_subject TO ${role};
-    GRANT UPDATE(part_subject_id) ON capture_lot TO ${role};
+    GRANT UPDATE(part_subject_id,operator_edited,observation_set_version,changed_revision) ON capture_lot TO ${role};
     GRANT INSERT,DELETE ON capture_edit_publication TO ${role};
-    GRANT SELECT(id) ON capture_edit_publication TO ${role};`)
+    GRANT SELECT(id) ON capture_edit_publication TO ${role};
+    GRANT INSERT,DELETE,UPDATE(region,readings,visible_count,status,operator_edited,revision)
+      ON capture_evidence_observation TO ${role};
+    GRANT INSERT,DELETE,UPDATE(status,revision) ON capture_lot_evidence_observation TO ${role};`)
+}
+
+/**
+ * Draft capture writes for the Examine lead session: observations, AI lots and their membership.
+ * No notes, selections or media links; the database guards keep edited rows out of reach.
+ */
+export async function grantCaptureAgentWrites(pool: Pool, role: string) {
+  await grantCaptureRead(pool, role)
+  await pool.query(`GRANT INSERT ON capture_subject,capture_part,capture_lot,capture_revision,
+      capture_evidence_observation,capture_lot_evidence_observation TO ${role};
+    GRANT UPDATE(region,readings,visible_count,revision) ON capture_evidence_observation TO ${role};
+    GRANT UPDATE(id,label,revision) ON capture_subject TO ${role};
+    GRANT UPDATE(part_subject_id,estimated_quantity,quantity_basis,observation_set_version,changed_revision) ON capture_lot TO ${role};
+    GRANT UPDATE(status,revision),DELETE ON capture_lot_evidence_observation TO ${role};
+    GRANT UPDATE(updated_at,revision) ON capture_batch TO ${role};
+    GRANT INSERT,DELETE ON capture_edit_publication TO ${role};
+    GRANT SELECT(id) ON capture_edit_publication TO ${role};
+    GRANT intake_agent_writer_marker TO ${role};`)
 }

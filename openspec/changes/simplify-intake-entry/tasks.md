@@ -234,9 +234,9 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm test:intake:pg`, capture and media unit tests.
 - **Risks and decisions:** this deliberately relaxes "suggestions never write capture" for draft lots and observations only. Update the Processing and Capture architecture docs to match.
 
-- [ ] 7.1 Baseline the capture/edit and media crop PG tests.
-- [ ] 7.2 RED: region validation, derived links, stale revision, human-only values, edit protection and the suggestion path, run as the real `agent_writer` and runner roles (the runner role is refused capture writes).
-- [ ] 7.3 GREEN: migration, attribution columns, the `agent_writer` role and pool, the `linked_subject_ids` union, region validation and crop cache, handlers, suggestions, and observation-level `CaptureEdit` and `Restructure` forms.
+- [x] 7.1 Baseline the capture/edit and media crop PG tests.
+- [x] 7.2 RED: region validation, derived links, stale revision, human-only values, edit protection and the suggestion path, run as the real `agent_writer` and runner roles (the runner role is refused capture writes).
+- [x] 7.3 GREEN: migration, attribution columns, the `agent_writer` role and pool, the `linked_subject_ids` union, region validation and crop cache, handlers, suggestions, and observation-level `CaptureEdit` and `Restructure` forms.
 - [ ] 7.4 Verify the existing review/approval and media-plan tests are unchanged.
 - [ ] 7.5 Record the results.
 

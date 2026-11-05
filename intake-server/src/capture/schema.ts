@@ -3,6 +3,7 @@ import {
   jsonb,
   bigint,
   customType,
+  integer,
   pgTable,
   primaryKey,
   text,
@@ -88,6 +89,7 @@ export const captureSubjects = pgTable('capture_subject', {
   kind: text().$type<'lot' | 'part'>().notNull(),
   label: text().notNull(),
   revision: bigint({ mode: 'bigint' }).notNull().default(1n),
+  agentSessionId: uuid('agent_session_id'),
 })
 
 export const captureSources = pgTable('capture_source', {
@@ -110,7 +112,47 @@ export const captureLots = pgTable('capture_lot', {
   sourceId: uuid('source_id').notNull(),
   contributionKey: uuid('contribution_key').notNull(),
   partSubjectId: uuid('part_subject_id'),
+  origin: text().$type<'agent' | 'operator'>().notNull().default('operator'),
+  agentSessionId: uuid('agent_session_id'),
+  operatorEdited: boolean('operator_edited').notNull().default(false),
+  estimatedQuantity: text('estimated_quantity'),
+  quantityBasis: text('quantity_basis'),
+  observationSetVersion: bigint('observation_set_version', { mode: 'bigint' })
+    .notNull()
+    .default(0n),
+  changedRevision: bigint('changed_revision', { mode: 'bigint' }).notNull().default(1n),
 })
+
+/** An item seen in one region of one evidence version (not an inventory `capture_observation`). */
+export const captureEvidenceObservations = pgTable('capture_evidence_observation', {
+  id: uuid().primaryKey(),
+  batchId: uuid('batch_id').notNull(),
+  evidenceVersionId: uuid('evidence_version_id').notNull(),
+  page: integer().notNull().default(1),
+  region: jsonb().$type<Record<string, unknown>>().notNull(),
+  readings: jsonb().$type<Record<string, unknown>>().notNull(),
+  visibleCount: integer('visible_count'),
+  status: text().$type<'active' | 'suggested'>().notNull().default('active'),
+  supersedesObservationId: uuid('supersedes_observation_id'),
+  origin: text().$type<'agent' | 'operator'>().notNull(),
+  agentSessionId: uuid('agent_session_id'),
+  operatorEdited: boolean('operator_edited').notNull().default(false),
+  revision: bigint({ mode: 'bigint' }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const captureLotEvidenceObservations = pgTable(
+  'capture_lot_evidence_observation',
+  {
+    batchId: uuid('batch_id').notNull(),
+    lotId: uuid('lot_id').notNull(),
+    evidenceObservationId: uuid('evidence_observation_id').notNull(),
+    status: text().$type<'active' | 'suggested'>().notNull().default('active'),
+    agentSessionId: uuid('agent_session_id'),
+    revision: bigint({ mode: 'bigint' }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.lotId, table.evidenceObservationId] })],
+)
 
 export const captureNotes = pgTable('capture_note', {
   id: uuid().primaryKey(),
@@ -142,6 +184,7 @@ export const captureRevisions = pgTable(
     commandBytes: bytea('command_bytes').notNull(),
     commandDigest: bytea('command_digest').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    agentSessionId: uuid('agent_session_id'),
   },
   (table) => [primaryKey({ columns: [table.batchId, table.revision] })],
 )

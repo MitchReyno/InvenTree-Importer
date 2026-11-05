@@ -10,6 +10,7 @@ import type {
 } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { fail, type OperatorCommandScope } from './repository.ts'
+import { activeObservationIds, moveObservationsByOperator } from './evidence-observations.ts'
 import {
   captureInstructions,
   captureIssueDispositions,
@@ -115,6 +116,16 @@ async function splitLot(client: PoolClient, scope: OperatorCommandScope, change:
     if (inheritedContext) {
       await scope.setContext(childId, inheritedContext.value)
     }
+    if (child.observation_ids?.length) {
+      await moveObservationsByOperator(
+        client,
+        scope.batchId,
+        child.observation_ids,
+        change.lot_id,
+        childId,
+        scope.nextRevision,
+      )
+    }
     created.push({ lot_id: childId, label: child.label })
   }
   const successorIds = created.map((value) => value.lot_id!)
@@ -156,6 +167,18 @@ async function mergeLots(client: PoolClient, scope: OperatorCommandScope, change
       purchase_date: shared('purchase_date'),
       tags: shared('tags'),
     })
+  }
+  // The merged lot holds every source lot's active observations.
+  for (const lotId of change.lot_ids) {
+    const observationIds = await activeObservationIds(client, scope.batchId, lotId)
+    await moveObservationsByOperator(
+      client,
+      scope.batchId,
+      observationIds,
+      lotId,
+      mergedId,
+      scope.nextRevision,
+    )
   }
   await recordLineage(client, scope, change.lot_ids, [mergedId], 'merge')
   return {

@@ -39,6 +39,7 @@ Set the following on the separate worker; do not load the original inventory env
 - `INTAKE_PROCESSING_PROFILE=native-agent/1` on both web and worker.
 - Matching actor, target, target-context and Processing channel-secret configuration.
 - `INTAKE_AGENT_DATABASE_URL` and `INTAKE_AGENT_SCHEDULER_DATABASE_URL`, both explicit local databases.
+- `INTAKE_AGENT_WRITER_DATABASE_URL` (session worker, optional): an `agent_writer` login for the Examine lead session's lot-forming tools. Without it those tools refuse with `tool_not_allowed`.
 - `INTAKE_AGENT_STATE_ROOT`, an absolute, private directory owned by the worker user. Session directories are retained.
 - Optional `INTAKE_CODEX_EXECUTABLE` and `INTAKE_CLAUDE_EXECUTABLE`; defaults are `codex` and `claude` on the worker PATH.
 - Optional `INTAKE_BLOB_ROOT` for authorized image content; absent storage is explicitly unavailable evidence.

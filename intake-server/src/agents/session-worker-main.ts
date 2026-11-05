@@ -51,6 +51,10 @@ async function main() {
   const host = nativeAgentHost(process.env)
   await privateDirectory(host.stateRoot)
   const db = database(localDatabaseUrl(process.env.INTAKE_AGENT_DATABASE_URL))
+  // Without the `agent_writer` connection the lot-forming tools refuse and nothing else changes.
+  const writer = process.env.INTAKE_AGENT_WRITER_DATABASE_URL
+    ? database(localDatabaseUrl(process.env.INTAKE_AGENT_WRITER_DATABASE_URL))
+    : undefined
   let owner: Awaited<ReturnType<typeof acquireAgentSupervisor>> | undefined
   let scheduler: DBOSClient | undefined
   let tools: Awaited<ReturnType<typeof startSessionToolServer>> | undefined
@@ -74,7 +78,7 @@ async function main() {
           await readMediaStoreIdentity(db.pool),
         )
       : undefined
-    tools = await startSessionToolServer({ pool: db.pool, config, store })
+    tools = await startSessionToolServer({ pool: db.pool, writerPool: writer?.pool, config, store })
     const deps: SessionRunnerDeps = {
       pool: db.pool,
       config,
@@ -146,6 +150,7 @@ async function main() {
     }
     await tools?.close()
     owner?.release(true)
+    await writer?.close()
     await db.close()
   }
 }

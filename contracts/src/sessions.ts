@@ -7,6 +7,7 @@ import {
   ProcessingQuestionSpec,
   ProcessingQuestionValue,
 } from './processing.ts'
+import { LotFormingConflict } from './evidence-observations.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -67,6 +68,7 @@ export const SessionToolError = Type.Union(
       'inbox_item_unknown',
       'session_not_running',
       'capacity_reached',
+      'tool_failed',
     ] as const
   ).map((code) => Type.Literal(code)),
 )
@@ -129,6 +131,8 @@ export const SessionToolResult = Type.Union([
     message: Type.String({ minLength: 1, maxLength: 1024 }),
     pending_inbox: Type.Integer({ minimum: 0 }),
     revision: Type.Optional(Revision),
+    /** For `stale`: the rows that changed, with their current revision. */
+    conflicts: Type.Optional(Type.Array(LotFormingConflict, { maxItems: 200 })),
   }),
 ])
 
