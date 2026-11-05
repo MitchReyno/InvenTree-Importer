@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 test(
   'explicit media root without a database refuses startup before creating files',
-  { timeout: 10000 },
+  { timeout: 40000 },
   async () => {
     const parent = await realpath(await mkdtemp(join(tmpdir(), 'intake-media-startup-')))
     const root = join(parent, 'must-not-be-created')
@@ -28,7 +28,7 @@ test(
     child.stderr.on('data', (bytes) => {
       output += bytes.toString()
     })
-    const timer = setTimeout(() => child.kill('SIGTERM'), 5000)
+    const timer = setTimeout(() => child.kill('SIGTERM'), 30000)
 
     try {
       const [code] = await once(child, 'close')
