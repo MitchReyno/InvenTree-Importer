@@ -32,6 +32,7 @@ import { SourceChip } from '../SourceChip'
 import { StatusTimeline } from '../StatusTimeline'
 import { StickyFooter } from '../StickyFooter'
 import { SubTabs, Tabs } from '../Tabs'
+import { Toast } from '../Toast'
 import { Input, Label, Notice, Panel } from '../primitives'
 
 /** Owned browser fixture: every design-system component with synthetic data, no API. */
@@ -340,6 +341,12 @@ export function ComponentGallery() {
               Add 6 items
             </Button>
           }
+        />
+        <Toast
+          message="Lot moved to Drawer 4"
+          durationMs={600_000}
+          action={{ label: 'Undo', onClick: () => {} }}
+          onDismiss={() => {}}
         />
       </Page>
     </>

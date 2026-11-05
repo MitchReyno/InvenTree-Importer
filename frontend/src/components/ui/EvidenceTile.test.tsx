@@ -95,6 +95,20 @@ describe('EvidenceGroup', () => {
     expect(onRename).toHaveBeenCalledWith('New name')
   })
 
+  it('sends a later identical rename after the saved name changed back', async () => {
+    const onRename = vi.fn()
+    const { rerender } = render(<EvidenceGroup name="Bag" count={1} onRename={onRename} />)
+
+    await userEvent.clear(screen.getByRole('textbox', { name: 'Group name' }))
+    await userEvent.type(screen.getByRole('textbox', { name: 'Group name' }), 'New name{Enter}')
+    rerender(<EvidenceGroup name="New name" count={1} onRename={onRename} />)
+    rerender(<EvidenceGroup name="Bag" count={1} onRename={onRename} />)
+    await userEvent.clear(screen.getByRole('textbox', { name: 'Group name' }))
+    await userEvent.type(screen.getByRole('textbox', { name: 'Group name' }), 'New name{Enter}')
+
+    expect(onRename).toHaveBeenCalledTimes(2)
+  })
+
   it('restores the name on Escape and labels ungrouped files', async () => {
     const onRename = vi.fn()
     const { rerender } = render(<EvidenceGroup name="Bag" count={1} onRename={onRename} />)

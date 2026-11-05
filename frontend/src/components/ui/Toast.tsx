@@ -58,7 +58,7 @@ const enter = keyframes`
 const Body = styled.div`
   position: fixed;
   left: 50%;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(16px + var(--sticky-footer-height, 0px) + env(safe-area-inset-bottom, 0px));
   z-index: 50;
   transform: translateX(-50%);
   display: inline-flex;
@@ -85,4 +85,8 @@ const Action = styled.button`
   color: inherit;
   text-decoration: underline;
   cursor: pointer;
+  ${media.compact} {
+    min-width: 44px;
+    min-height: 44px;
+  }
 `

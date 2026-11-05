@@ -106,6 +106,13 @@ const Links = styled.nav`
   a:hover {
     background: ${color.surface2};
   }
+  ${media.compact} {
+    a {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+    }
+  }
 `
 
 const Theme = styled.div`

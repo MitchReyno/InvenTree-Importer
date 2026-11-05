@@ -29,6 +29,7 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
   if (shownName !== name) {
     setShownName(name)
     setDraft(name)
+    submitted.current = null
   }
 
   function commit() {

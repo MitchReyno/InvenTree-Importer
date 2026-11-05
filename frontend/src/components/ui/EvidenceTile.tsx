@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import styled, { css } from 'styled-components'
 import { color, radius, space } from '../../theme/generated/tokens'
+import { media } from './media'
 import { Skeleton } from './Progress'
 
 export type EvidenceKind = 'photo' | 'document'
@@ -173,11 +174,20 @@ const Tag = styled.span`
   font-size: 10.5px;
 `
 
-const Tick = styled.span`
+const Tick = styled.label`
   ${overlay}
   right: ${space[1]};
   display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 3px 5px;
+  cursor: pointer;
+  ${media.compact} {
+    min-width: 44px;
+    min-height: 44px;
+    top: 0;
+    right: 0;
+  }
 `
 
 const Caption = styled.span`
@@ -208,6 +218,9 @@ const Retry = styled.button`
   font-size: 12px;
   text-decoration: underline;
   cursor: pointer;
+  ${media.compact} {
+    min-height: 44px;
+  }
 `
 
 const Note = styled.p`

@@ -38,6 +38,16 @@ describe('ChangeSummary', () => {
 })
 
 describe('StickyFooter', () => {
+  it('publishes its height for toasts while mounted', () => {
+    const { unmount } = render(
+      <StickyFooter label="Ready to add" summary="6 items" primary={<Button>Add</Button>} />,
+    )
+
+    expect(document.documentElement.style.getPropertyValue('--sticky-footer-height')).toBe('0px')
+    unmount()
+    expect(document.documentElement.style.getPropertyValue('--sticky-footer-height')).toBe('')
+  })
+
   it('holds the summary and the primary action', () => {
     render(
       <StickyFooter
