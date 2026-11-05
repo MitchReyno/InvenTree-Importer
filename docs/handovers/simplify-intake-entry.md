@@ -415,6 +415,10 @@ Results after the fix: contracts 72, intake server 181 and frontend 323 passed; 
 
 Regression tests: a cancelled `waiting_input` session with no inbox and a cancelled `waiting_for_login` session with pending chat both settle `cancelled` on the next sweep; a failed session's send shows the fresh-session guidance.
 
+## PR-A review round 8
+
+Codex (`gpt-6.1-sol`, read-only) reviewed `8f4a81c..114589a` and found no critical or important defects across authority and citations, concurrency and slots, earlier-profile compatibility (all 16 versioned schemas unchanged), migration and grants, inbox delivery and wake-ups, adapters and the frontend. Its one minor observation, the agents architecture still describing queued-only cancellation cleanup, is fixed in a documentation-only commit after the reviewed head.
+
 ## Validation
 
 - `pnpm spikes:check`: 35 passed (the existing shared-contract suite; the new spike adds no test there).
