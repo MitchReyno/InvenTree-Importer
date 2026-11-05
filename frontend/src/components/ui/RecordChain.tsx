@@ -71,8 +71,9 @@ const Chain = styled.ol`
   align-items: center;
   gap: ${space[1]};
   max-width: 100%;
-  margin: 0;
-  padding: 0;
+  margin: -4px;
+  /* Room for focus rings inside the scroll container. */
+  padding: 4px;
   overflow-x: auto;
   list-style: none;
 `

@@ -120,6 +120,10 @@ const TabLink = styled.a<{ $level: 'primary' | 'secondary' }>`
     color: ${color.fg};
     border-bottom-color: ${color.accent};
   }
+  /* The row scrolls and would clip an outside ring, so focus is drawn inside the link. */
+  &:focus-visible {
+    outline-offset: -2px;
+  }
   &[aria-disabled='true'] {
     opacity: 0.45;
     cursor: not-allowed;

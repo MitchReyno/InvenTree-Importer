@@ -35,6 +35,7 @@ const PAIRS = [
   // bg, so this pair covers the focus indicator on those grounds.
   ...pairs('bg', ['fg']),
   ...pairs('bar-fg', ['bar']),
+  // Text on photos, and the focus ring on photo previews and their selection ticks.
   ...pairs('photo-fg', ['photo-stage', 'photo-scrim']),
   ...pairs('dev-fg', ['dev-bg']),
   // Non-text: focus ring and the masthead part outline.

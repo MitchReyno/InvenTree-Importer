@@ -118,6 +118,11 @@ const Preview = styled.button`
   aspect-ratio: 4 / 3;
   background: ${color.photoStage};
   cursor: zoom-in;
+  /* The tile clips overflow, so the ring sits inside the photo in photo-fg. */
+  &:focus-visible {
+    outline-color: ${color.photoFg};
+    outline-offset: -4px;
+  }
 `
 
 const Image = styled.img`
@@ -178,6 +183,10 @@ const Tick = styled.label`
   ${overlay}
   right: ${space[1]};
   display: flex;
+  /* On the photo scrim the accent ring would vanish; photo-fg keeps focus visible. */
+  input:focus-visible {
+    outline-color: ${color.photoFg};
+  }
   align-items: center;
   justify-content: center;
   padding: 3px 5px;
