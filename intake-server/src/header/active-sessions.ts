@@ -10,7 +10,8 @@ import {
   processingJobs,
   processingLanes,
 } from '../processing/schema.ts'
-import { decodeProcessingInput, fail } from '../processing/model.ts'
+import { fail } from '../processing/model.ts'
+import { decodeJobInput } from '../processing/session-input.ts'
 import type { ProcessingConfig } from '../processing/attempts.ts'
 
 /** Filter active/physically occupied attempts before the history-independent limit. */
@@ -58,8 +59,11 @@ export async function activeHeaderSessions(
   )
   const sessions: HeaderWorkDto['active_sessions'] = []
   for (const row of rows.slice(0, 50)) {
-    const input = decodeProcessingInput(row.bytes, row.digest)
-    if (input.schema_version !== 'bench-intake-input/4') {
+    const input = decodeJobInput(row.bytes, row.digest)
+    if (
+      input.schema_version !== 'bench-intake-input/4' &&
+      input.schema_version !== 'bench-intake-input/6'
+    ) {
       fail('agent_session_binding_invalid', 503)
     }
     sessions.push({

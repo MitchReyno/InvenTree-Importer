@@ -6,7 +6,7 @@ This change delivers [BI-006](../PLANNED_FUNCTIONALITY.md#bi-006--agent-led-inta
 
 | Bundle | Tasks | Branch | State |
 | --- | --- | --- | --- |
-| PR-A resumable sessions | 1–6 | `feat/simplify-intake-entry-sessions` | Tasks 1–2 done; tasks 3–6 pending |
+| PR-A resumable sessions | 1–6 | `feat/simplify-intake-entry-sessions` | Tasks 1–3 done; tasks 4–6 pending |
 | PR-B lot forming | 7–9 | `feat/simplify-intake-entry-lot-forming` | Not started; needs PR-A merged |
 | PR-C per-lot pipeline | 10–12 | `feat/simplify-intake-entry-examine-pipeline` | Not started; needs PR-B merged |
 | PR-D live qualification | 13 | `feat/simplify-intake-entry-live-qualification` | Held until live provider use is authorized |
@@ -33,7 +33,7 @@ All candidates were published at least 14 days before installation. On Fastify, 
 - Only the Examine lead session lists the lot-forming tools; a lot session calling `propose_lot` gets "tool not found".
 - A status line over 120 characters is refused, every response carries `pending_inbox`, and every call is attributed to its session.
 
-v2 adds `zod` 4 to the intake server, which has no zod today. Task 2 or 3 must add the Apache-2.0 notice to `THIRD-PARTY-NOTICES.md` when it installs the packages.
+v2 adds `zod` 4 to the intake server, which had no zod. Task 3 installs the pinned packages. `THIRD-PARTY-NOTICES.md` covers vendored material and the Python runtime dependencies only, and lists no installed npm package, so the Apache-2.0 packages add no entry there.
 
 ### Claude CLI (task 1.3)
 
@@ -116,6 +116,64 @@ Before any change, on `8f4a81c` plus the task 1 commit: `pnpm contracts:check` c
 - `pnpm test:intake`: 72 contract and 181 intake-server tests passed.
 - `pnpm test:frontend`: 310 passed. `pnpm typecheck`, `pnpm lint:readability`, `pnpm lint:frontend` and Prettier pass.
 - `pnpm db:intake test`: 171 passed (163 baseline plus 8 new), including the retained-fixture and compatibility suites, so `/1`–`/5` bytes still decode unchanged.
+
+## Task 3: session tool server
+
+### Baseline (task 3.1)
+
+- PostgreSQL: the task 2 run (171 passed) is the baseline for the agents and Processing suites.
+- Process tier, before any task 3 change: 44 tests, 40 passed, 1 failed, 3 skipped. The failure predates this branch: `tests/process/media-resources.test.ts:124` expects the decoder container's 512 MiB memory limit, but #93 raised `MEDIA_LIMITS.memoryMiB` to 1024 without updating the test. The 3 skipped tests depend on that sandbox check. Not fixed here; it belongs with the media change.
+
+### Dependencies
+
+`intake-server` adds `@modelcontextprotocol/server` 2.4.0 and `@modelcontextprotocol/node` 2.1.2, and `@modelcontextprotocol/client` 2.4.0 as a dev dependency, all pinned exactly. The lockfile changes, so this worktree has its own `pnpm install` rather than a linked `node_modules`. The server takes no direct `zod` dependency: tool schemas come from the contracts (below).
+
+### What it does
+
+- `agents/tools/capability.ts` issues a random 256-bit capability per provider run and stores only its SHA-256 on `agent_session`. A capability resolves only for a `running` session of a session profile; revoking clears it.
+- `agents/tools/outbox.ts` appends outbox items under the session row lock, so sequences stay gap-free.
+- `agents/tools/inbox.ts` accepts items with per-lineage idempotency (a repeated key returns the original receipt, a changed payload is `idempotency_conflict`), counts pending items, and reads after a cursor. Reading acknowledges up to the cursor, never past the newest item and never backwards, and returns the next unacknowledged items with their stable IDs.
+- `agents/tools/handlers.ts` implements `status` (rate-limited, default one per 2 seconds), `propose`, `ask`, `reply`, `fetch_evidence` and `read_inbox`. Each call runs in one transaction and resolves its capability again inside it, so a revoke before the write refuses the call with no change. Refusals are typed results the agent can correct. `propose` and `ask` lock capture, then the job and attempt, retain a `bench-intake-session/1` envelope in `processing_message`, write the proposal (with `relies_on`) or question, and append the outbox item; the batch hint is appended last. A question leaves the attempt running.
+- `agents/tools/server.ts` serves the MCP endpoint on `127.0.0.1` with an ephemeral port, the SDK's localhost `Host` guard and 401 for any capability that does not resolve. Each request builds a stateless `McpServer` with that session's tools. Tool input schemas are the contract JSON Schemas; validation stays in the handlers so invalid calls get typed results rather than protocol errors.
+- `processing/provenance.ts` now has `deliveredSourceCheck`, shared by `validateProposalSources` and the session tools (task 3.4). Behaviour for earlier profiles is unchanged.
+- `processing/session-input.ts` builds a lot session's `/6` opening manifest from the `/2` media manifest checks, and `decodeJobInput` decodes any job input.
+- Answers to session questions (`processing/session-answers.ts`, called from `answerQuestion`) apply the same human capture edit as before, mark the question answered, record the answer against the same attempt, and queue an `answer` inbox item. There is no continuation attempt.
+- `POST /api/v1/batches/:id/processing/:jobId/inbox` accepts operator chat as a `SessionInboxSubmission`.
+
+### Read paths
+
+Whatever the tools write must stay readable, so this task also teaches the read paths about sessions:
+
+- The Processing snapshot reads session proposals and questions through their envelopes (`retainedSessionProposal`, `retainedSessionQuestion`). Questions add `fields` and `assumption` to the read model.
+- A session job's input currency is its current attempt, a live batch and available media. Per-proposal staleness is task 11.
+- Qualification follows the profile: both native profiles are `native_unverified`.
+- `AgentSessionList` and `HeaderWork` list `/6` sessions. Their `selection` is null for `synthetic-session/1`, and the Agents page and masthead show it as a synthetic session.
+
+### Deferred, by task
+
+- Starting the tool server in the agents worker, and a process test with a scripted client through it: task 4, which wires the adapters to it. Task 3's tests drive the real endpoint over loopback HTTP with the SDK client.
+- `/2` command authority (`loadProcessingAuthority` and the `bench-sessions` queue): task 5.
+- Lot-forming tools, lead sessions with a null subject, and observation citations: tasks 7 and 8. Until then those citations are refused as `source_not_delivered`.
+- Decoded previews, pages and region crops in `fetch_evidence`: task 8. Until then it returns verified originals of delivered JPEG, PNG or WebP versions within the 8 MiB per-run budget, as `/1` does.
+- Citing evidence that arrived through the inbox after start: task 11.
+
+### Tests
+
+`tests/pg/session-tools.test.ts` (5 tests) runs the real endpoint with the SDK client against two seeded `synthetic-session/1` research sessions:
+
+- capability: unknown, missing, revoked and other-session capabilities are refused with no rows written, and calls are attributed to their own session (3.2.1);
+- typed errors: an overlong status line, a status inside the rate window, an undelivered citation and a proposal for another lot publish nothing; an accepted proposal and question are ordered in the outbox, and the attempt keeps running (3.2.2);
+- inbox: a duplicate key returns the original receipt, a changed payload conflicts, unacknowledged items are redelivered with the same IDs, acknowledged ones are not, and the cursor never moves back (3.2.3);
+- the Processing snapshot and the session list read session proposals and questions;
+- an answer and a chat message each reach the inbox once, with the same receipt on resubmission, and the answer applies the human quantity edit.
+
+The tests failed before the modules existed. As a negative control, the delivered-source check was temporarily made to accept everything: the unchanged test failed on the undelivered citation, and the file was restored byte for byte from a backup (same SHA-256).
+
+### Results (task 3.5)
+
+- `pnpm contracts:check` clean; `pnpm typecheck`, `pnpm lint:readability`, `pnpm lint:frontend` and Prettier pass.
+- `pnpm test:intake`: 72 contract and 181 intake-server tests passed. `pnpm test:frontend`: 310 passed.
+- `pnpm db:intake test`: 176 passed (171 plus the 5 tool-server tests).
 
 ## Validation
 

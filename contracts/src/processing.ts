@@ -450,6 +450,9 @@ export const ProcessingQuestion = object({
   revision: Revision,
   state: Type.Union([Type.Literal('open'), Type.Literal('answered'), Type.Literal('superseded')]),
   spec: ProcessingQuestionSpec,
+  /** Session questions only: the fields affected and the assumption the agent continues with. */
+  fields: Type.Optional(ProcessingFields),
+  assumption: Type.Optional(Type.String({ minLength: 1, maxLength: 2048 })),
 })
 export const ProcessingJob = object({
   id: Id,

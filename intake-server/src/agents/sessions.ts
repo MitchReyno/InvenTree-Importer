@@ -12,7 +12,8 @@ import {
 } from '../processing/schema.ts'
 import { captureInTransaction } from '../capture/repository.ts'
 import type { ProcessingConfig } from '../processing/attempts.ts'
-import { decodeProcessingInput, fail } from '../processing/model.ts'
+import { fail } from '../processing/model.ts'
+import { decodeJobInput } from '../processing/session-input.ts'
 import { agentSessions } from './schema.ts'
 
 const SESSION_PAGE_SIZE = 50
@@ -83,8 +84,11 @@ export async function listAgentSessions(
     )
     const sessions: AgentSessionListDto['sessions'] = []
     for (const row of rows.slice(0, SESSION_PAGE_SIZE)) {
-      const manifest = decodeProcessingInput(row.bytes, row.digest)
-      if (manifest.schema_version !== 'bench-intake-input/4') {
+      const manifest = decodeJobInput(row.bytes, row.digest)
+      if (
+        manifest.schema_version !== 'bench-intake-input/4' &&
+        manifest.schema_version !== 'bench-intake-input/6'
+      ) {
         fail('agent_session_binding_invalid', 503)
       }
       sessions.push({

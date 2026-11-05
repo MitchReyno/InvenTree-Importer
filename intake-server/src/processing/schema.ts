@@ -1,7 +1,8 @@
-import { bigint, customType, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { bigint, customType, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type {
   ProcessingInputV1Dto,
   ProcessingQuestionDto,
+  ProcessingRelianceDto,
   ProcessingStateDto,
 } from '@invimport/contracts'
 
@@ -77,6 +78,24 @@ export const processingProposals = pgTable('processing_proposal', {
   messageId: uuid('message_id').notNull(),
   valueBytes: bytea('value_bytes').notNull(),
   valueDigest: bytea('value_digest').notNull(),
+  /** Session proposals only: a projection of the retained value's `relies_on`. */
+  reliesOn: jsonb('relies_on').$type<ProcessingRelianceDto>(),
+})
+
+export const processingProposalStale = pgTable('processing_proposal_stale', {
+  proposalId: uuid('proposal_id').primaryKey(),
+  reason: text()
+    .$type<
+      | 'source_superseded'
+      | 'evidence_removed'
+      | 'answer_received'
+      | 'operator_correction'
+      | 'lot_regrouped'
+      | 'subject_retired'
+    >()
+    .notNull(),
+  supersedingEventId: uuid('superseding_event_id'),
+  createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 })
 
 export const processingQuestions = pgTable('processing_question', {

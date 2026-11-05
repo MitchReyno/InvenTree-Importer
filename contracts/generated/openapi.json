@@ -12545,45 +12545,52 @@
                   ]
                 },
                 "selection": {
-                  "additionalProperties": false,
-                  "type": "object",
-                  "required": [
-                    "provider",
-                    "authentication",
-                    "model"
-                  ],
-                  "properties": {
-                    "provider": {
-                      "anyOf": [
-                        {
-                          "const": "codex",
-                          "type": "string"
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "provider",
+                        "authentication",
+                        "model"
+                      ],
+                      "properties": {
+                        "provider": {
+                          "anyOf": [
+                            {
+                              "const": "codex",
+                              "type": "string"
+                            },
+                            {
+                              "const": "claude",
+                              "type": "string"
+                            }
+                          ]
                         },
-                        {
-                          "const": "claude",
+                        "authentication": {
+                          "anyOf": [
+                            {
+                              "const": "api_key",
+                              "type": "string"
+                            },
+                            {
+                              "const": "subscription",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "model": {
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
                           "type": "string"
                         }
-                      ]
+                      }
                     },
-                    "authentication": {
-                      "anyOf": [
-                        {
-                          "const": "api_key",
-                          "type": "string"
-                        },
-                        {
-                          "const": "subscription",
-                          "type": "string"
-                        }
-                      ]
-                    },
-                    "model": {
-                      "minLength": 1,
-                      "maxLength": 128,
-                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
-                      "type": "string"
+                    {
+                      "type": "null"
                     }
-                  }
+                  ]
                 },
                 "actual_model": {
                   "anyOf": [
@@ -48063,6 +48070,41 @@
                 "type": "string"
               }
             }
+          },
+          "fields": {
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "const": "markings",
+                  "type": "string"
+                },
+                {
+                  "const": "identity",
+                  "type": "string"
+                },
+                {
+                  "const": "quantity",
+                  "type": "string"
+                },
+                {
+                  "const": "research",
+                  "type": "string"
+                },
+                {
+                  "const": "images",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "assumption": {
+            "minLength": 1,
+            "maxLength": 2048,
+            "type": "string"
           }
         }
       },
@@ -50033,6 +50075,41 @@
                       "type": "string"
                     }
                   }
+                },
+                "fields": {
+                  "minItems": 1,
+                  "maxItems": 5,
+                  "uniqueItems": true,
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "const": "markings",
+                        "type": "string"
+                      },
+                      {
+                        "const": "identity",
+                        "type": "string"
+                      },
+                      {
+                        "const": "quantity",
+                        "type": "string"
+                      },
+                      {
+                        "const": "research",
+                        "type": "string"
+                      },
+                      {
+                        "const": "images",
+                        "type": "string"
+                      }
+                    ]
+                  }
+                },
+                "assumption": {
+                  "minLength": 1,
+                  "maxLength": 2048,
+                  "type": "string"
                 }
               }
             }
@@ -52045,6 +52122,41 @@
                             "type": "string"
                           }
                         }
+                      },
+                      "fields": {
+                        "minItems": 1,
+                        "maxItems": 5,
+                        "uniqueItems": true,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "const": "markings",
+                              "type": "string"
+                            },
+                            {
+                              "const": "identity",
+                              "type": "string"
+                            },
+                            {
+                              "const": "quantity",
+                              "type": "string"
+                            },
+                            {
+                              "const": "research",
+                              "type": "string"
+                            },
+                            {
+                              "const": "images",
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "assumption": {
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "type": "string"
                       }
                     }
                   }
@@ -57278,50 +57390,64 @@
                   "type": "boolean"
                 },
                 "selection": {
-                  "additionalProperties": false,
-                  "type": "object",
-                  "required": [
-                    "provider",
-                    "authentication",
-                    "model"
-                  ],
-                  "properties": {
-                    "provider": {
-                      "anyOf": [
-                        {
-                          "const": "codex",
-                          "type": "string"
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "provider",
+                        "authentication",
+                        "model"
+                      ],
+                      "properties": {
+                        "provider": {
+                          "anyOf": [
+                            {
+                              "const": "codex",
+                              "type": "string"
+                            },
+                            {
+                              "const": "claude",
+                              "type": "string"
+                            }
+                          ]
                         },
-                        {
-                          "const": "claude",
+                        "authentication": {
+                          "anyOf": [
+                            {
+                              "const": "api_key",
+                              "type": "string"
+                            },
+                            {
+                              "const": "subscription",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "model": {
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
                           "type": "string"
                         }
-                      ]
+                      }
                     },
-                    "authentication": {
-                      "anyOf": [
-                        {
-                          "const": "api_key",
-                          "type": "string"
-                        },
-                        {
-                          "const": "subscription",
-                          "type": "string"
-                        }
-                      ]
-                    },
-                    "model": {
-                      "minLength": 1,
-                      "maxLength": 128,
-                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:/-]*(?![\\s\\S])",
-                      "type": "string"
+                    {
+                      "type": "null"
                     }
-                  }
+                  ]
                 },
                 "settings_revision": {
-                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
-                  "format": "int64",
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "queued_at": {
                   "maxLength": 40,
@@ -57409,6 +57535,1535 @@
             ]
           }
         }
+      },
+      "SessionEnvelope": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "job_id",
+              "attempt_id",
+              "command_id",
+              "input_sha256",
+              "sequence",
+              "kind",
+              "payload"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-session/1",
+                "type": "string"
+              },
+              "job_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "command_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "input_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "sequence": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "kind": {
+                "const": "proposal",
+                "type": "string"
+              },
+              "payload": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "schema_version",
+                  "subject_id",
+                  "summary",
+                  "sources",
+                  "relies_on"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "const": "bench-intake-proposal/5",
+                    "type": "string"
+                  },
+                  "subject_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "summary": {
+                    "minLength": 1,
+                    "maxLength": 2048,
+                    "type": "string"
+                  },
+                  "sources": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "uniqueItems": true,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "note_id",
+                            "text_sha256"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "note",
+                              "type": "string"
+                            },
+                            "note_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "text_sha256": {
+                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "evidence_id",
+                            "version_id",
+                            "sha256"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "media_version",
+                              "type": "string"
+                            },
+                            "evidence_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "version_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "sha256": {
+                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "quantity": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "value",
+                      "status"
+                    ],
+                    "properties": {
+                      "value": {
+                        "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "status": {
+                        "const": "estimated",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "tags": {
+                    "maxItems": 32,
+                    "uniqueItems": true,
+                    "type": "array",
+                    "items": {
+                      "minLength": 1,
+                      "maxLength": 100,
+                      "pattern": "[^\\s]",
+                      "type": "string"
+                    }
+                  },
+                  "relies_on": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "fields",
+                      "sources"
+                    ],
+                    "properties": {
+                      "fields": {
+                        "minItems": 1,
+                        "maxItems": 5,
+                        "uniqueItems": true,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "const": "markings",
+                              "type": "string"
+                            },
+                            {
+                              "const": "identity",
+                              "type": "string"
+                            },
+                            {
+                              "const": "quantity",
+                              "type": "string"
+                            },
+                            {
+                              "const": "research",
+                              "type": "string"
+                            },
+                            {
+                              "const": "images",
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      },
+                      "sources": {
+                        "minItems": 1,
+                        "maxItems": 200,
+                        "uniqueItems": true,
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "note_id",
+                                "text_sha256"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "note",
+                                  "type": "string"
+                                },
+                                "note_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "text_sha256": {
+                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "evidence_id",
+                                "version_id",
+                                "sha256"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "media_version",
+                                  "type": "string"
+                                },
+                                "evidence_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "version_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "sha256": {
+                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "evidence_observation_id",
+                                "revision"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "evidence_observation",
+                                  "type": "string"
+                                },
+                                "evidence_observation_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "revision": {
+                                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                  "format": "int64",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "lot_id",
+                                "version"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "observation_set",
+                                  "type": "string"
+                                },
+                                "lot_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                  "format": "int64",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "inbox_item_id"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "inbox_item",
+                                  "type": "string"
+                                },
+                                "inbox_item_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "proposal_id"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "proposal",
+                                  "type": "string"
+                                },
+                                "proposal_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "catalogue": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "category",
+                      "parameters",
+                      "manufacturer",
+                      "supplier",
+                      "description"
+                    ],
+                    "properties": {
+                      "category": {
+                        "anyOf": [
+                          {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "choice",
+                                  "reference",
+                                  "sources"
+                                ],
+                                "properties": {
+                                  "choice": {
+                                    "const": "existing",
+                                    "type": "string"
+                                  },
+                                  "reference": {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "observation_id",
+                                      "target_context_id",
+                                      "model",
+                                      "pk"
+                                    ],
+                                    "properties": {
+                                      "observation_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "target_context_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "model": {
+                                        "const": "category",
+                                        "type": "string"
+                                      },
+                                      "pk": {
+                                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                        "format": "int64",
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  "sources": {
+                                    "minItems": 1,
+                                    "maxItems": 32,
+                                    "uniqueItems": true,
+                                    "type": "array",
+                                    "items": {
+                                      "anyOf": [
+                                        {
+                                          "additionalProperties": false,
+                                          "type": "object",
+                                          "required": [
+                                            "kind",
+                                            "note_id",
+                                            "text_sha256"
+                                          ],
+                                          "properties": {
+                                            "kind": {
+                                              "const": "note",
+                                              "type": "string"
+                                            },
+                                            "note_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "text_sha256": {
+                                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "additionalProperties": false,
+                                          "type": "object",
+                                          "required": [
+                                            "kind",
+                                            "evidence_id",
+                                            "version_id",
+                                            "sha256"
+                                          ],
+                                          "properties": {
+                                            "kind": {
+                                              "const": "media_version",
+                                              "type": "string"
+                                            },
+                                            "evidence_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "version_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                              "type": "string"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "additionalProperties": false,
+                                "type": "object",
+                                "required": [
+                                  "choice",
+                                  "name",
+                                  "reason",
+                                  "sources"
+                                ],
+                                "properties": {
+                                  "choice": {
+                                    "const": "proposed_new",
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "minLength": 1,
+                                    "maxLength": 256,
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "minLength": 1,
+                                    "maxLength": 2048,
+                                    "type": "string"
+                                  },
+                                  "sources": {
+                                    "minItems": 1,
+                                    "maxItems": 32,
+                                    "uniqueItems": true,
+                                    "type": "array",
+                                    "items": {
+                                      "anyOf": [
+                                        {
+                                          "additionalProperties": false,
+                                          "type": "object",
+                                          "required": [
+                                            "kind",
+                                            "note_id",
+                                            "text_sha256"
+                                          ],
+                                          "properties": {
+                                            "kind": {
+                                              "const": "note",
+                                              "type": "string"
+                                            },
+                                            "note_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "text_sha256": {
+                                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                              "type": "string"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "additionalProperties": false,
+                                          "type": "object",
+                                          "required": [
+                                            "kind",
+                                            "evidence_id",
+                                            "version_id",
+                                            "sha256"
+                                          ],
+                                          "properties": {
+                                            "kind": {
+                                              "const": "media_version",
+                                              "type": "string"
+                                            },
+                                            "evidence_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "version_id": {
+                                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                              "type": "string"
+                                            },
+                                            "sha256": {
+                                              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                              "type": "string"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "parameters": {
+                        "maxItems": 32,
+                        "type": "array",
+                        "items": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "name",
+                            "value",
+                            "template",
+                            "category_mapping",
+                            "sources"
+                          ],
+                          "properties": {
+                            "name": {
+                              "minLength": 1,
+                              "maxLength": 256,
+                              "type": "string"
+                            },
+                            "value": {
+                              "minLength": 1,
+                              "maxLength": 256,
+                              "type": "string"
+                            },
+                            "template": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "observation_id",
+                                    "target_context_id",
+                                    "model",
+                                    "pk"
+                                  ],
+                                  "properties": {
+                                    "observation_id": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "target_context_id": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "model": {
+                                      "const": "parameter_template",
+                                      "type": "string"
+                                    },
+                                    "pk": {
+                                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                      "format": "int64",
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "category_mapping": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "observation_id",
+                                    "target_context_id",
+                                    "model",
+                                    "pk"
+                                  ],
+                                  "properties": {
+                                    "observation_id": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "target_context_id": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "model": {
+                                      "const": "category_parameter",
+                                      "type": "string"
+                                    },
+                                    "pk": {
+                                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                      "format": "int64",
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "sources": {
+                              "minItems": 1,
+                              "maxItems": 32,
+                              "uniqueItems": true,
+                              "type": "array",
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "kind",
+                                      "note_id",
+                                      "text_sha256"
+                                    ],
+                                    "properties": {
+                                      "kind": {
+                                        "const": "note",
+                                        "type": "string"
+                                      },
+                                      "note_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "text_sha256": {
+                                        "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "kind",
+                                      "evidence_id",
+                                      "version_id",
+                                      "sha256"
+                                    ],
+                                    "properties": {
+                                      "kind": {
+                                        "const": "media_version",
+                                        "type": "string"
+                                      },
+                                      "evidence_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "version_id": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "sha256": {
+                                        "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "manufacturer": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "company",
+                              "mpn",
+                              "sources"
+                            ],
+                            "properties": {
+                              "company": {
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "choice",
+                                      "reference",
+                                      "sources"
+                                    ],
+                                    "properties": {
+                                      "choice": {
+                                        "const": "existing",
+                                        "type": "string"
+                                      },
+                                      "reference": {
+                                        "additionalProperties": false,
+                                        "type": "object",
+                                        "required": [
+                                          "observation_id",
+                                          "target_context_id",
+                                          "model",
+                                          "pk"
+                                        ],
+                                        "properties": {
+                                          "observation_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "target_context_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "model": {
+                                            "const": "company",
+                                            "type": "string"
+                                          },
+                                          "pk": {
+                                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                            "format": "int64",
+                                            "type": "string"
+                                          }
+                                        }
+                                      },
+                                      "sources": {
+                                        "minItems": 1,
+                                        "maxItems": 32,
+                                        "uniqueItems": true,
+                                        "type": "array",
+                                        "items": {
+                                          "anyOf": [
+                                            {
+                                              "additionalProperties": false,
+                                              "type": "object",
+                                              "required": [
+                                                "kind",
+                                                "note_id",
+                                                "text_sha256"
+                                              ],
+                                              "properties": {
+                                                "kind": {
+                                                  "const": "note",
+                                                  "type": "string"
+                                                },
+                                                "note_id": {
+                                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                  "type": "string"
+                                                },
+                                                "text_sha256": {
+                                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                                  "type": "string"
+                                                }
+                                              }
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "type": "object",
+                                              "required": [
+                                                "kind",
+                                                "evidence_id",
+                                                "version_id",
+                                                "sha256"
+                                              ],
+                                              "properties": {
+                                                "kind": {
+                                                  "const": "media_version",
+                                                  "type": "string"
+                                                },
+                                                "evidence_id": {
+                                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                  "type": "string"
+                                                },
+                                                "version_id": {
+                                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                  "type": "string"
+                                                },
+                                                "sha256": {
+                                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                                  "type": "string"
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "choice",
+                                      "name",
+                                      "reason",
+                                      "sources"
+                                    ],
+                                    "properties": {
+                                      "choice": {
+                                        "const": "proposed_new",
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "minLength": 1,
+                                        "maxLength": 256,
+                                        "type": "string"
+                                      },
+                                      "reason": {
+                                        "minLength": 1,
+                                        "maxLength": 2048,
+                                        "type": "string"
+                                      },
+                                      "sources": {
+                                        "minItems": 1,
+                                        "maxItems": 32,
+                                        "uniqueItems": true,
+                                        "type": "array",
+                                        "items": {
+                                          "anyOf": [
+                                            {
+                                              "additionalProperties": false,
+                                              "type": "object",
+                                              "required": [
+                                                "kind",
+                                                "note_id",
+                                                "text_sha256"
+                                              ],
+                                              "properties": {
+                                                "kind": {
+                                                  "const": "note",
+                                                  "type": "string"
+                                                },
+                                                "note_id": {
+                                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                  "type": "string"
+                                                },
+                                                "text_sha256": {
+                                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                                  "type": "string"
+                                                }
+                                              }
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "type": "object",
+                                              "required": [
+                                                "kind",
+                                                "evidence_id",
+                                                "version_id",
+                                                "sha256"
+                                              ],
+                                              "properties": {
+                                                "kind": {
+                                                  "const": "media_version",
+                                                  "type": "string"
+                                                },
+                                                "evidence_id": {
+                                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                  "type": "string"
+                                                },
+                                                "version_id": {
+                                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                  "type": "string"
+                                                },
+                                                "sha256": {
+                                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                                  "type": "string"
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              "mpn": {
+                                "minLength": 1,
+                                "maxLength": 256,
+                                "type": "string"
+                              },
+                              "sources": {
+                                "minItems": 1,
+                                "maxItems": 32,
+                                "uniqueItems": true,
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "kind",
+                                        "note_id",
+                                        "text_sha256"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "note",
+                                          "type": "string"
+                                        },
+                                        "note_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "text_sha256": {
+                                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "kind",
+                                        "evidence_id",
+                                        "version_id",
+                                        "sha256"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "media_version",
+                                          "type": "string"
+                                        },
+                                        "evidence_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "version_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "sha256": {
+                                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "supplier": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "company",
+                              "sku",
+                              "price",
+                              "sources"
+                            ],
+                            "properties": {
+                              "company": {
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "choice",
+                                      "reference",
+                                      "sources"
+                                    ],
+                                    "properties": {
+                                      "choice": {
+                                        "const": "existing",
+                                        "type": "string"
+                                      },
+                                      "reference": {
+                                        "additionalProperties": false,
+                                        "type": "object",
+                                        "required": [
+                                          "observation_id",
+                                          "target_context_id",
+                                          "model",
+                                          "pk"
+                                        ],
+                                        "properties": {
+                                          "observation_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "target_context_id": {
+                                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                            "type": "string"
+                                          },
+                                          "model": {
+                                            "const": "company",
+                                            "type": "string"
+                                          },
+                                          "pk": {
+                                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                            "format": "int64",
+                                            "type": "string"
+                                          }
+                                        }
+                                      },
+                                      "sources": {
+                                        "minItems": 1,
+                                        "maxItems": 32,
+                                        "uniqueItems": true,
+                                        "type": "array",
+                                        "items": {
+                                          "anyOf": [
+                                            {
+                                              "additionalProperties": false,
+                                              "type": "object",
+                                              "required": [
+                                                "kind",
+                                                "note_id",
+                                                "text_sha256"
+                                              ],
+                                              "properties": {
+                                                "kind": {
+                                                  "const": "note",
+                                                  "type": "string"
+                                                },
+                                                "note_id": {
+                                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                  "type": "string"
+                                                },
+                                                "text_sha256": {
+                                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                                  "type": "string"
+                                                }
+                                              }
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "type": "object",
+                                              "required": [
+                                                "kind",
+                                                "evidence_id",
+                                                "version_id",
+                                                "sha256"
+                                              ],
+                                              "properties": {
+                                                "kind": {
+                                                  "const": "media_version",
+                                                  "type": "string"
+                                                },
+                                                "evidence_id": {
+                                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                  "type": "string"
+                                                },
+                                                "version_id": {
+                                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                  "type": "string"
+                                                },
+                                                "sha256": {
+                                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                                  "type": "string"
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "choice",
+                                      "name",
+                                      "reason",
+                                      "sources"
+                                    ],
+                                    "properties": {
+                                      "choice": {
+                                        "const": "proposed_new",
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "minLength": 1,
+                                        "maxLength": 256,
+                                        "type": "string"
+                                      },
+                                      "reason": {
+                                        "minLength": 1,
+                                        "maxLength": 2048,
+                                        "type": "string"
+                                      },
+                                      "sources": {
+                                        "minItems": 1,
+                                        "maxItems": 32,
+                                        "uniqueItems": true,
+                                        "type": "array",
+                                        "items": {
+                                          "anyOf": [
+                                            {
+                                              "additionalProperties": false,
+                                              "type": "object",
+                                              "required": [
+                                                "kind",
+                                                "note_id",
+                                                "text_sha256"
+                                              ],
+                                              "properties": {
+                                                "kind": {
+                                                  "const": "note",
+                                                  "type": "string"
+                                                },
+                                                "note_id": {
+                                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                  "type": "string"
+                                                },
+                                                "text_sha256": {
+                                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                                  "type": "string"
+                                                }
+                                              }
+                                            },
+                                            {
+                                              "additionalProperties": false,
+                                              "type": "object",
+                                              "required": [
+                                                "kind",
+                                                "evidence_id",
+                                                "version_id",
+                                                "sha256"
+                                              ],
+                                              "properties": {
+                                                "kind": {
+                                                  "const": "media_version",
+                                                  "type": "string"
+                                                },
+                                                "evidence_id": {
+                                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                  "type": "string"
+                                                },
+                                                "version_id": {
+                                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                                  "type": "string"
+                                                },
+                                                "sha256": {
+                                                  "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                                  "type": "string"
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              },
+                              "sku": {
+                                "anyOf": [
+                                  {
+                                    "minLength": 1,
+                                    "maxLength": 256,
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "price": {
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "type": "object",
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "properties": {
+                                      "amount": {
+                                        "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "pattern": "^[A-Z]{3}$",
+                                        "type": "string"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "sources": {
+                                "minItems": 1,
+                                "maxItems": 32,
+                                "uniqueItems": true,
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "kind",
+                                        "note_id",
+                                        "text_sha256"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "note",
+                                          "type": "string"
+                                        },
+                                        "note_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "text_sha256": {
+                                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "kind",
+                                        "evidence_id",
+                                        "version_id",
+                                        "sha256"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "media_version",
+                                          "type": "string"
+                                        },
+                                        "evidence_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "version_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "sha256": {
+                                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "description": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "text",
+                              "sources"
+                            ],
+                            "properties": {
+                              "text": {
+                                "minLength": 1,
+                                "maxLength": 2048,
+                                "type": "string"
+                              },
+                              "sources": {
+                                "minItems": 1,
+                                "maxItems": 32,
+                                "uniqueItems": true,
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "kind",
+                                        "note_id",
+                                        "text_sha256"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "note",
+                                          "type": "string"
+                                        },
+                                        "note_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "text_sha256": {
+                                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "type": "object",
+                                      "required": [
+                                        "kind",
+                                        "evidence_id",
+                                        "version_id",
+                                        "sha256"
+                                      ],
+                                      "properties": {
+                                        "kind": {
+                                          "const": "media_version",
+                                          "type": "string"
+                                        },
+                                        "evidence_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "version_id": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                          "type": "string"
+                                        },
+                                        "sha256": {
+                                          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "schema_version",
+              "job_id",
+              "attempt_id",
+              "command_id",
+              "input_sha256",
+              "sequence",
+              "kind",
+              "payload"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "bench-intake-session/1",
+                "type": "string"
+              },
+              "job_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "attempt_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "command_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "input_sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "sequence": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              },
+              "kind": {
+                "const": "question",
+                "type": "string"
+              },
+              "payload": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "subject_id",
+                  "prompt",
+                  "reason",
+                  "fields",
+                  "assumption"
+                ],
+                "properties": {
+                  "kind": {
+                    "anyOf": [
+                      {
+                        "const": "quantity",
+                        "type": "string"
+                      },
+                      {
+                        "const": "clarification",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "subject_id": {
+                    "anyOf": [
+                      {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "prompt": {
+                    "minLength": 1,
+                    "maxLength": 2048,
+                    "type": "string"
+                  },
+                  "reason": {
+                    "minLength": 1,
+                    "maxLength": 2048,
+                    "type": "string"
+                  },
+                  "fields": {
+                    "minItems": 1,
+                    "maxItems": 5,
+                    "uniqueItems": true,
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "const": "markings",
+                          "type": "string"
+                        },
+                        {
+                          "const": "identity",
+                          "type": "string"
+                        },
+                        {
+                          "const": "quantity",
+                          "type": "string"
+                        },
+                        {
+                          "const": "research",
+                          "type": "string"
+                        },
+                        {
+                          "const": "images",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  },
+                  "assumption": {
+                    "minLength": 1,
+                    "maxLength": 2048,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        ]
       },
       "SessionState": {
         "anyOf": [
@@ -59070,6 +60725,288 @@
                 "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
                 "format": "int64",
                 "type": "string"
+              },
+              "id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "items": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "seq",
+                        "created_at",
+                        "kind",
+                        "payload"
+                      ],
+                      "properties": {
+                        "id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "seq": {
+                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                          "format": "int64",
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "maxLength": 40,
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "answer",
+                          "type": "string"
+                        },
+                        "payload": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "question_id",
+                            "answer_id",
+                            "value"
+                          ],
+                          "properties": {
+                            "question_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "answer_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "value": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "kind",
+                                    "value",
+                                    "basis"
+                                  ],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "quantity",
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "basis": {
+                                      "anyOf": [
+                                        {
+                                          "const": "counted",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "const": "estimated",
+                                          "type": "string"
+                                        }
+                                      ]
+                                    }
+                                  }
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "kind",
+                                    "text"
+                                  ],
+                                  "properties": {
+                                    "kind": {
+                                      "const": "clarification",
+                                      "type": "string"
+                                    },
+                                    "text": {
+                                      "minLength": 1,
+                                      "maxLength": 2048,
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "seq",
+                        "created_at",
+                        "kind",
+                        "payload"
+                      ],
+                      "properties": {
+                        "id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "seq": {
+                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                          "format": "int64",
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "maxLength": 40,
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "chat",
+                          "type": "string"
+                        },
+                        "payload": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "text"
+                          ],
+                          "properties": {
+                            "text": {
+                              "minLength": 1,
+                              "maxLength": 4096,
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "seq",
+                        "created_at",
+                        "kind",
+                        "payload"
+                      ],
+                      "properties": {
+                        "id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "seq": {
+                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                          "format": "int64",
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "maxLength": 40,
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "evidence",
+                          "type": "string"
+                        },
+                        "payload": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "evidence_id",
+                            "version_id"
+                          ],
+                          "properties": {
+                            "evidence_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "version_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "seq",
+                        "created_at",
+                        "kind",
+                        "payload"
+                      ],
+                      "properties": {
+                        "id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "seq": {
+                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                          "format": "int64",
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "maxLength": 40,
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "revision",
+                          "type": "string"
+                        },
+                        "payload": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "fields",
+                            "reason"
+                          ],
+                          "properties": {
+                            "fields": {
+                              "minItems": 1,
+                              "maxItems": 5,
+                              "uniqueItems": true,
+                              "type": "array",
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "const": "markings",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "identity",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "quantity",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "research",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "images",
+                                    "type": "string"
+                                  }
+                                ]
+                              }
+                            },
+                            "reason": {
+                              "minLength": 1,
+                              "maxLength": 2048,
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
               }
             }
           },

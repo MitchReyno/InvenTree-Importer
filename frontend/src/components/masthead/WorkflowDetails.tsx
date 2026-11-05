@@ -94,11 +94,16 @@ export function WorkflowDetails({ data, batchId, unavailable, fresh }: Props) {
       {data?.active_sessions.map((session) => (
         <Work key={session.attempt_id}>
           <strong>
-            {session.selection.provider} ·{' '}
-            {session.actual_model
-              ? `actual model ${session.actual_model}`
-              : `requested model ${session.selection.model}`}
-            {!session.actual_model && <Small>Actual model not yet reported.</Small>}
+            {session.selection === null
+              ? 'Synthetic session'
+              : `${session.selection.provider} · ${
+                  session.actual_model
+                    ? `actual model ${session.actual_model}`
+                    : `requested model ${session.selection.model}`
+                }`}
+            {session.selection !== null && !session.actual_model && (
+              <Small>Actual model not yet reported.</Small>
+            )}
           </strong>
           <Paragraph>
             {session.stage} · logical state {session.state.replaceAll('_', ' ')} ·{' '}

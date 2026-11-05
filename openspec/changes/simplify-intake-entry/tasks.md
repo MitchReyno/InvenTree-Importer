@@ -111,14 +111,14 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm test:intake:pg`, `pnpm test:intake:process` (scripted MCP client).
 - **Risks and decisions:** the tool server runs inside the worker only. The web process gets no tool endpoint.
 
-- [ ] 3.1 Baseline the agents/processing PG and process suites.
-- [ ] 3.2 RED: capability, validation, ordering and idempotency regressions.
-  - [ ] 3.2.1 Wrong-session or expired capability refused, with no state change.
-  - [ ] 3.2.2 Status line over 120 characters, rate-limit breach, and undelivered citation each return a typed error.
-  - [ ] 3.2.3 Duplicate inbox key returns the original receipt; an unacknowledged item is redelivered with the same ID after a crash; an acknowledged one is not.
-- [ ] 3.3 GREEN: MCP endpoint, handlers, context log, outbox/inbox persistence and live hints.
-- [ ] 3.4 Refactor shared validation with the existing provenance checks, and rerun the Processing suites.
-- [ ] 3.5 Record the results.
+- [x] 3.1 Baseline the agents/processing PG and process suites.
+- [x] 3.2 RED: capability, validation, ordering and idempotency regressions.
+  - [x] 3.2.1 Wrong-session or expired capability refused, with no state change.
+  - [x] 3.2.2 Status line over 120 characters, rate-limit breach, and undelivered citation each return a typed error.
+  - [x] 3.2.3 Duplicate inbox key returns the original receipt; an unacknowledged item is redelivered with the same ID after a crash; an acknowledged one is not.
+- [x] 3.3 GREEN: MCP endpoint, handlers, context log, outbox/inbox persistence and live hints.
+- [x] 3.4 Refactor shared validation with the existing provenance checks, and rerun the Processing suites.
+- [x] 3.5 Record the results.
 
 ## 4. Claude and Codex session adapters
 

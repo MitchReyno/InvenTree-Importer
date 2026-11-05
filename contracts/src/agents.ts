@@ -31,8 +31,9 @@ export const AgentSessionList = object({
       stage: ProcessingStageV2,
       state: ProcessingState,
       latest_on_job: Type.Boolean(),
-      selection: AgentSelection,
-      settings_revision: Revision,
+      /** Null for the deterministic synthetic session profile. */
+      selection: Type.Union([AgentSelection, Type.Null()]),
+      settings_revision: Type.Union([Revision, Type.Null()]),
       queued_at: Type.String({ maxLength: 40 }),
       started_at: Type.Union([Type.String({ maxLength: 40 }), Type.Null()]),
       finished_at: Type.Union([Type.String({ maxLength: 40 }), Type.Null()]),

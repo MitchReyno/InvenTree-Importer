@@ -83,22 +83,6 @@ export const SessionToolError = Type.Union(
     ] as const
   ).map((code) => Type.Literal(code)),
 )
-/** Every response carries the pending inbox count, so agents notice input without polling. */
-export const SessionToolResult = Type.Union([
-  object({
-    ok: Type.Literal(true),
-    pending_inbox: Type.Integer({ minimum: 0 }),
-    revision: Type.Optional(Revision),
-  }),
-  object({
-    ok: Type.Literal(false),
-    error: SessionToolError,
-    message: Type.String({ minLength: 1, maxLength: 1024 }),
-    pending_inbox: Type.Integer({ minimum: 0 }),
-    revision: Type.Optional(Revision),
-  }),
-])
-
 const outboxBase = { session_id: Id, seq: Revision, created_at: timestamp }
 export const SessionOutboxItem = Type.Union([
   object({ ...outboxBase, kind: Type.Literal('status'), payload: SessionStatusArgs }),
@@ -142,11 +126,47 @@ export const SessionInboxItem = Type.Union([
     }),
   }),
 ])
+/** Every response carries the pending inbox count, so agents notice input without polling. */
+export const SessionToolResult = Type.Union([
+  object({
+    ok: Type.Literal(true),
+    pending_inbox: Type.Integer({ minimum: 0 }),
+    revision: Type.Optional(Revision),
+    /** The proposal, question or outbox item a write created. */
+    id: Type.Optional(Id),
+    items: Type.Optional(Type.Array(SessionInboxItem, { maxItems: 20 })),
+  }),
+  object({
+    ok: Type.Literal(false),
+    error: SessionToolError,
+    message: Type.String({ minLength: 1, maxLength: 1024 }),
+    pending_inbox: Type.Integer({ minimum: 0 }),
+    revision: Type.Optional(Revision),
+  }),
+])
+
 /** An operator chat message; answers keep using the question answer route. */
 export const SessionInboxSubmission = object({ idempotency_key: Id, text: message })
 export const SessionInboxReceipt = object({ item_id: Id, seq: Revision })
 
+/**
+ * The retained bytes of a session proposal or question in `processing_message`, bound to the
+ * session's attempt, command and opening manifest as runner envelopes are for earlier profiles.
+ */
+const sessionBinding = {
+  schema_version: Type.Literal('bench-intake-session/1'),
+  job_id: Id,
+  attempt_id: Id,
+  command_id: Id,
+  input_sha256: Type.String({ pattern: '^[a-f0-9]{64}$' }),
+  sequence: Revision,
+}
+export const SessionEnvelope = Type.Union([
+  object({ ...sessionBinding, kind: Type.Literal('proposal'), payload: ProcessingProposalV5 }),
+  object({ ...sessionBinding, kind: Type.Literal('question'), payload: SessionAskArgs }),
+])
 export const sessionSchemas = {
+  SessionEnvelope,
   SessionState,
   SessionStatusArgs,
   SessionAskArgs,
@@ -161,6 +181,7 @@ export const sessionSchemas = {
   SessionInboxSubmission,
   SessionInboxReceipt,
 }
+export type SessionEnvelopeDto = Static<typeof SessionEnvelope>
 export type SessionStateDto = Static<typeof SessionState>
 export type SessionStatusArgsDto = Static<typeof SessionStatusArgs>
 export type SessionAskArgsDto = Static<typeof SessionAskArgs>

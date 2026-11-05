@@ -4,6 +4,11 @@ import { render } from '../../test/render'
 import { AgentSessions } from './AgentSessions'
 import type { AgentSessionListDto } from '@invimport/contracts'
 
+const selection = {
+  provider: 'codex',
+  authentication: 'subscription',
+  model: 'chosen-model',
+} as const
 const base: AgentSessionListDto['sessions'][number] = {
   attempt_id: 'one',
   batch_id: 'batch',
@@ -12,7 +17,7 @@ const base: AgentSessionListDto['sessions'][number] = {
   stage: 'reading',
   state: 'queued',
   latest_on_job: true,
-  selection: { provider: 'codex', authentication: 'subscription', model: 'chosen-model' },
+  selection,
   settings_revision: '1',
   queued_at: '2026-11-03T01:00:00.000Z',
   started_at: null,
@@ -31,13 +36,13 @@ test('session filters keep a cancelled but physically occupied command active un
       attempt_id: 'two',
       state: 'cancelled' as const,
       occupies_lane: true,
-      selection: { ...base.selection, model: 'still-running-model' },
+      selection: { ...selection, model: 'still-running-model' },
     },
     {
       ...base,
       attempt_id: 'three',
       state: 'failed' as const,
-      selection: { ...base.selection, model: 'finished-model' },
+      selection: { ...selection, model: 'finished-model' },
     },
   ]
   const client = {

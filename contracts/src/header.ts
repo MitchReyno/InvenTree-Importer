@@ -100,7 +100,8 @@ export const HeaderWork = object({
       job_id: Id,
       stage: ProcessingStageV2,
       state: ProcessingState,
-      selection: AgentSelection,
+      /** Null for the deterministic synthetic session profile. */
+      selection: Type.Union([AgentSelection, Type.Null()]),
       actual_model: Type.Union([Type.String({ maxLength: 128 }), Type.Null()]),
       progress: choice(['queued', 'starting', 'responding', 'settled']),
       occupies_lane: Type.Boolean(),
