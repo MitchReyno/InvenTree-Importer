@@ -306,7 +306,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 ## Delivery evidence and lifecycle follow-up
 
 - [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Review clear at `9fea7c7`; merged as #96 (`50ff181`). The frontend, TypeScript, Markdown and workflow checks passed; the two intake jobs failed identically on `interactive-app` itself (#93's sandbox limit test and #97's startup timeouts).
-- [ ] D.2 PR-B: same gates.
+- [x] D.2 PR-B: same gates. Review clear at `7c42f99` after seven rounds; merged as #100 (`4080ea9`). Every CI job passed; the HTTP lane's two start-up timeouts, which also fail on `interactive-app`'s own push, passed on rerun, and #99 retired the PostgreSQL lane.
 - [ ] D.3 PR-C: same gates.
 - [ ] D.4 PR-D: same gates.
 - [ ] D.5 PR-E: same gates.

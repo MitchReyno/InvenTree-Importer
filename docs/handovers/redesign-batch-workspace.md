@@ -212,3 +212,18 @@ Fresh read-only Claude reviewer at `e088b56`: 1 Minor, fixed test-first.
 
 Fresh read-only Claude reviewer at `7c42f99`: clean, no findings. Later commits on the branch change only this handover.
 
+### PR-B delivery
+
+Mitch authorised merging once review and CI were clear. CI on #100: frontend, TypeScript and Markdown passed; the intake HTTP lane's two start-up timeouts (the same tests that fail on `interactive-app`'s own push) passed on a rerun of the failed job; the PostgreSQL lane is retired by #99. Squash-merged as #100 (`4080ea9`).
+
+## PR-C plan: Processing and Agents (Tasks 7 and 12)
+
+Branch `feat/redesign-batch-workspace-processing` from `4080ea9`. Mitch authorised merging PR-C once review and CI are clear.
+
+- **Sessions exist already (design D9 adjustment):** #97 retained native sessions, so the adapter reports them where a session profile is configured and none otherwise. The agent-session list gains `sessions_supported` from the configured profile, so the Agents page can say sessions are not available for this setup.
+- **7.1 adapter:** `frontend/src/processing/source.ts` maps the processing snapshot to steps (Reading and Identifying to Examine), per-step job counts and outputs, open questions with their step and assumption, and sessions from jobs with a session state. Tests first: every stage maps to its step and a fixture profile yields no sessions.
+- **7.2–7.3:** `ProcessingWorkspace` keeps its data and command logic; its presentation becomes an Overview (step progress, sessions, Needs you, batch instructions, activity, glances to Review and Changes) and one step-page pattern (outputs, questions, sessions, links to Review and Capture). A step without data says so.
+- **7.4 drawer:** the existing session timeline and chat move into a side drawer opened from a session row, rendered only for jobs with a session.
+- **12:** the Agents page gets the summary (slots in use against `session_concurrency`, model, waiting count), filters (running, waiting for you, queued, finished today), per-batch groups linking to Processing, and the not-available state.
+- **Deferred to Task 14 per the tasks:** latest status lines on Overview, corrections from step outputs, and slot-counting scenarios.
+
