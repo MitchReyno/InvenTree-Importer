@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, chmod, readFile, writeFile, symlink, rm, realpath } fro
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { PoolClient } from 'pg'
-import { BlobStore, MAX_UPLOAD_BYTES } from '../src/media/blob-store.ts'
+import { BlobStore, MAX_BLOB_BYTES } from '../src/media/blob-store.ts'
 
 // This records the transaction-lock request only; PostgreSQL exclusion has a separate PG test.
 const locks: string[] = []
@@ -51,7 +51,7 @@ test('traversal, symlinks, public directories and byte bombs fail closed', async
     await assert.rejects(store.read('../escape'), /invalid_blob_digest/)
     await assert.rejects(store.publish(client, Buffer.alloc(0)), /upload_byte_limit/)
     await assert.rejects(
-      store.publish(client, Buffer.alloc(MAX_UPLOAD_BYTES + 1)),
+      store.publish(client, Buffer.alloc(MAX_BLOB_BYTES + 1)),
       /upload_byte_limit/,
     )
     const directory = join(root, 'objects', 'ab')

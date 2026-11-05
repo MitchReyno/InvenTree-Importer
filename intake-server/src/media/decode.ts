@@ -34,9 +34,17 @@ function dimensions(width: number, height: number) {
   }
 }
 
+/** sharp enforces `limitInputPixels` before our own check can run; report it as a limit, not a crash. */
+function sharpLimit(error: unknown): never {
+  if (error instanceof Error && error.message.includes('exceeds pixel limit')) {
+    throw new LimitError('pixel_limit')
+  }
+  throw error
+}
+
 async function raster(bytes: Buffer): Promise<DecodedPage> {
   const image = sharp(bytes, { limitInputPixels: MEDIA_LIMITS.pixels, failOn: 'warning', pages: 1 })
-  const metadata = await image.metadata()
+  const metadata = await image.metadata().catch(sharpLimit)
   if (!['jpeg', 'png'].includes(metadata.format ?? '') || (metadata.pages ?? 1) > 1) {
     throw new UnsupportedMediaError('unsupported_image')
   }
@@ -46,6 +54,7 @@ async function raster(bytes: Buffer): Promise<DecodedPage> {
     .flatten({ background: '#ffffff' })
     .png({ compressionLevel: 9, adaptiveFiltering: false, palette: false })
     .toBuffer({ resolveWithObject: true })
+    .catch(sharpLimit)
   dimensions(info.width, info.height)
   if (data.length > MEDIA_LIMITS.outputBytes) {
     throw new LimitError('output_limit')

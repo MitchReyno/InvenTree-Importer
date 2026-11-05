@@ -4,6 +4,8 @@ import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Digest, Id, Revision } from './scalars.ts'
 
 export const MEDIA_SOURCE_MAX_BYTES = 20 * 1024 * 1024
+/** A decoded page is a lossless PNG, so a 50 MP photo's preview can exceed its upload. */
+export const MEDIA_PREVIEW_MAX_BYTES = 64 * 1024 * 1024
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -188,7 +190,7 @@ const MediaOutputPage = object({
   page: Type.Integer({ minimum: 1, maximum: 30 }),
   width: dimension,
   height: dimension,
-  byte_size: Type.Integer({ minimum: 1, maximum: 20 * 1024 * 1024 }),
+  byte_size: Type.Integer({ minimum: 1, maximum: MEDIA_PREVIEW_MAX_BYTES }),
   digest: Digest,
 })
 

@@ -190,6 +190,22 @@ mediaTest(
   },
 )
 
+mediaTest('a 50 MP phone photo decodes; a larger one is a limit, not an interruption', async () => {
+  const photo = (width: number, height: number) =>
+    // Portrait EXIF orientation, as phones write it, forces a full-size rotation.
+    sharp({ create: { width, height, channels: 3, background: '#8a6d4f' } })
+      .withMetadata({ orientation: 6 })
+      .jpeg()
+      .toBuffer()
+  const phone = await decodeIsolated(decoderImage(), input(await photo(8160, 6144)))
+  assert.equal(phone.state, 'ready')
+  assert.equal(phone.pages[0].width, 6144)
+  assert.equal(phone.pages[0].height, 8160)
+  const oversized = await decodeIsolated(decoderImage(), input(await photo(7300, 7300)))
+  assert.equal(oversized.state, 'limit_exceeded')
+  assert.deepEqual(oversized.pages, [])
+})
+
 mediaTest(
   'rotated selection samples an oblique non-square region without rotating the source image',
   async () => {

@@ -2,6 +2,7 @@ import { DBOS, DBOSClient } from '@dbos-inc/dbos-sdk'
 import { setTimeout as delay } from 'node:timers/promises'
 import { database } from '../db/database.ts'
 import { executeProcessingCommand, dispatchProcessingCommands } from '../processing/delivery.ts'
+import { processingApplication } from '../processing/queue.ts'
 import { readDevState, schedulerUrl } from './state.ts'
 import { syntheticDevelopmentRunner } from './synthetic-runner.ts'
 
@@ -22,7 +23,7 @@ async function main() {
   let scheduler: DBOSClient | undefined
   try {
     DBOS.setConfig({
-      name: 'bench-intake-dev-processing',
+      name: processingApplication,
       systemDatabaseUrl: schedulerUrl(state),
       applicationVersion: 'processing/2',
       executorID: `dev-${state.identity.actor}`,

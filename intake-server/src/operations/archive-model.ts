@@ -1,6 +1,6 @@
 import { Id, Digest } from '@invimport/contracts'
 import { strictJson } from '@invimport/contracts/json'
-import { MEDIA_SOURCE_MAX_BYTES } from '@invimport/contracts/media'
+import { MAX_BLOB_BYTES } from '../media/blob-store.ts'
 
 export const MAX_ARCHIVE_BYTES = 8 * 1024 * 1024 * 1024
 export const MAX_ARCHIVE_BLOBS = 10000
@@ -66,7 +66,7 @@ export function archiveManifest(value: unknown): ArchiveManifest {
     ) {
       throw new Error('invalid_archive')
     }
-    if (BigInt(blob.size) > BigInt(MEDIA_SOURCE_MAX_BYTES)) {
+    if (BigInt(blob.size) > BigInt(MAX_BLOB_BYTES)) {
       throw new Error('archive_blob_limit')
     }
     size += BigInt(blob.size)

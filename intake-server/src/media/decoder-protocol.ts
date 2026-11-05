@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import {
   assertMediaRecipe,
+  MEDIA_PREVIEW_MAX_BYTES,
   MEDIA_SOURCE_MAX_BYTES,
   type MediaRecipeDto,
 } from '@invimport/contracts/media'
@@ -8,12 +9,15 @@ import {
 export const MEDIA_LIMITS = Object.freeze({
   sourceBytes: MEDIA_SOURCE_MAX_BYTES,
   pages: 30,
-  pixels: 24_000_000,
-  totalPixels: 48_000_000,
-  outputBytes: 20 * 1024 * 1024,
-  totalOutputBytes: 32 * 1024 * 1024,
+  // 50 MP phone photos decode in ~7 s at ~280 MiB; their lossless PNG previews reach ~25 MiB.
+  pixels: 52_000_000,
+  totalPixels: 104_000_000,
+  outputBytes: MEDIA_PREVIEW_MAX_BYTES,
+  totalOutputBytes: 96 * 1024 * 1024,
   wallMilliseconds: 30_000,
-  memoryMiB: 512,
+  memoryMiB: 1024,
+  // libvips spills rotated full-size images to /tmp; a 50 MP photo needs ~150 MiB. Counts against memoryMiB.
+  scratchMiB: 256,
 })
 export { MEDIA_TOOLCHAIN } from '@invimport/contracts/media'
 export type DecodeFailure = 'unsupported' | 'encrypted' | 'malformed' | 'limit_exceeded'

@@ -38,7 +38,7 @@ export async function decodeIsolated(image: string, input: DecodeInput): Promise
       '--cpus=1',
       '--pids-limit=32',
       '--user=1000:1000',
-      '--tmpfs=/tmp:rw,noexec,nosuid,size=67108864',
+      `--tmpfs=/tmp:rw,noexec,nosuid,size=${MEDIA_LIMITS.scratchMiB}m`,
       image,
       'timeout',
       '--signal=KILL',
