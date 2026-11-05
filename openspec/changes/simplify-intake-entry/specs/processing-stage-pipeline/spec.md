@@ -82,6 +82,12 @@ Each proposal SHALL record the observations, evidence versions, notes and answer
 - **WHEN** that observation is moved out of the lot
 - **THEN** the proposal is shown as stale, and the owning session is notified to revise it.
 
+#### Scenario: Unrelated edit keeps a proposal current
+
+- **GIVEN** a current identity proposal for lot A
+- **WHEN** the operator edits lot B and a note that the proposal does not cite
+- **THEN** the proposal for lot A stays current.
+
 ### Requirement: Lot sessions pick up observation changes
 
 New evidence SHALL go first to the Examine lead session. When an observation is added to or removed from a lot, that lot's running or resumable Research and Images sessions SHALL receive a notice and be able to fetch the observation's crop within the session's media limits. A finished session SHALL be resumed to consider it.
@@ -104,7 +110,7 @@ For `native-agent/2` work, Examine and Research proposals SHALL carry their cata
 
 ### Requirement: Unsupported catalogue values are retained
 
-A catalogue value the executor cannot apply, such as a new category, a new parameter template, a new manufacturer company or a supplier price, SHALL be retained in the proposal as unsupported with the agent's reason. It SHALL NOT be dropped, and SHALL NOT enter a Part spec.
+A catalogue value that cannot enter a Part spec as is, such as a new category, a new parameter template, a parameter without an observed category mapping, a new manufacturer or supplier company, or a supplier price, SHALL be retained in the proposal as unsupported with the agent's reason. It SHALL NOT be dropped, and SHALL NOT enter a Part spec.
 
 A description SHALL be applicable when the Part spec supports one, and unsupported otherwise.
 

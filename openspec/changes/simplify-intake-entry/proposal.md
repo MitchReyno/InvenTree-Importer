@@ -176,7 +176,7 @@ This keeps one provider-neutral tool contract and the existing containment bound
 **State**
 - New tables:
   - session state and transcript reference
-  - outbox items, with typed kinds status/observation/lot/proposal/question/reply
+  - outbox items, with typed kinds status/observation/lot/regroup/proposal/question/reply
   - observations with regions, and lot membership by observation
   - inbox items
   - assumption and question links to proposals
@@ -187,7 +187,7 @@ This keeps one provider-neutral tool contract and the existing containment bound
 - The merged `native-agent/1` integration is the base.
 - Live provider qualification is pending and needs separate authorization. Deterministic CLI fixtures and the synthetic profile carry automated evidence.
 - The shared Processing application name and large-preview limits are merged (#93), so the `bench-sessions` queue in design D9 registers under `bench-intake-processing`.
-- **BI-008 (`redesign-batch-workspace`)** redesigns the screens this change feeds: Processing, Review › Map and the Agents page. It reads them through a `ProcessingView` adapter and draws the Map at file level until this change supplies observations with regions. Either change can land first; the second wires the adapter.
+- **BI-008 (`redesign-batch-workspace`)** is a planned redesign of the screens this change feeds (Processing, Review › Map, the Agents page), not yet on `interactive-app`. This change does not depend on it: it builds its UI on the current components and supplies the data and contracts either way.
 
 ## Open decisions and assumptions
 

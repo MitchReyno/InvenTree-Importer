@@ -76,9 +76,21 @@ Each lot the lead session forms SHALL be created at once as a draft lot labelled
 
 #### Scenario: Stale revision while forming
 
-- **GIVEN** the operator saved a capture edit after the lead session read the batch
-- **WHEN** the session proposes a lot touching the edited evidence
-- **THEN** the tool call returns a stale-revision result with current state. The agent re-plans, and no lot is created from the stale view.
+- **GIVEN** the operator edited an observation after the lead session last read the batch
+- **WHEN** the session proposes a lot using that observation
+- **THEN** the tool call returns a stale result with the observation's current state and the new batch revision. The agent re-plans, and no lot is created from the stale view.
+
+#### Scenario: Unrelated edit does not block forming
+
+- **GIVEN** the operator renamed the batch after the lead session last read it
+- **WHEN** the session proposes a lot from observations nobody else changed
+- **THEN** the lot is created, and the response carries the new batch revision.
+
+#### Scenario: Operator save after an agent write
+
+- **GIVEN** an operator draft loaded at batch revision R
+- **WHEN** the lead session records an observation, advancing the batch to R+1, and the operator then saves
+- **THEN** the operator save is treated exactly as any other concurrent edit at a newer revision, with the existing conflict handling and no silent rebase.
 
 ### Requirement: Agent-attributed lot writes stay within draft authority
 
@@ -99,6 +111,18 @@ A lot SHALL be marked as edited by the operator once they change its label, obse
 - **GIVEN** the operator split an AI-proposed lot into two
 - **WHEN** the lead session later handles new evidence
 - **THEN** both resulting lots keep their observations, and the session places new observations elsewhere or suggests them for those lots.
+
+#### Scenario: Suggestion for an edited lot
+
+- **GIVEN** an operator-edited lot and a new photo of the same packet
+- **WHEN** the lead session proposes adding the new observation to that lot
+- **THEN** the lot and its active observations are unchanged, a suggestion appears on Review, and accepting it adds the observation as the operator's edit.
+
+#### Scenario: Operator adjusts a region
+
+- **GIVEN** an AI observation whose region the operator has resized
+- **WHEN** the lead session revises its readings
+- **THEN** the observation is marked edited, keeps the operator's region, and the session's revision is recorded only as a suggestion.
 
 #### Scenario: Operator moves a region
 

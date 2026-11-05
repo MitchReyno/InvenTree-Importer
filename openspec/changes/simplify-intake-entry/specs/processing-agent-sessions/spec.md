@@ -48,7 +48,7 @@ The record_observation, propose_lot and regroup tools SHALL be refused for any s
 
 ### Requirement: Streamed status and outbox delivery
 
-A session SHALL be able to emit outbox items at any point while it runs: status lines, lot proposals, field proposals, questions and chat replies. Each item SHALL be validated, persisted in order and published to the operator while the session continues. Status lines SHALL form an ordered step timeline for the session.
+A session SHALL be able to emit outbox items at any point while it runs: status lines, evidence observations, lot proposals, regroupings, field proposals, questions and chat replies. Each item SHALL be validated, persisted in order and published to the operator while the session continues. Status lines SHALL form an ordered step timeline for the session.
 
 #### Scenario: Status lines while working
 

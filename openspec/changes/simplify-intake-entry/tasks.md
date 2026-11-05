@@ -22,14 +22,14 @@ Keep a parent unchecked while any of its required subtasks are open. Review, pub
 | --- | --- | --- | --- |
 | 1 Proof-of-fit spike | Investigation | None | Design D2/D3 decisions confirmed |
 | 2 Session contracts and migrations | Enabling/migration | 1 | Sessions: all requirements (data shape) |
-| 3 Tool server and session runtime | Behavior | 2 | Session tool boundary; Streamed status and outbox delivery; Queued inbox |
-| 4 Provider session adapters | Behavior | 3 | Tool boundary; Queued inbox (resume, in-turn); Cancellation and recovery |
+| 3 Tool server and session runtime | Behavior | 2 | Session-scoped tool capability; Streamed status and outbox delivery; Bounded status lines and delivered citations; Queued inbox in every session state; Inbox delivery to running sessions |
+| 4 Provider session adapters | Behavior | 3 | Session tool boundary; Inbox delivery to running sessions (in-turn); Resume idle sessions for pending input; Cancellation and recovery |
 | 5 Session slots and concurrency setting | Behavior | 2 | Waiting does not hold capacity |
-| 6 Session UI and header status | Behavior/UI | 3, 5 | Streamed status; Queued inbox (chat); header delta |
-| 7 Observations and agent-attributed draft lots | Enabling/behavior | 3 | Observations with regions; Lots group observations; Agent-attributed lot writes; Human edits take precedence |
+| 6 Session UI and header status | Behavior/UI | 3, 5 | Streamed status and outbox delivery (timeline); Queued inbox in every session state (chat); header delta |
+| 7 Observations and agent-attributed draft lots | Enabling/migration/behavior | 3 | Observations with regions; Lots group observations; Agent-attributed lot writes stay within draft authority; Human edits take precedence; Lot-forming tools only for the lead session |
 | 8 Examine lead session, trigger and new evidence | Behavior | 4, 7 | One Examine lead session per batch; Quantity without double counting; New evidence wakes the lead session (placement only; notifying lot sessions is task 11); Examine stage (per-lot proposals) |
 | 9 Live lots on Capture and Review | Behavior/UI | 8 | Live AI-proposed draft lots |
-| 10 Per-lot successors on a stable identity | Behavior | 4, 8 | Successors start on a stable identity; Examine stage (Inventory gate, legacy display) |
+| 10 Per-lot successors on a stable identity | Behavior | 4, 8 | Successors start on a stable identity; Examine stage and parallel successors (Inventory gate, legacy display); Structured catalogue proposals; Unsupported catalogue values are retained |
 | 11 Proposal currentness, selective rework and observation pickup | Behavior | 10 | Non-blocking questions; Selective rework; Superseded values invalidate relying proposals immediately; Evidence-based currentness; Lot sessions pick up observation changes |
 | 12 Pipeline UI, docs and browser qualification | Behavior/UI/docs | 10, 11 | Pipeline scenarios incl. legacy display; Needs you |
 | 13 Authorized live qualification | Manual qualification | 12 merged, explicit authorization | `native_unverified` label decision |
@@ -72,19 +72,18 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 
 - **PR delivery:** PR-A
 - **Outcome:** versioned contracts and additive schema for `native-agent/2` and `synthetic-session/1`:
-  - sessions, outbox, inbox, slots
-  - lot `origin`/`operator_edited`
-  - a nullable subject for the `examine` lead stage
-  - proposal `relies_on`
-  - new stage values
+  - sessions, outbox, inbox, cursors, slots and the concurrency setting column
+  - a nullable `processing_job.subject_id` for the `examine` lead stage, with its CHECK and the partial unique index (design D8)
+  - proposal `relies_on`, and proposal `/5` with the structured catalogue block (design D13)
+  - the `examine` stage value
 - **Scope and approach:**
-  - `contracts/src/processing.ts`, `agents.ts`, `capture.ts` and `live.ts`: input `/6`, command `/5`, session envelope, tool argument/result schemas, outbox/inbox kinds, proposal `/5` with the structured catalogue block (design D13), the `examine` lead stage, and the observation and lot-forming tool schemas.
-  - `intake-server/migrations/00NN_*.sql` and grants for the API, runner and scheduler roles, plus the new restricted `agent_writer` role (design D10) with the complete write set derived from the reused capture-edit and `createAttempt` paths, with column grants and a CHECK/trigger that refuses human-only values from agent principals.
+  - `contracts/src/processing.ts`, `agents.ts` and `live.ts`: input `/6`, command `/5`, session envelope, the session tool argument/result schemas, the outbox kind union `status | observation | lot | regroup | proposal | question | reply`, inbox kinds, proposal `/5`, and `subject_id: Id | null` on `ProcessingJob`, `/6` input and `AgentSessionList`. The evidence-observation and lot-forming capture schemas are task 7.
+  - `intake-server/migrations/00NN_*.sql` and grants for the API, runner and scheduler roles, as listed in the design's Migration section (PR-A part), including `agent_slot` and the `agent_settings` concurrency column. The `agent_writer` role and capture tables are task 7.
   - Existing versions stay byte-identical.
 - **Prerequisites:** task 1.
 - **Acceptance:** the schema bounds in all three new specs; `/1`–`/5` compatibility.
 - **TDD approach:**
-  - RED: contract tests for a status line over 120 characters, a question without fields or an assumption, and an unknown outbox kind. Also a PG test that the CHECK allows a null subject only for the `examine` lead stage.
+  - RED: contract tests for a status line over 120 characters, a question without fields or an assumption, and an unknown outbox kind. Also PG tests that the CHECK allows a null subject only for the `examine` lead stage, that a second `examine` job for the same batch is refused by the partial unique index, and that `/5` validation flags unsupported catalogue values.
   - GREEN: add the schemas and migrations.
 - **Verification:** `pnpm contracts:check`, `pnpm test:intake`, `pnpm test:intake:pg` (the migration applies on a fresh DB and on one migrated to the latest existing migration).
 - **Risks and decisions:** keep migrations additive so that rolling back means only switching the profile.
@@ -104,7 +103,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
   - The session context log (design D5) and a generic `propose` that records `relies_on`.
   - Processing transactions and lock order are reused.
 - **Prerequisites:** task 2.
-- **Acceptance:** Session tool boundary (both scenarios); Streamed status and outbox delivery (both); Queued inbox, running-session delivery and idempotency.
+- **Acceptance:** Session-scoped tool capability "Capability replay from another session"; Streamed status and outbox delivery "Status lines while working"; Bounded status lines and delivered citations "Invalid outbox item"; Queued inbox in every session state "Duplicate answer submission"; Inbox delivery to running sessions "Crash after delivery, before acknowledgement".
 - **TDD approach:**
   - RED (PG and process tests): a wrong-session capability is refused with no rows written; an undelivered-source citation is refused; inbox submissions with a duplicate key return the original receipt; inbox delivery is at least once with cursor acknowledgement, and a redelivered item after a simulated crash keeps its ID and creates no duplicate answer.
   - GREEN: implement the handlers.
@@ -126,7 +125,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Outcome:** both adapters run `/2` sessions that use only app tools, resume finished conversations, deliver in-turn input where supported, and keep the cancel, reap and crash guarantees.
 - **Scope and approach:**
   - `agents/claude.ts`:
-    - Write the MCP config file (0600) and pass the allowlist flags.
+    - Write `mcp.json` with no secret, using `${INTAKE_TOOL_CAPABILITY}` expansion if task 1.3 confirms it; otherwise the 0600 fallback file, deleted as soon as init is confirmed and on cleanup (design D2). Pass the allowlist flags.
     - Remove `--no-session-persistence` for `/2` only, and add `--resume` support.
     - Change the init tool check to app tools only.
     - Write stdin stream-JSON for queued messages.
@@ -135,8 +134,9 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
   - Fake `claude`/`codex` executables that drive real tool calls, and a `synthetic-session/1` runner.
 - **Prerequisites:** task 3.
 - **Acceptance:**
-  - Tool boundary "Session starts with only app tools".
-  - Queued inbox "Answer while running", "Chat with a finished session" and "Resume fails".
+  - Session tool boundary "Session starts with only app tools".
+  - Inbox delivery to running sessions "Answer while the agent is running".
+  - Resume idle sessions for pending input "Chat with a finished session" and "Resume fails".
   - Cancellation and recovery "Worker restarts mid-turn".
 - **TDD approach:**
   - RED (process tests with fake CLIs):
@@ -144,6 +144,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
     - an answer is delivered via `turn/steer` (Codex) or `read_inbox` (Claude)
     - resume after finish carries the queued chat
     - a missing transcript gives `resume_unavailable`
+    - with the fallback config file, it is gone once init is confirmed
     - a crash gives interrupted with no automatic turn
     - a capability is refused after finish, after resume (the old one) and after worker restart
     - a child that ignores SIGTERM keeps its slot until reaped
@@ -163,12 +164,12 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Outcome:** a configurable limit on running sessions (1–8, default 3). Waiting, paused and finished sessions hold no slot, and `/1` lane holders consume one slot.
 - **Scope and approach:**
   - `agent_slot` claim with `SKIP LOCKED`, reading the limit from Agent settings with expected-revision writes.
-  - A new `bench-sessions` DBOS queue in `worker-main.ts` (`workerConcurrency: 8`, `globalConcurrency: 8`, shared Processing application name). `bench-research` keeps its single-lane caps for `/1`.
+  - A new `bench-sessions` DBOS queue in `worker-main.ts` (`workerConcurrency: 8`, `globalConcurrency: 8`, shared Processing application name). `bench-research` keeps its single-lane caps for `/1`. `loadProcessingAuthority` (`processing/authority.ts`) accepts `bench-sessions` for `/2` commands only.
   - Settings contract and settings form field.
 - **Prerequisites:** task 2.
 - **Acceptance:** "Fourth session queues"; lowering the limit never aborts a running session; an unconfirmed reap keeps its slot.
 - **TDD approach:**
-  - RED (PG): with a limit of 3, the fourth session stays queued; waiting frees a slot; `/1` and `/2` together never exceed the limit.
+  - RED (PG): with a limit of 3, the fourth session stays queued; waiting frees a slot; `/1` and `/2` together never exceed the limit; authority loading accepts `bench-sessions` for a `/2` command and still rejects it for `/1`; the API role can update the concurrency column.
   - GREEN: implement slots.
 - **Verification:** `pnpm test:intake:pg`, frontend settings test.
 - **Risks and decisions:** none.
@@ -206,27 +207,33 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **PR delivery:** PR-B
 - **Outcome:** observations with regions and lot membership by observation exist in capture state. `record_observation`, `propose_lot` and `regroup` write them through the existing capture edit validation, attributed to the session, and lots and observations the operator has edited are protected.
 - **Scope and approach:**
-  - Migration: `capture_evidence_observation`, `capture_lot_evidence_observation` and the lot observation-set version (design D12). Lot `origin` and `operator_edited` come from task 2.
-  - Derive each lot's evidence links from its observations so current readers are unchanged.
-  - Region validation reuses the exact rational crop rules; region crops come from the media boundary on demand.
-  - Handlers do an expected-revision compare-and-set (CAS) and return a typed stale result. Writes run under the restricted `agent_writer` role (design D10).
-  - Operator-review split, merge and move gain observation-level forms that set `operator_edited`.
+  - Migration (PR-B part of the design's Migration section): `capture_evidence_observation`, `capture_lot_evidence_observation` (with `status` active/suggested), lot `origin`, `operator_edited`, `estimated_quantity`, `quantity_basis` and `observation_set_version`, and nullable `agent_session_id` attribution columns. `actor_id` stays the batch's server operator.
+  - The `agent_writer` role and its capture grants (design D10), plus `SELECT` on the new tables for the roles granted by `grantCaptureRead` and `grantMedia`.
+  - `readMediaRows` projects `linked_subject_ids` as the union of `media_subject_link` and lots reached through active membership rows (design D12).
+  - Regions use the documentary-crop pixel geometry, validated with `validateLegacyMediaRecipeGeometry`; document line ranges validate page and line order only. Region crops render from `media_preview` into a private cache outside `BlobStore`.
+  - Handlers lock the rows they touch, refuse with a typed `stale` result (current state and new batch revision) when those rows changed after `base_revision` or are operator-edited, record suggestions for edited lots, and return the new batch revision on every call (design D8).
+  - Observation edits on two surfaces: `CaptureEdit` gains create region, adjust region, move observation, and accept/dismiss suggestion; `Restructure` `split_lot` gains per-child `observation_ids` and `merge_lots` unions observations. `move_lots` is unchanged.
+  - The lot-forming tool schemas and the lead-session-only check.
 - **Prerequisites:** task 3.
-- **Acceptance:** Observations with regions ("One photo, three items", "Region outside the image"); Lots group observations ("Front and back of one packet", "Same MPN, different date codes"); Live AI-proposed draft lots "Stale revision while forming"; Agent-attributed lot writes "Estimated count only"; Human edits ("Operator split is kept", "Operator moves a region"); lot-forming tools refused for lot sessions.
+- **Acceptance:** Observations with regions ("One photo, three items", "Region outside the image"); Lots group observations ("Front and back of one packet", "Same MPN, different date codes"); Live AI-proposed draft lots ("Stale revision while forming", "Unrelated edit does not block forming", "Operator save after an agent write"); Agent-attributed lot writes stay within draft authority "Estimated count only"; Human edits take precedence ("Operator split is kept", "Suggestion for an edited lot", "Operator adjusts a region", "Operator moves a region"); Lot-forming tools only for the lead session "Lot-forming tool from a lot session".
 - **TDD approach:**
   - RED (PG):
-    - out-of-bounds regions are refused; a lot's evidence links equal its observations' files
+    - out-of-bounds regions are refused
+    - `linked_subject_ids` is the union of `media_subject_link` and observation-derived lot links; a `/1` batch and Part links are unchanged; media roles can read it
+    - an unrelated batch edit does not make a lot-forming call stale, and every response carries the new batch revision
+    - agent writes keep `actor_id` an operator ID and set `agent_session_id`
+    - a lot-forming call from a non-lead session is refused
     - a stale revision creates no observation or lot
     - a counted quantity from the agent is refused
-    - `regroup` or `propose_lot` against an edited lot or observation changes nothing and only records a suggestion
-    - observation moves and merge/split set `operator_edited`
+    - `regroup` or `propose_lot` against an edited lot or observation changes nothing and records a suggested membership row that does not change `observation_set_version`; accepting it is an operator edit
+    - region create/adjust, observation moves and `Restructure` merge/split set `operator_edited`
   - GREEN: implement the schema and handlers.
 - **Verification:** `pnpm test:intake:pg`, capture and media unit tests.
 - **Risks and decisions:** this deliberately relaxes "suggestions never write capture" for draft lots and observations only. Update the Processing and Capture architecture docs to match.
 
 - [ ] 7.1 Baseline the capture/edit and media crop PG tests.
 - [ ] 7.2 RED: region validation, derived links, stale revision, human-only values, edit protection and the suggestion path, run as the real `agent_writer` and runner roles (the runner role is refused capture writes).
-- [ ] 7.3 GREEN: migration, agent principal, provenance columns, the `agent_writer` pool, handlers and observation-level operator edits.
+- [ ] 7.3 GREEN: migration, attribution columns, the `agent_writer` role and pool, the `linked_subject_ids` union, region validation and crop cache, handlers, suggestions, and observation-level `CaptureEdit` and `Restructure` forms.
 - [ ] 7.4 Verify the existing review/approval and media-plan tests are unchanged.
 - [ ] 7.5 Record the results.
 
@@ -235,7 +242,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **PR delivery:** PR-B
 - **Outcome:** each batch gets one Examine lead session after a quiet period of 20 seconds. It reads previews, records observations, groups them into lots, and publishes per-lot markings, identity and quantity (with its basis) proposals. Later evidence wakes the same session, resuming it if finished, and only the new evidence is examined.
 - **Scope and approach:**
-  - A batch-scoped `examine` lead job (design D8) and a DBOS debounce workflow keyed per batch.
+  - A batch-scoped `examine` lead job (design D8), with `reserveProcessingMedia` gaining a batch-scoped pinning mode for it, and a DBOS debounce workflow keyed per batch.
   - Preview staging: long edge 768 px, 48 per turn; `fetch_evidence` with optional region.
   - Lead-session instructions for both providers and the synthetic runner: find, group and identify in a loop; state quantity basis; never add up the same items twice.
   - The synthetic runner scripts a batch with one photo holding three items and one item spanning two photos.
@@ -247,7 +254,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
   - New evidence wakes the lead session: the observation is added to the existing AI lot and no other lot changes. The session-notice half of "Back of an existing tape" is accepted in task 11.
   - Archived batch and no-default cases.
 - **TDD approach:**
-  - RED (PG and process tests): one lead session per batch under concurrent readiness events; the quiet period restarts; a finished session is resumed; no session for an archived batch or without a default; new evidence produces observations only for the new files; quantity basis is recorded and duplicates are not summed.
+  - RED (PG and process tests): one lead job per batch under concurrent readiness events (the partial unique index holds); the lead job pins every ready evidence version without lot links; the quiet period restarts; a finished session is resumed; no session for an archived batch or without a default; new evidence produces observations only for the new files; quantity basis is recorded and duplicates are not summed.
   - GREEN: implement the job, trigger and instructions.
 - **Verification:** `pnpm test:intake:pg`, `pnpm test:intake:process` with `synthetic-session/1`.
 - **Risks and decisions:** the quiet period is a constant that can be tuned. Large batches beyond 48 previews depend on `fetch_evidence` paging, and run serially in one session (design D8).
@@ -263,7 +270,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **PR delivery:** PR-B
 - **Outcome:** Capture and Review show draft lots appearing while the lead session runs, with an AI-proposed badge, their observations as crops and the lead session's status line. Operator edits use the existing controls (and the observation-level move) and mark the lot or observation as edited.
 - **Scope and approach:**
-  - `frontend/src/components/review/*` and capture components, driven by live hints and retained reads. Where BI-008 has already landed, extend its components and `ProcessingView` adapter instead of the current ones (design D11).
+  - `frontend/src/components/review/*` and capture components, driven by live hints and retained reads. If the planned redesign (BI-008) has landed on `interactive-app` by then, target its components instead (design D11).
   - Docs: Capture/Processing architecture sections on agent-created lots; PR-B handover.
 - **Prerequisites:** task 8.
 - **Acceptance:** "Watching lots appear"; editing an AI lot removes its AI-only badge state and shows it as edited.
@@ -285,10 +292,12 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Outcome:** for `/2` work, each lot's Research and Images start in parallel as soon as its identity is stable, and Inventory waits for both to be current.
 - **Scope and approach:**
   - `processing/model.ts` gets a profile-specific stage order with a batch-level `examine` lead stage.
-  - Dependency triggering moves to stable identity: a current identity proposal whose observation-set version matches the lot's (design D6). Queued jobs re-check on claim.
+  - Dependency triggering moves to stable identity (design D6): `propose` locks the lot rows, re-checks stability and queues Research and Images through `createAttempt`/`queueJob` in the same transaction. A membership change supersedes queued successors (`lot_regrouped`); the next stable identity creates fresh attempts and command rows. Slot claim re-checks under the same lock. `/2` jobs record no `processing_dependency` rows.
+  - `agent_writer`'s Processing queueing grants (PR-C part of the design's Migration section).
+  - Examine and Research publish `/5` catalogue values.
   - `/1` keeps exact-predecessor lineage.
 - **Prerequisites:** tasks 4 and 8.
-- **Acceptance:** "Parallel start"; "Lot regrouped before successors start"; "Legacy batch display"; Structured catalogue proposals "New sub-category proposed".
+- **Acceptance:** Successors start on a stable identity ("Parallel start", "Lot regrouped before successors start"); Examine stage and parallel successors "Legacy batch display"; Structured catalogue proposals "Existing manufacturer"; Unsupported catalogue values are retained "New sub-category proposed".
 - **TDD approach:**
   - RED (PG and process tests): publishing a stable identity queues Research and Images in the same transaction, proven end to end using only the `agent_writer` role; both run concurrently with the lead session when slots are free; a regrouped lot holds its queued jobs; Inventory waits; `/1` reading/identifying jobs are unchanged.
   - GREEN: implement the pipeline.
@@ -296,9 +305,9 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Risks and decisions:** none beyond the design's notes on token cost.
 
 - [ ] 10.1 Baseline the dependency and stage tests.
-- [ ] 10.2 RED: stable-identity queueing (under `agent_writer`), parallelism, regroup hold, Inventory gate and legacy invariance.
+- [ ] 10.2 RED: stable-identity queueing under `agent_writer`; concurrent `regroup` and `propose` (only one wins under the lot lock); a regrouped lot supersedes its queued successors and the next identity creates fresh deliverable attempts; parallelism; Inventory gate; `require_processing_dependency_order` untouched; legacy invariance.
 - [ ] 10.3 GREEN: stage order, stable-identity triggers and claim-time re-check.
-- [ ] 10.4 Research and Examine publish `/5` catalogue values (existing or proposed new, with sources), and unsupported values keep their reason; PG test that unsupported values never reach a Part spec ("New sub-category proposed").
+- [ ] 10.4 Research and Examine publish `/5` catalogue values with sources. Tests: an observed manufacturer company with MPN applies cleanly through `validatePartSpec` ("Existing manufacturer"); a parameter carries both `template` and `category_mapping`; new categories, templates, companies, unmapped parameters and prices stay unsupported and never reach a Part spec ("New sub-category proposed").
 - [ ] 10.5 Verify the exact-predecessor suites for `/1`.
 - [ ] 10.6 Record the results.
 
@@ -337,7 +346,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
   - Legacy Reading/Identifying views remain for old jobs.
   - Architecture docs and the handover describe the final behavior.
 - **Scope and approach:**
-  - `frontend/src/components/processing/*`, or BI-008's Processing step pages through its `ProcessingView` adapter where that change has landed.
+  - `frontend/src/components/processing/*`, or the redesigned Processing pages if BI-008 has landed on `interactive-app` by then (design D11).
   - `processing/ARCHITECTURE.md`, `agents/ARCHITECTURE.md` and `docs/handovers/simplify-intake-entry.md`.
 - **Prerequisites:** tasks 10 and 11.
 - **Acceptance:** pipeline UI parts of all three new specs; legacy display.
