@@ -207,6 +207,7 @@ export function MediaWorkspace({
                   frozen={frozen}
                   pending={command.pending}
                   retained={retained}
+                  notice={command.message || state.error || null}
                   selected={state.selected}
                   edit={edit}
                   captureEdit={captureEdit}

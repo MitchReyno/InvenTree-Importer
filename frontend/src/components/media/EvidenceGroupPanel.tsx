@@ -34,6 +34,8 @@ type Props = {
   pending: boolean
   /** Retry and discard for an unconfirmed request, shown in the viewer that made it. */
   retained: ReactNode
+  /** Why the last request failed; the page behind the viewer is inert. */
+  notice: string | null
   selected: string[]
   edit: EditMedia
   blocked: (owner: string) => boolean
@@ -57,6 +59,7 @@ export function EvidenceGroupPanel({
   frozen,
   pending,
   retained,
+  notice,
   selected,
   edit,
   blocked,
@@ -269,6 +272,7 @@ export function EvidenceGroupPanel({
               }
             />
           )}
+          {noteDirty && notice && <Paragraph role="alert">{notice}</Paragraph>}
           {noteDirty && pending && retained}
           <MediaEvidenceRelations
             batch={batch}

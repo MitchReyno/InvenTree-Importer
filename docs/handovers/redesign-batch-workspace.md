@@ -185,3 +185,13 @@ Fresh read-only Claude reviewer at `2552765`: 1 Important, 3 Minor, all verified
 - **Records with every decision cut (Minor):** it no longer says "Nothing needs you" above the unlisted count.
 - **Doc scope (Minor):** the architecture now says where the remembered preparation lives.
 
+### PR-B review round 4
+
+Fresh read-only Claude reviewer at `4cc845f`: 3 Minor, 1 Nitpick, doc drift.
+
+- **Redirect to a preparation that is gone (Minor, fixed):** round 3's `Batch` redirect did not check the preparation still existed, dropping round 2's fallback. `Batch` now only remembers the last preparation and passes it to the workspace, which opens it if current, otherwise the newest, with `replace`. A pinned preparation in the URL still asks for an explicit choice when it is gone. Tests cover both choices and assert one replace-navigation.
+- **Refusal reason hidden behind the viewer (Minor, fixed):** the viewer shows the request's error while its note is dirty; the refused-retry test asserts the alert inside the dialog.
+- **Viewer lock when the open file leaves the group (Minor, not reproduced):** a dirty note freezes the media snapshot (`useEvidenceWorkspace` accepts reads only while no source but a crop is dirty), so a poll cannot move the open file away. A test written for it confirmed the viewer stays; no change.
+- **Duplicate history entry on Ready to add from the same preparation (Nitpick, accepted):** clicking the tab pushes bare Ready to add, which the workspace replaces with the current preparation. Linking the tab straight to the remembered preparation would reintroduce the gone-preparation problem, because the header cannot tell whether it is still current.
+- **Docs:** the architecture and this handover now describe the remembered-or-newest choice; the round-2 and round-3 bullets above record the earlier behaviour.
+

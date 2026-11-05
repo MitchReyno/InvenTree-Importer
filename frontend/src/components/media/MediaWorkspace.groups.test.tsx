@@ -466,5 +466,7 @@ test('a refused retry of an uncertain note keeps the typed text in the viewer', 
     expect(within(viewer).queryByRole('button', { name: 'Retry exact media request' })).toBeNull(),
   )
   expect(screen.getByLabelText('Note for Front label')).toHaveValue('Original ink')
+  // The page behind the modal is inert, so the viewer says why the save was refused.
+  expect(within(viewer).getByRole('alert')).toBeInTheDocument()
   expect(within(viewer).getByRole('button', { name: 'Close' })).toBeDisabled()
 })

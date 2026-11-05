@@ -979,21 +979,6 @@ test('old approval, results, review and processing links redirect with their que
   }
 })
 
-test('Changes returns to the preparation last shown without adding a history entry', async () => {
-  const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
-  const preparation = '70000000-0000-4000-8000-000000000007'
-  const props = { id: batchId, client, manual: reviewManual(), onDirtyChange: vi.fn() }
-  history.replaceState(null, '', `#${batchId}/changes/ready/${preparation}`)
-  const view = render(<Batch {...props} route={`${batchId}/changes/ready/${preparation}`} />)
-  view.rerender(<Batch {...props} route={`${batchId}/capture`} />)
-  history.replaceState(null, '', `#${batchId}/changes/ready`)
-  const entries = history.length
-  view.rerender(<Batch {...props} route={`${batchId}/changes/ready`} />)
-
-  await waitFor(() => expect(location.hash).toBe(`#${batchId}/changes/ready/${preparation}`))
-  expect(history.length).toBe(entries)
-})
-
 test('Review offers manual lot and Part creation; a dirty editor cannot be closed silently', async () => {
   const user = userEvent.setup()
   const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))

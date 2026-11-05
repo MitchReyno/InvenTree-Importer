@@ -568,7 +568,14 @@ test(
   },
 )
 
-test('opening bare Ready to add picks the newest preparation without a history entry', async () => {
+test.each([
+  ['the remembered preparation when it is still current', [prep, 'newer'], prep],
+  ['the newest preparation when the remembered one is gone', ['newer'], 'newer'],
+])('bare Ready to add opens %s, replacing the history entry', async (_, ids, expected) => {
+  const newerId = 'a0000000-0000-4000-8000-000000000002'
+
+  const id = (value: string) => (value === 'newer' ? newerId : value)
+
   const client = fakeClient()
   vi.mocked(client.workspace).mockImplementation(async () =>
     checked<Awaited<ReturnType<ManualClient['workspace']>>>('ManualWorkspace', {
@@ -578,7 +585,7 @@ test('opening bare Ready to add picks the newest preparation without a history e
       capability: 'owned-fake-stock/1',
       lots: [{ lot_id: a, reviewed: true, issues: [] }],
       runs: [],
-      preparations: [preview],
+      preparations: [...ids].reverse().map((value) => ({ ...preview, id: id(value) })),
       preparations_truncated: false,
       cursor: batch.cursor,
     }),
@@ -592,10 +599,14 @@ test('opening bare Ready to add picks the newest preparation without a history e
       navigate={navigate}
       reload={vi.fn(async () => undefined)}
       stage="approve"
+      rememberedPreparationId={prep}
     />,
   )
 
-  await waitFor(() => expect(navigate).toHaveBeenCalledWith('approve', prep, { replace: true }))
+  await waitFor(() =>
+    expect(navigate).toHaveBeenCalledWith('approve', id(expected), { replace: true }),
+  )
+  expect(navigate).toHaveBeenCalledTimes(1)
 })
 
 test('a paused offline read retains cached review but cannot authorize a command', async () => {

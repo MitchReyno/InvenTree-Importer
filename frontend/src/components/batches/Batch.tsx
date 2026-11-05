@@ -99,22 +99,11 @@ export function Batch({
     }
   }, [redirectTo])
 
-  // Bare Ready to add returns to the preparation last shown, whichever tab came between.
+  // Remembered across tabs, which unmount the workspace, so bare Ready to add can return to it.
   const shownPreparation = useRef<string | null>(null)
-  const readyPreparation =
-    batchRoute?.tab === 'changes' && batchRoute.view === 'ready' ? batchRoute.preparationId : null
-  const bareReady =
-    batchRoute?.tab === 'changes' && batchRoute.view === 'ready' && !readyPreparation
-  if (readyPreparation) {
-    shownPreparation.current = readyPreparation
+  if (batchRoute?.tab === 'changes' && batchRoute.view === 'ready' && batchRoute.preparationId) {
+    shownPreparation.current = batchRoute.preparationId
   }
-  useEffect(() => {
-    if (bareReady && shownPreparation.current) {
-      location.replace(
-        batchHref(id, { tab: 'changes', view: 'ready', preparationId: shownPreparation.current }),
-      )
-    }
-  }, [bareReady, id])
 
   /** Automatic choices replace the entry, so Back never returns to a route that redirects. */
   function navigate(value: ManualStage, resourceId?: string, options?: { replace?: boolean }) {
@@ -442,6 +431,7 @@ export function Batch({
         edit={edit}
         observe={observe}
         navigate={navigate}
+        rememberedPreparationId={shownPreparation.current}
         reload={reloadSavedValues}
         operatorReview={currentOperatorReview}
         operator={operator}

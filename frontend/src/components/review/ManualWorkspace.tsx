@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
@@ -37,6 +37,8 @@ interface Props {
   stage: Exclude<ManualStage, 'capture'>
   runId?: string
   preparationId?: string
+  /** The preparation last shown in this batch, which bare Ready to add returns to. */
+  rememberedPreparationId?: string | null
   edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   observe?: CaptureWorkspaceProps['observe']
   navigate: (stage: ManualStage, resourceId?: string, options?: { replace?: boolean }) => void
@@ -76,6 +78,7 @@ export function ManualWorkspace({
   stage,
   runId,
   preparationId,
+  rememberedPreparationId,
   edit,
   observe,
   navigate,
@@ -112,7 +115,6 @@ export function ManualWorkspace({
   const drafts = useDirtySources(onDirtyChange)
   const [selected, setSelected] = useState<string[]>([])
   const [lastPreview, setLastPreview] = useState<ManualPreviewDto | null>(null)
-  const initialChoiceMade = useRef(false)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
 
@@ -149,20 +151,21 @@ export function ManualWorkspace({
       return
     }
     if (preparationId) {
-      initialChoiceMade.current = true
       const matching = workspace.preparations.find((value) => value.id === preparationId)
       if (matching && matching !== lastPreview) {
         setLastPreview(matching)
       }
-    } else if (!initialChoiceMade.current) {
-      initialChoiceMade.current = true
-      const first = workspace.preparations[0]
-      if (first) {
-        setLastPreview(first)
-        navigate('approve', first.id, { replace: true })
-      }
+      return
     }
-  }, [workspace, stage, preparationId, lastPreview, navigate])
+    // Bare Ready to add opens the remembered preparation, or the newest once that is gone.
+    const shown =
+      workspace.preparations.find((value) => value.id === rememberedPreparationId) ??
+      workspace.preparations[0]
+    if (shown) {
+      setLastPreview(shown)
+      navigate('approve', shown.id, { replace: true })
+    }
+  }, [workspace, stage, preparationId, rememberedPreparationId, lastPreview, navigate])
   const displayedPreview = preparationId
     ? (workspace?.preparations.find((value) => value.id === preparationId) ??
       (lastPreview?.id === preparationId ? lastPreview : null))
