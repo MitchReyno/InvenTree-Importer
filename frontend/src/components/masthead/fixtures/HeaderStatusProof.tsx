@@ -118,6 +118,8 @@ export function HeaderStatusProof() {
           actual_model: null,
           progress: 'responding',
           occupies_lane: true,
+          session_state: null,
+          latest_status: null,
         })
         value.lane_occupied = true
       }

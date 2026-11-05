@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, ProcessingJobDto } from '@invimport/contracts'
@@ -34,12 +35,15 @@ export function ProcessingJobCard({
   disabled,
   cancel,
   chooseQuestion,
+  session,
 }: {
   job: Job
   batch: CaptureSnapshotDto
   disabled: boolean
   cancel: () => void
   chooseQuestion: (questionId: string) => void
+  /** The session's steps and chat, for session profiles. */
+  session?: ReactNode
 }) {
   const subject = [...batch.lots, ...batch.parts].find((value) => value.id === job.subject_id)
   const cancellable =
@@ -81,12 +85,14 @@ export function ProcessingJobCard({
         .map((question) => (
           <Paragraph key={question.id}>
             {question.spec.prompt}
+            {question.assumption && <Small>Continuing on: {question.assumption}</Small>}
             <br />
             <Button disabled={disabled} onClick={() => chooseQuestion(question.id)}>
               Open this question
             </Button>
           </Paragraph>
         ))}
+      {session}
       {cancellable && (
         <Button disabled={disabled} onClick={cancel}>
           Cancel this attempt

@@ -3,6 +3,7 @@ import type {
   ProcessingCancellationDto,
   ProcessingAnswerDto,
 } from './processing.ts'
+import type { SessionInboxSubmissionDto } from './sessions.ts'
 import { successfulData } from './client-policy.ts'
 import { typedClient, commandHeaders } from './client-runtime.ts'
 
@@ -44,6 +45,22 @@ export function processingClient(
       successfulData(
         client.POST('/api/v1/batches/{id}/questions/{questionId}/answers', {
           params: { path: { id, questionId } },
+          body: input,
+          headers: commandHeaders(key),
+        }),
+      ),
+
+    session: (id: string, jobId: string) =>
+      successfulData(
+        client.GET('/api/v1/batches/{id}/processing/{jobId}/session', {
+          params: { path: { id, jobId } },
+        }),
+      ),
+
+    chat: (id: string, jobId: string, input: SessionInboxSubmissionDto, key: string) =>
+      successfulData(
+        client.POST('/api/v1/batches/{id}/processing/{jobId}/inbox', {
+          params: { path: { id, jobId } },
           body: input,
           headers: commandHeaders(key),
         }),

@@ -143,6 +143,8 @@ test('current batch work, retained steps and logically cancelled occupied agents
         actual_model: null,
         progress: 'responding',
         occupies_lane: true,
+        session_state: null,
+        latest_status: null,
       },
     ],
     work_truncated: true,
@@ -405,4 +407,53 @@ test('live transport without a retained frame observation remains unknown', asyn
   await userEvent.setup().click(screen.getByRole('button', { name: 'Connection status' }))
   expect(screen.getByText(/Live-update health unknown/)).toBeVisible()
   expect(screen.queryByText('Live updates connected')).toBeNull()
+})
+
+test('a session shows its latest status line, and a waiting session holds no slot', async () => {
+  const user = userEvent.setup()
+  const api = client()
+  const row = {
+    batch_id: batchId,
+    stage: 'research' as const,
+    selection: {
+      provider: 'claude' as const,
+      authentication: 'subscription' as const,
+      model: 'sonnet',
+    },
+    actual_model: 'claude-sonnet-5-5',
+    progress: 'responding' as const,
+  }
+  vi.mocked(api.work).mockResolvedValue({
+    ...work(),
+    active_sessions: [
+      {
+        ...row,
+        attempt_id: id,
+        job_id: id,
+        state: 'running',
+        occupies_lane: true,
+        session_state: 'running',
+        latest_status: {
+          text: 'Comparing markings with datasheet candidates',
+          at: '2026-11-06T01:02:03.000Z',
+        },
+      },
+      {
+        ...row,
+        attempt_id: 'f0000000-0000-4000-8000-00000000000f',
+        job_id: 'f0000000-0000-4000-8000-00000000000f',
+        state: 'waiting_for_user',
+        occupies_lane: false,
+        session_state: 'waiting_input',
+        latest_status: { text: 'Asked how many reels there are', at: '2026-11-06T01:03:00.000Z' },
+      },
+    ],
+  })
+  render(<HeaderStatus client={api} batchId={batchId} />)
+  await user.click(await screen.findByRole('button', { name: 'Workflow activity' }))
+  const panel = screen.getByRole('dialog', { name: 'Workflow details' })
+  expect(panel).toHaveTextContent('Comparing markings with datasheet candidates')
+  expect(panel).toHaveTextContent('Physical lane occupied')
+  expect(panel).toHaveTextContent('Asked how many reels there are')
+  expect(panel).toHaveTextContent('Waiting for your input · holds no slot')
 })

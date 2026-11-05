@@ -26,6 +26,7 @@ import type { MediaClient } from '../../media/types'
 import { ProcessingImages } from './ProcessingImages'
 import { ProcessingStageSummary } from './ProcessingStageSummary'
 import { ProcessingJobCard } from './ProcessingJobCard'
+import { SessionPanel } from './SessionPanel'
 import { ProcessingNeedsYou } from './ProcessingNeedsYou'
 import { QuestionAnswer } from './QuestionAnswer'
 
@@ -212,6 +213,25 @@ export function ProcessingWorkspace({
     }).catch(() => {})
   }
 
+  /** A fresh session for one lot and stage after the previous one was cancelled. */
+  function restart(job: ProcessingSnapshotDto['jobs'][number]) {
+    if (job.subject_id === null) {
+      return
+    }
+    void perform(() =>
+      client.start(
+        batch.id,
+        {
+          schema_version: 'bench-intake-processing/1',
+          expected_capture_revision: batch.revision,
+          subject_ids: [job.subject_id!],
+          stages: [job.stage as ProcessingStartDto['stages'][number]],
+        },
+        crypto.randomUUID(),
+      ),
+    ).catch(() => {})
+  }
+
   const jobs = snapshot?.jobs.filter((job) => view === 'overview' || job.stage === view) ?? []
   const currentQuestion = snapshot?.jobs
     .flatMap((job) => job.questions)
@@ -352,6 +372,18 @@ export function ProcessingWorkspace({
                 batch={batch}
                 disabled={disabled}
                 chooseQuestion={(id) => navigate(view, id)}
+                session={
+                  job.session_state &&
+                  client.session &&
+                  client.chat && (
+                    <SessionPanel
+                      batchId={batch.id}
+                      job={job}
+                      client={{ session: client.session, chat: client.chat }}
+                      startFresh={() => restart(job)}
+                    />
+                  )
+                }
                 cancel={() => {
                   void perform(() =>
                     client.cancel(
@@ -363,7 +395,8 @@ export function ProcessingWorkspace({
                   ).catch(() => {})
                 }}
               />
-              {batch.lots.some((lot) => lot.id === job.subject_id) &&
+              {job.subject_id !== null &&
+                batch.lots.some((lot) => lot.id === job.subject_id) &&
                 !retiredLotIds.has(job.subject_id) && (
                   <ReviewLink href={`#${batch.id}/review/${job.subject_id}`}>
                     Open this lot in Review

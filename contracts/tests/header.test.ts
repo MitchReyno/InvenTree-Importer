@@ -28,6 +28,8 @@ test('bounded header contracts refuse private session fields and unknown coverag
     actual_model: null,
     progress: 'responding',
     occupies_lane: true,
+    session_state: null,
+    latest_status: null,
   }
   validate('HeaderWork', { ...work, active_sessions: [session] })
   assert.throws(() =>

@@ -6,7 +6,10 @@ import {
   type ProcessingStartDto,
   type ProcessingAnswerDto,
   type ProcessingCancellationDto,
+  type SessionInboxSubmissionDto,
 } from '@invimport/contracts'
+import { submitSessionInbox } from '../agents/tools/inbox.ts'
+import { readSessionTimeline } from '../agents/tools/timeline.ts'
 import type { LockCapture } from './capture.ts'
 import type { ProcessingConfig } from './attempts.ts'
 import { processingRepository } from './repository.ts'
@@ -93,6 +96,30 @@ export function registerProcessing(
       },
       (request) =>
         repository.answer(id(request), id(request, 'questionId'), key(request), request.body),
+    )
+    scope.get(
+      '/api/v1/batches/:id/processing/:jobId/session',
+      { schema: { response: { 200: schemas.SessionTimeline } } },
+      (request) => readSessionTimeline(pool, config, id(request), id(request, 'jobId')),
+    )
+    scope.post<{ Body: SessionInboxSubmissionDto }>(
+      '/api/v1/batches/:id/processing/:jobId/inbox',
+      {
+        schema: {
+          body: schemas.SessionInboxSubmission,
+          response: { 200: schemas.SessionInboxReceipt },
+        },
+      },
+      (request) =>
+        submitSessionInbox(pool, {
+          binding: config,
+          batchId: id(request),
+          lineageId: id(request, 'jobId'),
+          actorId: config.actorId,
+          idempotencyKey: `chat:${request.body.idempotency_key}`,
+          kind: 'chat',
+          payload: { text: request.body.text },
+        }),
     )
   })
 }

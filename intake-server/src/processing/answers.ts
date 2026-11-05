@@ -20,6 +20,8 @@ import { fail, unseal, sealed, decodeProcessingInput } from './model.ts'
 import { lockProcessingAttempt } from './state.ts'
 import { loadRetainedQuestionSpec } from './retained.ts'
 import { continueDependentJobs, continuationSubjectIds } from './continuations.ts'
+import { answerSessionQuestion } from './session-answers.ts'
+import { isSessionProfile } from './session-policy.ts'
 import { prepareMediaTransaction } from '../media/transaction.ts'
 import { decodeMediaInputs } from '../media/inputs.ts'
 import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
@@ -52,6 +54,7 @@ async function adoptRetainedAnswer(
         valueDigest: processingAnswers.valueDigest,
         continuationAttemptId: processingAnswers.continuationAttemptId,
         captureRevision: processingInputs.captureRevision,
+        answerRevision: processingAnswers.captureRevision,
         commandId: processingAttempts.commandId,
       })
       .from(processingAnswers)
@@ -84,7 +87,8 @@ async function adoptRetainedAnswer(
     answer_id: answer.id,
     question_id: questionId,
     attempt_id: answer.continuationAttemptId,
-    capture_revision: answer.captureRevision.toString(),
+    // Session answers keep the revision they returned; earlier profiles use the continuation's.
+    capture_revision: (answer.answerRevision ?? answer.captureRevision).toString(),
     command_id: answer.commandId,
   }
 }
@@ -204,6 +208,21 @@ export async function answerQuestion(
       const originalReceipt = await adoptRetainedAnswer(client, config, batchId, questionId, input)
       if (originalReceipt) {
         return originalReceipt
+      }
+      const answered = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({ profileId: processingAttempts.profileId })
+          .from(processingAttempts)
+          .where(
+            and(
+              eq(processingAttempts.batchId, batchId),
+              eq(processingAttempts.id, input.attempt_id),
+            ),
+          ),
+      )
+      if (answered[0] && isSessionProfile(answered[0].profileId)) {
+        const capture = await lockCapture(client, config, batchId, input.expected_capture_revision)
+        return answerSessionQuestion(client, config, capture, batchId, questionId, input)
       }
 
       const capture = await lockCapture(client, config, batchId, input.expected_capture_revision)

@@ -1,8 +1,9 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Id } from './scalars.ts'
-import { ProcessingStage, ProcessingState, ProcessingBlocker } from './processing.ts'
+import { ProcessingStageV2, ProcessingState, ProcessingBlocker } from './processing.ts'
 import { ManualRun } from './manual.ts'
 import { AgentSelection } from './agent-selection.ts'
+import { SessionLatestStatus, SessionState } from './sessions.ts'
 
 const choice = <const T extends readonly string[]>(values: T) =>
   Type.Union(values.map((value) => Type.Literal(value)))
@@ -55,12 +56,12 @@ export const HeaderWork = object({
         id: Id,
         batch_id: Id,
         attempt_id: Id,
-        stage: ProcessingStage,
+        stage: ProcessingStageV2,
         state: ProcessingState,
         input_current: Type.Union([Type.Boolean(), Type.Null()]),
         occupies_lane: Type.Boolean(),
         blocked_code: Type.Union([ProcessingBlocker, Type.Null()]),
-        steps: Type.Array(object({ stage: ProcessingStage, state: ProcessingState }), {
+        steps: Type.Array(object({ stage: ProcessingStageV2, state: ProcessingState }), {
           maxItems: 5,
         }),
         steps_complete: Type.Boolean(),
@@ -98,12 +99,17 @@ export const HeaderWork = object({
       attempt_id: Id,
       batch_id: Id,
       job_id: Id,
-      stage: ProcessingStage,
+      stage: ProcessingStageV2,
       state: ProcessingState,
-      selection: AgentSelection,
+      /** Null for the deterministic synthetic session profile. */
+      selection: Type.Union([AgentSelection, Type.Null()]),
       actual_model: Type.Union([Type.String({ maxLength: 128 }), Type.Null()]),
       progress: choice(['queued', 'starting', 'responding', 'settled']),
+      /** For sessions: holds a running slot. Waiting sessions hold none. */
       occupies_lane: Type.Boolean(),
+      /** Session profiles only. */
+      session_state: Type.Union([SessionState, Type.Null()]),
+      latest_status: Type.Union([SessionLatestStatus, Type.Null()]),
     }),
     { maxItems: 50 },
   ),

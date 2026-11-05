@@ -152,7 +152,7 @@ test('authentication environment never inherits an application key, provider tok
 })
 
 test('settings contracts and structured outcomes refuse credentials, missing models and ambiguous results', () => {
-  validate('AgentSettings', { revision: '0', selection: null })
+  validate('AgentSettings', { revision: '0', selection: null, session_concurrency: 3 })
   assert.throws(() =>
     validate('AgentSettingsUpdate', {
       expected_revision: '0',

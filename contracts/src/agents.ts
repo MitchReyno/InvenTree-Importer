@@ -2,7 +2,7 @@ import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Id, Revision, CursorSequence } from './scalars.ts'
 import {
   ProcessingState,
-  ProcessingStage,
+  ProcessingStageV2,
   ProcessingQuestionSpec,
   ProcessingProposalV2,
 } from './processing.ts'
@@ -11,14 +11,20 @@ const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
 
 import { AgentSelection } from './agent-selection.ts'
+import { SessionLatestStatus, SessionState } from './sessions.ts'
 export { AgentSelection, type AgentSelectionDto } from './agent-selection.ts'
+/** How many sessions may run provider turns at once; waiting sessions hold no slot. */
+export const SessionConcurrency = Type.Integer({ minimum: 1, maximum: 8 })
 export const AgentSettings = object({
   revision: CursorSequence,
   selection: Type.Union([AgentSelection, Type.Null()]),
+  session_concurrency: SessionConcurrency,
 })
 export const AgentSettingsUpdate = object({
   expected_revision: CursorSequence,
   selection: AgentSelection,
+  /** Omitted keeps the saved limit (3 until first set). */
+  session_concurrency: Type.Optional(SessionConcurrency),
 })
 export const AgentSessionList = object({
   sessions: Type.Array(
@@ -26,12 +32,14 @@ export const AgentSessionList = object({
       attempt_id: Id,
       batch_id: Id,
       job_id: Id,
-      subject_id: Id,
-      stage: ProcessingStage,
+      /** Null only for the batch-level Examine lead session. */
+      subject_id: Type.Union([Id, Type.Null()]),
+      stage: ProcessingStageV2,
       state: ProcessingState,
       latest_on_job: Type.Boolean(),
-      selection: AgentSelection,
-      settings_revision: Revision,
+      /** Null for the deterministic synthetic session profile. */
+      selection: Type.Union([AgentSelection, Type.Null()]),
+      settings_revision: Type.Union([Revision, Type.Null()]),
       queued_at: Type.String({ maxLength: 40 }),
       started_at: Type.Union([Type.String({ maxLength: 40 }), Type.Null()]),
       finished_at: Type.Union([Type.String({ maxLength: 40 }), Type.Null()]),
@@ -44,6 +52,9 @@ export const AgentSessionList = object({
         Type.Literal('settled'),
       ]),
       occupies_lane: Type.Boolean(),
+      /** Session profiles only. */
+      session_state: Type.Union([SessionState, Type.Null()]),
+      latest_status: Type.Union([SessionLatestStatus, Type.Null()]),
     }),
     { maxItems: 50 },
   ),

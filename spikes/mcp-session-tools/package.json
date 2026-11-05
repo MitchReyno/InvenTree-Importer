@@ -1,0 +1,22 @@
+{
+  "name": "mcp-session-tools-spike",
+  "private": true,
+  "type": "module",
+  "description": "Proof-of-fit spike for the simplify-intake-entry session tool server. Not part of the pnpm workspace.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "spike": "node run-spike.mjs",
+    "spike:claude": "node claude-harness.mjs",
+    "spike:codex": "SPIKE_CALL_TOOL=status node codex-harness.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "@modelcontextprotocol/node": "2.1.2",
+    "@modelcontextprotocol/server": "2.4.0",
+    "fastify": "5.12.7",
+    "mcp-sdk-v1": "npm:@modelcontextprotocol/sdk@1.32.2",
+    "zod": "4.2.1"
+  }
+}

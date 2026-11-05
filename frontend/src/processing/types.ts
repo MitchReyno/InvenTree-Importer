@@ -5,6 +5,9 @@ import type {
   ProcessingReceiptDto,
   ProcessingSnapshotDto,
   ProcessingStartDto,
+  SessionInboxReceiptDto,
+  SessionInboxSubmissionDto,
+  SessionTimelineDto,
 } from '@invimport/contracts'
 
 export interface ProcessingClient {
@@ -22,6 +25,14 @@ export interface ProcessingClient {
     input: ProcessingAnswerDto,
     key: string,
   ): Promise<ProcessingAnswerReceiptDto>
+  /** Session profiles only. */
+  session?(batchId: string, jobId: string): Promise<SessionTimelineDto>
+  chat?(
+    batchId: string,
+    jobId: string,
+    input: SessionInboxSubmissionDto,
+    key: string,
+  ): Promise<SessionInboxReceiptDto>
 }
 export type ProcessingView =
   'overview' | 'reading' | 'identifying' | 'research' | 'images' | 'inventory'

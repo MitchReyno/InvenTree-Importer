@@ -62,11 +62,11 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Risks and decisions:**
   - Claude's mid-turn stream-JSON behavior cannot be proven offline. Record it as unverified, and keep `read_inbox` as the guaranteed path.
 
-- [ ] 1.1 Install candidate MCP SDK packages in a spike workspace only, and record versions, licences and Node/Fastify compatibility.
-- [ ] 1.2 Build a minimal Streamable HTTP MCP endpoint with bearer auth on loopback, and call it from a scripted client.
-- [ ] 1.3 Confirm the Claude flag combination for a tool-only allowlist and resume using `claude --help` and a fake executable harness. Check whether `--mcp-config` files expand `${VAR}` in headers (decides design D2's secret delivery or its 0600-file fallback). Record anything that needs live confirmation.
-- [ ] 1.4 Confirm the Codex `mcp_servers` override, `thread/resume` and `turn/steer` shapes from `codex app-server generate-json-schema`.
-- [ ] 1.5 Update design D2/D3 with the decisions and pinned versions, and start the handover with the spike evidence.
+- [x] 1.1 Install candidate MCP SDK packages in a spike workspace only, and record versions, licences and Node/Fastify compatibility.
+- [x] 1.2 Build a minimal Streamable HTTP MCP endpoint with bearer auth on loopback, and call it from a scripted client.
+- [x] 1.3 Confirm the Claude flag combination for a tool-only allowlist and resume using `claude --help` and a fake executable harness. Check whether `--mcp-config` files expand `${VAR}` in headers (decides design D2's secret delivery or its 0600-file fallback). Record anything that needs live confirmation.
+- [x] 1.4 Confirm the Codex `mcp_servers` override, `thread/resume` and `turn/steer` shapes from `codex app-server generate-json-schema`.
+- [x] 1.5 Update design D2/D3 with the decisions and pinned versions, and start the handover with the spike evidence.
 
 ## 2. Session contracts and migrations
 
@@ -89,11 +89,11 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm contracts:check`, `pnpm test:intake`, `pnpm test:intake:pg` (the migration applies on a fresh DB and on one migrated to the latest existing migration).
 - **Risks and decisions:** keep migrations additive so that rolling back means only switching the profile.
 
-- [ ] 2.1 Baseline: run the contract and PG suites, and record the counts.
-- [ ] 2.2 RED: add the failing contract/bounds tests and the migration constraint tests.
-- [ ] 2.3 GREEN: add the contracts, migration and grants; regenerate client contracts.
-- [ ] 2.4 Verify that retained `/1`–`/5` fixtures still decode byte-identically.
-- [ ] 2.5 Record the results in the handover.
+- [x] 2.1 Baseline: run the contract and PG suites, and record the counts.
+- [x] 2.2 RED: add the failing contract/bounds tests and the migration constraint tests.
+- [x] 2.3 GREEN: add the contracts, migration and grants; regenerate client contracts.
+- [x] 2.4 Verify that retained `/1`–`/5` fixtures still decode byte-identically.
+- [x] 2.5 Record the results in the handover.
 
 ## 3. App-owned tool server and session runtime
 
@@ -111,14 +111,14 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm test:intake:pg`, `pnpm test:intake:process` (scripted MCP client).
 - **Risks and decisions:** the tool server runs inside the worker only. The web process gets no tool endpoint.
 
-- [ ] 3.1 Baseline the agents/processing PG and process suites.
-- [ ] 3.2 RED: capability, validation, ordering and idempotency regressions.
-  - [ ] 3.2.1 Wrong-session or expired capability refused, with no state change.
-  - [ ] 3.2.2 Status line over 120 characters, rate-limit breach, and undelivered citation each return a typed error.
-  - [ ] 3.2.3 Duplicate inbox key returns the original receipt; an unacknowledged item is redelivered with the same ID after a crash; an acknowledged one is not.
-- [ ] 3.3 GREEN: MCP endpoint, handlers, context log, outbox/inbox persistence and live hints.
-- [ ] 3.4 Refactor shared validation with the existing provenance checks, and rerun the Processing suites.
-- [ ] 3.5 Record the results.
+- [x] 3.1 Baseline the agents/processing PG and process suites.
+- [x] 3.2 RED: capability, validation, ordering and idempotency regressions.
+  - [x] 3.2.1 Wrong-session or expired capability refused, with no state change.
+  - [x] 3.2.2 Status line over 120 characters, rate-limit breach, and undelivered citation each return a typed error.
+  - [x] 3.2.3 Duplicate inbox key returns the original receipt; an unacknowledged item is redelivered with the same ID after a crash; an acknowledged one is not.
+- [x] 3.3 GREEN: MCP endpoint, handlers, context log, outbox/inbox persistence and live hints.
+- [x] 3.4 Refactor shared validation with the existing provenance checks, and rerun the Processing suites.
+- [x] 3.5 Record the results.
 
 ## 4. Claude and Codex session adapters
 
@@ -126,12 +126,12 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Outcome:** both adapters run `/2` sessions that use only app tools, resume finished conversations, deliver in-turn input where supported, and keep the cancel, reap and crash guarantees.
 - **Scope and approach:**
   - `agents/claude.ts`:
-    - Write `mcp.json` with no secret, using `${INTAKE_TOOL_CAPABILITY}` expansion if task 1.3 confirms it; otherwise the 0600 fallback file, deleted as soon as init is confirmed and on cleanup (design D2). Pass the allowlist flags.
+    - Write `mcp.json` with no secret, using `${INTAKE_TOOL_CAPABILITY}` expansion (confirmed in task 1.3). Pass the allowlist flags, without `--safe-mode` (design D2).
     - Remove `--no-session-persistence` for `/2` only, and add `--resume` support.
     - Change the init tool check to app tools only.
     - Write stdin stream-JSON for queued messages.
-  - `agents/codex.ts`: `mcp_servers` override, effective-config check, non-ephemeral threads, `thread/resume`, `turn/steer` with `expectedTurnId`.
-  - The session state machine (design D3) and the DBOS resume workflow keyed by inbox high-water mark.
+  - `agents/codex.ts`: `mcp_servers` override with `default_tools_approval_mode = "approve"`, `features.goals = false`, effective-config and MCP-status tool checks, non-ephemeral threads, `thread/resume`, `turn/steer` with `expectedTurnId` (design D2/D3).
+  - The session state machine (design D3) and the DBOS resume workflow keyed by attempt, turn count and minute bucket.
   - Fake `claude`/`codex` executables that drive real tool calls, and a `synthetic-session/1` runner.
 - **Prerequisites:** task 3.
 - **Acceptance:**
@@ -145,7 +145,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
     - an answer is delivered via `turn/steer` (Codex) or `read_inbox` (Claude)
     - resume after finish carries the queued chat
     - a missing transcript gives `resume_unavailable`
-    - with the fallback config file, it is gone once init is confirmed
+    - the Claude `mcp.json` never contains the capability value (task 1 removed the fallback file)
     - a crash gives interrupted with no automatic turn
     - a capability is refused after finish, after resume (the old one) and after worker restart
     - a child that ignores SIGTERM keeps its slot until reaped
@@ -153,11 +153,11 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm test:intake:process`, `pnpm test:intake`; the existing `/1` adapter tests unchanged.
 - **Risks and decisions:** real provider behavior stays unverified (task 13).
 
-- [ ] 4.1 Baseline the existing adapter process tests.
-- [ ] 4.2 RED: fake-CLI regressions for allowlist refusal, in-turn delivery, resume, resume failure, crash, stubborn child and capability revocation.
-- [ ] 4.3 GREEN: Claude and Codex `/2` adapters, the state machine and the resume workflow.
-- [ ] 4.4 Refactor shared child supervision. Verify the `/1` adapter tests and the duplicate-supervisor fence.
-- [ ] 4.5 Record results and remaining live unknowns.
+- [x] 4.1 Baseline the existing adapter process tests.
+- [x] 4.2 RED: fake-CLI regressions for allowlist refusal, in-turn delivery, resume, resume failure, crash, stubborn child and capability revocation.
+- [x] 4.3 GREEN: Claude and Codex `/2` adapters, the state machine and the resume workflow.
+- [x] 4.4 Refactor shared child supervision. Verify the `/1` adapter tests and the duplicate-supervisor fence.
+- [x] 4.5 Record results and remaining live unknowns.
 
 ## 5. Session slots and concurrency setting
 
@@ -165,21 +165,21 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Outcome:** a configurable limit on running sessions (1–8, default 3). Waiting, paused and finished sessions hold no slot, and `/1` lane holders consume one slot.
 - **Scope and approach:**
   - `agent_slot` claim with `SKIP LOCKED`, reading the limit from Agent settings with expected-revision writes.
-  - A new `bench-sessions` DBOS queue in `worker-main.ts` (`workerConcurrency: 8`, `globalConcurrency: 8`, shared Processing application name). `bench-research` keeps its single-lane caps for `/1`. `loadProcessingAuthority` (`processing/authority.ts`) accepts `bench-sessions` for `/2` commands only.
+  - A new `bench-sessions` DBOS queue in the session worker (`agents/session-worker-main.ts`, `workerConcurrency: 8`, `globalConcurrency: 8`, shared Processing application name). `bench-research` keeps its single-lane caps for `/1`. Session commands are authorized by the session worker from the retained command row; `loadProcessingAuthority` keeps rejecting `bench-sessions` (design D9).
   - Settings contract and settings form field.
 - **Prerequisites:** task 2.
 - **Acceptance:** "Fourth session queues"; lowering the limit never aborts a running session; an unconfirmed reap keeps its slot.
 - **TDD approach:**
-  - RED (PG): with a limit of 3, the fourth session stays queued; waiting frees a slot; `/1` and `/2` together never exceed the limit; authority loading accepts `bench-sessions` for a `/2` command and still rejects it for `/1`; the API role can update the concurrency column.
+  - RED (PG): with a limit of 3, the fourth session stays queued; waiting frees a slot; `/1` and `/2` together never exceed the limit; an occupied slot blocks a second supervisor, as an occupied lane does; the API role can update the concurrency column.
   - GREEN: implement slots.
 - **Verification:** `pnpm test:intake:pg`, frontend settings test.
 - **Risks and decisions:** none.
 
-- [ ] 5.1 Baseline the lane and settings tests.
-- [ ] 5.2 RED: slot-limit, waiting-release, limit-change and mixed-profile regressions, plus a process test showing that three sessions run concurrently through the real DBOS queue.
-- [ ] 5.3 GREEN: slots, settings field and worker queue configuration.
-- [ ] 5.4 Verify the lane occupancy rules for `/1` are unchanged.
-- [ ] 5.5 Record the results.
+- [x] 5.1 Baseline the lane and settings tests.
+- [x] 5.2 RED: slot-limit, waiting-release, limit-change and mixed-profile regressions, plus a process test showing that three sessions run concurrently through the real DBOS queue.
+- [x] 5.3 GREEN: slots, settings field and worker queue configuration.
+- [x] 5.4 Verify the lane occupancy rules for `/1` are unchanged.
+- [x] 5.5 Record the results.
 
 ## 6. Session timeline, chat, Needs you and header status
 
@@ -197,11 +197,11 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm test:frontend`, `pnpm lint:frontend`, frontend typecheck and build; headless browser check with `synthetic-session/1`; markdown lint for docs.
 - **Risks and decisions:** keep it accessible: labelled composer, live region for new status lines without excessive announcements.
 
-- [ ] 6.1 Baseline the frontend suite.
-- [ ] 6.2 RED: component tests for the timeline, composer states, Needs you and the header line.
-- [ ] 6.3 GREEN: components wired to the retained reads and hints.
-- [ ] 6.4 Update the architecture docs and handover for PR-A; run the markdown and reference checks.
-- [ ] 6.5 Headless browser check of a synthetic session (status, mid-run answer, chat after finish); record evidence.
+- [x] 6.1 Baseline the frontend suite.
+- [x] 6.2 RED: component tests for the timeline, composer states, Needs you and the header line.
+- [x] 6.3 GREEN: components wired to the retained reads and hints.
+- [x] 6.4 Update the architecture docs and handover for PR-A; run the markdown and reference checks.
+- [x] 6.5 Headless browser check of a synthetic session (status, mid-run answer, chat after finish); record evidence.
 
 ## 7. Observations and agent-attributed draft lots
 
