@@ -80,6 +80,10 @@ const Body = styled.div`
 `
 
 const Action = styled.button`
+  /* On the inverted fg ground the accent ring is too faint, so focus uses the bg ink. */
+  &:focus-visible {
+    outline-color: ${color.bg};
+  }
   border: 0;
   background: none;
   color: inherit;

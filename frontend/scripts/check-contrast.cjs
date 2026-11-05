@@ -31,7 +31,8 @@ const PAIRS = [
   ...pairs('warn', ['surface', 'warn-weak']),
   ...pairs('bad', ['surface', 'bad-weak']),
   ...pairs('info', ['surface', 'info-weak']),
-  // Inverted chips: toast, selected segment and filter, bulk bar.
+  // Inverted chips: toast, selected segment and filter, bulk bar. Their focus rings also use
+  // bg, so this pair covers the focus indicator on those grounds.
   ...pairs('bg', ['fg']),
   ...pairs('bar-fg', ['bar']),
   ...pairs('photo-fg', ['photo-stage', 'photo-scrim']),
