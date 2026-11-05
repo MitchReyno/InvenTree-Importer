@@ -121,6 +121,7 @@ test('retired group polling cannot unmount a local evidence note draft', async (
       />
     </ServerStateProvider>,
   )
+  await user.click(await screen.findByRole('button', { name: 'Open Front label' }))
   await user.click(await screen.findByRole('button', { name: 'Edit note for Front label' }))
   const note = screen.getByLabelText('Note for Front label')
   await user.type(note, 'Keep both sides together.')
@@ -173,6 +174,7 @@ test('an uncertain note uses one request and closes only after the exact retry i
       onDirtyChange={vi.fn()}
     />,
   )
+  await user.click(await screen.findByRole('button', { name: 'Open Front label' }))
   await user.click(await screen.findByRole('button', { name: 'Edit note for Front label' }))
   await user.type(screen.getByRole('textbox', { name: 'Note for Front label' }), 'Original ink')
   await user.click(screen.getByRole('button', { name: 'Save evidence note' }))
@@ -183,7 +185,9 @@ test('an uncertain note uses one request and closes only after the exact retry i
     expect(screen.queryByRole('textbox', { name: 'Note for Front label' })).toBeNull(),
   )
   expect(vi.mocked(client.edit).mock.calls[1]).toEqual(vi.mocked(client.edit).mock.calls[0])
-  expect(screen.getByText('Original ink')).toBeVisible()
+  expect(
+    within(screen.getByRole('dialog', { name: 'Front label' })).getByText('Original ink'),
+  ).toBeVisible()
 })
 
 test('group membership conflict retains one uploaded original in ungrouped without offering to upload again', async () => {
@@ -278,6 +282,7 @@ test('a saved note remains acknowledged when its follow-up read fails', async ()
       onDirtyChange={vi.fn()}
     />,
   )
+  await user.click(await screen.findByRole('button', { name: 'Open Front label' }))
   await user.click(await screen.findByRole('button', { name: 'Edit note for Front label' }))
   await user.type(screen.getByRole('textbox', { name: 'Note for Front label' }), 'Retained ink')
   await user.click(screen.getByRole('button', { name: 'Save evidence note' }))
@@ -370,5 +375,7 @@ test('duplicate filenames have distinct exact-identity selection, drag and note 
   const second = screen.getByRole('checkbox', { name: /Select photo.png.*70000000/ })
   expect(first).not.toBe(second)
   expect(screen.getByRole('button', { name: /Drag photo.png.*60000000/ })).toBeVisible()
+  // Notes are edited in each file's viewer, named by the file's exact identity.
+  await userEvent.setup().click(screen.getByRole('button', { name: /Open photo.png.*70000000/ }))
   expect(screen.getByRole('button', { name: /Edit note for photo.png.*70000000/ })).toBeVisible()
 })

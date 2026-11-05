@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
@@ -205,12 +205,18 @@ test('attachment options distinguish colliding identities and match visible reta
   expect(options.map((option) => option.value)).toEqual(
     populated.evidence.flatMap((evidence) => evidence.versions.map((version) => version.id)),
   )
+  const user = userEvent.setup()
   for (const option of options) {
-    const visibleVersion = screen.getAllByText(
+    // Version labels show in each file's viewer; the option names the same identity.
+    const fileName = option.textContent!.split(' · crop')[0]
+    await user.click(screen.getByRole('button', { name: `Open ${fileName}` }))
+    const viewer = screen.getByRole('dialog', { name: fileName })
+    const visibleVersion = within(viewer).getAllByText(
       (text, element) =>
         element?.tagName === 'SMALL' && text.startsWith(`${option.textContent} · ready`),
     )
     expect(visibleVersion).toHaveLength(1)
+    await user.click(within(viewer).getByRole('button', { name: 'Close' }))
     expect(option.textContent).toContain('photo.png · evidence 11111111')
     expect(option.textContent).toContain(' · crop 22222222')
   }
@@ -235,4 +241,67 @@ test('attachment options distinguish colliding identities and match visible reta
     },
     expect.any(String),
   )
+})
+
+test('a tile shows the file and its lots; crop, download and byte identity live in its viewer', async () => {
+  const evidenceId = '44444444-0000-4000-8000-000000000004'
+  const version = {
+    id: '55555555-0000-4000-8000-000000000005',
+    evidence_id: evidenceId,
+    kind: 'original' as const,
+    digest: 'b'.repeat(64),
+    byte_size: '2048',
+    media_type: 'image/jpeg' as const,
+    state: 'ready' as const,
+    decoder_build: 'fixture/1',
+    recipe: null,
+    pages: [
+      { page: 1, width: 1200, height: 900, preview_id: '66666666-0000-4000-8000-000000000006' },
+    ],
+  }
+  const withFile: MediaSnapshotDto = {
+    ...snapshot,
+    evidence: [
+      {
+        id: evidenceId,
+        label: 'Packet front',
+        group_id: null,
+        linked_subject_ids: [],
+        versions: [version],
+      },
+    ],
+  }
+  const user = userEvent.setup()
+  render(
+    <ServerStateProvider scope={fixtureScope} client={createServerQueryClient()}>
+      <MediaWorkspace
+        batch={batch}
+        client={client(vi.fn(async () => withFile))}
+        disabled={false}
+        selectedSubject="defaults"
+        onDirtyChange={vi.fn()}
+      />
+    </ServerStateProvider>,
+  )
+
+  const open = await screen.findByRole('button', { name: 'Open Packet front' })
+  expect(open.querySelector('img')).toHaveAttribute(
+    'src',
+    expect.stringContaining('66666666-0000-4000-8000-000000000006'),
+  )
+  expect(screen.getByText('0 lots')).toBeInTheDocument()
+  // No digest, byte size or crop control inline on Capture.
+  expect(screen.queryByText(/bbbbbbbb/)).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Prepare crop / rotation' })).not.toBeInTheDocument()
+
+  await user.click(open)
+  const viewer = screen.getByRole('dialog', { name: 'Packet front' })
+  expect(
+    within(viewer).getByRole('button', { name: 'Prepare crop / rotation' }),
+  ).toBeInTheDocument()
+  expect(within(viewer).getByRole('link', { name: 'Download retained original' })).toHaveAttribute(
+    'href',
+    expect.stringContaining(version.id),
+  )
+  expect(within(viewer).getByText('Retained byte identity')).toBeInTheDocument()
 })
