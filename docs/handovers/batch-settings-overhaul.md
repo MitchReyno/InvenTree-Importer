@@ -1,6 +1,6 @@
 # Batch settings overhaul implementation
 
-Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) merged as #88 (`2ba6b47`). PR-D (Tasks 7 and 8) is open as #89 from `feat/batch-settings-overhaul-records`; its review is clean and the selected CI passed (see PR-D publication). Reviews, CI and merges are recorded only after they occur.
+Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/archive/2026-11-05-batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) merged as #88 (`2ba6b47`). PR-D (Tasks 7 and 8) merged as #89 (`a719ab2`), and the main OpenSpec specs were synced in #90 (`659fcbc`). Reviews, CI and merges are recorded only after they occur.
 
 ## Authority and boundaries
 
@@ -548,4 +548,4 @@ Unqualified boundaries: no real InvenTree mutation profile; the owned fake does 
 
 ### Index (8.5)
 
-[BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul) is "In review" while PR-D is open; BI-004 (automatic supplier logos) and BI-005 (purchase-order support) remain Proposed. Merge, Done and archive are not claimed.
+[BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul) was marked "In review" while PR-D was open; after PR-D merged as [#89](https://github.com/MitchReyno/InvenTree-Importer/pull/89) (`a719ab2`) and main specs synced in [#90](https://github.com/MitchReyno/InvenTree-Importer/pull/90) (`659fcbc`), BI-003 is Done and [`batch-settings-overhaul`](../../openspec/changes/archive/2026-11-05-batch-settings-overhaul/) is archived. BI-004 (automatic supplier logos) and BI-005 (purchase-order support) remain Proposed.
