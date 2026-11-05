@@ -1,6 +1,6 @@
 import { CapsuleGeometry, LinearFilter, Mesh, MeshBasicMaterial } from 'three'
 import { expect, test } from 'vitest'
-import { fills } from './finishes'
+import { FINISHES, fillFor, fills } from './finishes'
 import { createHullGeometry, createOutlineKit } from './outline-kit'
 import { box } from './shapes'
 
@@ -47,5 +47,44 @@ test('the glow texture is linearly filtered so stretched glows stay smooth', () 
   expect(kit.glowTexture.magFilter).toBe(LinearFilter)
   expect(kit.glowTexture.minFilter).toBe(LinearFilter)
   expect(kit.displays.every((display) => display.lit instanceof MeshBasicMaterial)).toBe(true)
+  kit.dispose()
+})
+
+test('a theme change re-tints the same materials in place', () => {
+  const kit = createOutlineKit('light')
+  const body = kit.body(box(1, 1, 1), fills.epoxy)
+  const fill = body.material as MeshBasicMaterial
+  const hull = (body.children[0] as Mesh).material as MeshBasicMaterial
+  const led = kit.createLed(0xe0503c)
+
+  expect(fill.color.getHex()).toBe(fills.epoxy)
+  expect(hull.color.getHex()).toBe(FINISHES.light.outline)
+
+  kit.setTheme('dark')
+
+  expect(body.material).toBe(fill)
+  expect(fill.color.getHex()).toBe(fillFor(fills.epoxy, 'dark').getHex())
+  expect(hull.color.getHex()).toBe(FINISHES.dark.outline)
+  expect(kit.baseFill.getHex()).toBe(FINISHES.dark.base)
+  expect(led.fill.color.getHex()).toBe(FINISHES.dark.base)
+
+  kit.setTheme('light')
+  expect(fill.color.getHex()).toBe(fills.epoxy)
+  expect(hull.color.getHex()).toBe(FINISHES.light.outline)
+  kit.dispose()
+})
+
+test('parts built while dark start with the dark finish, and disposed LEDs stop re-tinting', () => {
+  const kit = createOutlineKit('dark')
+  const detail = kit.detail(box(1, 0.04, 1), fills.marking)
+  const led = kit.createLed(0x3fbf7f)
+  const crease = led.crease.color.getHex()
+
+  expect((detail.material as MeshBasicMaterial).color.getHex()).toBe(
+    fillFor(fills.marking, 'dark').getHex(),
+  )
+  led.dispose()
+  kit.setTheme('light')
+  expect(led.crease.color.getHex()).toBe(crease)
   kit.dispose()
 })

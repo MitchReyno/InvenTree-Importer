@@ -15,11 +15,12 @@ import {
   type Material,
 } from 'three'
 import {
-  BASE_FILL,
-  CREASE_COLOUR,
   DISPLAY_COLOURS,
-  OUTLINE_COLOUR,
+  FINISHES,
+  fillFor,
   UNLIT_SEGMENT,
+  type Finish,
+  type ThemeId,
 } from './finishes'
 
 // Silhouette shell thickness in part units: about 1 px for a full-size part. It
@@ -61,9 +62,16 @@ export interface OutlineKit {
   segment: (geometry: BufferGeometry, materials: DisplayMaterials) => Mesh
   displays: DisplayMaterials[]
   glowTexture: DataTexture
+  /** The current theme's part base; LED pulses start from it. */
   baseFill: Color
+  /** Re-tints every material in place for the theme; geometry is untouched. */
+  setTheme: (theme: ThemeId) => void
   dispose: () => void
 }
+
+type Tint = (finish: Finish, theme: ThemeId) => Color | number
+
+type Tinted = { color: Color }
 
 /**
  * Average normals across coincident vertices so the outline shell stays closed at
@@ -152,16 +160,38 @@ export function createGlowTexture(): DataTexture {
   return texture
 }
 
-export function createOutlineKit(): OutlineKit {
+const outline: Tint = (finish) => finish.outline
+
+const creaseTint: Tint = (finish) => finish.crease
+
+const base: Tint = (finish) => finish.base
+
+function partFill(light: number): Tint {
+  return (_finish, theme) => fillFor(light, theme)
+}
+
+export function createOutlineKit(initialTheme: ThemeId = 'light'): OutlineKit {
+  let theme = initialTheme
+  const tints = new Map<Tinted, Tint>()
+  const baseFill = new Color(FINISHES[theme].base)
+
+  /** Colours a material for the current theme and keeps it in step with later changes. */
+  function tinted<T extends Tinted>(material: T, tint: Tint): T {
+    tints.set(material, tint)
+    material.color.set(tint(FINISHES[theme], theme))
+
+    return material
+  }
+
   const owned: Material[] = []
   const fillsByColour = new Map<number, MeshBasicMaterial>()
   const glassByColour = new Map<number, MeshBasicMaterial>()
-  const hull = createHullMaterial(OUTLINE_COLOUR)
-  const glassHull = createHullMaterial(OUTLINE_COLOUR)
-  const crease = new LineBasicMaterial({ color: CREASE_COLOUR })
-  const solid = new MeshBasicMaterial({ color: OUTLINE_COLOUR })
+  const hull = tinted(createHullMaterial(FINISHES.light.outline), outline)
+  const glassHull = tinted(createHullMaterial(FINISHES.light.outline), outline)
+  const crease = tinted(new LineBasicMaterial(), creaseTint)
+  const solid = tinted(new MeshBasicMaterial(), outline)
   const glowTexture = createGlowTexture()
-  const unlit = new MeshBasicMaterial({ color: UNLIT_SEGMENT })
+  const unlit = tinted(new MeshBasicMaterial(), partFill(UNLIT_SEGMENT))
 
   glassHull.transparent = true
   owned.push(hull, glassHull, crease, solid, unlit)
@@ -173,7 +203,7 @@ export function createOutlineKit(): OutlineKit {
       return cached
     }
 
-    const material = createFillMaterial(colour)
+    const material = tinted(createFillMaterial(colour), partFill(colour))
     fillsByColour.set(colour, material)
     owned.push(material)
 
@@ -211,7 +241,10 @@ export function createOutlineKit(): OutlineKit {
       return cached
     }
 
-    const material = new MeshBasicMaterial({ color: colour, transparent: true, opacity: 0.55 })
+    const material = tinted(
+      new MeshBasicMaterial({ transparent: true, opacity: 0.55 }),
+      partFill(colour),
+    )
     glassByColour.set(colour, material)
     owned.push(material)
 
@@ -230,15 +263,18 @@ export function createOutlineKit(): OutlineKit {
 
   function createLed(colour: number): LedMaterials {
     const ledColour = new Color(colour)
-    const outlineTint = ledColour
-      .clone()
-      .lerp(new Color(OUTLINE_COLOUR), 0.35)
-      .lerp(new Color(0xffffff), 0.2)
     const materials = {
       colour: ledColour,
-      fill: createFillMaterial(BASE_FILL),
-      hull: createHullMaterial(outlineTint),
-      crease: new LineBasicMaterial({ color: ledColour.clone().lerp(new Color(0xffffff), 0.5) }),
+      fill: tinted(createFillMaterial(FINISHES.light.base), base),
+      hull: tinted(createHullMaterial(ledColour), (finish) =>
+        ledColour
+          .clone()
+          .lerp(new Color(finish.outline), 0.35)
+          .lerp(new Color(finish.highlight), 0.2),
+      ),
+      crease: tinted(new LineBasicMaterial(), (finish) =>
+        ledColour.clone().lerp(new Color(finish.highlight), 0.5),
+      ),
       glow: new SpriteMaterial({
         map: glowTexture,
         color: colour,
@@ -251,9 +287,10 @@ export function createOutlineKit(): OutlineKit {
     return {
       ...materials,
       dispose: () => {
-        materials.fill.dispose()
-        materials.hull.dispose()
-        materials.crease.dispose()
+        for (const material of [materials.fill, materials.hull, materials.crease]) {
+          tints.delete(material)
+          material.dispose()
+        }
         materials.glow.dispose()
       },
     }
@@ -295,7 +332,14 @@ export function createOutlineKit(): OutlineKit {
     segment,
     displays,
     glowTexture,
-    baseFill: new Color(BASE_FILL),
+    baseFill,
+    setTheme: (next) => {
+      theme = next
+      baseFill.set(FINISHES[theme].base)
+      for (const [material, tint] of tints) {
+        material.color.set(tint(FINISHES[theme], theme))
+      }
+    },
     dispose: () => {
       owned.forEach((material) => material.dispose())
       glowTexture.dispose()

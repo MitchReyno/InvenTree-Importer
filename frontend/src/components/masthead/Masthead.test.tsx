@@ -10,7 +10,12 @@ vi.mock('../../electronics-current/scene', () => ({ createElectronicsCurrent: vi
 const createScene = vi.mocked(createElectronicsCurrent)
 
 function stubController() {
-  const controller = { setPointer: vi.fn(), clearPointer: vi.fn(), dispose: vi.fn() }
+  const controller = {
+    setPointer: vi.fn(),
+    clearPointer: vi.fn(),
+    setTheme: vi.fn(),
+    dispose: vi.fn(),
+  }
   createScene.mockReturnValue(controller)
 
   return controller
@@ -134,7 +139,7 @@ test('starts the scene with the reduced-motion preference and forwards the point
   render(<Masthead themeController={fakeThemeController().controller} />)
 
   await waitFor(() => expect(createScene).toHaveBeenCalledTimes(1))
-  expect(createScene.mock.calls[0][1]).toEqual({ reducedMotion: true })
+  expect(createScene.mock.calls[0][1]).toEqual({ reducedMotion: true, theme: 'light' })
 
   fireEvent.pointerMove(window, { clientX: 40, clientY: 20 })
   expect(controller.setPointer).toHaveBeenCalled()
@@ -162,4 +167,20 @@ test('does not start a scene when unmounted before the scene chunk loads', async
   await new Promise((resolve) => setTimeout(resolve, 0))
 
   expect(createScene).not.toHaveBeenCalled()
+})
+
+test('starts the scene in the page theme and follows theme changes', async () => {
+  vi.stubGlobal('WebGL2RenderingContext', function WebGL2RenderingContext() {})
+  stubReducedMotion(false)
+  const controller = stubController()
+  document.documentElement.dataset.theme = 'dark'
+  const { unmount } = render(<Masthead themeController={fakeThemeController().controller} />)
+
+  await waitFor(() => expect(createScene).toHaveBeenCalledTimes(1))
+  expect(createScene.mock.calls[0][1]).toEqual({ reducedMotion: false, theme: 'dark' })
+
+  document.documentElement.dataset.theme = 'light'
+  await waitFor(() => expect(controller.setTheme).toHaveBeenCalledWith('light'))
+  unmount()
+  delete document.documentElement.dataset.theme
 })

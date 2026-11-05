@@ -2,11 +2,16 @@ import { useEffect, useRef } from 'react'
 import styled from 'styled-components'
 import { media } from '../ui/media'
 import type { ElectronicsCurrentController } from '../../electronics-current/scene'
+import type { ThemeId } from '../../theme/generated/tokens'
 
 // three.js r163+ renders through WebGL 2 only. Detect it before loading the
 // scene chunk so unsupported browsers (and jsdom) never download three.js.
 function supportsWebGl2(): boolean {
   return typeof window.WebGL2RenderingContext === 'function'
+}
+
+function pageTheme(): ThemeId {
+  return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
 }
 
 function prefersReducedMotion(): boolean {
@@ -44,7 +49,10 @@ export function ElectronicsCurrent() {
         return
       }
 
-      controller = createElectronicsCurrent(target, { reducedMotion: prefersReducedMotion() })
+      controller = createElectronicsCurrent(target, {
+        reducedMotion: prefersReducedMotion(),
+        theme: pageTheme(),
+      })
     }
 
     function handlePointerMove(event: PointerEvent): void {
@@ -63,6 +71,13 @@ export function ElectronicsCurrent() {
       }
     }
 
+    // The theme controller owns data-theme; the scene follows it without rebuilding parts.
+    const themeObserver = new MutationObserver(() => controller?.setTheme(pageTheme()))
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    })
+
     start(canvas).catch(handleStartFailure)
     window.addEventListener('pointermove', handlePointerMove)
     window.addEventListener('pointercancel', handlePointerGone)
@@ -71,6 +86,7 @@ export function ElectronicsCurrent() {
 
     return () => {
       unmounted = true
+      themeObserver.disconnect()
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointercancel', handlePointerGone)
       window.removeEventListener('scroll', handlePointerGone)

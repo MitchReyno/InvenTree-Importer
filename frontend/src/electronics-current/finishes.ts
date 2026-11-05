@@ -1,13 +1,60 @@
 // Colours for the masthead electronics animation. Fills are very light, muted
 // tints of each part's real colour so the drawing stays quiet behind the title.
+// The ground, outline, crease and base come from the theme tokens.
+import { Color } from 'three'
+import { themeColours, type ThemeId } from '../theme/generated/tokens'
 
-export const BACKGROUND_COLOUR = 0xf3f5f8
+export type { ThemeId }
 
-export const OUTLINE_COLOUR = 0x7d8ca3
+export interface Finish {
+  /** Masthead ground; also the fog colour that far parts fade into. */
+  ground: number
+  outline: number
+  crease: number
+  base: number
+  /** What LED tints blend towards: white on the light ground, the base on the dark one. */
+  highlight: number
+}
 
-export const CREASE_COLOUR = 0xbcc5d2
+function hex(value: string): number {
+  return parseInt(value.slice(1), 16)
+}
 
-export const BASE_FILL = 0xf6f8fa
+function finish(theme: ThemeId, highlight: number | null): Finish {
+  const tokens = themeColours[theme]
+  const base = hex(tokens['part-base'])
+
+  return {
+    ground: hex(tokens['masthead-ground']),
+    outline: hex(tokens['part-outline']),
+    crease: hex(tokens['part-crease']),
+    base,
+    highlight: highlight ?? base,
+  }
+}
+
+export const FINISHES: Record<ThemeId, Finish> = {
+  light: finish('light', 0xffffff),
+  dark: finish('dark', null),
+}
+
+// Dark fills keep a trace of each part's hue but sit close to the dark base.
+export const DARK_FILL_MIX = 0.72
+
+/** A part's fill in the given theme; light fills are the values below unchanged. */
+export function fillFor(light: number | Color, theme: ThemeId): Color {
+  const colour = new Color(light)
+
+  return theme === 'dark' ? colour.lerp(new Color(FINISHES.dark.base), DARK_FILL_MIX) : colour
+}
+
+export const BACKGROUND_COLOUR = FINISHES.light.ground
+
+export const OUTLINE_COLOUR = FINISHES.light.outline
+
+export const CREASE_COLOUR = FINISHES.light.crease
+
+export const BASE_FILL = FINISHES.light.base
 
 export const fills = {
   resistorBeige: 0xf1e9da,
