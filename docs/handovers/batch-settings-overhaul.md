@@ -494,6 +494,10 @@ Codex (`gpt-6.1-sol`, read-only) reviewed exactly `2ba6b47..6a66304`: no Critica
 3. Minor: the responsive Approve screenshots showed "No current prepared selection". They were retaken with the exact preparation loaded, after asserting "New records · 2"; all runs still had zero horizontal overflow.
 4. Minor: a stale "PR-D has not started" sentence in the status paragraph was removed.
 
+#### Round 5 (Tasks 7–8)
+
+Codex (`gpt-6.1-sol`, read-only) reviewed exactly `2ba6b47..47770d1`: no Critical or Important findings, and one Minor. It confirmed the earlier fixes. Minor: the rollback text only said to stop provisioning `/2`, which would leave an existing `/2` deployment admitting drafts. The text now names the concrete switch (`INTAKE_DEPLOYMENT_ID` set to a `/1` deployment) and keeps the `/2` runner while its runs settle. This was a documentation-only change, so no further review was run.
+
 ## PR-D Task 8: integrated acceptance
 
 ### Connected journey (8.1)
@@ -530,7 +534,7 @@ Packages and advisories: PR-D adds no dependency and no lockfile change.
 
 Rollout: apply migration `0016_record_effects.sql` (additive). Record creation is available only where an `owned-fake-effects/2` deployment row and runner are provisioned; other deployments keep their builds and report `record_creation_unavailable`. The development stack stays on `/1`, so record creation is unavailable there.
 
-Rollback: stop provisioning `/2` deployments; preparation then refuses drafts and existing `/1` runs are untouched. Do not drop `executor_record_identity` or reinterpret retained effects: an unknown create stays unknown under its original run.
+Rollback: set the API's `INTAKE_DEPLOYMENT_ID` to a `/1` (`owned-fake-effects/1`) deployment and restart it. New preparations then bind to that deployment, and a record draft reports `record_creation_unavailable`. Existing `/1` runs are untouched. Keep the `/2` deployment row and its runner, because a run is executed only by the runner of the deployment its plan names (`runner.ts`). Settle or inspect retained `/2` runs before retiring that runner. Do not drop `executor_record_identity` or reinterpret retained effects: an unknown create stays unknown under its original run.
 
 Unqualified boundaries: no real InvenTree mutation profile; the owned fake does not prove InvenTree compatibility (for example Company `currency` and image storage). No same-name reconciliation command; an unknown create can only be inspected by its attributed PK. Live providers and model inference are not involved.
 
