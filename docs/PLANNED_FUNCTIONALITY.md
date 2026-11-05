@@ -40,6 +40,18 @@ The index owns current item metadata; OpenSpec artifacts own detailed intent, re
 
 ## Features
 
+### High
+
+#### BI-006 — Agent-led intake
+
+Remove manual lot entry and question-blocked processing from Capture and Processing. An agent sorts batch evidence into proposed lots that appear live and are created as editable drafts. Native Claude and Codex sessions stream status lines, proposals and questions while they work, accept queued answers, chat and new evidence whether running or idle, and resume finished sessions. Reading and identifying combine into one Examine stage, and Research and Images run in parallel after it.
+
+- Change: `simplify-intake-entry`
+- Status: Planned
+- Size: XL — agent session protocol and tool server, batch sorting, stage restructuring and live UI, delivered in phased PRs.
+- Prerequisites: Native agent integration (`native-agent/1`) is merged; live provider qualification is still pending and is required before claiming real-provider behavior. No dependency on BI-007.
+- OpenSpec: [simplify-intake-entry](../openspec/changes/simplify-intake-entry/)
+
 ### Unassessed
 
 #### BI-004 — Automatic supplier logos
@@ -61,6 +73,16 @@ Enable purchase-order creation from retained batch supplier and order context th
 - Size: Unknown
 - Prerequisites: Unknown — compatibility and execution support need assessment; BI-003 prepares the planned UI, while actual PO operations remain unsupported.
 - OpenSpec: [purchase-order-support](../openspec/changes/purchase-order-support/)
+
+#### BI-007 — Antigravity agent provider
+
+Add Google Antigravity (`agy` CLI) as a third native agent provider beside Claude and Codex. The CLI offers stream-JSON, an ACP server, conversation resume and MCP, but no confirmed way to disable its built-in tools, so a lockdown spike must come first. This is a minimal placeholder; no proposal is planned yet.
+
+- Change: `antigravity-agent-provider`
+- Status: Proposed
+- Size: Unknown
+- Prerequisites: Tool-lockdown spike not started; BI-006's session protocol and tool server should land first so the adapter targets one provider interface.
+- OpenSpec: [antigravity-agent-provider](../openspec/changes/antigravity-agent-provider/)
 
 ## Fixes
 
