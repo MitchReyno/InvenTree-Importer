@@ -1,7 +1,8 @@
-import { bigint, customType, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { bigint, customType, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type {
-  ProcessingJobDto,
+  ProcessingInputV1Dto,
   ProcessingQuestionDto,
+  ProcessingRelianceDto,
   ProcessingStateDto,
 } from '@invimport/contracts'
 
@@ -29,8 +30,10 @@ export const processingInputs = pgTable('processing_input', {
 export const processingJobs = pgTable('processing_job', {
   id: uuid().primaryKey(),
   batchId: uuid('batch_id').notNull(),
+  // Only the session profiles' batch-level Examine job has a null subject; its reads arrive
+  // with the lead session, so subject jobs keep this narrower row type until then.
   subjectId: uuid('subject_id').notNull(),
-  stage: text().$type<ProcessingJobDto['stage']>().notNull(),
+  stage: text().$type<ProcessingInputV1Dto['stage']>().notNull(),
   revision: bigint({ mode: 'bigint' }).notNull().default(1n),
   currentAttemptId: uuid('current_attempt_id').notNull(),
   state: text().$type<ProcessingStateDto>().notNull(),
@@ -75,6 +78,24 @@ export const processingProposals = pgTable('processing_proposal', {
   messageId: uuid('message_id').notNull(),
   valueBytes: bytea('value_bytes').notNull(),
   valueDigest: bytea('value_digest').notNull(),
+  /** Session proposals only: a projection of the retained value's `relies_on`. */
+  reliesOn: jsonb('relies_on').$type<ProcessingRelianceDto>(),
+})
+
+export const processingProposalStale = pgTable('processing_proposal_stale', {
+  proposalId: uuid('proposal_id').primaryKey(),
+  reason: text()
+    .$type<
+      | 'source_superseded'
+      | 'evidence_removed'
+      | 'answer_received'
+      | 'operator_correction'
+      | 'lot_regrouped'
+      | 'subject_retired'
+    >()
+    .notNull(),
+  supersedingEventId: uuid('superseding_event_id'),
+  createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 })
 
 export const processingQuestions = pgTable('processing_question', {
@@ -99,4 +120,6 @@ export const processingAnswers = pgTable('processing_answer', {
   valueDigest: bytea('value_digest').notNull(),
   continuationAttemptId: uuid('continuation_attempt_id').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  /** Session answers only: the capture revision their receipt returned. */
+  captureRevision: bigint('capture_revision', { mode: 'bigint' }),
 })

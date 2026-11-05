@@ -69,8 +69,9 @@ export function AgentSessions({ client }: { client: ReturnType<typeof agentsClie
           <li key={session.attempt_id}>
             <header>
               <strong>
-                {session.selection.provider === 'codex' ? 'Codex' : 'Claude Code'} ·{' '}
-                {session.selection.model}
+                {session.selection
+                  ? `${session.selection.provider === 'codex' ? 'Codex' : 'Claude Code'} · ${session.selection.model}`
+                  : 'Synthetic session'}
               </strong>
               <span>{session.state.replaceAll('_', ' ')}</span>
             </header>
@@ -79,11 +80,9 @@ export function AgentSessions({ client }: { client: ReturnType<typeof agentsClie
               {!session.latest_on_job && ' · retained historical attempt'}
             </Paragraph>
             <Small>
-              {session.selection.authentication === 'subscription'
-                ? 'Subscription login'
-                : 'API key'}{' '}
-              · default revision {session.settings_revision} · queued{' '}
-              {new Date(session.queued_at).toLocaleString()}
+              {session.selection &&
+                `${session.selection.authentication === 'subscription' ? 'Subscription login' : 'API key'} · default revision ${session.settings_revision} · `}
+              queued {new Date(session.queued_at).toLocaleString()}
             </Small>
             {session.actual_model && <Paragraph>Resolved model: {session.actual_model}</Paragraph>}
             {session.native_session_id && (

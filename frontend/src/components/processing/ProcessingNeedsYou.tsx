@@ -40,6 +40,7 @@ export function ProcessingNeedsYou({ batch, snapshot }: Props) {
                 <a href={`#${batch.id}/processing/${job.stage}/${question.id}`}>
                   {subjectLabel(batch, question.spec.subject_id)} · {job.stage}
                 </a>
+                {question.assumption && <Small>Assuming: {question.assumption}</Small>}
                 {isLot && (
                   <a href={`#${batch.id}/review/${question.spec.subject_id}`}>Open in Review</a>
                 )}

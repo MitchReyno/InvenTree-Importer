@@ -11,6 +11,12 @@ interface Props {
   onDirtyChange: (dirty: boolean) => void
 }
 const EMPTY: AgentSelectionDto = { provider: 'codex', authentication: 'subscription', model: '' }
+type FormValues = AgentSelectionDto & { session_concurrency: number }
+
+const formValues = (settings: AgentSettingsDto): FormValues => ({
+  ...(settings.selection ?? EMPTY),
+  session_concurrency: settings.session_concurrency,
+})
 
 export function AgentSettingsForm({ initial, client, onDirtyChange }: Props) {
   const mounted = useRef(true)
@@ -23,8 +29,8 @@ export function AgentSettingsForm({ initial, client, onDirtyChange }: Props) {
   const [revision, setRevision] = useState(initial.revision)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
-  const { register, handleSubmit, reset, watch, setValue, formState } = useForm<AgentSelectionDto>({
-    defaultValues: initial.selection ?? EMPTY,
+  const { register, handleSubmit, reset, watch, setValue, formState } = useForm<FormValues>({
+    defaultValues: formValues(initial),
   })
   const provider = watch('provider')
   const authentication = watch('authentication')
@@ -33,17 +39,21 @@ export function AgentSettingsForm({ initial, client, onDirtyChange }: Props) {
       ? ['gpt-6.1-sol', 'gpt-6.1-terra', 'gpt-6-astra', 'gpt-6-luna']
       : ['sonnet', 'opus', 'haiku']
 
-  const save = handleSubmit(async (selection) => {
+  const save = handleSubmit(async ({ session_concurrency, ...selection }) => {
     onDirtyChange(true)
     setBusy(true)
     setMessage('')
     try {
-      const saved = await client.saveSettings({ expected_revision: revision, selection })
+      const saved = await client.saveSettings({
+        expected_revision: revision,
+        selection,
+        session_concurrency: Number(session_concurrency),
+      })
       if (!mounted.current) {
         return
       }
       setRevision(saved.revision)
-      reset(saved.selection ?? EMPTY)
+      reset(formValues(saved))
       onDirtyChange(false)
       setMessage(
         'Default saved. New attempts use this selection; queued and running sessions keep their original model.',
@@ -71,7 +81,7 @@ export function AgentSettingsForm({ initial, client, onDirtyChange }: Props) {
         return
       }
       setRevision(current.revision)
-      reset(current.selection ?? EMPTY)
+      reset(formValues(current))
       onDirtyChange(false)
       setMessage('Loaded the current saved default.')
     } catch {
@@ -129,6 +139,20 @@ export function AgentSettingsForm({ initial, client, onDirtyChange }: Props) {
         </datalist>
       </label>
       {formState.errors.model && <Notice role="alert">Choose a valid model ID.</Notice>}
+      <label>
+        Sessions running at once
+        <select {...register('session_concurrency', { valueAsNumber: true })} disabled={busy}>
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((limit) => (
+            <option key={limit} value={limit}>
+              {limit}
+            </option>
+          ))}
+        </select>
+      </label>
+      <Paragraph>
+        Sessions waiting for an answer or finished hold no slot. Lowering the limit lets running
+        sessions finish; only new starts wait.
+      </Paragraph>
       <Paragraph>
         Presets do not verify account access. Claude aliases resolve when the CLI starts; sessions
         also record the resolved model. There is no automatic model or billing fallback.

@@ -23,6 +23,8 @@ import { researchSchemas } from './research.ts'
 import { agentSchemas } from './agents.ts'
 export * from './agents.ts'
 import { liveSchemas } from './live.ts'
+import { sessionSchemas } from './sessions.ts'
+export * from './sessions.ts'
 export * from './live.ts'
 export * from './scalars.ts'
 export * from './capture.ts'
@@ -170,6 +172,7 @@ export const schemas = {
   ...mediaSchemas,
   ...liveSchemas,
   ...agentSchemas,
+  ...sessionSchemas,
 }
 export type BootstrapDto = Static<typeof Bootstrap>
 export type ApprovalDto = Static<typeof Approval>

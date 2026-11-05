@@ -21,7 +21,7 @@ import {
   processingMediaFor,
   type ProcessingMediaAvailability,
 } from './media.ts'
-import { decodeProcessingInput, fail, mediaProfileId } from './model.ts'
+import { fail, mediaProfileId } from './model.ts'
 import {
   MAX_JOB_RESULTS,
   MAX_JOBS_PER_BATCH,
@@ -29,7 +29,15 @@ import {
   MIN_CHANNEL_SECRET_BYTES,
   MAX_ACTIVITY_BATCHES,
 } from './limits.ts'
-import { retainedQuestionSpec, retainedProposalValue } from './retained.ts'
+import {
+  isSessionMessage,
+  retainedQuestionSpec,
+  retainedProposalValue,
+  retainedSessionProposal,
+  retainedSessionQuestion,
+} from './retained.ts'
+import { decodeJobInput } from './session-input.ts'
+import { agentSessions } from '../agents/schema.ts'
 import { verifyRetainedResearchSources } from './research-sources.ts'
 import { canCancelProcessingAttempt } from './state.ts'
 import {
@@ -90,6 +98,18 @@ async function inputCurrency(
   capture: CaptureSnapshotDto,
   media: ProcessingMediaAvailability,
 ): Promise<InputCurrency> {
+  const input = decodeJobInput(job.inputBytes, job.inputDigest)
+  if (input.schema_version === 'bench-intake-input/6') {
+    // Per-proposal currentness replaces whole-input sealing for sessions (design D5).
+    if (!media.available) {
+      return { current: false, blockedCode: media.blockedCode }
+    }
+    const current = job.currentAttemptId === job.attemptId && !capture.archived
+    const incompatibleQueued =
+      job.attemptState === 'queued' &&
+      input.profile_id !== String(config.profileId ?? mediaProfileId)
+    return incompatibleQueued ? { current, blockedCode: 'worker_version_conflict' } : { current }
+  }
   const authority = await loadProcessingAuthority(client, config, job.attemptId)
   const manifest = authority.manifest
   const dependencies = await processingDependencyStatus(client, config, authority)
@@ -117,7 +137,7 @@ async function proposalsForJob(
   config: ProcessingConfig,
   job: SelectedJob,
 ): Promise<ProcessingJobDto['proposals']> {
-  const manifest = decodeProcessingInput(job.inputBytes, job.inputDigest)
+  const manifest = decodeJobInput(job.inputBytes, job.inputDigest)
   const proposals = await executeDatabaseQuery(
     queryDatabase(client)
       .select({
@@ -142,6 +162,17 @@ async function proposalsForJob(
   }
   const projected: ProcessingJobDto['proposals'] = []
   for (const proposal of proposals) {
+    if (isSessionMessage(proposal)) {
+      if (manifest.schema_version !== 'bench-intake-input/6') {
+        fail('retained_proposal_binding_invalid')
+      }
+      const value = retainedSessionProposal(proposal, job.subjectId, manifest)
+      projected.push({ id: proposal.id, message_id: proposal.messageId, value })
+      continue
+    }
+    if (manifest.schema_version === 'bench-intake-input/6') {
+      fail('retained_proposal_binding_invalid')
+    }
     const value = retainedProposalValue(proposal, job.subjectId, manifest)
     await verifyRetainedResearchSources(
       client,
@@ -196,7 +227,7 @@ async function questionsForJob(
       input_sha256: question.manifestDigest.toString('hex'),
       revision: question.revision.toString(),
       state: staleOpenQuestion ? 'superseded' : question.state,
-      spec: retainedQuestionSpec(question, job.subjectId),
+      ...questionSpec(question, job.subjectId),
     }
   })
 }
@@ -214,8 +245,26 @@ export async function processingSnapshot(
     capture,
     retainedJobs.map((job) => job.subjectId),
   )
+  const sessionStates = new Map(
+    retainedJobs.length
+      ? (
+          await executeDatabaseQuery(
+            queryDatabase(client)
+              .select({ attemptId: agentSessions.attemptId, state: agentSessions.sessionState })
+              .from(agentSessions)
+              .where(
+                inArray(
+                  agentSessions.attemptId,
+                  retainedJobs.map((job) => job.attemptId),
+                ),
+              ),
+          )
+        ).map((row) => [row.attemptId, row.state])
+      : [],
+  )
   const jobs: ProcessingJobDto[] = []
   for (const job of retainedJobs) {
+    const sessionState = sessionStates.get(job.attemptId)
     const currency = await inputCurrency(
       client,
       config,
@@ -242,6 +291,7 @@ export async function processingSnapshot(
         capture.archived,
       ),
       ...(currency.blockedCode ? { blocked_code: currency.blockedCode } : {}),
+      ...(sessionState ? { session_state: sessionState } : {}),
       proposals,
       questions,
     })
@@ -418,7 +468,9 @@ export async function inboxProcessing(
     return { open_questions: 0, active_jobs: 0 }
   }
   const snapshot = await processingSnapshot(client, config, capture)
-  const jobs = snapshot.jobs.filter((job) => activeSubjects.has(job.subject_id))
+  const jobs = snapshot.jobs.filter(
+    (job) => job.subject_id !== null && activeSubjects.has(job.subject_id),
+  )
   return {
     open_questions: jobs
       .flatMap((job) => job.questions)
@@ -431,9 +483,31 @@ function jobManifestQualification(
   bytes: Buffer,
   digest: Buffer,
 ): ProcessingJobDto['qualification'] {
-  return decodeProcessingInput(bytes, digest).profile_id === 'native-agent/1'
+  const profileId = decodeJobInput(bytes, digest).profile_id
+  return profileId === 'native-agent/1' || profileId === 'native-agent/2'
     ? 'native_unverified'
     : 'fixture_only'
+}
+
+/** Session questions also carry the fields they affect and the assumption in use. */
+function questionSpec(
+  question: Parameters<typeof retainedQuestionSpec>[0],
+  subjectId: string,
+): Pick<ProcessingJobDto['questions'][number], 'spec' | 'fields' | 'assumption'> {
+  if (!isSessionMessage(question)) {
+    return { spec: retainedQuestionSpec(question, subjectId) }
+  }
+  const ask = retainedSessionQuestion(question, subjectId)
+  return {
+    spec: {
+      kind: ask.kind,
+      subject_id: ask.subject_id ?? fail('retained_question_binding_invalid'),
+      prompt: ask.prompt,
+      reason: ask.reason,
+    },
+    fields: ask.fields,
+    assumption: ask.assumption,
+  }
 }
 
 function configuredRunnerStatus(
@@ -443,5 +517,7 @@ function configuredRunnerStatus(
   if (!configured) {
     return 'unconfigured'
   }
-  return config.profileId === 'native-agent/1' ? 'native_unverified' : 'fixture_only'
+  return config.profileId === 'native-agent/1' || config.profileId === 'native-agent/2'
+    ? 'native_unverified'
+    : 'fixture_only'
 }

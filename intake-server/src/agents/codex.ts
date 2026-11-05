@@ -6,7 +6,7 @@ import type { NativeAgentHost } from './environment.ts'
 import { NativeAgentResult, decodeNativeResult } from './result.ts'
 import type { NativePrompt, NativeProgress } from './types.ts'
 
-const CODEX_CONFIG: Record<string, unknown> = {
+export const CODEX_CONFIG: Record<string, unknown> = {
   approval_policy: 'never',
   sandbox_mode: 'read-only',
   web_search: 'disabled',
@@ -22,7 +22,8 @@ const CODEX_CONFIG: Record<string, unknown> = {
   'history.persistence': 'none',
 }
 
-async function rejectHostCustomizations(home: string) {
+/** The dedicated home must hold no configuration, hooks, skills or plugins of its own. */
+export async function rejectHostCustomizations(home: string) {
   for (const name of ['config.toml', 'hooks.json', 'skills', 'plugins']) {
     try {
       await lstat(join(home, name))

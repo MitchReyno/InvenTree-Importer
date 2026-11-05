@@ -88,7 +88,7 @@ export function LotEvidence({
   const evidence = linkedEvidence(media, subjects)
   const proposals =
     processing?.jobs
-      .filter((job) => subjects.has(job.subject_id))
+      .filter((job) => job.subject_id !== null && subjects.has(job.subject_id))
       .flatMap((job) => job.proposals.map((proposal) => ({ job, proposal }))) ?? []
   return (
     <>

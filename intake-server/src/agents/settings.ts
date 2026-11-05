@@ -6,6 +6,8 @@ import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database
 import { fail } from '../processing/model.ts'
 import { agentSettings } from './schema.ts'
 
+export const DEFAULT_SESSION_CONCURRENCY = 3
+
 function settingsScope(binding: CaptureBinding) {
   return and(
     eq(agentSettings.actorId, binding.actorId),
@@ -23,11 +25,12 @@ export async function readAgentSettings(
   const rows = await executeDatabaseQuery(lock ? query.for('share') : query)
   const row = rows[0]
   if (!row) {
-    return { revision: '0', selection: null }
+    return { revision: '0', selection: null, session_concurrency: DEFAULT_SESSION_CONCURRENCY }
   }
   return {
     revision: row.revision.toString(),
     selection: { provider: row.provider, authentication: row.authentication, model: row.model },
+    session_concurrency: row.sessionConcurrency,
   }
 }
 
@@ -37,6 +40,8 @@ export async function saveAgentSettings(
   input: AgentSettingsUpdateDto,
 ) {
   validate('AgentSettingsUpdate', input)
+  const concurrency =
+    input.session_concurrency === undefined ? {} : { sessionConcurrency: input.session_concurrency }
   return transaction(pool, async (client) => {
     const db = queryDatabase(client)
     if (input.expected_revision === '0') {
@@ -48,6 +53,7 @@ export async function saveAgentSettings(
             targetId: binding.targetId,
             targetContextId: binding.targetContextId,
             ...input.selection,
+            ...concurrency,
             revision: 1n,
           })
           .onConflictDoNothing()
@@ -60,7 +66,11 @@ export async function saveAgentSettings(
       const updated = await executeDatabaseQuery(
         db
           .update(agentSettings)
-          .set({ ...input.selection, revision: BigInt(input.expected_revision) + 1n })
+          .set({
+            ...input.selection,
+            ...concurrency,
+            revision: BigInt(input.expected_revision) + 1n,
+          })
           .where(
             and(
               settingsScope(binding),

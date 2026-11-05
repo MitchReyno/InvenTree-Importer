@@ -104,7 +104,7 @@ for (const provider of ['codex', 'claude'] as const) {
           session = (await listAgentSessions(fixture.api.pool, fixture.config)).sessions[0]
         }
         assert.equal(session.state, 'ready', output)
-        assert.equal(session.selection.model, `controlled-${provider}-model`)
+        assert.equal(session.selection?.model, `controlled-${provider}-model`)
         assert.equal(session.actual_model, `controlled-${provider}-model`)
         assert.ok(session.native_session_id)
         assert.equal(session.progress, 'settled')

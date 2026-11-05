@@ -1,4 +1,6 @@
 import { processingProfiles } from './policy.ts'
+import { createSessionAttempt } from './session-attempts.ts'
+import { isSessionProfile } from './session-policy.ts'
 import type { ProcessingInputDto } from '@invimport/contracts'
 import { readAgentSettings } from '../agents/settings.ts'
 import { agentSessions } from '../agents/schema.ts'
@@ -52,10 +54,25 @@ export async function createAttempt(
   parentId: string | null = null,
   answerId: string | null = null,
 ) {
+  const selectedProfile = config.profileId ?? mediaProfileId
+  if (isSessionProfile(selectedProfile)) {
+    if (dependencies.length || answerId) {
+      fail('unsupported_processing_input')
+    }
+    return createSessionAttempt(
+      client,
+      config,
+      selectedProfile,
+      snapshot,
+      job,
+      number,
+      media,
+      parentId,
+    )
+  }
   const attemptId = randomUUID()
   const inputId = randomUUID()
   const commandId = randomUUID()
-  const selectedProfile = config.profileId ?? mediaProfileId
   const restricted = selectedProfile === researchProfileId
   const native = selectedProfile === nativeProfileId
   const profile = processingProfiles[selectedProfile]
