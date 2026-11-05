@@ -6,7 +6,7 @@ This change delivers [BI-006](../PLANNED_FUNCTIONALITY.md#bi-006--agent-led-inta
 
 | Bundle | Tasks | Branch | State |
 | --- | --- | --- | --- |
-| PR-A resumable sessions | 1–6 | `feat/simplify-intake-entry-sessions` | Tasks 1–4 done; tasks 5–6 pending |
+| PR-A resumable sessions | 1–6 | `feat/simplify-intake-entry-sessions` | Tasks 1–5 done; task 6 pending |
 | PR-B lot forming | 7–9 | `feat/simplify-intake-entry-lot-forming` | Not started; needs PR-A merged |
 | PR-C per-lot pipeline | 10–12 | `feat/simplify-intake-entry-examine-pipeline` | Not started; needs PR-B merged |
 | PR-D live qualification | 13 | `feat/simplify-intake-entry-live-qualification` | Held until live provider use is authorized |
@@ -229,6 +229,33 @@ For this task the adapters and runner were written before the fake-CLI tests, no
 - `pnpm db:intake test`: 176 passed.
 - `pnpm db:intake test:process`: 57 tests, 53 passed, 1 failed, 3 skipped. The failure and skips are the pre-existing media sandbox memory check from task 3.1. The `/1` adapter tests and the duplicate-supervisor fence pass unchanged; the 13 new tests pass.
 - Remaining live unknowns, for task 13: whether real models call the tools reliably, act on in-turn input, and resume with full context; the subscription login paths.
+
+## Task 5: session slots and concurrency
+
+### Baseline (task 5.1)
+
+The task 4 runs are the baseline for the lane and settings tests: PostgreSQL 176 passed; process 57 tests with only the pre-existing media failure and its skips.
+
+### What changed
+
+- `AgentSettings` returns `session_concurrency` (1–8; 3 when no default is saved), and `AgentSettingsUpdate` takes it optionally, saved with the same expected-revision write. The Agent settings form has a "Sessions running at once" select.
+- `agents/slots.ts` claims and releases slots. Claims for one actor are serialized with a transaction-scoped advisory lock; the limit is read on each claim; a `/1` lane holder counts as one slot; queued sessions without a slot start oldest first; the slot row is taken with `FOR UPDATE SKIP LOCKED`. Lowering the limit only stops new claims.
+- `runSessionTurn` claims a slot in the same transaction as the `queued → running` change. Without one the session stays queued and the workflow re-checks every 500 ms; DBOS's cap of 8 sits above any limit. Settlement releases the slot; an unconfirmed reap rethrows before settlement, so its slot stays occupied.
+- The supervisor fence (`acquireAgentSupervisor`) also refuses to start while any session slot is occupied (`agent_reap_confirmation_required`), as it already did for an occupied lane: session children run in their own process group and can outlive the worker. As for `/1`, confirming termination and clearing the slot is an explicit maintenance step, not a browser action.
+- `bench-sessions` is registered by the session worker (task 4). Session commands are authorized from the retained command row; `loadProcessingAuthority` keeps rejecting `bench-sessions`, and task 5's text was aligned with design D9.
+
+### Tests
+
+- `tests/pg/session-slots.test.ts` (6 tests): with a limit of 3 the fourth session waits and starts when a slot frees, and a held claim is not doubled; queued sessions start oldest first; lowering the limit leaves holders alone and only stops new claims; a `/1` lane holder counts as one slot, and an occupied slot blocks a new supervisor until released; the settings API saves and returns the limit; two concurrent claims cannot both take the last slot.
+- `tests/process/session-worker.test.ts` adds a run of the session worker with the `hold` fake: four lots started with a limit of 3 give three running sessions and one queued, three slots held; releasing one starts the fourth; all four finish and no slot stays held.
+- The Agent settings form test covers saving the limit with the loaded revision.
+
+### Results (task 5.4, 5.5)
+
+- `pnpm contracts:check` clean; `pnpm typecheck`, `pnpm lint:readability`, `pnpm lint:frontend` and Prettier pass.
+- `pnpm test:intake`: 72 contract and 181 intake-server tests passed. `pnpm test:frontend`: 311 passed.
+- `pnpm db:intake test`: 182 passed. The first run had one failure, the `/1` native settings test expecting the old settings shape without `session_concurrency`; its expectations were updated and the file passed (4 tests).
+- `pnpm db:intake test:process`: 58 tests, 54 passed, with only the pre-existing media failure and its 3 skips. The `/1` lane occupancy and fence tests pass unchanged.
 
 ## Validation
 

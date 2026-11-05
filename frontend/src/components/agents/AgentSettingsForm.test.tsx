@@ -7,6 +7,7 @@ import type { agentsClient } from '@invimport/contracts/client'
 const initial = {
   revision: '7',
   selection: { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
+  session_concurrency: 3,
 } as const
 
 function client() {
@@ -29,10 +30,25 @@ test('saving the global default pins the loaded revision and clears the dirty gu
     expect(api.saveSettings).toHaveBeenCalledWith({
       expected_revision: '7',
       selection: { provider: 'claude', authentication: 'subscription', model: 'opus' },
+      session_concurrency: 3,
     }),
   )
   await screen.findByText(/New attempts use this selection/)
   expect(dirty).toHaveBeenLastCalledWith(false)
+})
+
+test('the running-session limit is saved with the loaded revision', async () => {
+  const api = client()
+  render(<AgentSettingsForm initial={initial} client={api} onDirtyChange={vi.fn()} />)
+  fireEvent.change(screen.getByLabelText('Sessions running at once'), { target: { value: '5' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save default' }))
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith({
+      expected_revision: '7',
+      selection: { provider: 'claude', authentication: 'subscription', model: 'sonnet' },
+      session_concurrency: 5,
+    }),
+  )
 })
 
 test('a failed save preserves the draft, route and expected revision rather than silently adopting a newer setting', async () => {

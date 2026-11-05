@@ -143,3 +143,149 @@ test(
     assert.deepEqual(session.rows[0], { session_state: 'finished', capability_sha256: null })
   },
 )
+
+test(
+  'three sessions run at once through the real queue while a fourth waits for a slot',
+  { timeout: 150000 },
+  async (t) => {
+    const { readFile, writeFile } = await import('node:fs/promises')
+    const { existsSync } = await import('node:fs')
+    const fixture = await processingFixture({ profileId: 'native-agent/2' })
+    t.after(() => fixture.dispose())
+    const capture = await fixture.seedCapture()
+    await capture.edit({
+      kind: 'add_lot',
+      label: 'Packet C',
+      note: 'Third packet.',
+      part_subject_id: null,
+    })
+    await capture.edit({
+      kind: 'add_lot',
+      label: 'Packet D',
+      note: 'Fourth packet.',
+      part_subject_id: null,
+    })
+    const { saveAgentSettings } = await import('../../src/agents/settings.ts')
+    await saveAgentSettings(fixture.api.pool, fixture.config, {
+      expected_revision: '0',
+      selection: { provider: 'claude', authentication: 'api_key', model: 'fake-claude-model' },
+      session_concurrency: 3,
+    })
+    const root = await mkdtemp(join(tmpdir(), 'session-slots-test-'))
+    const executable = join(root, 'provider.cjs')
+    await writeFile(
+      executable,
+      "#!/usr/bin/env node\nconst FORCED_MODE = 'hold'\n" +
+        (await readFile(new URL('../fixtures/session-agent.cjs', import.meta.url), 'utf8')),
+      { mode: 0o700 },
+    )
+    const stateRoot = join(root, 'state')
+    await mkdir(stateRoot, { mode: 0o700 })
+    const worker = spawn(
+      process.execPath,
+      [
+        '--import',
+        'tsx',
+        fileURLToPath(new URL('../../src/agents/session-worker-main.ts', import.meta.url)),
+      ],
+      {
+        cwd: fileURLToPath(new URL('../../', import.meta.url)),
+        env: {
+          PATH: process.env.PATH,
+          HOME: root,
+          USER: process.env.USER,
+          INTAKE_AGENT_DATABASE_URL: fixture.runner.url,
+          INTAKE_AGENT_SCHEDULER_DATABASE_URL: fixture.scheduler.url,
+          INTAKE_AGENT_STATE_ROOT: stateRoot,
+          INTAKE_CLAUDE_EXECUTABLE: executable,
+          INTAKE_CODEX_EXECUTABLE: executable,
+          ANTHROPIC_API_KEY: 'synthetic-only',
+          INTAKE_ACTOR_ID: fixture.config.actorId,
+          INTAKE_TARGET_ID: fixture.config.targetId,
+          INTAKE_TARGET_CONTEXT_ID: fixture.config.targetContextId,
+          INTAKE_PROCESSING_CHANNEL_SECRET: fixture.config.channelSecret,
+          INTAKE_PROCESSING_PROFILE: 'native-agent/2',
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    let output = ''
+    worker.stdout.on('data', (bytes: Buffer) => (output += bytes.toString()))
+    worker.stderr.on('data', (bytes: Buffer) => (output += bytes.toString()))
+    const exited = new Promise<number | null>((resolve) => worker.once('exit', resolve))
+    t.after(async () => {
+      if (worker.exitCode === null) {
+        worker.kill('SIGTERM')
+        await exited
+      }
+    })
+    const until = async <T>(read: () => Promise<T>, done: (value: T) => boolean, label: string) => {
+      const deadline = Date.now() + 60000
+      let value = await read()
+      while (!done(value) && Date.now() < deadline && worker.exitCode === null) {
+        await delay(200)
+        value = await read()
+      }
+      assert.ok(done(value), `${label}: ${JSON.stringify(value)}\n${output}`)
+      return value
+    }
+    await until(
+      async () => output,
+      (text) => text.includes('session supervisor ready'),
+      'ready',
+    )
+    const started = await fixture.http(`/batches/${capture.batch.id}/processing`, {
+      schema_version: 'bench-intake-processing/1',
+      expected_capture_revision: capture.batch.revision,
+      subject_ids: capture.batch.lots.map((lot) => lot.id),
+      stages: ['research'],
+    })
+    assert.equal(started.status, 202, JSON.stringify(started.value))
+    const states = async () =>
+      (
+        await fixture.db.pool.query<{ session_state: string; job: string }>(
+          `SELECT s.session_state, a.job_id AS job FROM agent_session s
+           JOIN processing_attempt a ON a.id=s.attempt_id ORDER BY s.queued_at, s.attempt_id`,
+        )
+      ).rows
+    const settled = await until(
+      states,
+      (rows) =>
+        rows.length === 4 &&
+        rows.filter((row) => row.session_state === 'running').length === 3 &&
+        rows.filter((row) => row.session_state === 'queued').length === 1,
+      'three running, one queued',
+    )
+    await delay(1500)
+    const still = await states()
+    assert.equal(still.filter((row) => row.session_state === 'running').length, 3)
+    const slots = await fixture.db.pool.query(
+      'SELECT 1 FROM agent_slot WHERE attempt_id IS NOT NULL',
+    )
+    assert.equal(slots.rowCount, 3)
+
+    const releaseJob = (job: string) => writeFile(join(stateRoot, 'sessions', job, 'release'), '')
+    const running = settled.filter((row) => row.session_state === 'running')
+    await releaseJob(running[0].job)
+    const waiting = settled.find((row) => row.session_state === 'queued')!
+    await until(
+      async () => (await states()).find((row) => row.job === waiting.job)?.session_state,
+      (value) => value === 'running',
+      'the fourth session starts once a slot frees',
+    )
+    for (const row of settled) {
+      if (!existsSync(join(stateRoot, 'sessions', row.job, 'release'))) {
+        await releaseJob(row.job)
+      }
+    }
+    await until(
+      states,
+      (rows) => rows.every((row) => row.session_state === 'finished'),
+      'all four finish',
+    )
+    const free = await fixture.db.pool.query(
+      'SELECT 1 FROM agent_slot WHERE attempt_id IS NOT NULL',
+    )
+    assert.equal(free.rowCount, 0)
+  },
+)

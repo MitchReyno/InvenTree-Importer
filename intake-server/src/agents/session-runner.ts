@@ -22,6 +22,7 @@ import { agentEnvironment, privateDirectory, type NativeAgentHost } from './envi
 import { recordSessionProgress } from './sessions.ts'
 import { issueSessionCapability, revokeSessionCapability } from './tools/capability.ts'
 import { pendingSessionInbox } from './tools/inbox.ts'
+import { claimSessionSlot, releaseSessionSlot } from './slots.ts'
 import {
   runClaudeSession,
   runCodexSession,
@@ -31,6 +32,8 @@ import {
 import { ResearchReapPendingError } from '../research/errors.ts'
 
 /** Tools every session gets; the lot-forming tools are added for the Examine lead session. */
+const SLOT_WAIT_MS = 500
+
 export const SESSION_TOOLS = ['ask', 'fetch_evidence', 'propose', 'read_inbox', 'reply', 'status']
 
 type AttemptState = Parameters<typeof transitionAttempt>[3]
@@ -211,52 +214,70 @@ export async function runSessionTurn(
   signal: AbortSignal,
 ) {
   const { pool, config, host } = deps
-  const claimed = await transaction(pool, async (client) => {
-    const rows = await executeDatabaseQuery(
-      queryDatabase(client)
-        .select({
-          state: agentSessions.sessionState,
-          lineageId: agentSessions.sessionLineageId,
-          providerSessionId: agentSessions.nativeSessionId,
-          jobId: processingAttempts.jobId,
-          batchId: processingAttempts.batchId,
-          inputBytes: processingInputs.manifestBytes,
-          inputDigest: processingInputs.manifestDigest,
-          instructions: processingProfileRecords.instructionBytes,
-          instructionDigest: processingProfileRecords.instructionDigest,
-        })
-        .from(agentSessions)
-        .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
-        .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
-        .innerJoin(
-          processingProfileRecords,
-          eq(processingProfileRecords.id, processingAttempts.profileId),
-        )
-        .where(eq(agentSessions.attemptId, attemptId)),
-    )
-    const row = rows[0]
-    if (!row || row.lineageId !== row.jobId) {
-      throw new Error('session_not_queued')
+
+  const claim = () =>
+    transaction(pool, async (client) => {
+      const rows = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({
+            state: agentSessions.sessionState,
+            lineageId: agentSessions.sessionLineageId,
+            providerSessionId: agentSessions.nativeSessionId,
+            jobId: processingAttempts.jobId,
+            batchId: processingAttempts.batchId,
+            inputBytes: processingInputs.manifestBytes,
+            inputDigest: processingInputs.manifestDigest,
+            instructions: processingProfileRecords.instructionBytes,
+            instructionDigest: processingProfileRecords.instructionDigest,
+          })
+          .from(agentSessions)
+          .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
+          .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
+          .innerJoin(
+            processingProfileRecords,
+            eq(processingProfileRecords.id, processingAttempts.profileId),
+          )
+          .where(eq(agentSessions.attemptId, attemptId)),
+      )
+      const row = rows[0]
+      if (!row || row.lineageId !== row.jobId) {
+        throw new Error('session_not_queued')
+      }
+      const manifest = decodeSessionInput(row.inputBytes, row.inputDigest)
+      if (
+        row.instructionDigest.toString('hex') !== manifest.instruction_sha256 ||
+        !sha256(row.instructions).equals(row.instructionDigest)
+      ) {
+        throw new Error('agent_input_invalid')
+      }
+      if (row.state !== 'queued') {
+        throw new Error('session_not_queued')
+      }
+      // Without a free slot the session stays queued; the caller waits and tries again.
+      if (!(await claimSessionSlot(client, config, attemptId))) {
+        return undefined
+      }
+      if (!(await setSessionState(client, attemptId, row.jobId, 'running', ['queued']))) {
+        throw new Error('session_not_queued')
+      }
+      const capability = await issueSessionCapability(client, attemptId)
+      await publish(client, row.batchId)
+      return {
+        ...row,
+        manifest,
+        capability,
+        pending: await pendingSessionInbox(client, row.jobId),
+      }
+    })
+
+  let claimed = await claim()
+  while (!claimed) {
+    await new Promise((resolve) => setTimeout(resolve, SLOT_WAIT_MS))
+    if (signal.aborted) {
+      return 'queued' as const
     }
-    const manifest = decodeSessionInput(row.inputBytes, row.inputDigest)
-    if (
-      row.instructionDigest.toString('hex') !== manifest.instruction_sha256 ||
-      !sha256(row.instructions).equals(row.instructionDigest)
-    ) {
-      throw new Error('agent_input_invalid')
-    }
-    if (!(await setSessionState(client, attemptId, row.jobId, 'running', ['queued']))) {
-      throw new Error('session_not_queued')
-    }
-    const capability = await issueSessionCapability(client, attemptId)
-    await publish(client, row.batchId)
-    return {
-      ...row,
-      manifest,
-      capability,
-      pending: await pendingSessionInbox(client, row.jobId),
-    }
-  })
+    claimed = await claim()
+  }
 
   let delivered = await transaction(pool, async (client) => {
     const cursor = await client.query<{ acked_seq: string }>(
@@ -334,6 +355,7 @@ export async function runSessionTurn(
 
   return transaction(pool, async (client) => {
     await revokeSessionCapability(client, attemptId)
+    await releaseSessionSlot(client, attemptId)
     if (next === 'finished') {
       const pending = await pendingSessionInbox(client, claimed.jobId)
       const open = await executeDatabaseQuery(

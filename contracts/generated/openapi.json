@@ -57144,7 +57144,8 @@
         "type": "object",
         "required": [
           "revision",
-          "selection"
+          "selection",
+          "session_concurrency"
         ],
         "properties": {
           "revision": {
@@ -57199,6 +57200,11 @@
                 "type": "null"
               }
             ]
+          },
+          "session_concurrency": {
+            "minimum": 1,
+            "maximum": 8,
+            "type": "integer"
           }
         }
       },
@@ -57255,6 +57261,11 @@
                 "type": "string"
               }
             }
+          },
+          "session_concurrency": {
+            "minimum": 1,
+            "maximum": 8,
+            "type": "integer"
           }
         }
       },

@@ -345,7 +345,7 @@ export function nativeInputManifest(
   dependencies: string[],
   answerId: string | null,
   media: RetainedMediaDescriptor,
-  settings: AgentSettingsDto,
+  settings: Pick<AgentSettingsDto, 'revision' | 'selection'>,
 ): ProcessingInputV4Dto {
   if (!settings.selection || settings.revision === '0') {
     fail('agent_default_required', 422)

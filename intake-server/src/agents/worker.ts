@@ -19,7 +19,12 @@ export async function acquireAgentSupervisor(
       'SELECT attempt_id FROM public.processing_lane WHERE actor_id=$1 AND attempt_id IS NOT NULL',
       [config.actorId],
     )
-    if (lane.rowCount) {
+    const slots = await owner.query(
+      'SELECT attempt_id FROM public.agent_slot WHERE actor_id=$1 AND attempt_id IS NOT NULL',
+      [config.actorId],
+    )
+    // A session child may outlive its worker, so an occupied slot needs the same confirmation.
+    if (lane.rowCount || slots.rowCount) {
       throw new Error('agent_reap_confirmation_required')
     }
     return owner

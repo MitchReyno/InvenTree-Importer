@@ -9,7 +9,9 @@ const args = process.argv.slice(2)
 // private session directory the child runs in.
 const settingsFile = path.join(process.cwd(), 'fake-session.json')
 const settings = fs.existsSync(settingsFile) ? JSON.parse(fs.readFileSync(settingsFile, 'utf8')) : {}
-const mode = settings.mode ?? 'normal'
+// A test that cannot reach the session directory first may bake a mode into the executable.
+// eslint-disable-next-line no-undef
+const mode = settings.mode ?? (typeof FORCED_MODE === 'string' ? FORCED_MODE : 'normal')
 const log = (entry) => {
   if (settings.log) {
     fs.appendFileSync(settings.log, JSON.stringify(entry) + '\n')
@@ -65,6 +67,12 @@ async function work(waitForDelivery) {
   }
   if (mode === 'ignore-sigterm') {
     await new Promise(() => {})
+  }
+  if (mode === 'hold') {
+    log({ event: 'holding', cwd: process.cwd() })
+    while (!fs.existsSync(path.join(process.cwd(), 'release'))) {
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
   }
   if (mode === 'deliver') {
     const delivered = await waitForDelivery()

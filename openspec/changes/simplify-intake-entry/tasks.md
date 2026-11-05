@@ -165,21 +165,21 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Outcome:** a configurable limit on running sessions (1–8, default 3). Waiting, paused and finished sessions hold no slot, and `/1` lane holders consume one slot.
 - **Scope and approach:**
   - `agent_slot` claim with `SKIP LOCKED`, reading the limit from Agent settings with expected-revision writes.
-  - A new `bench-sessions` DBOS queue in `worker-main.ts` (`workerConcurrency: 8`, `globalConcurrency: 8`, shared Processing application name). `bench-research` keeps its single-lane caps for `/1`. `loadProcessingAuthority` (`processing/authority.ts`) accepts `bench-sessions` for `/2` commands only.
+  - A new `bench-sessions` DBOS queue in the session worker (`agents/session-worker-main.ts`, `workerConcurrency: 8`, `globalConcurrency: 8`, shared Processing application name). `bench-research` keeps its single-lane caps for `/1`. Session commands are authorized by the session worker from the retained command row; `loadProcessingAuthority` keeps rejecting `bench-sessions` (design D9).
   - Settings contract and settings form field.
 - **Prerequisites:** task 2.
 - **Acceptance:** "Fourth session queues"; lowering the limit never aborts a running session; an unconfirmed reap keeps its slot.
 - **TDD approach:**
-  - RED (PG): with a limit of 3, the fourth session stays queued; waiting frees a slot; `/1` and `/2` together never exceed the limit; authority loading accepts `bench-sessions` for a `/2` command and still rejects it for `/1`; the API role can update the concurrency column.
+  - RED (PG): with a limit of 3, the fourth session stays queued; waiting frees a slot; `/1` and `/2` together never exceed the limit; an occupied slot blocks a second supervisor, as an occupied lane does; the API role can update the concurrency column.
   - GREEN: implement slots.
 - **Verification:** `pnpm test:intake:pg`, frontend settings test.
 - **Risks and decisions:** none.
 
-- [ ] 5.1 Baseline the lane and settings tests.
-- [ ] 5.2 RED: slot-limit, waiting-release, limit-change and mixed-profile regressions, plus a process test showing that three sessions run concurrently through the real DBOS queue.
-- [ ] 5.3 GREEN: slots, settings field and worker queue configuration.
-- [ ] 5.4 Verify the lane occupancy rules for `/1` are unchanged.
-- [ ] 5.5 Record the results.
+- [x] 5.1 Baseline the lane and settings tests.
+- [x] 5.2 RED: slot-limit, waiting-release, limit-change and mixed-profile regressions, plus a process test showing that three sessions run concurrently through the real DBOS queue.
+- [x] 5.3 GREEN: slots, settings field and worker queue configuration.
+- [x] 5.4 Verify the lane occupancy rules for `/1` are unchanged.
+- [x] 5.5 Record the results.
 
 ## 6. Session timeline, chat, Needs you and header status
 

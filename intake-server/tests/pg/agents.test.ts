@@ -24,6 +24,7 @@ test('native settings bind at queue time, conflict safely, survive completion an
     assert.deepEqual(await readAgentSettings(fixture.api.pool, fixture.config), {
       revision: '0',
       selection: null,
+      session_concurrency: 3,
     })
     const start = {
       schema_version: 'bench-intake-processing/1',
@@ -119,7 +120,7 @@ test('native settings bind at queue time, conflict safely, survive completion an
     )
     assert.deepEqual(
       await readAgentSettings(fixture.api.pool, { ...fixture.config, actorId: randomUUID() }),
-      { revision: '0', selection: null },
+      { revision: '0', selection: null, session_concurrency: 3 },
     )
     await assert.rejects(
       listAgentSessions(

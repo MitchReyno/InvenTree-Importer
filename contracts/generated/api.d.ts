@@ -13342,6 +13342,7 @@ export interface components {
                 authentication: "api_key" | "subscription";
                 model: string;
             } | null;
+            session_concurrency: number;
         };
         AgentSettingsUpdate: {
             /** Format: int64 */
@@ -13351,6 +13352,7 @@ export interface components {
                 authentication: "api_key" | "subscription";
                 model: string;
             };
+            session_concurrency?: number;
         };
         AgentSessionList: {
             sessions: {

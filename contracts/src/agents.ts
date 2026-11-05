@@ -12,13 +12,18 @@ const object = <T extends TProperties>(properties: T) =>
 
 import { AgentSelection } from './agent-selection.ts'
 export { AgentSelection, type AgentSelectionDto } from './agent-selection.ts'
+/** How many sessions may run provider turns at once; waiting sessions hold no slot. */
+export const SessionConcurrency = Type.Integer({ minimum: 1, maximum: 8 })
 export const AgentSettings = object({
   revision: CursorSequence,
   selection: Type.Union([AgentSelection, Type.Null()]),
+  session_concurrency: SessionConcurrency,
 })
 export const AgentSettingsUpdate = object({
   expected_revision: CursorSequence,
   selection: AgentSelection,
+  /** Omitted keeps the saved limit (3 until first set). */
+  session_concurrency: Type.Optional(SessionConcurrency),
 })
 export const AgentSessionList = object({
   sessions: Type.Array(
