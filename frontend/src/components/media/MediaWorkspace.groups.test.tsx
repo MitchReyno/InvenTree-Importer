@@ -1,4 +1,4 @@
-import { screen, within, waitFor, act } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { test, expect, vi } from 'vitest'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
@@ -180,7 +180,12 @@ test('an uncertain note uses one request and closes only after the exact retry i
   await user.click(screen.getByRole('button', { name: 'Save evidence note' }))
   expect(screen.getByRole('textbox', { name: 'Note for Front label' })).toHaveValue('Original ink')
   expect(screen.getByRole('textbox', { name: 'Note for Front label' })).toBeDisabled()
+  // The retained request holds the text, and its retry sits outside the viewer.
+  const viewer = screen.getByRole('dialog', { name: 'Front label' })
+  await user.click(within(viewer).getByRole('button', { name: 'Close' }))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Retry exact media request' }))
+  await user.click(await screen.findByRole('button', { name: 'Open Front label' }))
   await waitFor(() =>
     expect(screen.queryByRole('textbox', { name: 'Note for Front label' })).toBeNull(),
   )
@@ -401,10 +406,38 @@ test('the viewer cannot close over an unsaved note, so the draft is never lost',
   const viewer = screen.getByRole('dialog', { name: 'Front label' })
 
   expect(within(viewer).getByRole('button', { name: 'Close' })).toBeDisabled()
-  await user.keyboard('{Escape}')
+  // jsdom does not turn Escape into the dialog's cancel event, so send it as the browser does.
+  fireEvent(viewer, new Event('cancel', { cancelable: true }))
   expect(screen.getByLabelText('Note for Front label')).toHaveValue('Keep both sides together.')
 
   await user.click(within(viewer).getByRole('button', { name: /^Discard note for front label/i }))
   expect(within(viewer).getByRole('button', { name: 'Close' })).toBeEnabled()
   expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+})
+
+test('a read-only workspace still lets the viewer close', async () => {
+  const user = userEvent.setup()
+  render(
+    <ServerStateProvider scope={fixtureScope} client={createServerQueryClient()}>
+      <MediaWorkspace
+        batch={batch}
+        client={mediaClient()}
+        disabled
+        selectedSubject="defaults"
+        onDirtyChange={vi.fn()}
+      />
+    </ServerStateProvider>,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Open Front label' }))
+  expect(
+    within(screen.getByRole('dialog', { name: 'Front label' })).getByRole('button', {
+      name: 'Close',
+    }),
+  ).toBeEnabled()
+
+  fireEvent(
+    screen.getByRole('dialog', { name: 'Front label' }),
+    new Event('cancel', { cancelable: true }),
+  )
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })

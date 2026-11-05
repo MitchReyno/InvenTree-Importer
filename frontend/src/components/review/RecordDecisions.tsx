@@ -5,14 +5,19 @@ import { color, radius, space, type } from '../../theme/generated/tokens'
 import { Banner } from '../ui/Banner'
 import { NeedsYou } from '../ui/NeedsYou'
 
-type RecordDecisionsProps = { batchId: string; attention: BatchAttentionDto | undefined }
+type RecordDecisionsProps = {
+  batchId: string
+  attention: BatchAttentionDto | undefined
+  unavailable: boolean
+}
 
 /**
  * Review › Records before record-level editing exists: the decisions waiting in this batch,
  * each opening the lot where it is made today.
  */
-export function RecordDecisions({ batchId, attention }: RecordDecisionsProps) {
+export function RecordDecisions({ batchId, attention, unavailable }: RecordDecisionsProps) {
   const decisions = attention?.items.filter((item) => item.group === 'decision') ?? []
+  const unlisted = (attention?.review.to_decide ?? 0) - decisions.length
 
   return (
     <Page>
@@ -22,9 +27,15 @@ export function RecordDecisions({ batchId, attention }: RecordDecisionsProps) {
       </Banner>
       <Card aria-label="Decisions">
         <Title>Decisions</Title>
-        {attention === undefined ? (
-          <Empty>Reading what needs a decision…</Empty>
-        ) : (
+        {attention === undefined && unavailable && (
+          <div role="alert">
+            <Banner tone="bad">
+              Decisions are unavailable. Each lot in Lots still shows its own.
+            </Banner>
+          </div>
+        )}
+        {attention === undefined && !unavailable && <Empty>Reading what needs a decision…</Empty>}
+        {attention && (
           <NeedsYou
             items={decisions.map((item) => ({
               id: item.key,
@@ -33,6 +44,12 @@ export function RecordDecisions({ batchId, attention }: RecordDecisionsProps) {
               href: `#${item.route}`,
             }))}
           />
+        )}
+        {unlisted > 0 && (
+          <Empty>
+            {unlisted} more {unlisted === 1 ? 'decision is' : 'decisions are'} not listed. Lots
+            shows every lot&apos;s decisions.
+          </Empty>
         )}
       </Card>
     </Page>

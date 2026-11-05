@@ -9,6 +9,7 @@ import {
   type OperatorReviewDto,
 } from '@invimport/contracts'
 import { display } from '../capture/display'
+import { batchHref } from '../navigation/batch-route'
 
 export const REVIEW_FILTERS = [
   'all',
@@ -61,8 +62,11 @@ export function reviewHash(batchId: string, value: ReviewLocation): string {
     params.set('filter', value.filter)
   }
   const query = params.toString()
-  const lot = value.lotId ? `/${value.lotId}` : ''
-  return `#${batchId}/review/lots${lot}${query ? `?${query}` : ''}`
+  return batchHref(
+    batchId,
+    { tab: 'review', view: 'lots', ...(value.lotId ? { lotId: value.lotId } : {}) },
+    query ? `?${query}` : '',
+  )
 }
 
 export function blockingIssues(lot: OperatorLotDto): OperatorIssueDto[] {

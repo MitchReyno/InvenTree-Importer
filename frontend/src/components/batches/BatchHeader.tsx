@@ -2,7 +2,6 @@ import type { BatchAttentionDto, CaptureSnapshotDto } from '@invimport/contracts
 import styled from 'styled-components'
 import {
   batchHref,
-  processingStepFor,
   type BatchRoute,
   type BatchTab,
   type ProcessingStep,
@@ -11,12 +10,15 @@ import { color, radius, space, type } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
 import { media } from '../ui/media'
 import { SubTabs, Tabs, type TabItem } from '../ui/Tabs'
+import { Pill } from '../ui/Pill'
 import { NeedYouPanel } from './NeedYouPanel'
 
 type BatchHeaderProps = {
   batch: CaptureSnapshotDto
   route: BatchRoute
   attention: BatchAttentionDto | undefined
+  /** The attention read failed, so the header cannot say what needs the operator. */
+  attentionUnavailable?: boolean
   /** Lots retired by a split or merge stay in the snapshot; counts show active lots. */
   activeLotCount: number
   retiredLotCount: number
@@ -37,24 +39,6 @@ function plural(count: number, one: string, many: string) {
 }
 
 type StepWork = { questions: number; failed: number }
-
-/** Open questions and failed attempts per Processing step, read from the item routes. */
-function workByStep(attention: BatchAttentionDto | undefined) {
-  const counts = new Map<ProcessingStep, StepWork>()
-  for (const item of attention?.items ?? []) {
-    if (item.group !== 'question' && item.group !== 'failed_job') {
-      continue
-    }
-    const step = processingStepFor(item.route.split('/')[2] ?? '')
-    const work = counts.get(step) ?? { questions: 0, failed: 0 }
-    counts.set(step, {
-      questions: work.questions + (item.group === 'question' ? 1 : 0),
-      failed: work.failed + (item.group === 'failed_job' ? 1 : 0),
-    })
-  }
-
-  return counts
-}
 
 /** A failed attempt outranks a question, so the badge turns to the stronger tone. */
 function processingBadge({ questions, failed }: StepWork): Pick<TabItem, 'badge'> {
@@ -104,13 +88,13 @@ function primaryTabs(batchId: string, attention: BatchAttentionDto | undefined):
 }
 
 function processingRow(batchId: string, attention: BatchAttentionDto | undefined): TabItem[] {
-  const counts = workByStep(attention)
+  const processing = attention?.processing
 
   return STEPS.map(({ id, label }) => {
-    const work =
-      id === 'overview'
-        ? (attention?.processing ?? { questions: 0, failed: 0 })
-        : (counts.get(id) ?? { questions: 0, failed: 0 })
+    const work = (id === 'overview' ? processing : processing?.steps[id]) ?? {
+      questions: 0,
+      failed: 0,
+    }
     return {
       id,
       label,
@@ -190,6 +174,7 @@ export function BatchHeader({
   batch,
   route,
   attention,
+  attentionUnavailable = false,
   activeLotCount,
   retiredLotCount,
   busy,
@@ -212,6 +197,7 @@ export function BatchHeader({
         </div>
         <Actions>
           {attention && <NeedYouPanel attention={attention} />}
+          {!attention && attentionUnavailable && <Pill tone="neutral">Needs you unavailable</Pill>}
           <Button variant="ghost" size="sm" disabled={busy} onClick={onArchive}>
             {batch.archived ? 'Resume archived batch' : 'Archive batch'}
           </Button>

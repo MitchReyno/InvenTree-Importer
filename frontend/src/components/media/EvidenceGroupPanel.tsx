@@ -106,7 +106,18 @@ export function EvidenceGroupPanel({
     }
     setRename(false)
     setNoteId(null)
+    setNoteDirty(false)
   }, [confirmation, dirty, renameKey, noteId])
+
+  // An unconfirmed save keeps its text in the retained request, so only the editor goes.
+  function closeViewer() {
+    if (noteId) {
+      dirty(`note:${noteId}`)(false)
+    }
+    setNoteId(null)
+    setNoteDirty(false)
+    setOpenId(null)
+  }
 
   return (
     <EvidenceDropZone
@@ -228,11 +239,7 @@ export function EvidenceGroupPanel({
         })}
       </EvidenceGrid>
       {opened && (
-        <Modal
-          title={fileName(opened)}
-          onClose={() => setOpenId(null)}
-          closeDisabled={blocked(`note:${opened.id}`) || noteDirty || pending}
-        >
+        <Modal title={fileName(opened)} onClose={closeViewer} closeDisabled={noteDirty && !pending}>
           <MediaEvidenceCard
             labels={labels}
             batchId={batch.id}

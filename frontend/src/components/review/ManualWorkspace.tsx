@@ -161,6 +161,14 @@ export function ManualWorkspace({
         setLastPreview(first)
         navigate('approve', first.id)
       }
+    } else {
+      // The Changes tab links to bare Ready to add; come back to the preparation last shown.
+      const shown =
+        workspace.preparations.find((value) => value.id === lastPreview?.id) ??
+        workspace.preparations[0]
+      if (shown) {
+        navigate('approve', shown.id)
+      }
     }
   }, [workspace, stage, preparationId, lastPreview, navigate])
   const displayedPreview = preparationId

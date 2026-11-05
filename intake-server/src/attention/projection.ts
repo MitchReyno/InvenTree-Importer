@@ -134,6 +134,23 @@ function resultItems({ batchId, manual }: AttentionSources): AttentionItemDto[] 
     }))
 }
 
+const STEPS = ['examine', 'research', 'images', 'inventory'] as const
+
+function stepWork(items: AttentionItemDto[]) {
+  const step = (name: string) => {
+    const own = items.filter((item) => item.route.split('/')[2] === name)
+    return {
+      questions: own.filter((item) => item.group === 'question').length,
+      failed: own.filter((item) => item.group === 'failed_job').length,
+    }
+  }
+
+  return Object.fromEntries(STEPS.map((name) => [name, step(name)])) as Record<
+    (typeof STEPS)[number],
+    { questions: number; failed: number }
+  >
+}
+
 /** Tab counts and need-you items projected together, so badges and the panel agree. */
 export function projectAttention(sources: AttentionSources): BatchAttentionDto {
   const questions = questionItems(sources)
@@ -150,7 +167,11 @@ export function projectAttention(sources: AttentionSources): BatchAttentionDto {
   return {
     batch_id: sources.batchId,
     revision: sources.review.revision,
-    processing: { questions: questions.length, failed: failedJobs.length },
+    processing: {
+      questions: questions.length,
+      failed: failedJobs.length,
+      steps: stepWork([...questions, ...failedJobs]),
+    },
     review: {
       to_check: openLots(sources.review).filter((lot) => lot.review_state !== 'reviewed').length,
       changed_after_review: changed.length,

@@ -5008,6 +5008,24 @@ export interface components {
             processing: {
                 questions: number;
                 failed: number;
+                steps: {
+                    examine: {
+                        questions: number;
+                        failed: number;
+                    };
+                    research: {
+                        questions: number;
+                        failed: number;
+                    };
+                    images: {
+                        questions: number;
+                        failed: number;
+                    };
+                    inventory: {
+                        questions: number;
+                        failed: number;
+                    };
+                };
             };
             review: {
                 to_check: number;

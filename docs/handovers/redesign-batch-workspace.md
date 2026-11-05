@@ -168,3 +168,11 @@ Fresh read-only Claude reviewer at `40437af`: 3 Important, 5 Minor, 2 Nitpick. A
 - **Nitpick:** the `review-model` URL comment and the projection's `processing` comment are corrected.
 - **Local PostgreSQL:** the attention PG test passes. Eight other PG tests fail locally only for environment reasons (no pinned decoder image; `docker` not on the test's PATH) and are untouched by this branch; CI's PG lane passes on the base.
 
+### PR-B review round 2
+
+Fresh read-only Claude reviewer at `7fb44f8`: 1 Important, 5 Minor, 1 Nitpick, all verified, each fix test-first.
+
+- **Viewer could trap the operator (Important):** Close was disabled whenever the workspace was frozen (archived batch, a dirty settings draft, polls) or a request was unconfirmed, while the retry controls sat behind the modal. Close is now refused only while the viewer's own note has unsaved edits; during an unconfirmed save the retained request holds the text, so closing drops the editor and clears its draft. jsdom does not raise the dialog's `cancel` on Escape, so the tests dispatch `cancel` as the browser does (the round-1 Escape assertion had not exercised it).
+- **Minor:** the viewer's dirty flag resets when a confirmation closes the editor; `BatchAttention.processing.steps` gives exact per-step counts so step badges no longer undercount from the 200-item list, and Records says how many decisions are not listed; approved lots read "Approved" on the glance (approval includes queued and failed runs, so "Added" overstated it); bare Changes › Ready to add returns to the preparation last shown, or the newest if it is gone; a failed attention read shows "Needs you unavailable" in the header and an alert on Records instead of loading forever.
+- **Nitpick:** `reviewHash` builds through `batchHref`, so every in-app batch link does.
+

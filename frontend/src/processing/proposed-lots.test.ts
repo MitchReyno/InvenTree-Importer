@@ -36,7 +36,7 @@ describe('proposedLots', () => {
       { id: lot(2), label: 'Lot 2', state: 'to_review', href: `#${batchId}/review/lots/${lot(2)}` },
       { id: lot(3), label: 'Lot 3', state: 'changed', href: `#${batchId}/review/lots/${lot(3)}` },
       { id: lot(4), label: 'Lot 4', state: 'blocked', href: `#${batchId}/review/lots/${lot(4)}` },
-      { id: lot(6), label: 'Lot 6', state: 'added', href: `#${batchId}/review/lots/${lot(6)}` },
+      { id: lot(6), label: 'Lot 6', state: 'approved', href: `#${batchId}/review/lots/${lot(6)}` },
     ])
   })
 

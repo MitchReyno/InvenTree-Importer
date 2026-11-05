@@ -9,6 +9,8 @@ const choice = <const T extends readonly string[]>(values: T) =>
 
 const count = Type.Integer({ minimum: 0, maximum: 100000 })
 
+const stepWork = object({ questions: count, failed: count })
+
 /** Bounds the panel; counts stay exact when items are truncated. */
 export const MAX_ATTENTION_ITEMS = 200
 
@@ -40,7 +42,17 @@ export const AttentionItem = object({
 export const BatchAttention = object({
   batch_id: Id,
   revision: Revision,
-  processing: object({ questions: count, failed: count }),
+  processing: object({
+    questions: count,
+    failed: count,
+    /** Exact per step, since the item list can be truncated. */
+    steps: object({
+      examine: stepWork,
+      research: stepWork,
+      images: stepWork,
+      inventory: stepWork,
+    }),
+  }),
   review: object({ to_check: count, changed_after_review: count, to_decide: count }),
   changes: object({ ready: count, failed: count, uncertain: count }),
   items: Type.Array(AttentionItem, { maxItems: MAX_ATTENTION_ITEMS }),

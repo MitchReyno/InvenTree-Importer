@@ -13045,7 +13045,8 @@
             "type": "object",
             "required": [
               "questions",
-              "failed"
+              "failed",
+              "steps"
             ],
             "properties": {
               "questions": {
@@ -13057,6 +13058,98 @@
                 "minimum": 0,
                 "maximum": 100000,
                 "type": "integer"
+              },
+              "steps": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "examine",
+                  "research",
+                  "images",
+                  "inventory"
+                ],
+                "properties": {
+                  "examine": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "questions",
+                      "failed"
+                    ],
+                    "properties": {
+                      "questions": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "failed": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      }
+                    }
+                  },
+                  "research": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "questions",
+                      "failed"
+                    ],
+                    "properties": {
+                      "questions": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "failed": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      }
+                    }
+                  },
+                  "images": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "questions",
+                      "failed"
+                    ],
+                    "properties": {
+                      "questions": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "failed": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      }
+                    }
+                  },
+                  "inventory": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "questions",
+                      "failed"
+                    ],
+                    "properties": {
+                      "questions": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "failed": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
               }
             }
           },

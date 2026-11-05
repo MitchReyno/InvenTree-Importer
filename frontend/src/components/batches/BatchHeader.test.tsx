@@ -3,6 +3,13 @@ import type { BatchAttentionDto, CaptureSnapshotDto } from '@invimport/contracts
 import { describe, expect, it, vi } from 'vitest'
 import { BatchHeader } from './BatchHeader'
 
+const noSteps = {
+  examine: { questions: 0, failed: 0 },
+  research: { questions: 0, failed: 0 },
+  images: { questions: 0, failed: 0 },
+  inventory: { questions: 0, failed: 0 },
+}
+
 const batchId = 'b0000000-0000-4000-8000-000000000001'
 const batch = {
   id: batchId,
@@ -15,7 +22,7 @@ const batch = {
 const attention: BatchAttentionDto = {
   batch_id: batchId,
   revision: '3',
-  processing: { questions: 3, failed: 0 },
+  processing: { questions: 3, failed: 0, steps: noSteps },
   review: { to_check: 8, changed_after_review: 0, to_decide: 3 },
   changes: { ready: 6, failed: 0, uncertain: 0 },
   items: [],
@@ -44,17 +51,13 @@ describe('BatchHeader', () => {
         route={{ tab: 'processing', step: 'overview' }}
         attention={{
           ...attention,
-          processing: { questions: 3, failed: 1 },
-          items: [
-            {
-              key: 'failed:j1',
-              group: 'failed_job',
-              tab: 'processing',
-              title: 'A Research attempt failed',
-              detail: null,
-              route: `${batchId}/processing/research`,
-            },
-          ],
+          processing: {
+            questions: 3,
+            failed: 1,
+            steps: { ...noSteps, research: { questions: 0, failed: 1 } },
+          },
+          // Step badges come from exact counts, not from the possibly truncated items.
+          items: [],
         }}
         activeLotCount={8}
         retiredLotCount={0}
@@ -69,6 +72,23 @@ describe('BatchHeader', () => {
       tabs.getByRole('link', { name: 'Processing, 3 questions · 1 failed' }),
     ).toBeInTheDocument()
     expect(steps.getByRole('link', { name: 'Research, 1 failed' })).toBeInTheDocument()
+  })
+
+  it('says when the attention read is unavailable instead of showing nothing to do', () => {
+    render(
+      <BatchHeader
+        batch={batch}
+        route={{ tab: 'capture' }}
+        attention={undefined}
+        attentionUnavailable
+        activeLotCount={8}
+        retiredLotCount={0}
+        busy={false}
+        onArchive={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Needs you unavailable')).toBeInTheDocument()
   })
 
   it('reads every tab count from the attention read, warnings apart from plain counts', () => {

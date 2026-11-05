@@ -12,6 +12,13 @@ import type { MediaClient } from '../../../media/types'
 import { Batch } from '../Batch'
 import { Batches } from '../Batches'
 
+const noSteps = {
+  examine: { questions: 0, failed: 0 },
+  research: { questions: 0, failed: 0 },
+  images: { questions: 0, failed: 0 },
+  inventory: { questions: 0, failed: 0 },
+}
+
 /** Owned browser fixture: synthetic clients only, no API, provider or InvenTree traffic. */
 const scope = {
   origin: location.origin,
@@ -116,7 +123,7 @@ const media: MediaSnapshotDto = {
 const attention: BatchAttentionDto = {
   batch_id: batchId,
   revision: '7',
-  processing: { questions: 3, failed: 0 },
+  processing: { questions: 3, failed: 0, steps: noSteps },
   review: { to_check: 4, changed_after_review: 1, to_decide: 2 },
   changes: { ready: 1, failed: 0, uncertain: 0 },
   items: [

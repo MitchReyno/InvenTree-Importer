@@ -390,7 +390,13 @@ export function Batch({
       />
     )
   } else if (batch && batchRoute?.tab === 'review' && batchRoute.view === 'records') {
-    content = <RecordDecisions batchId={batch.id} attention={attentionQuery.data} />
+    content = (
+      <RecordDecisions
+        batchId={batch.id}
+        attention={attentionQuery.data}
+        unavailable={attentionQuery.isError}
+      />
+    )
   } else if (batch && batchRoute?.tab === 'review' && batchRoute.view === 'map') {
     content = <MapPending batchId={batch.id} />
   } else if (batch && stage !== 'capture') {
@@ -453,6 +459,7 @@ export function Batch({
           batch={batch}
           route={batchRoute}
           attention={attentionQuery.data}
+          attentionUnavailable={attentionQuery.isError}
           activeLotCount={batch.lots.length - retired.size}
           retiredLotCount={retired.size}
           busy={readOrCommandBusy || readUnavailable || draftDirty}

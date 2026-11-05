@@ -127,7 +127,16 @@ test('counts each tab from the same reads the screens use', () => {
   const attention = projectAttention({ batchId: batch, processing, review, manual })
 
   validate('BatchAttention', attention)
-  assert.deepEqual(attention.processing, { questions: 2, failed: 0 })
+  assert.deepEqual(attention.processing, {
+    questions: 2,
+    failed: 0,
+    steps: {
+      examine: { questions: 1, failed: 0 },
+      research: { questions: 1, failed: 0 },
+      images: { questions: 0, failed: 0 },
+      inventory: { questions: 0, failed: 0 },
+    },
+  })
   assert.deepEqual(attention.review, { to_check: 2, changed_after_review: 1, to_decide: 1 })
   assert.deepEqual(attention.changes, { ready: 2, failed: 1, uncertain: 1 })
   assert.equal(attention.revision, '7')
@@ -175,6 +184,8 @@ test('orders items by tab and keeps counts exact when items are truncated', () =
   const attention = projectAttention({ batchId: batch, processing: many, review, manual })
 
   assert.equal(attention.processing.questions, 270)
+  // Step counts stay exact although the item list is cut at 200.
+  assert.equal(attention.processing.steps.examine.questions, 270)
   assert.equal(attention.items.length, 200)
   assert.equal(attention.items_truncated, true)
   validate('BatchAttention', attention)
@@ -194,7 +205,16 @@ test('a failed or interrupted attempt needs the operator in its step', () => {
   const failed = attention.items.filter((item) => item.group === 'failed_job')
 
   validate('BatchAttention', attention)
-  assert.deepEqual(attention.processing, { questions: 2, failed: 2 })
+  assert.deepEqual(attention.processing, {
+    questions: 2,
+    failed: 2,
+    steps: {
+      examine: { questions: 1, failed: 1 },
+      research: { questions: 1, failed: 1 },
+      images: { questions: 0, failed: 0 },
+      inventory: { questions: 0, failed: 0 },
+    },
+  })
   assert.deepEqual(
     failed.map((item) => [item.title, item.route]),
     [
