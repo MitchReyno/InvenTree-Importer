@@ -1164,6 +1164,166 @@
         }
       ]
     },
+    "/api/v1/batches/{id}/processing/{jobId}/session": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "SessionTimeline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionTimeline"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        },
+        {
+          "name": "jobId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/api/v1/batches/{id}/processing/{jobId}/inbox": {
+      "post": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionInboxSubmission"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SessionInboxReceipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionInboxReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        },
+        {
+          "name": "jobId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ]
+    },
     "/api/v1/batches/{id}/questions/{questionId}/answers": {
       "post": {
         "x-intake-client": {
@@ -12457,7 +12617,9 @@
                 "selection",
                 "actual_model",
                 "progress",
-                "occupies_lane"
+                "occupies_lane",
+                "session_state",
+                "latest_status"
               ],
               "properties": {
                 "attempt_id": {
@@ -12625,6 +12787,88 @@
                 },
                 "occupies_lane": {
                   "type": "boolean"
+                },
+                "session_state": {
+                  "anyOf": [
+                    {
+                      "anyOf": [
+                        {
+                          "const": "queued",
+                          "type": "string"
+                        },
+                        {
+                          "const": "running",
+                          "type": "string"
+                        },
+                        {
+                          "const": "waiting_input",
+                          "type": "string"
+                        },
+                        {
+                          "const": "finished",
+                          "type": "string"
+                        },
+                        {
+                          "const": "cancelling",
+                          "type": "string"
+                        },
+                        {
+                          "const": "cancelled",
+                          "type": "string"
+                        },
+                        {
+                          "const": "interrupted",
+                          "type": "string"
+                        },
+                        {
+                          "const": "failed",
+                          "type": "string"
+                        },
+                        {
+                          "const": "waiting_for_login",
+                          "type": "string"
+                        },
+                        {
+                          "const": "waiting_for_capacity",
+                          "type": "string"
+                        },
+                        {
+                          "const": "resume_unavailable",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "latest_status": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "text",
+                        "at"
+                      ],
+                      "properties": {
+                        "text": {
+                          "minLength": 1,
+                          "maxLength": 120,
+                          "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                          "type": "string"
+                        },
+                        "at": {
+                          "maxLength": 40,
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               }
             }
@@ -48261,6 +48505,54 @@
               }
             ]
           },
+          "session_state": {
+            "anyOf": [
+              {
+                "const": "queued",
+                "type": "string"
+              },
+              {
+                "const": "running",
+                "type": "string"
+              },
+              {
+                "const": "waiting_input",
+                "type": "string"
+              },
+              {
+                "const": "finished",
+                "type": "string"
+              },
+              {
+                "const": "cancelling",
+                "type": "string"
+              },
+              {
+                "const": "cancelled",
+                "type": "string"
+              },
+              {
+                "const": "interrupted",
+                "type": "string"
+              },
+              {
+                "const": "failed",
+                "type": "string"
+              },
+              {
+                "const": "waiting_for_login",
+                "type": "string"
+              },
+              {
+                "const": "waiting_for_capacity",
+                "type": "string"
+              },
+              {
+                "const": "resume_unavailable",
+                "type": "string"
+              }
+            ]
+          },
           "proposals": {
             "maxItems": 100,
             "type": "array",
@@ -50304,6 +50596,54 @@
                     },
                     {
                       "const": "worker_version_conflict",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "session_state": {
+                  "anyOf": [
+                    {
+                      "const": "queued",
+                      "type": "string"
+                    },
+                    {
+                      "const": "running",
+                      "type": "string"
+                    },
+                    {
+                      "const": "waiting_input",
+                      "type": "string"
+                    },
+                    {
+                      "const": "finished",
+                      "type": "string"
+                    },
+                    {
+                      "const": "cancelling",
+                      "type": "string"
+                    },
+                    {
+                      "const": "cancelled",
+                      "type": "string"
+                    },
+                    {
+                      "const": "interrupted",
+                      "type": "string"
+                    },
+                    {
+                      "const": "failed",
+                      "type": "string"
+                    },
+                    {
+                      "const": "waiting_for_login",
+                      "type": "string"
+                    },
+                    {
+                      "const": "waiting_for_capacity",
+                      "type": "string"
+                    },
+                    {
+                      "const": "resume_unavailable",
                       "type": "string"
                     }
                   ]
@@ -57299,7 +57639,9 @@
                 "native_session_id",
                 "actual_model",
                 "progress",
-                "occupies_lane"
+                "occupies_lane",
+                "session_state",
+                "latest_status"
               ],
               "properties": {
                 "attempt_id": {
@@ -57530,6 +57872,88 @@
                 },
                 "occupies_lane": {
                   "type": "boolean"
+                },
+                "session_state": {
+                  "anyOf": [
+                    {
+                      "anyOf": [
+                        {
+                          "const": "queued",
+                          "type": "string"
+                        },
+                        {
+                          "const": "running",
+                          "type": "string"
+                        },
+                        {
+                          "const": "waiting_input",
+                          "type": "string"
+                        },
+                        {
+                          "const": "finished",
+                          "type": "string"
+                        },
+                        {
+                          "const": "cancelling",
+                          "type": "string"
+                        },
+                        {
+                          "const": "cancelled",
+                          "type": "string"
+                        },
+                        {
+                          "const": "interrupted",
+                          "type": "string"
+                        },
+                        {
+                          "const": "failed",
+                          "type": "string"
+                        },
+                        {
+                          "const": "waiting_for_login",
+                          "type": "string"
+                        },
+                        {
+                          "const": "waiting_for_capacity",
+                          "type": "string"
+                        },
+                        {
+                          "const": "resume_unavailable",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "latest_status": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "text",
+                        "at"
+                      ],
+                      "properties": {
+                        "text": {
+                          "minLength": 1,
+                          "maxLength": 120,
+                          "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                          "type": "string"
+                        },
+                        "at": {
+                          "maxLength": 40,
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               }
             }
@@ -57544,6 +57968,696 @@
                 "type": "null"
               }
             ]
+          }
+        }
+      },
+      "SessionLatestStatus": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "at"
+        ],
+        "properties": {
+          "text": {
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+            "type": "string"
+          },
+          "at": {
+            "maxLength": 40,
+            "type": "string"
+          }
+        }
+      },
+      "SessionTimeline": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "job_id",
+          "attempt_id",
+          "session_state",
+          "outbox",
+          "inbox"
+        ],
+        "properties": {
+          "job_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "attempt_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "session_state": {
+            "anyOf": [
+              {
+                "const": "queued",
+                "type": "string"
+              },
+              {
+                "const": "running",
+                "type": "string"
+              },
+              {
+                "const": "waiting_input",
+                "type": "string"
+              },
+              {
+                "const": "finished",
+                "type": "string"
+              },
+              {
+                "const": "cancelling",
+                "type": "string"
+              },
+              {
+                "const": "cancelled",
+                "type": "string"
+              },
+              {
+                "const": "interrupted",
+                "type": "string"
+              },
+              {
+                "const": "failed",
+                "type": "string"
+              },
+              {
+                "const": "waiting_for_login",
+                "type": "string"
+              },
+              {
+                "const": "waiting_for_capacity",
+                "type": "string"
+              },
+              {
+                "const": "resume_unavailable",
+                "type": "string"
+              }
+            ]
+          },
+          "outbox": {
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "session_id",
+                    "seq",
+                    "created_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "properties": {
+                    "session_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "seq": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "status",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "text"
+                      ],
+                      "properties": {
+                        "text": {
+                          "minLength": 1,
+                          "maxLength": 120,
+                          "pattern": "^[^\\r\\n\\u2028\\u2029]*$",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "session_id",
+                    "seq",
+                    "created_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "properties": {
+                    "session_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "seq": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "observation",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "evidence_observation_id"
+                      ],
+                      "properties": {
+                        "evidence_observation_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "session_id",
+                    "seq",
+                    "created_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "properties": {
+                    "session_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "seq": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "lot",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "lot_id"
+                      ],
+                      "properties": {
+                        "lot_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "session_id",
+                    "seq",
+                    "created_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "properties": {
+                    "session_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "seq": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "regroup",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "lot_ids"
+                      ],
+                      "properties": {
+                        "lot_ids": {
+                          "minItems": 1,
+                          "maxItems": 100,
+                          "uniqueItems": true,
+                          "type": "array",
+                          "items": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "session_id",
+                    "seq",
+                    "created_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "properties": {
+                    "session_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "seq": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "proposal",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "proposal_id"
+                      ],
+                      "properties": {
+                        "proposal_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "session_id",
+                    "seq",
+                    "created_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "properties": {
+                    "session_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "seq": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "question",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "question_id"
+                      ],
+                      "properties": {
+                        "question_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "session_id",
+                    "seq",
+                    "created_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "properties": {
+                    "session_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "seq": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "reply",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "inbox_item_id",
+                        "text"
+                      ],
+                      "properties": {
+                        "inbox_item_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "text": {
+                          "minLength": 1,
+                          "maxLength": 4096,
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "inbox": {
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "seq",
+                    "created_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "properties": {
+                    "id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "seq": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "answer",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "question_id",
+                        "answer_id",
+                        "value"
+                      ],
+                      "properties": {
+                        "question_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "answer_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "value": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "value",
+                                "basis"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "quantity",
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,12})(\\.[0-9]{0,5}[1-9])?(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "basis": {
+                                  "anyOf": [
+                                    {
+                                      "const": "counted",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "const": "estimated",
+                                      "type": "string"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "kind",
+                                "text"
+                              ],
+                              "properties": {
+                                "kind": {
+                                  "const": "clarification",
+                                  "type": "string"
+                                },
+                                "text": {
+                                  "minLength": 1,
+                                  "maxLength": 2048,
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "seq",
+                    "created_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "properties": {
+                    "id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "seq": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "chat",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "text"
+                      ],
+                      "properties": {
+                        "text": {
+                          "minLength": 1,
+                          "maxLength": 4096,
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "seq",
+                    "created_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "properties": {
+                    "id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "seq": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "evidence",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "evidence_id",
+                        "version_id"
+                      ],
+                      "properties": {
+                        "evidence_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "version_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "seq",
+                    "created_at",
+                    "kind",
+                    "payload"
+                  ],
+                  "properties": {
+                    "id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "seq": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "maxLength": 40,
+                      "type": "string"
+                    },
+                    "kind": {
+                      "const": "revision",
+                      "type": "string"
+                    },
+                    "payload": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "fields",
+                        "reason"
+                      ],
+                      "properties": {
+                        "fields": {
+                          "minItems": 1,
+                          "maxItems": 5,
+                          "uniqueItems": true,
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "const": "markings",
+                                "type": "string"
+                              },
+                              {
+                                "const": "identity",
+                                "type": "string"
+                              },
+                              {
+                                "const": "quantity",
+                                "type": "string"
+                              },
+                              {
+                                "const": "research",
+                                "type": "string"
+                              },
+                              {
+                                "const": "images",
+                                "type": "string"
+                              }
+                            ]
+                          }
+                        },
+                        "reason": {
+                          "minLength": 1,
+                          "maxLength": 2048,
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
           }
         }
       },

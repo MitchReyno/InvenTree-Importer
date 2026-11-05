@@ -26,6 +26,8 @@ const base: AgentSessionListDto['sessions'][number] = {
   actual_model: null,
   progress: 'queued',
   occupies_lane: false,
+  session_state: null,
+  latest_status: null,
 }
 
 test('session filters keep a cancelled but physically occupied command active until reap', async () => {

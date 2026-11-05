@@ -197,11 +197,11 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm test:frontend`, `pnpm lint:frontend`, frontend typecheck and build; headless browser check with `synthetic-session/1`; markdown lint for docs.
 - **Risks and decisions:** keep it accessible: labelled composer, live region for new status lines without excessive announcements.
 
-- [ ] 6.1 Baseline the frontend suite.
-- [ ] 6.2 RED: component tests for the timeline, composer states, Needs you and the header line.
-- [ ] 6.3 GREEN: components wired to the retained reads and hints.
-- [ ] 6.4 Update the architecture docs and handover for PR-A; run the markdown and reference checks.
-- [ ] 6.5 Headless browser check of a synthetic session (status, mid-run answer, chat after finish); record evidence.
+- [x] 6.1 Baseline the frontend suite.
+- [x] 6.2 RED: component tests for the timeline, composer states, Needs you and the header line.
+- [x] 6.3 GREEN: components wired to the retained reads and hints.
+- [x] 6.4 Update the architecture docs and handover for PR-A; run the markdown and reference checks.
+- [x] 6.5 Headless browser check of a synthetic session (status, mid-run answer, chat after finish); record evidence.
 
 ## 7. Observations and agent-attributed draft lots
 

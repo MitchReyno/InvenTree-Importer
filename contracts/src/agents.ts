@@ -11,6 +11,7 @@ const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
 
 import { AgentSelection } from './agent-selection.ts'
+import { SessionLatestStatus, SessionState } from './sessions.ts'
 export { AgentSelection, type AgentSelectionDto } from './agent-selection.ts'
 /** How many sessions may run provider turns at once; waiting sessions hold no slot. */
 export const SessionConcurrency = Type.Integer({ minimum: 1, maximum: 8 })
@@ -51,6 +52,9 @@ export const AgentSessionList = object({
         Type.Literal('settled'),
       ]),
       occupies_lane: Type.Boolean(),
+      /** Session profiles only. */
+      session_state: Type.Union([SessionState, Type.Null()]),
+      latest_status: Type.Union([SessionLatestStatus, Type.Null()]),
     }),
     { maxItems: 50 },
   ),

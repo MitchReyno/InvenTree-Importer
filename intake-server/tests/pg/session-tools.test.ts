@@ -431,3 +431,72 @@ test('answers and chat reach the running session once, through the inbox', async
     assert.equal(count.rows[0].count, '2')
   })
 })
+
+test('the timeline, session list and header show the latest status line and the waiting state', async () => {
+  const { listAgentSessions } = await import('../../src/agents/sessions.ts')
+  const { activeHeaderSessions } = await import('../../src/header/active-sessions.ts')
+  await withSessions(async ({ fixture, url, a, capture }) => {
+    const session = await connect(url, a.token)
+    try {
+      assert.equal((await call(session, 'status', { text: 'Reading the label' })).ok, true)
+      assert.equal(
+        (
+          await call(session, 'ask', {
+            kind: 'quantity',
+            subject_id: capture.packetA.id,
+            prompt: 'How many are in the packet?',
+            reason: 'The label only says approximately 20.',
+            fields: ['quantity'],
+            assumption: 'Using 20 until counted.',
+          })
+        ).ok,
+        true,
+      )
+    } finally {
+      await session.close()
+    }
+    // Settle as the runner does when a turn ends with an open question.
+    await fixture.db.pool.query(
+      "UPDATE agent_session SET session_state='waiting_input',capability_sha256=NULL WHERE attempt_id=$1",
+      [a.attempt],
+    )
+    await fixture.db.pool.query(
+      "UPDATE processing_attempt SET state='waiting_for_user' WHERE id=$1",
+      [a.attempt],
+    )
+    await fixture.db.pool.query("UPDATE processing_job SET state='waiting_for_user' WHERE id=$1", [
+      a.job,
+    ])
+
+    const timeline = await fixture.http(`/batches/${capture.batch.id}/processing/${a.job}/session`)
+    assert.equal(timeline.status, 200, JSON.stringify(timeline.value))
+    const value = timeline.value as {
+      session_state: string
+      outbox: { kind: string; payload: { text?: string } }[]
+    }
+    assert.equal(value.session_state, 'waiting_input')
+    assert.deepEqual(
+      value.outbox.map((item) => item.kind),
+      ['status', 'question'],
+    )
+    const missing = await fixture.http(
+      `/batches/${capture.batch.id}/processing/${randomUUID()}/session`,
+    )
+    assert.equal(missing.status, 404)
+
+    const listed = (await listAgentSessions(fixture.api.pool, fixture.config)).sessions.find(
+      (row) => row.attempt_id === a.attempt,
+    )!
+    assert.equal(listed.session_state, 'waiting_input')
+    assert.equal(listed.latest_status?.text, 'Reading the label')
+
+    const header = await transaction(fixture.api.pool, (client) =>
+      activeHeaderSessions(client, fixture.config, capture.batch.id),
+    )
+    const row = header.sessions.find((item) => item.attempt_id === a.attempt)
+    assert.ok(row, 'a waiting session is listed in the header')
+    assert.equal(row.session_state, 'waiting_input')
+    assert.equal(row.occupies_lane, false)
+    assert.equal(row.latest_status?.text, 'Reading the label')
+  })
+})

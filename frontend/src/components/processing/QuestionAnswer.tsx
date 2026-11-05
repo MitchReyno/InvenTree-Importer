@@ -99,7 +99,10 @@ export function QuestionAnswer({
   const hasCurrentDraft = !stale && formState.isDirty
   const deliveryUnavailable = disabled || readOnly || formState.isSubmitting
   const submitDisabled = deliveryUnavailable || (!retrying && !hasCurrentDraft)
-  let actionLabel = 'Save answer and queue continuation'
+  // A session question reaches the running or resumable session; it never starts a continuation.
+  let actionLabel = question.assumption
+    ? 'Send answer to the session'
+    : 'Save answer and queue continuation'
   if (formState.isSubmitting) {
     actionLabel = 'Saving answer…'
   } else if (retrying) {
@@ -189,6 +192,9 @@ export function QuestionAnswer({
             ? 'The saved question context changed. Retry only the original unconfirmed answer, or discard the local draft.'
             : 'This question is superseded or its saved context changed. Your unsaved answer is preserved; it cannot be applied to another question.'}
         </Notice>
+      )}
+      {question.assumption && (
+        <Paragraph>The agent keeps working on this assumption: {question.assumption}</Paragraph>
       )}
       <Fieldset disabled={formState.isSubmitting || readOnly || retrying}>
         <Field>

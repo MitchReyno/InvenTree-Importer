@@ -356,6 +356,8 @@ test('a lead job and its session have no subject', () => {
         actual_model: null,
         progress: 'responding',
         occupies_lane: true,
+        session_state: 'running',
+        latest_status: { text: 'Reading the label', at: '2026-11-06T01:02:04.000Z' },
       },
     ],
     next_before: null,

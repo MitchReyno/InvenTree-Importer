@@ -1,3 +1,4 @@
+import { isSessionProfile } from './session-policy.ts'
 import type { Pool, PoolClient } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'
 import {
@@ -32,6 +33,8 @@ async function lockedSnapshot(
   }
   return capture
 }
+
+const SESSION_START_STAGES: readonly string[] = ['research', 'images']
 
 export async function startProcessing(
   pool: Pool,
@@ -70,7 +73,16 @@ export async function startProcessing(
         await lockLane(client, config.actorId)
         const jobIds: string[] = []
         const attemptIds: string[] = []
-        const stages = stageOrder.filter((stage) => input.stages.includes(stage))
+        // Session profiles queue Research and Images as independent per-lot sessions. Reading and
+        // identifying become the Examine lead session, and Inventory waits for a stable identity.
+        const sessions = config.profileId !== undefined && isSessionProfile(config.profileId)
+        const stages = stageOrder.filter(
+          (stage) =>
+            input.stages.includes(stage) && (!sessions || SESSION_START_STAGES.includes(stage)),
+        )
+        if (!stages.length) {
+          fail('unsupported_processing_stage', 422)
+        }
         await checkJobCapacity(client, batchId, input.subject_ids, stages)
         for (const subjectId of [...input.subject_ids].sort()) {
           let dependencies: string[] = []
@@ -86,7 +98,7 @@ export async function startProcessing(
             )
             jobIds.push(attempt.jobId)
             attemptIds.push(attempt.attemptId)
-            dependencies = [attempt.attemptId]
+            dependencies = sessions ? [] : [attempt.attemptId]
           }
         }
         await appendEvent(client, capture.streamId, 'processing_changed', { batch_id: batchId })

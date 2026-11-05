@@ -1,5 +1,5 @@
-import { and, desc, eq } from 'drizzle-orm'
-import type { PoolClient } from 'pg'
+import { and, desc, eq, inArray } from 'drizzle-orm'
+import type { Pool, PoolClient } from 'pg'
 import { validate, type SessionOutboxItemDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../../db/database.ts'
 import { agentSessionOutbox, agentSessions } from '../schema.ts'
@@ -56,4 +56,33 @@ export async function lastStatusAt(client: PoolClient, sessionId: string) {
       .limit(1),
   )
   return rows[0]?.createdAt
+}
+
+/** Each session's newest status line, for lists and the header. */
+export async function latestStatuses(client: PoolClient | Pool, sessionIds: readonly string[]) {
+  if (!sessionIds.length) {
+    return new Map<string, { text: string; at: string }>()
+  }
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .selectDistinctOn([agentSessionOutbox.sessionId], {
+        sessionId: agentSessionOutbox.sessionId,
+        payload: agentSessionOutbox.payload,
+        createdAt: agentSessionOutbox.createdAt,
+      })
+      .from(agentSessionOutbox)
+      .where(
+        and(
+          inArray(agentSessionOutbox.sessionId, [...sessionIds]),
+          eq(agentSessionOutbox.kind, 'status'),
+        ),
+      )
+      .orderBy(agentSessionOutbox.sessionId, desc(agentSessionOutbox.seq)),
+  )
+  return new Map(
+    rows.map((row) => [
+      row.sessionId,
+      { text: (row.payload as { text: string }).text, at: row.createdAt.toISOString() },
+    ]),
+  )
 }

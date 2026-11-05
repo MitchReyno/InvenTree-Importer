@@ -109,12 +109,22 @@ export function WorkflowDetails({ data, batchId, unavailable, fresh }: Props) {
             {session.stage} · logical state {session.state.replaceAll('_', ' ')} ·{' '}
             {session.progress}
           </Paragraph>
+          {session.latest_status && (
+            <Paragraph>
+              {session.latest_status.text}{' '}
+              <Small as="time" dateTime={session.latest_status.at}>
+                {new Date(session.latest_status.at).toLocaleTimeString()}
+              </Small>
+            </Paragraph>
+          )}
           <Paragraph>
-            {session.occupies_lane
-              ? 'Physical lane occupied'
-              : session.progress === 'queued'
-                ? 'Queued; physical lane not held by this session'
-                : 'No physical occupancy reported'}
+            {session.session_state === 'waiting_input'
+              ? 'Waiting for your input · holds no slot'
+              : session.occupies_lane
+                ? 'Physical lane occupied'
+                : session.progress === 'queued'
+                  ? 'Queued; physical lane not held by this session'
+                  : 'No physical occupancy reported'}
           </Paragraph>
           <Small>
             Batch {session.batch_id} · attempt {session.attempt_id}

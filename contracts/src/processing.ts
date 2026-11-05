@@ -33,6 +33,24 @@ export const ProcessingState = Type.Union(
     ] as const
   ).map((state) => Type.Literal(state)),
 )
+/** A session's lifecycle state; sessions.ts re-exports it with the session contracts. */
+export const SessionState = Type.Union(
+  (
+    [
+      'queued',
+      'running',
+      'waiting_input',
+      'finished',
+      'cancelling',
+      'cancelled',
+      'interrupted',
+      'failed',
+      'waiting_for_login',
+      'waiting_for_capacity',
+      'resume_unavailable',
+    ] as const
+  ).map((state) => Type.Literal(state)),
+)
 export const ProcessingStart = object({
   schema_version: Type.Literal('bench-intake-processing/1'),
   expected_capture_revision: Revision,
@@ -467,6 +485,8 @@ export const ProcessingJob = object({
   qualification: Type.Union([Type.Literal('fixture_only'), Type.Literal('native_unverified')]),
   can_cancel: Type.Optional(Type.Boolean()),
   blocked_code: Type.Optional(ProcessingBlocker),
+  /** Present for session profiles: the state of the job's latest session. */
+  session_state: Type.Optional(SessionState),
   proposals: Type.Array(object({ id: Id, message_id: Id, value: ProcessingProposal }), {
     maxItems: 100,
   }),

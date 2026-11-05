@@ -3,6 +3,7 @@ import { Id } from './scalars.ts'
 import { ProcessingStageV2, ProcessingState, ProcessingBlocker } from './processing.ts'
 import { ManualRun } from './manual.ts'
 import { AgentSelection } from './agent-selection.ts'
+import { SessionLatestStatus, SessionState } from './sessions.ts'
 
 const choice = <const T extends readonly string[]>(values: T) =>
   Type.Union(values.map((value) => Type.Literal(value)))
@@ -104,7 +105,11 @@ export const HeaderWork = object({
       selection: Type.Union([AgentSelection, Type.Null()]),
       actual_model: Type.Union([Type.String({ maxLength: 128 }), Type.Null()]),
       progress: choice(['queued', 'starting', 'responding', 'settled']),
+      /** For sessions: holds a running slot. Waiting sessions hold none. */
       occupies_lane: Type.Boolean(),
+      /** Session profiles only. */
+      session_state: Type.Union([SessionState, Type.Null()]),
+      latest_status: Type.Union([SessionLatestStatus, Type.Null()]),
     }),
     { maxItems: 50 },
   ),

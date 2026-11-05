@@ -6,7 +6,7 @@ This change delivers [BI-006](../PLANNED_FUNCTIONALITY.md#bi-006--agent-led-inta
 
 | Bundle | Tasks | Branch | State |
 | --- | --- | --- | --- |
-| PR-A resumable sessions | 1–6 | `feat/simplify-intake-entry-sessions` | Tasks 1–5 done; task 6 pending |
+| PR-A resumable sessions | 1–6 | `feat/simplify-intake-entry-sessions` | Tasks 1–6 done; independent review, publication and CI pending (D.1) |
 | PR-B lot forming | 7–9 | `feat/simplify-intake-entry-lot-forming` | Not started; needs PR-A merged |
 | PR-C per-lot pipeline | 10–12 | `feat/simplify-intake-entry-examine-pipeline` | Not started; needs PR-B merged |
 | PR-D live qualification | 13 | `feat/simplify-intake-entry-live-qualification` | Held until live provider use is authorized |
@@ -256,6 +256,51 @@ The task 4 runs are the baseline for the lane and settings tests: PostgreSQL 176
 - `pnpm test:intake`: 72 contract and 181 intake-server tests passed. `pnpm test:frontend`: 311 passed.
 - `pnpm db:intake test`: 182 passed. The first run had one failure, the `/1` native settings test expecting the old settings shape without `session_concurrency`; its expectations were updated and the file passed (4 tests).
 - `pnpm db:intake test:process`: 58 tests, 54 passed, with only the pre-existing media failure and its 3 skips. The `/1` lane occupancy and fence tests pass unchanged.
+
+## Task 6: session UI and header
+
+### Baseline (task 6.1)
+
+`pnpm test:frontend` before task 6: 311 passed (the task 5 run).
+
+### Reads
+
+- `GET /api/v1/batches/:id/processing/:jobId/session` returns `SessionTimeline`: the latest session's state, every outbox item across the job's attempts in time order, and its inbox items (each up to 500). It is scoped to the batch and the caller's account; an unknown job is 404.
+- `ProcessingJob` carries `session_state` for session jobs, so the UI shows a session panel only where one exists.
+- `AgentSessionList` and `HeaderWork` rows carry `session_state` and `latest_status` (text and time). The header also lists sessions waiting for input; `occupies_lane` there means holding the `/1` lane or a session slot, so a waiting session shows `false`.
+- The processing client adds `session` and `chat`. `configuredRunnerStatus` reports `native_unverified` for `native-agent/2`.
+
+### UI
+
+- `SessionTimeline` shows the steps (status lines and results) in order with times, the current activity in a polite live region that announces only the newest status line, and the chat (operator messages, answers and agent replies).
+- `SessionChat` is a labelled composer, enabled in every state except cancelled. A cancelled session offers "Start a fresh session", which queues a new attempt for that lot and stage. One idempotency key is kept per draft until a send is confirmed.
+- `SessionPanel` loads the timeline under the batch's Processing query key, so live hints refresh it like every retained read, and sits inside each session job card.
+- Session questions show the assumption in use on the job card, in Needs you and in the answer form, whose action is "Send answer to the session".
+- The masthead's workflow details show each session's latest status line and time, and "Waiting for your input · holds no slot" for a waiting session.
+- A Processing start for a session profile queues only Research and Images (task 4 noted the reading and identifying refusal; task 6 found the start button always asked for all five stages).
+
+### Tests
+
+- Vitest: `SessionTimeline.test.tsx` (order and current activity, chat order, the composer in a finished session with a stable key on retry, the cancelled-session offer), `QuestionAnswer.test.tsx` (the assumption and the session action label, and the unchanged earlier-profile label), and a header test for the latest line and the waiting label. The component tests failed before the components existed.
+- PostgreSQL: a session-tools test for the timeline (order, waiting state, 404), the session list's latest status, and the header listing a waiting session as holding no slot.
+
+### Browser check (task 6.5)
+
+`tests/fixtures/session-browser.ts` serves the built UI with `synthetic-session/1` and a real session worker on reserved port 4360. Run headless in a separate Chrome under the coordination `browser` lease, against a fresh batch:
+
+1. Queuing Packet A from the Processing view started Research and Images sessions. Each showed "Current activity", ordered steps with times, its proposal, and its question with "Continuing on: Treating the lot as one item until answered"; Needs you listed both with their assumptions.
+2. Answering the Images question through the answer form ("Send answer to the session") resumed that session: a new status line and proposal appeared, the chat showed the answer, and it finished.
+3. Two chat messages to the waiting Research session each resumed it and got a reply.
+4. A chat message to the finished Images session resumed it, got a reply, and it finished again.
+
+The app's own reads confirmed each step's session state and inbox. Screenshots are kept outside the repository in the coordination pack (`artefacts/simplify-intake-entry-6.5/`). Limits: the preview, like the existing processing preview, does not register the header routes, so the masthead line was checked by the component and PostgreSQL tests, not in the browser; "One research lane per account" in the Processing panel is stale copy for session profiles, left for task 12's labels.
+
+### Results (task 6.4)
+
+- `pnpm contracts:check` clean; `pnpm typecheck`, `pnpm lint:readability`, `pnpm lint:frontend`, `pnpm lint:markdown`, Prettier and `pnpm build` pass.
+- `pnpm test:intake`: 72 contract and 181 intake-server tests passed. `pnpm test:frontend`: 318 passed.
+- `pnpm db:intake test`: 183 passed. `pnpm db:intake test:process`: 58 tests, 54 passed, with only the pre-existing media failure and its 3 skips.
+- `agents/ARCHITECTURE.md` and `processing/ARCHITECTURE.md` describe the session profiles, tool server, adapters, state machine, slots and worker.
 
 ## Validation
 

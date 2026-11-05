@@ -1175,6 +1175,155 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{id}/processing/{jobId}/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    jobId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description SessionTimeline */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SessionTimeline"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/batches/{id}/processing/{jobId}/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                jobId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    jobId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SessionInboxSubmission"];
+                };
+            };
+            responses: {
+                /** @description SessionInboxReceipt */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SessionInboxReceipt"];
+                    };
+                };
+                /** @description ErrorDto */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/batches/{id}/questions/{questionId}/answers": {
         parameters: {
             query?: never;
@@ -4785,6 +4934,11 @@ export interface components {
                 actual_model: string | null;
                 progress: "queued" | "starting" | "responding" | "settled";
                 occupies_lane: boolean;
+                session_state: ("queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable") | null;
+                latest_status: {
+                    text: string;
+                    at: string;
+                } | null;
             }[];
             work_truncated: boolean;
             sessions_truncated: boolean;
@@ -11774,6 +11928,7 @@ export interface components {
             qualification: "fixture_only" | "native_unverified";
             can_cancel?: boolean;
             blocked_code?: "media_not_ready" | "media_input_capacity" | "worker_version_conflict";
+            session_state?: "queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable";
             proposals: {
                 id: string;
                 message_id: string;
@@ -12146,6 +12301,7 @@ export interface components {
                 qualification: "fixture_only" | "native_unverified";
                 can_cancel?: boolean;
                 blocked_code?: "media_not_ready" | "media_input_capacity" | "worker_version_conflict";
+                session_state?: "queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable";
                 proposals: {
                     id: string;
                     message_id: string;
@@ -13376,8 +13532,148 @@ export interface components {
                 actual_model: string | null;
                 progress: "queued" | "starting" | "responding" | "settled";
                 occupies_lane: boolean;
+                session_state: ("queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable") | null;
+                latest_status: {
+                    text: string;
+                    at: string;
+                } | null;
             }[];
             next_before: string | null;
+        };
+        SessionLatestStatus: {
+            text: string;
+            at: string;
+        };
+        SessionTimeline: {
+            job_id: string;
+            attempt_id: string;
+            session_state: "queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable";
+            outbox: ({
+                session_id: string;
+                /** Format: int64 */
+                seq: string;
+                created_at: string;
+                /** @constant */
+                kind: "status";
+                payload: {
+                    text: string;
+                };
+            } | {
+                session_id: string;
+                /** Format: int64 */
+                seq: string;
+                created_at: string;
+                /** @constant */
+                kind: "observation";
+                payload: {
+                    evidence_observation_id: string;
+                };
+            } | {
+                session_id: string;
+                /** Format: int64 */
+                seq: string;
+                created_at: string;
+                /** @constant */
+                kind: "lot";
+                payload: {
+                    lot_id: string;
+                };
+            } | {
+                session_id: string;
+                /** Format: int64 */
+                seq: string;
+                created_at: string;
+                /** @constant */
+                kind: "regroup";
+                payload: {
+                    lot_ids: string[];
+                };
+            } | {
+                session_id: string;
+                /** Format: int64 */
+                seq: string;
+                created_at: string;
+                /** @constant */
+                kind: "proposal";
+                payload: {
+                    proposal_id: string;
+                };
+            } | {
+                session_id: string;
+                /** Format: int64 */
+                seq: string;
+                created_at: string;
+                /** @constant */
+                kind: "question";
+                payload: {
+                    question_id: string;
+                };
+            } | {
+                session_id: string;
+                /** Format: int64 */
+                seq: string;
+                created_at: string;
+                /** @constant */
+                kind: "reply";
+                payload: {
+                    inbox_item_id: string;
+                    text: string;
+                };
+            })[];
+            inbox: ({
+                id: string;
+                /** Format: int64 */
+                seq: string;
+                created_at: string;
+                /** @constant */
+                kind: "answer";
+                payload: {
+                    question_id: string;
+                    answer_id: string;
+                    value: {
+                        /** @constant */
+                        kind: "quantity";
+                        value: string;
+                        basis: "counted" | "estimated";
+                    } | {
+                        /** @constant */
+                        kind: "clarification";
+                        text: string;
+                    };
+                };
+            } | {
+                id: string;
+                /** Format: int64 */
+                seq: string;
+                created_at: string;
+                /** @constant */
+                kind: "chat";
+                payload: {
+                    text: string;
+                };
+            } | {
+                id: string;
+                /** Format: int64 */
+                seq: string;
+                created_at: string;
+                /** @constant */
+                kind: "evidence";
+                payload: {
+                    evidence_id: string;
+                    version_id: string;
+                };
+            } | {
+                id: string;
+                /** Format: int64 */
+                seq: string;
+                created_at: string;
+                /** @constant */
+                kind: "revision";
+                payload: {
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    reason: string;
+                };
+            })[];
         };
         SessionEnvelope: {
             /** @constant */
@@ -14345,6 +14641,8 @@ export type AgentSelection = components['schemas']['AgentSelection']
 export type AgentSettings = components['schemas']['AgentSettings']
 export type AgentSettingsUpdate = components['schemas']['AgentSettingsUpdate']
 export type AgentSessionList = components['schemas']['AgentSessionList']
+export type SessionLatestStatus = components['schemas']['SessionLatestStatus']
+export type SessionTimeline = components['schemas']['SessionTimeline']
 export type SessionEnvelope = components['schemas']['SessionEnvelope']
 export type SessionState = components['schemas']['SessionState']
 export type SessionStatusArgs = components['schemas']['SessionStatusArgs']

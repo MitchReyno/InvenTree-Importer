@@ -37,6 +37,7 @@ import {
   retainedSessionQuestion,
 } from './retained.ts'
 import { decodeJobInput } from './session-input.ts'
+import { agentSessions } from '../agents/schema.ts'
 import { verifyRetainedResearchSources } from './research-sources.ts'
 import { canCancelProcessingAttempt } from './state.ts'
 import {
@@ -244,8 +245,26 @@ export async function processingSnapshot(
     capture,
     retainedJobs.map((job) => job.subjectId),
   )
+  const sessionStates = new Map(
+    retainedJobs.length
+      ? (
+          await executeDatabaseQuery(
+            queryDatabase(client)
+              .select({ attemptId: agentSessions.attemptId, state: agentSessions.sessionState })
+              .from(agentSessions)
+              .where(
+                inArray(
+                  agentSessions.attemptId,
+                  retainedJobs.map((job) => job.attemptId),
+                ),
+              ),
+          )
+        ).map((row) => [row.attemptId, row.state])
+      : [],
+  )
   const jobs: ProcessingJobDto[] = []
   for (const job of retainedJobs) {
+    const sessionState = sessionStates.get(job.attemptId)
     const currency = await inputCurrency(
       client,
       config,
@@ -272,6 +291,7 @@ export async function processingSnapshot(
         capture.archived,
       ),
       ...(currency.blockedCode ? { blocked_code: currency.blockedCode } : {}),
+      ...(sessionState ? { session_state: sessionState } : {}),
       proposals,
       questions,
     })
@@ -497,5 +517,7 @@ function configuredRunnerStatus(
   if (!configured) {
     return 'unconfigured'
   }
-  return config.profileId === 'native-agent/1' ? 'native_unverified' : 'fixture_only'
+  return config.profileId === 'native-agent/1' || config.profileId === 'native-agent/2'
+    ? 'native_unverified'
+    : 'fixture_only'
 }

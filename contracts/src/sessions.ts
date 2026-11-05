@@ -2,6 +2,7 @@ import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { CursorSequence, Id, Revision } from './scalars.ts'
 import {
   ProcessingFields,
+  SessionState,
   ProcessingProposalV5,
   ProcessingQuestionSpec,
   ProcessingQuestionValue,
@@ -20,23 +21,7 @@ const statusLine = Type.String({
   pattern: '^[^\\r\\n\\u2028\\u2029]*$',
 })
 
-export const SessionState = Type.Union(
-  (
-    [
-      'queued',
-      'running',
-      'waiting_input',
-      'finished',
-      'cancelling',
-      'cancelled',
-      'interrupted',
-      'failed',
-      'waiting_for_login',
-      'waiting_for_capacity',
-      'resume_unavailable',
-    ] as const
-  ).map((state) => Type.Literal(state)),
-)
+export { SessionState }
 
 export const SessionStatusArgs = object({ text: statusLine })
 /** A question names the fields it affects and the assumption the agent continues with. */
@@ -166,7 +151,22 @@ export const SessionEnvelope = Type.Union([
   object({ ...sessionBinding, kind: Type.Literal('proposal'), payload: ProcessingProposalV5 }),
   object({ ...sessionBinding, kind: Type.Literal('question'), payload: SessionAskArgs }),
 ])
+/** A session's latest status line, shown as its current activity. */
+export const SessionLatestStatus = object({
+  text: SessionStatusArgs.properties.text,
+  at: timestamp,
+})
+/** One Processing job's session history: every outbox item across its attempts, and its inbox. */
+export const SessionTimeline = object({
+  job_id: Id,
+  attempt_id: Id,
+  session_state: SessionState,
+  outbox: Type.Array(SessionOutboxItem, { maxItems: 500 }),
+  inbox: Type.Array(SessionInboxItem, { maxItems: 500 }),
+})
 export const sessionSchemas = {
+  SessionLatestStatus,
+  SessionTimeline,
   SessionEnvelope,
   SessionState,
   SessionStatusArgs,
@@ -182,6 +182,8 @@ export const sessionSchemas = {
   SessionInboxSubmission,
   SessionInboxReceipt,
 }
+export type SessionLatestStatusDto = Static<typeof SessionLatestStatus>
+export type SessionTimelineDto = Static<typeof SessionTimeline>
 export type SessionEnvelopeDto = Static<typeof SessionEnvelope>
 export type SessionStateDto = Static<typeof SessionState>
 export type SessionStatusArgsDto = Static<typeof SessionStatusArgs>

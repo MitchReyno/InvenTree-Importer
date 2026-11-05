@@ -14,7 +14,8 @@ import { captureInTransaction } from '../capture/repository.ts'
 import type { ProcessingConfig } from '../processing/attempts.ts'
 import { fail } from '../processing/model.ts'
 import { decodeJobInput } from '../processing/session-input.ts'
-import { agentSessions } from './schema.ts'
+import { latestStatuses } from './tools/outbox.ts'
+import { agentSessions, agentSlots } from './schema.ts'
 
 const SESSION_PAGE_SIZE = 50
 
@@ -56,6 +57,7 @@ export async function listAgentSessions(
           bytes: processingInputs.manifestBytes,
           digest: processingInputs.manifestDigest,
           laneAttempt: processingLanes.attemptId,
+          slotAttempt: agentSlots.attemptId,
         })
         .from(agentSessions)
         .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
@@ -63,6 +65,7 @@ export async function listAgentSessions(
         .innerJoin(processingJobs, eq(processingJobs.id, processingAttempts.jobId))
         .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
         .leftJoin(processingLanes, eq(processingLanes.actorId, commands.actorId))
+        .leftJoin(agentSlots, eq(agentSlots.attemptId, agentSessions.attemptId))
         .where(
           and(
             eq(commands.actorId, binding.actorId),
@@ -81,6 +84,10 @@ export async function listAgentSessions(
         )
         .orderBy(desc(agentSessions.queuedAt), desc(agentSessions.attemptId))
         .limit(SESSION_PAGE_SIZE + 1),
+    )
+    const statuses = await latestStatuses(
+      client,
+      rows.slice(0, SESSION_PAGE_SIZE).map((row) => row.attempt.id),
     )
     const sessions: AgentSessionListDto['sessions'] = []
     for (const row of rows.slice(0, SESSION_PAGE_SIZE)) {
@@ -107,7 +114,9 @@ export async function listAgentSessions(
         native_session_id: row.session.nativeSessionId,
         actual_model: row.session.actualModel,
         progress: row.session.progress,
-        occupies_lane: row.laneAttempt === row.attempt.id,
+        occupies_lane: row.laneAttempt === row.attempt.id || row.slotAttempt === row.attempt.id,
+        session_state: row.session.sessionState,
+        latest_status: statuses.get(row.attempt.id) ?? null,
       })
     }
     return {
