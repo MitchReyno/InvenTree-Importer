@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type {
   CaptureSnapshotDto,
   ManualWorkspaceDto,
@@ -157,17 +158,17 @@ const GroupTitle = styled.h3`
   font-size: 12px;
   letter-spacing: 1.2px;
   text-transform: uppercase;
-  color: #526179;
+  color: ${color.muted};
 `
 const QueueRow = styled.div<{ $focused: boolean }>`
   display: grid;
   gap: 6px;
   padding: 12px;
   margin-top: 10px;
-  border: 1px solid ${(p) => (p.$focused ? '#266ac5' : '#d5dce5')};
+  border: 1px solid ${(p) => (p.$focused ? color.accent : color.line)};
   border-left-width: ${(p) => (p.$focused ? '4px' : '1px')};
   border-radius: 5px;
-  background: ${(p) => (p.$focused ? '#e0eafa' : '#f7f9fc')};
+  background: ${(p) => (p.$focused ? color.accentWeak : color.surface2)};
   button {
     margin-top: 3px;
     width: 100%;

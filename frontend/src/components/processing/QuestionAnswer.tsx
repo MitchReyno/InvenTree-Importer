@@ -1,6 +1,7 @@
 import { useEffect, useRef, type FormEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import {
   validate,
   type ProcessingAnswerDto,
@@ -257,9 +258,9 @@ export function QuestionAnswer({
 
 const Card = styled.form`
   padding: 20px;
-  border: 1px solid #d5ba79;
+  border: 1px solid ${color.warn};
   border-radius: 8px;
-  background: #fffaf0;
+  background: ${color.warnWeak};
   h3 {
     margin: 0 0 8px;
   }

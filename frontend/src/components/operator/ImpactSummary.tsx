@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorImpactDto } from '@invimport/contracts'
 import { Paragraph, Small } from '../ui/primitives'
 
@@ -90,7 +91,7 @@ const Row = styled.div`
   grid-template-columns: minmax(140px, 220px) 1fr;
   gap: 12px;
   dt {
-    color: #526179;
+    color: ${color.muted};
     font-size: 13px;
   }
   dd {

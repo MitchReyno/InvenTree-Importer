@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState, type SyntheticEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type {
   MediaEditDto,
   MediaSnapshotDto,
@@ -265,12 +266,12 @@ const Dialog = styled.dialog`
   width: min(1400px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   overflow: auto;
-  border: 1px solid #bac7d8;
+  border: 1px solid ${color.lineStrong};
   border-radius: 8px;
   padding: 20px;
-  background: #fff;
+  background: ${color.surface};
   &::backdrop {
-    background: rgb(20 35 55 / 40%);
+    background: ${color.overlay};
   }
 `
 const CropBody = styled.div`
@@ -297,11 +298,11 @@ const Actions = styled.div`
   margin: 16px 0;
 `
 const Output = styled.section`
-  border-left: 1px solid #d5dce5;
+  border-left: 1px solid ${color.line};
   padding-left: 20px;
   @media (max-width: 760px) {
     border-left: 0;
-    border-top: 1px solid #d5dce5;
+    border-top: 1px solid ${color.line};
     padding: 16px 0 0;
   }
   img {

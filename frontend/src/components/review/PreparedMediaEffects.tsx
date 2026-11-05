@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { ManualPreviewDto } from '@invimport/contracts'
 import { Heading, Paragraph, Small, Summary } from '../ui/primitives'
 import { mediaResource } from '../../media/types'
@@ -59,6 +60,6 @@ const Attachment = styled.div`
   display: grid;
   gap: 8px;
   padding: 14px 0;
-  border-top: 1px solid #e0e5ed;
+  border-top: 1px solid ${color.line};
   overflow-wrap: anywhere;
 `

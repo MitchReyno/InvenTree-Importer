@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type {
   CaptureSnapshotDto,
   MediaSnapshotDto,
@@ -158,11 +159,11 @@ export function ReviewTable({
 const Scroll = styled.div`
   overflow-x: auto;
   max-width: 100%;
-  background: white;
-  border: 1px solid #d5dce5;
+  background: ${color.surface};
+  border: 1px solid ${color.line};
   border-radius: 6px;
   &:focus-visible {
-    outline: 3px solid #3977c9;
+    outline: 3px solid ${color.accent};
   }
 `
 const Table = styled.table`
@@ -172,7 +173,7 @@ const Table = styled.table`
   caption {
     padding: 10px 12px;
     text-align: left;
-    color: #526179;
+    color: ${color.muted};
     font-size: 13px;
   }
   th,
@@ -180,16 +181,16 @@ const Table = styled.table`
     padding: 10px 12px;
     text-align: left;
     vertical-align: top;
-    border-top: 1px solid #e3e8ef;
+    border-top: 1px solid ${color.line};
   }
   thead th {
     font-size: 12px;
     letter-spacing: 1px;
     text-transform: uppercase;
-    color: #526179;
+    color: ${color.muted};
   }
   tr[aria-selected='true'] td {
-    background: #f1f6fd;
+    background: ${color.accentWeak};
   }
   input[type='checkbox'] {
     width: 20px;
@@ -205,7 +206,7 @@ const ItemButton = styled.button`
   padding: 0;
   border: 0;
   background: none;
-  color: #164a93;
+  color: ${color.accent};
   text-decoration: underline;
   text-align: left;
   font: inherit;
@@ -213,10 +214,10 @@ const ItemButton = styled.button`
   min-height: 32px;
 `
 const SharedCount = styled.span`
-  color: #526179;
+  color: ${color.muted};
   font-size: 13px;
 `
 const Empty = styled.p`
   padding: 12px;
-  color: #526179;
+  color: ${color.muted};
 `

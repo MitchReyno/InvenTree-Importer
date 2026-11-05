@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import styled from 'styled-components'
+import { color, radius, shadow, space } from '../../theme/generated/tokens'
 
 type Props = { label: string; explanation: string }
 
@@ -26,6 +27,7 @@ export function DisabledFeature({ label, explanation }: Props) {
         }
       }}
     >
+      <Soon>Coming later</Soon>
       <label>
         <input type="checkbox" disabled tabIndex={-1} />
         <span id={`${id}-label`}>{label}</span>
@@ -40,21 +42,29 @@ export function DisabledFeature({ label, explanation }: Props) {
 const Wrapper = styled.div`
   position: relative;
   display: inline-flex;
+  flex-direction: column;
+  gap: ${space[1]};
   min-height: 44px;
-  align-items: center;
-  border-radius: 5px;
-  color: #526179;
+  padding: ${space['2-5']} ${space[3]};
+  border: 1px dashed ${color.lineStrong};
+  border-radius: ${radius.card};
+  color: ${color.muted};
   label {
     display: inline-flex;
-    gap: 8px;
+    gap: ${space[2]};
     align-items: center;
     cursor: not-allowed;
   }
-  &:focus-visible {
-    outline: 2px solid #266ac5;
-    outline-offset: 2px;
-  }
 `
+
+const Soon = styled.span`
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: ${color.info};
+`
+
 const Tip = styled.span`
   position: absolute;
   top: calc(100% + 4px);
@@ -62,11 +72,12 @@ const Tip = styled.span`
   z-index: 10;
   width: max-content;
   max-width: min(280px, calc(100vw - 32px));
-  padding: 8px 10px;
-  border-radius: 5px;
-  background: #233349;
-  color: #fff;
-  font-size: 13px;
+  padding: ${space['1-5']} ${space[2]};
+  border-radius: ${radius.sm};
+  background: ${color.fg};
+  color: ${color.bg};
+  box-shadow: ${shadow};
+  font-size: 12.5px;
   line-height: 1.4;
   &[hidden] {
     display: none;

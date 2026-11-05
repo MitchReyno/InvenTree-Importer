@@ -1,13 +1,14 @@
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 
 export type ChipTone = 'neutral' | 'blue' | 'green' | 'amber' | 'red'
 
 const TONES: Record<ChipTone, { color: string; background: string; border: string }> = {
-  neutral: { color: '#3c4b61', background: '#f1f4f8', border: '#d5dce5' },
-  blue: { color: '#164a93', background: '#e0eafa', border: '#b9cde7' },
-  green: { color: '#1e6a3a', background: '#e6f4ea', border: '#a9d4b5' },
-  amber: { color: '#7a5410', background: '#fff4d9', border: '#e7d09c' },
-  red: { color: '#9b2c2c', background: '#fff0f0', border: '#e3b0b0' },
+  neutral: { color: color.fg, background: color.surface2, border: color.line },
+  blue: { color: color.accent, background: color.accentWeak, border: color.accent },
+  green: { color: color.ok, background: color.okWeak, border: color.ok },
+  amber: { color: color.warn, background: color.warnWeak, border: color.warn },
+  red: { color: color.bad, background: color.badWeak, border: color.bad },
 }
 
 /** Text carries the meaning; colour only reinforces it. */

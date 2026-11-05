@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import styled from 'styled-components'
+import { color, radius, shadow, space } from '../../theme/generated/tokens'
 import { Input, Small } from './primitives'
 
 export type AutoValue = { mode: 'auto' } | { mode: 'none' } | { mode: 'manual'; value: string }
@@ -136,30 +137,33 @@ const Trigger = styled.button`
   gap: 2px;
   min-height: 44px;
   width: 100%;
-  padding: 8px 10px;
+  padding: ${space['1-5']} ${space['2-5']};
   text-align: left;
-  color: #233349;
-  background: #fff;
-  border: 1px solid #acbacb;
-  border-radius: 5px;
+  color: ${color.fg};
+  background: ${color.surface};
+  border: 1px solid ${color.lineStrong};
+  border-radius: ${radius.btn};
   cursor: pointer;
+  &:hover:not(:disabled) {
+    background: ${color.surface2};
+  }
   &[data-state='open'] {
-    border-color: #266ac5;
-    background: #edf4ff;
+    border-color: ${color.accent};
+    background: ${color.accentWeak};
   }
   &[aria-invalid='true'] {
-    border-color: #b44;
+    border-color: ${color.bad};
   }
   &:disabled {
     cursor: not-allowed;
-    color: #526179;
-    background: #f3f5f8;
+    color: ${color.muted};
+    background: ${color.surface2};
     border-style: dashed;
   }
 `
 const TriggerLabel = styled.span`
   font-size: 12px;
-  color: #526179;
+  color: ${color.muted};
 `
 const TriggerValue = styled.span`
   font-weight: 550;
@@ -172,12 +176,12 @@ const Content = styled(Popover.Content)`
   width: min(320px, calc(100vw - 24px));
   max-height: min(70vh, var(--radix-popover-content-available-height));
   overflow: auto;
-  padding: 12px;
-  color: #233349;
-  background: #fff;
-  border: 1px solid #c5cfdd;
-  border-radius: 8px;
-  box-shadow: 0 8px 28px #23334926;
+  padding: ${space[3]};
+  color: ${color.fg};
+  background: ${color.surface};
+  border: 1px solid ${color.line};
+  border-radius: ${radius.popover};
+  box-shadow: ${shadow};
   font-size: 14px;
 `
 const Choices = styled.div`
@@ -194,11 +198,13 @@ const Choice = styled.label`
   column-gap: 8px;
   align-items: center;
   min-height: 44px;
-  padding: 4px 6px;
-  border-radius: 5px;
+  padding: 9px 11px;
+  border: 1px solid ${color.lineStrong};
+  border-radius: ${radius.btn};
   cursor: pointer;
   &:has(input:checked) {
-    background: #edf3fc;
+    border-color: ${color.accent};
+    background: ${color.accentWeak};
   }
   input {
     width: 18px;
@@ -209,12 +215,12 @@ const Choice = styled.label`
 const Hint = styled.span`
   grid-column: 2;
   font-size: 12px;
-  color: #526179;
+  color: ${color.muted};
 `
 const ManualArea = styled.div`
   display: grid;
   gap: 6px;
   padding-top: 10px;
-  border-top: 1px solid #d5dce5;
+  border-top: 1px solid ${color.line};
   font-weight: 550;
 `

@@ -1,12 +1,15 @@
 import { useState } from 'react'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
+import { color, radius, space } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
+import { Spinner } from '../ui/Progress'
 import type { HeaderClient } from '../../header/types'
 import { useHeaderObservations } from '../../header/useHeaderObservations'
 import {
   observationFresh,
   preferredWork,
   safeTargetNavigation,
-  targetSummary,
+  targetStatus,
   workflowSummary,
 } from '../../header/observations'
 import { useUpdateHealth } from '../operations/LiveUpdates'
@@ -30,39 +33,52 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
   const connectionData = connection.isFetchedAfterMount ? connection.data : undefined
   const workData = work.isFetchedAfterMount ? work.data : undefined
   const target = connectionData?.target
-  const targetText = targetSummary(target, connectionUnavailable, now)
+  const connectionStatus = targetStatus(target, connectionUnavailable, now)
   const preferred = preferredWork(workData, batchId)
   const workText = workflowSummary(workData, preferred, workUnavailable, now)
   const navigation = safeTargetNavigation(target?.navigation_url)
   const workFresh = !workUnavailable && !!workData && observationFresh(workData.observed_at, now)
-  const targetGood =
-    !connectionUnavailable &&
-    target?.state === 'reachable' &&
-    target.freshness === 'fresh' &&
-    observationFresh(target.observed_at, now)
+  const workShort = compactWorkWord({
+    unavailable: workUnavailable,
+    loaded: !!workData,
+    fresh: workFresh,
+    hasWork: !!preferred,
+  })
+  const workActive =
+    workFresh && !!preferred && preferred.steps.some((step) => stepTone(step.state) === 'running')
   return (
     <StatusRow aria-label="Application status">
       <HeaderDisclosure
         label="Workflow activity"
         title="Workflow details"
+        active={workActive}
         trigger={
           <TriggerContent>
-            <span role="status" aria-live="polite">
-              {workText}
-            </span>
-            <Scope>
-              {batchId && preferred?.batch_id === batchId ? 'Current batch' : 'Application-wide'}
-            </Scope>
+            {workActive && <Spinner />}
+            <ActivityLabels data-compact="visually-hidden">
+              <span role="status" aria-live="polite">
+                {workText}
+              </span>
+              <Scope>
+                {batchId && preferred?.batch_id === batchId ? 'Current batch' : 'Application-wide'}
+              </Scope>
+            </ActivityLabels>
+            {!(workFresh && preferred) && <ShortText aria-hidden="true" data-short={workShort} />}
             {workFresh && preferred && (
               <Segments role="list" aria-label="Known retained steps">
-                {preferred.steps.map((step, index) => (
-                  <Segment
-                    role="listitem"
-                    aria-label={`${'stage' in step ? step.stage : step.name}: ${step.state}`}
-                    key={index}
-                    title={`${'stage' in step ? step.stage : step.name}: ${step.state}`}
-                  />
-                ))}
+                {preferred.steps.map((step, index) => {
+                  const name = 'stage' in step ? step.stage : step.name
+
+                  return (
+                    <Segment
+                      role="listitem"
+                      aria-label={`${name}: ${step.state}`}
+                      key={index}
+                      title={`${name}: ${step.state}`}
+                      data-tone={stepTone(step.state)}
+                    />
+                  )
+                })}
               </Segments>
             )}
           </TriggerContent>
@@ -77,111 +93,222 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
           fresh={workFresh}
         />
       </HeaderDisclosure>
-      <ConnectionRow>
-        <HeaderDisclosure
-          label="Connection status"
-          title="Connection details"
-          trigger={
-            <TriggerContent>
-              <Dot $good={targetGood} />
-              <span role="status" aria-live="polite">
-                {targetText}
-              </span>
-            </TriggerContent>
-          }
-          open={open === 'connection'}
-          onOpenChange={(value) => setOpen(value ? 'connection' : null)}
+      <HeaderDisclosure
+        label="Connection status"
+        title="Connection details"
+        trigger={
+          <TriggerContent>
+            <Dot data-tone={connectionStatus.tone} />
+            <ConnectionText
+              role="status"
+              aria-live="polite"
+              data-compact="visually-hidden"
+              title={connectionStatus.summary}
+            >
+              {connectionStatus.summary}
+            </ConnectionText>
+            <ShortText aria-hidden="true" data-short={connectionStatus.short} />
+          </TriggerContent>
+        }
+        open={open === 'connection'}
+        onOpenChange={(value) => setOpen(value ? 'connection' : null)}
+      >
+        <ConnectionDetails
+          target={target}
+          apiUnavailable={connectionUnavailable}
+          apiChecked={connection.isFetchedAfterMount ? connection.dataUpdatedAt : 0}
+          now={now}
+          health={health}
+        />
+      </HeaderDisclosure>
+      {navigation ? (
+        <TargetLink
+          aria-label="Open InvenTree"
+          href={navigation}
+          target="_blank"
+          rel="noopener noreferrer"
         >
-          <ConnectionDetails
-            target={target}
-            apiUnavailable={connectionUnavailable}
-            apiChecked={connection.isFetchedAfterMount ? connection.dataUpdatedAt : 0}
-            now={now}
-            health={health}
-          />
-        </HeaderDisclosure>
-        {navigation ? (
-          <TargetLink
-            aria-label="Open InvenTree"
-            href={navigation}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Open InvenTree ↗
-          </TargetLink>
-        ) : (
-          <UnavailableLink>Open InvenTree unavailable</UnavailableLink>
-        )}
-      </ConnectionRow>
+          Open InvenTree ↗
+        </TargetLink>
+      ) : (
+        <UnavailableLink>Open InvenTree unavailable</UnavailableLink>
+      )}
     </StatusRow>
   )
 }
 
+type WorkView = { unavailable: boolean; loaded: boolean; fresh: boolean; hasWork: boolean }
+
+/** At phone width the activity labels hide; without segments to show, this word stands in. */
+function compactWorkWord({ unavailable, loaded, fresh, hasWork }: WorkView) {
+  if (unavailable) {
+    return 'Offline'
+  }
+  if (!loaded) {
+    return 'Reading…'
+  }
+  if (!fresh) {
+    return 'Stale'
+  }
+
+  return hasWork ? 'Active' : 'Idle'
+}
+
+type StepTone = 'done' | 'running' | 'failed' | 'other'
+
+const STEP_TONE: Record<string, StepTone> = {
+  ready: 'done',
+  confirmed: 'done',
+  finished: 'done',
+  queued: 'running',
+  running: 'running',
+  waiting_for_user: 'running',
+  waiting_for_login: 'running',
+  waiting_for_capacity: 'running',
+  failed: 'failed',
+  interrupted: 'failed',
+  cancelled: 'failed',
+}
+
+function stepTone(state: string): StepTone {
+  return STEP_TONE[state] ?? 'other'
+}
+
+const visuallyHidden = css`
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+`
+
+// The masthead's end group lays these out with its menu, so they wrap as one set.
 const StatusRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  min-width: 0;
-  max-width: 100%;
+  display: contents;
 `
-const ConnectionRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  min-width: 0;
-`
+
 const TriggerContent = styled.span`
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
+  gap: ${space['1-5']};
   min-width: 0;
-  font-size: 12px;
   text-align: left;
+  color: ${color.accent};
 `
-const Scope = styled.small`
-  color: #526179;
-`
-const Dot = styled.span<{ $good: boolean }>`
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex: none;
-  background: ${(p) => (p.$good ? '#4eaa3d' : '#9a6b18')};
-`
-const Segments = styled.span`
+
+const ActivityLabels = styled.span`
   display: flex;
-  gap: 3px;
-  width: 100%;
-`
-const Segment = styled.span`
-  height: 4px;
-  min-width: 16px;
-  flex: 1;
-  background: #3577cb;
-  border-radius: 2px;
-`
-const TargetLink = styled.a`
-  min-height: 2rem;
-  display: inline-flex;
-  align-items: center;
-  color: #233349;
-  font-size: 12px;
-  font-weight: 500;
-  text-decoration: none;
-  border-radius: 0.5rem;
-  border: 1px solid transparent;
-  padding: 0.25rem 0.5rem;
-  &:hover {
-    border-color: #266ac5;
-    background: #edf4ff;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 260px;
+  line-height: 1.15;
+  color: ${color.fg};
+  & > span:first-child {
+    font-size: 12px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  ${media.compact} {
+    ${visuallyHidden}
   }
 `
+
+const Scope = styled.small`
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: ${color.muted};
+`
+
+const dotTone = {
+  ok: color.ok,
+  warn: color.warn,
+  bad: color.bad,
+  muted: color.muted,
+}
+
+const Dot = styled.span<{ 'data-tone': keyof typeof dotTone }>`
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: ${(props) => dotTone[props['data-tone']]};
+`
+
+const ConnectionText = styled.span`
+  min-width: 0;
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: ${color.fg};
+  white-space: nowrap;
+  ${media.compact} {
+    ${visuallyHidden}
+  }
+`
+
+const ShortText = styled.span`
+  display: none;
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: ${color.fg};
+  &::before {
+    content: attr(data-short);
+  }
+  ${media.compact} {
+    display: inline;
+  }
+`
+
+const segmentTone = {
+  done: color.ok,
+  running: color.accent,
+  failed: color.bad,
+  other: color.lineStrong,
+}
+
+const Segments = styled.span`
+  display: flex;
+  flex: none;
+  gap: 2px;
+`
+
+const Segment = styled.span<{ 'data-tone': StepTone }>`
+  display: block;
+  width: 14px;
+  height: 6px;
+  border-radius: 2px;
+  background: ${(props) => segmentTone[props['data-tone']]};
+`
+
+const TargetLink = styled.a`
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: ${space[1]} 9px;
+  border: 1px solid transparent;
+  border-radius: ${radius.btn};
+  color: ${color.fg};
+  font-size: 12.5px;
+  font-weight: 500;
+  text-decoration: none;
+  &:hover {
+    background: ${color.surface2};
+  }
+  ${media.compact} {
+    min-height: 44px;
+  }
+`
+
 const UnavailableLink = styled.span`
-  font-size: 12px;
-  color: #526179;
+  font-size: 12.5px;
+  color: ${color.muted};
 `

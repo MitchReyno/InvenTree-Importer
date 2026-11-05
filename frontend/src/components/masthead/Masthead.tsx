@@ -1,97 +1,180 @@
-import type { ReactNode } from 'react'
+import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import styled from 'styled-components'
+import { color, radius, space, type } from '../../theme/generated/tokens'
+import type { ThemeController } from '../../theme/theme'
+import { Breadcrumb, type BreadcrumbItem } from '../ui/Breadcrumb'
+import { media } from '../ui/media'
 import { ElectronicsCurrent } from './ElectronicsCurrent'
+import { MastheadMenu } from './MastheadMenu'
 
-/** Decorative brand header; scoped application status controls and navigation occupy its slots. */
-export function Masthead({ actions, children }: { actions?: ReactNode; children?: ReactNode }) {
+type MastheadProps = {
+  breadcrumb?: BreadcrumbItem[]
+  /** Workflow activity, connection status and Open InvenTree. */
+  status?: ReactNode
+  themeController?: ThemeController
+}
+
+/** One bar over the electronics current: wordmark, Dev badge, breadcrumb, status, menu. */
+export function Masthead({ breadcrumb, status, themeController }: MastheadProps) {
+  const header = useRef<HTMLElement>(null)
+  const lead = useRef<HTMLDivElement>(null)
+  const end = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    if (!header.current || !lead.current || !end.current || typeof ResizeObserver !== 'function') {
+      return
+    }
+    const elements = { header: header.current, lead: lead.current, end: end.current }
+    const observer = new ResizeObserver(() => fitCurrentToText(elements))
+    observer.observe(elements.header)
+    observer.observe(elements.lead)
+    observer.observe(elements.end)
+
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <Header>
+    <Header ref={header}>
       <ElectronicsCurrent />
-      <TopRow>
-        <BrandGroup>
-          <Brand>
+      <Row>
+        <Lead ref={lead}>
+          <Wordmark href="#" aria-label="Bench Intake, Batches">
             Bench <span>Intake</span>
-          </Brand>
+          </Wordmark>
           <DevBadge>Dev mode</DevBadge>
-        </BrandGroup>
-        <Actions>{actions ?? <WorkflowLabel>Manual workflow</WorkflowLabel>}</Actions>
-      </TopRow>
-      {children}
+          {breadcrumb && breadcrumb.length > 0 && (
+            <Crumbs data-compact="hidden">
+              <Breadcrumb items={breadcrumb} />
+            </Crumbs>
+          )}
+        </Lead>
+        <Spacer />
+        <End ref={end}>
+          {status ?? <WorkflowLabel>Manual workflow</WorkflowLabel>}
+          <MastheadMenu themeController={themeController} />
+        </End>
+      </Row>
     </Header>
   )
 }
 
+// Clear space kept between the text and the first visible part.
+const TEXT_CLEARANCE_PX = 16
+const FADE_IN_PX = 140
+const FADE_OUT_PX = 120
+
+type MastheadElements = { header: HTMLElement; lead: HTMLElement; end: HTMLElement }
+
+/**
+ * Tells the current's mask where the text sits, so parts only show in the gap between.
+ * The fades shrink to fit a narrow gap, and close entirely when there is none.
+ */
+function fitCurrentToText({ header, lead, end }: MastheadElements) {
+  const bar = header.getBoundingClientRect()
+  const clearStart = lead.getBoundingClientRect().right - bar.left + TEXT_CLEARANCE_PX
+  const clearEnd = end.getBoundingClientRect().left - bar.left - TEXT_CLEARANCE_PX
+  const gap = Math.max(0, clearEnd - clearStart)
+  const share = Math.min(1, gap / (FADE_IN_PX + FADE_OUT_PX))
+  const stops = {
+    '--current-clear-start': clearStart,
+    '--current-opaque-start': clearStart + FADE_IN_PX * share,
+    '--current-opaque-end': clearEnd - FADE_OUT_PX * share,
+    '--current-clear-end': gap > 0 ? clearEnd : clearStart,
+  }
+  for (const [name, value] of Object.entries(stops)) {
+    header.style.setProperty(name, `${Math.round(value)}px`)
+  }
+}
+
 const Header = styled.header`
   position: relative;
-  background-color: #f3f5f8;
-  background-image: radial-gradient(circle, #dde3eb 1px, transparent 1.4px);
-  background-size: 16px 16px;
   overflow: hidden;
+  background-color: ${color.mastheadGround};
+  background-image: radial-gradient(circle, ${color.mastheadDot} 1px, transparent 1.4px);
+  background-size: 16px 16px;
+  border-bottom: 1px solid ${color.line};
 `
 
-const TopRow = styled.div`
+const Row = styled.div`
   position: relative;
-  min-height: 76px;
   display: flex;
-  justify-content: space-between;
+  flex-wrap: nowrap;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  @media (max-width: 700px) {
-    min-height: 60px;
-    font-size: 12px;
+  gap: ${space[3]};
+  min-height: 56px;
+  padding: ${space['2-5']} ${space[4]};
+  ${media.compact} {
+    flex-wrap: wrap;
   }
 `
 
-const BrandGroup = styled.div`
-  padding: 0 12px;
-  position: relative;
+const Lead = styled.div`
   display: flex;
+  flex: 0 1 auto;
   align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
+  gap: ${space[3]};
+  min-width: 0;
 `
 
-const Brand = styled.strong`
-  font-size: 22px;
-  font-weight: 750;
-  color: #233349;
+const End = styled.div`
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: ${space[2]};
+  max-width: 100%;
+  ${media.compact} {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+`
+
+const Wordmark = styled.a`
+  ${type.brand}
+  color: ${color.fg};
+  white-space: nowrap;
+  text-decoration: none;
   span {
     font-weight: 450;
-  }
-  @media (max-width: 700px) {
-    font-size: 20px;
   }
 `
 
 const DevBadge = styled.span`
-  padding: 2px 8px;
-  color: #644813;
-  background: #fff3d8;
-  border: 1px solid #e7d09c;
-  border-radius: 999px;
+  padding: 2px ${space[2]};
+  border: 1px solid ${color.devLine};
+  border-radius: ${radius.pill};
+  background: ${color.devBg};
+  color: ${color.devFg};
   font-size: 11px;
   font-weight: 600;
   line-height: 1.4;
+  white-space: nowrap;
 `
 
-const WorkflowLabel = styled.span`
-  position: relative;
-  padding: 6px 12px;
-  color: #526179;
-  background: #f3f5f8;
-  border: 1px solid #d5dce5;
-  border-radius: 999px;
-  font-size: 13px;
-  @media (max-width: 700px) {
-    font-size: 12px;
+const Crumbs = styled.div`
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  /* Room for the link's focus ring inside the clipped box. */
+  margin: -4px;
+  padding: 4px;
+  ${media.compact} {
+    display: none;
   }
 `
 
-const Actions = styled.div`
-  position: relative;
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+const Spacer = styled.span`
+  flex: 1;
+`
+
+const WorkflowLabel = styled.span`
+  padding: 3px ${space['2-5']};
+  border: 1px solid ${color.line};
+  border-radius: ${radius.pill};
+  background: ${color.surface};
+  color: ${color.muted};
+  font-size: 12.5px;
 `

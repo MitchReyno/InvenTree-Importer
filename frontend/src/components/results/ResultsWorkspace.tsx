@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { ManualRunDto } from '@invimport/contracts'
 import { Heading, Panel, Paragraph, Link, Notice } from '../ui/primitives'
 import type { RunRecoverySelection } from '../../manual/types'
@@ -64,7 +65,7 @@ const RoundLink = styled(Link)`
   margin: 0 12px 8px 0;
   min-height: 44px;
   padding: 10px 12px;
-  border: 1px solid #d5dce5;
+  border: 1px solid ${color.line};
   border-radius: 5px;
   text-decoration: none;
 `

@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { color, radius, space } from '../../theme/generated/tokens'
+import { media } from './media'
 import { CheckboxLabel, Input, Label, Small } from './primitives'
 
 export type SharedTags = { manual: string[]; auto: boolean }
@@ -130,17 +132,17 @@ export function SharedTagsInput({ value, onChange, onPendingChange, disabled = f
 
 const Tags = styled.div`
   display: grid;
-  gap: 8px;
+  gap: ${space[2]};
   min-width: 0;
 `
 const Title = styled.span`
-  font-size: 14px;
-  font-weight: 550;
+  font-size: 12.5px;
+  font-weight: 600;
 `
 const Chips = styled.ul`
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: ${space['1-5']};
   margin: 0;
   padding: 0;
   list-style: none;
@@ -148,21 +150,25 @@ const Chips = styled.ul`
 const Chip = styled.li`
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: ${space[1]};
   max-width: 100%;
-  padding: 2px 2px 2px 10px;
-  border: 1px solid #b9cde7;
-  border-radius: 999px;
-  background: #edf3fc;
-  color: #164a93;
+  padding: 2px 2px 2px 9px;
+  border-radius: ${radius.pill};
+  background: ${color.surface2};
+  color: ${color.fg};
+  font-size: 12px;
   overflow-wrap: anywhere;
   button {
     min-width: 32px;
     min-height: 32px;
+    ${media.compact} {
+      min-width: 44px;
+      min-height: 44px;
+    }
     border: none;
-    border-radius: 999px;
+    border-radius: ${radius.pill};
     background: transparent;
-    color: inherit;
+    color: ${color.muted};
     cursor: pointer;
   }
 `

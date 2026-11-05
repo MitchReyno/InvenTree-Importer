@@ -73,11 +73,11 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Generators and checks are written test-first: write a failing check (stale generated file, low-contrast pair, literal colour, theme switch) before each implementation. Font loading is verified in the browser.
 - **Verification:** `pnpm --filter frontend typecheck lint test build`; the contrast script; a browser reload in dark mode with no wrong-theme flash.
 
-- [ ] 1.1 Copy `tokens.json` into `frontend/src/theme/` and add a generator for `tokens.css` and `tokens.ts`, with a check that the generated files are current.
-- [ ] 1.2 Add the contrast script: every text token against its documented grounds in both themes. It fails the build below threshold.
-- [ ] 1.3 Add the theme controller: OS default, Light/Dark/System override, try/catch storage, `color-scheme`, and a pre-paint attribute script. Write tests for switching, persistence and throwing storage.
-- [ ] 1.4 Add `@fontsource-variable/public-sans` and `@fontsource/ibm-plex-mono` (400, 500) at 5.3.0, and check that 650 and 750 render. Update the frontend architecture styling paragraph.
-- [ ] 1.5 Add the literal-colour check `frontend/scripts/check-literal-colors.cjs` to `lint:frontend`, allowlisting photo-stage fixtures.
+- [x] 1.1 Copy `tokens.json` into `frontend/src/theme/` and add a generator for `tokens.css` and `tokens.ts`, with a check that the generated files are current.
+- [x] 1.2 Add the contrast script: every text token against its documented grounds in both themes. It fails the build below threshold.
+- [x] 1.3 Add the theme controller: OS default, Light/Dark/System override, try/catch storage, `color-scheme`, and a pre-paint attribute script. Write tests for switching, persistence and throwing storage.
+- [x] 1.4 Add `@fontsource-variable/public-sans` and `@fontsource/ibm-plex-mono` (400, 500) at 5.3.0, and check that 650 and 750 render. Update the frontend architecture styling paragraph.
+- [x] 1.5 Add the literal-colour check `frontend/scripts/check-literal-colors.cjs` to `lint:frontend`, allowlisting photo-stage fixtures.
 
 ## 2. Component library
 
@@ -89,12 +89,12 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Each new component starts from a failing component test of its states, keyboard and ARIA. Restyling existing controls relies on their existing tests staying green.
 - **Verification:** component tests for each new component (states, keyboard, ARIA); existing frontend tests pass unchanged; the literal-colour check is clean.
 
-- [ ] 2.1 Build Button, Pill, SourceChip, Banner, ProblemCard, Toast and Kbd, with the glyph-plus-word status rule.
-- [ ] 2.2 Build Tabs, SubTabs, SegmentedControl, FilterChips and Breadcrumb, with tests for roving focus and selection.
-- [ ] 2.3 Build EvidenceTile, EvidenceGroup, KeyValue, RecordChain, DataTable with BulkBar, ChangeSummary and StickyFooter.
-- [ ] 2.4 Build PhaseRow, QuestionCard, StatusTimeline, NeedsYou and SessionChat.
-- [ ] 2.5 Restyle the AutosaveStatus, reference picker, AutoValueField, tags input and DisabledFeature to tokens, keeping their tests green.
-- [ ] 2.6 Sweep the remaining components off module-scope colour literals.
+- [x] 2.1 Build Button, Pill, SourceChip, Banner, ProblemCard, Toast and Kbd, with the glyph-plus-word status rule.
+- [x] 2.2 Build Tabs, SubTabs, SegmentedControl, FilterChips and Breadcrumb, with tests for roving focus and selection.
+- [x] 2.3 Build EvidenceTile, EvidenceGroup, KeyValue, RecordChain, DataTable with BulkBar, ChangeSummary and StickyFooter.
+- [x] 2.4 Build PhaseRow, QuestionCard, StatusTimeline, NeedsYou and SessionChat.
+- [x] 2.5 Restyle the AutosaveStatus, reference picker, AutoValueField, tags input and DisabledFeature to tokens, keeping their tests green.
+- [x] 2.6 Sweep the remaining components off module-scope colour literals.
 
 ## 3. Masthead option A and dark current
 
@@ -109,9 +109,9 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
   - Browser frame sampling showing no part over the text boxes in both themes.
   - The reduced-motion still frame.
 
-- [ ] 3.1 Merge the masthead into one bar, in the order wordmark, Dev badge, breadcrumb, spacer, activity, connection, Open InvenTree, and update its tests.
-- [ ] 3.2 Widen the mask per D4 and add the frame-sampling browser check.
-- [ ] 3.3 Split the finishes into light and dark, re-tint on theme change without rebuilding geometry, and check outline contrast.
+- [x] 3.1 Merge the masthead into one bar, in the order wordmark, Dev badge, breadcrumb, spacer, activity, connection, Open InvenTree, and update its tests.
+- [x] 3.2 Widen the mask per D4 and add the frame-sampling browser check.
+- [x] 3.3 Split the finishes into light and dark, re-tint on theme change without rebuilding geometry, and check outline contrast.
 
 ## 4. Attention read model
 

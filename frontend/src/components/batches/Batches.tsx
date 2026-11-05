@@ -10,6 +10,7 @@ import { BatchStageLinks } from './BatchStageLinks'
 import type { BatchCreate } from '../../../../contracts/generated/api.d.ts'
 import type { Client } from '../../capture/client'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 
@@ -238,8 +239,8 @@ const ContinueCard = styled(Panel)`
     align-items: start;
   }
 
-  border-left: 4px solid #3977c9;
-  background: linear-gradient(110deg, #edf3fc, white 75%);
+  border-left: 4px solid ${color.accent};
+  background: linear-gradient(110deg, ${color.accentWeak}, ${color.surface} 75%);
   ${Eyebrow} {
     margin: 0 0 6px;
   }
@@ -273,7 +274,7 @@ const BatchList = styled.ul`
     flex-wrap: wrap;
     gap: 4px 20px;
     padding: 8px 0;
-    border-top: 1px solid #e0e5ed;
+    border-top: 1px solid ${color.line};
   }
 `
 
@@ -307,8 +308,8 @@ const ResumeLink = styled(Link)`
   min-height: 44px;
   padding: 9px 14px;
   margin-top: 6px;
-  background: #dceafd;
-  border: 1px solid #b9cde7;
+  background: ${color.accentWeak};
+  border: 1px solid ${color.lineStrong};
   border-radius: 6px;
   text-decoration: none;
   font-weight: 600;

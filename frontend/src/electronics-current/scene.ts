@@ -11,7 +11,7 @@ import {
   WebGLRenderer,
 } from 'three'
 import { partBuilders, pickPartType } from './catalogue'
-import { BACKGROUND_COLOUR } from './finishes'
+import { FINISHES, type ThemeId } from './finishes'
 import {
   applyStir,
   flowTarget,
@@ -27,6 +27,7 @@ import { updateDisplay } from './parts/displays'
 
 export interface ElectronicsCurrentOptions {
   reducedMotion: boolean
+  theme?: ThemeId
   random?: () => number
 }
 
@@ -34,6 +35,8 @@ export interface ElectronicsCurrentController {
   /** Pointer position in viewport (client) coordinates; ignored outside the canvas. */
   setPointer: (clientX: number, clientY: number) => void
   clearPointer: () => void
+  /** Re-tints parts and fog for the theme without rebuilding them. */
+  setTheme: (theme: ThemeId) => void
   dispose: () => void
 }
 
@@ -145,7 +148,8 @@ export function createElectronicsCurrent(
   const random = options.random ?? Math.random
   const scene = new Scene()
   const { camera, axes } = createIsometricCamera()
-  const kit = createOutlineKit()
+  const initialTheme = options.theme ?? 'light'
+  const kit = createOutlineKit(initialTheme)
   const parts: LivePart[] = []
   const pointer: PointerState = {
     active: false,
@@ -172,7 +176,8 @@ export function createElectronicsCurrent(
   let laidOutWidth = 0
 
   renderer.setClearColor(0x000000, 0)
-  scene.fog = new Fog(BACKGROUND_COLOUR, 96, 124)
+  const fog = new Fog(FINISHES[initialTheme].ground, 96, 124)
+  scene.fog = fog
 
   function halfWidth(): number {
     return (width * UNITS_PER_PX) / 2
@@ -600,6 +605,21 @@ export function createElectronicsCurrent(
     pointer.active = false
   }
 
+  function setTheme(theme: ThemeId): void {
+    kit.setTheme(theme)
+    fog.color.set(FINISHES[theme].ground)
+
+    // Re-tinting resets LED fills to the base; restore each glow at the current time.
+    for (const part of parts) {
+      pulseLed(part, kit, time)
+    }
+
+    // A running loop picks the new colours up on its next frame; a still frame needs redrawing.
+    if (options.reducedMotion) {
+      render()
+    }
+  }
+
   function dispose(): void {
     stopLoop()
     resizeObserver.disconnect()
@@ -610,5 +630,5 @@ export function createElectronicsCurrent(
     renderer?.dispose()
   }
 
-  return { setPointer, clearPointer, dispose }
+  return { setPointer, clearPointer, setTheme, dispose }
 }

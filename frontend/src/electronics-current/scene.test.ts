@@ -1,4 +1,5 @@
-import { BufferGeometry, type Scene } from 'three'
+import { BufferGeometry, type Fog, type Scene } from 'three'
+import { FINISHES } from './finishes'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { createElectronicsCurrent } from './scene'
 
@@ -217,4 +218,57 @@ test('stirring with the pointer keeps every part position finite', () => {
     expect(Number.isFinite(position.x + position.y + position.z)).toBe(true)
   })
   controller.dispose()
+})
+
+test('a theme change re-tints fog and parts without rebuilding them, re-rendering the still frame', () => {
+  const controller = start(true)
+  const scene = currentRenderer().lastScene!
+  const partsBefore = [...scene.children]
+  const fog = scene.fog as Fog
+
+  expect(fog.color.getHex()).toBe(FINISHES.light.ground)
+
+  controller.setTheme('dark')
+
+  expect(fog.color.getHex()).toBe(FINISHES.dark.ground)
+  expect(scene.children).toEqual(partsBefore)
+  expect(currentRenderer().renders).toBe(2)
+  controller.dispose()
+})
+
+test('a round trip through the dark theme restores every colour, lit LEDs included', () => {
+  const controller = start(true)
+  const scene = currentRenderer().lastScene!
+
+  const colours = () => {
+    const found: number[] = []
+    scene.traverse((object) => {
+      const material = (object as { material?: { color?: { getHex: () => number } } }).material
+      if (material?.color) {
+        found.push(material.color.getHex())
+      }
+    })
+    return found
+  }
+
+  const before = colours()
+
+  controller.setTheme('dark')
+  expect(colours()).not.toEqual(before)
+  controller.setTheme('light')
+
+  expect(colours()).toEqual(before)
+  controller.dispose()
+})
+
+test('starts in the requested theme', () => {
+  const controller = createElectronicsCurrent(document.createElement('canvas'), {
+    reducedMotion: true,
+    theme: 'dark',
+    random: seededRandom(7),
+  })
+  const fog = currentRenderer().lastScene!.fog as Fog
+
+  expect(fog.color.getHex()).toBe(FINISHES.dark.ground)
+  controller?.dispose()
 })

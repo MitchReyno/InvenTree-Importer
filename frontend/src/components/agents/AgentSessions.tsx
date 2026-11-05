@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { AgentSessionListDto } from '@invimport/contracts'
 import type { agentsClient } from '@invimport/contracts/client'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
@@ -133,7 +134,7 @@ const List = styled.ul`
   display: grid;
   gap: 12px;
   li {
-    border: 1px solid #d5dce5;
+    border: 1px solid ${color.line};
     border-radius: 8px;
     padding: 16px;
     overflow-wrap: anywhere;

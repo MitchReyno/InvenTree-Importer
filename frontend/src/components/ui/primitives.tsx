@@ -1,59 +1,73 @@
 import styled, { css } from 'styled-components'
+import { color, radius, space, type } from '../../theme/generated/tokens'
+import { media } from './media'
 
 export const Button = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: ${space['1-5']};
   cursor: pointer;
-  min-height: 44px;
-  padding: 9px 14px;
-  color: #164a93;
-  background: #edf3fc;
-  border: 1px solid #b9cde7;
-  border-radius: 6px;
+  min-height: 32px;
+  padding: 7px ${space[3]};
+  color: ${color.fg};
+  background: ${color.surface};
+  border: 1px solid ${color.lineStrong};
+  border-radius: ${radius.btn};
+  font-weight: 500;
+  line-height: 1.2;
   touch-action: manipulation;
+  transition: background-color 80ms linear;
+  &:hover:not(:disabled) {
+    background: ${color.surface2};
+  }
   &:disabled {
-    cursor: default;
-    opacity: 0.55;
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  ${media.compact} {
+    min-height: 44px;
   }
 `
 export const Link = styled.a`
-  color: #164a93;
+  color: ${color.accent};
   touch-action: manipulation;
 `
 export const Panel = styled.section`
-  padding: 16px;
-  background: white;
-  border: 1px solid #d5dce5;
-  border-radius: 6px;
-  margin-bottom: 12px;
+  padding: ${space['3-5']} ${space[4]};
+  background: ${color.surface};
+  border: 1px solid ${color.line};
+  border-radius: ${radius.card};
+  margin-bottom: ${space[3]};
   min-width: 0;
 `
 export const PageTitle = styled.h1`
-  font-size: clamp(23px, 3vw, 30px);
-  line-height: 1.2;
-  margin: 12px 0;
+  ${type.h1}
+  margin: ${space[3]} 0;
   overflow-wrap: anywhere;
 `
 export const Heading = styled.h2`
-  font-size: 16px;
-  margin: 0 0 12px;
+  ${type.h2}
+  margin: 0 0 ${space[3]};
 `
 export const Subheading = styled.h3`
-  font-size: 15px;
-  margin: 0 0 10px;
+  ${type.h3}
+  margin: 0 0 ${space['2-5']};
 `
 export const Paragraph = styled.p`
-  line-height: 1.5;
+  line-height: 1.45;
 `
 export const Small = styled.small`
   display: block;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 400;
-  color: #526179;
-  line-height: 1.6;
+  color: ${color.muted};
+  line-height: 18px;
   overflow-wrap: anywhere;
 `
 export const Form = styled.form`
   display: grid;
-  gap: 12px;
+  gap: ${space[3]};
 `
 export const Fieldset = styled.fieldset`
   border: none;
@@ -61,31 +75,39 @@ export const Fieldset = styled.fieldset`
   margin: 0;
   min-width: 0;
   display: grid;
-  gap: 12px;
+  gap: ${space[3]};
   &:disabled input,
   &:disabled textarea,
   &:disabled select {
-    background: #f3f5f8;
-    color: #526179;
+    background: ${color.surface2};
+    color: ${color.muted};
     border-style: dashed;
     cursor: not-allowed;
   }
 `
 export const Label = styled.label`
   display: grid;
-  gap: 7px;
-  font-size: 14px;
-  font-weight: 550;
+  gap: ${space[1]};
+  font-size: 12.5px;
+  font-weight: 600;
 `
 const control = css`
   width: 100%;
   min-width: 0;
-  min-height: 44px;
-  padding: 10px;
-  border: 1px solid #acbacb;
-  border-radius: 5px;
-  background: #fff;
-  color: #233349;
+  min-height: 32px;
+  padding: 7px 9px;
+  border: 1px solid ${color.lineStrong};
+  border-radius: ${radius.input};
+  background: ${color.surface};
+  color: ${color.fg};
+  font-size: 14px;
+  font-weight: 400;
+  &[aria-invalid='true'] {
+    border-color: ${color.bad};
+  }
+  ${media.compact} {
+    min-height: 44px;
+  }
 `
 export const Input = styled.input`
   ${control}
@@ -94,65 +116,69 @@ export const Select = styled.select`
   ${control}
 `
 export const TextArea = styled.textarea`
-  ${control} min-height: 90px;
+  ${control}
+  min-height: 84px;
+  line-height: 1.45;
   resize: vertical;
 `
 export const Summary = styled.summary`
   cursor: pointer;
-  min-height: 44px;
-  padding: 8px 0;
+  min-height: 32px;
+  padding: ${space[2]} 0;
+  ${media.compact} {
+    min-height: 44px;
+  }
 `
 export const HeadingRow = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: ${space[3]};
   flex-wrap: wrap;
   ${Heading} {
-    margin-bottom: 8px;
+    margin-bottom: ${space[2]};
   }
 `
 export const Caption = styled(Paragraph)`
-  color: #526179;
-  font-size: 13px;
-  margin: 8px 0 16px;
+  color: ${color.muted};
+  font-size: 12.5px;
+  margin: ${space[2]} 0 ${space[4]};
 `
 export const Eyebrow = styled(Paragraph)`
-  font-size: 12px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: #526179;
+  ${type.label}
+  color: ${color.muted};
 `
 export const Intro = styled(Paragraph)`
   max-width: 700px;
-  color: #526179;
+  color: ${color.muted};
 `
 export const CheckboxLabel = styled(Label)`
   display: flex;
   align-items: center;
+  font-weight: 500;
   ${Input} {
     width: 20px;
   }
 `
 export const Field = styled.div`
   display: grid;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid #d5dce5;
-  background: #f7f9fc;
-  border-radius: 6px;
+  gap: ${space['2-5']};
+  padding: ${space[3]};
+  border: 1px solid ${color.line};
+  background: ${color.surface2};
+  border-radius: ${radius.card};
 `
 export const Notice = styled(Paragraph)`
-  padding: 16px;
-  border: 1px solid #d7b56a;
-  background: #fff4d9;
-  border-radius: 6px;
-  margin-bottom: 18px;
+  padding: ${space['2-5']} ${space['3-5']};
+  border: 1px solid transparent;
+  background: ${color.warnWeak};
+  border-radius: ${radius.card};
+  margin-bottom: ${space['4-5']};
 `
 export const ErrorNotice = styled.div`
-  padding: 16px;
-  border: 1px solid #cd8585;
-  background: #fff0f0;
-  border-radius: 6px;
-  margin-bottom: 18px;
+  padding: ${space['2-5']} ${space['3-5']};
+  border: 1px solid ${color.bad};
+  background: ${color.badWeak};
+  border-radius: ${radius.card};
+  margin-bottom: ${space['4-5']};
 `

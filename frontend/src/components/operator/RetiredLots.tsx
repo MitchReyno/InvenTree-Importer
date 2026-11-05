@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorReviewDto } from '@invimport/contracts'
 import { Heading, Panel, Small } from '../ui/primitives'
 import { StatusChip } from './StatusChip'
@@ -45,8 +46,8 @@ const List = styled.ul`
   list-style: none;
   li {
     padding: 10px;
-    border: 1px dashed #c8d3e1;
+    border: 1px dashed ${color.lineStrong};
     border-radius: 5px;
-    background: #f7f9fc;
+    background: ${color.surface2};
   }
 `

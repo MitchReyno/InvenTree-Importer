@@ -1,6 +1,7 @@
 import type { HeaderWorkDto } from '@invimport/contracts'
 import { Link, Paragraph, Small, Subheading } from '../ui/primitives'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 
 interface Props {
   data?: HeaderWorkDto
@@ -149,7 +150,7 @@ export function WorkflowDetails({ data, batchId, unavailable, fresh }: Props) {
 
 const Work = styled.section`
   padding: 10px 0;
-  border-bottom: 1px solid #d5dce5;
+  border-bottom: 1px solid ${color.line};
   overflow-wrap: anywhere;
   ol {
     padding-left: 20px;

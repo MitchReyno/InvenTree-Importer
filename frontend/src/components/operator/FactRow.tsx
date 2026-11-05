@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { ReactNode } from 'react'
 import { PROVENANCE_LABELS, type Provenance } from '../../operator/review-model'
 import { StatusChip, type ChipTone } from './StatusChip'
@@ -45,12 +46,12 @@ const Row = styled.div`
   display: grid;
   gap: 6px;
   padding: 10px 0;
-  border-bottom: 1px solid #e3e8ef;
+  border-bottom: 1px solid ${color.line};
   dt {
     font-size: 12px;
     letter-spacing: 1px;
     text-transform: uppercase;
-    color: #526179;
+    color: ${color.muted};
   }
   dd {
     margin: 0;

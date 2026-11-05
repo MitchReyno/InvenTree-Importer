@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { ManualRunDto } from '@invimport/contracts'
 import { Button, Paragraph, Small } from '../ui/primitives'
 
@@ -47,7 +48,7 @@ const AttachmentRow = styled.div`
   display: grid;
   gap: 10px;
   padding: 16px 0;
-  border-top: 1px solid #e0e5ed;
+  border-top: 1px solid ${color.line};
   overflow-wrap: anywhere;
   button {
     justify-self: start;

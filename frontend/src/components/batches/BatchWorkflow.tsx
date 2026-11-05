@@ -1,5 +1,6 @@
 import type { InboxWorkflowDto } from '@invimport/contracts'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import { Link, Small } from '../ui/primitives'
 
 export function BatchWorkflow({
@@ -50,7 +51,7 @@ const Summary = styled.div`
   gap: 0 14px;
   flex-wrap: wrap;
   font-size: 13px;
-  color: #526179;
+  color: ${color.muted};
   a {
     display: inline-flex;
     align-items: center;

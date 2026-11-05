@@ -3,6 +3,7 @@ import { SupportedEffectResult } from './SupportedEffectResult'
 import { AttachmentResult } from './AttachmentResult'
 import type { RunRecoverySelection } from '../../manual/types'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { ManualRunDto, PartOutputDto } from '@invimport/contracts'
 import {
   Button,
@@ -192,14 +193,14 @@ export function RunResult({ run, busy, command }: Props) {
 
 const Outcome = styled.div<{ $confirmed: boolean }>`
   padding: 14px;
-  border: 1px solid ${(p) => (p.$confirmed ? '#9fcbb5' : '#b9cde7')};
-  background: ${(p) => (p.$confirmed ? '#edf7f1' : '#edf3fc')};
+  border: 1px solid ${(p) => (p.$confirmed ? color.ok : color.lineStrong)};
+  background: ${(p) => (p.$confirmed ? color.okWeak : color.accentWeak)};
   border-radius: 6px;
   margin-bottom: 16px;
 `
 const Operation = styled.div`
   padding: 16px 0;
-  border-top: 1px solid #e0e5ed;
+  border-top: 1px solid ${color.line};
 `
 const Details = styled.div`
   font-size: 12px;

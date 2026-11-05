@@ -1,6 +1,7 @@
 import { mediaIdentityLabels } from '../../media/identity-labels'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, MediaVersionDto, OperatorReviewDto } from '@invimport/contracts'
 import { Button, Heading, Label, Paragraph, Select, Small } from '../ui/primitives'
 import type { CaptureWorkspaceProps } from '../../capture/types'
@@ -276,7 +277,7 @@ const MoveControls = styled.div`
   gap: 8px;
   margin: 12px 0;
   padding: 12px;
-  border: 1px solid #b7ccec;
+  border: 1px solid ${color.lineStrong};
   border-radius: 6px;
   min-width: 0;
   select {

@@ -2,6 +2,7 @@ import { PreparedRecordEffects, isRecordEffect } from './PreparedRecordEffects'
 import { PreparedPartAttachments } from './PreparedPartAttachments'
 import { PreparedMediaEffects } from './PreparedMediaEffects'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, ManualPreviewDto } from '@invimport/contracts'
 import {
   Button,
@@ -246,7 +247,7 @@ const ApprovalGrid = styled.div`
 `
 const Effect = styled.div`
   padding: 14px 0;
-  border-top: 1px solid #e0e5ed;
+  border-top: 1px solid ${color.line};
 `
 const Binding = styled.div`
   font-size: 12px;
@@ -255,7 +256,7 @@ const Binding = styled.div`
 const ApproveFoot = styled.div`
   display: grid;
   gap: 12px;
-  border-top: 1px solid #d5dce5;
+  border-top: 1px solid ${color.line};
   padding-top: 16px;
   margin-top: 16px;
 `
@@ -266,8 +267,8 @@ const ScopeSummary = styled.div`
   gap: 8px 16px;
   padding: 12px;
   margin-top: 14px;
-  background: #edf3fc;
-  border: 1px solid #b9cde7;
+  background: ${color.accentWeak};
+  border: 1px solid ${color.lineStrong};
   border-radius: 5px;
   font-size: 13px;
 `

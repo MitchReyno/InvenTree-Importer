@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type {
   CaptureEditDto,
   CaptureSnapshotDto,
@@ -517,8 +518,8 @@ const ScopeBar = styled.div`
   flex-wrap: wrap;
   margin-bottom: 8px;
   padding: 6px 10px;
-  background: white;
-  border: 1px solid #d5dce5;
+  background: ${color.surface};
+  border: 1px solid ${color.line};
   border-radius: 6px;
   > div {
     margin-right: auto;
@@ -561,7 +562,7 @@ const Toolbar = styled.div`
 `
 const ModeSwitch = styled.div`
   display: inline-flex;
-  border: 1px solid #c8d3e1;
+  border: 1px solid ${color.lineStrong};
   border-radius: 6px;
   overflow: hidden;
 `
@@ -569,12 +570,12 @@ const ModeTab = styled.button`
   min-height: 40px;
   padding: 8px 16px;
   border: 0;
-  background: white;
-  color: #3c4b61;
+  background: ${color.surface};
+  color: ${color.fg};
   cursor: pointer;
   &[aria-selected='true'] {
-    background: #e0eafa;
-    color: #164a93;
+    background: ${color.accentWeak};
+    color: ${color.accent};
     font-weight: 600;
   }
 `

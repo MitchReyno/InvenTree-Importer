@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { EditMedia } from '../../media/types'
 import type { CaptureSnapshotDto, MediaEvidenceDto } from '@invimport/contracts'
 import { Small } from '../ui/primitives'
@@ -60,6 +61,6 @@ const Relations = styled.div`
   fieldset {
     display: grid;
     gap: 8px;
-    border: 1px solid #d5dce5;
+    border: 1px solid ${color.line};
   }
 `

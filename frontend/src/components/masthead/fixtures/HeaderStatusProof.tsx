@@ -131,7 +131,8 @@ export function HeaderStatusProof() {
       <GlobalStyle />
       <Main>
         <Masthead
-          actions={
+          breadcrumb={[{ label: 'Batches', href: '#' }, { label: 'Mouser 3381-22 + bench bag' }]}
+          status={
             <UpdateHealthContext.Provider
               value={{
                 state: 'live',
@@ -206,7 +207,7 @@ const Main = styled.main`
     max-width: 100%;
     min-height: 44px;
   }
-  nav {
+  & > nav {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;

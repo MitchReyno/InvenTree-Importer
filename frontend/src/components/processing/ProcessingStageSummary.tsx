@@ -1,5 +1,6 @@
 import type { ProcessingSnapshotDto } from '@invimport/contracts'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import { Small } from '../ui/primitives'
 
 const stages = ['reading', 'identifying', 'research', 'images', 'inventory'] as const
@@ -39,10 +40,10 @@ const Stages = styled.nav`
   gap: 10px;
   a {
     padding: 14px;
-    border: 1px solid #d5dce5;
+    border: 1px solid ${color.line};
     border-radius: 6px;
-    background: white;
-    color: #164a93;
+    background: ${color.surface};
+    color: ${color.accent};
     text-decoration: none;
   }
 `

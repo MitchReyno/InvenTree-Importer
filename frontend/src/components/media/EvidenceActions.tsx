@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import { Button, Paragraph } from '../ui/primitives'
 
 type Props = {
@@ -51,8 +52,12 @@ const Actions = styled.div`
 `
 const Action = styled(Button)`
   min-height: 50px;
-  background: #266ac5;
-  border-color: #1c57a4;
-  color: white;
+  background: ${color.accent};
+  border-color: ${color.accent};
+  color: ${color.onAccent};
   font-weight: 650;
+  &:hover:not(:disabled) {
+    background: ${color.accent};
+    filter: brightness(1.07);
+  }
 `

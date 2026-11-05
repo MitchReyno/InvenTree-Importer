@@ -88,6 +88,10 @@ test('failed activity reads stay unavailable and a missing target URL has no inv
   render(<HeaderStatus client={api} batchId={batchId} />)
   await screen.findByText('Workflow unavailable')
   expect(screen.queryByText('Idle')).toBeNull()
+  // At phone width a short drawn word keeps the control from going blank.
+  expect(
+    screen.getByRole('button', { name: 'Workflow activity' }).querySelector('[data-short]'),
+  ).toHaveAttribute('data-short', 'Offline')
   expect(screen.queryByRole('link', { name: 'Open InvenTree' })).toBeNull()
   expect(screen.getByText(/Open InvenTree unavailable/)).toBeVisible()
 })
@@ -202,7 +206,14 @@ test('healthy sockets retain foreground target polling and local expiry while a 
   })
   const connectedLabel = screen.getByText('inventory.example.test')
   expect(connectedLabel).toBeVisible()
-  expect(connectedLabel.previousElementSibling).toHaveStyle({ backgroundColor: '#4eaa3d' })
+  expect(connectedLabel.previousElementSibling).toHaveAttribute('data-tone', 'ok')
+  // At phone width the full text stays for assistive tech; only a short word is drawn.
+  expect(connectedLabel).toHaveAttribute('data-compact', 'visually-hidden')
+  expect(connectedLabel.nextElementSibling).toHaveAttribute('aria-hidden', 'true')
+  expect(connectedLabel.nextElementSibling).toHaveAttribute('data-short', 'inventory.example.test')
+  expect(
+    screen.getByRole('button', { name: 'Workflow activity' }).querySelector('[data-compact]'),
+  ).toHaveAttribute('data-compact', 'visually-hidden')
   await act(async () => {
     await vi.advanceTimersByTimeAsync(30_100)
   })
@@ -212,7 +223,7 @@ test('healthy sockets retain foreground target polling and local expiry while a 
   })
   const staleLabel = screen.getByText('InvenTree status stale')
   expect(staleLabel).toBeVisible()
-  expect(staleLabel.previousElementSibling).toHaveStyle({ backgroundColor: '#9a6b18' })
+  expect(staleLabel.previousElementSibling).toHaveAttribute('data-tone', 'warn')
 })
 
 test('tab-level rerenders preserve the draft and the same scoped query subscriptions', async () => {

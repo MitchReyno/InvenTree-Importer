@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, OperatorIssueDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { Button, Link, Paragraph, Small } from '../ui/primitives'
@@ -144,8 +145,8 @@ function WarningAction(props: WarningActionProps) {
 }
 
 const TONES = {
-  red: { border: '#d99a9a', background: '#fff6f6' },
-  amber: { border: '#e2c47e', background: '#fffaf0' },
+  red: { border: color.bad, background: color.badWeak },
+  amber: { border: color.warn, background: color.warnWeak },
 }
 
 const Box = styled.section<{ $tone: keyof typeof TONES }>`
@@ -157,7 +158,7 @@ const Box = styled.section<{ $tone: keyof typeof TONES }>`
 `
 const Item = styled.div`
   padding: 8px 0;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: 1px solid ${color.line};
   display: grid;
   gap: 6px;
   justify-items: start;

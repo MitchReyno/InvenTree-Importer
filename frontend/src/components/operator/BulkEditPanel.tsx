@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { BulkEditDto, CaptureSnapshotDto, OperatorImpactDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { classifyFailure, failureMessage } from '../../operator/command-failure'
@@ -282,7 +283,7 @@ const Row = styled(Fieldset)`
 const PreviewBox = styled.section`
   margin-top: 14px;
   padding: 12px;
-  border: 1px solid #b9cde7;
-  background: #f4f8fe;
+  border: 1px solid ${color.lineStrong};
+  background: ${color.accentWeak};
   border-radius: 6px;
 `

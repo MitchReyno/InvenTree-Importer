@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { InboxWorkflowDto } from '@invimport/contracts'
 import { mediaResource } from '../../media/types'
 
@@ -31,9 +32,9 @@ const Frame = styled.div`
   width: var(--thumbnail-size, 84px);
   height: var(--thumbnail-size, 84px);
   flex-shrink: 0;
-  border: 1px solid #d5dce5;
+  border: 1px solid ${color.line};
   border-radius: 5px;
-  background: #eef2f7;
+  background: ${color.photoStage};
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -41,7 +42,7 @@ const Frame = styled.div`
     padding: 8px;
     font-size: 12px;
     text-align: center;
-    color: #526179;
+    color: ${color.photoFg};
   }
   img {
     width: 100%;

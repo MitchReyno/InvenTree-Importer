@@ -4,6 +4,7 @@ import { intakeClient } from '@invimport/contracts/client'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { Button, Paragraph, Small } from '../ui/primitives'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 
 export function Diagnostics() {
   const scope = useServerScope()
@@ -57,9 +58,9 @@ export function Diagnostics() {
 const Container = styled.details`
   margin: 6px 0;
   padding: 0 10px 8px;
-  border: 1px solid #d5dce5;
+  border: 1px solid ${color.line};
   border-radius: 6px;
-  background: #fff;
+  background: ${color.surface};
   font-size: 12px;
   summary {
     cursor: pointer;

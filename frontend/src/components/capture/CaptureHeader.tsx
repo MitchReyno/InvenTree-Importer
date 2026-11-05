@@ -2,6 +2,7 @@ import { HeadingRow } from '../ui/primitives'
 import { Button, Link, PageTitle, Paragraph, Small } from '../ui/primitives'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { ManualStage } from '../../manual/types'
 
 type Props = Pick<CaptureWorkspaceProps, 'batch' | 'busy' | 'edit' | 'onStage' | 'onProcessing'> & {
@@ -91,8 +92,8 @@ export function CaptureHeader({
 }
 
 const BatchHeader = styled.header`
-  background: white;
-  border: 1px solid #d5dce5;
+  background: ${color.surface};
+  border: 1px solid ${color.line};
   border-radius: 6px;
   padding: 0 12px;
   margin-bottom: 10px;
@@ -146,13 +147,13 @@ const Breadcrumb = styled.div`
   align-items: center;
   flex-wrap: wrap;
   padding: 3px 0;
-  border-bottom: 1px solid #e0e5ed;
+  border-bottom: 1px solid ${color.line};
   font-size: 13px;
   overflow-wrap: anywhere;
 `
 const SavedState = styled.span`
   margin-left: auto;
-  color: #526179;
+  color: ${color.muted};
   @media (max-width: 700px) {
     margin-left: 0;
   }
@@ -160,7 +161,7 @@ const SavedState = styled.span`
 const BatchCounts = styled(Paragraph)`
   margin: 0 0 6px;
   font-size: 13px;
-  color: #526179;
+  color: ${color.muted};
 `
 const StageNav = styled.nav`
   display: grid;
@@ -169,15 +170,15 @@ const StageNav = styled.nav`
   padding: 0;
   text-align: center;
   font-size: 13px;
-  color: #526179;
+  color: ${color.muted};
   > * {
     padding: 8px 4px;
     border-bottom: 3px solid transparent;
     min-width: 0;
   }
   strong {
-    color: #164a93;
-    border-color: #266ac5;
+    color: ${color.accent};
+    border-color: ${color.accent};
     align-content: center;
   }
   small {
@@ -196,9 +197,9 @@ const StageControl = styled.button<{ $active: boolean }>`
   cursor: pointer;
   min-height: 44px;
   font: inherit;
-  color: ${(p) => (p.$active ? '#164a93' : '#526179')};
+  color: ${(p) => (p.$active ? color.accent : color.muted)};
   font-weight: ${(p) => (p.$active ? 700 : 400)};
-  border-bottom: 3px solid ${(p) => (p.$active ? '#266ac5' : 'transparent')};
+  border-bottom: 3px solid ${(p) => (p.$active ? color.accent : 'transparent')};
   &:disabled {
     cursor: default;
     opacity: 0.55;
