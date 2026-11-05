@@ -649,3 +649,98 @@ test('the wake sweep gives a queued session with no live workflow a fresh one', 
     assert.equal(state.rows[0].session_state, 'cancelled')
   })
 })
+
+test('a claim needs the worker account and a live batch, and results stop at the snapshot limit', async () => {
+  const { runSessionTurn } = await import('../../src/agents/session-runner.ts')
+  await withSessions(async ({ fixture, url, b, capture }) => {
+    const host = {
+      codexExecutable: 'unused',
+      claudeExecutable: 'unused',
+      stateRoot: '/nonexistent',
+      env: {},
+    }
+    const deps = (config = fixture.config) => ({
+      pool: fixture.runner.pool,
+      config,
+      host,
+      toolUrl: url,
+    })
+    await fixture.db.pool.query(
+      "UPDATE agent_session SET session_state='queued' WHERE attempt_id=$1",
+      [b.attempt],
+    )
+    await fixture.db.pool.query("UPDATE processing_attempt SET state='queued' WHERE id=$1", [
+      b.attempt,
+    ])
+    await assert.rejects(
+      runSessionTurn(
+        deps({ ...fixture.config, targetContextId: randomUUID() }),
+        b.attempt,
+        new AbortController().signal,
+      ),
+      /session_command_binding_invalid/,
+    )
+    const untouched = await fixture.db.pool.query<{ session_state: string; turn_count: string }>(
+      'SELECT session_state,turn_count::text FROM agent_session WHERE attempt_id=$1',
+      [b.attempt],
+    )
+    assert.deepEqual(untouched.rows[0], { session_state: 'queued', turn_count: '0' })
+
+    const chat = await submitSessionInbox(fixture.api.pool, {
+      binding: fixture.config,
+      lineageId: b.job,
+      actorId: fixture.identity.actor,
+      idempotencyKey: 'before-archive',
+      kind: 'chat',
+      payload: { text: 'Before archiving.' },
+    })
+    await capture.edit({ kind: 'batch', archived: true })
+    assert.equal(await runSessionTurn(deps(), b.attempt, new AbortController().signal), 'queued')
+    await assert.rejects(
+      submitSessionInbox(fixture.api.pool, {
+        binding: fixture.config,
+        lineageId: b.job,
+        actorId: fixture.identity.actor,
+        idempotencyKey: 'after-archive',
+        kind: 'chat',
+        payload: { text: 'After archiving.' },
+      }),
+      /batch_archived/,
+    )
+    // A replay of an earlier submission still returns its receipt.
+    assert.deepEqual(
+      await submitSessionInbox(fixture.api.pool, {
+        binding: fixture.config,
+        lineageId: b.job,
+        actorId: fixture.identity.actor,
+        idempotencyKey: 'before-archive',
+        kind: 'chat',
+        payload: { text: 'Before archiving.' },
+      }),
+      chat,
+    )
+  })
+})
+
+test('questions stop at the snapshot limit with a typed refusal', async () => {
+  await withSessions(async ({ url, a, capture }) => {
+    const session = await connect(url, a.token)
+    try {
+      const ask = (n: number) =>
+        call(session, 'ask', {
+          kind: 'clarification',
+          subject_id: capture.packetA.id,
+          prompt: `Question ${n}?`,
+          reason: 'Testing the limit.',
+          fields: ['identity'],
+          assumption: 'Continuing as before.',
+        })
+      for (let n = 0; n < 100; n += 1) {
+        assert.equal((await ask(n)).ok, true)
+      }
+      assert.equal((await ask(100)).error, 'capacity_reached')
+    } finally {
+      await session.close()
+    }
+  })
+})

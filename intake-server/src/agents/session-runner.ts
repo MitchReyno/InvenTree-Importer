@@ -314,9 +314,15 @@ export async function runSessionTurn(
             inputDigest: processingInputs.manifestDigest,
             instructions: processingProfileRecords.instructionBytes,
             instructionDigest: processingProfileRecords.instructionDigest,
+            actorId: commands.actorId,
+            targetId: commands.targetId,
+            targetContextId: commands.targetContextId,
+            archived: captureBatches.archived,
           })
           .from(agentSessions)
           .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
+          .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
+          .innerJoin(captureBatches, eq(captureBatches.id, processingAttempts.batchId))
           .innerJoin(processingInputs, eq(processingInputs.id, processingAttempts.inputId))
           .innerJoin(
             processingProfileRecords,
@@ -327,6 +333,18 @@ export async function runSessionTurn(
       const row = rows[0]
       if (!row || row.lineageId !== row.jobId) {
         throw new Error('session_not_queued')
+      }
+      // The retained command, not the workflow that delivered the attempt, binds the account.
+      if (
+        row.actorId !== config.actorId ||
+        row.targetId !== config.targetId ||
+        row.targetContextId !== config.targetContextId
+      ) {
+        throw new Error('session_command_binding_invalid')
+      }
+      if (row.archived) {
+        // Archived work does not run; it stays queued and is not woken while archived.
+        return 'archived' as const
       }
       const manifest = decodeSessionInput(row.inputBytes, row.inputDigest)
       if (
@@ -376,15 +394,13 @@ export async function runSessionTurn(
   if (claimed === 'cancelled') {
     return 'cancelled' as const
   }
+  if (claimed === 'archived') {
+    return 'queued' as const
+  }
   const current = claimed
 
-  let delivered = await transaction(pool, async (client) => {
-    const cursor = await client.query<{ acked_seq: string }>(
-      'SELECT acked_seq FROM agent_session_cursor WHERE session_lineage_id=$1',
-      [current.jobId],
-    )
-    return BigInt(cursor.rows[0]?.acked_seq ?? '0')
-  })
+  // Read lazily, inside the turn's error handling, so a failure here still settles the claim.
+  let delivered: bigint | undefined
   const resumed = current.providerSessionId !== null
   const turn: SessionTurn = {
     instructions: current.instructions.toString('utf8'),
@@ -395,6 +411,14 @@ export async function runSessionTurn(
     tools: SESSION_TOOLS,
     // At least once: items stay pending until the session acknowledges them with read_inbox.
     nextDelivery: async () => {
+      if (delivered === undefined) {
+        const cursor = await pool.query<{ acked_seq: string }>(
+          'SELECT acked_seq FROM agent_session_cursor WHERE session_lineage_id=$1',
+          [current.jobId],
+        )
+        delivered = BigInt(cursor.rows[0]?.acked_seq ?? '0')
+      }
+      const after = delivered
       const next = await executeDatabaseQuery(
         queryDatabase(pool)
           .select()
@@ -402,7 +426,7 @@ export async function runSessionTurn(
           .where(
             and(
               eq(agentSessionInbox.sessionLineageId, current.jobId),
-              sql`${agentSessionInbox.seq} > ${delivered.toString()}::bigint`,
+              sql`${agentSessionInbox.seq} > ${after.toString()}::bigint`,
             ),
           )
           .orderBy(agentSessionInbox.seq)

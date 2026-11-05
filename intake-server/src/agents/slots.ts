@@ -94,7 +94,10 @@ export async function claimSessionSlot(
       .leftJoin(agentSlots, eq(agentSlots.attemptId, agentSessions.attemptId))
       .where(
         and(
+          // The same queue this worker schedules; occupancy above still counts every slot.
           eq(commands.actorId, config.actorId),
+          eq(commands.targetId, config.targetId),
+          eq(commands.targetContextId, config.targetContextId),
           eq(agentSessions.sessionState, 'queued'),
           // A cancelled attempt never runs, so it holds no place in the queue.
           notInArray(processingAttempts.state, ['cancelled', 'superseded']),

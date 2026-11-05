@@ -15,6 +15,7 @@ import { captureBatches } from '../../capture/schema.ts'
 import { lockCaptureForInputSettlement } from '../../capture/repository.ts'
 import type { ProcessingConfig } from '../../processing/attempts.ts'
 import { sealed } from '../../processing/model.ts'
+import { MAX_JOB_RESULTS } from '../../processing/limits.ts'
 import { catalogueSources, deliveredSourceCheck } from '../../processing/provenance.ts'
 import { lockProcessingAttempt } from '../../processing/state.ts'
 import {
@@ -211,6 +212,32 @@ async function requireDeliveredSources(
   }
 }
 
+/** The Processing snapshot reads at most this many proposals and questions per attempt. */
+async function requireRoom(
+  client: PoolClient,
+  principal: SessionPrincipal,
+  label: 'proposals' | 'questions',
+) {
+  // Proposals are read per attempt and questions per job, so each limit uses the same scope.
+  const query =
+    label === 'proposals'
+      ? queryDatabase(client)
+          .select({ count: sql<number>`count(*)::int` })
+          .from(processingProposals)
+          .where(eq(processingProposals.attemptId, principal.attemptId))
+      : queryDatabase(client)
+          .select({ count: sql<number>`count(*)::int` })
+          .from(processingQuestions)
+          .where(eq(processingQuestions.jobId, principal.jobId))
+  const rows = await executeDatabaseQuery(query)
+  if (rows[0].count >= MAX_JOB_RESULTS) {
+    refuse(
+      'capacity_reached',
+      `This session has published its limit of ${MAX_JOB_RESULTS} ${label}.`,
+    )
+  }
+}
+
 /** Retains a session proposal or question as an authenticated message, like runner envelopes. */
 async function retainSessionMessage(
   client: PoolClient,
@@ -330,6 +357,7 @@ export function sessionTools(context: SessionToolContext) {
           refuse('validation_failed', 'A proposal must be for this session’s lot.')
         }
         await requireDeliveredSources(client, context, principal, proposal)
+        await requireRoom(client, principal, 'proposals')
         const { messageId, streamId } = await retainSessionMessage(
           client,
           capture!,
@@ -360,6 +388,7 @@ export function sessionTools(context: SessionToolContext) {
     ask: (token: string, args: unknown) =>
       withSession(context, token, { capture: true }, async (client, principal, capture) => {
         const ask = validated<SessionAskArgsDto>('SessionAskArgs', args)
+        await requireRoom(client, principal, 'questions')
         if (principal.subjectId === null || ask.subject_id !== principal.subjectId) {
           refuse('validation_failed', 'A question must be about this session’s lot.')
         }

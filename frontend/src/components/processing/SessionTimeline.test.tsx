@@ -153,3 +153,33 @@ test('an unconfirmed send survives leaving and returning to the session', async 
   await screen.findByText(/Queued/)
   expect(send.mock.calls[1]).toEqual(send.mock.calls[0])
 })
+
+test('leaving during an unresolved send cannot start a second send of it', async () => {
+  let reject: (error: Error) => void = () => {}
+
+  const send = vi
+    .fn()
+    .mockImplementationOnce(() => new Promise((_, fail) => (reject = fail)))
+    .mockResolvedValue(undefined)
+  const view = render(
+    <SessionChat storeKey="batch:in-flight" state="finished" send={send} startFresh={vi.fn()} />,
+  )
+  fireEvent.change(screen.getByLabelText('Message this session'), {
+    target: { value: 'Back label?' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+  view.unmount()
+  render(
+    <SessionChat storeKey="batch:in-flight" state="finished" send={send} startFresh={vi.fn()} />,
+  )
+  expect(screen.getByText(/Sending “Back label\?”/)).toBeVisible()
+  fireEvent.change(screen.getByLabelText('Message this session'), {
+    target: { value: 'Back label?' },
+  })
+  expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
+  reject(new Error('lost'))
+  fireEvent.click(await screen.findByRole('button', { name: 'Retry this message' }))
+  await screen.findByText(/Queued/)
+  expect(send).toHaveBeenCalledTimes(2)
+  expect(send.mock.calls[1]).toEqual(send.mock.calls[0])
+})

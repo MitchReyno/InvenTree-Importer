@@ -342,6 +342,22 @@ Results after the fixes: contracts 72, intake server 181 and frontend 321 passed
 
 Regression tests: the wake sweep with a recording scheduler (oldest first, cancelled-before-dispatch settled, live workflows left alone), Codex refusal of a wider policy and of a command item, and the composer keeping an unconfirmed send across unmount.
 
+## PR-A review round 3
+
+Codex (`gpt-6.1-sol`, read-only) reviewed `8f4a81c..92e2c7d`: 7 important findings, all confirmed. It found the earlier-profile paths, migration `0018` and grants, tool-endpoint isolation, the adapter policy and delivery fixes, and the answer, header and settings components sound. Fixes:
+
+1. **A resume claim did not check its account.** The claim reads the retained command and refuses, before any change, a session whose actor, target or context differs from the worker's (`session_command_binding_invalid`). Routing a resume to the matching worker is not solved: like `/1`, one actor's worker per DBOS application is the supported deployment, and a mis-routed claim now changes nothing.
+2. **Archived batches could start or resume work.** The claim leaves an archived batch's session queued without running; the wake sweep skips archived batches; new chat for an archived batch is refused (`batch_archived`), while an idempotent replay still returns its receipt.
+3. **Unbounded proposals could break the Processing snapshot.** `propose` and `ask` refuse with `capacity_reached` once an attempt has 100 proposals or a job has 100 questions, the limits the snapshot reads.
+4. **Older work in another context could block all claims.** Queue ranking covers the worker's own target and context, the same queue it schedules; occupancy still counts every slot the actor holds.
+5. **Historical sessions could crowd out resume candidates.** The sweep considers only each lineage's latest session, in a fixed order.
+6. **A failure between claim and adapter could leak the slot.** The cursor read now happens lazily inside the turn, so every failure after a claim is settled, freeing the slot and revoking the capability.
+7. **Chat recovery still lost an in-flight send on navigation.** The pending send is stored before the request starts, with its status (`sending` or `unconfirmed`) shared through a small store read with `useSyncExternalStore`; a remounted composer shows the send and cannot start another until it is confirmed, retried or discarded.
+
+Results after the fixes: contracts 72, intake server 181 and frontend 322 passed; `pnpm db:intake test` 189 passed; `pnpm db:intake test:process` 64 tests, 60 passed, with only the pre-existing media failure and its 3 skips; typecheck, lint, Prettier and build pass.
+
+Regression tests: a claim under another account changes nothing; an archived batch's session stays queued, its new chat is refused and an earlier chat's replay returns the original receipt; the 101st question is refused; and a composer remounted during an unresolved send cannot send again. Not separately tested: ranking across contexts and the latest-session sweep filter, which need a second target context fixture.
+
 ## Validation
 
 - `pnpm spikes:check`: 35 passed (the existing shared-contract suite; the new spike adds no test there).

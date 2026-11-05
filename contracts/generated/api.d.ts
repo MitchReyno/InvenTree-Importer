@@ -14272,7 +14272,7 @@ export interface components {
                 };
             };
         };
-        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running";
+        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached";
         SessionToolResult: {
             /** @constant */
             ok: true;
@@ -14337,7 +14337,7 @@ export interface components {
         } | {
             /** @constant */
             ok: false;
-            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running";
+            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached";
             message: string;
             pending_inbox: number;
             /** Format: int64 */

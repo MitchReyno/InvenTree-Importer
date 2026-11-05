@@ -6,6 +6,7 @@ import { strictJson } from '@invimport/contracts/json'
 import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database.ts'
 import { verifyBytes } from '../db/authority.ts'
 import { commands } from '../db/schema.ts'
+import { captureBatches } from '../capture/schema.ts'
 import type { ProcessingConfig } from '../processing/attempts.ts'
 import { fail } from '../processing/model.ts'
 import { processingAttempts } from '../processing/schema.ts'
@@ -102,6 +103,7 @@ export async function wakePendingSessions(
       .from(agentSessions)
       .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
       .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
+      .innerJoin(captureBatches, eq(captureBatches.id, processingAttempts.batchId))
       .innerJoin(
         agentSessionInbox,
         eq(agentSessionInbox.sessionLineageId, agentSessions.sessionLineageId),
@@ -109,6 +111,9 @@ export async function wakePendingSessions(
       .where(
         and(
           scope,
+          eq(captureBatches.archived, false),
+          // Only a lineage's latest session can be resumed.
+          sql`${processingAttempts.number} = (SELECT max(latest.number) FROM ${processingAttempts} latest WHERE latest.job_id = ${processingAttempts.jobId})`,
           inArray(agentSessions.sessionState, ['waiting_input', 'finished', 'interrupted']),
           gt(
             agentSessionInbox.seq,
@@ -116,6 +121,7 @@ export async function wakePendingSessions(
           ),
         ),
       )
+      .orderBy(asc(agentSessions.sessionLineageId))
       .limit(20),
   )
   await settleCancelledQueuedSessions(pool, config)
@@ -135,8 +141,10 @@ export async function wakePendingSessions(
       .from(agentSessions)
       .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
       .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
+      .innerJoin(captureBatches, eq(captureBatches.id, processingAttempts.batchId))
       .where(
         and(
+          eq(captureBatches.archived, false),
           scope,
           eq(agentSessions.sessionState, 'queued'),
           notInArray(processingAttempts.state, ['cancelled', 'superseded']),

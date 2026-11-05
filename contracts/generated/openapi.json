@@ -61833,6 +61833,10 @@
           {
             "const": "session_not_running",
             "type": "string"
+          },
+          {
+            "const": "capacity_reached",
+            "type": "string"
           }
         ]
       },
@@ -62189,6 +62193,10 @@
                   },
                   {
                     "const": "session_not_running",
+                    "type": "string"
+                  },
+                  {
+                    "const": "capacity_reached",
                     "type": "string"
                   }
                 ]

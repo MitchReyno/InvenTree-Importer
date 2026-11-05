@@ -1,10 +1,10 @@
-import { useRef, useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import styled from 'styled-components'
 import type { SessionStateDto } from '@invimport/contracts'
 import { Button, Paragraph, Small } from '../ui/primitives'
 
 interface Props {
-  /** Identifies the session, so an unconfirmed send survives leaving and returning. */
+  /** Identifies the session, so a send in flight or unconfirmed survives leaving and returning. */
   storeKey: string
   state: SessionStateDto
   /** Queues one message; the same key is reused only to retry that exact message. */
@@ -15,34 +15,51 @@ interface Props {
 interface Pending {
   text: string
   key: string
+  status: 'sending' | 'unconfirmed'
 }
 
-/** Unconfirmed sends outlive the composer, for as long as the page is open. */
-const pendingSends = new Map<string, Pending>()
-
 /**
- * Chat queues in every session state; a cancelled session offers a fresh one instead. A send
- * whose result is unknown stays pending with its own key until it is confirmed or discarded, so
- * new drafting never reuses or abandons it.
+ * Sends outlive the composer for as long as the page is open. An entry is written before the
+ * request starts and removed only when it is confirmed or explicitly discarded.
  */
+const pendingSends = new Map<string, Pending>()
+const listeners = new Set<() => void>()
+
+const subscribe = (listener: () => void) => {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
+const update = (storeKey: string, value: Pending | undefined) => {
+  if (value) {
+    pendingSends.set(storeKey, value)
+  } else {
+    pendingSends.delete(storeKey)
+  }
+  listeners.forEach((listener) => listener())
+}
+
+async function deliver(
+  storeKey: string,
+  item: Omit<Pending, 'status'>,
+  send: Props['send'],
+): Promise<boolean> {
+  update(storeKey, { ...item, status: 'sending' })
+  try {
+    await send(item.text, item.key)
+    update(storeKey, undefined)
+    return true
+  } catch {
+    update(storeKey, { ...item, status: 'unconfirmed' })
+    return false
+  }
+}
+
+/** Chat queues in every session state; a cancelled session offers a fresh one instead. */
 export function SessionChat({ storeKey, state, send, startFresh }: Props) {
   const [draft, setDraft] = useState('')
-  const [pending, setPendingState] = useState<Pending | null>(
-    () => pendingSends.get(storeKey) ?? null,
-  )
-
-  const setPending = (value: Pending | null) => {
-    if (value) {
-      pendingSends.set(storeKey, value)
-    } else {
-      pendingSends.delete(storeKey)
-    }
-    setPendingState(value)
-  }
-
   const [message, setMessage] = useState('')
-  const [busy, setBusy] = useState(false)
-  const inFlight = useRef(false)
+  const pending = useSyncExternalStore(subscribe, () => pendingSends.get(storeKey))
   if (state === 'cancelled') {
     return (
       <Paragraph>
@@ -54,72 +71,59 @@ export function SessionChat({ storeKey, state, send, startFresh }: Props) {
     )
   }
 
-  const deliver = async (item: Pending, fromDraft: boolean) => {
-    if (inFlight.current) {
-      return
-    }
-    inFlight.current = true
-    setBusy(true)
-    setMessage('')
-    try {
-      await send(item.text, item.key)
-      setPending(null)
-      if (fromDraft) {
-        setDraft('')
-      }
-      setMessage(
-        state === 'running'
-          ? 'Queued. The agent receives it during this turn.'
-          : 'Queued. The session resumes to answer.',
-      )
-    } catch {
-      setPending(item)
-      if (fromDraft) {
-        setDraft('')
-      }
-      setMessage('')
-    } finally {
-      inFlight.current = false
-      setBusy(false)
-    }
-  }
+  const confirmed = () =>
+    setMessage(
+      state === 'running'
+        ? 'Queued. The agent receives it during this turn.'
+        : 'Queued. The session resumes to answer.',
+    )
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
-    if (draft.trim() && !pending) {
-      void deliver({ text: draft, key: crypto.randomUUID() }, true)
+    if (!draft.trim() || pendingSends.has(storeKey)) {
+      return
     }
+    const text = draft
+    setDraft('')
+    setMessage('')
+    void deliver(storeKey, { text, key: crypto.randomUUID() }, send).then((ok) => ok && confirmed())
   }
 
+  const sending = pending?.status === 'sending'
   return (
     <Form onSubmit={submit}>
-      {pending && (
+      {pending?.status === 'unconfirmed' && (
         <Unconfirmed role="alert">
           Sending “{pending.text}” was not confirmed. It may already be queued.
           <span>
-            <Button type="button" disabled={busy} onClick={() => void deliver(pending, false)}>
+            <Button
+              type="button"
+              onClick={() => void deliver(storeKey, pending, send).then((ok) => ok && confirmed())}
+            >
               Retry this message
             </Button>{' '}
-            <Button type="button" disabled={busy} onClick={() => setPending(null)}>
+            <Button type="button" onClick={() => update(storeKey, undefined)}>
               Discard
             </Button>
           </span>
         </Unconfirmed>
       )}
+      {sending && <Small role="status">Sending “{pending.text}”…</Small>}
       <label>
         Message this session
         <textarea
           value={draft}
           maxLength={4096}
           rows={2}
-          disabled={busy}
           onChange={(event) => setDraft(event.target.value)}
         />
       </label>
-      <Button type="submit" disabled={busy || !draft.trim() || pending !== null}>
+      <Button type="submit" disabled={!draft.trim() || pending !== undefined}>
         Send
       </Button>
-      {pending && <Small>Retry or discard the unconfirmed message before sending another.</Small>}
+      {pending?.status === 'unconfirmed' && (
+        <Small>Retry or discard the unconfirmed message before sending another.</Small>
+      )}
       {message && <Small role="status">{message}</Small>}
     </Form>
   )

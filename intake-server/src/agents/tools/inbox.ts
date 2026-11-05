@@ -51,6 +51,7 @@ export async function appendSessionInbox(
         actorId: captureBatches.actorId,
         targetId: captureBatches.targetId,
         targetContextId: captureBatches.targetContextId,
+        archived: captureBatches.archived,
       })
       .from(processingJobs)
       .innerJoin(captureBatches, eq(captureBatches.id, processingJobs.batchId))
@@ -97,6 +98,10 @@ export async function appendSessionInbox(
       fail('idempotency_conflict', 409)
     }
     return { item_id: existing[0].id, seq: existing[0].seq.toString() }
+  }
+  // An archived batch takes no new input, so nothing wakes a session for it.
+  if (job.archived) {
+    fail('batch_archived', 409)
   }
   const last = await executeDatabaseQuery(
     db

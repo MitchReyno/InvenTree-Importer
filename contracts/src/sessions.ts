@@ -66,6 +66,7 @@ export const SessionToolError = Type.Union(
       'stale',
       'inbox_item_unknown',
       'session_not_running',
+      'capacity_reached',
     ] as const
   ).map((code) => Type.Literal(code)),
 )
