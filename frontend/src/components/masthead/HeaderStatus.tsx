@@ -155,14 +155,9 @@ const visuallyHidden = css`
   white-space: nowrap;
 `
 
+// The masthead's end group lays these out with its menu, so they wrap as one set.
 const StatusRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: ${space[2]};
-  min-width: 0;
-  max-width: 100%;
+  display: contents;
 `
 
 const TriggerContent = styled.span`

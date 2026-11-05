@@ -9,6 +9,7 @@
     "typecheck": "tsc -b",
     "lint": "node scripts/generate-tokens.cjs --check && node scripts/check-contrast.cjs && node scripts/check-literal-colors.cjs && eslint . --max-warnings 0",
     "tokens": "node scripts/generate-tokens.cjs",
+    "check:masthead": "node scripts/check-masthead-mask.cjs",
     "test": "vitest run"
   },
   "dependencies": {

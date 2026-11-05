@@ -30,7 +30,9 @@ export function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
 
 const Trail = styled.nav`
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
+  white-space: nowrap;
   gap: ${space['1-5']};
   min-width: 0;
   color: ${color.muted};

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, radius, space, type } from '../../theme/generated/tokens'
 import type { ThemeController } from '../../theme/theme'
@@ -16,25 +16,74 @@ type MastheadProps = {
 
 /** One bar over the electronics current: wordmark, Dev badge, breadcrumb, status, menu. */
 export function Masthead({ breadcrumb, status, themeController }: MastheadProps) {
+  const header = useRef<HTMLElement>(null)
+  const lead = useRef<HTMLDivElement>(null)
+  const end = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    if (!header.current || !lead.current || !end.current || typeof ResizeObserver !== 'function') {
+      return
+    }
+    const elements = { header: header.current, lead: lead.current, end: end.current }
+    const observer = new ResizeObserver(() => fitCurrentToText(elements))
+    observer.observe(elements.header)
+    observer.observe(elements.lead)
+    observer.observe(elements.end)
+
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <Header>
+    <Header ref={header}>
       <ElectronicsCurrent />
       <Row>
-        <Wordmark href="#" aria-label="Bench Intake, Batches">
-          Bench <span>Intake</span>
-        </Wordmark>
-        <DevBadge>Dev mode</DevBadge>
-        {breadcrumb && breadcrumb.length > 0 && (
-          <Crumbs data-compact="hidden">
-            <Breadcrumb items={breadcrumb} />
-          </Crumbs>
-        )}
+        <Lead ref={lead}>
+          <Wordmark href="#" aria-label="Bench Intake, Batches">
+            Bench <span>Intake</span>
+          </Wordmark>
+          <DevBadge>Dev mode</DevBadge>
+          {breadcrumb && breadcrumb.length > 0 && (
+            <Crumbs data-compact="hidden">
+              <Breadcrumb items={breadcrumb} />
+            </Crumbs>
+          )}
+        </Lead>
         <Spacer />
-        {status ?? <WorkflowLabel>Manual workflow</WorkflowLabel>}
-        <MastheadMenu themeController={themeController} />
+        <End ref={end}>
+          {status ?? <WorkflowLabel>Manual workflow</WorkflowLabel>}
+          <MastheadMenu themeController={themeController} />
+        </End>
       </Row>
     </Header>
   )
+}
+
+// Clear space kept between the text and the first visible part.
+const TEXT_CLEARANCE_PX = 16
+const FADE_IN_PX = 140
+const FADE_OUT_PX = 120
+
+type MastheadElements = { header: HTMLElement; lead: HTMLElement; end: HTMLElement }
+
+/**
+ * Tells the current's mask where the text sits, so parts only show in the gap between.
+ * The fades shrink to fit a narrow gap, and close entirely when there is none.
+ */
+function fitCurrentToText({ header, lead, end }: MastheadElements) {
+  const bar = header.getBoundingClientRect()
+  const clearStart = lead.getBoundingClientRect().right - bar.left + TEXT_CLEARANCE_PX
+  const clearEnd = end.getBoundingClientRect().left - bar.left - TEXT_CLEARANCE_PX
+  const gap = Math.max(0, clearEnd - clearStart)
+  const share = Math.min(1, gap / (FADE_IN_PX + FADE_OUT_PX))
+  const stops = {
+    '--current-clear-start': clearStart,
+    '--current-opaque-start': clearStart + FADE_IN_PX * share,
+    '--current-opaque-end': clearEnd - FADE_OUT_PX * share,
+    '--current-clear-end': gap > 0 ? clearEnd : clearStart,
+  }
+  for (const [name, value] of Object.entries(stops)) {
+    header.style.setProperty(name, `${Math.round(value)}px`)
+  }
 }
 
 const Header = styled.header`
@@ -49,11 +98,37 @@ const Header = styled.header`
 const Row = styled.div`
   position: relative;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: ${space[3]};
   min-height: 56px;
   padding: ${space['2-5']} ${space[4]};
+  ${media.compact} {
+    flex-wrap: wrap;
+  }
+`
+
+const Lead = styled.div`
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: ${space[3]};
+  min-width: 0;
+`
+
+const End = styled.div`
+  display: flex;
+  flex: none;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: ${space[2]};
+  max-width: 100%;
+  ${media.compact} {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
 `
 
 const Wordmark = styled.a`
@@ -81,6 +156,7 @@ const DevBadge = styled.span`
 const Crumbs = styled.div`
   min-width: 0;
   flex: 0 1 auto;
+  overflow: hidden;
   ${media.compact} {
     display: none;
   }

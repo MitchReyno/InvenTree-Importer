@@ -74,7 +74,7 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
 - **Decision.** Split `electronics-current/finishes.ts` into `finishes.light` and `finishes.dark`.
   - The scene controller reads the active theme and re-tints the existing materials when `data-theme` changes. It observes the attribute rather than rebuilding geometry.
   - The dark finish uses outline `#9fb0c8`, crease `#4a5566` and fill tints mixed 72% towards the dark `part-base` (`#1d2430`). It is checked with a contrast script for outlines at least 3:1 against the ground.
-  - The mask becomes: transparent 0–460 px, opaque from 600 px to (width − 420 px), transparent in the last 300 px. At phone width it uses the existing dim-under-text behaviour.
+  - The mask is transparent behind the measured left text and status group, with 140 px and 120 px fades that shrink to fit the gap between them; the fixed stops (transparent 0–460 px, opaque from 600 px to width − 420 px, transparent in the last 300 px) are only the fallback. The browser check found the fixed stops let parts behind the activity pill at 1440 px. At phone width it uses the existing dim-under-text behaviour.
 - **Rejected.** Hiding the current in dark mode, which would lose the brand element.
 - **Values.** The dark `part-base` is `#1d2430`. The values are recorded as tokens in [handoff-pr-a.md](handoff-pr-a.md) and copied back into the design system artifact.
 

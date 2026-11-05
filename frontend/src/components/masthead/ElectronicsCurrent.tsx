@@ -83,7 +83,8 @@ export function ElectronicsCurrent() {
   return <Canvas ref={canvasRef} aria-hidden="true" data-testid="electronics-current" />
 }
 
-// Parts show only between the left text (wordmark, badge, breadcrumb) and the status controls.
+// Parts show only between the left text and the status controls. The masthead measures the
+// four stops; the fallbacks are the default layout's.
 const Canvas = styled.canvas`
   position: absolute;
   inset: 0;
@@ -94,10 +95,10 @@ const Canvas = styled.canvas`
   mask-image: linear-gradient(
     to right,
     transparent 0,
-    transparent 460px,
-    black 600px,
-    black calc(100% - 420px),
-    transparent calc(100% - 300px)
+    transparent var(--current-clear-start, 460px),
+    black var(--current-opaque-start, 600px),
+    black var(--current-opaque-end, calc(100% - 420px)),
+    transparent var(--current-clear-end, calc(100% - 300px))
   );
 
   /* The compact bar leaves little room between its ends, so parts dim under the text
