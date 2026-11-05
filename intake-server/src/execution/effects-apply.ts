@@ -8,6 +8,7 @@ import { applyAttachments } from './attachment-apply.ts'
 import { attachmentRecoveryColumns } from './attachment-recovery.ts'
 import { lockRun, snapshot } from './authority.ts'
 import { supportedCreateBody } from './effects-body.ts'
+import { reusedRecordsUsable } from './effects-index.ts'
 import { companyMultipart } from './company-wire.ts'
 import { fieldsMatch } from './effects-evidence.ts'
 import {
@@ -94,6 +95,10 @@ export async function applySupportedEffects(
     }
     if (current.certainty === 'unknown' || states.some((state) => state.certainty === 'unknown')) {
       break
+    }
+    // New stock waits while any reused record is no longer its original usable output.
+    if (!('kind' in step) && !(await reusedRecordsUsable(deps.pool, plan))) {
+      continue
     }
     const complete = await cataloguePreconditionsComplete(
       deps,

@@ -303,55 +303,97 @@ test(
   },
 )
 
+/** Run A creates the records; run B reuses them for Packet B and settles before its stock. */
+async function reusingRun(fixture: Fixture) {
+  const drafted = await draftedBatch(fixture)
+  const { capture } = drafted
+  const first = await approved(fixture, capture.batch, capture.a.id)
+  assert.equal((await apply(fixture, first)).state, 'settled_complete')
+  await capture.edit({ kind: 'lot', id: capture.b.id, location: { mode: 'inherit' } })
+  const later = await approved(fixture, capture.batch, capture.b.id)
+  async function dispatch(runId: string, selection: Record<string, string[]>) {
+    const current = (await fixture.http(`/runs/${runId}`)).value as ManualRunDto
+    const chosen = await fixture.http(`/runs/${runId}/recover`, {
+      expected_run_revision: current.revision,
+      ...selection,
+    })
+    assert.equal(chosen.status, 200, JSON.stringify(chosen.value))
+    const command = (
+      await fixture.db.pool.query(
+        'SELECT c.workflow_id,c.payload_bytes FROM manual_dispatch d JOIN command c ON c.id=d.command_id WHERE d.run_id=$1 ORDER BY d.sequence DESC LIMIT 1',
+        [runId],
+      )
+    ).rows[0]
+    return executeManualDispatch(
+      fixture.runner.pool,
+      fixture.runnerConfig,
+      command.workflow_id,
+      JSON.parse(command.payload_bytes.toString('utf8')),
+    )
+  }
+  /** Changes the stored record and has run A inspect its create, which reports the change. */
+  async function invalidate(family: 'location' | 'company') {
+    await fixture.db.pool.query(
+      "UPDATE fake_record SET body=jsonb_set(body,'{name}','\"Renamed\"') WHERE family=$1",
+      [family],
+    )
+    const key =
+      family === 'location'
+        ? locationCreateKey(drafted.locationDraft)
+        : companyCreateKey(drafted.companyDraft)
+    await dispatch(first, { assessment_keys: [key] })
+    const inspected = (await fixture.http(`/runs/${first}`)).value as ManualRunDto
+    assert.equal(
+      inspected.supported_effects!.find((effect) => effect.operation_key === key)!.verification,
+      'missing_or_changed',
+    )
+  }
+  return { capture, first, later, dispatch, invalidate }
+}
+
+for (const family of ['location', 'company'] as const) {
+  test(
+    `a resumed run never stocks while a reused ${family} has since been inspected as changed`,
+    { timeout: 60000 },
+    async () => {
+      const fixture = await manualFixture({ records: true })
+      try {
+        const { capture, later, dispatch, invalidate } = await reusingRun(fixture)
+        await fixture.fake.fault('read_unavailable')
+        assert.equal((await apply(fixture, later)).state, 'settled_incomplete')
+        await fixture.fake.fault('none')
+        assert.equal(await posts(fixture, '/api/stock/'), 1)
+        await invalidate(family)
+        await dispatch(later, { effect_keys: [capture.b.id] })
+        assert.equal(await posts(fixture, '/api/stock/'), 1, 'no stock while the reuse is unusable')
+        const resumed = (await fixture.http(`/runs/${later}`)).value as ManualRunDto
+        assert.equal(resumed.state, 'settled_incomplete')
+      } finally {
+        await fixture.dispose()
+      }
+    },
+  )
+}
+
 test(
-  'a resumed run never stocks into a reused location its original run has since inspected as changed',
+  'stock already placed in a reused location can still be inspected after that location changes',
   { timeout: 60000 },
   async () => {
     const fixture = await manualFixture({ records: true })
     try {
-      const { capture, locationDraft } = await draftedBatch(fixture)
-      const first = await approved(fixture, capture.batch, capture.a.id)
-      assert.equal((await apply(fixture, first)).state, 'settled_complete')
-      await capture.edit({ kind: 'lot', id: capture.b.id, location: { mode: 'inherit' } })
-      const later = await approved(fixture, capture.batch, capture.b.id)
-      await fixture.fake.fault('read_unavailable')
-      assert.equal((await apply(fixture, later)).state, 'settled_incomplete')
-      await fixture.fake.fault('none')
-      assert.equal(await posts(fixture, '/api/stock/'), 1)
-      await fixture.db.pool.query(
-        "UPDATE fake_record SET body=jsonb_set(body,'{name}','\"Moved shelf\"') WHERE family='location'",
-      )
-      async function dispatch(runId: string, selection: Record<string, string[]>) {
-        const current = (await fixture.http(`/runs/${runId}`)).value as ManualRunDto
-        const chosen = await fixture.http(`/runs/${runId}/recover`, {
-          expected_run_revision: current.revision,
-          ...selection,
-        })
-        assert.equal(chosen.status, 200, JSON.stringify(chosen.value))
-        const command = (
-          await fixture.db.pool.query(
-            'SELECT c.workflow_id,c.payload_bytes FROM manual_dispatch d JOIN command c ON c.id=d.command_id WHERE d.run_id=$1 ORDER BY d.sequence DESC LIMIT 1',
-            [runId],
-          )
-        ).rows[0]
-        return executeManualDispatch(
-          fixture.runner.pool,
-          fixture.runnerConfig,
-          command.workflow_id,
-          JSON.parse(command.payload_bytes.toString('utf8')),
-        )
-      }
-      await dispatch(first, { assessment_keys: [locationCreateKey(locationDraft)] })
-      const inspected = (await fixture.http(`/runs/${first}`)).value as ManualRunDto
-      assert.equal(
-        inspected.supported_effects!.find((effect) => effect.kind === 'create_location')!
-          .verification,
-        'missing_or_changed',
-      )
-      await dispatch(later, { effect_keys: [capture.b.id] }).catch(() => null)
-      assert.equal(await posts(fixture, '/api/stock/'), 1, 'no stock into the changed location')
-      const resumed = (await fixture.http(`/runs/${later}`)).value as ManualRunDto
-      assert.notEqual(resumed.state, 'settled_complete')
+      const { capture, later, dispatch, invalidate } = await reusingRun(fixture)
+      assert.equal((await apply(fixture, later)).state, 'settled_complete')
+      await invalidate('location')
+      const before = (await fixture.fake.records()).filter((value) => value.method === 'GET').length
+      await dispatch(later, { assessment_keys: [capture.b.id] })
+      const reads = (await fixture.fake.records()).filter((value) => value.method === 'GET').length
+      assert.ok(reads > before, 'the inspection reads the stock')
+      const inspected = (await fixture.http(`/runs/${later}`)).value as ManualRunDto
+      const stock = inspected.supported_effects!.find(
+        (effect) => effect.operation_key === capture.b.id,
+      )!
+      assert.equal(stock.verification, 'matches')
+      assert.equal(await posts(fixture, '/api/stock/'), 2)
     } finally {
       await fixture.dispose()
     }

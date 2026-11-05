@@ -275,6 +275,21 @@ export async function requirePriorRecord(
   }
 }
 
+/** Every reused record is still its original run's usable confirmed output. */
+export async function reusedRecordsUsable(client: Pool | PoolClient, plan: EffectsPlan) {
+  for (const binding of recordBindings(plan)) {
+    if (!binding.prior) {
+      continue
+    }
+    try {
+      await requirePriorRecord(client, plan, binding.draftId, binding.specDigest, binding.prior)
+    } catch {
+      return false
+    }
+  }
+  return true
+}
+
 /** The immutable part of a reuse binding: the original run's identity row and spec digest. */
 async function requirePriorRecordIdentity(
   client: Pool | PoolClient,
