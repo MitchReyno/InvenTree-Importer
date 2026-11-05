@@ -44,11 +44,11 @@ The index owns current item metadata; OpenSpec artifacts own detailed intent, re
 
 #### BI-006 — Agent-led intake
 
-Remove manual lot entry and question-blocked processing from Capture and Processing. An agent sorts batch evidence into proposed lots that appear live and are created as editable drafts. Native Claude and Codex sessions stream status lines, proposals and questions while they work, accept queued answers, chat and new evidence whether running or idle, and resume finished sessions. Reading and identifying combine into one Examine stage, and Research and Images run in parallel after it.
+Remove manual lot entry and question-blocked processing from Capture and Processing. One Examine lead session per batch finds each item in the photos and documents, groups those observations into lots (a photo can feed several lots and a lot can span several photos) and identifies each lot; proposed lots appear live and are created as editable drafts. Native Claude and Codex sessions stream status lines, proposals and questions while they work, accept queued answers, chat and new evidence whether running or idle, and resume finished sessions. Reading, sorting and identifying combine into that one Examine stage, and Research and Images run in parallel per lot once its identity is stable.
 
 - Change: `simplify-intake-entry`
 - Status: Planned
-- Size: XL — agent session protocol and tool server, batch sorting, stage restructuring and live UI, delivered in phased PRs.
+- Size: XL — agent session protocol and tool server, observation-based lot forming, stage restructuring and live UI, delivered in phased PRs.
 - Prerequisites: Native agent integration (`native-agent/1`) is merged; live provider qualification is still pending and is required before claiming real-provider behavior. No dependency on BI-007.
 - OpenSpec: [simplify-intake-entry](../openspec/changes/simplify-intake-entry/)
 

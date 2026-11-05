@@ -10,15 +10,15 @@ This change crosses Processing, Agents, Capture, Media, contracts and the fronte
 | Result contract | Exactly one proposal **or** question (`agents/prompt.ts`) | An ordered outbox: status, lot, proposal, question, reply |
 | Capacity | DBOS `bench-research` queue `workerConcurrency: 1, globalConcurrency: 1` plus an actor lane (`agents/worker-main.ts`, `processing/ARCHITECTURE.md`) | N session slots read from settings (default 3); waiting sessions hold no slot |
 | Inputs | Sealed manifest per attempt; a change within the attempt's scoped input closure (its subject, linked Part and their media) makes it noncurrent, while unrelated subjects and agent-default changes do not | Sealed opening manifest plus an append-only session context log; currentness judged per proposal |
-| Stages | `reading → identifying → research → images → inventory` (`processing/model.ts`) | `/2` profile: batch `sort`; per-lot `examine → {research ∥ images} → inventory` |
-| Subjects | Created only by operator capture edits (`add_lot`) | Sort also creates draft lots through the same edit validation, attributed to the session |
+| Stages | `reading → identifying → research → images → inventory` (`processing/model.ts`) | `/2` profile: one batch-level `examine` lead session (find observations ⇄ group into lots ⇄ identify); per-lot `{research ∥ images} → inventory` |
+| Subjects | Created only by operator capture edits (`add_lot`) | The Examine lead session also creates observations (photo regions, document lines) and draft lots built from them, through the same edit validation, attributed to the session |
 | Live UI | `bench-intake-live/1` WebSocket hints, followed by scoped retained reads (`contracts/src/live.ts`) | Same mechanism, with new hint topics for session outbox/inbox and lots |
 
 The proposal's reuse assessment carries forward unchanged: CLI adapters, the official MCP TypeScript SDK, PostgreSQL inbox/outbox, DBOS for waking, and the existing live hints.
 
 ## Goals and constraints
 
-- **Goals:** satisfy the requirements in `processing-agent-sessions`, `processing-lot-sorting`, `processing-stage-pipeline` and the `header-workflow-status` delta.
+- **Goals:** satisfy the requirements in `processing-agent-sessions`, `processing-lot-forming`, `processing-stage-pipeline` and the `header-workflow-status` delta.
 - **Constraints:**
   - Keep existing profiles' bytes and behavior.
   - No new agent capability beyond the listed tools.
@@ -36,7 +36,7 @@ The proposal's reuse assessment carries forward unchanged: CLI adapters, the off
 
 ### D2. App-owned MCP tool server over loopback Streamable HTTP
 
-The agents worker hosts one MCP endpoint on `127.0.0.1` on an ephemeral port. Each provider run (a start or a resume) gets a fresh random 256-bit capability. The database stores only its SHA-256; the plaintext lives only in worker memory and the child's environment. Tools: `status`, `propose_lot`, `propose`, `ask`, `reply`, `fetch_evidence`, `read_inbox`. Each tool response also carries `pending_inbox: n`, so agents notice queued input without polling.
+The agents worker hosts one MCP endpoint on `127.0.0.1` on an ephemeral port. Each provider run (a start or a resume) gets a fresh random 256-bit capability. The database stores only its SHA-256; the plaintext lives only in worker memory and the child's environment. Tools: `status`, `record_observation`, `propose_lot`, `regroup`, `propose`, `ask`, `reply`, `fetch_evidence`, `read_inbox`. Each session gets only the tools for its stage: the lot-forming tools are given to the Examine lead session alone. Each tool response also carries `pending_inbox: n`, so agents notice queued input without polling.
 
 - **Claude**
   - Runs with `--tools ""`, `--strict-mcp-config` and `--mcp-config <session-dir>/mcp.json`. The file holds no secret: its `Authorization` header uses `${INTAKE_TOOL_CAPABILITY}` environment expansion, and the capability is set only in the allowlisted child environment.
@@ -91,13 +91,13 @@ running ──crash/restart──▶ interrupted ──resume/inbox──▶ que
   - answers
   - chat messages
   - operator corrections
-- Each proposal records `relies_on`: its sources (note/media version digests, answer IDs and context event IDs) and its fields (`markings`, `identity`, `quantity`, `research`, `images`).
+- Each proposal records `relies_on`: its sources (observation IDs and versions, the lot's observation-set version, note/media version digests, answer IDs and context event IDs) and its fields (`markings`, `identity`, `quantity`, `research`, `images`).
 - A proposal is current while every source in `relies_on` is still current. The batch-level noncurrent rule for `/1` stays as it is.
 - **Accepted trade-off:** currentness for `/2` is computed over proposals rather than attempts, so the read model gains a per-proposal stale flag. Retained display still verifies the complete accepted payload against the session's log.
 
 ### D6. Dependencies trigger on proposal availability
 
-- Research and Images jobs for a lot are queued when that lot's Examine session publishes its first current `identity` proposal.
+- Research and Images jobs for a lot are queued when the lot's identity is **stable**: the Examine lead session has published a current `identity` proposal for the lot, and the lot's observation-set version equals the one that proposal relies on. A queued job re-checks this when it claims a slot; if the lot was regrouped meanwhile, it stays queued until a new identity is published.
 - Inventory waits for current Research and Images proposals, plus Review acceptance as today.
 - A revised identity arrives at Research and Images as an inbox `revision` item. It does not supersede their attempts.
 - The exact-predecessor rule for `/1` stays as it is. For `/2`, a consumer's opening manifest pins the proposal IDs it started from, and later revisions arrive as context events.
@@ -113,17 +113,22 @@ running ──crash/restart──▶ interrupted ──resume/inbox──▶ que
 - In the same transaction, every downstream proposal relying on the superseded value becomes stale, so Inventory cannot consume it while a revision is pending.
 - Proposals that don't rely on those fields stay current.
 
-### D8. Sort as a batch-scoped job
+### D8. The Examine lead session as a batch-scoped job
 
-- A job's subject becomes nullable only for stage `sort` (enforced by a CHECK constraint). There is at most one non-terminal Sort job per batch.
-- **Trigger:** media readiness publishes a hint. A debounce workflow keyed `sort-trigger:<batch>` sleeps for the quiet period (20 s), then queues Sort if there is unassigned ready evidence and no Sort is active. Otherwise it sends an `evidence` inbox item to the active Sort.
-- **Input:** previews downscaled to a long edge of 768 px, up to 48 per turn; `fetch_evidence` returns more, or full resolution, within the 8 MiB per-turn image budget.
-- `propose_lot(expected_revision, label, evidence_ids, part, estimated_quantity)` runs the existing capture edit path as principal `agent:<session_id>`:
-  - It creates the lot, evidence links and optional Part.
-  - It sets `origin = 'agent'` and `operator_edited = false`.
-  - A stale revision returns the current snapshot to the agent.
-- Any operator edit or lineage change sets `operator_edited = true`. `propose_lot` aimed at such a lot (by `lot_id`) never modifies it; it records an evidence suggestion for the operator to accept on Review.
-- In PR-C, creating a draft lot queues its Examine job in the same transaction. Until then (PR-B), draft lots are ordinary saved lots that the operator queues through the existing Processing controls.
+Sorting and identifying cannot run as separate steps. A photo can hold several lots and a lot can span several photos, so deciding which observations belong together needs their identities, and identities often need several observations combined. One lead session per batch therefore loops over finding observations, grouping them and identifying lots.
+
+- A job's subject becomes nullable only for the `examine` lead stage (enforced by a CHECK constraint). There is at most one non-terminal lead job per batch. A finished lead session is resumed, never replaced, by new evidence, answers or chat.
+- **Trigger:** media readiness publishes a hint. A debounce workflow keyed `examine-trigger:<batch>` sleeps for the quiet period (20 s). It then queues the lead session if there is ready evidence with no observation and none is active; otherwise it sends an `evidence` inbox item to the existing session, resuming it if finished.
+- **Input:** previews downscaled to a long edge of 768 px, up to 48 per turn. `fetch_evidence(evidence_id, region?)` returns more, full resolution, or a region crop, within the 8 MiB per-turn image budget.
+- **Tools** (all run the existing capture edit path as principal `agent:<session_id>`, with expected-revision CAS and a typed stale result):
+  - `record_observation(expected_revision, evidence_version_id, region, readings, visible_count?)`.
+  - `propose_lot(expected_revision, label, observation_ids, part?, estimated_quantity?, quantity_basis?)` creates or extends a draft lot (`origin = 'agent'`, `operator_edited = false`).
+  - `regroup(expected_revision, moves[])` moves observations between AI lots, and merges or splits AI lots.
+  - `propose(lot_id, fields…)` publishes markings, identity and quantity proposals for a lot.
+- Any operator edit sets `operator_edited` on the lot or observation it touches. Tools aimed at an edited lot or observation never modify it; they record a suggestion for the operator to accept on Review.
+- Publishing a stable identity queues the lot's Research and Images jobs in the same transaction (D6). Until PR-C, draft lots are ordinary saved lots that the operator queues through the existing Processing controls.
+- **Large batches:** the lead session works through photos serially. If that proves too slow, a later optimisation can have helper sessions record observations in parallel while the lead keeps grouping and identification. It is not part of this change.
+- **Rejected:** a separate Sort job followed by per-lot Examine sessions. Sort would need to read every photo to group them, and each Examine would then read them again. The two readings could disagree, and per-lot sessions cannot reason across lots (two date codes on one slip line, three items in one photo).
 
 ### D9. Slots replace the single lane for `/2`
 
@@ -136,9 +141,9 @@ running ──crash/restart──▶ interrupted ──resume/inbox──▶ que
 
 ### D10. Trusted write boundary for agent capture writes
 
-- Tool handlers that write capture state or create commands run under a dedicated `agent_writer` role on their own pool in the worker. These are `propose_lot` and Examine queueing.
+- Tool handlers that write capture state or create commands run under a dedicated `agent_writer` role on their own pool in the worker. These are `record_observation`, `propose_lot`, `regroup`, and Research/Images queueing.
 - `agent_writer` inherits no other role. Its complete write set covers exactly what the reused capture-edit and `createAttempt` paths touch:
-  - **Capture:** insert on `capture_subject`, `capture_lot`, `capture_part`, evidence and Part link rows, `capture_revision` and lot provenance. Column-limited update on `capture_batch` revision/counter columns only, for the expected-revision CAS.
+  - **Capture:** insert on `capture_subject`, `capture_lot`, `capture_part`, `capture_evidence_observation`, `capture_lot_evidence_observation`, evidence and Part link rows, `capture_revision` and lot provenance; update and delete on `capture_lot_evidence_observation` rows of non-edited AI lots only (for `regroup`). Column-limited update on `capture_batch` revision/counter columns only, for the expected-revision CAS.
   - **Processing (`/2` stages only):** insert on `processing_job`, `processing_attempt`, `processing_input`, the command and outbox rows, and `agent_session`.
   - **Supporting lock, pin and publication tables:**
     - `media_command_binding` and `media_command_pin` insert (`media.pinCommand`)
@@ -150,7 +155,7 @@ running ──crash/restart──▶ interrupted ──resume/inbox──▶ que
   - These mirror the existing `grantCaptureInputLocks`, `grantMedia(..., 'processing')` and `grantProjection` grants.
   - **Reads:** select on the rows those paths read for validation and locking.
   - No update or delete on human-owned columns, and no access to approval, execution or inventory tables.
-- Task 2 derives the final list from the reused code paths and records it in the migration. Task 10 proves it with an end-to-end test that creates a lot and queues its Examine job using only `agent_writer`.
+- Task 2 derives the final list from the reused code paths and records it in the migration. Task 10 proves it with an end-to-end test that records observations, forms a lot and queues its Research and Images jobs using only `agent_writer`.
 - Column grants and a database CHECK (or trigger) refuse writes from an agent principal that set counted quantities, approval, location or other human-only values, or that touch a lot with `operator_edited`.
 - **Rejected: widening the existing runner role.** That would weaken its deliberate denial of capture and command writes for every profile.
 - **Rejected: routing through the web API.** It adds a network hop and needs its own authentication for the worker, without adding authority checks the database cannot enforce.
@@ -158,14 +163,36 @@ running ──crash/restart──▶ interrupted ──resume/inbox──▶ que
 
 ### D11. UI
 
-- **Capture and Review:** live draft-lot cards with an AI-proposed badge and a "Sorting…" status line.
+- **Capture and Review:** live draft-lot cards with an AI-proposed badge, their observations shown as crops, and the lead session's status line.
 - **Processing:**
-  - Per-lot rows show Examine → Research ∥ Images → Inventory with state chips.
+  - The batch's Examine lead session, then per-lot rows showing Research ∥ Images → Inventory with state chips.
   - Needs you lists open questions batch-wide, with the assumption in use.
-  - The Examine view shows markings with citations, identity candidates and the quantity.
+  - The Examine view shows each photo's regions with their readings and lot, and each lot's observations, identity candidates and quantity basis.
 - **Agent sessions:** a step timeline from status lines, plus a chat composer. Chat stays enabled in every state except cancelled; when a session is cancelled, the composer offers to start a fresh session.
 - **Header:** the latest status line, and the waiting state.
 - All views refresh from retained reads triggered by live hints. No token streaming is shown.
+- **Coordination with BI-008 (`redesign-batch-workspace`):** that change redesigns these screens (Processing Overview and step pages, Review › Map, the Agents page) and reads them through its `ProcessingView` adapter. This change supplies the data and contracts: sessions, outbox and inbox, observations with regions, lot membership. Whichever lands second wires the adapter to these contracts; region-level Map links arrive with this change. The UI tasks here build only what each bundle needs to be verified end to end, using the redesigned components where they already exist.
+
+### D12. Observations and lot membership
+
+- **Naming:** `capture_observation` already exists. It is the immutable record of a read from the target InvenTree (`intake-server/migrations/0002_capture.sql`), used across capture, review and execution. These evidence observations therefore live in new `capture_evidence_observation` and `capture_lot_evidence_observation` tables, and code and contracts call them evidence observations to keep the two apart.
+- `capture_evidence_observation(id, batch_id, evidence_version_id, page, region, readings, visible_count, origin, operator_edited, revision)`:
+  - `region` is either a normalised rectangle `{x, y, w, h}` in exact rationals over the evidence version's oriented dimensions, or a document line range `{page, from_line, to_line}`. It is validated against the version's dimensions with the same rational rules as crop recipes.
+  - `readings` holds markings and label text with citations; `visible_count` is optional.
+- `capture_lot_evidence_observation(lot_id, evidence_observation_id)` is the membership. Each lot has an observation-set version that increases on every membership change.
+- A lot's existing evidence links (`linked_subject_ids`) are derived from its observations, so current readers (Review, approval media plans) keep working unchanged.
+- Operator edits (move, adjust, create region, merge, split) use capture edits with `operator_edited` set. The existing operator-review split, merge and move commands gain observation-level forms.
+- Region crops are served by the media boundary on demand from the pinned version, cached by recipe digest. They are never new evidence versions.
+- **Rejected:** linking whole files to lots. It cannot represent one photo with three lots, nor show which part of a photo supports which lot, and it pushes double-counting decisions out of the data.
+
+### D13. Structured catalogue proposals
+
+- `/2` proposals use a new `bench-intake-proposal/5` contract that extends `/4` with a `catalogue` block: `category`, `parameters[]` (template and value), `manufacturer` (company and MPN), `supplier` (company, SKU, price) and `description`.
+- Each value is a discriminated choice: `existing` (an observed mapped reference, as `InventoryPartSpec` requires) or `proposed_new` (name, plus a reason), with sources.
+- Values the executor cannot apply are flagged `unsupported`: a new category, a new parameter template, a new manufacturer company (the executor creates companies only as suppliers, `is_supplier: true` in `execution/effects-plan.ts`), and a supplier price. They stay in the proposal, are never copied into a Part spec, and are shown with their reason. BI-008's Review › Records reads them from here.
+- `description` is applicable once BI-008 adds the optional `InventoryPartSpec.description` (its design D6). Until that field exists in the contracts, the validator treats description as `unsupported`; the `/5` schema carries it either way, so no further contract version is needed.
+- Accepting a proposal into a Part spec still goes through the existing capture edit and `validatePartSpec`. Agents never write a Part spec directly.
+- **Rejected:** keeping catalogue values only in `summary` text. Review could not show or map them, and unsupported values would be lost.
 
 ## State, authority and failure behavior
 
@@ -190,9 +217,11 @@ running ──crash/restart──▶ interrupted ──resume/inbox──▶ que
   - inbox idempotency, cursor acknowledgement, and stable-ID redelivery without duplicate answers
   - per-proposal currentness
   - selective rework fan-out
-  - Sort single-flight per batch
+  - lead-session single-flight per batch, and resume rather than replace
   - `operator_edited` protection
-  - stale-revision `propose_lot`
+  - stale-revision `record_observation`, `propose_lot` and `regroup`
+  - region validation, derived evidence links, and quantity basis without double counting
+  - successors waiting on a regrouped lot
   - `/1` and `/2` sharing capacity
 - **Process tier (`tests/process`):**
   - Deterministic fake `claude` and `codex` executables speak the stream-JSON / app-server protocol and call the real MCP server. They cover tool-only allowlist refusal, streamed outbox, `read_inbox`, `turn/steer`, resume after finish, crash → interrupted, cancel/reap, and a child that ignores SIGTERM.
@@ -204,12 +233,12 @@ running ──crash/restart──▶ interrupted ──resume/inbox──▶ que
   - status timeline
   - header latest line
   - legacy Reading/Identifying display
-- **Browser check (browser-harness, headless):** synthetic profile on a photo-only batch. Lots appear while Sort runs, an answer is queued mid-run, and Research and Images run concurrently.
+- **Browser check (browser-harness, headless):** synthetic profile on a photo-only batch with one photo holding three items and one item spanning two photos. Lots appear while the lead session runs, each with the right observations and no double counting; an answer is queued mid-run; Research and Images run concurrently.
 - **Limits:** fake CLIs prove only our protocol handling. Real Claude/Codex MCP tool use, mid-turn behavior and resume fidelity need a separately authorized live qualification (task 13), and remain `native_unverified` until then.
 
 ## Migration, rollout and recovery
 
-- **Migrations (additive):** session columns (state, provider session/thread ID, lineage), outbox, inbox, slots, lot `origin`/`operator_edited`, nullable job subject for `sort` with a CHECK constraint, `processing_proposal` `relies_on`/stale columns, and a new stage enum value. No historical rows are rewritten.
+- **Migrations (additive):** session columns (state, provider session/thread ID, lineage), outbox, inbox, slots, lot `origin`/`operator_edited`, `capture_evidence_observation` and `capture_lot_evidence_observation` with the lot observation-set version, nullable job subject for the `examine` lead stage with a CHECK constraint, `processing_proposal` `relies_on`/stale columns, and a new stage enum value. No historical rows are rewritten.
 - **Grants:**
   - The runner role gets insert on the outbox and on inbox notices it generates, plus update on cursors.
   - The API role gets inbox insert.
@@ -223,8 +252,10 @@ running ──crash/restart──▶ interrupted ──resume/inbox──▶ que
 
 ## Risks and open decisions
 
-- **Providers may not call tools reliably or promptly.** Mitigations: instructions require a status call at each step, the server tracks time since the last status line, and Sort/Examine fall back to a final-turn summary check. Live qualification decides whether this is good enough.
+- **Providers may not call tools reliably or promptly.** Mitigations: instructions require a status call at each step, the server tracks time since the last status line, and the Examine lead session falls back to a final-turn summary check. Live qualification decides whether this is good enough.
 - **Claude mid-turn input is unverified.** Mitigated by `read_inbox` and `pending_inbox` hints.
-- **Token cost.** Long sessions, resumes and parallel Research/Images raise usage. Mitigations: the concurrency limit, waiting sessions holding no slot, and the 48-thumbnail Sort input.
+- **Token cost.** Long sessions, resumes and parallel Research/Images raise usage. Mitigations: the concurrency limit, waiting sessions holding no slot, and the 48-thumbnail Examine input.
 - **Transcript retention** under the host Claude project store and `CODEX_HOME` grows without bound. Retention cleanup is a follow-up; the design records session directories for later cleanup.
+- **Large batches run serially in the lead session.** Mitigation: preview paging, and parallel observation helpers as a follow-up if timing shows a need.
+- **Lead-session context grows with the batch.** Mitigation: photos are fetched on demand within the image budget, observations are retained as tool results the agent can re-read, and resume starts from a summary of retained observations.
 - **Open:** MCP SDK v1 versus v2, decided in task 1.1. No user decision is needed.

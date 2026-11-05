@@ -9,13 +9,13 @@ Capture and Processing still make the operator do two jobs the agent is better p
 
 The outcome the operator asked for:
 
-1. **The agent sorts evidence into lots.** Proposed lots appear live while it works and are created straight away as editable draft lots. The operator corrects them with the existing merge and split controls instead of entering them.
+1. **The agent forms lots from the evidence.** One Examine lead session per batch finds each item in the photos and documents (an observation: a region of a photo or a line of a document), groups observations of the same physical thing into lots, and identifies each lot from all its observations. A photo can feed several lots and a lot can draw on several photos; quantities combine observations without double counting. Proposed lots appear live while it works and are created straight away as editable draft lots. The operator corrects them with direct edits instead of entering them.
 2. **Agents never block on a question.**
    - They deliver status lines, proposals and questions as they go, and carry on with recorded assumptions.
    - Answers, chat messages and new evidence are queued for the agent immediately, whether its session is running, paused, waiting or finished.
    - The operator can chat with an agent about its work.
    - Each agent regularly emits a one-line status, so its steps show in order.
-3. **Reading and identifying become one Examine stage.** Research and Images run in parallel after it. An agent that has already started picks up evidence added later.
+3. **Reading, sorting and identifying become one Examine stage,** run once per batch. Sorting cannot happen before reading, and grouping often needs identities, so they loop in one session. Research and Images run in parallel per lot once its identity is stable. Agents that have already started pick up evidence added later.
 
 This change covers Claude and Codex only. Gemini/Antigravity is a separate future item (BI-007).
 
@@ -69,23 +69,24 @@ All three need a qualification spike. Native agent support is still labelled `na
   - An app-owned tool server scoped to one session, with tools for status, proposals, lot proposals, questions, chat replies, evidence fetch and inbox read.
   - A durable outbox (agent → operator) and inbox (operator → agent).
   - A concurrency limit with a default of 3 and a setting in Agent settings. Sessions waiting for input do not use a slot.
-- **Lot sorting.**
-  - A batch-level Sort session runs automatically once previews are ready, after a short quiet period.
-  - It proposes lots and shared Parts live, as editable AI-proposed draft lots.
-  - New evidence is placed into existing or new lots.
-  - Lots the operator has edited are never reshuffled.
+- **Lot forming.**
+  - A batch-level Examine lead session runs automatically once previews are ready, after a short quiet period, and is resumed (not replaced) for later work.
+  - It records observations with regions, groups them into lots and identifies each lot, proposing lots and shared Parts live as editable AI-proposed draft lots.
+  - Lot quantities state their basis and never add up the same items seen twice.
+  - New evidence wakes the lead session, which places its observations into existing or new lots.
+  - Lots and observations the operator has edited are never reshuffled.
 - **Stage pipeline.**
-  - `examine → (research ∥ images) → inventory` for new attempts.
+  - A batch-level `examine` lead session, then per-lot `(research ∥ images) → inventory`, for new attempts. Successors start when a lot's identity is stable.
   - Non-blocking questions, each with a recorded assumption.
   - An answer redoes only the proposals it affects.
   - Currentness is judged per proposal, against the evidence versions each one cites.
   - Running sessions pick up new evidence.
 - **UI.**
-  - Live proposed lots on Capture and Review.
+  - Live proposed lots on Capture and Review, with their observations.
   - A batch-wide "Needs you" inbox.
   - A chat panel and status timeline for each session.
   - The latest status line in header workflow details.
-  - A single Examine view replaces the Reading and Identifying views.
+  - A single Examine view (photo regions and per-lot observations) replaces the Reading and Identifying views.
 - **Settings and copy.** Concurrency in Agent settings, and updated architecture docs.
 
 **Non-goals**
@@ -133,7 +134,7 @@ Existing stack:
 - Keep the inbox and outbox as Processing-owned PostgreSQL state, with DBOS used for waking and resume scheduling.
 - Reuse the existing WebSocket hints for live UI.
 
-This keeps one provider-neutral tool contract and the existing containment boundary. Custom work is limited to the session state machine, tool handlers, Sort/Examine domain logic and UI.
+This keeps one provider-neutral tool contract and the existing containment boundary. Custom work is limited to the session state machine, tool handlers, Examine lead-session logic (observations, grouping, quantity basis) and UI.
 
 ## Capabilities
 
@@ -146,14 +147,16 @@ This keeps one provider-neutral tool contract and the existing containment bound
   - the queued inbox (answers, chat, evidence notices)
   - concurrency
   - recovery
-- `processing-lot-sorting` covers:
-  - batch-level sorting into AI-proposed draft lots and shared Parts
-  - live display
-  - placement of new evidence
-  - protection of lots the operator has edited
+- `processing-lot-forming` covers:
+  - the batch-level Examine lead session
+  - observations with regions, and lots grouped from them
+  - quantity without double counting
+  - live AI-proposed draft lots and shared Parts
+  - new evidence waking the lead session
+  - protection of lots and observations the operator has edited
 - `processing-stage-pipeline` covers:
-  - the Examine stage
-  - parallel Research and Images
+  - the batch-level Examine stage
+  - per-lot Research and Images in parallel, starting on a stable identity
   - non-blocking questions with assumptions
   - selective rework
   - currentness judged per proposal
@@ -173,7 +176,8 @@ This keeps one provider-neutral tool contract and the existing containment bound
 **State**
 - New tables:
   - session state and transcript reference
-  - outbox items, with typed kinds status/lot/proposal/question/reply
+  - outbox items, with typed kinds status/observation/lot/proposal/question/reply
+  - observations with regions, and lot membership by observation
   - inbox items
   - assumption and question links to proposals
 - New lot provenance (AI-proposed versus edited by the operator).
@@ -182,7 +186,8 @@ This keeps one provider-neutral tool contract and the existing containment bound
 **Prerequisites and evidence**
 - The merged `native-agent/1` integration is the base.
 - Live provider qualification is pending and needs separate authorization. Deterministic CLI fixtures and the synthetic profile carry automated evidence.
-- Uncommitted local fixes in the main checkout are not part of this branch: DBOS queue ownership, the upload race and large media. They should be committed through their own branch first.
+- The shared Processing application name and large-preview limits are merged (#93), so the `bench-sessions` queue in design D9 registers under `bench-intake-processing`.
+- **BI-008 (`redesign-batch-workspace`)** redesigns the screens this change feeds: Processing, Review › Map and the Agents page. It reads them through a `ProcessingView` adapter and draws the Map at file level until this change supplies observations with regions. Either change can land first; the second wires the adapter.
 
 ## Open decisions and assumptions
 
@@ -191,14 +196,15 @@ This keeps one provider-neutral tool contract and the existing containment bound
   - non-blocking questions with queued inbox delivery in every session state
   - chat
   - status lines
-  - a combined Examine stage
-  - parallel Research and Images
+  - one batch-level Examine lead session that finds observations, groups them into lots and identifies them (replacing a separate Sort step)
+  - lots linked to observation regions rather than whole files
+  - parallel Research and Images per lot
   - new evidence picked up by running sessions
   - an app-owned tool server
   - concurrency 3, configurable
-  - automatic Sort after previews
+  - automatic Examine after previews
   - one change delivered in three phased PR bundles
-- **Assumption:** the Sort quiet period is about 20 seconds after the last preview becomes ready, and can be tuned without changing the spec.
+- **Assumption:** the Examine quiet period is about 20 seconds after the last preview becomes ready, and can be tuned without changing the spec.
 - **Assumption:** status lines are limited to 120 characters, with a minimum interval enforced by the server. The agent is instructed to emit one at each step.
 - **Assumption:** retained transcripts follow the existing session-directory retention, and adding retention cleanup is a follow-up.
 - **Open (resolved in the design spike):** the MCP SDK v1 versus v2 line.

@@ -2,29 +2,35 @@
 
 ## Purpose
 
-New native work runs as one Examine stage per lot, which reads markings and identifies the item together. Research and Images then run in parallel. Questions never stop progress: agents continue on recorded assumptions, answers redo only what they affect, and running agents pick up new evidence.
+New native work starts with one Examine lead session for the batch, which finds observations, groups them into lots and identifies each lot. Research and Images then run in parallel for each lot. Questions never stop progress: agents continue on recorded assumptions, answers redo only what they affect, and running agents pick up new observations.
 
 ## ADDED Requirements
 
 ### Requirement: Examine stage and parallel successors
 
-For `native-agent/2` work, the stage order SHALL be Examine, then Research and Images in parallel, then Inventory.
-
-- **Examine** SHALL propose the transcribed markings with citations, an identity with ranked candidates, and an optional quantity estimate.
-- **Research and Images** SHALL each start as soon as Examine has published an identity proposal, without waiting for each other or for Examine to finish.
-- **Inventory** SHALL wait for current Research and Images proposals.
-
-#### Scenario: Parallel start
-
-- **GIVEN** an Examine session that has published an identity proposal and is still working on the quantity
-- **WHEN** a concurrency slot is free
-- **THEN** Research and Images sessions for that lot start, and both appear as running at the same time when slots allow.
+For `native-agent/2` work, the stage order SHALL be a batch-level Examine lead session (see processing-lot-forming), then per-lot Research and Images in parallel, then per-lot Inventory. For each lot, Examine SHALL propose the markings with citations to its observations, an identity with ranked candidates, and an optional quantity estimate with its basis. Inventory SHALL wait for the lot's current Research and Images proposals.
 
 #### Scenario: Legacy batch display
 
 - **GIVEN** a batch with retained `reading`/`identifying` jobs from earlier profiles
 - **WHEN** Processing opens
 - **THEN** those jobs, proposals and answers stay readable in their original views, and only new work uses the Examine pipeline.
+
+### Requirement: Successors start on a stable identity
+
+Research and Images for a lot SHALL each start as soon as that lot's identity is stable: Examine has published a current identity proposal for it, and the lot's observations have not changed since. They SHALL NOT wait for each other, for other lots, or for Examine to finish.
+
+#### Scenario: Parallel start
+
+- **GIVEN** an Examine lead session that has published an identity for one lot and is still grouping other observations
+- **WHEN** concurrency slots are free
+- **THEN** Research and Images sessions for that lot start, and both appear as running at the same time as the lead session when slots allow.
+
+#### Scenario: Lot regrouped before successors start
+
+- **GIVEN** a lot whose identity was published and whose Research is queued but not yet started
+- **WHEN** the lead session moves one of its observations to another lot
+- **THEN** the identity is no longer stable, Research does not start from it, and it starts once Examine republishes an identity for the regrouped lot.
 
 ### Requirement: Non-blocking questions with assumptions
 
@@ -36,7 +42,7 @@ A question SHALL name the field or fields it affects and the assumption the agen
 
 #### Scenario: Unclear quantity
 
-- **GIVEN** Examine cannot tell whether a reel holds 10 or 12 parts
+- **GIVEN** the Examine lead session cannot tell whether a reel holds 10 or 12 parts
 - **WHEN** it asks a quantity question assuming an estimated 10
 - **THEN** the question appears in Needs you, its identity proposal and Research continue, and the quantity proposal shows as provisional on 10.
 
@@ -66,18 +72,44 @@ When an answer or correction supersedes a value, proposals relying on the old va
 - **WHEN** the operator corrects the identity to 74HCT00
 - **THEN** Research receives the correction, and Inventory stays waiting until current Research and Images proposals for 74HCT00 exist.
 
-### Requirement: Evidence-based currentness and new evidence pickup
+### Requirement: Evidence-based currentness
 
-Each proposal SHALL record the evidence versions, notes and answers it relies on. It SHALL become stale only when one of those changes or is removed. When new evidence is linked to a lot, that lot's running or resumable Examine, Research and Images sessions SHALL receive a new-evidence notice and be able to fetch it within the session's media limits. A finished session SHALL be resumed to consider the evidence.
-
-#### Scenario: Photo added mid-run
-
-- **GIVEN** a running Examine session for a lot
-- **WHEN** a new close-up photo is linked to that lot
-- **THEN** the session receives a new-evidence notice, fetches the photo, and its next proposals may cite it, without restarting from scratch.
+Each proposal SHALL record the observations, evidence versions, notes and answers it relies on, including the lot's observation set. It SHALL become stale only when one of those changes or is removed.
 
 #### Scenario: Evidence removed
 
-- **GIVEN** a current proposal citing a photo
-- **WHEN** that photo is unlinked from the lot
+- **GIVEN** a current proposal citing an observation
+- **WHEN** that observation is moved out of the lot
 - **THEN** the proposal is shown as stale, and the owning session is notified to revise it.
+
+### Requirement: Lot sessions pick up observation changes
+
+New evidence SHALL go first to the Examine lead session. When an observation is added to or removed from a lot, that lot's running or resumable Research and Images sessions SHALL receive a notice and be able to fetch the observation's crop within the session's media limits. A finished session SHALL be resumed to consider it.
+
+#### Scenario: Photo added mid-run
+
+- **GIVEN** a running Research session for a lot
+- **WHEN** the lead session adds an observation from a new close-up photo to that lot
+- **THEN** the Research session receives a notice, fetches the observation's crop, and its next proposals may cite it, without restarting from scratch.
+
+### Requirement: Structured catalogue proposals
+
+For `native-agent/2` work, Examine and Research proposals SHALL carry their catalogue values as structured fields, not only as a summary. These are the category, the parameter values with their templates, the manufacturer company and MPN, the supplier company, SKU and price, and the description. Each value SHALL state whether it maps to an existing target record (by its observed reference) or proposes a new one, and SHALL cite its sources.
+
+#### Scenario: Existing manufacturer
+
+- **GIVEN** Examine reads a maker's mark that matches an observed company
+- **WHEN** it publishes its proposal
+- **THEN** the manufacturer value maps to that company's observed reference, with the photo region cited.
+
+### Requirement: Unsupported catalogue values are retained
+
+A catalogue value the executor cannot apply, such as a new category, a new parameter template, a new manufacturer company or a supplier price, SHALL be retained in the proposal as unsupported with the agent's reason. It SHALL NOT be dropped, and SHALL NOT enter a Part spec.
+
+A description SHALL be applicable when the Part spec supports one, and unsupported otherwise.
+
+#### Scenario: New sub-category proposed
+
+- **GIVEN** Research finds no existing category that fits a lot's Part
+- **WHEN** it publishes its proposal
+- **THEN** the proposal records a new-category value with its reason and sources, marked unsupported, alongside the nearest existing categories it considered.

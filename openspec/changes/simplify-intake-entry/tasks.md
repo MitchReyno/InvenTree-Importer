@@ -2,7 +2,7 @@
 
 ## Plan context
 
-- **Planning artifacts:** [proposal](proposal.md), [design assessment](design.md), and specs [processing-agent-sessions](specs/processing-agent-sessions/spec.md), [processing-lot-sorting](specs/processing-lot-sorting/spec.md), [processing-stage-pipeline](specs/processing-stage-pipeline/spec.md) and the [header-workflow-status delta](specs/header-workflow-status/spec.md).
+- **Planning artifacts:** [proposal](proposal.md), [design assessment](design.md), and specs [processing-agent-sessions](specs/processing-agent-sessions/spec.md), [processing-lot-forming](specs/processing-lot-forming/spec.md), [processing-stage-pipeline](specs/processing-stage-pipeline/spec.md) and the [header-workflow-status delta](specs/header-workflow-status/spec.md).
 - **Reuse recommendation:** extend the Claude CLI and Codex app-server adapters; add one app-owned MCP server (official TypeScript SDK); keep the inbox/outbox in Processing-owned PostgreSQL tables; use DBOS for waking only; reuse the `bench-intake-live/1` hints.
 - **Change name:** `simplify-intake-entry`. It delivers [BI-006](../../../docs/PLANNED_FUNCTIONALITY.md#bi-006--agent-led-intake). BI-007 (Antigravity) is out of scope.
 - **Branches and subjects:** branches are `feat/simplify-intake-entry-<bundle>`, targeting `interactive-app`. Subjects are `feat(simplify-intake-entry): …`.
@@ -26,11 +26,11 @@ Keep a parent unchecked while any of its required subtasks are open. Review, pub
 | 4 Provider session adapters | Behavior | 3 | Tool boundary; Queued inbox (resume, in-turn); Cancellation and recovery |
 | 5 Session slots and concurrency setting | Behavior | 2 | Waiting does not hold capacity |
 | 6 Session UI and header status | Behavior/UI | 3, 5 | Streamed status; Queued inbox (chat); header delta |
-| 7 Agent-attributed draft lots | Behavior | 3 | Agent-attributed lot writes; Human edits take precedence |
-| 8 Sort job, trigger and incremental placement | Behavior | 4, 7 | Automatic batch sorting; Incremental placement (placement only; notifying lot sessions is task 11) |
+| 7 Observations and agent-attributed draft lots | Enabling/behavior | 3 | Observations with regions; Lots group observations; Agent-attributed lot writes; Human edits take precedence |
+| 8 Examine lead session, trigger and new evidence | Behavior | 4, 7 | One Examine lead session per batch; Quantity without double counting; New evidence wakes the lead session (placement only; notifying lot sessions is task 11); Examine stage (per-lot proposals) |
 | 9 Live lots on Capture and Review | Behavior/UI | 8 | Live AI-proposed draft lots |
-| 10 Examine stage and parallel successors | Behavior | 4, 8 | Examine stage and parallel successors; draft lots queue Examine (Live AI-proposed draft lots) |
-| 11 Proposal currentness, selective rework and evidence pickup | Behavior | 10 | Non-blocking questions; Selective rework; Superseded values invalidate relying proposals immediately; Evidence-based currentness |
+| 10 Per-lot successors on a stable identity | Behavior | 4, 8 | Successors start on a stable identity; Examine stage (Inventory gate, legacy display) |
+| 11 Proposal currentness, selective rework and observation pickup | Behavior | 10 | Non-blocking questions; Selective rework; Superseded values invalidate relying proposals immediately; Evidence-based currentness; Lot sessions pick up observation changes |
 | 12 Pipeline UI, docs and browser qualification | Behavior/UI/docs | 10, 11 | Pipeline scenarios incl. legacy display; Needs you |
 | 13 Authorized live qualification | Manual qualification | 12 merged, explicit authorization | `native_unverified` label decision |
 
@@ -41,8 +41,8 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 | Bundle | Outcome and included work | Task coverage | Why this boundary is sensible | Prerequisites and merge order | Base, branch and subject | Verification and merge gates |
 | --- | --- | --- | --- | --- | --- | --- |
 | PR-A | Resumable agent sessions: tool server, outbox/inbox, status lines, chat, slots, header status. Questions become non-blocking at protocol level. | 1–6 | One protocol foundation that the other bundles build on, reviewable on its own with the synthetic profile. The `/1` flow is unchanged. | None. Merges first. | `interactive-app` ← `feat/simplify-intake-entry-sessions`; `feat(simplify-intake-entry): add resumable agent sessions` | `pnpm contracts:check`, `pnpm typecheck`, `pnpm test:intake`, `test:intake:pg`, `test:intake:process`, frontend typecheck/lint/test/build; independent exact-head review; selected CI green |
-| PR-B | AI sorting into live draft lots | 7–9 | Lot authority and provenance form one coherent capture-boundary change that is visible end to end. | PR-A merged | `interactive-app` ← `feat/simplify-intake-entry-lot-sorting`; `feat(simplify-intake-entry): sort evidence into proposed lots` | Same checks plus a browser check of live lots, with draft lots queued through the existing Processing controls (automatic Examine queueing arrives in PR-C); independent review; CI green |
-| PR-C | Examine pipeline, parallel Research/Images, selective rework, new evidence pickup | 10–12 | Changes stage topology and currentness together; it needs Sort-created lots for its end-to-end check. | PR-B merged | `interactive-app` ← `feat/simplify-intake-entry-examine-pipeline`; `feat(simplify-intake-entry): combine examine stage and parallel research` | Same checks plus a browser qualification of the full flow; handover updated; independent review; CI green |
+| PR-B | Examine lead session: observations with regions, live draft lots and per-lot identity proposals | 7–9 | Observation and lot authority plus the session that writes them form one coherent capture-boundary change, visible end to end. | PR-A merged | `interactive-app` ← `feat/simplify-intake-entry-lot-forming`; `feat(simplify-intake-entry): form lots from observations` | Same checks plus a browser check of live lots formed from regions (one photo, three lots; one lot, two photos), with Research/Images queued through the existing Processing controls (automatic queueing on a stable identity arrives in PR-C); independent review; CI green |
+| PR-C | Per-lot Research ∥ Images on a stable identity, selective rework, observation pickup | 10–12 | Changes successor triggering and currentness together; it needs lead-session lots for its end-to-end check. | PR-B merged | `interactive-app` ← `feat/simplify-intake-entry-examine-pipeline`; `feat(simplify-intake-entry): run research and images per lot in parallel` | Same checks plus a browser qualification of the full flow; handover updated; independent review; CI green |
 | PR-D | Live provider qualification evidence (docs/handover only) | 13 | Kept separate because it needs explicit live-usage authorization and may stay on hold. | PR-C merged and authorization given | `interactive-app` ← `feat/simplify-intake-entry-live-qualification`; `docs(simplify-intake-entry): record live session qualification` | Recorded evidence; review; held without authorization |
 
 ## 1. Proof-of-fit spike for tools, resume and in-turn input
@@ -74,17 +74,17 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Outcome:** versioned contracts and additive schema for `native-agent/2` and `synthetic-session/1`:
   - sessions, outbox, inbox, slots
   - lot `origin`/`operator_edited`
-  - a nullable Sort subject
+  - a nullable subject for the `examine` lead stage
   - proposal `relies_on`
   - new stage values
 - **Scope and approach:**
-  - `contracts/src/processing.ts`, `agents.ts`, `capture.ts` and `live.ts`: input `/6`, command `/5`, session envelope, tool argument/result schemas, outbox/inbox kinds, and the stages `sort`/`examine`.
+  - `contracts/src/processing.ts`, `agents.ts`, `capture.ts` and `live.ts`: input `/6`, command `/5`, session envelope, tool argument/result schemas, outbox/inbox kinds, proposal `/5` with the structured catalogue block (design D13), the `examine` lead stage, and the observation and lot-forming tool schemas.
   - `intake-server/migrations/00NN_*.sql` and grants for the API, runner and scheduler roles, plus the new restricted `agent_writer` role (design D10) with the complete write set derived from the reused capture-edit and `createAttempt` paths, with column grants and a CHECK/trigger that refuses human-only values from agent principals.
   - Existing versions stay byte-identical.
 - **Prerequisites:** task 1.
 - **Acceptance:** the schema bounds in all three new specs; `/1`–`/5` compatibility.
 - **TDD approach:**
-  - RED: contract tests for a status line over 120 characters, a question without fields or an assumption, and an unknown outbox kind. Also a PG test that the Sort-subject CHECK rejects a null subject for other stages.
+  - RED: contract tests for a status line over 120 characters, a question without fields or an assumption, and an unknown outbox kind. Also a PG test that the CHECK allows a null subject only for the `examine` lead stage.
   - GREEN: add the schemas and migrations.
 - **Verification:** `pnpm contracts:check`, `pnpm test:intake`, `pnpm test:intake:pg` (the migration applies on a fresh DB and on one migrated to the latest existing migration).
 - **Risks and decisions:** keep migrations additive so that rolling back means only switching the profile.
@@ -201,64 +201,69 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - [ ] 6.4 Update the architecture docs and handover for PR-A; run the markdown and reference checks.
 - [ ] 6.5 Headless browser check of a synthetic session (status, mid-run answer, chat after finish); record evidence.
 
-## 7. Agent-attributed draft lots
+## 7. Observations and agent-attributed draft lots
 
 - **PR delivery:** PR-B
-- **Outcome:** `propose_lot` creates draft lots, evidence links, optional shared Parts and estimated counts through the existing capture edit validation. Each write is attributed to the session, and lots the operator has edited are protected.
+- **Outcome:** observations with regions and lot membership by observation exist in capture state. `record_observation`, `propose_lot` and `regroup` write them through the existing capture edit validation, attributed to the session, and lots and observations the operator has edited are protected.
 - **Scope and approach:**
-  - `intake-server/src/capture/*` adds an agent principal, `origin`, and the `operator_edited` flag, which every human edit or lineage change sets.
-  - The `propose_lot` handler (new lot, or `lot_id` of an existing one) does an expected-revision compare-and-set (CAS) and return a typed stale result.
-  - Writes run under the restricted `agent_writer` role (design D10). Draft lots are ordinary saved lots in this bundle; automatic Examine queueing is added in task 10.
+  - Migration: `capture_evidence_observation`, `capture_lot_evidence_observation` and the lot observation-set version (design D12). Lot `origin` and `operator_edited` come from task 2.
+  - Derive each lot's evidence links from its observations so current readers are unchanged.
+  - Region validation reuses the exact rational crop rules; region crops come from the media boundary on demand.
+  - Handlers do an expected-revision compare-and-set (CAS) and return a typed stale result. Writes run under the restricted `agent_writer` role (design D10).
+  - Operator-review split, merge and move gain observation-level forms that set `operator_edited`.
 - **Prerequisites:** task 3.
-- **Acceptance:** Live AI-proposed draft lots "Stale revision while proposing"; Agent-attributed lot writes "Estimated count only"; Human edits "Operator split is kept".
+- **Acceptance:** Observations with regions ("One photo, three items", "Region outside the image"); Lots group observations ("Front and back of one packet", "Same MPN, different date codes"); Live AI-proposed draft lots "Stale revision while forming"; Agent-attributed lot writes "Estimated count only"; Human edits ("Operator split is kept", "Operator moves a region"); lot-forming tools refused for lot sessions.
 - **TDD approach:**
   - RED (PG):
-    - a stale revision creates no lot
+    - out-of-bounds regions are refused; a lot's evidence links equal its observations' files
+    - a stale revision creates no observation or lot
     - a counted quantity from the agent is refused
-    - `propose_lot` against an operator-edited lot changes nothing and only records an operator suggestion
-    - merge/split sets `operator_edited`
-  - GREEN: implement the handlers.
-- **Verification:** `pnpm test:intake:pg`, capture unit tests.
-- **Risks and decisions:** this deliberately relaxes "suggestions never write capture" for draft lots only. Update the Processing and Capture architecture docs to match.
+    - `regroup` or `propose_lot` against an edited lot or observation changes nothing and only records a suggestion
+    - observation moves and merge/split set `operator_edited`
+  - GREEN: implement the schema and handlers.
+- **Verification:** `pnpm test:intake:pg`, capture and media unit tests.
+- **Risks and decisions:** this deliberately relaxes "suggestions never write capture" for draft lots and observations only. Update the Processing and Capture architecture docs to match.
 
-- [ ] 7.1 Baseline the capture/edit PG tests.
-- [ ] 7.2 RED: stale revision, human-only values, edit protection and the suggestion path, run as the real `agent_writer` and runner roles (the runner role is refused capture writes).
-- [ ] 7.3 GREEN: agent principal, provenance columns, the `agent_writer` pool and the handlers.
-- [ ] 7.4 Verify the existing review/approval tests are unchanged.
+- [ ] 7.1 Baseline the capture/edit and media crop PG tests.
+- [ ] 7.2 RED: region validation, derived links, stale revision, human-only values, edit protection and the suggestion path, run as the real `agent_writer` and runner roles (the runner role is refused capture writes).
+- [ ] 7.3 GREEN: migration, agent principal, provenance columns, the `agent_writer` pool, handlers and observation-level operator edits.
+- [ ] 7.4 Verify the existing review/approval and media-plan tests are unchanged.
 - [ ] 7.5 Record the results.
 
-## 8. Sort job, debounce trigger and incremental placement
+## 8. Examine lead session, debounce trigger and new evidence
 
 - **PR delivery:** PR-B
-- **Outcome:** each batch gets one Sort session after a quiet period of 20 seconds. It reads previews and proposes lots. Later evidence goes to the active Sort or starts a new one, and only new evidence is placed.
+- **Outcome:** each batch gets one Examine lead session after a quiet period of 20 seconds. It reads previews, records observations, groups them into lots, and publishes per-lot markings, identity and quantity (with its basis) proposals. Later evidence wakes the same session, resuming it if finished, and only the new evidence is examined.
 - **Scope and approach:**
-  - A batch-scoped `sort` job (design D8) and a DBOS debounce workflow keyed per batch.
-  - Preview staging: long edge 768 px, 48 per turn.
-  - Sort instructions for both providers and the synthetic runner.
-  - Placement links new evidence to an existing AI lot or a new draft lot. Notifying and resuming that lot's sessions is part of task 11.
+  - A batch-scoped `examine` lead job (design D8) and a DBOS debounce workflow keyed per batch.
+  - Preview staging: long edge 768 px, 48 per turn; `fetch_evidence` with optional region.
+  - Lead-session instructions for both providers and the synthetic runner: find, group and identify in a loop; state quantity basis; never add up the same items twice.
+  - The synthetic runner scripts a batch with one photo holding three items and one item spanning two photos.
+  - Notifying and resuming lot sessions is part of task 11.
 - **Prerequisites:** tasks 4 and 7.
 - **Acceptance:**
-  - Automatic batch sorting "Photos finish preparing" and "More photos arrive during the quiet period".
-  - Incremental placement: the extra photo is linked to the existing AI lot and no other lot changes. The session-notice half of "Extra photo of an existing lot" is accepted in task 11.
+  - One Examine lead session per batch: "Photos finish preparing" and "More photos arrive during the quiet period"; resume rather than replace.
+  - Quantity without double counting: "Bag seen in two photos".
+  - New evidence wakes the lead session: the observation is added to the existing AI lot and no other lot changes. The session-notice half of "Back of an existing tape" is accepted in task 11.
   - Archived batch and no-default cases.
 - **TDD approach:**
-  - RED (PG and process tests): one Sort per batch under concurrent readiness events; the quiet period restarts; no Sort for an archived batch or without a default; new evidence after Sort is linked only to its target lot.
-  - GREEN: implement the job and trigger.
+  - RED (PG and process tests): one lead session per batch under concurrent readiness events; the quiet period restarts; a finished session is resumed; no session for an archived batch or without a default; new evidence produces observations only for the new files; quantity basis is recorded and duplicates are not summed.
+  - GREEN: implement the job, trigger and instructions.
 - **Verification:** `pnpm test:intake:pg`, `pnpm test:intake:process` with `synthetic-session/1`.
-- **Risks and decisions:** the quiet period is a constant that can be tuned. Large batches beyond 48 previews depend on `fetch_evidence` paging.
+- **Risks and decisions:** the quiet period is a constant that can be tuned. Large batches beyond 48 previews depend on `fetch_evidence` paging, and run serially in one session (design D8).
 
 - [ ] 8.1 Baseline the media readiness and processing trigger tests.
-- [ ] 8.2 RED: single-flight, debounce restart, eligibility and incremental placement regressions.
-- [ ] 8.3 GREEN: Sort job, debounce workflow, preview staging, instructions and placement notices.
+- [ ] 8.2 RED: single-flight, debounce restart, resume, eligibility, new-evidence-only examination and quantity-basis regressions.
+- [ ] 8.3 GREEN: lead job, debounce workflow, preview staging, instructions and evidence notices.
 - [ ] 8.4 Verify that media decoding and the existing processing queue are unaffected.
 - [ ] 8.5 Record the results.
 
 ## 9. Live lots on Capture and Review
 
 - **PR delivery:** PR-B
-- **Outcome:** Capture and Review show draft lots appearing while Sort runs, with an AI-proposed badge, their linked photos and the Sort status line. Operator edits use the existing controls and mark the lot as edited.
+- **Outcome:** Capture and Review show draft lots appearing while the lead session runs, with an AI-proposed badge, their observations as crops and the lead session's status line. Operator edits use the existing controls (and the observation-level move) and mark the lot or observation as edited.
 - **Scope and approach:**
-  - `frontend/src/components/review/*` and capture components, driven by live hints and retained reads.
+  - `frontend/src/components/review/*` and capture components, driven by live hints and retained reads. Where BI-008 has already landed, extend its components and `ProcessingView` adapter instead of the current ones (design D11).
   - Docs: Capture/Processing architecture sections on agent-created lots; PR-B handover.
 - **Prerequisites:** task 8.
 - **Acceptance:** "Watching lots appear"; editing an AI lot removes its AI-only badge state and shows it as edited.
@@ -272,30 +277,30 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - [ ] 9.2 RED: live insert, badge, edited state and dirty-draft preservation.
 - [ ] 9.3 GREEN: UI.
 - [ ] 9.4 Update the docs and handover for PR-B; run the markdown checks.
-- [ ] 9.5 Headless browser check: lots appear during Sort and can be queued with the existing Processing controls; record evidence.
+- [ ] 9.5 Headless browser check: lots appear while the lead session runs, with the right observations, and can be queued with the existing Processing controls; record evidence.
 
-## 10. Examine stage and parallel Research/Images
+## 10. Per-lot Research and Images on a stable identity
 
 - **PR delivery:** PR-C
-- **Outcome:** for `/2` work, each lot runs Examine. Research and Images start in parallel once an identity proposal is published, and Inventory waits for both to be current.
+- **Outcome:** for `/2` work, each lot's Research and Images start in parallel as soon as its identity is stable, and Inventory waits for both to be current.
 - **Scope and approach:**
-  - `processing/model.ts` gets a profile-specific stage order.
-  - Dependency triggering moves to proposal availability (design D6).
-  - Examine instructions produce markings with citations, ranked identity candidates and an estimated quantity.
+  - `processing/model.ts` gets a profile-specific stage order with a batch-level `examine` lead stage.
+  - Dependency triggering moves to stable identity: a current identity proposal whose observation-set version matches the lot's (design D6). Queued jobs re-check on claim.
   - `/1` keeps exact-predecessor lineage.
 - **Prerequisites:** tasks 4 and 8.
-- **Acceptance:** "Parallel start"; "Legacy batch display".
+- **Acceptance:** "Parallel start"; "Lot regrouped before successors start"; "Legacy batch display"; Structured catalogue proposals "New sub-category proposed".
 - **TDD approach:**
-  - RED (PG and process tests): Research and Images are queued when the identity proposal is published (not when the session ends); both run concurrently when two slots are free; Inventory waits; `/1` reading/identifying jobs are unchanged.
+  - RED (PG and process tests): publishing a stable identity queues Research and Images in the same transaction, proven end to end using only the `agent_writer` role; both run concurrently with the lead session when slots are free; a regrouped lot holds its queued jobs; Inventory waits; `/1` reading/identifying jobs are unchanged.
   - GREEN: implement the pipeline.
 - **Verification:** `pnpm test:intake:pg`, `pnpm test:intake:process`.
 - **Risks and decisions:** none beyond the design's notes on token cost.
 
 - [ ] 10.1 Baseline the dependency and stage tests.
-- [ ] 10.2 RED: draft-lot creation queues Examine in the same transaction, proven end to end using only the `agent_writer` role; proposal-triggered queueing, parallelism, Inventory gate and legacy invariance.
-- [ ] 10.3 GREEN: stage order, draft-lot Examine queueing (under `agent_writer`), triggers and Examine instructions.
-- [ ] 10.4 Verify the exact-predecessor suites for `/1`.
-- [ ] 10.5 Record the results.
+- [ ] 10.2 RED: stable-identity queueing (under `agent_writer`), parallelism, regroup hold, Inventory gate and legacy invariance.
+- [ ] 10.3 GREEN: stage order, stable-identity triggers and claim-time re-check.
+- [ ] 10.4 Research and Examine publish `/5` catalogue values (existing or proposed new, with sources), and unsupported values keep their reason; PG test that unsupported values never reach a Part spec ("New sub-category proposed").
+- [ ] 10.5 Verify the exact-predecessor suites for `/1`.
+- [ ] 10.6 Record the results.
 
 ## 11. Proposal currentness, selective rework and new evidence pickup
 
@@ -303,15 +308,15 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Outcome:**
   - Proposals become stale only when a source they rely on changes.
   - Answers and corrections reach the asking session and every relying session; proposals that don't rely on them stay current.
-  - New or removed evidence notifies the lot's sessions and resumes finished ones.
+  - Observations added to or removed from a lot notify that lot's Research and Images sessions and resume finished ones.
 - **Scope and approach:**
   - Processing read models gain a per-proposal stale/provisional projection.
   - Fan-out of answers and corrections uses the `relies_on` fields (design D7).
-  - Evidence link and unlink hooks queue `evidence` items.
+  - Lot-membership change hooks queue `evidence` items to the lot's sessions.
 - **Prerequisites:** task 10.
-- **Acceptance:** "Extra photo of an existing lot" (the lot's Examine session receives the notice); "Unclear quantity"; "Agent asks without an assumption"; "Corrected part number"; "Correction before the first downstream output"; "Photo added mid-run"; "Evidence removed".
+- **Acceptance:** "Back of an existing tape" (the lot's Research and Images sessions receive the notice); "Unclear quantity"; "Agent asks without an assumption"; "Corrected part number"; "Correction before the first downstream output"; "Photo added mid-run"; "Evidence removed".
 - **TDD approach:**
-  - RED (PG): a quantity answer leaves the identity proposal current; an identity answer reaches Research and Images without cancelling them, including a Research session that has published nothing yet; proposals relying on the old identity are stale in the same transaction, and a queued Inventory stays waiting; an unlinked photo marks its citing proposals stale; a finished Examine is resumed on new evidence.
+  - RED (PG): a quantity answer leaves the identity proposal current; an identity answer reaches Research and Images without cancelling them, including a Research session that has published nothing yet; proposals relying on the old identity are stale in the same transaction, and a queued Inventory stays waiting; an observation moved out of a lot marks its citing proposals stale; a finished Research session is resumed when an observation is added to its lot.
   - GREEN: implement the projection and fan-out.
 - **Verification:** `pnpm test:intake:pg`, `pnpm test:intake:process`.
 - **Risks and decisions:** the projection must stay bounded per batch. Reuse the existing bounded closure queries.
@@ -326,20 +331,20 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 
 - **PR delivery:** PR-C
 - **Outcome:**
-  - Processing shows per-lot Examine → Research ∥ Images → Inventory rows.
-  - A single Examine view shows markings, candidates and quantity.
+  - Processing shows the batch's Examine lead session, then per-lot Research ∥ Images → Inventory rows.
+  - A single Examine view shows photo regions with their readings and lot, and each lot's observations, candidates and quantity basis.
   - Provisional and stale labels, plus Needs you entries with their assumptions.
   - Legacy Reading/Identifying views remain for old jobs.
   - Architecture docs and the handover describe the final behavior.
 - **Scope and approach:**
-  - `frontend/src/components/processing/*`.
+  - `frontend/src/components/processing/*`, or BI-008's Processing step pages through its `ProcessingView` adapter where that change has landed.
   - `processing/ARCHITECTURE.md`, `agents/ARCHITECTURE.md` and `docs/handovers/simplify-intake-entry.md`.
 - **Prerequisites:** tasks 10 and 11.
 - **Acceptance:** pipeline UI parts of all three new specs; legacy display.
 - **TDD approach:**
   - RED (vitest): parallel chips render; provisional/stale labels show; the Examine view cites sources; the legacy view still renders the `/1` fixtures.
   - GREEN: implement the UI.
-- **Verification:** `pnpm test`, frontend typecheck/lint/build, `pnpm lint:markdown`, `pnpm workflow-sync` if skills changed (none planned). Headless browser qualification of the full synthetic flow (photo-only batch → live lots → mid-run answer → parallel Research/Images → added photo picked up) at desktop and 390 px widths.
+- **Verification:** `pnpm test`, frontend typecheck/lint/build, `pnpm lint:markdown`, `pnpm workflow-sync` if skills changed (none planned). Headless browser qualification of the full synthetic flow (photo-only batch with a three-item photo and a two-photo item → live lots with correct observations and no double counting → mid-run answer → parallel Research/Images → added photo examined by the lead session and picked up by the lot's sessions) at desktop and 390 px widths.
 - **Risks and decisions:** none.
 
 - [ ] 12.1 Baseline the Processing component tests.
