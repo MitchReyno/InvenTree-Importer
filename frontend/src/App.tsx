@@ -136,7 +136,20 @@ export default function App() {
   } else if (route === 'settings' && agents) {
     content = <AgentSettings client={agents} onDirtyChange={onDirtyChange} />
   } else if (route === 'agents' && agents) {
-    content = <AgentSessions client={agents} />
+    content = (
+      <AgentSessions
+        client={agents}
+        batches={async (batchId) => {
+          const batch = await client.read(batchId)
+          return {
+            title: batch.title,
+            subjects: new Map(
+              [...batch.lots, ...batch.parts].map((subject) => [subject.id, subject.label]),
+            ),
+          }
+        }}
+      />
+    )
   } else if (route && manual) {
     content = (
       <Batch

@@ -12,14 +12,20 @@ import {
 } from '../processing/schema.ts'
 import { captureInTransaction } from '../capture/repository.ts'
 import type { ProcessingConfig } from '../processing/attempts.ts'
-import { fail } from '../processing/model.ts'
+import { fail, mediaProfileId } from '../processing/model.ts'
 import { decodeJobInput } from '../processing/session-input.ts'
 import { latestStatuses } from './tools/outbox.ts'
 import { agentSessions, agentSlots } from './schema.ts'
+import { isSessionProfile } from '../processing/session-policy.ts'
 
 const SESSION_PAGE_SIZE = 50
 
 /** History is scoped through command authority, including attempts no longer selected on their job. */
+/** Whether the configured profile runs agent sessions at all. */
+export function sessionsSupported(config: Pick<ProcessingConfig, 'profileId'>) {
+  return isSessionProfile(config.profileId ?? mediaProfileId)
+}
+
 export async function listAgentSessions(
   pool: Pool,
   binding: ProcessingConfig,
@@ -122,6 +128,7 @@ export async function listAgentSessions(
     return {
       sessions,
       next_before: rows.length > SESSION_PAGE_SIZE ? sessions.at(-1)!.attempt_id : null,
+      sessions_supported: sessionsSupported(binding),
     }
   })
 }

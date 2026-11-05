@@ -269,8 +269,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Before the page, write failing tests for the summary's no-session state, the filters and the "not available for this setup" state (RED). GREEN: implement it. Slot-counting tests belong to 14.4.
 - **Verification:** component tests for the no-session summary, the filters and the "not available for this setup" state.
 
-- [ ] 12.1 Build the Agents page with summary, filters and per-batch groups.
-- [ ] 12.2 Add the explicit "not available for this setup" state for adapters without sessions.
+- [x] 12.1 Build the Agents page with summary, filters and per-batch groups.
+- [x] 12.2 Add the explicit "not available for this setup" state for adapters without sessions.
 
 ## 13. Documentation and browser qualification
 

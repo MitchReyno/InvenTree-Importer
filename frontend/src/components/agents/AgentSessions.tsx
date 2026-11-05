@@ -1,35 +1,84 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
-import type { AgentSessionListDto } from '@invimport/contracts'
-import type { agentsClient } from '@invimport/contracts/client'
-import { serverQueryKey, useServerScope } from '../../queries/scope'
-import { useRetainedPollInterval } from '../operations/LiveUpdates'
-import { Button, Notice, PageTitle, Panel, Paragraph, Small } from '../ui/primitives'
+import type { AgentSessionListDto, AgentSettingsDto } from '@invimport/contracts'
 import { batchHref, processingStepFor } from '../../navigation/batch-route'
+import { serverQueryKey, useServerScope } from '../../queries/scope'
+import { color, radius, space, type } from '../../theme/generated/tokens'
+import { useRetainedPollInterval } from '../operations/LiveUpdates'
+import { SESSION_STATE, STEP_LABEL } from '../processing/ProcessingParts'
+import { Banner } from '../ui/Banner'
+import { Button } from '../ui/Button'
+import { FilterChips } from '../ui/FilterChips'
+import { Pill } from '../ui/Pill'
 
 type Session = AgentSessionListDto['sessions'][number]
-type View = 'All' | 'Queued' | 'Active' | 'Completed' | 'Needs attention'
-const FINISHED = new Set(['ready', 'failed', 'cancelled', 'superseded', 'interrupted'])
+type Filter = 'all' | 'running' | 'waiting' | 'queued' | 'finished'
 
-function sessionGroup(session: Session): View {
-  if (session.occupies_lane) {
-    return 'Active'
+export type BatchNames = { title: string; subjects: ReadonlyMap<string, string> }
+
+type Props = {
+  client: {
+    sessions: (before?: string) => Promise<AgentSessionListDto>
+    settings: () => Promise<AgentSettingsDto>
   }
-  if (session.state === 'queued') {
-    return 'Queued'
-  }
-  if (FINISHED.has(session.state)) {
-    return 'Completed'
-  }
-  return 'Needs attention'
+  /** Names a batch and its subjects; sessions carry only identifiers. */
+  batches: (batchId: string) => Promise<BatchNames>
 }
 
-export function AgentSessions({ client }: { client: ReturnType<typeof agentsClient> }) {
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'running', label: 'Running' },
+  { id: 'waiting', label: 'Waiting for you' },
+  { id: 'queued', label: 'Queued' },
+  { id: 'finished', label: 'Finished today' },
+]
+
+const FINISHED = new Set(['ready', 'failed', 'cancelled', 'superseded', 'interrupted'])
+
+const isWaiting = (session: Session) =>
+  session.session_state === 'waiting_input' || session.state === 'waiting_for_user'
+
+function finishedToday(session: Session) {
+  if (!FINISHED.has(session.state) || !session.finished_at) {
+    return false
+  }
+  return new Date(session.finished_at).toDateString() === new Date().toDateString()
+}
+
+function matches(session: Session, filter: Filter) {
+  switch (filter) {
+    case 'running':
+      return session.occupies_lane
+    case 'waiting':
+      return isWaiting(session)
+    case 'queued':
+      return session.state === 'queued'
+    case 'finished':
+      return finishedToday(session)
+    default:
+      return true
+  }
+}
+
+function stateWord(session: Session) {
+  if (session.session_state) {
+    return SESSION_STATE[session.session_state]
+  }
+  return { word: session.state.replaceAll('_', ' '), tone: 'neutral' as const }
+}
+
+/** When the session entered its current state. */
+function since(session: Session) {
+  const at = session.finished_at ?? session.started_at ?? session.queued_at
+  return new Date(at).toLocaleString()
+}
+
+/** Every agent session in scope, grouped by batch, with capacity and what waits for the operator. */
+export function AgentSessions({ client, batches }: Props) {
   const scope = useServerScope()
   const poll = useRetainedPollInterval()
-  const [view, setView] = useState<View>('All')
+  const [filter, setFilter] = useState<Filter>('all')
   const [before, setBefore] = useState<string>()
   // Global history can include streams beyond the bounded live subscription.
   const query = useQuery({
@@ -37,118 +86,222 @@ export function AgentSessions({ client }: { client: ReturnType<typeof agentsClie
     queryFn: () => client.sessions(before),
     refetchInterval: poll === false ? 10000 : poll,
   })
+  const settings = useQuery({
+    queryKey: serverQueryKey(scope, 'agent-settings'),
+    queryFn: () => client.settings(),
+  })
   const sessions = query.data?.sessions ?? []
-  const shown = sessions.filter((session) => view === 'All' || sessionGroup(session) === view)
+  const batchIds = [...new Set(sessions.map((session) => session.batch_id))]
+  const names = useQueries({
+    queries: batchIds.map((batchId) => ({
+      queryKey: serverQueryKey(scope, 'agent-batch-names', batchId),
+      queryFn: () => batches(batchId),
+    })),
+  })
+
+  const nameOf = (batchId: string) => names[batchIds.indexOf(batchId)]?.data
+
   const unavailable = query.isError || query.fetchStatus === 'paused'
+  const supported = query.data?.sessions_supported !== false
+  const shown = sessions.filter((session) => matches(session, filter))
+  const limit = settings.data?.session_concurrency
+
   return (
-    <Panel>
-      <PageTitle>Agent sessions</PageTitle>
-      <Paragraph>
-        Each session keeps the model selected when queued. Suggestions and human questions appear in
-        the batch's Processing view.
-      </Paragraph>
-      <Filters aria-label="Session views">
-        {(['All', 'Queued', 'Active', 'Completed', 'Needs attention'] as const).map((name) => (
-          <Button key={name} aria-pressed={view === name} onClick={() => setView(name)}>
-            {name}
-          </Button>
-        ))}
-      </Filters>
+    <Page>
+      <Title>Agents</Title>
       {unavailable && (
-        <Notice role="alert">
-          Session connection unavailable. Retained results may be stale.{' '}
-          <Button onClick={() => void query.refetch()}>Retry</Button>
-        </Notice>
+        <div role="alert">
+          <Banner tone="bad" action={<Button onClick={() => void query.refetch()}>Retry</Button>}>
+            Session connection unavailable. Retained results may be stale.
+          </Banner>
+        </div>
       )}
-      {query.isPending && <Paragraph role="status">Loading sessions…</Paragraph>}
-      {query.data && !shown.length && (
-        <Paragraph>
-          No {view === 'All' ? '' : view.toLowerCase() + ' '}sessions on this page.
-        </Paragraph>
+      {query.isPending && <Muted role="status">Loading sessions…</Muted>}
+      {query.data && !supported && (
+        <Banner tone="info">
+          Agent sessions are not available for this setup. Choose a session profile in{' '}
+          <a href="#settings">Agent settings</a>.
+        </Banner>
       )}
-      <List>
-        {shown.map((session) => (
-          <li key={session.attempt_id}>
-            <header>
+      {query.data && supported && (
+        <>
+          <Summary aria-label="Summary">
+            <div>
               <strong>
-                {session.selection
-                  ? `${session.selection.provider === 'codex' ? 'Codex' : 'Claude Code'} · ${session.selection.model}`
-                  : 'Synthetic session'}
+                {limit === undefined
+                  ? `${sessions.filter((session) => session.occupies_lane).length} slots in use`
+                  : `${sessions.filter((session) => session.occupies_lane).length} of ${limit} slots in use`}
               </strong>
-              <span>{session.state.replaceAll('_', ' ')}</span>
-            </header>
-            <Paragraph>
-              {session.stage} · {session.progress}
-              {!session.latest_on_job && ' · retained historical attempt'}
-            </Paragraph>
-            <Small>
-              {session.selection &&
-                `${session.selection.authentication === 'subscription' ? 'Subscription login' : 'API key'} · default revision ${session.settings_revision} · `}
-              queued {new Date(session.queued_at).toLocaleString()}
-            </Small>
-            {session.actual_model && <Paragraph>Resolved model: {session.actual_model}</Paragraph>}
-            {session.native_session_id && (
-              <Small>Native session: {session.native_session_id}</Small>
-            )}
-            {session.occupies_lane && (
-              <Notice>
-                The native command holds the account lane until confirmed stopped. A crashed
-                supervisor requires host recovery; restarting never replays it.
-              </Notice>
-            )}
-            <Paragraph>
-              <a
-                href={batchHref(session.batch_id, {
-                  tab: 'processing',
-                  step: processingStepFor(session.stage),
-                })}
-              >
-                Open batch processing and controls
-              </a>
-            </Paragraph>
-          </li>
-        ))}
-      </List>
-      <Filters>
-        <Button disabled={!before} onClick={() => setBefore(undefined)}>
-          Newest sessions
-        </Button>
-        <Button
-          disabled={!query.data?.next_before || unavailable}
-          onClick={() => setBefore(query.data?.next_before ?? undefined)}
-        >
-          Older sessions
-        </Button>
-      </Filters>
-      <Small>
-        History is paginated. Filters apply to the current page. Completed includes failed,
-        cancelled and interrupted outcomes. Credentials and private reasoning are excluded.
-      </Small>
-    </Panel>
+              <Muted>Waiting sessions hold no slot.</Muted>
+            </div>
+            <div>
+              <strong>{sessions.filter(isWaiting).length} waiting for you</strong>
+            </div>
+            <div>
+              <strong>
+                {settings.data?.selection
+                  ? `${settings.data.selection.provider === 'codex' ? 'Codex' : 'Claude Code'} · ${settings.data.selection.model}`
+                  : 'No model chosen'}
+              </strong>
+              <Muted>Model for new sessions</Muted>
+            </div>
+          </Summary>
+          <FilterChips
+            label="Session filters"
+            options={FILTERS.map((item) => ({
+              id: item.id,
+              label: item.label,
+              count: sessions.filter((session) => matches(session, item.id)).length,
+            }))}
+            value={filter}
+            onChange={(value) => setFilter(value as Filter)}
+          />
+          {shown.length === 0 && <Muted>No sessions match this filter on this page.</Muted>}
+          {batchIds
+            .filter((batchId) => shown.some((session) => session.batch_id === batchId))
+            .map((batchId) => {
+              const named = nameOf(batchId)
+              const title = named?.title ?? 'Batch'
+              return (
+                <Group key={batchId} aria-label={title}>
+                  <GroupHead>
+                    <h2>{title}</h2>
+                    <a href={batchHref(batchId, { tab: 'processing', step: 'overview' })}>
+                      Open Processing
+                    </a>
+                  </GroupHead>
+                  <Rows>
+                    {shown
+                      .filter((session) => session.batch_id === batchId)
+                      .map((session) => {
+                        const subject =
+                          session.subject_id === null
+                            ? 'Whole batch'
+                            : (named?.subjects.get(session.subject_id) ?? 'Unknown subject')
+                        const label = `${STEP_LABEL[processingStepFor(session.stage)] ?? 'Processing'} · ${subject}`
+                        const state = stateWord(session)
+                        return (
+                          <li key={session.attempt_id} aria-label={`${label} session`}>
+                            <div>
+                              <strong>{label}</strong>
+                              {session.latest_status && <span>{session.latest_status.text}</span>}
+                              <Muted>
+                                Since {since(session)}
+                                {!session.latest_on_job && ' · an earlier attempt'}
+                                {isWaiting(session) && ' · holds no slot'}
+                              </Muted>
+                            </div>
+                            <Pill tone={state.tone}>{state.word}</Pill>
+                            {session.occupies_lane && FINISHED.has(session.state) && (
+                              <Muted>
+                                Still holds its slot until the command is confirmed stopped.
+                              </Muted>
+                            )}
+                          </li>
+                        )
+                      })}
+                  </Rows>
+                </Group>
+              )
+            })}
+          <Paging>
+            <Button variant="ghost" disabled={!before} onClick={() => setBefore(undefined)}>
+              Newest sessions
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={!query.data.next_before || unavailable}
+              onClick={() => setBefore(query.data?.next_before ?? undefined)}
+            >
+              Older sessions
+            </Button>
+          </Paging>
+          <Muted>Filters and counts cover this page of history.</Muted>
+        </>
+      )}
+    </Page>
   )
 }
 
-const Filters = styled.nav`
+const Page = styled.div`
+  display: grid;
+  gap: ${space[3]};
+`
+
+const Title = styled.h1`
+  margin: 0;
+  ${type.h1}
+`
+
+const Muted = styled.span`
+  font-size: 12.5px;
+  color: ${color.muted};
+`
+
+const Summary = styled.section`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: ${space[2]};
+  > div {
+    display: grid;
+    gap: ${space[1]};
+    padding: ${space[3]};
+    border: 1px solid ${color.line};
+    border-radius: ${radius.card};
+    background: ${color.surface};
+  }
+`
+
+const Group = styled.section`
+  display: grid;
+  gap: ${space[2]};
+  padding: ${space['3-5']} ${space[4]};
+  border: 1px solid ${color.line};
+  border-radius: ${radius.card};
+  background: ${color.surface};
+`
+
+const GroupHead = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 16px 0;
-`
-const List = styled.ul`
-  list-style: none;
-  padding: 0;
-  display: grid;
-  gap: 12px;
-  li {
-    border: 1px solid ${color.line};
-    border-radius: 8px;
-    padding: 16px;
-    overflow-wrap: anywhere;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: ${space[2]};
+  h2 {
+    margin: 0;
+    ${type.h2}
   }
-  header {
+  a {
+    color: ${color.accent};
+  }
+`
+
+const Rows = styled.ul`
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  li {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
-    justify-content: space-between;
+    align-items: center;
+    gap: ${space[2]};
+    padding: ${space[2]} 0;
+    border-top: 1px solid ${color.line};
+    overflow-wrap: anywhere;
   }
+  li:first-child {
+    border-top: 0;
+  }
+  li > div {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+  }
+`
+
+const Paging = styled.nav`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${space[2]};
 `

@@ -30,6 +30,12 @@ Styling follows the [Bench Intake Design System](https://claude.ai/artifact/TbKY
 
 The shared masthead, `Dev mode` badge, status disclosures and batch header use compact spacing so working evidence appears earlier on desktop and phones. On narrow screens the labelled lot-filter strip scrolls within its own row, selection actions share two columns with wrapping labels, and desktop-only shortcut hints are omitted; safety/read-state notices remain visible.
 
+## Processing and Agents
+
+`processing/source.ts` is the `ProcessingSource` adapter: step progress in counts, open questions with their step, subject, assumption and active lot, and sessions only for jobs with a `session_state`. `ProcessingWorkspace` keeps the data and command logic and renders the Overview (steps, sessions, Needs you, the batch instruction field, activity, links to Review and Changes) or one `StepPage` per step (state, questions, sessions, outputs, a link to Capture). A session opens in a drawer with its open questions, timeline and chat. The instruction field saves explicitly through the same `instruct` command as Capture and keeps its own navigation-guard source.
+
+`components/agents/AgentSessions.tsx` is the Agents page: slots in use against the saved limit, the model for new sessions and how many sessions wait for the operator; filters for running, waiting, queued and finished today; sessions grouped by batch with names from a batch read, each group linking to its Processing. When the list says sessions are not supported, the page says so and links to Agent settings instead of showing an empty list.
+
 ## Batch navigation and attention
 
 A batch has four tabs: Capture, Processing (Overview, Examine, Research, Images, Inventory), Review (Lots, Map, Records) and Changes (Ready to add, Added). `src/navigation/batch-route.ts` is the one parser and builder for `#<batch>/<tab>/<view>[/<subject>][?query]`; every in-app batch link uses `batchHref`. Old routes redirect with `location.replace`, keeping the rest of the path and the full query: `approve` → `changes/ready`, `results` → `changes/added`, `review/<lot>` → `review/lots/<lot>`, `processing` → `processing/overview`, and `reading`/`identifying` → `examine`. A legacy `#<batch>/<subject>` link opens Review › Lots (`#<batch>/review/lots/<lot>?edit=<lot>`, or `?edit=<part|add_lot|add_part>`). Redirects pass through the normal navigation guard.
