@@ -7,7 +7,8 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "node scripts/generate-tokens.cjs --check && eslint . --max-warnings 0",
+    "tokens": "node scripts/generate-tokens.cjs",
     "test": "vitest run"
   },
   "dependencies": {

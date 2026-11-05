@@ -73,7 +73,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Generators and checks are written test-first: write a failing check (stale generated file, low-contrast pair, literal colour, theme switch) before each implementation. Font loading is verified in the browser.
 - **Verification:** `pnpm --filter frontend typecheck lint test build`; the contrast script; a browser reload in dark mode with no wrong-theme flash.
 
-- [ ] 1.1 Copy `tokens.json` into `frontend/src/theme/` and add a generator for `tokens.css` and `tokens.ts`, with a check that the generated files are current.
+- [x] 1.1 Copy `tokens.json` into `frontend/src/theme/` and add a generator for `tokens.css` and `tokens.ts`, with a check that the generated files are current.
 - [ ] 1.2 Add the contrast script: every text token against its documented grounds in both themes. It fails the build below threshold.
 - [ ] 1.3 Add the theme controller: OS default, Light/Dark/System override, try/catch storage, `color-scheme`, and a pre-paint attribute script. Write tests for switching, persistence and throwing storage.
 - [ ] 1.4 Add `@fontsource-variable/public-sans` and `@fontsource/ibm-plex-mono` (400, 500) at 5.3.0, and check that 650 and 750 render. Update the frontend architecture styling paragraph.
