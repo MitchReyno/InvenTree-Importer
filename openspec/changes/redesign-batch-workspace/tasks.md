@@ -137,10 +137,10 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Before the parser, write failing route tests for each redirect row, including query-string preservation and a dirty-draft block (RED). GREEN: implement them. The visual parts of the header are verified in the browser.
 - **Verification:** unit tests for every redirect, including dirty-draft blocks and pinned preparation and run IDs; keyboard and Escape tests for the panel.
 
-- [ ] 5.1 Build the route parser and builder for the new routes, with redirect handling for `approve`, `results`, bare `review`, the legacy `review/<lot>` and subject links, bare `processing`, and `processing/reading` and `processing/identifying` (to `examine`), preserving the query string.
-- [ ] 5.2 Build BatchHeader with the tabs, the second row and badges from the attention read.
-- [ ] 5.3 Build the need-you panel on the Radix popover, with focus return.
-- [ ] 5.4 Mount the existing Review, Approve and Results components under the new routes temporarily, until tasks 8 and 11 replace them.
+- [x] 5.1 Build the route parser and builder for the new routes, with redirect handling for `approve`, `results`, bare `review`, the legacy `review/<lot>` and subject links, bare `processing`, and `processing/reading` and `processing/identifying` (to `examine`), preserving the query string.
+- [x] 5.2 Build BatchHeader with the tabs, the second row and badges from the attention read.
+- [x] 5.3 Build the need-you panel on the Radix popover, with focus return.
+- [x] 5.4 Mount the existing Review, Approve and Results components under the new routes temporarily, until tasks 8 and 11 replace them.
 - [ ] 5.5 Add a target-kind field (owned test target or configured target) to the header connection contract, and show the `info` "Test InvenTree" connection state from it, test-first. This is the single place the test target is named outside Changes.
 
 ## 6. Batches home and Capture

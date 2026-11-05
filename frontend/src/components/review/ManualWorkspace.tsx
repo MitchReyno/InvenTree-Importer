@@ -14,9 +14,7 @@ import type { ProcessingClient } from '../../processing/types'
 import type { OperatorReviewClient } from '../../operator/types'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type { ManualClient, ManualStage, RunRecoverySelection } from '../../manual/types'
-import { CaptureHeader } from '../capture/CaptureHeader'
 import { useDirtySources } from '../../operator/useDirtySources'
-import { retiredLotIds } from '../../operator/review-model'
 import {
   Button,
   ErrorNotice,
@@ -43,7 +41,6 @@ interface Props {
   observe?: CaptureWorkspaceProps['observe']
   navigate: (stage: ManualStage, resourceId?: string) => void
   reload: () => Promise<void>
-  onProcessing?: () => void
   /** Present only when its revision matches `batch`; stale projections are not shown. */
   operatorReview?: OperatorReviewDto
   operator?: OperatorReviewClient
@@ -83,7 +80,6 @@ export function ManualWorkspace({
   observe,
   navigate,
   reload,
-  onProcessing,
   operatorReview,
   operator,
   media,
@@ -354,18 +350,6 @@ export function ManualWorkspace({
   }
   return (
     <>
-      <CaptureHeader
-        batch={batch}
-        busy={disabled}
-        dirty={drafts.dirty}
-        edit={edit}
-        stage={stage}
-        retiredLotIds={retiredLotIds(operatorReview, batch)}
-        onProcessing={onProcessing}
-        onStage={(value) =>
-          navigate(value, value === 'approve' ? (preparationId ?? lastPreview?.id) : undefined)
-        }
-      />
       <HeadingRow>
         <Heading>
           {

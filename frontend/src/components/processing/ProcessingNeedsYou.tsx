@@ -2,6 +2,7 @@ import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, ProcessingSnapshotDto } from '@invimport/contracts'
 import { Heading, Panel, Small } from '../ui/primitives'
+import { batchHref, processingStepFor } from '../../navigation/batch-route'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -38,12 +39,26 @@ export function ProcessingNeedsYou({ batch, snapshot }: Props) {
             const isLot = batch.lots.some((lot) => lot.id === question.spec.subject_id)
             return (
               <li key={question.id}>
-                <a href={`#${batch.id}/processing/${job.stage}/${question.id}`}>
+                <a
+                  href={batchHref(batch.id, {
+                    tab: 'processing',
+                    step: processingStepFor(job.stage),
+                    questionId: question.id,
+                  })}
+                >
                   {subjectLabel(batch, question.spec.subject_id)} · {job.stage}
                 </a>
                 {question.assumption && <Small>Assuming: {question.assumption}</Small>}
                 {isLot && (
-                  <a href={`#${batch.id}/review/${question.spec.subject_id}`}>Open in Review</a>
+                  <a
+                    href={batchHref(batch.id, {
+                      tab: 'review',
+                      view: 'lots',
+                      lotId: question.spec.subject_id,
+                    })}
+                  >
+                    Open in Review
+                  </a>
                 )}
               </li>
             )

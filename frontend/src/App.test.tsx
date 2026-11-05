@@ -1,7 +1,8 @@
-import { act } from '@testing-library/react'
+import { act, cleanup } from '@testing-library/react'
 import { useState, type ReactNode } from 'react'
 import { captureClient, manualClient } from '@invimport/contracts/client'
 import { Batch } from './components/batches/Batch'
+import { BatchHeader } from './components/batches/BatchHeader'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { createServerQueryClient } from './queries/client'
 import { serverQueryKey } from './queries/scope'
@@ -260,8 +261,22 @@ test('archive is read-only until explicit resume; no approval or write button is
   expect(screen.getByText(/Archived, not deleted/)).toHaveAttribute('role', 'status')
   expect(screen.getByLabelText('Batch title')).toBeDisabled()
   expect(screen.queryByRole('button', { name: /Approve|Apply|Upload/ })).not.toBeInTheDocument()
+  cleanup()
+  // Resume now lives in the batch header, which Batch maps to the same edit.
+  const onArchive = vi.fn()
+  render(
+    <BatchHeader
+      batch={{ ...fixture, archived: true }}
+      route={{ tab: 'capture' }}
+      attention={undefined}
+      activeLotCount={fixture.lots.length}
+      retiredLotCount={0}
+      busy={false}
+      onArchive={onArchive}
+    />,
+  )
   await user.click(screen.getByRole('button', { name: 'Resume archived batch' }))
-  expect(edit).toHaveBeenCalledWith({ kind: 'batch', archived: false })
+  expect(onArchive).toHaveBeenCalledTimes(1)
 })
 
 test('inbox resumes retained capture, filters archives and creates a batch with a human note', async () => {
@@ -344,7 +359,7 @@ test('inbox resumes retained capture, filters archives and creates a batch with 
 })
 
 const activityRunId = 'a0000000-0000-4000-8000-00000000000a'
-const activityDestination = `${batchId}/results/${activityRunId}`
+const activityDestination = `${batchId}/changes/added/${activityRunId}`
 
 function navigationServer(conflict = false, gate?: Promise<void>) {
   let saved = fixture
@@ -781,8 +796,12 @@ test('following an inbox workflow filter opens Review through the actual App rou
   render(<App />)
   await user.click(await screen.findByRole('link', { name: '1 need review' }))
   expect(await screen.findByRole('heading', { name: 'Review selected lots' })).toBeVisible()
-  expect(location.hash).toBe(`#${batchId}/review?filter=needs_review`)
-  expect(screen.getByRole('button', { name: 'Review' })).toHaveAttribute('aria-current', 'page')
+  expect(location.hash).toBe(`#${batchId}/review/lots?filter=needs_review`)
+  expect(
+    within(screen.getByRole('navigation', { name: 'Batch' })).getByRole('link', {
+      name: /^Review/,
+    }),
+  ).toHaveAttribute('aria-current', 'page')
 })
 
 test('uncertain composite settings save retries identical revision, payload and key; changed input requires reconciliation', async () => {
@@ -857,7 +876,7 @@ test('a locally refused lot context in the Review editor remains correctable bef
     }
     throw new Error('unexpected_manual_call')
   })
-  const route = `${batchId}/review/${lotId}?edit=${lotId}`
+  const route = `${batchId}/review/lots/${lotId}?edit=${lotId}`
   history.replaceState(null, '', `#${route}`)
   render(
     <Batch id={batchId} route={route} client={client} manual={manual} onDirtyChange={vi.fn()} />,
@@ -904,8 +923,8 @@ function reviewManual() {
 test('legacy Capture subject links open the same subject in Review', async () => {
   const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
   for (const [subject, expected] of [
-    [lotId, `#${batchId}/review/${lotId}?edit=${lotId}`],
-    [partId, `#${batchId}/review?edit=${partId}`],
+    [lotId, `#${batchId}/review/lots/${lotId}?edit=${lotId}`],
+    [partId, `#${batchId}/review/lots?edit=${partId}`],
   ]) {
     history.replaceState(null, '', `#${batchId}/${subject}`)
     const view = render(
@@ -922,10 +941,34 @@ test('legacy Capture subject links open the same subject in Review', async () =>
   }
 })
 
+test('old approval, results, review and processing links redirect with their query intact', async () => {
+  const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
+  const preparation = '70000000-0000-4000-8000-000000000007'
+  for (const [legacy, expected] of [
+    [`approve/${preparation}?view=all`, `changes/ready/${preparation}?view=all`],
+    ['results', 'changes/added'],
+    [`review/${lotId}?source=S&version=V&page=2`, `review/lots/${lotId}?source=S&version=V&page=2`],
+    ['processing/identifying/q1', 'processing/examine/q1'],
+  ]) {
+    history.replaceState(null, '', `#${batchId}/${legacy}`)
+    const view = render(
+      <Batch
+        id={batchId}
+        route={`${batchId}/${legacy}`}
+        client={client}
+        manual={reviewManual()}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await waitFor(() => expect(location.hash).toBe(`#${batchId}/${expected}`))
+    view.unmount()
+  }
+})
+
 test('Review offers manual lot and Part creation; a dirty editor cannot be closed silently', async () => {
   const user = userEvent.setup()
   const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
-  const route = `${batchId}/review`
+  const route = `${batchId}/review/lots`
   history.replaceState(null, '', `#${route}`)
   render(
     <Batch
@@ -949,7 +992,7 @@ test('Review offers manual lot and Part creation; a dirty editor cannot be close
 test('Compare matches with no candidates opens the shared Part editor in Review', async () => {
   const user = userEvent.setup()
   const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
-  const route = `${batchId}/review/${lotId}`
+  const route = `${batchId}/review/lots/${lotId}`
   history.replaceState(null, '', `#${route}`)
   render(
     <Batch
@@ -973,7 +1016,7 @@ test('a shared Part linked to no lot can be reopened from Review', async () => {
   const user = userEvent.setup()
   const unlinked = { ...fixture, lots: [] }
   const client = captureClient(location.origin, 'a'.repeat(64), async () => response(unlinked))
-  const route = `${batchId}/review`
+  const route = `${batchId}/review/lots`
   history.replaceState(null, '', `#${route}`)
   render(
     <Batch
@@ -994,7 +1037,7 @@ test('a shared Part linked to no lot can be reopened from Review', async () => {
 test('a dirty Review subject editor fences sibling lot commands that would remount it', async () => {
   const user = userEvent.setup()
   const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
-  const route = `${batchId}/review/${lotId}?edit=add_lot`
+  const route = `${batchId}/review/lots/${lotId}?edit=add_lot`
   history.replaceState(null, '', `#${route}`)
   render(
     <Batch

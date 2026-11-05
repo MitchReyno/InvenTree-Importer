@@ -13,6 +13,7 @@ import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
 import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
+import { batchHref } from '../../navigation/batch-route'
 
 type InboxBatch = CaptureList['batches'][number] & { workflow?: InboxWorkflowDto }
 interface BatchesClient extends Omit<Client, 'list'> {
@@ -33,7 +34,10 @@ function resumeAction(batch: InboxBatch) {
     }
   }
   if (batch.workflow?.lots) {
-    return { href: `#${batch.id}/review`, label: `Review ${batch.workflow.lots} lots` }
+    return {
+      href: batchHref(batch.id, { tab: 'review', view: 'lots' }),
+      label: `Review ${batch.workflow.lots} lots`,
+    }
   }
   return { href: `#${batch.id}/capture`, label: 'Continue Capture' }
 }

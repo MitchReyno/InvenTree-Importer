@@ -3,7 +3,6 @@ import styled from 'styled-components'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import { Button, Notice } from '../ui/primitives'
 import { BatchSettingsPanel } from './BatchSettingsPanel'
-import { CaptureHeader } from './CaptureHeader'
 import { EvidencePanel } from './EvidencePanel'
 
 type DirtySource = 'settings' | 'media' | 'note'
@@ -19,7 +18,6 @@ export function CaptureWorkspace({
   edit,
   observe,
   onStage,
-  onProcessing,
   onDirtyChange,
   operatorReview,
   operator,
@@ -31,7 +29,6 @@ export function CaptureWorkspace({
     media: false,
     note: false,
   })
-  const [dirty, setDirty] = useState(false)
   const [sources, setSources] = useState<Record<DirtySource, boolean>>(dirtyFlags.current)
 
   // Batch rebuilds its ports and callbacks on every render; reporting must not depend on them.
@@ -67,7 +64,6 @@ export function CaptureWorkspace({
     dirtyFlags.current = { ...dirtyFlags.current, [source]: value }
     const any = Object.values(dirtyFlags.current).some(Boolean)
     setSources(dirtyFlags.current)
-    setDirty(any)
     onDirtyChange?.(any)
     // Evidence commands advance the batch revision; settings stay paused until it is adopted.
     if (evidenceWasPending && !dirtyFlags.current.media && !dirtyFlags.current.note && settings) {
@@ -87,14 +83,6 @@ export function CaptureWorkspace({
 
   return (
     <>
-      <CaptureHeader
-        batch={batch}
-        busy={busy}
-        dirty={dirty}
-        edit={edit}
-        onStage={onStage}
-        onProcessing={onProcessing}
-      />
       {batch.archived && (
         <Notice role="status">
           Archived, not deleted. History and original contributions are retained. Resume to edit.

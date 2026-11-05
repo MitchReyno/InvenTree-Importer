@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import { validate, type CaptureSnapshotDto, type ProcessingSnapshotDto } from '@invimport/contracts'
@@ -131,15 +131,22 @@ afterEach(() => {
 })
 
 test('Processing deep link uses its own workspace and stale-input physical work remains globally occupied', async () => {
-  location.hash = `${batch.id}/processing/reading`
+  location.hash = `${batch.id}/processing/examine`
   const transport = retainedApi(true)
   const user = userEvent.setup()
   render(<App />)
   const tabs = await screen.findByRole('navigation', { name: 'Processing steps' })
   const headerTrigger = screen.getByRole('button', { name: 'Workflow activity' })
   expect(tabs).toBeVisible()
-  expect(screen.getByRole('link', { name: 'Reading' })).toHaveAttribute('aria-current', 'page')
-  expect(screen.getByRole('button', { name: 'Processing' })).toHaveAttribute('aria-current', 'page')
+  expect(within(tabs).getByRole('link', { name: /^Examine/ })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+  const batchTabs = screen.getByRole('navigation', { name: 'Batch' })
+  expect(within(batchTabs).getByRole('link', { name: /^Processing/ })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
   expect(await screen.findByText(/Processing in progress/)).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Workflow activity' }))
   expect(screen.getByText(/Physical lane occupied/)).toBeVisible()
@@ -149,13 +156,17 @@ test('Processing deep link uses its own workspace and stale-input physical work 
   )
   expect(screen.queryByRole('heading', { name: 'Exact manual review' })).not.toBeInTheDocument()
 
-  await user.click(screen.getByRole('button', { name: 'Capture' }))
+  await user.click(within(batchTabs).getByRole('link', { name: 'Capture' }))
   await waitFor(() =>
     expect(screen.queryByRole('navigation', { name: 'Processing steps' })).not.toBeInTheDocument(),
   )
   expect(location.hash).toBe(`#${batch.id}/capture`)
   expect(screen.getByRole('button', { name: 'Workflow activity' })).toBe(headerTrigger)
-  await user.click(screen.getByRole('button', { name: 'Processing' }))
+  await user.click(
+    within(screen.getByRole('navigation', { name: 'Batch' })).getByRole('link', {
+      name: /^Processing/,
+    }),
+  )
   await screen.findByRole('navigation', { name: 'Processing steps' })
   expect(location.hash).toBe(`#${batch.id}/processing/overview`)
   expect(transport.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(

@@ -2,6 +2,7 @@ import type { InboxWorkflowDto } from '@invimport/contracts'
 import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
 import { Link, Small } from '../ui/primitives'
+import { batchHref } from '../../navigation/batch-route'
 
 export function BatchWorkflow({
   batchId,
@@ -19,15 +20,19 @@ export function BatchWorkflow({
         {workflow.lots ? `${workflow.lots} physical lots` : 'Draft · no physical lots yet'}
       </span>
       {workflow.ready > 0 && (
-        <Link href={`#${batchId}/review?filter=reviewed`}>{workflow.ready} ready for approval</Link>
+        <Link href={batchHref(batchId, { tab: 'review', view: 'lots' }, '?filter=reviewed')}>
+          {workflow.ready} ready for approval
+        </Link>
       )}
       {workflow.needs_review > 0 && (
-        <Link href={`#${batchId}/review?filter=needs_review`}>
+        <Link href={batchHref(batchId, { tab: 'review', view: 'lots' }, '?filter=needs_review')}>
           {workflow.needs_review} need review
         </Link>
       )}
       {workflow.blocked > 0 && (
-        <Link href={`#${batchId}/review`}>{workflow.blocked} blocked or warnings</Link>
+        <Link href={batchHref(batchId, { tab: 'review', view: 'lots' })}>
+          {workflow.blocked} blocked or warnings
+        </Link>
       )}
       {(workflow.open_questions > 0 || workflow.active_jobs > 0) && (
         <Link href={`#${batchId}/processing/overview`}>
@@ -36,7 +41,13 @@ export function BatchWorkflow({
       )}
       {workflow.approved > 0 && <span>{workflow.approved} already approved</span>}
       {workflow.latest_round && (
-        <Link href={`#${batchId}/results/${workflow.latest_round.run_id}`}>
+        <Link
+          href={batchHref(batchId, {
+            tab: 'changes',
+            view: 'added',
+            runId: workflow.latest_round.run_id,
+          })}
+        >
           Round {workflow.latest_round.round_number} · {workflow.latest_round.confirmed_stock} stock
           confirmed · {workflow.latest_round.state.replaceAll('_', ' ')}
         </Link>

@@ -4,6 +4,7 @@ import type { ManualRunDto } from '@invimport/contracts'
 import { Heading, Panel, Paragraph, Link, Notice } from '../ui/primitives'
 import type { RunRecoverySelection } from '../../manual/types'
 import { RunResult } from './RunResult'
+import { batchHref } from '../../navigation/batch-route'
 
 interface Props {
   batchId: string
@@ -30,7 +31,10 @@ export function ResultsWorkspace({ batchId, runs, focusedRunId, busy, command }:
         {runs.length > 1 && (
           <nav aria-label="Approval rounds">
             {runs.map((run) => (
-              <RoundLink key={run.run_id} href={`#${batchId}/results/${run.run_id}`}>
+              <RoundLink
+                key={run.run_id}
+                href={batchHref(batchId, { tab: 'changes', view: 'added', runId: run.run_id })}
+              >
                 Round {run.round_number} · {run.confirmed_stock_ids.length} confirmed
               </RoundLink>
             ))}
@@ -40,13 +44,17 @@ export function ResultsWorkspace({ batchId, runs, focusedRunId, busy, command }:
       {runs.length === 0 && (
         <Panel>
           <Paragraph>No approval has been retained for this batch.</Paragraph>
-          <Link href={`#${batchId}/review`}>Review exact saved lots</Link>
+          <Link href={batchHref(batchId, { tab: 'review', view: 'lots' })}>
+            Review exact saved lots
+          </Link>
         </Panel>
       )}
       {focusedRunId && !focused && (
         <Notice role="status">
           The selected approval round is unavailable. No other round has been substituted.{' '}
-          <Link href={`#${batchId}/results`}>Show all retained rounds</Link>
+          <Link href={batchHref(batchId, { tab: 'changes', view: 'added' })}>
+            Show all retained rounds
+          </Link>
         </Notice>
       )}
       {(focusedRunId ? (focused ? [focused] : []) : runs).map((run) => (

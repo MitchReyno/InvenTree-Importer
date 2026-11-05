@@ -84,7 +84,6 @@ test('a pending original pauses settings and keeps its request when Capture rere
   expect(dirty).toHaveBeenLastCalledWith(true)
   expect(screen.getByLabelText('Batch title')).toBeDisabled()
   expect(screen.getByText(/Finish or discard the evidence change/)).toBeVisible()
-  expect(screen.getByRole('button', { name: 'Archive batch' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Write a note' })).toBeDisabled()
   view.rerender(
     <CaptureWorkspace {...props} batch={{ ...batch, updated_at: '2026-11-02T00:01:00Z' }} />,
@@ -111,7 +110,6 @@ test('a pending original pauses settings and keeps its request when Capture rere
   expect(dirty).toHaveBeenLastCalledWith(false)
   expect(screen.getByLabelText('Batch title')).toBeEnabled()
   expect(settings.read).toHaveBeenCalled()
-  expect(screen.getByRole('button', { name: 'Archive batch' })).toBeEnabled()
 })
 
 test('unacknowledged settings freeze file selection until their save is acknowledged', async () => {

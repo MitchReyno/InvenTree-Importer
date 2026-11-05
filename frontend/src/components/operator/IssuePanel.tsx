@@ -5,6 +5,7 @@ import type { CaptureSnapshotDto, OperatorIssueDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { Button, Link, Paragraph, Small } from '../ui/primitives'
 import { DismissWarning } from './DismissWarning'
+import { batchHref } from '../../navigation/batch-route'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -57,7 +58,11 @@ export function IssuePanel({
             <Item key={`${issue.code}:${index}`}>
               <Paragraph>{issue.message}</Paragraph>
               {issue.run_id && (
-                <Link href={`#${batch.id}/results/${issue.run_id}`}>Inspect original run</Link>
+                <Link
+                  href={batchHref(batch.id, { tab: 'changes', view: 'added', runId: issue.run_id })}
+                >
+                  Inspect original run
+                </Link>
               )}
             </Item>
           ))}

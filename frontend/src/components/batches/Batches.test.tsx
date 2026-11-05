@@ -47,7 +47,7 @@ test('shows retained thumbnail/counts and submits server search once rather than
   )
   expect(within(continued).getByRole('link', { name: '1 ready for approval' })).toHaveAttribute(
     'href',
-    `#${saved.id}/review?filter=reviewed`,
+    `#${saved.id}/review/lots?filter=reviewed`,
   )
   expect(within(continued).getByRole('link', { name: 'Processing' })).toHaveAttribute(
     'href',

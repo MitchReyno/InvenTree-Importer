@@ -11,6 +11,7 @@ import { mediaResource } from '../../media/types'
 import { mediaIdentityLabels } from '../../media/identity-labels'
 import { MediaNoteSummary } from '../media/MediaNoteSummary'
 import { Button, Label, Select, Small } from '../ui/primitives'
+import { batchHref } from '../../navigation/batch-route'
 
 interface Props {
   batchId: string
@@ -80,7 +81,7 @@ export function EvidenceViewer({
     if (
       lotId &&
       selected &&
-      location.hash.split('?')[0] === `#${batchId}/review/${lotId}` &&
+      location.hash.split('?')[0] === batchHref(batchId, { tab: 'review', view: 'lots', lotId }) &&
       evidenceFromHash(location.hash) === undefined
     ) {
       history.replaceState(null, '', withEvidence(location.hash, selected))
@@ -95,7 +96,9 @@ export function EvidenceViewer({
     function acceptInspectionRoute() {
       // The application guard restores a protected draft URL synchronously first.
       queueMicrotask(() => {
-        if (location.hash.split('?')[0] !== `#${batchId}/review/${lotId}`) {
+        if (
+          location.hash.split('?')[0] !== batchHref(batchId, { tab: 'review', view: 'lots', lotId })
+        ) {
           return
         }
         const linked = evidenceFromHash(location.hash)
@@ -134,7 +137,10 @@ export function EvidenceViewer({
     setInvalidLink(false)
     setZoom(1)
     setFailedPreview(null)
-    if (lotId && location.hash.split('?')[0] === `#${batchId}/review/${lotId}`) {
+    if (
+      lotId &&
+      location.hash.split('?')[0] === batchHref(batchId, { tab: 'review', view: 'lots', lotId })
+    ) {
       history.replaceState(null, '', withEvidence(location.hash, selection))
     }
   }

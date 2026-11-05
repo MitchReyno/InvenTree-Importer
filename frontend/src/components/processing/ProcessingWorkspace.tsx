@@ -29,15 +29,12 @@ import { ProcessingJobCard } from './ProcessingJobCard'
 import { SessionPanel } from './SessionPanel'
 import { ProcessingNeedsYou } from './ProcessingNeedsYou'
 import { QuestionAnswer } from './QuestionAnswer'
+import { batchHref, processingStepFor } from '../../navigation/batch-route'
 
-const views: ProcessingView[] = [
-  'overview',
-  'reading',
-  'identifying',
-  'research',
-  'images',
-  'inventory',
-]
+/** Whether a job belongs on a Processing step; Examine covers the Reading and Identifying stages. */
+function onStep(stage: string, view: ProcessingView) {
+  return view === 'overview' || processingStepFor(stage) === view
+}
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -232,7 +229,7 @@ export function ProcessingWorkspace({
     ).catch(() => {})
   }
 
-  const jobs = snapshot?.jobs.filter((job) => view === 'overview' || job.stage === view) ?? []
+  const jobs = snapshot?.jobs.filter((job) => onStep(job.stage, view)) ?? []
   const currentQuestion = snapshot?.jobs
     .flatMap((job) => job.questions)
     .find((question) => question.id === questionId)
@@ -241,22 +238,6 @@ export function ProcessingWorkspace({
   const runnerDisabled = disabled || unconfigured
   return (
     <Workspace>
-      <Tabs aria-label="Processing steps">
-        {views.map((value) => (
-          <Tab
-            key={value}
-            aria-current={view === value ? 'page' : undefined}
-            href={`#${batch.id}/processing/${value}`}
-          >
-            {value[0].toUpperCase() + value.slice(1)}
-            {snapshot && stageAttention(snapshot, value) > 0 && (
-              <Count aria-label={`${stageAttention(snapshot, value)} need attention`}>
-                {stageAttention(snapshot, value)}
-              </Count>
-            )}
-          </Tab>
-        ))}
-      </Tabs>
       {batch.archived && (
         <Notice role="status">
           Processing is read-only while this batch is archived. Resume it in the batch header to
@@ -398,7 +379,13 @@ export function ProcessingWorkspace({
               {job.subject_id !== null &&
                 batch.lots.some((lot) => lot.id === job.subject_id) &&
                 !retiredLotIds.has(job.subject_id) && (
-                  <ReviewLink href={`#${batch.id}/review/${job.subject_id}`}>
+                  <ReviewLink
+                    href={batchHref(batch.id, {
+                      tab: 'review',
+                      view: 'lots',
+                      lotId: job.subject_id ?? undefined,
+                    })}
+                  >
                     Open this lot in Review
                   </ReviewLink>
                 )}
@@ -411,23 +398,6 @@ export function ProcessingWorkspace({
 }
 
 const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
-
-/** Open questions plus failed or interrupted attempts in one stage (or all, for Overview). */
-function stageAttention(snapshot: ProcessingSnapshotDto, view: ProcessingView) {
-  const jobs = snapshot.jobs.filter((job) => view === 'overview' || job.stage === view)
-  const questions = jobs.flatMap((job) => job.questions).filter((q) => q.state === 'open').length
-  const failed = jobs.filter((job) => job.state === 'failed' || job.state === 'interrupted').length
-  return questions + failed
-}
-
-const Count = styled.span`
-  margin-left: 6px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: ${color.warnWeak};
-  color: ${color.warn};
-  font-size: 12px;
-`
 
 const ReviewLink = styled.a`
   display: inline-block;
@@ -446,27 +416,6 @@ const Workspace = styled.section`
   }
   > ${Panel} {
     margin-bottom: 0;
-  }
-`
-
-const Tabs = styled.nav`
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  border-bottom: 1px solid ${color.line};
-`
-
-const Tab = styled.a`
-  display: block;
-  flex: 0 0 auto;
-  min-height: 44px;
-  padding: 12px;
-  color: ${color.muted};
-  text-decoration: none;
-  &[aria-current='page'] {
-    color: ${color.accent};
-    border-bottom: 3px solid ${color.accent};
-    font-weight: 600;
   }
 `
 

@@ -479,7 +479,7 @@ test('lot overrides stay visible and link to the pinned Review subject', () => {
   })
   expect(screen.getByRole('link', { name: 'Packet A' })).toHaveAttribute(
     'href',
-    `#${batch.id}/review/${lotId}`,
+    `#${batch.id}/review/lots/${lotId}`,
   )
   expect(screen.getByText(/Location: Lot override/)).toBeInTheDocument()
 })

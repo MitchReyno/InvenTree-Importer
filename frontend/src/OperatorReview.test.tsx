@@ -246,6 +246,7 @@ function renderReview(
   const operator = overrides.operator ?? operatorClient()
   const reload = vi.fn(async () => undefined)
   const edit = vi.fn(overrides.edit ?? (async () => undefined))
+  const onDirtyChange = vi.fn()
   render(
     <ManualWorkspace
       batch={batch}
@@ -256,13 +257,14 @@ function renderReview(
       reload={reload}
       operatorReview={operatorReview}
       operator={operator}
+      onDirtyChange={onDirtyChange}
     />,
   )
-  return { manual, operator, reload, edit }
+  return { manual, operator, reload, edit, onDirtyChange }
 }
 
 beforeEach(() => {
-  history.replaceState(null, '', `#${batchId}/review`)
+  history.replaceState(null, '', `#${batchId}/review/lots`)
 })
 
 test('fixtures satisfy the shared runtime contracts', () => {
@@ -278,7 +280,7 @@ test('filters persist in the URL and retired lots are history, not selectable', 
   await screen.findByRole('checkbox', { name: 'Select Packet A' })
   expect(screen.queryByRole('checkbox', { name: 'Select Original bag' })).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: /^Warnings/ }))
-  expect(location.hash).toBe(`#${batchId}/review?filter=warnings`)
+  expect(location.hash).toBe(`#${batchId}/review/lots?filter=warnings`)
   expect(screen.getByRole('checkbox', { name: 'Select Packet B' })).toBeVisible()
   expect(screen.queryByRole('checkbox', { name: 'Select Packet A' })).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: /^Retired/ }))
@@ -294,7 +296,7 @@ test('a successor lot shows its predecessor evidence', async () => {
   await user.click(await screen.findByRole('button', { name: 'Inspect Bag half' }))
   expect(screen.getByText('From predecessor Original bag')).toBeVisible()
   expect(screen.getByText('Bag holds two date codes.')).toBeVisible()
-  expect(location.hash).toBe(`#${batchId}/review/${d}`)
+  expect(location.hash).toBe(`#${batchId}/review/lots/${d}`)
 })
 
 test('a warning dismissal requires a reason and sends the exact digest', async () => {
@@ -358,7 +360,7 @@ test('a shared Part choice confirms every affected lot before saving', async () 
 
 async function openTableAndSelect(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('tab', { name: 'Table' }))
-  expect(location.hash).toBe(`#${batchId}/review?view=table`)
+  expect(location.hash).toBe(`#${batchId}/review/lots?view=table`)
   const table = screen.getByRole('region', { name: 'Lot table' })
   await user.click(within(table).getByRole('checkbox', { name: 'Select Packet A' }))
   await user.click(within(table).getByRole('checkbox', { name: 'Select Packet B' }))
@@ -469,16 +471,16 @@ test('keyboard shortcuts move and review, but never fire while typing', async ()
   await screen.findByRole('button', { name: 'Inspect Packet A' })
   // Queue order is most urgent first: B (warning), Bag half (changed), A (reviewed).
   await user.keyboard('j')
-  await waitFor(() => expect(location.hash).toContain(`/review/${b}`))
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${b}`))
   await user.keyboard('jj')
-  await waitFor(() => expect(location.hash).toContain(`/review/${a}`))
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${a}`))
   await user.keyboard('k')
-  await waitFor(() => expect(location.hash).toContain(`/review/${d}`))
+  await waitFor(() => expect(location.hash).toContain(`/review/lots/${d}`))
   await user.keyboard('e')
   const quantity = await screen.findByLabelText('Exact pieces')
   await waitFor(() => expect(quantity).toHaveFocus())
   await user.type(quantity, 'jkr')
-  expect(location.hash).toContain(`/review/${d}`)
+  expect(location.hash).toContain(`/review/lots/${d}`)
   expect(manual.review).not.toHaveBeenCalled()
 })
 
@@ -533,7 +535,7 @@ test('split sends exact decimal strings and merge requires explicit confirmation
 
 test('dirty lot drafts survive local navigation, keyboard movement and closing until explicit discard', async () => {
   const user = userEvent.setup()
-  renderReview()
+  const { onDirtyChange } = renderReview()
   await user.click(await screen.findByRole('button', { name: 'Inspect Packet A' }))
   await user.click(screen.getByRole('button', { name: 'Edit lot values' }))
   const quantity = screen.getByLabelText('Exact pieces')
@@ -541,24 +543,25 @@ test('dirty lot drafts survive local navigation, keyboard movement and closing u
   await user.type(quantity, '123')
   await user.click(screen.getByRole('button', { name: 'Inspect Packet B' }))
   expect(quantity).toHaveValue('123')
-  expect(location.hash).toContain(`/review/${a}`)
+  expect(location.hash).toContain(`/review/lots/${a}`)
   await user.click(screen.getByRole('tab', { name: 'Table' }))
   expect(quantity).toHaveValue('123')
   quantity.blur()
   await user.keyboard('k')
-  expect(location.hash).toContain(`/review/${a}`)
+  expect(location.hash).toContain(`/review/lots/${a}`)
   expect(screen.getByRole('button', { name: 'Close lot editor' })).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'Archive batch' })).toBeDisabled()
+  // Batch disables Archive from this report while the draft is dirty.
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
   expect(screen.getByRole('button', { name: 'Compare matches' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Split lot…' })).toBeDisabled()
   await user.click(screen.getByRole('button', { name: 'Discard lot edits' }))
   await user.click(screen.getByRole('button', { name: 'Inspect Packet B' }))
-  expect(location.hash).toContain(`/review/${b}`)
+  expect(location.hash).toContain(`/review/lots/${b}`)
 })
 
 test('closing a clean sibling editor cannot clear a warning draft guard', async () => {
   const user = userEvent.setup()
-  renderReview()
+  const { onDirtyChange } = renderReview()
   await user.click(await screen.findByRole('button', { name: 'Inspect Packet B' }))
   await user.click(screen.getByRole('button', { name: 'Edit lot values' }))
   await user.click(screen.getByRole('button', { name: 'Dismiss…' }))
@@ -567,8 +570,8 @@ test('closing a clean sibling editor cannot clear a warning draft guard', async 
   await user.click(screen.getByRole('button', { name: 'Close lot editor' }))
   await user.click(screen.getByRole('tab', { name: 'Table' }))
   expect(reason).toHaveValue('Keep this reason')
-  expect(location.hash).toContain(`/review/${b}`)
-  expect(screen.getByRole('button', { name: 'Archive batch' })).toBeDisabled()
+  expect(location.hash).toContain(`/review/lots/${b}`)
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
   await user.click(screen.getByRole('button', { name: 'Cancel' }))
   await user.click(screen.getByRole('tab', { name: 'Table' }))
   expect(screen.getByRole('region', { name: 'Lot table' })).toBeVisible()
@@ -713,7 +716,7 @@ test.each(['bulk', 'split'] as const)(
 )
 
 test('an actual Batch revision conflict retains the compared shared Part choice', async () => {
-  history.replaceState(null, '', `#${batchId}/review/${a}`)
+  history.replaceState(null, '', `#${batchId}/review/lots/${a}`)
   const user = userEvent.setup()
   const client = {
     read: vi.fn(async () => batch),
@@ -724,7 +727,7 @@ test('an actual Batch revision conflict retains the compared shared Part choice'
   render(
     <Batch
       id={batchId}
-      route={`${batchId}/review/${a}`}
+      route={`${batchId}/review/lots/${a}`}
       client={client}
       manual={manualClient()}
       operator={operatorClient()}

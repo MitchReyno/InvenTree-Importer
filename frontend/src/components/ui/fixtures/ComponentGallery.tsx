@@ -105,7 +105,12 @@ export function ComponentGallery() {
           <Row>
             <SourceChip source="Packet label" certainty="Label and slip agree" onOpen={() => {}} />
             <SourceChip source="Agent" certainty="Likely — check" tone="likely" onOpen={() => {}} />
-            <SourceChip source="Photo 3" certainty="Sources disagree" tone="conflict" onOpen={() => {}} />
+            <SourceChip
+              source="Photo 3"
+              certainty="Sources disagree"
+              tone="conflict"
+              onOpen={() => {}}
+            />
             <SourceChip source="You" certainty="Entered" tone="user" onOpen={() => {}} />
           </Row>
           <Stack>
@@ -213,9 +218,25 @@ export function ComponentGallery() {
         <Section title="Evidence">
           <EvidenceGroup name="Packet front and back" count={3} onRename={() => {}}>
             <EvidenceGrid>
-              <EvidenceTile name="IMG_2041.jpg" preview={WHITE_PREVIEW} support="1 lot" kind="photo" state="ready" selectable selected onOpen={() => {}} />
+              <EvidenceTile
+                name="IMG_2041.jpg"
+                preview={WHITE_PREVIEW}
+                support="1 lot"
+                kind="photo"
+                state="ready"
+                selectable
+                selected
+                onOpen={() => {}}
+              />
               <EvidenceTile name="IMG_2042.jpg" kind="photo" state="preparing" onOpen={() => {}} />
-              <EvidenceTile name="slip.pdf" support="2 lots" kind="document" state="failed" onOpen={() => {}} onRetry={() => {}} />
+              <EvidenceTile
+                name="slip.pdf"
+                support="2 lots"
+                kind="document"
+                state="failed"
+                onOpen={() => {}}
+                onRetry={() => {}}
+              />
             </EvidenceGrid>
           </EvidenceGroup>
           <EvidenceGroup name="Not grouped yet" count={0} ungrouped dropState="over" />
@@ -224,9 +245,20 @@ export function ComponentGallery() {
         <Section title="Records and tables">
           <KeyValue
             rows={[
-              { label: 'MPN', value: 'RC0603FR-0710KL', state: 'edited', mono: true, onEdit: () => {} },
+              {
+                label: 'MPN',
+                value: 'RC0603FR-0710KL',
+                state: 'edited',
+                mono: true,
+                onEdit: () => {},
+              },
               { label: 'Location', value: 'Drawer 4', state: 'override' },
-              { label: 'Supplier', value: 'Mouser', state: 'inherited', source: <SourceChip source="Slip" certainty="Read" onOpen={() => {}} /> },
+              {
+                label: 'Supplier',
+                value: 'Mouser',
+                state: 'inherited',
+                source: <SourceChip source="Slip" certainty="Read" onOpen={() => {}} />,
+              },
             ]}
           />
           <RecordChain
@@ -246,8 +278,24 @@ export function ComponentGallery() {
               { id: 'qty', header: 'Quantity', editable: true },
             ]}
             rows={[
-              { id: 'l1', label: 'Resistor bag', cells: { name: { value: 'Resistor bag' }, mpn: { value: 'RC0603FR-0710KL', edited: true }, qty: { value: '100', override: true } } },
-              { id: 'l2', label: 'Caps', cells: { name: { value: 'Caps' }, mpn: { value: 'GRM188R71H104KA93D' }, qty: { value: '50' } } },
+              {
+                id: 'l1',
+                label: 'Resistor bag',
+                cells: {
+                  name: { value: 'Resistor bag' },
+                  mpn: { value: 'RC0603FR-0710KL', edited: true },
+                  qty: { value: '100', override: true },
+                },
+              },
+              {
+                id: 'l2',
+                label: 'Caps',
+                cells: {
+                  name: { value: 'Caps' },
+                  mpn: { value: 'GRM188R71H104KA93D' },
+                  qty: { value: '50' },
+                },
+              },
             ]}
             selection={{ selected: new Set(['l1']), onToggle: () => {}, onToggleAll: () => {} }}
             onCellEdit={() => {}}
@@ -255,8 +303,30 @@ export function ComponentGallery() {
           <Card>
             <ChangeSummary
               sections={[
-                { title: 'New Parts', count: 2, items: [{ id: 'p1', label: 'RC0603FR-0710KL', href: '#p1', pill: <Pill tone="info">New</Pill> }, { id: 'p2', label: 'GRM188R71H104KA93D' }] },
-                { title: 'Stock', count: 1, items: [{ id: 's1', label: '100 pcs into Drawer 4', pill: <Pill tone="ok">Ready</Pill> }] },
+                {
+                  title: 'New Parts',
+                  count: 2,
+                  items: [
+                    {
+                      id: 'p1',
+                      label: 'RC0603FR-0710KL',
+                      href: '#p1',
+                      pill: <Pill tone="info">New</Pill>,
+                    },
+                    { id: 'p2', label: 'GRM188R71H104KA93D' },
+                  ],
+                },
+                {
+                  title: 'Stock',
+                  count: 1,
+                  items: [
+                    {
+                      id: 's1',
+                      label: '100 pcs into Drawer 4',
+                      pill: <Pill tone="ok">Ready</Pill>,
+                    },
+                  ],
+                },
               ]}
             />
           </Card>
@@ -264,7 +334,13 @@ export function ComponentGallery() {
 
         <Section title="Processing and agents">
           <Card>
-            <PhaseRow state="done" title="Examine" outcome="6 photos read, 4 lots formed" expanded={false} onToggle={() => {}} />
+            <PhaseRow
+              state="done"
+              title="Examine"
+              outcome="6 photos read, 4 lots formed"
+              expanded={false}
+              onToggle={() => {}}
+            />
             <PhaseRow
               state="running"
               title="Research"
@@ -281,7 +357,13 @@ export function ComponentGallery() {
                 ]}
               />
             </PhaseRow>
-            <PhaseRow state="waiting" title="Images" outcome="Waits for Research" expanded={false} onToggle={() => {}} />
+            <PhaseRow
+              state="waiting"
+              title="Images"
+              outcome="Waits for Research"
+              expanded={false}
+              onToggle={() => {}}
+            />
           </Card>
           <QuestionCard
             question="Is this 10kΩ or 100kΩ?"
@@ -296,15 +378,30 @@ export function ComponentGallery() {
                   { id: '10k', title: '10kΩ', detail: 'Matches the label' },
                   { id: '100k', title: '100kΩ', detail: 'Matches the reel' },
                 ]}
-                escape={{ id: 'unsure', title: 'Not sure', detail: 'Keep the assumption and flag the lot' }}
+                escape={{
+                  id: 'unsure',
+                  title: 'Not sure',
+                  detail: 'Keep the assumption and flag the lot',
+                }}
               />
             }
           />
           <Card>
             <NeedsYou
               items={[
-                { id: 'q1', title: 'Resistor value', assumption: 'Assuming 10kΩ', step: 'Research', href: '#q1' },
-                { id: 'q2', title: 'Supplier for bench bag', assumption: 'Assuming Mouser', href: '#q2' },
+                {
+                  id: 'q1',
+                  title: 'Resistor value',
+                  assumption: 'Assuming 10kΩ',
+                  step: 'Research',
+                  href: '#q1',
+                },
+                {
+                  id: 'q2',
+                  title: 'Supplier for bench bag',
+                  assumption: 'Assuming Mouser',
+                  href: '#q2',
+                },
               ]}
             />
           </Card>
@@ -327,11 +424,21 @@ export function ComponentGallery() {
           </Grid>
           <SharedTagsInput value={tags} onChange={setTags} />
           <Row>
-            <DisabledFeature label="Find logo automatically" explanation="Coming later. Upload a logo for now." />
+            <DisabledFeature
+              label="Find logo automatically"
+              explanation="Coming later. Upload a logo for now."
+            />
           </Row>
           <Stack>
             {saveStates.map((state) => (
-              <AutosaveStatus key={state} label="Batch settings" state={state} revision="12" onRetry={() => {}} onReload={() => {}} />
+              <AutosaveStatus
+                key={state}
+                label="Batch settings"
+                state={state}
+                revision="12"
+                onRetry={() => {}}
+                onReload={() => {}}
+              />
             ))}
           </Stack>
           <Notice>Notice primitive on its token ground.</Notice>

@@ -46,7 +46,7 @@ export function parseReviewLocation(hash: string): ReviewLocation {
   const segments = path.split('/')
   const filter = params.get('filter')
   return {
-    lotId: segments[1] === 'review' && segments[2] ? segments[2] : null,
+    lotId: segments[1] === 'review' && segments[2] === 'lots' && segments[3] ? segments[3] : null,
     view: params.get('view') === 'table' ? 'table' : 'evidence',
     filter: REVIEW_FILTERS.includes(filter as ReviewFilter) ? (filter as ReviewFilter) : 'all',
   }
@@ -62,7 +62,7 @@ export function reviewHash(batchId: string, value: ReviewLocation): string {
   }
   const query = params.toString()
   const lot = value.lotId ? `/${value.lotId}` : ''
-  return `#${batchId}/review${lot}${query ? `?${query}` : ''}`
+  return `#${batchId}/review/lots${lot}${query ? `?${query}` : ''}`
 }
 
 export function blockingIssues(lot: OperatorLotDto): OperatorIssueDto[] {

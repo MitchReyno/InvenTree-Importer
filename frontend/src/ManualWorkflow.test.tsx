@@ -716,7 +716,7 @@ test('an unavailable pinned approval round never substitutes another retained ro
   expect(screen.queryByRole('button', { name: 'Queue supervised apply' })).not.toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Show all retained rounds' })).toHaveAttribute(
     'href',
-    `#${batchId}/results`,
+    `#${batchId}/changes/added`,
   )
   expect(command).not.toHaveBeenCalled()
 })

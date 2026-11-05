@@ -33,6 +33,7 @@ import { CaptureContextSummary } from './CaptureContextSummary'
 import { DefaultLocationField } from './DefaultLocationField'
 import { PurchaseOrderPreview } from './PurchaseOrderPreview'
 import { SupplierField, type LogoUpload } from './SupplierField'
+import { batchHref } from '../../navigation/batch-route'
 
 type Props = Pick<CaptureWorkspaceProps, 'observe' | 'reload' | 'operatorReview'> & {
   batch: Snapshot
@@ -561,7 +562,9 @@ export function BatchSettingsPanel({
         <summary>Saved lot inheritance and overrides · {batch.lots.length} physical lots</summary>
         {batch.lots.map((lot) => (
           <div key={lot.id}>
-            <Link href={`#${batch.id}/review/${lot.id}`}>{lot.label}</Link>
+            <Link href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId: lot.id })}>
+              {lot.label}
+            </Link>
             <CaptureContextSummary batch={batch} subjectId={lot.id} />
             <Small>
               Location:{' '}
