@@ -162,7 +162,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 
 - [x] 6.1 Redesign the Batches home: continue card with counted actions, compact list, search toolbar.
 - [x] 6.2 Replace evidence cards with EvidenceTile, moving crop, rotation, download and identity into the viewer and its Details.
-- [ ] 6.3 Add the read-only Proposed lots glance, linking to Review. It reads proposed lots through a small source function over the existing lot reads, which task 7.1 folds into the `ProcessingSource` adapter, so no part of task 7 moves into PR-B. The per-lot agent status line appears with task 14 (PR-G).
+- [x] 6.3 Add the read-only Proposed lots glance, linking to Review. It reads proposed lots through a small source function over the existing lot reads, which task 7.1 folds into the `ProcessingSource` adapter, so no part of task 7 moves into PR-B. The per-lot agent status line appears with task 14 (PR-G).
 - [ ] 6.4 Restyle Batch settings and the evidence groups. Remove inline IDs and revisions.
 
 ## 7. Processing workspace

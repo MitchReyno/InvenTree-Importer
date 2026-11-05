@@ -4,6 +4,8 @@ import type { CaptureWorkspaceProps } from '../../capture/types'
 import { Button, Notice } from '../ui/primitives'
 import { BatchSettingsPanel } from './BatchSettingsPanel'
 import { EvidencePanel } from './EvidencePanel'
+import { ProposedLotsGlance } from './ProposedLotsGlance'
+import { proposedLots } from '../../processing/proposed-lots'
 
 type DirtySource = 'settings' | 'media' | 'note'
 
@@ -101,6 +103,10 @@ export function CaptureWorkspace({
           onNoteDirtyChange={reportNote}
         />
         <SettingsColumn>
+          <ProposedLotsGlance
+            batchId={batch.id}
+            lots={proposedLots(batch, operatorReview, NO_RETIRED_LOTS)}
+          />
           {refresh === 'failed' && (
             <Notice role="alert">
               Saved settings could not be refreshed after the evidence change, so settings stay
@@ -129,6 +135,9 @@ export function CaptureWorkspace({
     </>
   )
 }
+
+// Capture receives only active lots; retired ones are already filtered out.
+const NO_RETIRED_LOTS: ReadonlySet<string> = new Set()
 
 const CaptureGrid = styled.div`
   display: grid;

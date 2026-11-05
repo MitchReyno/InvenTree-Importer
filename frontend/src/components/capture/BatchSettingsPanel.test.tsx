@@ -477,10 +477,12 @@ test('lot overrides stay visible and link to the pinned Review subject', () => {
       ],
     },
   })
-  expect(screen.getByRole('link', { name: 'Packet A' })).toHaveAttribute(
-    'href',
-    `#${batch.id}/review/lots/${lotId}`,
-  )
+  // The override and the Proposed lots glance both open the lot in Review.
+  const links = screen.getAllByRole('link', { name: 'Packet A' })
+  expect(links.length).toBeGreaterThan(0)
+  for (const link of links) {
+    expect(link).toHaveAttribute('href', `#${batch.id}/review/lots/${lotId}`)
+  }
   expect(screen.getByText(/Location: Lot override/)).toBeInTheDocument()
 })
 
