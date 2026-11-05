@@ -49,6 +49,8 @@ function renderCss(tokens) {
     block(":root,\n[data-theme='light']", 'light', light),
     block("[data-theme='dark']", 'dark', dark),
     block(':root', null, sharedProperties(tokens)),
+    // The stylesheet blocks first paint, so the ground is themed before the app renders.
+    'html {\n  background-color: var(--bg);\n  color: var(--fg);\n}\n',
   ].join('\n')
 }
 

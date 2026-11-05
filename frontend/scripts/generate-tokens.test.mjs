@@ -20,6 +20,12 @@ describe('token generator', () => {
     expect(css).toContain('--radius-card: 8px;')
   })
 
+  it('paints the page ground from the tokens before the app renders', () => {
+    expect(renderCss(tokens)).toContain(
+      'html {\n  background-color: var(--bg);\n  color: var(--fg);\n}',
+    )
+  })
+
   it('gives dark values only in the dark block', () => {
     const css = renderCss(tokens)
     const dark = css.slice(css.indexOf("[data-theme='dark']"))

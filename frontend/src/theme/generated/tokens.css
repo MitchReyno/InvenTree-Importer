@@ -99,3 +99,8 @@
   --radius-dialog: 12px;
   --radius-pill: 999px;
 }
+
+html {
+  background-color: var(--bg);
+  color: var(--fg);
+}
