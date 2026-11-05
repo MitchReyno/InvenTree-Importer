@@ -11,7 +11,7 @@ Native Claude and Codex agents work in long-lived, resumable sessions. These ses
 A `native-agent/2` session SHALL reach the application only through an app-owned tool server scoped to that session. The tool server SHALL offer exactly these tools:
 
 - status
-- propose_lot
+- record_observation, propose_lot and regroup (the Examine lead session only)
 - propose
 - ask
 - reply
@@ -36,9 +36,19 @@ Every tool call SHALL be authenticated with a capability bound to one session, i
 - **WHEN** the tool server receives it
 - **THEN** the call is refused with a typed error, and no outbox item, inbox read marker or capture change is recorded.
 
+### Requirement: Lot-forming tools only for the lead session
+
+The record_observation, propose_lot and regroup tools SHALL be refused for any session other than the batch's Examine lead session.
+
+#### Scenario: Lot-forming tool from a lot session
+
+- **GIVEN** a Research session for one lot
+- **WHEN** it calls propose_lot
+- **THEN** the call is refused with a typed error, and no capture change is recorded.
+
 ### Requirement: Streamed status and outbox delivery
 
-A session SHALL be able to emit outbox items at any point while it runs: status lines, lot proposals, field proposals, questions and chat replies. Each item SHALL be validated, persisted in order and published to the operator while the session continues. Status lines SHALL form an ordered step timeline for the session.
+A session SHALL be able to emit outbox items at any point while it runs: status lines, evidence observations, lot proposals, regroupings, field proposals, questions and chat replies. Each item SHALL be validated, persisted in order and published to the operator while the session continues. Status lines SHALL form an ordered step timeline for the session.
 
 #### Scenario: Status lines while working
 
