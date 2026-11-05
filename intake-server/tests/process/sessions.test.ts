@@ -60,12 +60,18 @@ async function sessionHarness(provider: Provider) {
   await mkdir(join(stateRoot, 'sessions'), { mode: 0o700 })
   await mkdir(sessionDirectory, { mode: 0o700 })
   /** The fake reads its mode from the private session directory it runs in. */
-  const deps = (mode: string) => {
+  const deps = (mode: string, turnDeadlineMs?: number) => {
     writeFileSync(
       join(sessionDirectory, 'fake-session.json'),
       JSON.stringify({ mode, log: logFile }),
     )
-    return { pool: fixture.runner.pool, config: fixture.config, host, toolUrl: server.url }
+    return {
+      pool: fixture.runner.pool,
+      config: fixture.config,
+      host,
+      toolUrl: server.url,
+      turnDeadlineMs,
+    }
   }
   const events = async () =>
     (await readFile(logFile, 'utf8').catch(() => ''))
@@ -496,3 +502,32 @@ test(
     }
   },
 )
+
+for (const provider of ['claude', 'codex'] as const) {
+  test(
+    `${provider}: a turn that stays alive past its deadline is reaped and fails`,
+    { timeout: 60000 },
+    async () => {
+      const h = await sessionHarness(provider)
+      try {
+        assert.equal(
+          await runSessionTurn(
+            h.deps('hold', 1500),
+            h.session.attempt,
+            new AbortController().signal,
+          ),
+          'failed',
+        )
+        const current = await h.state()
+        assert.equal(current.session_state, 'failed')
+        assert.equal(current.capability_sha256, null)
+        const slots = await h.fixture.db.pool.query(
+          'SELECT 1 FROM agent_slot WHERE attempt_id IS NOT NULL',
+        )
+        assert.equal(slots.rowCount, 0)
+      } finally {
+        await h.dispose()
+      }
+    },
+  )
+}

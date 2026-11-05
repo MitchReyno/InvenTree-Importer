@@ -205,7 +205,7 @@ Both put the capability only in the child environment, and both poll the inbox d
 
 - `createAttempt` hands the session profiles to `processing/session-attempts.ts`. That builds the `/6` manifest (with the saved agent selection for `native-agent/2`), a `/5` command on `bench-sessions` and a `queued` session whose lineage is the job. Reading and identifying are refused for session profiles; the Examine stage replaces them in task 8.
 - `INTAKE_PROCESSING_PROFILE` accepts `native-agent/2` and `synthetic-session/1`.
-- `agents/session-worker-main.ts` is the supervised session worker. It takes the same per-actor supervisor lock as the `/1` worker, interrupts running sessions, starts the tool server, registers `intakeCommand` and `sessionResume` on `bench-sessions` (`processing/5`, worker and global concurrency 8), dispatches commands and wakes sessions with pending inbox items. A wake's workflow ID is `resume:<lineage>:<inbox high-water>`, so a repeated wake is a no-op.
+- `agents/session-worker-main.ts` is the supervised session worker. It takes the same per-actor supervisor lock as the `/1` worker, interrupts running sessions, starts the tool server, registers `intakeCommand` and `sessionResume` on `bench-sessions` (`processing/5`, worker and global concurrency 8), dispatches commands and wakes sessions with pending inbox items. A wake's workflow ID is `resume:<attempt>:<turn_count>:<minute_bucket>`, so a repeated wake within a minute is a no-op and a later turn gets a fresh workflow.
 - Session commands are authorized by `executeSessionCommand` from the retained command row (queue, handler, account binding, workflow ID, exact payload bytes), not by `loadProcessingAuthority`, which keeps accepting only `bench-research`. Design D9 records this.
 
 ### Tests
@@ -390,6 +390,18 @@ Minor: the answer form now says a session answer reaches the agent session rathe
 Results after the fixes: contracts 72, intake server 181 and frontend 322 passed; `pnpm db:intake test` 191 passed; `pnpm db:intake test:process` 68 tests, 64 passed, with only the pre-existing media failure and its 3 skips; typecheck, lint, Prettier and build pass.
 
 Regression tests: an answer adopted under a fresh delivery key returns the original receipt; small questions across two jobs stop with the snapshot readable and each projected question within the allowance; a superseded turn leaves delivered chat pending. Not separately tested: resume racing a fresh start, and the recovery interleaving.
+
+## PR-A review round 6
+
+Codex (`gpt-6.1-sol`, read-only) reviewed `8f4a81c..b7800c1`: 1 important finding, confirmed, and one minor. It confirmed the five round 5 fixes and found no other blocking issue in authority, citations, endpoint isolation, lock order, `/1` compatibility, migration and grants, inbox idempotency and wake-ups, adapter checks or the frontend.
+
+1. **Provider turns had no deadline.** A CLI that stayed alive without finishing held its slot indefinitely. Each turn now has a 15-minute deadline (`SESSION_TURN_DEADLINE_MS`; design D3). On expiry the child is aborted through the existing reap path and the session settles `failed`, which the wake sweep never resumes, so a stalled CLI is not restarted in a loop. An unconfirmed reap still throws and keeps the slot held.
+
+Minor: design D3, task 5 and this handover described inbox-high-water workflow IDs; they now describe `resume:<attempt>:<turn_count>:<minute_bucket>`.
+
+Results after the fix: contracts 72, intake server 181 and frontend passed; `pnpm db:intake test` 191 passed; `pnpm db:intake test:process` 70 tests, 66 passed, with only the pre-existing media failure and its 3 skips; typecheck, lint, Prettier and build pass.
+
+Regression test: for both CLIs, a turn held past a 1.5-second test deadline is reaped and settles `failed`, with its capability revoked and slot freed.
 
 ## Validation
 

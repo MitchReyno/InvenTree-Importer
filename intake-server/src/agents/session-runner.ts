@@ -70,7 +70,12 @@ export interface SessionRunnerDeps {
   toolUrl: string
   /** Replaces the provider for a profile, for the synthetic profile and process tests. */
   drivers?: Partial<Record<ProcessingInputV6Dto['profile_id'], SessionDriver>>
+  /** Overrides the per-turn deadline, for tests. */
+  turnDeadlineMs?: number
 }
+
+/** A turn longer than this is stopped and reaped; the session fails rather than resuming a stall. */
+export const SESSION_TURN_DEADLINE_MS = 15 * 60 * 1000
 
 /**
  * Same lock order as the tool handlers (job, attempt, then session row). With `expected`, the
@@ -466,10 +471,17 @@ export async function runSessionTurn(
       }),
   }
 
-  // One controller per turn: worker shutdown or the attempt leaving `running` aborts the child.
+  // One controller per turn: worker shutdown, the attempt leaving `running` or the deadline
+  // aborts the child.
   const turnControl = new AbortController()
 
   const stopTurn = () => turnControl.abort()
+
+  let expired = false
+  const deadline = setTimeout(() => {
+    expired = true
+    turnControl.abort()
+  }, deps.turnDeadlineMs ?? SESSION_TURN_DEADLINE_MS)
 
   signal.addEventListener('abort', stopTurn, { once: true })
   // A shutdown during the claim already fired; the turn ends before any child starts.
@@ -491,11 +503,15 @@ export async function runSessionTurn(
     next = 'finished'
   } catch (error) {
     if (error instanceof ResearchReapPendingError) {
+      clearTimeout(deadline)
       // The child was not confirmed gone, so the session keeps its slot and stays visible.
       throw error
     }
     if (error instanceof SessionResumeUnavailable) {
       next = 'resume_unavailable'
+    } else if (expired && !signal.aborted) {
+      // The child was reaped (an unconfirmed reap throws above), so the slot can be released.
+      next = 'failed'
     } else if (turnControl.signal.aborted) {
       next = 'interrupted'
     } else if (
@@ -511,6 +527,7 @@ export async function runSessionTurn(
     }
   }
 
+  clearTimeout(deadline)
   signal.removeEventListener('abort', stopTurn)
   turnControl.abort()
   await watching

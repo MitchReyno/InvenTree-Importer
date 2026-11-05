@@ -83,7 +83,8 @@ running ──crash/restart──▶ interrupted ──resume/inbox──▶ que
 - `agent_session_inbox(id, session_lineage_id, seq, kind, payload, idempotency_key, actor_id, created_at)`, plus `agent_session_cursor(session_lineage_id, acked_seq, acked_at)`. Acknowledgements only move the cursor forward (CAS). A session lineage is its Processing job (`session_lineage_id` references `processing_job`), so pending items and the cursor carry over to a fresh attempt or a fresh provider session on the same job. Outbox and inbox sequences are gap-free: a trigger refuses any `seq` other than the next one.
 - The session envelope of D1 (`SessionEnvelope`, `bench-intake-session/1`) holds the retained bytes of a session proposal or question in `processing_message`, bound to its job, attempt, command and opening manifest as runner envelopes are for earlier profiles. The outbox item (`SessionOutboxItem`) only references it by proposal or question ID.
 - Writes reuse the existing transaction, lock order (capture → media → lane/slot → job → attempt → question) and publish-last rules. Hints go out after commit.
-- DBOS delivers wake-ups only: a resume workflow keyed `resume:<session_lineage>:<inbox_high_water>` makes duplicate wake-ups harmless.
+- DBOS delivers wake-ups only: a resume workflow keyed `resume:<attempt>:<turn_count>:<minute_bucket>` makes duplicate wake-ups harmless, while a later turn or a later minute gets a fresh workflow.
+- Each provider turn has a 15-minute deadline. On expiry the child is aborted and reaped and the session settles `failed`, which is not resumed; an unconfirmed reap keeps the slot held, as for `/1`.
 - **Rejected: DBOS `send`/`recv` as the inbox.** Those messages belong to one workflow ID and cannot be listed or queried for the UI or history.
 
 ### D5. Session context log replaces whole-attempt sealing for `/2`

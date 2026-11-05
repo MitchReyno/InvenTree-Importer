@@ -131,7 +131,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
     - Change the init tool check to app tools only.
     - Write stdin stream-JSON for queued messages.
   - `agents/codex.ts`: `mcp_servers` override with `default_tools_approval_mode = "approve"`, `features.goals = false`, effective-config and MCP-status tool checks, non-ephemeral threads, `thread/resume`, `turn/steer` with `expectedTurnId` (design D2/D3).
-  - The session state machine (design D3) and the DBOS resume workflow keyed by inbox high-water mark.
+  - The session state machine (design D3) and the DBOS resume workflow keyed by attempt, turn count and minute bucket.
   - Fake `claude`/`codex` executables that drive real tool calls, and a `synthetic-session/1` runner.
 - **Prerequisites:** task 3.
 - **Acceptance:**
