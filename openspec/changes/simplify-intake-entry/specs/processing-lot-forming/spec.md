@@ -24,7 +24,7 @@ When a batch has ready evidence that no observation covers, and no evidence has 
 
 ### Requirement: Observations with regions
 
-The lead session SHALL record each item it sees as an observation. An observation SHALL reference one evidence version and a region: a normalised rectangle on a photo or page, or a line range of a document. It SHALL carry what the region shows: markings and label text with citations, and an optional visible count. Regions SHALL be validated against the evidence version's dimensions, and the region's crop SHALL be retrievable through the media boundary.
+The lead session SHALL record each item it sees as an observation. An observation SHALL reference one evidence version and a region: a pixel rectangle on a photo or rendered page, or a line range of a document. It SHALL carry what the region shows: markings and label text with citations, and an optional visible count. Regions SHALL be validated against the evidence version's dimensions, and the region's crop SHALL be retrievable through the media boundary.
 
 #### Scenario: One photo, three items
 

@@ -74,7 +74,8 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Outcome:** versioned contracts and additive schema for `native-agent/2` and `synthetic-session/1`:
   - sessions, outbox, inbox, cursors, slots and the concurrency setting column
   - a nullable `processing_job.subject_id` for the `examine` lead stage, with its CHECK and the partial unique index (design D8)
-  - proposal `relies_on`, and proposal `/5` with the structured catalogue block (design D13)
+  - proposal `relies_on`, the append-only `processing_proposal_stale` table (design D5), and proposal `/5` with the structured catalogue block (design D13)
+  - `runner` and `api` grants as listed in the design's Migration section, including the extended `agent_session` column grants
   - the `examine` stage value
 - **Scope and approach:**
   - `contracts/src/processing.ts`, `agents.ts` and `live.ts`: input `/6`, command `/5`, session envelope, the session tool argument/result schemas, the outbox kind union `status | observation | lot | regroup | proposal | question | reply`, inbox kinds, proposal `/5`, and `subject_id: Id | null` on `ProcessingJob`, `/6` input and `AgentSessionList`. The evidence-observation and lot-forming capture schemas are task 7.
@@ -207,8 +208,8 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **PR delivery:** PR-B
 - **Outcome:** observations with regions and lot membership by observation exist in capture state. `record_observation`, `propose_lot` and `regroup` write them through the existing capture edit validation, attributed to the session, and lots and observations the operator has edited are protected.
 - **Scope and approach:**
-  - Migration (PR-B part of the design's Migration section): `capture_evidence_observation`, `capture_lot_evidence_observation` (with `status` active/suggested), lot `origin`, `operator_edited`, `estimated_quantity`, `quantity_basis` and `observation_set_version`, and nullable `agent_session_id` attribution columns. `actor_id` stays the batch's server operator.
-  - The `agent_writer` role and its capture grants (design D10), plus `SELECT` on the new tables for the roles granted by `grantCaptureRead` and `grantMedia`.
+  - Migration (PR-B part of the design's Migration section): `capture_evidence_observation` (with `status` and `supersedes_observation_id`), `capture_lot_evidence_observation` (with `status` active/suggested), the `capture_identity_immutable()` allowlist update, the `api` observation grants, lot `origin`, `operator_edited`, `estimated_quantity`, `quantity_basis` and `observation_set_version`, and nullable `agent_session_id` attribution columns. `actor_id` stays the batch's server operator.
+  - The `agent_writer` role with its capture grants and lead-session Processing grants (design D10); in PR-A those session writes ran under `runner`, plus `SELECT` on the new tables for the roles granted by `grantCaptureRead` and `grantMedia`.
   - `readMediaRows` projects `linked_subject_ids` as the union of `media_subject_link` and lots reached through active membership rows (design D12).
   - Regions use the documentary-crop pixel geometry, validated with `validateLegacyMediaRecipeGeometry`; document line ranges validate page and line order only. Region crops render from `media_preview` into a private cache outside `BlobStore`.
   - Handlers lock the rows they touch, refuse with a typed `stale` result (current state and new batch revision) when those rows changed after `base_revision` or are operator-edited, record suggestions for edited lots, and return the new batch revision on every call (design D8).
@@ -226,7 +227,9 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
     - a stale revision creates no observation or lot
     - a counted quantity from the agent is refused
     - `regroup` or `propose_lot` against an edited lot or observation changes nothing and records a suggested membership row that does not change `observation_set_version`; accepting it is an operator edit
-    - region create/adjust, observation moves and `Restructure` merge/split set `operator_edited`
+    - region create/adjust, observation moves and `Restructure` merge/split set `operator_edited`, succeeding through the updated immutability trigger and the `api` grants
+    - `record_observation` with `observation_id` revises a non-edited AI observation, and on an edited one records a suggested superseding row; `propose_lot` with `lot_id` extends an AI lot
+    - staleness is recorded by inserting into `processing_proposal_stale`; updating a `processing_proposal` row is still refused
   - GREEN: implement the schema and handlers.
 - **Verification:** `pnpm test:intake:pg`, capture and media unit tests.
 - **Risks and decisions:** this deliberately relaxes "suggestions never write capture" for draft lots and observations only. Update the Processing and Capture architecture docs to match.
@@ -243,6 +246,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Outcome:** each batch gets one Examine lead session after a quiet period of 20 seconds. It reads previews, records observations, groups them into lots, and publishes per-lot markings, identity and quantity (with its basis) proposals. Later evidence wakes the same session, resuming it if finished, and only the new evidence is examined.
 - **Scope and approach:**
   - A batch-scoped `examine` lead job (design D8), with `reserveProcessingMedia` gaining a batch-scoped pinning mode for it, and a DBOS debounce workflow keyed per batch.
+  - Null-subject handling for the lead job: per-lot proposal and question binding checks in `messages.ts`, `provenance.ts` and `retained.ts`; batch-scoped media in `processingSnapshot`/`processingActivity`; the lead job included in the inbox projection.
   - Preview staging: long edge 768 px, 48 per turn; `fetch_evidence` with optional region.
   - Lead-session instructions for both providers and the synthetic runner: find, group and identify in a loop; state quantity basis; never add up the same items twice.
   - The synthetic runner scripts a batch with one photo holding three items and one item spanning two photos.
@@ -254,7 +258,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
   - New evidence wakes the lead session: the observation is added to the existing AI lot and no other lot changes. The session-notice half of "Back of an existing tape" is accepted in task 11.
   - Archived batch and no-default cases.
 - **TDD approach:**
-  - RED (PG and process tests): one lead job per batch under concurrent readiness events (the partial unique index holds); the lead job pins every ready evidence version without lot links; the quiet period restarts; a finished session is resumed; no session for an archived batch or without a default; new evidence produces observations only for the new files; quantity basis is recorded and duplicates are not summed.
+  - RED (PG and process tests): one lead job per batch under concurrent readiness events (the partial unique index holds); the lead job publishes a per-lot proposal and a batch-level question without a subject-mismatch error, and appears in Processing, activity and the inbox; the lead job pins every ready evidence version without lot links; the quiet period restarts; a finished session is resumed; no session for an archived batch or without a default; new evidence produces observations only for the new files; quantity basis is recorded and duplicates are not summed.
   - GREEN: implement the job, trigger and instructions.
 - **Verification:** `pnpm test:intake:pg`, `pnpm test:intake:process` with `synthetic-session/1`.
 - **Risks and decisions:** the quiet period is a constant that can be tuned. Large batches beyond 48 previews depend on `fetch_evidence` paging, and run serially in one session (design D8).
