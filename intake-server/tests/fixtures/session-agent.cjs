@@ -74,6 +74,9 @@ async function work(waitForDelivery) {
       await new Promise((resolve) => setTimeout(resolve, 100))
     }
   }
+  if (mode === 'deliver-no-ack') {
+    await waitForDelivery()
+  }
   if (mode === 'deliver') {
     const delivered = await waitForDelivery()
     const seq = /sequence (\d+)/.exec(delivered)?.[1]

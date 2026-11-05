@@ -410,3 +410,57 @@ for (const mode of ['loose-policy', 'command-item'] as const) {
     },
   )
 }
+
+for (const provider of ['claude', 'codex'] as const) {
+  test(
+    `${provider}: chat accepted during the turn is acknowledged when the turn succeeds`,
+    { timeout: 60000 },
+    async () => {
+      const h = await sessionHarness(provider)
+      try {
+        const running = runSessionTurn(
+          h.deps('deliver-no-ack'),
+          h.session.attempt,
+          new AbortController().signal,
+        )
+        const deadline = Date.now() + 20000
+        while ((await h.state()).session_state !== 'running' && Date.now() < deadline) {
+          await delay(50)
+        }
+        const receipt = await h.chat('chat-1', 'The reel is 1k ohm.')
+        // Without a read_inbox call the turn still settles finished, not queued again.
+        assert.equal(await running, 'finished')
+        const cursor = await h.fixture.db.pool.query<{ acked_seq: string }>(
+          'SELECT acked_seq FROM agent_session_cursor WHERE session_lineage_id=$1',
+          [h.session.job],
+        )
+        assert.equal(cursor.rows[0].acked_seq, receipt.seq)
+      } finally {
+        await h.dispose()
+      }
+    },
+  )
+}
+
+test(
+  'a shutdown during the claim settles the session without starting a child',
+  { timeout: 60000 },
+  async () => {
+    const h = await sessionHarness('claude')
+    try {
+      const shutdown = new AbortController()
+      shutdown.abort()
+      assert.equal(
+        await runSessionTurn(h.deps('normal'), h.session.attempt, shutdown.signal),
+        'interrupted',
+      )
+      assert.equal((await h.events()).length, 0)
+      const slots = await h.fixture.db.pool.query(
+        'SELECT 1 FROM agent_slot WHERE attempt_id IS NOT NULL',
+      )
+      assert.equal(slots.rowCount, 0)
+    } finally {
+      await h.dispose()
+    }
+  },
+)

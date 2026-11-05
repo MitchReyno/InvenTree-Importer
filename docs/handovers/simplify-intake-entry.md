@@ -358,6 +358,23 @@ Results after the fixes: contracts 72, intake server 181 and frontend 322 passed
 
 Regression tests: a claim under another account changes nothing; an archived batch's session stays queued, its new chat is refused and an earlier chat's replay returns the original receipt; the 101st question is refused; and a composer remounted during an unresolved send cannot send again. Not separately tested: ranking across contexts and the latest-session sweep filter, which need a second target context fixture.
 
+## PR-A review round 4
+
+Codex (`gpt-6.1-sol`, read-only) reviewed `8f4a81c..a9f3303`: 6 important findings, all confirmed, and no minor observations. It found the earlier-profile paths, migration and grants, endpoint isolation, adapter policy checks and all frontend changes sound. Fixes:
+
+1. **Archived queued sessions still counted in slot ranking.** Ranking excludes archived batches, as the claim and sweep do.
+2. **Cancelled-session cleanup could deadlock against a claim.** Each cancelled session is settled in its own transaction, so the stream lock is always taken last.
+3. **A count cap did not bound size.** Session proposals and questions are also refused (`capacity_reached`) when the batch's retained proposal and question bytes plus the new item would exceed half the Processing snapshot budget (120 KiB of 240 KiB).
+4. **In-turn delivery was never acknowledged.** Each item the CLI accepted (stdin written, or a steer that was not refused) is recorded, and a successful turn moves the cursor up to it before deciding whether input is still pending. Failed, refused or interrupted turns leave items pending. A steer reply that never comes counts as not delivered.
+5. **Archive checks could race a concurrent archive.** The claim and inbox submission share-lock the batch row before any job lock (capture first, as elsewhere) and check `archived` under it.
+6. **A shutdown during the claim could be missed.** A turn whose shutdown signal has already fired is aborted before any child starts, so the claim settles `interrupted` and frees its slot.
+
+Settlement now also locks job and attempt before acknowledging the cursor, keeping one lock order.
+
+Results after the fixes: contracts 72, intake server 181 and frontend 322 passed; `pnpm db:intake test` 190 passed; `pnpm db:intake test:process` 67 tests, 63 passed, with only the pre-existing media failure and its 3 skips; typecheck, lint, Prettier and build pass.
+
+Regression tests: in-turn chat acknowledged without `read_inbox` for both CLIs; a pre-aborted shutdown settles without a child; large proposals stop at the size budget with the snapshot still readable. Not separately tested: archived ranking and the cleanup interleaving.
+
 ## Validation
 
 - `pnpm spikes:check`: 35 passed (the existing shared-contract suite; the new spike adds no test there).

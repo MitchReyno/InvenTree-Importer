@@ -22,7 +22,7 @@ import { agentSessions, agentSessionInbox } from './schema.ts'
 import { agentEnvironment, privateDirectory, type NativeAgentHost } from './environment.ts'
 import { recordSessionProgress } from './sessions.ts'
 import { issueSessionCapability, revokeSessionCapability } from './tools/capability.ts'
-import { pendingSessionInbox } from './tools/inbox.ts'
+import { acknowledgeSessionInbox, pendingSessionInbox } from './tools/inbox.ts'
 import { claimSessionSlot, releaseSessionSlot } from './slots.ts'
 import {
   runClaudeSession,
@@ -168,38 +168,38 @@ export async function interruptRunningSessions(pool: Pool, config: ProcessingCon
 
 /** Settles queued sessions whose attempt was cancelled or superseded before any claim. */
 export async function settleCancelledQueuedSessions(pool: Pool, config: ProcessingConfig) {
-  return transaction(pool, async (client) => {
-    const stale = await executeDatabaseQuery(
-      queryDatabase(client)
-        .select({
-          attemptId: agentSessions.attemptId,
-          jobId: processingAttempts.jobId,
-          batchId: processingAttempts.batchId,
-        })
-        .from(agentSessions)
-        .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
-        .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
-        .where(
-          and(
-            eq(commands.actorId, config.actorId),
-            eq(commands.targetId, config.targetId),
-            eq(commands.targetContextId, config.targetContextId),
-            eq(agentSessions.sessionState, 'queued'),
-            inArray(processingAttempts.state, ['cancelled', 'superseded']),
-          ),
+  const stale = await executeDatabaseQuery(
+    queryDatabase(pool)
+      .select({
+        attemptId: agentSessions.attemptId,
+        jobId: processingAttempts.jobId,
+        batchId: processingAttempts.batchId,
+      })
+      .from(agentSessions)
+      .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
+      .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
+      .where(
+        and(
+          eq(commands.actorId, config.actorId),
+          eq(commands.targetId, config.targetId),
+          eq(commands.targetContextId, config.targetContextId),
+          eq(agentSessions.sessionState, 'queued'),
+          inArray(processingAttempts.state, ['cancelled', 'superseded']),
         ),
-    )
-    for (const session of stale) {
-      if (
-        (await setSessionState(client, session.attemptId, session.jobId, 'cancelled', [
-          'queued',
-        ])) === 'cancelled'
-      ) {
+      ),
+  )
+  // One transaction each, so a stream lock is only ever taken last.
+  for (const session of stale) {
+    await transaction(pool, async (client) => {
+      const settled = await setSessionState(client, session.attemptId, session.jobId, 'cancelled', [
+        'queued',
+      ])
+      if (settled === 'cancelled') {
         await publish(client, session.batchId)
       }
-    }
-    return stale.length
-  })
+    })
+  }
+  return stale.length
 }
 
 /**
@@ -342,7 +342,15 @@ export async function runSessionTurn(
       ) {
         throw new Error('session_command_binding_invalid')
       }
-      if (row.archived) {
+      // Capture first: a share lock on the batch orders this claim against a concurrent archive.
+      const batch = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({ archived: captureBatches.archived })
+          .from(captureBatches)
+          .where(eq(captureBatches.id, row.batchId))
+          .for('share'),
+      )
+      if (batch[0].archived) {
         // Archived work does not run; it stays queued and is not woken while archived.
         return 'archived' as const
       }
@@ -401,6 +409,8 @@ export async function runSessionTurn(
 
   // Read lazily, inside the turn's error handling, so a failure here still settles the claim.
   let delivered: bigint | undefined
+  // The highest sequence the CLI accepted in turn; acknowledged only when the turn succeeds.
+  let accepted = 0n
   const resumed = current.providerSessionId !== null
   const turn: SessionTurn = {
     instructions: current.instructions.toString('utf8'),
@@ -436,7 +446,12 @@ export async function runSessionTurn(
         return undefined
       }
       delivered = next[0].seq
-      return inboxText(next[0])
+      return { text: inboxText(next[0]), seq: next[0].seq }
+    },
+    onDelivered: (seq) => {
+      if (seq > accepted) {
+        accepted = seq
+      }
     },
     onStarted: (started) =>
       recordSessionProgress(pool, config, attemptId, {
@@ -452,6 +467,10 @@ export async function runSessionTurn(
   const stopTurn = () => turnControl.abort()
 
   signal.addEventListener('abort', stopTurn, { once: true })
+  // A shutdown during the claim already fired; the turn ends before any child starts.
+  if (signal.aborted) {
+    turnControl.abort()
+  }
   const watching = watchAttempt(pool, attemptId, turnControl)
   let next: SessionStateDto
   try {
@@ -492,6 +511,11 @@ export async function runSessionTurn(
   await watching
 
   return transaction(pool, async (client) => {
+    // Job and attempt first, as everywhere, before the cursor and the session row.
+    await lockProcessingAttempt(client, current.jobId, attemptId)
+    if (next === 'finished' && accepted > 0n) {
+      await acknowledgeSessionInbox(client, current.jobId, accepted)
+    }
     if (next === 'finished') {
       const pending = await pendingSessionInbox(client, current.jobId)
       const open = await executeDatabaseQuery(

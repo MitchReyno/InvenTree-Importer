@@ -2,6 +2,7 @@ import { and, asc, eq, isNotNull, isNull, lt, notInArray, or, sql } from 'drizzl
 import type { PoolClient } from 'pg'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { commands } from '../db/schema.ts'
+import { captureBatches } from '../capture/schema.ts'
 import type { ProcessingConfig } from '../processing/attempts.ts'
 import { processingAttempts, processingLanes } from '../processing/schema.ts'
 import { agentSessions, agentSettings, agentSlots } from './schema.ts'
@@ -92,8 +93,11 @@ export async function claimSessionSlot(
       .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
       .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
       .leftJoin(agentSlots, eq(agentSlots.attemptId, agentSessions.attemptId))
+      .innerJoin(captureBatches, eq(captureBatches.id, processingAttempts.batchId))
       .where(
         and(
+          // Archived work does not run, so it holds no place in the queue.
+          eq(captureBatches.archived, false),
           // The same queue this worker schedules; occupancy above still counts every slot.
           eq(commands.actorId, config.actorId),
           eq(commands.targetId, config.targetId),

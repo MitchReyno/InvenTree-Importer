@@ -744,3 +744,39 @@ test('questions stop at the snapshot limit with a typed refusal', async () => {
     }
   })
 })
+
+test('large results stop at the batch size budget and the snapshot stays readable', async () => {
+  await withSessions(async ({ fixture, url, a, capture }) => {
+    const session = await connect(url, a.token)
+    const note = a.manifest.notes.find((item) => item.subject_id === capture.packetA.id)!
+    const source = {
+      kind: 'note',
+      note_id: note.id,
+      text_sha256: createHash('sha256').update(note.text, 'utf8').digest('hex'),
+    }
+    let refused = -1
+    try {
+      for (let n = 0; n < 100; n += 1) {
+        const result = await call(session, 'propose', {
+          proposal: {
+            schema_version: 'bench-intake-proposal/5',
+            subject_id: capture.packetA.id,
+            summary: `${n} `.padEnd(2000, 'x'),
+            sources: [source],
+            relies_on: { fields: ['identity'], sources: [source] },
+          },
+        })
+        if (!result.ok) {
+          assert.equal(result.error, 'capacity_reached')
+          refused = n
+          break
+        }
+      }
+    } finally {
+      await session.close()
+    }
+    assert.ok(refused > 0 && refused < 100, `refused at ${refused}`)
+    const snapshot = await fixture.http(`/batches/${capture.batch.id}/processing`)
+    assert.equal(snapshot.status, 200)
+  })
+})

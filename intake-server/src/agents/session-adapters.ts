@@ -20,7 +20,9 @@ export interface SessionTurn {
   capability: string
   tools: readonly string[]
   /** Pending operator items to put into the running turn, as text. */
-  nextDelivery: () => Promise<string | undefined>
+  nextDelivery: () => Promise<{ text: string; seq: bigint } | undefined>
+  /** Called for each item the CLI accepted into the running turn. */
+  onDelivered: (seq: bigint) => void
   onStarted: (started: { providerSessionId: string; actualModel: string }) => Promise<void>
 }
 
@@ -36,17 +38,24 @@ export class SessionResumeUnavailable extends Error {
  */
 function deliveryLoop(
   turn: SessionTurn,
-  deliver: (text: string) => Promise<void>,
+  deliver: (text: string) => Promise<boolean>,
   signal: AbortSignal,
   fail: (error: unknown) => void,
 ) {
   let stopped = false
+
+  let release: () => void = () => {}
+
+  const stopping = new Promise<false>((resolve) => (release = () => resolve(false)))
   const done = (async () => {
     try {
       while (!stopped && !signal.aborted) {
-        const text = await turn.nextDelivery()
-        if (text !== undefined && !stopped) {
-          await deliver(text)
+        const item = await turn.nextDelivery()
+        if (item !== undefined && !stopped) {
+          // A reply that never comes (the turn ended first) counts as not delivered.
+          if (await Promise.race([deliver(item.text), stopping])) {
+            turn.onDelivered(item.seq)
+          }
           continue
         }
         await new Promise((resolve) => setTimeout(resolve, DELIVERY_POLL_MS))
@@ -57,6 +66,7 @@ function deliveryLoop(
   })()
   return async () => {
     stopped = true
+    release()
     await done.catch(() => undefined)
   }
 }
@@ -164,7 +174,10 @@ export async function runClaudeSession(
         await turn.onStarted({ providerSessionId: sessionId, actualModel: message.model })
         stopDelivery = deliveryLoop(
           turn,
-          (text) => child.send(userMessage(text)),
+          async (text) => {
+            await child.send(userMessage(text))
+            return true
+          },
           turnSignal,
           failDelivery,
         )
@@ -392,12 +405,13 @@ export async function runCodexSession(
     stopDelivery = deliveryLoop(
       turn,
       async (text) => {
-        // A refused steer leaves the item for read_inbox; a failed write aborts the turn.
-        send('turn/steer', {
+        // A refused steer leaves the item for read_inbox or a resume; a failed write aborts the turn.
+        const reply = await send('turn/steer', {
           threadId,
           expectedTurnId: turnId,
           input: [{ type: 'text', text, text_elements: [] }],
-        }).then(undefined, failDelivery)
+        })
+        return !('error' in reply)
       },
       turnSignal,
       failDelivery,

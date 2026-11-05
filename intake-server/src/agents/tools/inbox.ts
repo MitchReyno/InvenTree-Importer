@@ -43,6 +43,22 @@ export async function appendSessionInbox(
   { publish = true }: { publish?: boolean } = {},
 ): Promise<SessionInboxReceiptDto> {
   const db = queryDatabase(client)
+  // Capture first: share-lock the job's batch so a concurrent archive is ordered before or after.
+  const owner = await executeDatabaseQuery(
+    db
+      .select({ batchId: processingJobs.batchId })
+      .from(processingJobs)
+      .where(eq(processingJobs.id, submission.lineageId)),
+  )
+  if (owner[0]) {
+    await executeDatabaseQuery(
+      db
+        .select({ id: captureBatches.id })
+        .from(captureBatches)
+        .where(eq(captureBatches.id, owner[0].batchId))
+        .for('share'),
+    )
+  }
   const jobs = await executeDatabaseQuery(
     db
       .select({
@@ -171,7 +187,8 @@ export async function pendingSessionInbox(client: PoolClient, lineageId: string)
  * Acknowledges every item up to `afterSeq` (never past the last item, never backwards) and
  * returns the next unacknowledged items with their stable IDs, so a lost response redelivers.
  */
-export async function readSessionInbox(client: PoolClient, lineageId: string, afterSeq: bigint) {
+/** Moves the cursor forward to `upTo`, never past the newest item and never backwards. */
+export async function acknowledgeSessionInbox(client: PoolClient, lineageId: string, upTo: bigint) {
   const db = queryDatabase(client)
   const newest = await executeDatabaseQuery(
     db
@@ -181,7 +198,7 @@ export async function readSessionInbox(client: PoolClient, lineageId: string, af
       .orderBy(desc(agentSessionInbox.seq))
       .limit(1),
   )
-  const acknowledge = afterSeq < (newest[0]?.seq ?? 0n) ? afterSeq : (newest[0]?.seq ?? 0n)
+  const acknowledge = upTo < (newest[0]?.seq ?? 0n) ? upTo : (newest[0]?.seq ?? 0n)
   await executeDatabaseQuery(
     db
       .insert(agentSessionCursors)
@@ -194,6 +211,11 @@ export async function readSessionInbox(client: PoolClient, lineageId: string, af
         },
       }),
   )
+}
+
+export async function readSessionInbox(client: PoolClient, lineageId: string, afterSeq: bigint) {
+  const db = queryDatabase(client)
+  await acknowledgeSessionInbox(client, lineageId, afterSeq)
   const acked = await ackedSeq(client, lineageId)
   const rows = await executeDatabaseQuery(
     db

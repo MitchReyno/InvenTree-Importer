@@ -15,7 +15,7 @@ import { captureBatches } from '../../capture/schema.ts'
 import { lockCaptureForInputSettlement } from '../../capture/repository.ts'
 import type { ProcessingConfig } from '../../processing/attempts.ts'
 import { sealed } from '../../processing/model.ts'
-import { MAX_JOB_RESULTS } from '../../processing/limits.ts'
+import { MAX_JOB_RESULTS, MAX_PROCESSING_SNAPSHOT_BYTES } from '../../processing/limits.ts'
 import { catalogueSources, deliveredSourceCheck } from '../../processing/provenance.ts'
 import { lockProcessingAttempt } from '../../processing/state.ts'
 import {
@@ -213,10 +213,14 @@ async function requireDeliveredSources(
 }
 
 /** The Processing snapshot reads at most this many proposals and questions per attempt. */
+/** Half the snapshot budget, leaving room for JSON framing and the rest of the snapshot. */
+const SESSION_RESULT_BUDGET_BYTES = MAX_PROCESSING_SNAPSHOT_BYTES / 2
+
 async function requireRoom(
   client: PoolClient,
   principal: SessionPrincipal,
   label: 'proposals' | 'questions',
+  newBytes: number,
 ) {
   // Proposals are read per attempt and questions per job, so each limit uses the same scope.
   const query =
@@ -235,6 +239,17 @@ async function requireRoom(
       'capacity_reached',
       `This session has published its limit of ${MAX_JOB_RESULTS} ${label}.`,
     )
+  }
+  // The whole batch snapshot has a byte budget too; keep retained results within half of it.
+  const retained = await client.query<{ bytes: string }>(
+    `SELECT (COALESCE((SELECT sum(octet_length(p.value_bytes)) FROM public.processing_proposal p
+        JOIN public.processing_attempt a ON a.id=p.attempt_id WHERE a.batch_id=$1),0)
+      + COALESCE((SELECT sum(octet_length(q.spec_bytes)) FROM public.processing_question q
+        WHERE q.batch_id=$1),0))::text AS bytes`,
+    [principal.batchId],
+  )
+  if (BigInt(retained.rows[0].bytes) + BigInt(newBytes) > BigInt(SESSION_RESULT_BUDGET_BYTES)) {
+    refuse('capacity_reached', 'This batch has reached the size limit for retained results.')
   }
 }
 
@@ -357,7 +372,7 @@ export function sessionTools(context: SessionToolContext) {
           refuse('validation_failed', 'A proposal must be for this session’s lot.')
         }
         await requireDeliveredSources(client, context, principal, proposal)
-        await requireRoom(client, principal, 'proposals')
+        await requireRoom(client, principal, 'proposals', sealed(proposal).bytes.length)
         const { messageId, streamId } = await retainSessionMessage(
           client,
           capture!,
@@ -388,7 +403,7 @@ export function sessionTools(context: SessionToolContext) {
     ask: (token: string, args: unknown) =>
       withSession(context, token, { capture: true }, async (client, principal, capture) => {
         const ask = validated<SessionAskArgsDto>('SessionAskArgs', args)
-        await requireRoom(client, principal, 'questions')
+        await requireRoom(client, principal, 'questions', sealed(ask).bytes.length)
         if (principal.subjectId === null || ask.subject_id !== principal.subjectId) {
           refuse('validation_failed', 'A question must be about this session’s lot.')
         }
