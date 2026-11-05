@@ -7,6 +7,7 @@ import { executeDatabaseQuery, queryDatabase, transaction } from '../db/database
 import { appendEvent, sha256 } from '../db/authority.ts'
 import type { ProcessingConfig } from '../processing/attempts.ts'
 import { captureBatches } from '../capture/schema.ts'
+import { commands } from '../db/schema.ts'
 import {
   processingAttempts,
   processingInputs,
@@ -33,6 +34,7 @@ import { ResearchReapPendingError } from '../research/errors.ts'
 
 /** Tools every session gets; the lot-forming tools are added for the Examine lead session. */
 const SLOT_WAIT_MS = 500
+const SLOT_WAIT_LIMIT_MS = 30_000
 const CANCEL_POLL_MS = 500
 
 export const SESSION_TOOLS = ['ask', 'fetch_evidence', 'propose', 'read_inbox', 'reply', 'status']
@@ -91,6 +93,7 @@ async function setSessionState(
       .update(agentSessions)
       .set({
         sessionState: state,
+        ...(state === 'queued' ? { queuedSince: sql`now()` } : {}),
         ...(countTurn && !cancelled ? { turnCount: sql`${agentSessions.turnCount}+1` } : {}),
       })
       .where(
@@ -121,8 +124,9 @@ async function publish(client: PoolClient, batchId: string) {
 }
 
 /** A worker start never continues a turn that was in flight; those sessions wait for a resume. */
-export async function interruptRunningSessions(pool: Pool) {
+export async function interruptRunningSessions(pool: Pool, config: ProcessingConfig) {
   return transaction(pool, async (client) => {
+    // Only this worker's account: another actor's worker may be running its own sessions.
     const running = await executeDatabaseQuery(
       queryDatabase(client)
         .select({
@@ -132,7 +136,15 @@ export async function interruptRunningSessions(pool: Pool) {
         })
         .from(agentSessions)
         .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
-        .where(inArray(agentSessions.sessionState, ['running', 'cancelling'])),
+        .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
+        .where(
+          and(
+            eq(commands.actorId, config.actorId),
+            eq(commands.targetId, config.targetId),
+            eq(commands.targetContextId, config.targetContextId),
+            inArray(agentSessions.sessionState, ['running', 'cancelling']),
+          ),
+        ),
     )
     const interrupted: string[] = []
     for (const session of running) {
@@ -151,6 +163,42 @@ export async function interruptRunningSessions(pool: Pool) {
       }
     }
     return interrupted
+  })
+}
+
+/** Settles queued sessions whose attempt was cancelled or superseded before any claim. */
+export async function settleCancelledQueuedSessions(pool: Pool, config: ProcessingConfig) {
+  return transaction(pool, async (client) => {
+    const stale = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({
+          attemptId: agentSessions.attemptId,
+          jobId: processingAttempts.jobId,
+          batchId: processingAttempts.batchId,
+        })
+        .from(agentSessions)
+        .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
+        .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
+        .where(
+          and(
+            eq(commands.actorId, config.actorId),
+            eq(commands.targetId, config.targetId),
+            eq(commands.targetContextId, config.targetContextId),
+            eq(agentSessions.sessionState, 'queued'),
+            inArray(processingAttempts.state, ['cancelled', 'superseded']),
+          ),
+        ),
+    )
+    for (const session of stale) {
+      if (
+        (await setSessionState(client, session.attemptId, session.jobId, 'cancelled', [
+          'queued',
+        ])) === 'cancelled'
+      ) {
+        await publish(client, session.batchId)
+      }
+    }
+    return stale.length
   })
 }
 
@@ -315,10 +363,12 @@ export async function runSessionTurn(
       }
     })
 
+  // A bounded wait: the workflow gives its worker back and the wake sweep starts another.
+  const waitUntil = Date.now() + SLOT_WAIT_LIMIT_MS
   let claimed = await claim()
   while (!claimed) {
     await new Promise((resolve) => setTimeout(resolve, SLOT_WAIT_MS))
-    if (signal.aborted) {
+    if (signal.aborted || Date.now() > waitUntil) {
       return 'queued' as const
     }
     claimed = await claim()
@@ -400,7 +450,10 @@ export async function runSessionTurn(
       next = 'resume_unavailable'
     } else if (turnControl.signal.aborted) {
       next = 'interrupted'
-    } else if (error instanceof Error && error.message === 'agent_process_failed') {
+    } else if (
+      error instanceof Error &&
+      (error.message === 'agent_process_failed' || error.message === 'agent_delivery_failed')
+    ) {
       // A provider crash is resumable, like a worker restart; refusals are failures.
       next = 'interrupted'
     } else if (error instanceof Error && error.message === 'agent_login_required') {

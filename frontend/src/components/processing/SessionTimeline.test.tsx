@@ -76,7 +76,9 @@ test('chat shows the operator message and the agent reply in order', () => {
 
 test('the composer queues a message for a finished session', async () => {
   const send = vi.fn().mockResolvedValue(undefined)
-  render(<SessionChat state="finished" send={send} startFresh={vi.fn()} />)
+  render(
+    <SessionChat storeKey="batch:finished" state="finished" send={send} startFresh={vi.fn()} />,
+  )
   const field = screen.getByLabelText('Message this session')
   expect(field).toBeEnabled()
   fireEvent.change(field, { target: { value: 'Is the date code readable?' } })
@@ -88,7 +90,9 @@ test('the composer queues a message for a finished session', async () => {
 
 test('an unconfirmed send keeps its message and key until retried or discarded', async () => {
   const send = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined)
-  render(<SessionChat state="running" send={send} startFresh={vi.fn()} />)
+  render(
+    <SessionChat storeKey="batch:running-1" state="running" send={send} startFresh={vi.fn()} />,
+  )
   fireEvent.change(screen.getByLabelText('Message this session'), {
     target: { value: 'Is the date code readable?' },
   })
@@ -107,7 +111,9 @@ test('an unconfirmed send keeps its message and key until retried or discarded',
 
 test('discarding an unconfirmed send frees the composer', async () => {
   const send = vi.fn().mockRejectedValueOnce(new Error('offline'))
-  render(<SessionChat state="running" send={send} startFresh={vi.fn()} />)
+  render(
+    <SessionChat storeKey="batch:running-2" state="running" send={send} startFresh={vi.fn()} />,
+  )
   fireEvent.change(screen.getByLabelText('Message this session'), { target: { value: 'Hello' } })
   fireEvent.click(screen.getByRole('button', { name: 'Send' }))
   fireEvent.click(await screen.findByRole('button', { name: 'Discard' }))
@@ -116,8 +122,34 @@ test('discarding an unconfirmed send frees the composer', async () => {
 
 test('a cancelled session offers a fresh session instead of the composer', () => {
   const startFresh = vi.fn()
-  render(<SessionChat state="cancelled" send={vi.fn()} startFresh={startFresh} />)
+  render(
+    <SessionChat
+      storeKey="batch:cancelled"
+      state="cancelled"
+      send={vi.fn()}
+      startFresh={startFresh}
+    />,
+  )
   expect(screen.queryByLabelText('Message this session')).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Start a fresh session' }))
   expect(startFresh).toHaveBeenCalled()
+})
+
+test('an unconfirmed send survives leaving and returning to the session', async () => {
+  const send = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined)
+  const view = render(
+    <SessionChat storeKey="batch:navigate" state="finished" send={send} startFresh={vi.fn()} />,
+  )
+  fireEvent.change(screen.getByLabelText('Message this session'), {
+    target: { value: 'Back label?' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+  await screen.findByText(/was not confirmed/)
+  view.unmount()
+  render(
+    <SessionChat storeKey="batch:navigate" state="finished" send={send} startFresh={vi.fn()} />,
+  )
+  fireEvent.click(await screen.findByRole('button', { name: 'Retry this message' }))
+  await screen.findByText(/Queued/)
+  expect(send.mock.calls[1]).toEqual(send.mock.calls[0])
 })

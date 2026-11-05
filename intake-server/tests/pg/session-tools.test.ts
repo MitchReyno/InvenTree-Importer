@@ -617,12 +617,16 @@ test('the header keeps a cancelled attempt that still holds a slot', async () =>
 
 test('the wake sweep gives a queued session with no live workflow a fresh one', async () => {
   const { wakePendingSessions } = await import('../../src/agents/session-execution.ts')
-  await withSessions(async ({ fixture, a }) => {
+  await withSessions(async ({ fixture, a, b }) => {
     await fixture.db.pool.query(
-      "UPDATE agent_session SET session_state='queued',turn_count=1 WHERE attempt_id=$1",
-      [a.attempt],
+      "UPDATE agent_session SET session_state='queued',turn_count=1 WHERE attempt_id=ANY($1)",
+      [[a.attempt, b.attempt]],
     )
-    const workflows = new Map<string, string>([[`resume:${a.attempt}:1:0`, 'SUCCESS']])
+    // B was cancelled before any claim: it is settled, not woken.
+    await fixture.db.pool.query("UPDATE processing_attempt SET state='cancelled' WHERE id=$1", [
+      b.attempt,
+    ])
+    const workflows = new Map<string, string>()
     const enqueued: string[] = []
     const scheduler = {
       getWorkflow: async (id: string) =>
@@ -632,11 +636,16 @@ test('the wake sweep gives a queued session with no live workflow a fresh one', 
         workflows.set(options.workflowID, 'ENQUEUED')
       },
     }
-    const config = fixture.config
-    await wakePendingSessions(fixture.runner.pool, config, scheduler as never)
-    assert.deepEqual(enqueued, [`resume:${a.attempt}:1:1`])
+    await wakePendingSessions(fixture.runner.pool, fixture.config, scheduler as never)
+    assert.equal(enqueued.length, 1)
+    assert.match(enqueued[0], new RegExp(`^resume:${a.attempt}:1:`))
     // A live workflow is left alone.
-    await wakePendingSessions(fixture.runner.pool, config, scheduler as never)
-    assert.deepEqual(enqueued, [`resume:${a.attempt}:1:1`])
+    await wakePendingSessions(fixture.runner.pool, fixture.config, scheduler as never)
+    assert.equal(enqueued.length, 1)
+    const state = await fixture.db.pool.query<{ session_state: string }>(
+      'SELECT session_state FROM agent_session WHERE attempt_id=$1',
+      [b.attempt],
+    )
+    assert.equal(state.rows[0].session_state, 'cancelled')
   })
 })

@@ -4,6 +4,8 @@ import type { SessionStateDto } from '@invimport/contracts'
 import { Button, Paragraph, Small } from '../ui/primitives'
 
 interface Props {
+  /** Identifies the session, so an unconfirmed send survives leaving and returning. */
+  storeKey: string
   state: SessionStateDto
   /** Queues one message; the same key is reused only to retry that exact message. */
   send: (text: string, key: string) => Promise<unknown>
@@ -15,14 +17,29 @@ interface Pending {
   key: string
 }
 
+/** Unconfirmed sends outlive the composer, for as long as the page is open. */
+const pendingSends = new Map<string, Pending>()
+
 /**
  * Chat queues in every session state; a cancelled session offers a fresh one instead. A send
  * whose result is unknown stays pending with its own key until it is confirmed or discarded, so
  * new drafting never reuses or abandons it.
  */
-export function SessionChat({ state, send, startFresh }: Props) {
+export function SessionChat({ storeKey, state, send, startFresh }: Props) {
   const [draft, setDraft] = useState('')
-  const [pending, setPending] = useState<Pending | null>(null)
+  const [pending, setPendingState] = useState<Pending | null>(
+    () => pendingSends.get(storeKey) ?? null,
+  )
+
+  const setPending = (value: Pending | null) => {
+    if (value) {
+      pendingSends.set(storeKey, value)
+    } else {
+      pendingSends.delete(storeKey)
+    }
+    setPendingState(value)
+  }
+
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const inFlight = useRef(false)

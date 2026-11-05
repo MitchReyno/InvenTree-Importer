@@ -121,6 +121,18 @@ function inbox() {
   }
 }
 
+/** The effective policy a real app-server reports; `loose-policy` widens the sandbox. */
+function threadReply(id) {
+  const apiKey = args.some((arg) => arg.includes('model_provider="bench_openai"'))
+  return {
+    thread: { id },
+    model: 'fake-codex-model',
+    approvalPolicy: 'never',
+    sandbox: { type: mode === 'loose-policy' ? 'workspaceWrite' : 'readOnly' },
+    modelProvider: apiKey ? 'bench_openai' : 'openai',
+  }
+}
+
 if (args[0] === 'app-server') {
   const deliveries = inbox()
   let threadId
@@ -133,7 +145,7 @@ if (args[0] === 'app-server') {
     if (frame.method === 'thread/start') {
       threadId = `fake-thread-${Date.now()}`
       persist(threadId)
-      reply({ thread: { id: threadId }, model: 'fake-codex-model' })
+      reply(threadReply(threadId))
     }
     if (frame.method === 'thread/resume') {
       log({ event: 'resume', id: frame.params.threadId })
@@ -142,7 +154,7 @@ if (args[0] === 'app-server') {
         return
       }
       threadId = frame.params.threadId
-      reply({ thread: { id: threadId }, model: 'fake-codex-model' })
+      reply(threadReply(threadId))
     }
     if (frame.method === 'config/read') {
       reply({ config: { mcp_servers: { intake: {} } } })
@@ -155,6 +167,9 @@ if (args[0] === 'app-server') {
       turnId = `fake-turn-${Date.now()}`
       log({ event: 'opening', text: frame.params.input[0].text })
       reply({ turn: { id: turnId } })
+      if (mode === 'command-item') {
+        send({ method: 'item/started', params: { threadId, turnId, item: { type: 'commandExecution', id: 'c1', command: 'ls' } } })
+      }
       await work(() => deliveries.next())
       send({ method: 'turn/completed', params: { turn: { id: turnId, status: 'completed' } } })
     }

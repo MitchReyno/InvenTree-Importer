@@ -30,21 +30,29 @@ export class SessionResumeUnavailable extends Error {
   }
 }
 
-/** Polls for operator items while a turn runs; stops when the turn ends or the signal aborts. */
+/**
+ * Polls for operator items while a turn runs; stops when the turn ends or the signal aborts. A
+ * failure is handed to `fail` at once, which aborts the turn so the child is reaped first.
+ */
 function deliveryLoop(
   turn: SessionTurn,
   deliver: (text: string) => Promise<void>,
   signal: AbortSignal,
+  fail: (error: unknown) => void,
 ) {
   let stopped = false
   const done = (async () => {
-    while (!stopped && !signal.aborted) {
-      const text = await turn.nextDelivery()
-      if (text !== undefined && !stopped) {
-        await deliver(text)
-        continue
+    try {
+      while (!stopped && !signal.aborted) {
+        const text = await turn.nextDelivery()
+        if (text !== undefined && !stopped) {
+          await deliver(text)
+          continue
+        }
+        await new Promise((resolve) => setTimeout(resolve, DELIVERY_POLL_MS))
       }
-      await new Promise((resolve) => setTimeout(resolve, DELIVERY_POLL_MS))
+    } catch (error) {
+      fail(error)
     }
   })()
   return async () => {
@@ -103,12 +111,21 @@ export async function runClaudeSession(
   if (selection.authentication === 'api_key') {
     args.push('--bare')
   }
+  const local = new AbortController()
+  let deliveryFailure = false
+
+  const failDelivery = () => {
+    deliveryFailure = true
+    local.abort()
+  }
+
+  const turnSignal = AbortSignal.any([signal, local.signal])
   const child = new AgentChild(
     host.claudeExecutable,
     args,
     cwd,
     { ...env, [SESSION_CAPABILITY_VARIABLE]: turn.capability },
-    signal,
+    turnSignal,
   )
   const expectedTools = turn.tools.map((tool) => `mcp__${SESSION_MCP_SERVER}__${tool}`).sort()
 
@@ -145,7 +162,12 @@ export async function runClaudeSession(
         }
         initialized = true
         await turn.onStarted({ providerSessionId: sessionId, actualModel: message.model })
-        stopDelivery = deliveryLoop(turn, (text) => child.send(userMessage(text)), signal)
+        stopDelivery = deliveryLoop(
+          turn,
+          (text) => child.send(userMessage(text)),
+          turnSignal,
+          failDelivery,
+        )
       }
       if (message.type === 'assistant') {
         const content = record(message.message).content
@@ -181,6 +203,9 @@ export async function runClaudeSession(
       throw new Error('agent_result_missing')
     }
   } catch (error) {
+    if (deliveryFailure) {
+      throw new Error('agent_delivery_failed')
+    }
     // A resume the CLI cannot honour exits before init, for example with a missing transcript.
     const exitedBeforeInit = error instanceof Error && error.message === 'agent_process_failed'
     if (!initialized && turn.resume && exitedBeforeInit) {
@@ -227,12 +252,21 @@ export async function runCodexSession(
       'model_providers.bench_openai={name="Bench OpenAI",base_url="https://api.openai.com/v1",env_key="OPENAI_API_KEY",wire_api="responses",requires_openai_auth=false}',
     )
   }
+  const local = new AbortController()
+  let deliveryFailure = false
+
+  const failDelivery = () => {
+    deliveryFailure = true
+    local.abort()
+  }
+
+  const turnSignal = AbortSignal.any([signal, local.signal])
   const child = new AgentChild(
     host.codexExecutable,
     args,
     cwd,
     { ...env, [SESSION_CAPABILITY_VARIABLE]: turn.capability },
-    signal,
+    turnSignal,
   )
   let sequence = 0
   const pending = new Map<number, (message: Record<string, unknown>) => void>()
@@ -254,6 +288,9 @@ export async function runCodexSession(
     const message = record(value)
     if ('method' in message && 'id' in message) {
       throw new Error('agent_tool_refused')
+    }
+    if (message.method === 'item/started' || message.method === 'item/completed') {
+      requireAppItem(record(record(message.params).item), turn.tools)
     }
     if ('id' in message) {
       const resolve = pending.get(Number(message.id))
@@ -320,6 +357,14 @@ export async function runCodexSession(
     if (typeof threadId !== 'string' || typeof thread.model !== 'string') {
       throw new Error('agent_protocol_invalid')
     }
+    // The effective policy, as for earlier profiles: no approvals, read-only, the chosen provider.
+    if (
+      thread.approvalPolicy !== 'never' ||
+      record(thread.sandbox).type !== 'readOnly' ||
+      thread.modelProvider !== (selection.authentication === 'api_key' ? 'bench_openai' : 'openai')
+    ) {
+      throw new Error('agent_policy_refused')
+    }
     const effective = record((await request('config/read', { includeLayers: false, cwd })).config)
     const servers = Object.keys(record(effective.mcp_servers ?? {}))
     const status = await request('mcpServerStatus/list', {})
@@ -347,16 +392,18 @@ export async function runCodexSession(
     stopDelivery = deliveryLoop(
       turn,
       async (text) => {
-        void send('turn/steer', {
+        // A refused steer leaves the item for read_inbox; a failed write aborts the turn.
+        send('turn/steer', {
           threadId,
           expectedTurnId: turnId,
           input: [{ type: 'text', text, text_elements: [] }],
-        })
+        }).then(undefined, failDelivery)
       },
-      signal,
+      turnSignal,
+      failDelivery,
     )
     while (true) {
-      signal.throwIfAborted()
+      turnSignal.throwIfAborted()
       const completed = notifications.find((item) => item.method === 'turn/completed')
       if (completed) {
         const state = record(record(completed.params).turn).status
@@ -373,9 +420,36 @@ export async function runCodexSession(
         throw new Error('agent_result_missing')
       }
     }
+  } catch (error) {
+    if (deliveryFailure) {
+      throw new Error('agent_delivery_failed')
+    }
+    throw error
   } finally {
     await stopDelivery?.()
     child.endInput()
     await child.close()
+  }
+}
+
+/** Item types an app-tools session can produce; anything else, such as a command, is refused. */
+const SESSION_ITEM_TYPES = new Set([
+  'userMessage',
+  'agentMessage',
+  'reasoning',
+  'contextCompaction',
+])
+
+function requireAppItem(item: Record<string, unknown>, tools: readonly string[]) {
+  if (SESSION_ITEM_TYPES.has(String(item.type))) {
+    return
+  }
+  const appCall =
+    item.type === 'mcpToolCall' &&
+    item.server === SESSION_MCP_SERVER &&
+    typeof item.tool === 'string' &&
+    tools.includes(item.tool)
+  if (!appCall) {
+    throw new Error('agent_tool_refused')
   }
 }

@@ -261,7 +261,9 @@ for (const provider of ['claude', 'codex'] as const) {
           "UPDATE agent_session SET session_state='running',capability_sha256=$2 WHERE attempt_id=$1",
           [h.session.attempt, Buffer.alloc(32, 7)],
         )
-        assert.deepEqual(await interruptRunningSessions(h.fixture.runner.pool), [h.session.attempt])
+        assert.deepEqual(await interruptRunningSessions(h.fixture.runner.pool, h.fixture.config), [
+          h.session.attempt,
+        ])
         const current = await h.state()
         assert.equal(current.session_state, 'interrupted')
         assert.equal(current.capability_sha256, null)
@@ -387,3 +389,24 @@ test(
     }
   },
 )
+
+for (const mode of ['loose-policy', 'command-item'] as const) {
+  test(
+    `codex: a ${mode === 'loose-policy' ? 'wider effective policy' : 'command execution item'} is refused`,
+    { timeout: 60000 },
+    async () => {
+      const h = await sessionHarness('codex')
+      try {
+        assert.equal(
+          await runSessionTurn(h.deps(mode), h.session.attempt, new AbortController().signal),
+          'failed',
+        )
+        const current = await h.state()
+        assert.equal(current.session_state, 'failed')
+        assert.equal(current.capability_sha256, null)
+      } finally {
+        await h.dispose()
+      }
+    },
+  )
+}

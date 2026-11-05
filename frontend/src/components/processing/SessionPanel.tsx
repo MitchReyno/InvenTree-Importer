@@ -36,6 +36,7 @@ export function SessionPanel({ batchId, job, client, startFresh }: Props) {
       )}
       <SessionTimeline timeline={timeline.data} />
       <SessionChat
+        storeKey={`${batchId}:${job.id}`}
         state={timeline.data.session_state}
         send={async (text, key) => {
           await client.chat(batchId, job.id, { idempotency_key: key, text }, key)

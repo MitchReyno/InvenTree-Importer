@@ -67,7 +67,7 @@ async function main() {
       shutdown.abort()
     })
     // This process now owns the actor, so no other worker can be running these turns.
-    await interruptRunningSessions(db.pool)
+    await interruptRunningSessions(db.pool, config)
     const store = process.env.INTAKE_BLOB_ROOT
       ? await BlobStore.initialize(
           process.env.INTAKE_BLOB_ROOT,

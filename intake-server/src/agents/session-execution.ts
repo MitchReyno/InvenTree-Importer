@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, sql } from 'drizzle-orm'
+import { and, asc, eq, gt, inArray, notInArray, sql } from 'drizzle-orm'
 import type { DBOSClient } from '@dbos-inc/dbos-sdk'
 import type { Pool } from 'pg'
 import { validate, type ProcessingCommandV5Dto } from '@invimport/contracts'
@@ -11,7 +11,12 @@ import { fail } from '../processing/model.ts'
 import { processingAttempts } from '../processing/schema.ts'
 import { sessionCommandQueue, sessionHandlerVersion } from '../processing/session-policy.ts'
 import { agentSessionCursors, agentSessionInbox, agentSessions } from './schema.ts'
-import { queueSessionResume, runSessionTurn, type SessionRunnerDeps } from './session-runner.ts'
+import {
+  queueSessionResume,
+  runSessionTurn,
+  settleCancelledQueuedSessions,
+  type SessionRunnerDeps,
+} from './session-runner.ts'
 
 export const SESSION_RESUME_WORKFLOW = 'sessionResume'
 
@@ -66,7 +71,7 @@ export async function executeSessionCommand(
 }
 
 const LIVE_WORKFLOW = new Set(['PENDING', 'ENQUEUED'])
-const MAX_WAKE_GENERATIONS = 50
+const WAKE_BUCKET_MS = 60_000
 
 async function liveWorkflow(scheduler: DBOSClient, workflowID: string) {
   const status = await scheduler.getWorkflow(workflowID)
@@ -113,6 +118,7 @@ export async function wakePendingSessions(
       )
       .limit(20),
   )
+  await settleCancelledQueuedSessions(pool, config)
   for (const { lineageId } of waiting) {
     if (lineageId) {
       await transaction(pool, (client) => queueSessionResume(client, lineageId))
@@ -129,8 +135,15 @@ export async function wakePendingSessions(
       .from(agentSessions)
       .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
       .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
-      .where(and(scope, eq(agentSessions.sessionState, 'queued')))
-      .orderBy(desc(agentSessions.queuedAt))
+      .where(
+        and(
+          scope,
+          eq(agentSessions.sessionState, 'queued'),
+          notInArray(processingAttempts.state, ['cancelled', 'superseded']),
+        ),
+      )
+      // Oldest first, the same order slot claims use, so workflows do not wait on newer ones.
+      .orderBy(asc(agentSessions.queuedSince), asc(agentSessions.attemptId))
       .limit(50),
   )
   let woken = 0
@@ -139,33 +152,38 @@ export async function wakePendingSessions(
     if (session.turnCount === 0n && (await liveWorkflow(scheduler, session.workflowId)) !== false) {
       continue
     }
-    for (let generation = 0; generation < MAX_WAKE_GENERATIONS; generation += 1) {
-      const workflowID = `resume:${session.attemptId}:${session.turnCount}:${generation}`
-      const live = await liveWorkflow(scheduler, workflowID)
-      if (live) {
-        break
-      }
-      if (live === false) {
-        continue
-      }
-      try {
-        await scheduler.enqueue(
-          {
-            workflowID,
-            workflowName: SESSION_RESUME_WORKFLOW,
-            queueName: sessionCommandQueue,
-            appVersion: sessionHandlerVersion,
-          },
-          session.attemptId,
-        )
-      } catch (error) {
-        if ((await liveWorkflow(scheduler, workflowID)) === undefined) {
-          throw error
-        }
-      }
-      woken += 1
-      break
+    // One wake per minute at most: a queued workflow waits at most 30 seconds for a slot, so a
+    // live one is always in this bucket or the previous one.
+    const bucket = Math.floor(Date.now() / WAKE_BUCKET_MS)
+
+    const id = (at: number) => `resume:${session.attemptId}:${session.turnCount}:${at}`
+
+    if (
+      (await liveWorkflow(scheduler, id(bucket))) ||
+      (await liveWorkflow(scheduler, id(bucket - 1)))
+    ) {
+      continue
     }
+    if ((await liveWorkflow(scheduler, id(bucket))) === false) {
+      continue
+    }
+    const workflowID = id(bucket)
+    try {
+      await scheduler.enqueue(
+        {
+          workflowID,
+          workflowName: SESSION_RESUME_WORKFLOW,
+          queueName: sessionCommandQueue,
+          appVersion: sessionHandlerVersion,
+        },
+        session.attemptId,
+      )
+    } catch (error) {
+      if ((await liveWorkflow(scheduler, workflowID)) === undefined) {
+        throw error
+      }
+    }
+    woken += 1
   }
   return woken
 }

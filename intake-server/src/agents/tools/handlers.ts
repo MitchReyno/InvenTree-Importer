@@ -23,7 +23,7 @@ import {
   processingProposals,
   processingQuestions,
 } from '../../processing/schema.ts'
-import { decodeMediaInputs } from '../../media/inputs.ts'
+import { decodeMediaInputs, type MediaInputVersion } from '../../media/inputs.ts'
 import { mediaContent } from '../../media/content.ts'
 import type { BlobStore } from '../../media/blob-store.ts'
 import { sha256 } from '../../db/authority.ts'
@@ -403,61 +403,95 @@ export function sessionTools(context: SessionToolContext) {
         return ok(client, principal, { id })
       }),
 
-    fetch_evidence: (token: string, args: unknown) =>
-      withSession(context, token, { capture: false }, async (client, principal) => {
-        const request = validated<{
-          evidence_id: string
-          version_id?: string
-          region?: unknown
-          page?: number
-        }>('SessionFetchEvidenceArgs', args)
-        if (request.region !== undefined || request.page !== undefined) {
-          refuse('validation_failed', 'Pages and region crops are not available to this session.')
-        }
-        const media = decodeMediaInputs(
-          Buffer.from(principal.manifest.media.manifest, 'utf8'),
-          Buffer.from(principal.manifest.media.sha256, 'hex'),
-        )
-        const version = media.versions.find(
-          (item) =>
-            item.evidenceId === request.evidence_id &&
-            (request.version_id === undefined || item.versionId === request.version_id),
-        )
-        if (!version) {
-          refuse('source_not_delivered', 'That evidence was not delivered to this session.')
-        }
-        // The budget belongs to this provider run and is reserved before any await.
-        const run = capabilityDigest(token).toString('hex')
-        const used = context.imageBudget.get(run) ?? 0
-        const size = Number(version!.byteSize)
-        const fits = size <= SESSION_IMAGE_BUDGET_BYTES - used
-        if (!context.store || !SUPPORTED_IMAGES.has(version!.mediaType) || !fits) {
-          return ok(client, principal, { id: version!.versionId })
-        }
-        context.imageBudget.set(run, used + size)
-        let bytes: Buffer
-        try {
-          bytes = await mediaContent(context.pool, context.config, context.store).original(
-            principal.batchId,
-            version!.versionId,
+    fetch_evidence: async (token: string, args: unknown): Promise<SessionToolOutput> => {
+      const run = capabilityDigest(token).toString('hex')
+      let reserved: { version: MediaInputVersion; jobId: string; batchId: string } | undefined
+      // Authorize and reserve under the session locks; the bytes are read after the transaction,
+      // so a fetch never holds one pooled connection while waiting for another.
+      const authorized = await withSession(
+        context,
+        token,
+        { capture: false },
+        async (client, principal) => {
+          const request = validated<{
+            evidence_id: string
+            version_id?: string
+            region?: unknown
+            page?: number
+          }>('SessionFetchEvidenceArgs', args)
+          if (request.region !== undefined || request.page !== undefined) {
+            refuse('validation_failed', 'Pages and region crops are not available to this session.')
+          }
+          const media = decodeMediaInputs(
+            Buffer.from(principal.manifest.media.manifest, 'utf8'),
+            Buffer.from(principal.manifest.media.sha256, 'hex'),
           )
-        } catch (error) {
-          context.imageBudget.set(run, (context.imageBudget.get(run) ?? size) - size)
-          throw error
-        }
-        if (
-          bytes.length.toString() !== version!.byteSize ||
-          sha256(bytes).toString('hex') !== version!.digest
-        ) {
-          throw new Error('agent_media_invalid')
-        }
-        const fetched = context.deliveredMedia.get(principal.jobId) ?? new Set<string>()
-        fetched.add(version!.versionId)
-        context.deliveredMedia.set(principal.jobId, fetched)
+          const version = media.versions.find(
+            (item) =>
+              item.evidenceId === request.evidence_id &&
+              (request.version_id === undefined || item.versionId === request.version_id),
+          )
+          if (!version) {
+            refuse('source_not_delivered', 'That evidence was not delivered to this session.')
+          }
+          // The budget belongs to this provider run and is reserved before any await.
+          const used = context.imageBudget.get(run) ?? 0
+          const size = Number(version!.byteSize)
+          if (
+            context.store &&
+            SUPPORTED_IMAGES.has(version!.mediaType) &&
+            size <= SESSION_IMAGE_BUDGET_BYTES - used
+          ) {
+            context.imageBudget.set(run, used + size)
+            reserved = { version: version!, jobId: principal.jobId, batchId: principal.batchId }
+          }
+          return ok(client, principal, { id: version!.versionId })
+        },
+      )
+      if (!reserved || !authorized.result.ok) {
+        return authorized
+      }
+      const { version, jobId, batchId } = reserved
+
+      const refund = () =>
+        context.imageBudget.set(run, (context.imageBudget.get(run) ?? 0) - Number(version.byteSize))
+
+      let bytes: Buffer
+      try {
+        bytes = await mediaContent(context.pool, context.config, context.store!).original(
+          batchId,
+          version.versionId,
+        )
+      } catch (error) {
+        refund()
+        throw error
+      }
+      if (
+        bytes.length.toString() !== version.byteSize ||
+        sha256(bytes).toString('hex') !== version.digest
+      ) {
+        refund()
+        throw new Error('agent_media_invalid')
+      }
+      // The session may have ended while the bytes were read; only a live one receives them.
+      if (!(await resolveSessionCapability(context.pool, token))) {
+        refund()
         return {
-          result: await ok(client, principal, { id: version!.versionId }),
-          images: [{ mediaType: version!.mediaType, base64: bytes.toString('base64') }],
+          result: {
+            ok: false,
+            error: 'capability_refused',
+            message: 'This session capability is not valid.',
+            pending_inbox: 0,
+          },
         }
-      }),
+      }
+      const fetched = context.deliveredMedia.get(jobId) ?? new Set<string>()
+      fetched.add(version.versionId)
+      context.deliveredMedia.set(jobId, fetched)
+      return {
+        result: authorized.result,
+        images: [{ mediaType: version.mediaType, base64: bytes.toString('base64') }],
+      }
+    },
   }
 }

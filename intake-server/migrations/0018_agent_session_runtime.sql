@@ -42,6 +42,8 @@ ALTER TABLE agent_session
   ADD COLUMN capability_sha256 bytea CHECK (octet_length(capability_sha256)=32),
   -- Each claimed turn increments this, so a wake for the next turn has its own workflow ID.
   ADD COLUMN turn_count bigint NOT NULL DEFAULT 0 CHECK (turn_count>=0),
+  -- When the session last became queued; slot claims and wake-ups go oldest first by it.
+  ADD COLUMN queued_since timestamptz(3) NOT NULL DEFAULT now(),
   ADD CONSTRAINT agent_session_lineage_state_check CHECK ((session_state IS NULL) = (session_lineage_id IS NULL));
 CREATE OR REPLACE FUNCTION guard_agent_session() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN

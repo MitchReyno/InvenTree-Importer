@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, isNull, lt, or, sql } from 'drizzle-orm'
+import { and, asc, eq, isNotNull, isNull, lt, notInArray, or, sql } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { commands } from '../db/schema.ts'
@@ -79,7 +79,7 @@ export async function claimSessionSlot(
   }
   const mine = await executeDatabaseQuery(
     db
-      .select({ queuedAt: agentSessions.queuedAt })
+      .select({ queuedAt: agentSessions.queuedSince })
       .from(agentSessions)
       .where(eq(agentSessions.attemptId, attemptId)),
   )
@@ -96,10 +96,12 @@ export async function claimSessionSlot(
         and(
           eq(commands.actorId, config.actorId),
           eq(agentSessions.sessionState, 'queued'),
+          // A cancelled attempt never runs, so it holds no place in the queue.
+          notInArray(processingAttempts.state, ['cancelled', 'superseded']),
           isNull(agentSlots.slotIndex),
           or(
-            lt(agentSessions.queuedAt, queuedAt),
-            and(eq(agentSessions.queuedAt, queuedAt), lt(agentSessions.attemptId, attemptId)),
+            lt(agentSessions.queuedSince, queuedAt),
+            and(eq(agentSessions.queuedSince, queuedAt), lt(agentSessions.attemptId, attemptId)),
           ),
         ),
       ),

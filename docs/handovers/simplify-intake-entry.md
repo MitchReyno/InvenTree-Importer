@@ -326,6 +326,22 @@ Results after the fixes: contracts 72, intake server 181 and frontend 320 passed
 
 Regression tests: `tests/pg/session-schema.test.ts` (forged or anonymous inbox entries, unbound answers), `tests/pg/session-tools.test.ts` (cancelled attempt, other-scope chat, duplicate reply, undelivered nested and proposal citations, the header slot holder, the wake sweep with a recording scheduler), `tests/process/sessions.test.ts` (cancelling a running session for both CLIs, a cancelled queued session, a customized Codex home), and the chat composer tests.
 
+## PR-A review round 2
+
+Codex (`gpt-6.1-sol`, read-only) reviewed `8f4a81c..62f4d0c`: 7 findings (6 important, 1 minor), all confirmed. It found no issues in the earlier-profile paths, migration `0018` and grants, the answer and settings forms, or round 1 fixes 2–4 and 7–14 beyond these. Fixes:
+
+1. **Resume order could stall the queue, and slot waits were unbounded.** `agent_session.queued_since` is set whenever a session becomes queued; slot claims and the wake sweep both go oldest first by it. A workflow waits at most 30 seconds for a slot, then gives its DBOS worker back and the sweep starts another. Wake workflow IDs are `resume:<attempt>:<turn>:<minute bucket>`; the sweep skips a session whose current or previous bucket workflow is still live.
+2. **A session cancelled before dispatch blocked the queue.** The sweep settles queued sessions whose attempt is cancelled or superseded, and slot ranking ignores them.
+3. **Image fetches could exhaust the pool.** `fetch_evidence` authorizes and reserves the budget under the session locks, reads the bytes after that transaction ends, and checks the capability again before returning them; failures refund the reservation.
+4. **Recovery interrupted other accounts' sessions.** `interruptRunningSessions` takes the worker's binding and touches only its sessions.
+5. **Delivery failures could become unhandled rejections.** The delivery loop hands any failure to the adapter, which aborts the turn through a local signal so the child is reaped first, then reports `agent_delivery_failed` (settled `interrupted`). A failed `turn/steer` write does the same.
+6. **The Codex boundary checked only MCP tools.** The adapter again checks the effective policy (`approvalPolicy` never, read-only sandbox, the selected provider), and refuses any item other than user and agent messages, reasoning, context compaction and `mcpToolCall` to `intake` with a session tool.
+7. **Navigating away lost an unconfirmed chat send.** Unconfirmed sends are kept per batch and job outside the composer for as long as the page is open.
+
+Results after the fixes: contracts 72, intake server 181 and frontend 321 passed; `pnpm db:intake test` 187 passed; `pnpm db:intake test:process` 64 tests, 60 passed, with only the pre-existing media failure and its 3 skips; typecheck, lint, Prettier and build pass.
+
+Regression tests: the wake sweep with a recording scheduler (oldest first, cancelled-before-dispatch settled, live workflows left alone), Codex refusal of a wider policy and of a command item, and the composer keeping an unconfirmed send across unmount.
+
 ## Validation
 
 - `pnpm spikes:check`: 35 passed (the existing shared-contract suite; the new spike adds no test there).
