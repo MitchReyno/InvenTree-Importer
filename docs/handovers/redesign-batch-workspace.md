@@ -47,3 +47,11 @@ One bar in the handoff's order, with an overflow menu (Radix popover) holding Ag
 ## PR-A results
 
 Recorded as each task completes.
+
+### Task 1
+
+- **1.1 tokens:** the generator test failed to load before `generate-tokens.cjs` existed, and its committed-files case failed until the files were generated; then 6/6. `--check` runs first in frontend `lint`.
+- **1.2 contrast:** 5/5 after the module existed (RED: import missing). The real token set has no failing pair; the lowest are light `part-outline` on `masthead-ground` 3.13:1 (non-text, 3:1) and light `ok` on `ok-weak` 4.8:1. A darkened dark `muted` fails naming `dark: muted on surface`. Runs in `lint` and `build`.
+- **1.3 theme:** 9/9 after `theme.ts` existed (RED: import missing): OS default, explicit choice persisted, OS changes followed only under System, throwing and missing storage, unknown stored value, subscriber and disposal, the hook, and the `index.html` pre-paint script evaluated with each stored value and scheme. The no-flash browser reload is part of the PR-A browser qualification.
+- **1.4 fonts:** `@fontsource-variable/public-sans` and `@fontsource/ibm-plex-mono` 5.3.0, exact pins, added with pnpm 12.16.1. The production build emits the `woff2` files under `dist/assets`. Headless Chrome against `vite preview` with a throwaway probe page: Public Sans Variable loaded with its 100–900 axis and IBM Plex Mono 500 loaded, both from the local server; a 40px probe measured 341.5px at 400, 349.9px at 650 and 354.9px at 750, so both design weights render. Full frontend suite 330/330.
+- `frontend/CODE_GUIDELINES.md` still asks migrations to preserve the current palette. This change replaces the palette under Mitch's approved plan, so that sentence is left as Mitch's text and not edited here.
