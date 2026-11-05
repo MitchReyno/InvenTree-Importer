@@ -131,3 +131,56 @@ test('the Review table names the location source next to the value', async () =>
   expect(screen.getByText(/Bag X · From evidence group$/)).toBeTruthy()
   expect(screen.getByText(/· Groups disagree$/)).toBeTruthy()
 })
+
+test('an unset batch default with a new-location draft names the draft, never an inventory record', async () => {
+  const { supplierDraftName, contextDescription } = await import('../capture/context')
+  const draftId = id(700)
+  const companyId = id(701)
+  const drafted = {
+    ...batch,
+    defaults: { ...batch.defaults, location: { mode: 'unset' } },
+    settings_intent: {
+      value: {
+        supplier: { absent: false, selection: { mode: 'draft', draft_id: companyId } },
+        order: { reference: { mode: 'auto' }, purchase_date: { mode: 'auto' } },
+        shared_tags: { manual: [], auto: false },
+      },
+      default_location_draft: draftId,
+      version: '1',
+      actor_id: id(2),
+      created_at: '2026-11-05T00:00:00Z',
+    },
+    reference_drafts: [
+      {
+        draft_id: draftId,
+        kind: 'location',
+        value: { name: 'Reel shelf', description: '', parent: null },
+        version: '1',
+        actor_id: id(2),
+        created_at: '2026-11-05T00:00:00Z',
+      },
+      {
+        draft_id: companyId,
+        kind: 'company',
+        value: { name: 'Acme Reels', description: '', also_manufacturer: false, logo: null },
+        version: '1',
+        actor_id: id(2),
+        created_at: '2026-11-05T00:00:00Z',
+      },
+    ],
+    context: [],
+  } as unknown as CaptureSnapshotDto
+  expect(lotLocationFact(drafted, drafted.lots[3], media)).toEqual({
+    value: 'New location Reel shelf · created only after approval',
+    provenance: 'inherited',
+  })
+  expect(supplierDraftName(drafted)).toBe('Acme Reels')
+  expect(contextDescription(drafted, null, 'supplier')).toBe(
+    'New supplier Acme Reels · created only after approval',
+  )
+  // An explicit batch default wins, so the draft does not apply.
+  expect(
+    lotLocationFact({ ...drafted, defaults: batch.defaults } as never, drafted.lots[1], undefined)
+      .value,
+  ).not.toContain('Reel shelf')
+})

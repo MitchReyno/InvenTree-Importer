@@ -290,3 +290,60 @@ test('fixed binding probe uses one harmless bounded GET, refuses redirects and n
     },
   ])
 })
+
+test('record creates need the /2 capability on an owned loopback target and never reach others', async () => {
+  const observed: string[] = []
+  const endpoint = createServer((req, res) => {
+    observed.push(`${req.method} ${req.url}`)
+    res.writeHead(201).end('{"pk":"12001"}')
+  })
+  await new Promise<void>((resolve) => endpoint.listen(0, '127.0.0.1', resolve))
+  const address = endpoint.address()
+  assert(address && typeof address !== 'string')
+  const binding = { targetId: 'owned-fixture', contextId: 'owned-context' }
+  const owned = {
+    ...binding,
+    kind: 'owned-disposable' as const,
+    origin: `http://127.0.0.1:${address.port}`,
+    protectedOrigins: ['https://protected.invalid'],
+    credential: 'fake-only',
+  }
+  const multipart = 'multipart/form-data; boundary=bench-0a1b'
+  try {
+    const legacy = inventoryTransport({ ...owned, effectsCapability: 'owned-fake-effects/1' })
+    await assert.rejects(
+      legacy.sendSupported(binding, 'create_location', '{}'),
+      /effects_capability_refused/,
+    )
+    await assert.rejects(
+      legacy.sendSupported(binding, 'create_company', '{}'),
+      /effects_capability_refused/,
+    )
+    await assert.rejects(
+      legacy.sendCompanyWithImage(binding, Buffer.from('x'), multipart),
+      /company_image_send_refused/,
+    )
+    for (const profile of [
+      { ...owned, kind: 'protected-read-only' as const },
+      { ...owned, origin: 'http://inventory.example:8000' },
+      { ...owned, protectedOrigins: [owned.origin] },
+    ]) {
+      const refused = inventoryTransport({ ...profile, effectsCapability: 'owned-fake-effects/2' })
+      await assert.rejects(
+        refused.sendSupported(binding, 'create_location', '{}'),
+        /mutation_target_refused/,
+      )
+      await assert.rejects(
+        refused.sendCompanyWithImage(binding, Buffer.from('x'), multipart),
+        /mutation_target_refused/,
+      )
+    }
+    assert.deepEqual(observed, [], 'no refused record create reaches any endpoint')
+    const records = inventoryTransport({ ...owned, effectsCapability: 'owned-fake-effects/2' })
+    await (await records.sendSupported(binding, 'create_location', '{"name":"Shelf"}')).text()
+    await (await records.readSupported(binding, 'create_company', '12001')).text()
+    assert.deepEqual(observed, ['POST /api/stock/location/', 'GET /api/company/12001/'])
+  } finally {
+    await new Promise<void>((resolve) => endpoint.close(() => resolve()))
+  }
+})

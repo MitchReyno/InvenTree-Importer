@@ -5,7 +5,7 @@ import {
   type PartTransfer,
 } from './part-attachment-plan.ts'
 import { approvedTagNamesValid } from '../inventory/tags.ts'
-import { SUPPORTED_EFFECTS_MANIFEST } from './effects-capability.ts'
+import { effectsManifestDigestFor } from './effects-capability.ts'
 import { createHash } from 'node:crypto'
 import { Quantity, validate, type InventoryPartSpecDto } from '@invimport/contracts'
 import { canonical, strictJson } from '@invimport/contracts/json'
@@ -15,8 +15,71 @@ import { validateEvidence, type MediaPlanEvidence, type AttachmentOperation } fr
 
 export const EFFECTS_BUILD = 'bench-effects/1'
 export const EFFECTS_CAPABILITY = 'owned-fake-effects/1'
+export const RECORD_EFFECTS_BUILD = 'bench-effects/2'
+export const RECORD_EFFECTS_CAPABILITY = 'owned-fake-effects/2'
+export type EffectsVersion = 'bench-effects-plan/1' | 'bench-effects-plan/2'
+export type EffectsBuild = typeof EFFECTS_BUILD | typeof RECORD_EFFECTS_BUILD
+export type EffectsCapability = typeof EFFECTS_CAPABILITY | typeof RECORD_EFFECTS_CAPABILITY
 export type EffectKind =
-  'create_part' | 'parameter' | 'manufacturer' | 'supplier' | 'part_attachment'
+  | 'create_part'
+  | 'parameter'
+  | 'manufacturer'
+  | 'supplier'
+  | 'part_attachment'
+  | 'create_location'
+  | 'create_company'
+
+/** Each plan version keeps its own build and capability; a deployment and its runner run one. */
+export const EFFECTS_VERSIONS = {
+  'bench-effects-plan/1': { build: EFFECTS_BUILD, capability: EFFECTS_CAPABILITY },
+  'bench-effects-plan/2': { build: RECORD_EFFECTS_BUILD, capability: RECORD_EFFECTS_CAPABILITY },
+} as const
+
+export function isEffectsVersion(version: unknown): version is EffectsVersion {
+  return version === 'bench-effects-plan/1' || version === 'bench-effects-plan/2'
+}
+
+/** Part, media and Part-attachment support exist under either effects capability. */
+export function effectsCapable(capability: string | undefined) {
+  return capability === EFFECTS_CAPABILITY || capability === RECORD_EFFECTS_CAPABILITY
+}
+
+export function isEffectsPlan<T extends { version: string }>(
+  plan: T,
+): plan is Extract<T, { version: EffectsVersion }> {
+  return isEffectsVersion(plan.version)
+}
+
+export interface RecordPrior {
+  runId: string
+  intentId: string
+  pk: string
+}
+/** A new location's parent is an existing observed location, never another draft. */
+export interface LocationSpec {
+  name: string
+  description: string
+  parent: string | null
+}
+export interface LocationBinding {
+  draftId: string
+  spec: LocationSpec
+  specDigest: string
+  prior: RecordPrior | null
+}
+/** A new supplier; an optional logo is sent as the company image in the same create request. */
+export interface CompanySpec {
+  name: string
+  description: string
+  isManufacturer: boolean
+  logo: MediaPlanEvidence | null
+}
+export interface CompanyBinding {
+  draftId: string
+  spec: CompanySpec
+  specDigest: string
+  prior: RecordPrior | null
+}
 export interface PartBinding {
   subjectId: string
   spec: InventoryPartSpecDto
@@ -36,6 +99,8 @@ export interface EffectsStockOperation {
   part: string | null
   partOperationKey: string | null
   location: string | null
+  /** `/2` only: a new location created earlier in this run. */
+  locationOperationKey?: string | null
   quantity: string
   barcode: string
 }
@@ -43,9 +108,9 @@ export interface EffectsPlan extends Omit<
   StockPlan,
   'version' | 'build' | 'capability' | 'operations'
 > {
-  version: 'bench-effects-plan/1'
-  build: typeof EFFECTS_BUILD
-  capability: typeof EFFECTS_CAPABILITY
+  version: EffectsVersion
+  build: EffectsBuild
+  capability: EffectsCapability
   mediaConfigured: boolean
   manifestDigest: string
   parts: PartBinding[]
@@ -55,6 +120,10 @@ export interface EffectsPlan extends Omit<
   evidence: MediaPlanEvidence[]
   attachments: AttachmentOperation[]
   mediaInputsDigest: string
+  /** `/2` only. */
+  locations?: LocationBinding[]
+  /** `/2` only. */
+  companies?: CompanyBinding[]
 }
 
 export function logicalEffectKey(subjectId: string, kind: string, discriminator = '') {
@@ -66,6 +135,55 @@ export function logicalEffectKey(subjectId: string, kind: string, discriminator 
 
 export function partSpecDigest(spec: InventoryPartSpecDto) {
   return sha256(canonical(spec)).toString('hex')
+}
+
+export function recordSpecDigest(spec: LocationSpec | CompanySpec) {
+  return sha256(canonical(spec)).toString('hex')
+}
+
+export function locationCreateKey(draftId: string) {
+  return logicalEffectKey(draftId, 'create_location')
+}
+
+export function companyCreateKey(draftId: string) {
+  return logicalEffectKey(draftId, 'create_company')
+}
+
+/** Record creates have no dependencies and run before any Part or stock step that consumes them. */
+export function recordEffects(
+  locations: readonly LocationBinding[],
+  companies: readonly CompanyBinding[],
+): EffectOperation[] {
+  return [
+    ...locations
+      .filter((binding) => !binding.prior)
+      .map((binding) => ({
+        operationKey: locationCreateKey(binding.draftId),
+        partSubjectId: binding.draftId,
+        kind: 'create_location' as const,
+        dependencies: [],
+        input: {
+          name: binding.spec.name,
+          description: binding.spec.description,
+          parent: binding.spec.parent ?? '',
+        },
+      })),
+    ...companies
+      .filter((binding) => !binding.prior)
+      .map((binding) => ({
+        operationKey: companyCreateKey(binding.draftId),
+        partSubjectId: binding.draftId,
+        kind: 'create_company' as const,
+        dependencies: [],
+        input: {
+          name: binding.spec.name,
+          description: binding.spec.description,
+          is_supplier: 'true',
+          is_manufacturer: String(binding.spec.isManufacturer),
+          image: binding.spec.logo?.versionId ?? '',
+        },
+      })),
+  ]
 }
 
 export function partEffects(binding: PartBinding): EffectOperation[] {
@@ -144,7 +262,14 @@ export const MAX_PLAN_BYTES = 262144
 export function decodeEffectsPlan(bytes: Buffer, digest: Buffer): EffectsPlan {
   verifyBytes(bytes, digest)
   const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-  const value = record(strictJson(text), [
+  const parsed = strictJson(text)
+  const version = (parsed as Record<string, unknown> | null)?.version
+  if (!isEffectsVersion(version)) {
+    throw new Error('unsupported_effects_plan')
+  }
+  const records = version === 'bench-effects-plan/2'
+  const value = record(parsed, [
+    ...(records ? ['locations', 'companies'] : []),
     'version',
     'deploymentId',
     'targetId',
@@ -167,9 +292,8 @@ export function decodeEffectsPlan(bytes: Buffer, digest: Buffer): EffectsPlan {
   ])
   if (
     canonical(value) !== text ||
-    value.version !== 'bench-effects-plan/1' ||
-    value.build !== EFFECTS_BUILD ||
-    value.capability !== EFFECTS_CAPABILITY ||
+    value.build !== EFFECTS_VERSIONS[version].build ||
+    value.capability !== EFFECTS_VERSIONS[version].capability ||
     typeof value.continuity !== 'string' ||
     !value.continuity ||
     value.continuity.length > 256
@@ -179,7 +303,7 @@ export function decodeEffectsPlan(bytes: Buffer, digest: Buffer): EffectsPlan {
   if (typeof value.mediaConfigured !== 'boolean') {
     throw new Error('invalid_media_configuration_binding')
   }
-  if (value.manifestDigest !== sha256(canonical(SUPPORTED_EFFECTS_MANIFEST)).toString('hex')) {
+  if (value.manifestDigest !== effectsManifestDigestFor(version)) {
     throw new Error('capability_manifest_mismatch')
   }
   for (const key of [
@@ -204,7 +328,9 @@ export function decodeEffectsPlan(bytes: Buffer, digest: Buffer): EffectsPlan {
     throw new Error('invalid_effects_scope')
   }
   const subjects = new Set<string>()
-  const expectedEffects: EffectOperation[] = []
+  const locations = records ? decodeLocations(value.locations, subjects) : []
+  const companies = records ? decodeCompanies(value.companies, subjects) : []
+  const expectedEffects: EffectOperation[] = recordEffects(locations, companies)
   for (const item of value.parts) {
     const part = record(item, ['subjectId', 'spec', 'specDigest', 'prior'])
     id(part.subjectId)
@@ -231,6 +357,7 @@ export function decodeEffectsPlan(bytes: Buffer, digest: Buffer): EffectsPlan {
   const contributions = new Set<string>()
   for (const item of value.operations) {
     const operation = record(item, [
+      ...(records ? ['locationOperationKey'] : []),
       'operationKey',
       'contributionKey',
       'part',
@@ -249,6 +376,9 @@ export function decodeEffectsPlan(bytes: Buffer, digest: Buffer): EffectsPlan {
     }
     if (operation.location !== null) {
       pk(operation.location)
+    }
+    if (records) {
+      stockLocationBinding(operation, locations)
     }
     if (operation.part === null) {
       id(operation.partOperationKey)
@@ -292,6 +422,17 @@ export function decodeEffectsPlan(bytes: Buffer, digest: Buffer): EffectsPlan {
       throw new Error('unselected_part_effect')
     }
   }
+  for (const binding of locations) {
+    const consumed = value.operations.some((item: unknown) => {
+      const operation = item as EffectsStockOperation
+      return binding.prior
+        ? operation.location === binding.prior.pk
+        : operation.locationOperationKey === locationCreateKey(binding.draftId)
+    })
+    if (!consumed) {
+      throw new Error('unselected_location_effect')
+    }
+  }
   if (
     typeof value.mediaInputsDigest !== 'string' ||
     !/^[a-f0-9]{64}$/.test(value.mediaInputsDigest)
@@ -306,9 +447,11 @@ export function decodeEffectsPlan(bytes: Buffer, digest: Buffer): EffectsPlan {
   ) {
     throw new Error('invalid_effects_media')
   }
+  const logos = companies.flatMap((binding) => (binding.spec.logo ? [binding.spec.logo] : []))
   if (
     value.mediaConfigured === false &&
     (value.evidence.length > 0 ||
+      logos.length > 0 ||
       value.attachments.length > 0 ||
       (Array.isArray(value.partAttachments) && value.partAttachments.length > 0))
   ) {
@@ -331,6 +474,12 @@ export function decodeEffectsPlan(bytes: Buffer, digest: Buffer): EffectsPlan {
       original.evidenceId !== item.evidenceId
     ) {
       throw new Error('media_original_authority_missing')
+    }
+  }
+  for (const logo of logos) {
+    const retained = versions.get(logo.versionId)
+    if (!retained || canonical(retained) !== canonical(logo)) {
+      throw new Error('company_logo_evidence_missing')
     }
   }
   if (!Array.isArray(value.partAttachments) || value.partAttachments.length > 10) {
@@ -455,4 +604,97 @@ export function decodeEffectsPlan(bytes: Buffer, digest: Buffer): EffectsPlan {
     artifactKeys.add(artifactKey)
   }
   return value as unknown as EffectsPlan
+}
+
+export const MAX_PLAN_RECORDS = 4
+const RECORD_NAME = 100
+const RECORD_DESCRIPTION = 250
+
+function recordPrior(value: unknown): RecordPrior | null {
+  if (value === null) {
+    return null
+  }
+  const prior = record(value, ['runId', 'intentId', 'pk'])
+  id(prior.runId)
+  id(prior.intentId)
+  pk(prior.pk)
+  return prior as unknown as RecordPrior
+}
+
+function recordText(value: unknown, max: number, required: boolean) {
+  if (typeof value !== 'string' || value.length > max || (required && !value.trim())) {
+    throw new Error('unsupported_record_spec')
+  }
+  return value
+}
+
+function decodeLocations(value: unknown, subjects: Set<string>): LocationBinding[] {
+  if (!Array.isArray(value) || value.length > MAX_PLAN_RECORDS) {
+    throw new Error('invalid_effects_scope')
+  }
+  return value.map((item) => {
+    const binding = record(item, ['draftId', 'spec', 'specDigest', 'prior'])
+    id(binding.draftId)
+    const spec = record(binding.spec, ['name', 'description', 'parent'])
+    recordText(spec.name, RECORD_NAME, true)
+    recordText(spec.description, RECORD_DESCRIPTION, false)
+    if (spec.parent !== null) {
+      pk(spec.parent)
+    }
+    if (
+      binding.specDigest !== recordSpecDigest(spec as unknown as LocationSpec) ||
+      subjects.has(binding.draftId as string)
+    ) {
+      throw new Error('unsupported_record_spec')
+    }
+    subjects.add(binding.draftId as string)
+    return { ...(binding as unknown as LocationBinding), prior: recordPrior(binding.prior) }
+  })
+}
+
+function decodeCompanies(value: unknown, subjects: Set<string>): CompanyBinding[] {
+  if (!Array.isArray(value) || value.length > MAX_PLAN_RECORDS) {
+    throw new Error('invalid_effects_scope')
+  }
+  return value.map((item) => {
+    const binding = record(item, ['draftId', 'spec', 'specDigest', 'prior'])
+    id(binding.draftId)
+    const spec = record(binding.spec, ['name', 'description', 'isManufacturer', 'logo'])
+    recordText(spec.name, RECORD_NAME, true)
+    recordText(spec.description, RECORD_DESCRIPTION, false)
+    if (typeof spec.isManufacturer !== 'boolean') {
+      throw new Error('unsupported_record_spec')
+    }
+    if (spec.logo !== null) {
+      const logo = validateEvidence(spec.logo)
+      if (logo.mediaType !== 'image/png' && logo.mediaType !== 'image/jpeg') {
+        throw new Error('unsupported_company_logo')
+      }
+    }
+    if (
+      binding.specDigest !== recordSpecDigest(spec as unknown as CompanySpec) ||
+      subjects.has(binding.draftId as string)
+    ) {
+      throw new Error('unsupported_record_spec')
+    }
+    subjects.add(binding.draftId as string)
+    return { ...(binding as unknown as CompanyBinding), prior: recordPrior(binding.prior) }
+  })
+}
+
+/** A stock location is an observed PK or a new location from this run, never both. */
+function stockLocationBinding(operation: Record<string, unknown>, locations: LocationBinding[]) {
+  if (operation.locationOperationKey === null) {
+    return
+  }
+  id(operation.locationOperationKey)
+  const binding = locations.find(
+    (item) => !item.prior && locationCreateKey(item.draftId) === operation.locationOperationKey,
+  )
+  if (operation.location !== null) {
+    throw new Error('ambiguous_location_identity')
+  }
+  if (!binding) {
+    throw new Error('location_output_missing')
+  }
 }

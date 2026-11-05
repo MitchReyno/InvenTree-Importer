@@ -34,6 +34,9 @@ export function fieldsMatch(
     if (key === 'copy_category_parameters') {
       return true
     }
+    if (key === 'image' && expected === true) {
+      return typeof row.image === 'string' && row.image.length > 0
+    }
     const observed =
       typeof row[key] === 'number' && Number.isSafeInteger(row[key]) ? String(row[key]) : row[key]
     return observed === expected

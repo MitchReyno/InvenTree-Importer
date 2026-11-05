@@ -1,3 +1,4 @@
+import { effectsCapable } from '../execution/effects-plan.ts'
 import { canonical } from '@invimport/contracts/json'
 import { sha256 } from '../db/authority.ts'
 import { canonicalMedia } from '../media/encoding.ts'
@@ -13,7 +14,7 @@ import {
 import type { ManualMaterial } from './model.ts'
 import { stockPlan, type DeploymentBinding } from './authority.ts'
 
-function evidenceVersion(
+export function evidenceVersion(
   version: MediaInputVersion,
   versions: readonly MediaInputVersion[],
 ): MediaPlanEvidence {
@@ -38,9 +39,12 @@ function evidenceVersion(
   }
 }
 
-export function retainedEvidence(inputsBySubject: ReadonlyMap<string, MediaInputs>) {
+export function retainedEvidence(
+  inputsBySubject: ReadonlyMap<string, MediaInputs>,
+  extra: readonly MediaInputVersion[] = [],
+) {
   const allVersions = new Map<string, MediaInputVersion>()
-  for (const inputs of inputsBySubject.values()) {
+  for (const inputs of [...inputsBySubject.values(), { versions: extra }]) {
     for (const version of inputs.versions) {
       const existing = allVersions.get(version.versionId)
       if (existing && canonicalMedia(existing) !== canonicalMedia(version)) {
@@ -97,7 +101,7 @@ export function preparedPlan(
   originalSourceKey: string,
   material: ManualMaterial,
 ): ExecutablePlan {
-  if (binding.capability === 'owned-fake-effects/1') {
+  if (effectsCapable(binding.capability)) {
     throw new Error('effects_preparation_requires_retained_bindings')
   }
   if (binding.capability === CAPABILITY) {

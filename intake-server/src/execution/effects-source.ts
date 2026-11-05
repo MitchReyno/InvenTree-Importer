@@ -4,10 +4,10 @@ import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { targets } from '../db/schema.ts'
 import { executorDeployments } from './schema.ts'
 import type { StockDeployment } from './source.ts'
-import { EFFECTS_BUILD, EFFECTS_CAPABILITY } from './effects-plan.ts'
+import { EFFECTS_VERSIONS, type EffectsBuild, type EffectsCapability } from './effects-plan.ts'
 export interface EffectsDeployment extends Omit<StockDeployment, 'build' | 'capability'> {
-  build: typeof EFFECTS_BUILD
-  capability: typeof EFFECTS_CAPABILITY
+  build: EffectsBuild
+  capability: EffectsCapability
 }
 
 export async function effectsDeployment(
@@ -45,8 +45,9 @@ export async function effectsDeployment(
     row.origin !== input.origin ||
     row.current_context_id !== input.contextId ||
     row.profile !== 'owned-disposable' ||
-    row.build !== EFFECTS_BUILD ||
-    row.capability !== EFFECTS_CAPABILITY
+    !Object.values(EFFECTS_VERSIONS).some(
+      (version) => version.build === row.build && version.capability === row.capability,
+    )
   ) {
     return null
   }
@@ -56,8 +57,8 @@ export async function effectsDeployment(
     targetId: row.target_id,
     contextId: row.context_id,
     continuity: row.continuity,
-    build: EFFECTS_BUILD,
-    capability: EFFECTS_CAPABILITY,
+    build: row.build as EffectsBuild,
+    capability: row.capability as EffectsCapability,
     targetRevision: row.revision.toString(),
   }
 }

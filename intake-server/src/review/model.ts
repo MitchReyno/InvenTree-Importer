@@ -1,6 +1,6 @@
 import { captureContextRecords } from '../capture/context-input.ts'
 import { validatePartSpec, PartSpecError } from '../capture/part-spec.ts'
-import { logicalEffectKey } from '../execution/effects-plan.ts'
+import { locationCreateKey, logicalEffectKey } from '../execution/effects-plan.ts'
 import type { InventoryPartSpecDto } from '@invimport/contracts'
 import type { CaptureSnapshotDto, ManualEffectDto, ManualIssueDto } from '@invimport/contracts'
 import {
@@ -10,7 +10,7 @@ import {
 } from '@invimport/contracts'
 import { canonical } from '@invimport/contracts/json'
 import { sha256 } from '../db/authority.ts'
-import type { MediaInputs } from '../media/inputs.ts'
+import type { MediaInputs, MediaInputVersion } from '../media/inputs.ts'
 import { contributionBarcode } from '../execution/plan.ts'
 import {
   EMPTY_REVIEW_CONTEXT,
@@ -38,9 +38,26 @@ export interface ReviewWarning {
   disposition: IssueDispositionRecord | null
 }
 
+/** A reviewed new-location draft: the parent is an existing observed location PK or null. */
+export interface MaterialLocation {
+  draftId: string
+  spec: { name: string; description: string; parent: string | null }
+}
+/** A reviewed new-supplier draft; the logo is resolved to retained media at preparation. */
+export interface MaterialCompany {
+  draftId: string
+  spec: { name: string; description: string; isManufacturer: boolean }
+  logo: { evidence_id: string; version_id: string } | null
+  /** The ready logo version, then its original when it is a crop; set only with media. */
+  logoVersions?: MediaInputVersion[]
+}
+
 export interface ManualMaterial {
   selected: string[]
   parts: { subjectId: string; spec: InventoryPartSpecDto }[]
+  /** Absent for legacy material; present only when a draft is reviewed for creation. */
+  locations?: MaterialLocation[]
+  companies?: MaterialCompany[]
   partDestinations: Map<string, string | null>
   effects: ManualEffectDto[]
   subjects: SubjectDependency[]
@@ -160,6 +177,68 @@ function currentDisposition(
 
 const unresolvedLocation = { mode: 'unknown' } as const
 
+/**
+ * The Default-location draft applies only where the batch default is still unset. A parent must
+ * match a retained location observation in this context, or the draft needs correcting.
+ */
+function defaultLocationDraft(
+  snapshot: CaptureSnapshotDto,
+): { location: MaterialLocation; label: string; parentValid: boolean } | null {
+  const draftId = snapshot.settings_intent?.default_location_draft
+  const draft = snapshot.reference_drafts?.find(
+    (record) => record.draft_id === draftId && record.kind === 'location',
+  )
+  if (!draft || draft.kind !== 'location' || snapshot.defaults.location.mode !== 'unset') {
+    return null
+  }
+  const parent = draft.value.parent
+  const observed = parent
+    ? snapshot.observations.find((item) => item.id === parent.observation_id)
+    : null
+  const parentValid =
+    !parent ||
+    (observed?.model === 'location' &&
+      observed.pk === parent.pk &&
+      observed.target_context_id === snapshot.target_context_id &&
+      parent.target_context_id === snapshot.target_context_id)
+  return {
+    location: {
+      draftId: draft.draft_id,
+      spec: {
+        name: draft.value.name,
+        description: draft.value.description,
+        parent: parent?.pk ?? null,
+      },
+    },
+    label: `${draft.value.name} (new location)`,
+    parentValid,
+  }
+}
+
+/** A new-supplier draft is created once per run when the batch supplier selects it. */
+function supplierDraft(snapshot: CaptureSnapshotDto): MaterialCompany | null {
+  const supplier = snapshot.settings_intent?.value.supplier
+  if (!supplier || supplier.absent || supplier.selection.mode !== 'draft') {
+    return null
+  }
+  const draftId = supplier.selection.draft_id
+  const draft = snapshot.reference_drafts?.find(
+    (record) => record.draft_id === draftId && record.kind === 'company',
+  )
+  if (!draft || draft.kind !== 'company') {
+    return null
+  }
+  return {
+    draftId,
+    spec: {
+      name: draft.value.name,
+      description: draft.value.description,
+      isManufacturer: draft.value.also_manufacturer,
+    },
+    logo: draft.value.logo,
+  }
+}
+
 function locationSourceFact(resolution: LotLocationResolution) {
   if (resolution.status === 'resolved' && resolution.source === 'part') {
     return { locationSource: { scope: 'part' } }
@@ -182,6 +261,9 @@ export function materialize(
   lotGroups: LotLocationGroups | null = null,
 ): ManualMaterial {
   const selected = [...selectedIds].sort()
+  const locationDraft = defaultLocationDraft(snapshot)
+  const supplier = supplierDraft(snapshot)
+  const usedLocationDrafts = new Map<string, MaterialLocation>()
   const issues: ManualIssueDto[] = []
   const effects: ManualEffectDto[] = []
   const newParts = new Map<string, InventoryPartSpecDto>()
@@ -264,6 +346,20 @@ export function materialize(
     const quantity = lot.quantity.mode === 'inherit' ? snapshot.defaults.quantity : lot.quantity
     const resolution = resolveLotLocation(snapshot, lot, lotGroups)
     const location = resolution.status === 'resolved' ? resolution.location : unresolvedLocation
+    const draftLocation =
+      resolution.status === 'resolved' && resolution.source === 'batch' && location.mode === 'unset'
+        ? locationDraft
+        : null
+    const placed = location.mode === 'set' || location.mode === 'clear' || draftLocation !== null
+    if (draftLocation && !draftLocation.parentValid) {
+      issues.push(
+        issue(
+          'location_draft_parent_invalid',
+          "The new location's parent no longer matches a retained location. Choose its parent again.",
+          lotId,
+        ),
+      )
+    }
     if (!part || (part.choice.mode !== 'set' && part.choice.mode !== 'create')) {
       issues.push(
         issue(
@@ -294,7 +390,7 @@ export function materialize(
           lotId,
         ),
       )
-    } else if (location.mode !== 'set' && location.mode !== 'clear') {
+    } else if (!placed) {
       issues.push(
         issue(
           'location_required',
@@ -344,6 +440,10 @@ export function materialize(
       lot,
       effectiveQuantity: quantity,
       effectiveLocation: location,
+      // Only a lot that uses a new-location draft records it, so other fact bytes are unchanged.
+      ...(draftLocation ? { locationDraft: draftLocation.location } : {}),
+      // A selected supplier draft is created for every lot's run, so its content binds review.
+      ...(supplier ? { supplierDraft: supplier } : {}),
       // Lot and batch sources keep the original fact bytes; other sources are recorded.
       ...locationSourceFact(resolution),
       partDigest: part ? subjects.get(part.id)!.digest.toString('hex') : null,
@@ -382,7 +482,25 @@ export function materialize(
         )
       }
       newParts.set(part.id, part.choice.spec)
-      if (quantity.mode === 'set' && (location.mode === 'set' || location.mode === 'clear')) {
+      if (quantity.mode === 'set' && draftLocation?.parentValid) {
+        usedLocationDrafts.set(draftLocation.location.draftId, draftLocation.location)
+        effects.push({
+          lot_id: lotId,
+          lot_label: lot.label,
+          part_id: null,
+          part_operation_key: logicalEffectKey(part.id, 'create_part'),
+          part_label: part.choice.spec.name,
+          quantity: quantity.value,
+          location_id: null,
+          location_label: draftLocation.label,
+          location_operation_key: locationCreateKey(draftLocation.location.draftId),
+          contribution_key: lot.contribution_key,
+          barcode: contributionBarcode(snapshot.source_id, lot.contribution_key),
+        })
+      } else if (
+        quantity.mode === 'set' &&
+        (location.mode === 'set' || location.mode === 'clear')
+      ) {
         const ref = location.mode === 'set' ? location.value : null
         const observed = ref
           ? snapshot.observations.find((item) => item.id === ref.observation_id)
@@ -417,7 +535,42 @@ export function materialize(
         }
       }
     }
-    if (
+    if (part?.choice.mode === 'set' && quantity.mode === 'set' && draftLocation?.parentValid) {
+      const partRef = part.choice.value
+      const partObservation = snapshot.observations.find(
+        (value) => value.id === partRef.observation_id,
+      )
+      if (
+        !partObservation ||
+        partObservation.model !== 'part' ||
+        partObservation.pk !== partRef.pk ||
+        partObservation.target_context_id !== snapshot.target_context_id ||
+        partRef.target_context_id !== snapshot.target_context_id ||
+        partRef.model !== 'part'
+      ) {
+        issues.push(
+          issue(
+            'observation_binding_invalid',
+            'An existing-record choice no longer matches retained target evidence.',
+            lotId,
+          ),
+        )
+        continue
+      }
+      usedLocationDrafts.set(draftLocation.location.draftId, draftLocation.location)
+      effects.push({
+        lot_id: lotId,
+        lot_label: lot.label,
+        part_id: partRef.pk,
+        part_label: partObservation.label,
+        quantity: quantity.value,
+        location_id: null,
+        location_label: draftLocation.label,
+        location_operation_key: locationCreateKey(draftLocation.location.draftId),
+        contribution_key: lot.contribution_key,
+        barcode: contributionBarcode(snapshot.source_id, lot.contribution_key),
+      })
+    } else if (
       part?.choice.mode === 'set' &&
       quantity.mode === 'set' &&
       (location.mode === 'set' || location.mode === 'clear')
@@ -470,9 +623,18 @@ export function materialize(
   const retainedSubjects = [...subjects.values()].sort((a, b) =>
     a.subjectId.localeCompare(b.subjectId),
   )
+  const locations = [...usedLocationDrafts.values()]
+  const company = effects.length ? supplier : null
+  const companies = company ? [company] : []
+  // Record drafts are bound only when present, so legacy selection bytes are unchanged.
+  const records = locations.length || companies.length ? { locations, companies } : null
   const bytes = Buffer.from(
     canonical({
-      version: mediaDigests.size ? 'manual-selection/2' : 'manual-selection/1',
+      version: records
+        ? 'manual-selection/3'
+        : mediaDigests.size
+          ? 'manual-selection/2'
+          : 'manual-selection/1',
       batchId: snapshot.id,
       sourceId: snapshot.source_id,
       selected,
@@ -481,12 +643,14 @@ export function materialize(
         digest: value.digest.toString('hex'),
       })),
       effects,
+      ...(records ? { records } : {}),
     }),
   )
   return {
     selected,
     partDestinations,
     parts: [...newParts.entries()].map(([subjectId, spec]) => ({ subjectId, spec })),
+    ...(records ?? {}),
     effects,
     subjects: retainedSubjects,
     issues,

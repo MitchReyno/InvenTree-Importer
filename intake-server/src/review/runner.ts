@@ -1,3 +1,4 @@
+import { isEffectsPlan } from '../execution/effects-plan.ts'
 import type { Pool } from 'pg'
 import { publishManualRun } from './events.ts'
 import type { DBOSClient } from '@dbos-inc/dbos-sdk'
@@ -142,7 +143,7 @@ export async function executeManualDispatch(
     const verificationOnly =
       (authority.plan.version !== 'bench-stock-plan/1' &&
         (await attachmentVerificationOnly(client, row.run_id, recoveryIds))) ||
-      (authority.plan.version === 'bench-effects-plan/1' &&
+      (isEffectsPlan(authority.plan) &&
         (await supportedVerificationOnly(client, row.run_id, recoveryIds)))
     if (
       row.state !== 'queued' ||

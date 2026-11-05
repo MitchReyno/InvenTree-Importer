@@ -1,4 +1,4 @@
-import { decodeEffectsPlan, type EffectsPlan } from './effects-plan.ts'
+import { decodeEffectsPlan, isEffectsVersion, type EffectsPlan } from './effects-plan.ts'
 import { Digest } from '@invimport/contracts'
 import { canonical, strictJson } from '@invimport/contracts/json'
 import { sha256, verifyBytes } from '../db/authority.ts'
@@ -138,7 +138,7 @@ export function decodeExecutablePlan(bytes: Buffer, expectedDigest: Buffer): Exe
     parsed &&
     typeof parsed === 'object' &&
     !Array.isArray(parsed) &&
-    (parsed as Record<string, unknown>).version === 'bench-effects-plan/1'
+    isEffectsVersion((parsed as Record<string, unknown>).version)
   ) {
     return decodeEffectsPlan(bytes, expectedDigest)
   }

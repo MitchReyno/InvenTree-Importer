@@ -1,5 +1,6 @@
 import { executorGuards, executorAttachmentRecoveries } from './schema.ts'
 import { and, eq, inArray } from 'drizzle-orm'
+import type { Pool } from 'pg'
 import { canonical } from '@invimport/contracts/json'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { inventoryTransport } from '../inventory/transport.ts'
@@ -8,6 +9,8 @@ import { applyAttachments } from './attachment-apply.ts'
 import { attachmentRecoveryColumns } from './attachment-recovery.ts'
 import { lockRun, snapshot } from './authority.ts'
 import { supportedCreateBody } from './effects-body.ts'
+import { reusedRecordsUsable } from './effects-index.ts'
+import { companyMultipart } from './company-wire.ts'
 import { fieldsMatch } from './effects-evidence.ts'
 import {
   recordSupportedAssessment,
@@ -94,6 +97,10 @@ export async function applySupportedEffects(
     if (current.certainty === 'unknown' || states.some((state) => state.certainty === 'unknown')) {
       break
     }
+    // New stock waits while its new location or any reused record has failed an inspection.
+    if (!('kind' in step) && !(await stockWritable(deps.pool, plan, step, states))) {
+      continue
+    }
     const complete = await cataloguePreconditionsComplete(
       deps,
       context,
@@ -104,6 +111,39 @@ export async function applySupportedEffects(
     )
     if (!complete) {
       break
+    }
+    const logo =
+      'kind' in step && step.kind === 'create_company'
+        ? plan.companies!.find((item) => item.draftId === step.partSubjectId)!.spec.logo
+        : null
+    if (logo) {
+      if (!deps.mediaStore) {
+        throw new Error('media_storage_unavailable')
+      }
+      const { image: _image, ...fields } = body as Record<string, string | boolean>
+      const multipart = companyMultipart(
+        step.operationKey,
+        fields,
+        logo,
+        await deps.mediaStore.read(logo.blobDigest),
+      )
+      await performSupportedRequest(
+        deps,
+        context,
+        step,
+        'create',
+        {
+          kind,
+          body,
+          versionId: logo.versionId,
+          blobDigest: logo.blobDigest,
+          multipartDigest: multipart.digest,
+          contentType: multipart.contentType,
+        },
+        () => transport.sendCompanyWithImage(plan, multipart.body, multipart.contentType),
+        recovery,
+      )
+      continue
     }
     await performSupportedRequest(
       deps,
@@ -202,4 +242,19 @@ async function inspectKnownEffect(
     outcome,
     remotePk,
   )
+}
+
+async function stockWritable(
+  pool: Pool,
+  plan: EffectsPlan,
+  step: { locationOperationKey?: string | null },
+  states: SupportedState[],
+) {
+  const location = step.locationOperationKey
+    ? states.find((state) => state.operationKey === step.locationOperationKey)
+    : null
+  if (location?.verification === 'missing_or_changed' || location?.verification === 'unavailable') {
+    return false
+  }
+  return reusedRecordsUsable(pool, plan)
 }

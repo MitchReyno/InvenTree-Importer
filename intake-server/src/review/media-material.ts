@@ -6,7 +6,8 @@ import { lotLocationGroups, type CaptureSnapshotDto } from '@invimport/contracts
 import { CaptureError } from '../capture/repository.ts'
 import { lockMediaRevision } from '../media/commands.ts'
 import { mediaSnapshot } from '../media/read.ts'
-import { scopeMediaInputs, type MediaInputs } from '../media/inputs.ts'
+import { scopeMediaInputs, type MediaInputs, type MediaInputVersion } from '../media/inputs.ts'
+import type { MediaSnapshotDto } from '@invimport/contracts'
 import { materialize, issue, type ManualMaterial } from './model.ts'
 import { loadReviewContext } from '../capture/review-context.ts'
 import type { ManualConfig } from './authority.ts'
@@ -40,9 +41,12 @@ async function unavailableMedia(
   return material
 }
 
-function requireBoundedClosure(inputsBySubject: ReadonlyMap<string, MediaInputs>) {
+export function requireBoundedClosure(
+  inputsBySubject: ReadonlyMap<string, MediaInputs>,
+  extra: readonly MediaInputVersion[] = [],
+) {
   const unique = new Map<string, string>()
-  for (const inputs of inputsBySubject.values()) {
+  for (const inputs of [...inputsBySubject.values(), { versions: extra }]) {
     for (const version of inputs.versions) {
       unique.set(version.versionId, version.byteSize)
     }
@@ -65,6 +69,9 @@ export async function materializeWithMedia(
   const context = await loadReviewContext(client, snapshot.id)
   const base = materialize(snapshot, selectedIds, new Map(), context)
   if (!config.mediaEnabled) {
+    if (base.companies?.some((company) => company.logo)) {
+      base.issues.push(logoUnavailable())
+    }
     return unavailableMedia(client, config, snapshot, base)
   }
   if (lock) {
@@ -114,5 +121,66 @@ export async function materializeWithMedia(
   )
   material.mediaConfigured = true
   material.mediaInputs = inputsBySubject
+  for (const company of material.companies ?? []) {
+    if (company.logo) {
+      const versions = logoVersions(media, company.logo)
+      if (versions) {
+        company.logoVersions = versions
+      } else {
+        material.issues.push(logoUnavailable())
+      }
+    }
+  }
+  // The approved closure includes a new supplier logo and its original.
+  const logos = (material.companies ?? []).flatMap((company) => company.logoVersions ?? [])
+  if (logos.length && !requireBoundedClosure(inputsBySubject, logos)) {
+    material.issues.push(
+      issue(
+        'media_scope_limit',
+        'Choose a smaller scope: one preparation supports at most 64 media versions and 256 MiB of exact retained bytes.',
+      ),
+    )
+  }
   return material
+}
+
+function logoUnavailable() {
+  return issue(
+    'company_logo_unavailable',
+    'The new supplier logo is not a ready retained PNG or JPEG in this batch. Choose another logo or remove it.',
+  )
+}
+
+/** A logo must be a ready same-batch PNG/JPEG; a crop also carries its original's authority. */
+function logoVersions(
+  media: MediaSnapshotDto,
+  logo: { evidence_id: string; version_id: string },
+): MediaInputVersion[] | null {
+  const evidence = media.evidence.find((item) => item.id === logo.evidence_id)
+  const chosen = evidence?.versions.find((version) => version.id === logo.version_id)
+  if (
+    !evidence ||
+    !chosen ||
+    chosen.state !== 'ready' ||
+    (chosen.media_type !== 'image/png' && chosen.media_type !== 'image/jpeg')
+  ) {
+    return null
+  }
+  const originalId = chosen.recipe?.source_version_id ?? chosen.id
+  const original = evidence.versions.find((version) => version.id === originalId)
+  if (!original || original.kind !== 'original' || original.state !== 'ready') {
+    return null
+  }
+
+  const input = (version: typeof chosen): MediaInputVersion => ({
+    versionId: version.id,
+    evidenceId: evidence.id,
+    kind: version.kind,
+    digest: version.digest,
+    byteSize: version.byte_size,
+    mediaType: version.media_type,
+    recipe: version.recipe,
+  })
+
+  return chosen.id === original.id ? [input(chosen)] : [input(chosen), input(original)]
 }

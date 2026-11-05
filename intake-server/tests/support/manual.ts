@@ -1,5 +1,13 @@
 import { registerLive } from '../../src/live/routes.ts'
-import { EFFECTS_BUILD, EFFECTS_CAPABILITY } from '../../src/execution/effects-plan.ts'
+import { registerProcessing } from '../../src/processing/routes.ts'
+import { grantProcessing } from '../../src/processing/grants.ts'
+import { lockCaptureForEdit } from '../../src/capture/repository.ts'
+import {
+  EFFECTS_BUILD,
+  EFFECTS_CAPABILITY,
+  RECORD_EFFECTS_BUILD,
+  RECORD_EFFECTS_CAPABILITY,
+} from '../../src/execution/effects-plan.ts'
 import { readMediaStoreIdentity } from '../../src/media/store-identity.ts'
 import { realpath } from 'node:fs/promises'
 import { BlobStore } from '../../src/media/blob-store.ts'
@@ -34,20 +42,35 @@ import type { ManualRunnerConfig } from '../../src/review/runner.ts'
 
 /** Only fresh synthetic roles/credentials and random isolated databases on the shared owned PG. */
 export async function manualFixture(
-  options: { media?: boolean; effects?: boolean; retainedRoot?: string } = {},
+  options: {
+    media?: boolean
+    effects?: boolean
+    records?: boolean
+    /** Also serves synthetic Processing on the same disposable database, for connected journeys. */
+    processing?: boolean
+    retainedRoot?: string
+  } = {},
 ) {
+  // Record creation is a separate `/2` deployment; it includes every `/1` effect.
+  const effectsCapability = options.records
+    ? RECORD_EFFECTS_CAPABILITY
+    : options.effects
+      ? EFFECTS_CAPABILITY
+      : undefined
   const db = await isolatedDatabase(options.retainedRoot ? { retainedDev: true } : {})
   const identity = await seedAuthority(db.pool)
   const root = options.retainedRoot
     ? await realpath(options.retainedRoot)
     : await realpath(await mkdtemp(join(tmpdir(), 'bench-manual-')))
-  const build = options.effects
-    ? EFFECTS_BUILD
-    : options.media
-      ? MEDIA_EXECUTOR_BUILD
-      : EXECUTOR_BUILD
-  const capability = options.effects
-    ? EFFECTS_CAPABILITY
+  const build = options.records
+    ? RECORD_EFFECTS_BUILD
+    : options.effects
+      ? EFFECTS_BUILD
+      : options.media
+        ? MEDIA_EXECUTOR_BUILD
+        : EXECUTOR_BUILD
+  const capability = effectsCapability
+    ? effectsCapability
     : options.media
       ? MEDIA_CAPABILITY
       : CAPABILITY
@@ -57,7 +80,7 @@ export async function manualFixture(
     : undefined
   const roles: string[] = []
   const connections: ReturnType<typeof database>[] = []
-  let fake = await inventoryFake(db.pool, 0, true, options.media, options.effects)
+  let fake = await inventoryFake(db.pool, 0, true, options.media, Boolean(effectsCapability))
   const deploymentId = randomUUID()
   const epoch = randomUUID()
   await db.pool.query('INSERT INTO executor_deployment VALUES($1,$2,$3,$4,$5,$6,$7,$8)', [
@@ -87,7 +110,7 @@ export async function manualFixture(
       capability,
     }),
   )
-  async function role(purpose: 'api' | 'runner' | 'apply' | 'scheduler') {
+  async function role(purpose: 'api' | 'runner' | 'apply' | 'scheduler' | 'processing') {
     const name = `intake_${randomUUID().replaceAll('-', '')}`
     const password = randomUUID()
     roles.push(name)
@@ -101,8 +124,13 @@ export async function manualFixture(
       if (options.media) {
         await grantMedia(db.pool, name, 'api')
       }
+      if (options.processing) {
+        await grantProcessing(db.pool, name, 'api')
+      }
     }
-    if (purpose === 'scheduler') {
+    if (purpose === 'processing') {
+      await grantProcessing(db.pool, name, 'runner')
+    } else if (purpose === 'scheduler') {
       await db.pool.query(`GRANT CREATE ON DATABASE ${db.name} TO ${name}`)
     } else {
       await grantManual(db.pool, name, purpose)
@@ -118,6 +146,7 @@ export async function manualFixture(
   const runner = await role('runner')
   const apply = await role('apply')
   const scheduler = await role('scheduler')
+  const processingRunner = options.processing ? await role('processing') : undefined
   const profile: TargetProfile = {
     kind: 'owned-disposable' as const,
     targetId: identity.target,
@@ -126,7 +155,7 @@ export async function manualFixture(
     protectedOrigins: ['https://protected.invalid'],
     credential: 'owned-fake-token',
     ...(options.media ? { attachmentCapability: MEDIA_CAPABILITY } : {}),
-    ...(options.effects ? { effectsCapability: EFFECTS_CAPABILITY } : {}),
+    ...(effectsCapability ? { effectsCapability } : {}),
   }
   const runnerConfig: ManualRunnerConfig = {
     runnerDatabaseUrl: runner.url,
@@ -149,6 +178,7 @@ export async function manualFixture(
     deploymentId,
     readOrigin: fake.origin,
     ...(options.media ? { mediaEnabled: true } : {}),
+    ...(options.processing ? { channelSecret: `synthetic-channel-${randomUUID()}` } : {}),
   }
   const transport = inventoryTransport({ ...profile, kind: 'protected-read-only' })
   const read = captureRead((operation) =>
@@ -174,6 +204,9 @@ export async function manualFixture(
     })
     if (store) {
       registerMediaRoutes(app, api.pool, config, store)
+    }
+    if (options.processing) {
+      registerProcessing(app, api.pool, config as never, lockCaptureForEdit)
     }
     config.origin = await app.listen({ host: '127.0.0.1', port: 0 })
     await authenticate()
@@ -212,6 +245,7 @@ export async function manualFixture(
     scheduler,
     runnerConfig,
     runnerConfigPath,
+    processingRunner,
     http,
     start,
     stop,
@@ -222,7 +256,7 @@ export async function manualFixture(
     async restartFake() {
       const port = fake.port
       await fake.close()
-      fake = await inventoryFake(db.pool, port, true, options.media, options.effects)
+      fake = await inventoryFake(db.pool, port, true, options.media, Boolean(effectsCapability))
     },
     async seedCapture() {
       const created = await http('/batches', {

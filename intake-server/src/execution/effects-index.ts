@@ -8,13 +8,21 @@ import {
   executorRuns,
   executorApprovals,
   partIdentities,
+  recordIdentities,
   supportedAssessments,
   supportedEffects,
   supportedIntents,
   supportedOperations,
 } from './schema.ts'
 import { supportedStates } from './effects-state.ts'
-import { decodeEffectsPlan, logicalEffectKey, type EffectsPlan } from './effects-plan.ts'
+import {
+  companyCreateKey,
+  decodeEffectsPlan,
+  locationCreateKey,
+  logicalEffectKey,
+  type EffectsPlan,
+  type RecordPrior,
+} from './effects-plan.ts'
 
 export function indexedSupportedOperations(plan: EffectsPlan) {
   return [
@@ -49,6 +57,23 @@ export async function retainSupportedIndex(client: PoolClient, runId: string, pl
     )
   }
   await retainPartTransfers(client, runId, plan)
+  for (const binding of recordBindings(plan)) {
+    if (binding.prior) {
+      await requirePriorRecord(client, plan, binding.draftId, binding.specDigest, binding.prior)
+      continue
+    }
+    await executeDatabaseQuery(
+      db.insert(recordIdentities).values({
+        targetId: plan.targetId,
+        originalKey: plan.originalSourceKey,
+        draftId: binding.draftId,
+        kind: binding.kind,
+        runId,
+        operationKey: binding.key,
+        specDigest: Buffer.from(binding.specDigest, 'hex'),
+      }),
+    )
+  }
   for (const binding of plan.parts) {
     if (!binding.prior) {
       await executeDatabaseQuery(
@@ -192,6 +217,7 @@ export async function requireSupportedIndex(
     }
   }
   await requirePartTransfers(client, runId, plan)
+  await requireRecordIdentities(client, runId, plan)
   for (const binding of plan.parts) {
     if (binding.prior) {
       await requirePriorPart(client, plan, binding.subjectId, binding.specDigest, binding.prior)
@@ -223,4 +249,150 @@ export async function requireSupportedIndex(
       }
     }
   }
+}
+
+/** A reused record must be the exact confirmed output of the original run's create. */
+export async function requirePriorRecord(
+  client: Pool | PoolClient,
+  plan: EffectsPlan,
+  draftId: string,
+  specDigest: string,
+  prior: RecordPrior,
+) {
+  const operationKey = await requirePriorRecordIdentity(client, plan, draftId, specDigest, prior)
+  // Journal-derived state: an explicit positive inspection confirms an uncertain create.
+  const states = await supportedStates(client, prior.runId, await priorPlan(client, prior.runId))
+  const state = states.find((item) => item.operationKey === operationKey)
+  if (
+    state?.certainty !== 'confirmed' ||
+    state.createIntentId !== prior.intentId ||
+    state.remotePks.length !== 1 ||
+    state.remotePks[0] !== prior.pk ||
+    state.verification === 'missing_or_changed' ||
+    state.verification === 'unavailable'
+  ) {
+    throw new Error('prior_record_unconfirmed')
+  }
+}
+
+/** Every reused record is still its original run's usable confirmed output. */
+export async function reusedRecordsUsable(client: Pool | PoolClient, plan: EffectsPlan) {
+  for (const binding of recordBindings(plan)) {
+    if (!binding.prior) {
+      continue
+    }
+    try {
+      await requirePriorRecord(client, plan, binding.draftId, binding.specDigest, binding.prior)
+    } catch {
+      return false
+    }
+  }
+  return true
+}
+
+/** The immutable part of a reuse binding: the original run's identity row and spec digest. */
+async function requirePriorRecordIdentity(
+  client: Pool | PoolClient,
+  plan: EffectsPlan,
+  draftId: string,
+  specDigest: string,
+  prior: RecordPrior,
+) {
+  const rows = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({
+        specDigest: recordIdentities.specDigest,
+        operationKey: recordIdentities.operationKey,
+      })
+      .from(recordIdentities)
+      .where(
+        and(
+          eq(recordIdentities.targetId, plan.targetId),
+          eq(recordIdentities.originalKey, plan.originalSourceKey),
+          eq(recordIdentities.draftId, draftId),
+          eq(recordIdentities.runId, prior.runId),
+        ),
+      ),
+  )
+  const row = rows[0]
+  if (!row || row.specDigest.toString('hex') !== specDigest) {
+    throw new Error('prior_record_binding_invalid')
+  }
+  return row.operationKey
+}
+
+function recordBindings(plan: EffectsPlan) {
+  return [
+    ...(plan.locations ?? []).map((binding) => ({
+      ...binding,
+      kind: 'location' as const,
+      key: locationCreateKey(binding.draftId),
+    })),
+    ...(plan.companies ?? []).map((binding) => ({
+      ...binding,
+      kind: 'company' as const,
+      key: companyCreateKey(binding.draftId),
+    })),
+  ]
+}
+
+/** Every record binding keeps its identity row; a reuse still names its original create. */
+async function requireRecordIdentities(
+  client: Pool | PoolClient,
+  runId: string,
+  plan: EffectsPlan,
+) {
+  for (const binding of recordBindings(plan)) {
+    if (binding.prior) {
+      await requirePriorRecordIdentity(
+        client,
+        plan,
+        binding.draftId,
+        binding.specDigest,
+        binding.prior,
+      )
+      continue
+    }
+    const rows = await executeDatabaseQuery(
+      queryDatabase(client)
+        .select({
+          runId: recordIdentities.runId,
+          kind: recordIdentities.kind,
+          operationKey: recordIdentities.operationKey,
+          specDigest: recordIdentities.specDigest,
+        })
+        .from(recordIdentities)
+        .where(
+          and(
+            eq(recordIdentities.targetId, plan.targetId),
+            eq(recordIdentities.originalKey, plan.originalSourceKey),
+            eq(recordIdentities.draftId, binding.draftId),
+          ),
+        ),
+    )
+    const row = rows[0]
+    if (
+      !row ||
+      row.runId !== runId ||
+      row.kind !== binding.kind ||
+      row.operationKey !== binding.key ||
+      row.specDigest.toString('hex') !== binding.specDigest
+    ) {
+      throw new Error('record_identity_missing')
+    }
+  }
+}
+
+async function priorPlan(client: Pool | PoolClient, runId: string) {
+  const approved = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ bytes: executorApprovals.planBytes, digest: executorApprovals.planDigest })
+      .from(executorRuns)
+      .innerJoin(executorApprovals, eq(executorApprovals.id, executorRuns.approvalId))
+      .where(eq(executorRuns.id, runId)),
+  )
+  if (!approved[0]) {
+    throw new Error('prior_record_authority_missing')
+  }
+  return decodeEffectsPlan(approved[0].bytes, approved[0].digest)
 }

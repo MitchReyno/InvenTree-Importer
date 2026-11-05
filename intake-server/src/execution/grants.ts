@@ -46,6 +46,15 @@ export async function grantExecutor(
       )
     }
   }
+  const records = await pool.query(
+    "SELECT to_regclass('public.executor_record_identity') AS relation",
+  )
+  if (records.rows[0].relation) {
+    await pool.query(`GRANT SELECT ON executor_record_identity TO ${role}`)
+    if (purpose === 'approval') {
+      await pool.query(`GRANT INSERT ON executor_record_identity TO ${role}`)
+    }
+  }
   if (purpose === 'delivery') {
     await pool.query(`GRANT UPDATE(delivery_attempts,acked_at,conflict_code) ON outbox TO ${role}`)
     return

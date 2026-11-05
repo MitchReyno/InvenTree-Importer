@@ -1,3 +1,5 @@
+import { effectsCapable, RECORD_EFFECTS_CAPABILITY } from '../execution/effects-plan.ts'
+import { isEffectsPlan } from '../execution/effects-plan.ts'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import { mediaEvidence } from '../media/schema.ts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
@@ -22,7 +24,7 @@ import {
   type ManualAttachmentRead,
 } from './part-attachments.ts'
 import type { PartTransfer } from '../execution/part-attachment-plan.ts'
-import { knownPartBindings, supportedPlan } from './effects-plan.ts'
+import { knownPartBindings, knownRecordBindings, supportedPlan } from './effects-plan.ts'
 import { partSpecReferences } from '../capture/part-spec.ts'
 import type { InventoryModelDto, InventoryMappingDto } from '@invimport/contracts'
 import {
@@ -36,6 +38,7 @@ import { randomUUID } from 'node:crypto'
 import type { Pool, PoolClient } from 'pg'
 import {
   validate,
+  type ManualEffectDto,
   type ManualScopeDto,
   type ManualIssueDto,
   type ManualPreviewDto,
@@ -59,6 +62,7 @@ import {
   currentReviews,
   requireReviews,
   type ManualConfig,
+  isEffectsBinding,
   type DeploymentBinding,
   type ReviewBinding,
 } from './authority.ts'
@@ -81,7 +85,7 @@ function normalized(input: ManualScopeDto) {
 /** Report an oversized selection as a typed issue before the plan decoder refuses it. */
 export function planCapacityIssue(plan: ExecutablePlan) {
   const effectsExceeded =
-    plan.version === 'bench-effects-plan/1' &&
+    isEffectsPlan(plan) &&
     (plan.parts.length > MAX_PLAN_PARTS ||
       plan.effects.length > MAX_PLAN_EFFECTS ||
       plan.operations.length > MAX_PLAN_OPERATIONS)
@@ -127,7 +131,18 @@ async function checkedSelection(
       ),
     )
   }
-  if (material.parts.length && binding?.capability !== 'owned-fake-effects/1') {
+  if (
+    (material.locations?.length || material.companies?.length) &&
+    binding?.capability !== RECORD_EFFECTS_CAPABILITY
+  ) {
+    issues.push(
+      issue(
+        'record_creation_unavailable',
+        'Creating a new location or supplier is not available for this target. Choose an existing record, or keep the draft for later.',
+      ),
+    )
+  }
+  if (material.parts.length && !effectsCapable(binding?.capability)) {
     issues.push(
       issue(
         'unsupported_part_creation',
@@ -138,7 +153,7 @@ async function checkedSelection(
   if (
     material.mediaInputs?.size &&
     binding?.capability !== 'owned-fake-media/1' &&
-    binding?.capability !== 'owned-fake-effects/1'
+    !effectsCapable(binding?.capability)
   ) {
     issues.push(
       issue(
@@ -150,7 +165,7 @@ async function checkedSelection(
   const partAttachmentSelected = [...(material.mediaInputs?.values() ?? [])].some((inputs) =>
     inputs.attachments.some((selection) => selection.destination === 'part_attachment'),
   )
-  if (partAttachmentSelected && binding?.capability !== 'owned-fake-effects/1') {
+  if (partAttachmentSelected && !effectsCapable(binding?.capability)) {
     issues.push(
       issue(
         'unsupported_part_attachment',
@@ -268,6 +283,20 @@ async function observePreparation(
         model: 'location',
         pk: effect.location_id,
         label: effect.location_label,
+      })
+    }
+  }
+  // A new location's parent must still exist on the bound target before approval.
+  for (const location of context.material.locations ?? []) {
+    const parent = location.spec.parent
+    if (parent) {
+      const observation = context.capture.snapshot.observations.find(
+        (item) => item.model === 'location' && item.pk === parent,
+      )
+      requests.set(`location:${parent}`, {
+        model: 'location',
+        pk: parent,
+        label: observation?.label ?? location.spec.name,
       })
     }
   }
@@ -417,14 +446,12 @@ export async function prepareSelection(
         const commandId = randomUUID()
         const reviewBytes = Buffer.from(canonical(reviews))
         const binding = selected.binding!
-        const parts =
-          binding.capability === 'owned-fake-effects/1'
-            ? await knownPartBindings(client, selected.capture.source, selected.material)
-            : []
-        const partTransfers =
-          binding.capability === 'owned-fake-effects/1'
-            ? await selectedPartTransfers(client, selected.capture.source, selected.material, parts)
-            : []
+        const parts = effectsCapable(binding.capability)
+          ? await knownPartBindings(client, selected.capture.source, selected.material)
+          : []
+        const partTransfers = effectsCapable(binding.capability)
+          ? await selectedPartTransfers(client, selected.capture.source, selected.material, parts)
+          : []
         await executeDatabaseQuery(
           queryDatabase(client)
             .insert(manualPrepareCommands)
@@ -527,17 +554,17 @@ export async function prepareSelection(
     let plan: ExecutablePlan | null = null
     if (!issues.length) {
       requireReviews(material, reviews)
-      plan =
-        binding?.capability === 'owned-fake-effects/1'
-          ? supportedPlan(
-              binding,
-              capture.sourceId,
-              capture.originalSourceKey,
-              material,
-              retained.parts,
-              retained.partTransfers,
-            )
-          : preparedPlan(binding!, capture.sourceId, capture.originalSourceKey, material)
+      plan = isEffectsBinding(binding)
+        ? supportedPlan(
+            binding,
+            capture.sourceId,
+            capture.originalSourceKey,
+            material,
+            retained.parts,
+            retained.partTransfers,
+            await knownRecordBindings(client, capture.source, material),
+          )
+        : preparedPlan(binding!, capture.sourceId, capture.originalSourceKey, material)
       const capacity = planCapacityIssue(plan)
       if (capacity) {
         issues.push(capacity)
@@ -581,20 +608,25 @@ export async function prepareSelection(
         review_fingerprint: sha256(retained.reviewBytes).toString('hex'),
         target_revision: binding!.targetRevision,
         capability: plan.capability,
-        effects:
-          plan.version === 'bench-effects-plan/1'
-            ? material.effects.map((effect) => {
-                const operation = plan.operations.find(
-                  (operation) => operation.operationKey === effect.lot_id,
-                )!
-                if (operation.part !== null && effect.part_id === null) {
-                  const { part_operation_key, ...fields } = effect
-                  return { ...fields, part_id: operation.part }
-                }
-                return effect
-              })
-            : material.effects,
-        ...(plan.version === 'bench-effects-plan/1'
+        effects: isEffectsPlan(plan)
+          ? material.effects.map((effect) => {
+              const operation = plan.operations.find(
+                (operation) => operation.operationKey === effect.lot_id,
+              )!
+              // A reused Part or new-location output is shown as the exact PK the plan binds.
+              let shown: ManualEffectDto = effect
+              if (operation.part !== null && shown.part_id === null) {
+                const { part_operation_key: _key, ...fields } = shown
+                shown = { ...fields, part_id: operation.part }
+              }
+              if (operation.location !== null && shown.location_operation_key) {
+                const { location_operation_key: _location, ...fields } = shown
+                shown = { ...fields, location_id: operation.location } as ManualEffectDto
+              }
+              return shown
+            })
+          : material.effects,
+        ...(isEffectsPlan(plan)
           ? {
               supported_effects: supportedEffectsPreview(plan),
               part_attachments: partAttachmentsPreview(plan, material.effects),
@@ -764,7 +796,7 @@ export async function approvePreparation(
         }
         requireReviews(material, reviews)
         const currentPlan = encodeExecutablePlan(
-          binding.capability === 'owned-fake-effects/1'
+          isEffectsBinding(binding)
             ? supportedPlan(
                 binding,
                 capture.sourceId,
@@ -777,6 +809,7 @@ export async function approvePreparation(
                   material,
                   await knownPartBindings(client, capture.source, material),
                 ),
+                await knownRecordBindings(client, capture.source, material),
               )
             : preparedPlan(binding, capture.sourceId, capture.originalSourceKey, material),
         )

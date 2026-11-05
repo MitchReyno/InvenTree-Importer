@@ -96,6 +96,13 @@ attachments remain historical effects and cannot be replaced. Actual InvenTree m
 profiles, providers and production access remain unqualified. See the current
 [T05 handover](../docs/handovers/bench-intake-T05.md) for observations and remaining gates.
 
+New-location and new-supplier drafts are retained intent; autosave never creates records.
+Review resolves lots that use an unset batch default to the Default-location draft, and the
+batch's supplier draft becomes one company create; both are bound in the reviewed material.
+Only an `owned-fake-effects/2` deployment prepares them (otherwise `record_creation_unavailable`),
+through the [supervised record creation](src/execution/ARCHITECTURE.md#supervised-record-creation)
+effects. Real-target creation stays unavailable.
+
 ## Operator review and unapproved restructuring
 
 T08 adds `src/operator-review/`, registered from `registerManual`. It composes the capture and review modules and reads media through the existing public media snapshot; it does not query Processing or media tables. The one schema-level dependency is `capture_instruction`'s composite foreign key to the evidence group table, which proves a group belongs to the batch without reading it. Migration `0008_operator_review.sql` adds append-only capture tables: lot lineage, lot retirement, warning dispositions and versioned batch/evidence-group instructions. Those four writes, and the review-context reads, use Drizzle on the caller-owned client. An unknown evidence group still fails as `group_not_found` from SQLSTATE `23503`.

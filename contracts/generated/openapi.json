@@ -13005,6 +13005,14 @@
           {
             "const": "part_attachment",
             "type": "string"
+          },
+          {
+            "const": "create_location",
+            "type": "string"
+          },
+          {
+            "const": "create_company",
+            "type": "string"
           }
         ]
       },
@@ -13052,6 +13060,14 @@
               },
               {
                 "const": "part_attachment",
+                "type": "string"
+              },
+              {
+                "const": "create_location",
+                "type": "string"
+              },
+              {
+                "const": "create_company",
                 "type": "string"
               }
             ]
@@ -13210,6 +13226,14 @@
               },
               {
                 "const": "part_attachment",
+                "type": "string"
+              },
+              {
+                "const": "create_location",
+                "type": "string"
+              },
+              {
+                "const": "create_company",
                 "type": "string"
               }
             ]
@@ -13415,6 +13439,10 @@
                 "maxLength": 256,
                 "type": "string"
               },
+              "location_operation_key": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
               "contribution_key": {
                 "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                 "type": "string"
@@ -13476,6 +13504,10 @@
               },
               "location_label": {
                 "maxLength": 256,
+                "type": "string"
+              },
+              "location_operation_key": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                 "type": "string"
               },
               "contribution_key": {
@@ -13562,6 +13594,10 @@
               },
               {
                 "const": "owned-fake-effects/1",
+                "type": "string"
+              },
+              {
+                "const": "owned-fake-effects/2",
                 "type": "string"
               }
             ]
@@ -14084,6 +14120,14 @@
                     {
                       "const": "part_attachment",
                       "type": "string"
+                    },
+                    {
+                      "const": "create_location",
+                      "type": "string"
+                    },
+                    {
+                      "const": "create_company",
+                      "type": "string"
                     }
                   ]
                 },
@@ -14167,6 +14211,10 @@
                       "maxLength": 256,
                       "type": "string"
                     },
+                    "location_operation_key": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
                     "contribution_key": {
                       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                       "type": "string"
@@ -14228,6 +14276,10 @@
                     },
                     "location_label": {
                       "maxLength": 256,
+                      "type": "string"
+                    },
+                    "location_operation_key": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                       "type": "string"
                     },
                     "contribution_key": {
@@ -14786,6 +14838,10 @@
                       {
                         "const": "owned-fake-effects/1",
                         "type": "string"
+                      },
+                      {
+                        "const": "owned-fake-effects/2",
+                        "type": "string"
                       }
                     ]
                   },
@@ -15307,6 +15363,14 @@
                             {
                               "const": "part_attachment",
                               "type": "string"
+                            },
+                            {
+                              "const": "create_location",
+                              "type": "string"
+                            },
+                            {
+                              "const": "create_company",
+                              "type": "string"
                             }
                           ]
                         },
@@ -15390,6 +15454,10 @@
                               "maxLength": 256,
                               "type": "string"
                             },
+                            "location_operation_key": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
                             "contribution_key": {
                               "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                               "type": "string"
@@ -15451,6 +15519,10 @@
                             },
                             "location_label": {
                               "maxLength": 256,
+                              "type": "string"
+                            },
+                            "location_operation_key": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                               "type": "string"
                             },
                             "contribution_key": {
@@ -16220,6 +16292,14 @@
                     {
                       "const": "part_attachment",
                       "type": "string"
+                    },
+                    {
+                      "const": "create_location",
+                      "type": "string"
+                    },
+                    {
+                      "const": "create_company",
+                      "type": "string"
                     }
                   ]
                 },
@@ -16600,6 +16680,10 @@
                   },
                   {
                     "const": "owned-fake-effects/1",
+                    "type": "string"
+                  },
+                  {
+                    "const": "owned-fake-effects/2",
                     "type": "string"
                   }
                 ]
@@ -17180,6 +17264,14 @@
                           {
                             "const": "part_attachment",
                             "type": "string"
+                          },
+                          {
+                            "const": "create_location",
+                            "type": "string"
+                          },
+                          {
+                            "const": "create_company",
+                            "type": "string"
                           }
                         ]
                       },
@@ -17587,6 +17679,10 @@
                     },
                     {
                       "const": "owned-fake-effects/1",
+                      "type": "string"
+                    },
+                    {
+                      "const": "owned-fake-effects/2",
                       "type": "string"
                     }
                   ]
@@ -18109,6 +18205,14 @@
                           {
                             "const": "part_attachment",
                             "type": "string"
+                          },
+                          {
+                            "const": "create_location",
+                            "type": "string"
+                          },
+                          {
+                            "const": "create_company",
+                            "type": "string"
                           }
                         ]
                       },
@@ -18192,6 +18296,10 @@
                             "maxLength": 256,
                             "type": "string"
                           },
+                          "location_operation_key": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
                           "contribution_key": {
                             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                             "type": "string"
@@ -18253,6 +18361,10 @@
                           },
                           "location_label": {
                             "maxLength": 256,
+                            "type": "string"
+                          },
+                          "location_operation_key": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
                             "type": "string"
                           },
                           "contribution_key": {

@@ -1,6 +1,6 @@
 # Batch settings overhaul implementation
 
-Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) is open as #88 from `feat/batch-settings-overhaul-review`; its review is clean and its selected CI passed, so Task 6.5 is checked and the PR is ready to squash-merge. PR-D has not started. Reviews, CI and merges are recorded only after they occur.
+Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) merged as #88 (`2ba6b47`). PR-D (Tasks 7 and 8) is open as #89 from `feat/batch-settings-overhaul-records`; its review is clean and the selected CI passed (see PR-D publication). Reviews, CI and merges are recorded only after they occur.
 
 ## Authority and boundaries
 
@@ -409,3 +409,143 @@ Codex reviewed exactly `f9b8fe1..d3ddca9`: no Critical, Important or Minor findi
 #### PR and CI
 
 PR #88 was opened against `interactive-app` at head `d3ddca9`. `interactive-app` had not moved (`f9b8fe1`), so no merge or rebase was needed. Selected CI on that head passed: Frontend, Intake PostgreSQL and process, Intake contracts and HTTP, TypeScript lint, Markdown lint and Changed paths. Backend lint, Backend test and Shared workflow sync were skipped because no backend or skill paths changed. This docs-only commit then checked Task 6.5.
+
+#### Merge
+
+PR #88 was squash-merged at head `be8ce3d` as `2ba6b47`. Selected CI on that head passed with the same checks as `d3ddca9`; Backend lint, Backend test and Shared workflow sync were skipped.
+
+## PR-D plan: supervised location and supplier creation (Task 7)
+
+Branch `feat/batch-settings-overhaul-records` from `interactive-app` at `2ba6b47`.
+
+### Baseline (7.1)
+
+- Drafts are retained intent only. A Default-location draft is stored as an `unset` default selection (`capture/repository.ts`) and Review raises `location_required`; a supplier draft maps to legacy context `supplier: unknown`. Review, preparation and execution never read `reference_drafts`. The UI states "not created yet" from static text.
+- Execution runs one plan per stock run: `bench-effects-plan/1`, build `bench-effects/1`, capability `owned-fake-effects/1`. The plan decoder rebuilds every effect from typed specs, requires at least one stock operation and binds the supported-effects manifest digest, so changing `/1` would invalidate retained plans.
+- A stock operation's location is an observed PK only. Parts already show the known-output pattern: `executor_part_identity` keyed by target, original source key and subject, reused only from a confirmed, verified single PK with an unchanged spec digest.
+- The owned fake answers any `GET /api/stock/location/N/` and `GET /api/company/N/` with a synthetic record, so it cannot prove a created output.
+
+### Decisions
+
+- Supplier (Mitch): an approved new-supplier draft is created inside the batch's stock run with `is_supplier: true` and `is_manufacturer` from "Also set as manufacturer", and is recorded as a confirmed output for later use. It adds no supplier-part links; the batch has no SKUs.
+- Logo (Mitch): an optional retained logo is sent as the company `image` in the same multipart create request. There is no separate PATCH or attachment effect.
+- Versioning: new plan `bench-effects-plan/2`, build `bench-effects/2` and capability `owned-fake-effects/2`, with its own supported-effects manifest. `/1` decode, bodies, manifest and recovery stay byte-for-byte. A deployment row and its runner (DBOS application version = build) run exactly one build, so retained `/1` runs stay on their `/1` deployment and runner; a `/2` deployment is a separate row. Record-creating transport calls need the `/2` capability.
+- New effects:
+  - `create_location {name, description, parent}`. The parent is an existing observed location PK or null; recursive creation is out of scope. Preparation re-reads the parent; a missing, foreign or stale parent blocks before approval and the draft stays correctable.
+  - `create_company {name, description, is_supplier: true, is_manufacturer, image?}`. Its output has no dependant inside the run.
+- Binding: logical keys derive from the stable `draft_id` and kind. A stock operation's location is either an observed PK or a `location_operation_key`, never both; its body resolves the PK only from a confirmed single-PK state. Every created location must be consumed by a stock operation that uses it; a company is a declared standalone output.
+- Review: lots that resolve to the batch default while the default selection is `unset` and the settings intent holds a Default-location draft resolve to that draft instead of `location_required`. Capture bytes stay unchanged. The draft version is part of the material, so editing it makes a preparation stale.
+- Known-output reuse: new identity tables keyed by target, original source key and `draft_id` with a spec digest. A later run reuses a confirmed, verified PK and never creates again. An approved run pins the draft bytes in its plan; retiring or editing the draft later changes only future preparations.
+- Uncertainty: no lookup by name ever adopts or proves a create. A lost acknowledgement, cancellation or restart leaves the original operation unknown; the only recovery is the existing explicit `verify_effect` of an attributed PK. Choosing an existing record of the same name is an ordinary new selection that makes the preparation stale; it does not settle the original operation.
+- Capability state: the workspace reports whether new-record creation is supported, which is only when the deployment is `owned-fake-effects/2`. The web routes still hold no write credential and autosave never creates.
+- Fake target: persisted fake locations and companies, POST `/api/stock/location/` and `/api/company/` (multipart when an image is sent), GETs that return stored rows or 404, and drop, malformed and multiple-response faults.
+- Limits: the owned fake is not InvenTree compatibility. InvenTree API v530 lists `currency` as required on Company, which the fake does not enforce; real-target creation stays unavailable. Logos keep the existing retained PNG/JPEG and media size limits.
+
+### Task 7 results
+
+- Execution (`398222d`): plan `/2` with `create_location` and `create_company`, migration `0016_record_effects.sql`, draft-keyed `executor_record_identity`, record bodies and parent read, stock location from a confirmed create, transport paths gated on `/2`, and persisted fake locations and companies (PKs from 12001 served only from stored rows).
+- Review and preparation (`408f811`): the Default-location draft resolves lots that use an unset batch default; the batch supplier draft adds one company create. Both are bound in `manual-selection/3` material only when present, so legacy bytes are unchanged; lot review facts add `locationDraft` only for lots that use it. Non-`/2` targets report `record_creation_unavailable` at review. A stale or foreign parent raises `location_draft_parent_invalid`. Prior confirmed records are reused by draft identity.
+- Adverse cases (`bb9a0de`) and logo (`ae875c8`), see below.
+- UI: Approval shows New records apart from shared Part operations and marks a stock line whose location is created in the run; Results names a confirmed record by PK and keeps an uncertain one unresolved; the draft forms state that creation happens only after approval on a supporting target. Capture's draft form does not show the confirmed PK; the run in Results is the record of creation.
+
+Tests:
+
+- `tests/record-effects-plan.test.ts` (3): `/2` derivation and order; refusals for build, capability, manifest, ambiguous or missing location output, unconsumed location, rewritten or blank spec, duplicate draft and effect-index tampering; `/1` cannot carry record fields; a logo needs configured media and matching evidence.
+- `tests/pg/record-effects.test.ts` (9): autosave and preparation send nothing and one run creates location, supplier and stock; a non-`/2` target refuses; a later lot reuses both outputs with one more stock POST; a lost acknowledgement stays unknown through restart with no resume, no new create key and no name search, and a later lot is refused (`source_history_unsettled`); a malformed attributed create is confirmed only by an explicit check, then completes and is reused by a later lot; cancellation, a changed draft and an unreadable parent stop before any create; a stock line resumed alone never runs without its confirmed location; a logo is sent once as the company image and an output without the image stays unknown until inspected; a stock attachment completes on stock placed in a location created by the same run.
+- `tests/transport.test.ts`: record creates need `/2` and an owned loopback target; read-only, remote and protected targets are refused before any request.
+- Frontend `PreparedRecordEffects.test.tsx` (3).
+- Negative controls (each restored by SHA-256) fail for: stock waiting for its location, prior reuse, the capability gate, record-before-stock order, the logo image requirement and logo evidence admission.
+
+Limits: qualification is the owned fake only; InvenTree's real Company `currency` and image handling are not exercised. No same-name reconciliation command exists: choosing an existing record is an ordinary new selection and never settles an unknown create.
+
+### PR-D independent review
+
+#### Round 1 (Task 7)
+
+Codex (`gpt-6.1-sol`, read-only) reviewed exactly `2ba6b47..125da0f`: no Critical findings; two Important and one Minor.
+
+1. Important: a record confirmed by explicit verification after an uncertain create could not be reused, because `requirePriorRecord` read the immutable effect row (`unknown`) rather than the journal-derived state. It now requires the derived state to be confirmed with the original create intent and PK and no failed inspection. Regression: the malformed-create test now completes the run and reuses the recovered location for Packet B; negative control fails.
+2. Important: stock attachments and stock verification compared remote stock against an operation whose new location was unresolved, so an approved attachment was skipped. `resolvedStockOperation` now resolves a new location's confirmed output (and refuses when it is unusable) alongside the Part. Regression: a stock attachment completes on stock placed in a newly created location; negative control fails.
+3. Minor: the logo and its original bypassed the 64-version/256 MiB preparation check and failed later in plan decoding. The closure check now includes them and raises `media_scope_limit`. Regression `tests/record-media-closure.test.ts` (count, byte boundary, a logo already in subject evidence); negative control fails.
+
+Codex also noted that development-stack admission is still `/1`-only; that belongs to Task 8.
+
+#### Round 2 (Tasks 7–8)
+
+Codex (`gpt-6.1-sol`, read-only) reviewed exactly `2ba6b47..13a617e`: no Critical findings; two Important and one Minor. It confirmed the three Round 1 fixes.
+
+1. Important: when one lot inherited a reused new location and another lot in the same preparation explicitly selected the same PK, `retainedPreparation` dropped the explicit lot's expected read because it matched on the PK alone, so approval failed with `retained_preparation_corrupt`. It now skips the read only for lots whose reviewed facts carry `locationDraft`. Regression: a mixed inherited/explicit preparation is approved and both stock lines go to the reused location; negative control fails.
+2. Important: a resumed run did not recheck a reused record. If the original run's location was later inspected as `missing_or_changed`, a run that reused it and settled incomplete could still stock into it. Loading a run now checks each record binding's immutable identity row, and new stock waits unless the reused record is still usable (the gate was revised in Round 3). The state-dependent check is not in `loadRun`, so a run whose reused record was later inspected can still be read and inspected. Regression: an incomplete reusing run, then a failed inspection of the original, then a resume sends no stock; negative control fails. The identity-row check has no negative control, because the table's immutability trigger stops a test from removing a row.
+3. Minor: the 8.1 description overstated what the journey drives. It is a server-level journey through the HTTP API, as chosen for 8.1. It does not run the frontend autosave coordinator, connection recovery or the Review acceptance control, and Packet B's override is checked only as review facts. The 8.1 section below now says so and links the suites that cover those controls.
+
+#### Round 3 (Tasks 7–8)
+
+Codex (`gpt-6.1-sol`, read-only) reviewed exactly `2ba6b47..ccece39`: no Critical findings; one Important and one Minor. It confirmed the Round 1 and Round 2 fixes and the revised 8.1 text.
+
+1. Important: a reused supplier was never rechecked during execution. A reusing run could settle complete after the original run's inspection reported the supplier changed. A new stock create now waits unless every reused record in its plan, location or supplier, still passes `requirePriorRecord` (`reusedRecordsUsable` in `effects-apply.ts`). Settlement stays journal-derived, so a run that already settled is not changed afterwards. Regression: the resume test now runs for both a changed location and a changed supplier; both negative controls fail.
+2. Minor: the Round 2 gate sat in `stockLocation`, so it also skipped a read-only inspection of stock already placed in a reused location. Body resolution now always returns the retained PK, and the gate applies only after the inspection and already-confirmed branches. Regression: after the reused location changes, inspecting the existing stock reads it and records `matches`; the negative control, which moves the gate back before inspection, fails.
+
+#### Round 4 (Tasks 7–8)
+
+Codex (`gpt-6.1-sol`, read-only) reviewed exactly `2ba6b47..6a66304`: no Critical findings; one Important and three Minor. It confirmed the earlier fixes.
+
+1. Important: supplier draft edits did not invalidate review. The supplier draft entered only the selection material, after the subject review fingerprints were built, so a changed name, manufacturer flag or logo reused the old review. Each lot's review facts now carry `supplierDraft` when a supplier draft is selected; facts without one keep their exact bytes. Regression: editing the supplier draft after review refuses preparation until a fresh review, which then prepares the new name; negative control fails.
+2. Minor: inspecting stock was still skipped when its same-run new location had failed an inspection, because `stockLocation` returned `undefined`. `stockLocation` now returns the confirmed create's PK whatever later inspections found, and `stockWritable` in `effects-apply.ts` blocks only new stock creates, both for a same-run location that failed inspection and for reused records. Regression: one test shows a changed same-run location blocks a resumed stock create, and that inspecting existing stock still reads it and records `matches`; both negative controls fail.
+3. Minor: the responsive Approve screenshots showed "No current prepared selection". They were retaken with the exact preparation loaded, after asserting "New records · 2"; all runs still had zero horizontal overflow.
+4. Minor: a stale "PR-D has not started" sentence in the status paragraph was removed.
+
+#### Round 5 (Tasks 7–8)
+
+Codex (`gpt-6.1-sol`, read-only) reviewed exactly `2ba6b47..47770d1`: no Critical or Important findings, and one Minor. It confirmed the earlier fixes. Minor: the rollback text only said to stop provisioning `/2`, which would leave an existing `/2` deployment admitting drafts. The text now names the concrete switch (`INTAKE_DEPLOYMENT_ID` set to a `/1` deployment) and keeps the `/2` runner while its runs settle. This was a documentation-only change, so no further review was run.
+
+## PR-D Task 8: integrated acceptance
+
+### Connected journey (8.1)
+
+`tests/pg/batch-settings-journey.test.ts` runs one journey on one disposable database, with the real HTTP server, Processing, media and the supervised runner (the manual fixture's `processing` option serves synthetic Processing beside the `/2` owned fake):
+
+1. A `batch_settings` save (the command autosave sends) against a stale revision is refused and writes nothing; a fresh read, as on reconnect, then saves the Default-location and supplier drafts. Nothing is sent to the target.
+2. Location resolution: Packet A uses the unset batch default's draft, and Packet B keeps its own location.
+3. A Processing `/4` estimate of 17 for Packet A, bound to its linked label photo, is retained on a ready job; the lot stays unset until the explicit human edit that Review issues.
+4. Review, preparation (create location and company), approval and the supervised run settle complete. Read-back from the owned fake returns the new location (`Reel shelf`, parent 43), the supplier (`Acme Reels`, supplier and manufacturer) and stock of 17 in the new location.
+
+This is a server-level journey: it sends the same HTTP commands the UI sends, but it does not drive the UI. As chosen for 8.1, those controls are covered by their own suites: the save coordinator and its conflict and recovery states in `capture/save-queue.test.ts`, `AutosaveStatus.test.tsx` and `BatchSettingsPanel.test.tsx`; reconnect in `LiveUpdates.test.tsx`; and the explicit estimate acceptance in `ProcessingSuggestions.test.tsx` (with PR-C's browser runs). Packet B's own location is checked in its review facts only; B is not prepared or run.
+
+The browser run in [the evidence record](../bench-intake/evidence/batch-settings-overhaul/README.md#supervised-record-creation-pr-d) drives Review, Approve and Results in Chrome against the same kind of owned fixture, with fake read-back. It found and fixed Review facts that showed the drafts as "Not selected" and "Explicitly unknown"; both now name the pending draft (`operator/location-fact.test.ts`).
+
+### Behaviour and accessibility (8.2)
+
+PR-D does not change the Capture panel's controls. Their behaviour is covered by the frontend suite (309 passing) and the PR-B browser runs:
+
+- Note Hide and Remove: `OptionalNotesField.test.tsx`, `BatchSettingsPanel.test.tsx`.
+- No supplier: `BatchSettingsPanel.test.tsx`, `SearchableReferencePicker.test.tsx`.
+- Disabled purchase-order preview: `BatchSettingsPanel.test.tsx`.
+- Disabled automatic-logo explanation (Find automatically): `DisabledFeature.test.tsx`.
+- Shared tags: `SharedTagsInput.test.tsx`, `BatchSettingsPanel.test.tsx`.
+- Instruction interleaving: `BatchSettingsPanel.test.tsx`.
+- Dirty navigation: `App.test.tsx`, `OperatorReview.test.tsx`.
+- Narrow and native 200%: Capture in the PR-B runs; Review, Approve (with the two-record preparation loaded) and Results in the PR-D runs, all with zero horizontal overflow.
+
+### Checks (8.3)
+
+On the Round 4 fix head: contracts 61, intake fast 178, frontend 309 (47 files); PostgreSQL 163 (all `tests/pg`, including the connected journey and the Round 2–4 regressions); process tier 37 passed and 4 skipped (all `tests/process`; the skips are existing environment-gated tests); typecheck, frontend lint, readability lint, Markdown lint, Prettier, generated contracts and the frontend build all pass. `pnpm workflow-sync` and backend checks are unaffected (no skill, agent or backend changes).
+
+Packages and advisories: PR-D adds no dependency and no lockfile change.
+
+Rollout: apply migration `0016_record_effects.sql` (additive). Record creation is available only where an `owned-fake-effects/2` deployment row and runner are provisioned; other deployments keep their builds and report `record_creation_unavailable`. The development stack stays on `/1`, so record creation is unavailable there.
+
+Rollback: set the API's `INTAKE_DEPLOYMENT_ID` to a `/1` (`owned-fake-effects/1`) deployment and restart it. New preparations then bind to that deployment, and a record draft reports `record_creation_unavailable`. Existing `/1` runs are untouched. Keep the `/2` deployment row and its runner, because a run is executed only by the runner of the deployment its plan names (`runner.ts`). Settle or inspect retained `/2` runs before retiring that runner. Do not drop `executor_record_identity` or reinterpret retained effects: an unknown create stays unknown under its original run.
+
+Unqualified boundaries: no real InvenTree mutation profile; the owned fake does not prove InvenTree compatibility (for example Company `currency` and image storage). No same-name reconciliation command; an unknown create can only be inspected by its attributed PK. Live providers and model inference are not involved.
+
+### Publication (8.4)
+
+- Independent review: Codex (`gpt-6.1-sol`, read-only) took five rounds on exact heads (`125da0f`, `13a617e`, `ccece39`, `6a66304`, `47770d1`). Round 5 had one Minor documentation finding, fixed in `ed4c1da` (docs only) and not re-reviewed, as for earlier docs-only fixes.
+- `git range-diff 2ba6b47..47770d1 2ba6b47..ed4c1da` shows commits 1–11 unchanged (`=`) and adds only `ed4c1da`.
+- PR [#89](https://github.com/MitchReyno/InvenTree-Importer/pull/89) targets `interactive-app`. Its body carries a 42s walkthrough video of Review → Approve → Results on the owned fake, built from captures of the real app; the wait for the supervised run is shortened.
+- Selected CI on `ed4c1da` passed: Frontend, Intake contracts and HTTP, Intake PostgreSQL and process, TypeScript lint, Markdown lint and Changed paths. Backend and shared-workflow jobs were skipped as unaffected.
+- Merge is not claimed here.
+
+### Index (8.5)
+
+[BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul) is "In review" while PR-D is open; BI-004 (automatic supplier logos) and BI-005 (purchase-order support) remain Proposed. Merge, Done and archive are not claimed.

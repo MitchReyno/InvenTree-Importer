@@ -12,6 +12,8 @@ const labels: Record<EffectKind, string> = {
   manufacturer: 'Create manufacturer relationship',
   supplier: 'Create supplier relationship',
   part_attachment: 'Attach selected file to Part',
+  create_location: 'Create new stock location',
+  create_company: 'Create new supplier company',
 }
 
 export function supportedEffectsPreview(plan: EffectsPlan): SupportedEffectPreviewDto[] {

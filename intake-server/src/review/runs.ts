@@ -1,3 +1,4 @@
+import { isEffectsPlan } from '../execution/effects-plan.ts'
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { streams } from '../db/schema.ts'
@@ -57,6 +58,15 @@ function isReviewBinding(value: unknown): value is ReviewBinding {
   )
 }
 
+function usesLocationDraft(bytes: Buffer) {
+  const value: unknown = strictJson(bytes.toString('utf8'))
+  const facts =
+    value && typeof value === 'object' && !Array.isArray(value) && 'facts' in value
+      ? value.facts
+      : value
+  return !!facts && typeof facts === 'object' && !Array.isArray(facts) && 'locationDraft' in facts
+}
+
 export async function retainedPreparation(
   client: PoolClient,
   config: ManualConfig,
@@ -110,7 +120,7 @@ export async function retainedPreparation(
   }
   const checked = response.preparation
   if (
-    plan.version === 'bench-effects-plan/1' &&
+    isEffectsPlan(plan) &&
     (canonical(checked.supported_effects) !== canonical(supportedEffectsPreview(plan)) ||
       canonical(checked.part_attachments) !==
         canonical(partAttachmentsPreview(plan, checked.effects)))
@@ -182,12 +192,14 @@ export async function retainedPreparation(
       operation.contributionKey !== effect.contribution_key ||
       operation.quantity !== effect.quantity ||
       operation.part !== effect.part_id ||
-      (plan.version === 'bench-effects-plan/1' &&
+      (isEffectsPlan(plan) &&
         operation.part === null &&
         (!('part_operation_key' in effect) ||
           !('partOperationKey' in operation) ||
           operation.partOperationKey !== effect.part_operation_key)) ||
       operation.location !== effect.location_id ||
+      (('locationOperationKey' in operation ? operation.locationOperationKey : null) ??
+        undefined) !== effect.location_operation_key ||
       operation.barcode !== effect.barcode
     ) {
       fail('retained_preparation_corrupt', 409)
@@ -212,7 +224,7 @@ export async function retainedPreparation(
   }
   const reviews = parsedReviews
   if (
-    plan.version === 'bench-effects-plan/1' &&
+    isEffectsPlan(plan) &&
     (plan.parts.some((part) => !reviews.some((review) => review.subjectId === part.subjectId)) ||
       plan.partAttachments.some(
         (transfer) => !reviews.some((review) => review.subjectId === transfer.partSubjectId),
@@ -248,6 +260,8 @@ export async function retainedPreparation(
   if (indexedReviews.length !== reviews.length) {
     fail('retained_preparation_corrupt', 409)
   }
+  // Lots whose reviewed facts inherit a new-location draft; explicit selections never do.
+  const draftLocationLots = new Set<string>()
   for (const binding of reviews) {
     const indexed = indexedReviews.find(
       (value) => value.subject_id === binding.subjectId && value.review_id === binding.reviewId,
@@ -258,6 +272,9 @@ export async function retainedPreparation(
     verifyBytes(indexed.dependency_bytes, indexed.dependency_digest)
     if (indexed.dependency_digest.toString('hex') !== binding.digest) {
       fail('retained_preparation_corrupt', 409)
+    }
+    if (usesLocationDraft(indexed.dependency_bytes)) {
+      draftLocationLots.add(binding.subjectId)
     }
   }
   const indexedLots = await executeDatabaseQuery(
@@ -347,7 +364,12 @@ export async function retainedPreparation(
         label: effect.part_label,
       })
     }
-    if (effect.location_id) {
+    // A reused new-location output is read before the stock create, not at preparation.
+    const reusedRecord =
+      isEffectsPlan(plan) &&
+      draftLocationLots.has(effect.lot_id) &&
+      plan.locations?.some((location) => location.prior?.pk === effect.location_id)
+    if (effect.location_id && !reusedRecord) {
       expectedReads.set(`location:${effect.location_id}`, {
         model: 'location',
         pk: effect.location_id,
@@ -356,8 +378,22 @@ export async function retainedPreparation(
       })
     }
   }
-  if (plan.version === 'bench-effects-plan/1') {
+  if (isEffectsPlan(plan)) {
     const capture = await captureInTransaction(client, config, row.batch_id)
+    for (const location of plan.locations ?? []) {
+      const parent = location.spec.parent
+      if (parent) {
+        const observation = capture.snapshot.observations.find(
+          (item) => item.model === 'location' && item.pk === parent,
+        )
+        expectedReads.set(`location:${parent}`, {
+          model: 'location',
+          pk: parent,
+          outcome: 'found',
+          label: observation?.label ?? location.spec.name,
+        })
+      }
+    }
     for (const part of plan.parts) {
       for (const reference of partSpecReferences(part.spec)) {
         const observation = capture.snapshot.observations.find(
@@ -439,7 +475,7 @@ export async function retainedPreparation(
       fail('retained_preparation_corrupt', 409)
     }
   }
-  if (plan.version === 'bench-effects-plan/1') {
+  if (isEffectsPlan(plan)) {
     await requirePartTransferReads(client, row.batch_id, row.prepare_command_id, plan)
   }
   return { row, plan, preview: checked }
@@ -513,7 +549,7 @@ export async function manualRunSnapshot(
       certainty: operation.certainty,
       remote_pk: operation.remotePk,
       recovery_allowed:
-        preparation.plan.version !== 'bench-effects-plan/1' &&
+        !isEffectsPlan(preparation.plan) &&
         state === 'settled_incomplete' &&
         operation.certainty === 'none',
     }
@@ -559,38 +595,35 @@ export async function manualRunSnapshot(
       .from(streams)
       .where(eq(streams.id, row.stream_id)),
   )
-  const supported =
-    preparation.plan.version === 'bench-effects-plan/1'
-      ? await supportedStates(client, runId, preparation.plan)
-      : null
+  const supported = isEffectsPlan(preparation.plan)
+    ? await supportedStates(client, runId, preparation.plan)
+    : null
   const inactive = dispatchState !== 'running' && dispatchState !== 'queued'
-  const partOutputs =
-    preparation.plan.version === 'bench-effects-plan/1'
-      ? preparation.plan.parts.map((part) => {
-          const output = supported!.find(
-            (item) => item.operationKey === logicalEffectKey(part.subjectId, 'create_part'),
-          )
-          return {
-            label: part.spec.name,
-            operation_key: logicalEffectKey(part.subjectId, 'create_part'),
-            part_subject_id: part.subjectId,
-            spec_sha256: part.specDigest,
-            certainty: part.prior ? ('confirmed' as const) : output!.certainty,
-            remote_pks: part.prior ? [part.prior.pk] : output!.remotePks,
-            usable:
-              part.prior !== null ||
-              (output?.certainty === 'confirmed' &&
-                output.verification !== 'missing_or_changed' &&
-                output.verification !== 'unavailable'),
-            verification: output?.verification ?? null,
-          }
-        })
-      : null
+  const partOutputs = isEffectsPlan(preparation.plan)
+    ? preparation.plan.parts.map((part) => {
+        const output = supported!.find(
+          (item) => item.operationKey === logicalEffectKey(part.subjectId, 'create_part'),
+        )
+        return {
+          label: part.spec.name,
+          operation_key: logicalEffectKey(part.subjectId, 'create_part'),
+          part_subject_id: part.subjectId,
+          spec_sha256: part.specDigest,
+          certainty: part.prior ? ('confirmed' as const) : output!.certainty,
+          remote_pks: part.prior ? [part.prior.pk] : output!.remotePks,
+          usable:
+            part.prior !== null ||
+            (output?.certainty === 'confirmed' &&
+              output.verification !== 'missing_or_changed' &&
+              output.verification !== 'unavailable'),
+          verification: output?.verification ?? null,
+        }
+      })
+    : null
   const supportedEffects = supported?.map((item) => {
-    const effect =
-      preparation.plan.version === 'bench-effects-plan/1'
-        ? preparation.plan.effects.find((effect) => effect.operationKey === item.operationKey)
-        : undefined
+    const effect = isEffectsPlan(preparation.plan)
+      ? preparation.plan.effects.find((effect) => effect.operationKey === item.operationKey)
+      : undefined
     const stock = preparation.preview.effects.find((stock) => stock.lot_id === item.operationKey)
     return {
       operation_key: item.operationKey,
@@ -636,7 +669,7 @@ export async function manualRunSnapshot(
     cancellation_requested: journal.cancellationRequested,
     dispatch_state: dispatchState,
     operations,
-    ...(preparation.plan.version === 'bench-effects-plan/1'
+    ...(isEffectsPlan(preparation.plan)
       ? { part_attachments: preparation.preview.part_attachments }
       : {}),
     ...(partOutputs && supportedEffects

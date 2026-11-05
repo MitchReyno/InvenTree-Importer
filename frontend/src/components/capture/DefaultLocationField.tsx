@@ -203,7 +203,8 @@ export function DefaultLocationField({
             </Button>
           )}
           <Small>
-            Saved as a pending request for review. Nothing is created in inventory from this form.
+            Saved as a pending request. Nothing is created from this form; it is created only after
+            you approve it in Review, on a target that supports new records.
           </Small>
         </Field>
       )}

@@ -34,7 +34,7 @@ export async function freePort() {
 }
 export async function manualProcess(
   port?: number,
-  options: { media?: boolean; effects?: boolean } = {},
+  options: { media?: boolean; effects?: boolean; records?: boolean } = {},
 ) {
   const fixture = await manualFixture(options)
   await fixture.stop()

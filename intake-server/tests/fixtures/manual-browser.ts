@@ -12,7 +12,9 @@ await once(reservation, 'listening')
 await new Promise<void>((resolve) => reservation.close(() => resolve()))
 // Opt-in supported-effects capability for explicit Part creation journeys.
 const effects = process.env.INTAKE_PREVIEW_EFFECTS === '1'
-const fixture = await manualProcess(4330, { effects })
+// Opt-in owned-fake record creation (new locations and suppliers) under owned-fake-effects/2.
+const records = process.env.INTAKE_PREVIEW_RECORDS === '1'
+const fixture = await manualProcess(4330, { effects, records })
 try {
   await fixture.startWeb()
   const capture = await fixture.seedCapture()
@@ -25,7 +27,11 @@ try {
       JSON.stringify(
         {
           owner: 'T04',
-          capability: effects ? 'owned-fake-effects/1' : 'owned-fake-stock/1',
+          capability: records
+            ? 'owned-fake-effects/2'
+            : effects
+              ? 'owned-fake-effects/1'
+              : 'owned-fake-stock/1',
           parent_pid: process.pid,
           web_pid: fixture.webChild?.pid,
           runner_pid: fixture.runnerChild?.pid,

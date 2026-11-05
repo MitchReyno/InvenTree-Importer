@@ -15,13 +15,23 @@ export function SupportedEffectResult({ effect, busy, recover, unstarted = false
     effect.remote_pks.length === 0 &&
     effect.verification === null &&
     effect.recovery_action !== 'verify_effect'
+  const record =
+    effect.kind === 'create_location'
+      ? 'location'
+      : effect.kind === 'create_company'
+        ? 'supplier'
+        : null
   let status = 'No effect confirmed'
   if (planned) {
     status = 'Planned effect · not queued'
   } else if (effect.certainty === 'confirmed') {
-    status = 'Historical effect confirmed'
+    status = record
+      ? `Created new ${record} #${effect.remote_pks[0]}`
+      : 'Historical effect confirmed'
   } else if (effect.certainty === 'unknown') {
-    status = 'Effect is unknown; no create retry is allowed'
+    status = record
+      ? `The new ${record} may have been created; it is never created again for this draft`
+      : 'Effect is unknown; no create retry is allowed'
   }
   return (
     <Field>

@@ -154,11 +154,11 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Verification: `pnpm test:intake`, `pnpm db:intake test`, `pnpm db:intake test:process`, contract/type checks and fake inventory read-back. Old profiles and pending operations remain valid.
 - Risks: creation duplication and unsupported real-target attribution. Do not use a same-name lookup as proof of original-operation success.
 
-- [ ] 7.1 Record effect shapes, exact dependency/output binding, optional logo operation and supported profile/target limits before implementation.
-- [ ] 7.2 RED: verify no inventory write on autosave, explicit approval required, exact parent/company roles, scoped permissions and versioned execution binding.
-- [ ] 7.3 GREEN: implement supervised fake profile, exact known-output reuse and UI transitions from draft to approved to confirmed without repeating create.
-- [ ] 7.4 Verify lost acknowledgement, cancellation, restart, changed payload, duplicate names and invalid parent; unresolved external effects remain unresolved under the original operation.
-- [ ] 7.5 Verify optional manual logo retention/attachment limits and unsupported real-target controls; record read-back/recovery evidence and owning execution docs.
+- [x] 7.1 Record effect shapes, exact dependency/output binding, optional logo operation and supported profile/target limits before implementation.
+- [x] 7.2 RED: verify no inventory write on autosave, explicit approval required, exact parent/company roles, scoped permissions and versioned execution binding.
+- [x] 7.3 GREEN: implement supervised fake profile, exact known-output reuse and UI transitions from draft to approved to confirmed without repeating create.
+- [x] 7.4 Verify lost acknowledgement, cancellation, restart, changed payload, duplicate names and invalid parent; unresolved external effects remain unresolved under the original operation.
+- [x] 7.5 Verify optional manual logo retention/attachment limits and unsupported real-target controls; record read-back/recovery evidence and owning execution docs.
 
 ## 8. Verify integrated acceptance and record delivery
 
@@ -171,11 +171,11 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - Verification: affected root frontend/contracts/server/PG/process checks, build, formatting/Markdown and headless desktop/360/390px/native200%. No real data migration, target mutation or provider invocation.
 - Risks: acceptance work discovering earlier defects; create a new scoped task/bundle before corrective implementation where needed.
 
-- [ ] 8.1 Exercise the full connected autosave → reconnect/conflict → location resolution → estimate review → supervised fake new-record journey with explicit retained read-back.
-- [ ] 8.2 Verify note Hide/Remove, no supplier, disabled PO preview, disabled automatic-logo explanation, shared tags, instruction interleaving, dirty navigation and narrow/native200% accessibility.
-- [ ] 8.3 Run required affected checks and document actual passes/failures/skips, package/advisory costs, rollout/rollback and unqualified boundaries.
-- [ ] 8.4 Obtain fresh independent read-only exact-head review, fix/re-review findings, publish through normal PR tools and verify selected green CI; record actual SHA and PR state.
-- [ ] 8.5 Verify the candidate index status matches actual evidence, future PO/logo items remain Proposed and every acceptance claim has a linked result; leave merge/Done/archive outcomes unclaimed until they occur.
+- [x] 8.1 Exercise the full connected autosave → reconnect/conflict → location resolution → estimate review → supervised fake new-record journey with explicit retained read-back.
+- [x] 8.2 Verify note Hide/Remove, no supplier, disabled PO preview, disabled automatic-logo explanation, shared tags, instruction interleaving, dirty navigation and narrow/native200% accessibility.
+- [x] 8.3 Run required affected checks and document actual passes/failures/skips, package/advisory costs, rollout/rollback and unqualified boundaries.
+- [x] 8.4 Obtain fresh independent read-only exact-head review, fix/re-review findings, publish through normal PR tools and verify selected green CI; record actual SHA and PR state.
+- [x] 8.5 Verify the candidate index status matches actual evidence, future PO/logo items remain Proposed and every acceptance claim has a linked result; leave merge/Done/archive outcomes unclaimed until they occur.
 
 ## 9. Adopt the mockup Capture layout and remove subject panes
 
