@@ -58,6 +58,15 @@ function isReviewBinding(value: unknown): value is ReviewBinding {
   )
 }
 
+function usesLocationDraft(bytes: Buffer) {
+  const value: unknown = strictJson(bytes.toString('utf8'))
+  const facts =
+    value && typeof value === 'object' && !Array.isArray(value) && 'facts' in value
+      ? value.facts
+      : value
+  return !!facts && typeof facts === 'object' && !Array.isArray(facts) && 'locationDraft' in facts
+}
+
 export async function retainedPreparation(
   client: PoolClient,
   config: ManualConfig,
@@ -251,6 +260,8 @@ export async function retainedPreparation(
   if (indexedReviews.length !== reviews.length) {
     fail('retained_preparation_corrupt', 409)
   }
+  // Lots whose reviewed facts inherit a new-location draft; explicit selections never do.
+  const draftLocationLots = new Set<string>()
   for (const binding of reviews) {
     const indexed = indexedReviews.find(
       (value) => value.subject_id === binding.subjectId && value.review_id === binding.reviewId,
@@ -261,6 +272,9 @@ export async function retainedPreparation(
     verifyBytes(indexed.dependency_bytes, indexed.dependency_digest)
     if (indexed.dependency_digest.toString('hex') !== binding.digest) {
       fail('retained_preparation_corrupt', 409)
+    }
+    if (usesLocationDraft(indexed.dependency_bytes)) {
+      draftLocationLots.add(binding.subjectId)
     }
   }
   const indexedLots = await executeDatabaseQuery(
@@ -353,6 +367,7 @@ export async function retainedPreparation(
     // A reused new-location output is read before the stock create, not at preparation.
     const reusedRecord =
       isEffectsPlan(plan) &&
+      draftLocationLots.has(effect.lot_id) &&
       plan.locations?.some((location) => location.prior?.pk === effect.location_id)
     if (effect.location_id && !reusedRecord) {
       expectedReads.set(`location:${effect.location_id}`, {

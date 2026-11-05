@@ -235,6 +235,130 @@ test('without the /2 capability a draft is a truthful unavailable intent', async
 })
 
 test(
+  'one preparation can both inherit a reused new location and select it explicitly',
+  { timeout: 60000 },
+  async () => {
+    const fixture = await manualFixture({ records: true })
+    try {
+      const { capture } = await draftedBatch(fixture)
+      const runId = await approved(fixture, capture.batch, capture.a.id)
+      assert.equal((await apply(fixture, runId)).state, 'settled_complete')
+      const locationPk = String(
+        (await fixture.db.pool.query("SELECT pk FROM fake_record WHERE family='location'")).rows[0]
+          .pk,
+      )
+      await capture.edit({ kind: 'lot', id: capture.b.id, location: { mode: 'inherit' } })
+      await capture.edit({
+        kind: 'add_lot',
+        label: 'Packet C',
+        note: '5 counted pieces.',
+        part_subject_id: capture.partId,
+      })
+      const c = capture.batch.lots.find((value) => value.label === 'Packet C')!
+      const observed = await fixture.http(`/batches/${capture.batch.id}/observations`, {
+        model: 'location',
+        pk: locationPk,
+      })
+      assert.equal(observed.status, 201, JSON.stringify(observed.value))
+      await capture.edit({
+        kind: 'lot',
+        id: c.id,
+        quantity: { mode: 'set', value: '5' },
+        location: {
+          mode: 'set',
+          value: {
+            observation_id: observed.value.id,
+            target_context_id: observed.value.target_context_id,
+            model: 'location',
+            pk: locationPk,
+          },
+        },
+      })
+      const scope = {
+        expected_batch_revision: capture.batch.revision,
+        selected_lot_ids: [capture.b.id, c.id],
+      }
+      assert.equal((await fixture.http(`/batches/${capture.batch.id}/reviews`, scope)).status, 200)
+      const prepared = await fixture.http(`/batches/${capture.batch.id}/preparations`, scope)
+      assert.equal(prepared.value.status, 'prepared', JSON.stringify(prepared.value))
+      const preview = prepared.value.preparation as ManualPreviewDto
+      const accepted = await fixture.http(
+        `/preparations/${preview.id}/approvals`,
+        approval(preview),
+        randomUUID(),
+      )
+      assert.equal(accepted.status, 200, JSON.stringify(accepted.value))
+      assert.equal((await apply(fixture, accepted.value.run_id)).state, 'settled_complete')
+      const stock = (await fixture.fake.records()).filter(
+        (value) => value.method === 'POST' && value.path === '/api/stock/',
+      )
+      assert.deepEqual(
+        stock.slice(1).map((value) => JSON.parse(value.body.toString()).location),
+        [locationPk, locationPk],
+      )
+      assert.equal(await posts(fixture, '/api/stock/location/'), 1, 'never created twice')
+    } finally {
+      await fixture.dispose()
+    }
+  },
+)
+
+test(
+  'a resumed run never stocks into a reused location its original run has since inspected as changed',
+  { timeout: 60000 },
+  async () => {
+    const fixture = await manualFixture({ records: true })
+    try {
+      const { capture, locationDraft } = await draftedBatch(fixture)
+      const first = await approved(fixture, capture.batch, capture.a.id)
+      assert.equal((await apply(fixture, first)).state, 'settled_complete')
+      await capture.edit({ kind: 'lot', id: capture.b.id, location: { mode: 'inherit' } })
+      const later = await approved(fixture, capture.batch, capture.b.id)
+      await fixture.fake.fault('read_unavailable')
+      assert.equal((await apply(fixture, later)).state, 'settled_incomplete')
+      await fixture.fake.fault('none')
+      assert.equal(await posts(fixture, '/api/stock/'), 1)
+      await fixture.db.pool.query(
+        "UPDATE fake_record SET body=jsonb_set(body,'{name}','\"Moved shelf\"') WHERE family='location'",
+      )
+      async function dispatch(runId: string, selection: Record<string, string[]>) {
+        const current = (await fixture.http(`/runs/${runId}`)).value as ManualRunDto
+        const chosen = await fixture.http(`/runs/${runId}/recover`, {
+          expected_run_revision: current.revision,
+          ...selection,
+        })
+        assert.equal(chosen.status, 200, JSON.stringify(chosen.value))
+        const command = (
+          await fixture.db.pool.query(
+            'SELECT c.workflow_id,c.payload_bytes FROM manual_dispatch d JOIN command c ON c.id=d.command_id WHERE d.run_id=$1 ORDER BY d.sequence DESC LIMIT 1',
+            [runId],
+          )
+        ).rows[0]
+        return executeManualDispatch(
+          fixture.runner.pool,
+          fixture.runnerConfig,
+          command.workflow_id,
+          JSON.parse(command.payload_bytes.toString('utf8')),
+        )
+      }
+      await dispatch(first, { assessment_keys: [locationCreateKey(locationDraft)] })
+      const inspected = (await fixture.http(`/runs/${first}`)).value as ManualRunDto
+      assert.equal(
+        inspected.supported_effects!.find((effect) => effect.kind === 'create_location')!
+          .verification,
+        'missing_or_changed',
+      )
+      await dispatch(later, { effect_keys: [capture.b.id] }).catch(() => null)
+      assert.equal(await posts(fixture, '/api/stock/'), 1, 'no stock into the changed location')
+      const resumed = (await fixture.http(`/runs/${later}`)).value as ManualRunDto
+      assert.notEqual(resumed.state, 'settled_complete')
+    } finally {
+      await fixture.dispose()
+    }
+  },
+)
+
+test(
   'a later lot reuses the confirmed new location and supplier without creating them again',
   { timeout: 60000 },
   async () => {

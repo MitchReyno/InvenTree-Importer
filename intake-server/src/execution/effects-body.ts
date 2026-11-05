@@ -2,6 +2,7 @@ import type { Pool } from 'pg'
 import { logicalEffectKey, type EffectsPlan, type EffectOperation } from './effects-plan.ts'
 import { partTransferKey } from './part-attachment-plan.ts'
 import { supportedStates } from './effects-state.ts'
+import { requirePriorRecord } from './effects-index.ts'
 import type { EffectStep } from './effects-step.ts'
 
 export type SupportedCreateBody = Record<string, string | string[] | null | boolean>
@@ -133,7 +134,7 @@ async function supplierCreateBody(
   return { ...step.input, part, manufacturer_part: manufacturer.remotePks[0] }
 }
 
-/** A new location's PK comes only from its confirmed single-PK create; `undefined` waits. */
+/** A new location's PK comes only from a usable confirmed single-PK create; `undefined` waits. */
 async function stockLocation(
   pool: Pool,
   runId: string,
@@ -141,6 +142,17 @@ async function stockLocation(
   step: { location: string | null; locationOperationKey?: string | null },
 ): Promise<string | null | undefined> {
   if (!step.locationOperationKey) {
+    // A reused new location must still be its original run's usable confirmed output.
+    const reused = plan.locations?.find(
+      (binding) => binding.prior && binding.prior.pk === step.location,
+    )
+    if (reused?.prior) {
+      try {
+        await requirePriorRecord(pool, plan, reused.draftId, reused.specDigest, reused.prior)
+      } catch {
+        return undefined
+      }
+    }
     return step.location
   }
   const state = (await supportedStates(pool, runId, plan)).find(

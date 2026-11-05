@@ -470,6 +470,14 @@ Codex (`gpt-6.1-sol`, read-only) reviewed exactly `2ba6b47..125da0f`: no Critica
 
 Codex also noted that development-stack admission is still `/1`-only; that belongs to Task 8.
 
+#### Round 2 (Tasks 7–8)
+
+Codex (`gpt-6.1-sol`, read-only) reviewed exactly `2ba6b47..13a617e`: no Critical findings; two Important and one Minor. It confirmed the three Round 1 fixes.
+
+1. Important: when one lot inherited a reused new location and another lot in the same preparation explicitly selected the same PK, `retainedPreparation` dropped the explicit lot's expected read because it matched on the PK alone, so approval failed with `retained_preparation_corrupt`. It now skips the read only for lots whose reviewed facts carry `locationDraft`. Regression: a mixed inherited/explicit preparation is approved and both stock lines go to the reused location; negative control fails.
+2. Important: a resumed run did not recheck a reused record. If the original run's location was later inspected as `missing_or_changed`, a run that reused it and settled incomplete could still stock into it. Before a stock create, a stock line aimed at a reused location now waits unless `requirePriorRecord` still holds (confirmed, original intent and PK, no failed inspection). Loading a run also checks each record binding's immutable identity row. The state-dependent check sits at the stock step rather than in `loadRun`, so a run whose reused record was later inspected can still be read and inspected. Regression: an incomplete reusing run, then a failed inspection of the original, then a resume sends no stock; negative control fails. The identity-row check has no negative control, because the table's immutability trigger stops a test from removing a row.
+3. Minor: the 8.1 description overstated what the journey drives. It is a server-level journey through the HTTP API, as chosen for 8.1. It does not run the frontend autosave coordinator, connection recovery or the Review acceptance control, and Packet B's override is checked only as review facts. The 8.1 section below now says so and links the suites that cover those controls.
+
 ## PR-D Task 8: integrated acceptance
 
 ### Connected journey (8.1)
@@ -480,6 +488,8 @@ Codex also noted that development-stack admission is still `/1`-only; that belon
 2. Location resolution: Packet A uses the unset batch default's draft, and Packet B keeps its own location.
 3. A Processing `/4` estimate of 17 for Packet A, bound to its linked label photo, is retained on a ready job; the lot stays unset until the explicit human edit that Review issues.
 4. Review, preparation (create location and company), approval and the supervised run settle complete. Read-back from the owned fake returns the new location (`Reel shelf`, parent 43), the supplier (`Acme Reels`, supplier and manufacturer) and stock of 17 in the new location.
+
+This is a server-level journey: it sends the same HTTP commands the UI sends, but it does not drive the UI. As chosen for 8.1, those controls are covered by their own suites: the save coordinator and its conflict and recovery states in `capture/save-queue.test.ts`, `AutosaveStatus.test.tsx` and `BatchSettingsPanel.test.tsx`; reconnect in `LiveUpdates.test.tsx`; and the explicit estimate acceptance in `ProcessingSuggestions.test.tsx` (with PR-C's browser runs). Packet B's own location is checked in its review facts only; B is not prepared or run.
 
 The browser run in [the evidence record](../bench-intake/evidence/batch-settings-overhaul/README.md#supervised-record-creation-pr-d) drives Review, Approve and Results in Chrome against the same kind of owned fixture, with fake read-back. It found and fixed Review facts that showed the drafts as "Not selected" and "Explicitly unknown"; both now name the pending draft (`operator/location-fact.test.ts`).
 
@@ -498,7 +508,7 @@ PR-D does not change the Capture panel's controls. Their behaviour is covered by
 
 ### Checks (8.3)
 
-On the Task 8 head before review: contracts 61, intake fast 178, frontend 309 (47 files); PostgreSQL 157 (all `tests/pg`, including the connected journey); process tier 37 passed and 4 skipped (all `tests/process`; the skips are existing environment-gated tests); typecheck, frontend lint, readability lint, Markdown lint, Prettier, generated contracts and the frontend build all pass. `pnpm workflow-sync` and backend checks are unaffected (no skill, agent or backend changes).
+On the Round 2 fix head: contracts 61, intake fast 178, frontend 309 (47 files); PostgreSQL 159 (all `tests/pg`, including the connected journey and the two Round 2 regressions); process tier 37 passed and 4 skipped (all `tests/process`; the skips are existing environment-gated tests); typecheck, frontend lint, readability lint, Markdown lint, Prettier, generated contracts and the frontend build all pass. `pnpm workflow-sync` and backend checks are unaffected (no skill, agent or backend changes).
 
 Packages and advisories: PR-D adds no dependency and no lockfile change.
 
