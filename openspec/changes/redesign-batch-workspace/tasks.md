@@ -89,7 +89,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Each new component starts from a failing component test of its states, keyboard and ARIA. Restyling existing controls relies on their existing tests staying green.
 - **Verification:** component tests for each new component (states, keyboard, ARIA); existing frontend tests pass unchanged; the literal-colour check is clean.
 
-- [ ] 2.1 Build Button, Pill, SourceChip, Banner, ProblemCard, Toast and Kbd, with the glyph-plus-word status rule.
+- [x] 2.1 Build Button, Pill, SourceChip, Banner, ProblemCard, Toast and Kbd, with the glyph-plus-word status rule.
 - [ ] 2.2 Build Tabs, SubTabs, SegmentedControl, FilterChips and Breadcrumb, with tests for roving focus and selection.
 - [ ] 2.3 Build EvidenceTile, EvidenceGroup, KeyValue, RecordChain, DataTable with BulkBar, ChangeSummary and StickyFooter.
 - [ ] 2.4 Build PhaseRow, QuestionCard, StatusTimeline, NeedsYou and SessionChat.
