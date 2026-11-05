@@ -1,15 +1,17 @@
-import { useRef, type KeyboardEvent } from 'react'
+import { useRef, useState, type KeyboardEvent } from 'react'
 
 const NEXT_KEYS = new Set(['ArrowRight', 'ArrowDown'])
 const PREVIOUS_KEYS = new Set(['ArrowLeft', 'ArrowUp'])
 
 /**
- * One tab stop for a group of option buttons: the selected option (or the first) is tabbable,
- * and arrow, Home and End keys move focus within the group, wrapping at the ends.
+ * One tab stop for a group of option buttons. It starts on the selected option (or the first)
+ * and follows focus, so arrow, Home and End keys move it without changing the selection.
  */
 export function useRovingFocus(ids: string[], selected: string | undefined) {
   const buttons = useRef(new Map<string, HTMLButtonElement>())
-  const tabStop = ids.includes(selected ?? '') ? selected : ids[0]
+  const [focused, setFocused] = useState<string>()
+  const fallback = ids.includes(selected ?? '') ? selected : ids[0]
+  const tabStop = focused && ids.includes(focused) ? focused : fallback
 
   function focusAt(index: number) {
     const wrapped = (index + ids.length) % ids.length
@@ -42,6 +44,7 @@ export function useRovingFocus(ids: string[], selected: string | undefined) {
         }
       },
       tabIndex: id === tabStop ? 0 : -1,
+      onFocus: () => setFocused(id),
       onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => handleKeyDown(event, id),
     }
   }

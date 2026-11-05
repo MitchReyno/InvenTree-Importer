@@ -1,5 +1,6 @@
 import styled from 'styled-components'
 import { color, radius, space } from '../../theme/generated/tokens'
+import { media } from './media'
 import { Pill } from './Pill'
 
 export type NeedsYouItem = {
@@ -53,6 +54,11 @@ const List = styled.ul`
   a {
     font-weight: 600;
     color: ${color.fg};
+    ${media.compact} {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+    }
   }
 `
 

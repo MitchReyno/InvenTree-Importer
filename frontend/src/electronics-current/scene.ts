@@ -609,6 +609,11 @@ export function createElectronicsCurrent(
     kit.setTheme(theme)
     fog.color.set(FINISHES[theme].ground)
 
+    // Re-tinting resets LED fills to the base; restore each glow at the current time.
+    for (const part of parts) {
+      pulseLed(part, kit, time)
+    }
+
     // A running loop picks the new colours up on its next frame; a still frame needs redrawing.
     if (options.reducedMotion) {
       render()

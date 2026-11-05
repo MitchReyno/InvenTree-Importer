@@ -1,6 +1,6 @@
 import styled, { css } from 'styled-components'
 import { color, space } from '../../theme/generated/tokens'
-import { formatCount } from './media'
+import { formatCount, media } from './media'
 import { Badge, Count, type CountTone } from './Pill'
 import { Spinner } from './Progress'
 
@@ -123,6 +123,9 @@ const TabLink = styled.a<{ $level: 'primary' | 'secondary' }>`
   &[aria-disabled='true'] {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+  ${media.compact} {
+    min-height: 44px;
   }
 `
 

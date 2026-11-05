@@ -236,6 +236,31 @@ test('a theme change re-tints fog and parts without rebuilding them, re-renderin
   controller.dispose()
 })
 
+test('a round trip through the dark theme restores every colour, lit LEDs included', () => {
+  const controller = start(true)
+  const scene = currentRenderer().lastScene!
+
+  const colours = () => {
+    const found: number[] = []
+    scene.traverse((object) => {
+      const material = (object as { material?: { color?: { getHex: () => number } } }).material
+      if (material?.color) {
+        found.push(material.color.getHex())
+      }
+    })
+    return found
+  }
+
+  const before = colours()
+
+  controller.setTheme('dark')
+  expect(colours()).not.toEqual(before)
+  controller.setTheme('light')
+
+  expect(colours()).toEqual(before)
+  controller.dispose()
+})
+
 test('starts in the requested theme', () => {
   const controller = createElectronicsCurrent(document.createElement('canvas'), {
     reducedMotion: true,

@@ -22,6 +22,29 @@ function Views() {
 }
 
 describe('SegmentedControl', () => {
+  it('moves the tab stop with focus, so Shift+Tab leaves the group after arrowing', async () => {
+    render(
+      <>
+        <button type="button">Before</button>
+        <Views />
+      </>,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Before' }))
+    await userEvent.tab()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(screen.getByRole('button', { name: 'Table' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Workspace' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    await userEvent.tab({ shift: true })
+    expect(screen.getByRole('button', { name: 'Before' })).toHaveFocus()
+    await userEvent.tab()
+    expect(screen.getByRole('button', { name: 'Table' })).toHaveFocus()
+  })
+
   it('is a labelled group of pressed buttons with one tab stop', async () => {
     render(<Views />)
 
