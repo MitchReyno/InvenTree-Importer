@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { CaptureEditDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { Button, Paragraph, Small } from '../ui/primitives'
 import { Modal } from './Modal'
@@ -214,28 +215,28 @@ const Table = styled.table`
     padding: 8px 10px;
     text-align: left;
     vertical-align: top;
-    border-bottom: 1px solid #e3e8ef;
+    border-bottom: 1px solid ${color.line};
     overflow-wrap: anywhere;
   }
   thead th {
     font-size: 12px;
     letter-spacing: 1px;
     text-transform: uppercase;
-    color: #526179;
+    color: ${color.muted};
   }
 `
 const Confirm = styled.section`
   margin-top: 14px;
   padding: 12px;
-  border: 1px solid #e2c47e;
-  background: #fffaf0;
+  border: 1px solid ${color.warn};
+  background: ${color.warnWeak};
   border-radius: 6px;
 `
 const InlineButton = styled.button`
   padding: 0;
   border: 0;
   background: none;
-  color: #164a93;
+  color: ${color.accent};
   text-decoration: underline;
   cursor: pointer;
   font: inherit;

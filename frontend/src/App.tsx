@@ -22,6 +22,7 @@ import { Batches } from './components/batches/Batches'
 import { Batch } from './components/batches/Batch'
 import { GlobalStyle } from './components/GlobalStyle'
 import styled from 'styled-components'
+import { color } from './theme/generated/tokens'
 import { Diagnostics } from './components/operations/Diagnostics'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
 import { Masthead } from './components/masthead/Masthead'
@@ -214,9 +215,9 @@ const Main = styled.main`
 `
 const Footer = styled.footer`
   padding: 24px 0;
-  border-top: 1px solid #d5dce5;
+  border-top: 1px solid ${color.line};
   font-size: 12px;
-  color: #526179;
+  color: ${color.muted};
   line-height: 1.6;
 `
 

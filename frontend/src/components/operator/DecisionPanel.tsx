@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type {
   CaptureEditDto,
   CaptureSnapshotDto,
@@ -271,7 +272,7 @@ const LinkButton = styled.button`
   padding: 0;
   border: 0;
   background: none;
-  color: #164a93;
+  color: ${color.accent};
   text-decoration: underline;
   cursor: pointer;
   font: inherit;

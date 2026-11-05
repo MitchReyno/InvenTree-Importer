@@ -1,6 +1,7 @@
 import { IntakeRequestError } from '@invimport/contracts/client'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
@@ -390,15 +391,15 @@ const Count = styled.span`
   margin-left: 6px;
   padding: 0 7px;
   border-radius: 999px;
-  background: #fff4d9;
-  color: #7a5410;
+  background: ${color.warnWeak};
+  color: ${color.warn};
   font-size: 12px;
 `
 
 const ReviewLink = styled.a`
   display: inline-block;
   margin: 4px 0 8px;
-  color: #164a93;
+  color: ${color.accent};
 `
 
 const Workspace = styled.section`
@@ -419,7 +420,7 @@ const Tabs = styled.nav`
   display: flex;
   gap: 6px;
   overflow-x: auto;
-  border-bottom: 1px solid #d5dce5;
+  border-bottom: 1px solid ${color.line};
 `
 
 const Tab = styled.a`
@@ -427,11 +428,11 @@ const Tab = styled.a`
   flex: 0 0 auto;
   min-height: 44px;
   padding: 12px;
-  color: #526179;
+  color: ${color.muted};
   text-decoration: none;
   &[aria-current='page'] {
-    color: #164a93;
-    border-bottom: 3px solid #3977c9;
+    color: ${color.accent};
+    border-bottom: 3px solid ${color.accent};
     font-weight: 600;
   }
 `

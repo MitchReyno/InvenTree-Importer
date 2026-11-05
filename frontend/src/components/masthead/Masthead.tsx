@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import { ElectronicsCurrent } from './ElectronicsCurrent'
 
 /** Decorative brand header; scoped application status controls and navigation occupy its slots. */
@@ -23,8 +24,8 @@ export function Masthead({ actions, children }: { actions?: ReactNode; children?
 
 const Header = styled.header`
   position: relative;
-  background-color: #f3f5f8;
-  background-image: radial-gradient(circle, #dde3eb 1px, transparent 1.4px);
+  background-color: ${color.surface2};
+  background-image: radial-gradient(circle, ${color.mastheadDot} 1px, transparent 1.4px);
   background-size: 16px 16px;
   overflow: hidden;
 `
@@ -55,7 +56,7 @@ const BrandGroup = styled.div`
 const Brand = styled.strong`
   font-size: 22px;
   font-weight: 750;
-  color: #233349;
+  color: ${color.fg};
   span {
     font-weight: 450;
   }
@@ -66,9 +67,9 @@ const Brand = styled.strong`
 
 const DevBadge = styled.span`
   padding: 2px 8px;
-  color: #644813;
-  background: #fff3d8;
-  border: 1px solid #e7d09c;
+  color: ${color.warn};
+  background: ${color.warnWeak};
+  border: 1px solid ${color.warn};
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
@@ -78,9 +79,9 @@ const DevBadge = styled.span`
 const WorkflowLabel = styled.span`
   position: relative;
   padding: 6px 12px;
-  color: #526179;
-  background: #f3f5f8;
-  border: 1px solid #d5dce5;
+  color: ${color.muted};
+  background: ${color.surface2};
+  border: 1px solid ${color.line};
   border-radius: 999px;
   font-size: 13px;
   @media (max-width: 700px) {

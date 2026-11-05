@@ -1,6 +1,7 @@
 import { useId, type ReactNode } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import styled from 'styled-components'
+import { color, shadow } from '../../theme/generated/tokens'
 
 interface HeaderDisclosureProps {
   label: string
@@ -47,19 +48,19 @@ export function HeaderDisclosure({
 const Trigger = styled.button`
   min-height: 2rem;
   max-width: 100%;
-  border: 1px solid #c5cfdd;
+  border: 1px solid ${color.lineStrong};
   border-radius: 1rem;
   padding: 8px 12px;
-  color: #233349;
-  background: #fff;
+  color: ${color.fg};
+  background: ${color.surface};
   cursor: pointer;
   &[data-state='open'] {
-    border-color: #266ac5;
-    background: #edf4ff;
+    border-color: ${color.accent};
+    background: ${color.accentWeak};
   }
   &:hover {
-    border-color: #266ac5;
-    background: #edf4ff;
+    border-color: ${color.accent};
+    background: ${color.accentWeak};
   }
 `
 
@@ -70,12 +71,12 @@ const Content = styled(Popover.Content)`
   max-height: min(70vh, var(--radix-popover-content-available-height));
   overflow: auto;
   overscroll-behavior: contain;
-  border: 1px solid #c5cfdd;
+  border: 1px solid ${color.lineStrong};
   border-radius: 10px;
   padding: 14px;
-  background: #fff;
-  color: #233349;
-  box-shadow: 0 8px 28px #23334926;
+  background: ${color.surface};
+  color: ${color.fg};
+  box-shadow: ${shadow};
   font-size: 14px;
   overflow-wrap: anywhere;
 `
@@ -94,10 +95,10 @@ const Title = styled.h2`
 
 const Close = styled.button`
   min-height: 44px;
-  border: 1px solid #c5cfdd;
+  border: 1px solid ${color.lineStrong};
   border-radius: 6px;
   padding: 6px 10px;
-  background: #f3f5f8;
-  color: #233349;
+  background: ${color.surface2};
+  color: ${color.fg};
   cursor: pointer;
 `

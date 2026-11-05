@@ -1,5 +1,6 @@
 import type { MediaIdentityLabels } from '../../media/identity-labels'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { MediaEvidenceDto, MediaVersionDto } from '@invimport/contracts'
 import { Button, Paragraph, Small, Subheading } from '../ui/primitives'
 import { mediaResource } from '../../media/types'
@@ -56,7 +57,7 @@ export function MediaEvidenceCard({ batchId, evidence, disabled, onCrop, labels 
 const Card = styled.article`
   display: grid;
   gap: 10px;
-  border: 1px solid #d5dce5;
+  border: 1px solid ${color.line};
   border-radius: 5px;
   padding: 12px;
   margin: 12px 0;
@@ -75,7 +76,7 @@ const Version = styled.div`
 
   figcaption {
     font-size: 12px;
-    color: #526179;
+    color: ${color.muted};
   }
 `
 
@@ -84,5 +85,5 @@ const Preview = styled.img`
   width: 100%;
   max-height: 280px;
   object-fit: contain;
-  background: #f0f3f7;
+  background: ${color.photoStage};
 `

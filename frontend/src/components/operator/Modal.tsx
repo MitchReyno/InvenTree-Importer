@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import { Button, HeadingRow, Subheading } from '../ui/primitives'
 
 interface Props {
@@ -60,10 +61,10 @@ const Dialog = styled.dialog`
   max-height: calc(100dvh - 32px);
   overflow: auto;
   padding: 20px;
-  border: 1px solid #d5dce5;
+  border: 1px solid ${color.line};
   border-radius: 8px;
-  color: #233349;
+  color: ${color.fg};
   &::backdrop {
-    background: rgba(20, 32, 51, 0.45);
+    background: ${color.overlay};
   }
 `

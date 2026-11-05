@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { MediaEvidenceDto, MediaSnapshotDto } from '@invimport/contracts'
 import {
   evidenceFromHash,
@@ -323,8 +324,8 @@ const Preview = styled.div`
   width: 100%;
   height: clamp(240px, 40vw, 460px);
   overflow: auto;
-  background: #e8edf3;
-  border: 1px solid #c8d3e1;
+  background: ${color.photoStage};
+  border: 1px solid ${color.lineStrong};
   border-radius: 6px;
   @media (max-width: 700px) {
     height: 280px;
@@ -338,8 +339,8 @@ const PreviewImage = styled.img<{ $zoom: number }>`
 `
 const Empty = styled.div`
   padding: 24px 12px;
-  background: #f3f5f8;
-  color: #526179;
+  background: ${color.surface2};
+  color: ${color.muted};
   border-radius: 6px;
   line-height: 1.5;
 `

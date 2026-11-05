@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { MediaClient } from '../../media/types'
 import { mediaResource } from '../../media/types'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
@@ -86,11 +87,11 @@ const Versions = styled.div`
   flex-wrap: wrap;
   gap: 12px;
   padding-top: 12px;
-  border-top: 1px solid #d5dce5;
+  border-top: 1px solid ${color.line};
   a {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
-    color: #164a93;
+    color: ${color.accent};
   }
 `

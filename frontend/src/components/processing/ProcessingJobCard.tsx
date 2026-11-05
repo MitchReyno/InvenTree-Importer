@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, ProcessingJobDto } from '@invimport/contracts'
 import { Button, Heading, Paragraph, Panel, Small } from '../ui/primitives'
 import { ProcessingSources } from './ProcessingSources'
@@ -106,5 +107,5 @@ const Row = styled.div`
 const Status = styled.span`
   font-size: 13px;
   font-weight: 600;
-  color: #526179;
+  color: ${color.muted};
 `

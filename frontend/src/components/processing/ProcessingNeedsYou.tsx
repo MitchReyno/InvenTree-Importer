@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { CaptureSnapshotDto, ProcessingSnapshotDto } from '@invimport/contracts'
 import { Heading, Panel, Small } from '../ui/primitives'
 
@@ -64,12 +65,12 @@ const Chips = styled.ul`
     gap: 10px;
     align-items: center;
     padding: 6px 12px;
-    border: 1px solid #e2c47e;
-    background: #fffaf0;
+    border: 1px solid ${color.warn};
+    background: ${color.warnWeak};
     border-radius: 999px;
   }
   a {
-    color: #164a93;
+    color: ${color.accent};
     min-height: 32px;
     display: inline-flex;
     align-items: center;

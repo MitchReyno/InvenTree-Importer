@@ -1,6 +1,7 @@
 import Moveable from 'react-moveable'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import { cropAspect, type CropAspect, type CropFrame } from '../../media/crop-model'
 
 interface Props {
@@ -122,7 +123,7 @@ const SourceSurface = styled.div<{ $ratio: number }>`
   width: min(calc(100% - 72px), 680px, calc((100dvh - 340px) * ${(props) => props.$ratio}));
   margin: 36px auto;
   touch-action: none;
-  background: #edf1f6;
+  background: ${color.photoStage};
 `
 const SourceImage = styled.img`
   display: block;
@@ -138,7 +139,7 @@ const CropTarget = styled.div`
   top: 0;
   transform-origin: 50% 50%;
   box-sizing: border-box;
-  border: 2px solid #266ac5;
-  background: rgb(38 106 197 / 12%);
+  border: 2px solid ${color.highlight};
+  background: transparent;
   cursor: move;
 `

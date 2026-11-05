@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { CaptureSettingsIntentDto } from '@invimport/contracts'
 import { AutoValueField } from '../ui/AutoValueField'
 import { OptionalNotesField } from '../ui/OptionalNotesField'
@@ -72,9 +73,9 @@ const Unavailable = styled.fieldset`
   gap: 8px;
   margin: 0;
   padding: 12px;
-  color: #526179;
-  background: #eef0f3;
-  border: 1px solid #cbd2dc;
+  color: ${color.muted};
+  background: ${color.surface2};
+  border: 1px solid ${color.lineStrong};
   border-radius: 5px;
   min-width: 0;
   label {

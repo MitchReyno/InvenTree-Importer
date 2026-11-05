@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type {
   CaptureBatchSettingsChangeDto,
   CaptureDefaultLocationSettingDto,
@@ -585,15 +586,15 @@ const Instructions = styled.div`
   display: grid;
   gap: 8px;
   padding-top: 12px;
-  border-top: 1px solid #e3e8ef;
+  border-top: 1px solid ${color.line};
 `
 const KeepButton = styled.button`
   min-height: 44px;
   margin: 8px 0 12px;
   padding: 9px 14px;
-  color: #164a93;
-  background: #edf3fc;
-  border: 1px solid #b9cde7;
+  color: ${color.accent};
+  background: ${color.accentWeak};
+  border: 1px solid ${color.lineStrong};
   border-radius: 6px;
   cursor: pointer;
 `

@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { OperatorReviewDto } from '@invimport/contracts'
 import {
   FILTER_LABELS,
@@ -55,12 +56,12 @@ const Chip = styled.button`
   min-height: 36px;
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid #c8d3e1;
-  background: #fff;
-  color: #3c4b61;
+  border: 1px solid ${color.lineStrong};
+  background: ${color.surface};
+  color: ${color.fg};
   cursor: pointer;
   span {
-    color: #526179;
+    color: ${color.muted};
     font-variant-numeric: tabular-nums;
   }
   @media (max-width: 700px) {
@@ -69,9 +70,9 @@ const Chip = styled.button`
     white-space: nowrap;
   }
   &[aria-pressed='true'] {
-    background: #e0eafa;
-    border-color: #266ac5;
-    color: #164a93;
+    background: ${color.accentWeak};
+    border-color: ${color.accent};
+    color: ${color.accent};
     font-weight: 600;
   }
 `

@@ -200,7 +200,7 @@ test('healthy sockets retain foreground target polling and local expiry while a 
   })
   const connectedLabel = screen.getByText('inventory.example.test')
   expect(connectedLabel).toBeVisible()
-  expect(connectedLabel.previousElementSibling).toHaveStyle({ backgroundColor: '#4eaa3d' })
+  expect(connectedLabel.previousElementSibling).toHaveAttribute('data-tone', 'ok')
   await act(async () => {
     await vi.advanceTimersByTimeAsync(30_100)
   })
@@ -210,7 +210,7 @@ test('healthy sockets retain foreground target polling and local expiry while a 
   })
   const staleLabel = screen.getByText('InvenTree status stale')
   expect(staleLabel).toBeVisible()
-  expect(staleLabel.previousElementSibling).toHaveStyle({ backgroundColor: '#9a6b18' })
+  expect(staleLabel.previousElementSibling).toHaveAttribute('data-tone', 'warn')
 })
 
 test('tab-level rerenders preserve the draft and the same scoped query subscriptions', async () => {

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import styled from 'styled-components'
+import { color } from '../../theme/generated/tokens'
 import type { HeaderClient } from '../../header/types'
 import { useHeaderObservations } from '../../header/useHeaderObservations'
 import {
@@ -83,7 +84,7 @@ export function HeaderStatus({ client, batchId, bootstrapUnavailable = false }: 
           title="Connection details"
           trigger={
             <TriggerContent>
-              <Dot $good={targetGood} />
+              <Dot $good={targetGood} data-tone={targetGood ? 'ok' : 'warn'} />
               <span role="status" aria-live="polite">
                 {targetText}
               </span>
@@ -143,7 +144,7 @@ const TriggerContent = styled.span`
   text-align: left;
 `
 const Scope = styled.small`
-  color: #526179;
+  color: ${color.muted};
 `
 const Dot = styled.span<{ $good: boolean }>`
   display: inline-block;
@@ -151,7 +152,7 @@ const Dot = styled.span<{ $good: boolean }>`
   height: 7px;
   border-radius: 50%;
   flex: none;
-  background: ${(p) => (p.$good ? '#4eaa3d' : '#9a6b18')};
+  background: ${(p) => (p.$good ? color.ok : color.warn)};
 `
 const Segments = styled.span`
   display: flex;
@@ -162,14 +163,14 @@ const Segment = styled.span`
   height: 4px;
   min-width: 16px;
   flex: 1;
-  background: #3577cb;
+  background: ${color.accent};
   border-radius: 2px;
 `
 const TargetLink = styled.a`
   min-height: 2rem;
   display: inline-flex;
   align-items: center;
-  color: #233349;
+  color: ${color.fg};
   font-size: 12px;
   font-weight: 500;
   text-decoration: none;
@@ -177,11 +178,11 @@ const TargetLink = styled.a`
   border: 1px solid transparent;
   padding: 0.25rem 0.5rem;
   &:hover {
-    border-color: #266ac5;
-    background: #edf4ff;
+    border-color: ${color.accent};
+    background: ${color.accentWeak};
   }
 `
 const UnavailableLink = styled.span`
   font-size: 12px;
-  color: #526179;
+  color: ${color.muted};
 `
