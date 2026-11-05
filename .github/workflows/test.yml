@@ -96,7 +96,9 @@ jobs:
 
   intake-pg:
     name: Intake PostgreSQL and process
-    if: ${{ inputs.intake }}
+    # Disabled: these long-running tiers exceed the included free Actions minutes. Run
+    # `pnpm db:intake test` and `pnpm db:intake test:process` locally instead (see intake-server/TESTING.md).
+    if: ${{ false && inputs.intake }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:

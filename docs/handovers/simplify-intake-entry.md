@@ -419,6 +419,15 @@ Regression tests: a cancelled `waiting_input` session with no inbox and a cancel
 
 Codex (`gpt-6.1-sol`, read-only) reviewed `8f4a81c..114589a` and found no critical or important defects across authority and citations, concurrency and slots, earlier-profile compatibility (all 16 versioned schemas unchanged), migration and grants, inbox delivery and wake-ups, adapters and the frontend. Its one minor observation, the agents architecture still describing queued-only cancellation cleanup, is fixed in a documentation-only commit after the reviewed head.
 
+## PR-A delivery (D.1)
+
+- **Review:** the eighth independent review was clear at `114589ad008f0014c55497c899630efbae5e9d3c`. Its one minor documentation note was fixed in the docs-only head `cbad77d94396f78f2e6a39d5ddd4b75d090e9f9e`.
+- **Published:** [#97](https://github.com/MitchReyno/InvenTree-Importer/pull/97) against `interactive-app`, with no reviewers.
+- **CI on `cbad77d`:** every selected job passed except `Intake PostgreSQL and process`, whose only failure, `runtime sandbox has enforced kernel, filesystem and network limits`, failed identically on `interactive-app` at `8f4a81c`. That test was stale after #93 raised the media limits.
+- **Merged:** squash-merged at `cbad77d` as `10f9e7d` on Mitch's instruction.
+- **Trunk follow-up:** [#98](https://github.com/MitchReyno/InvenTree-Importer/pull/98) (`ded521a`) updated the stale media-resource tests, after which that job passed in full.
+- **CI from PR-B onward:** this PR then disabled the PostgreSQL and process job for Actions usage. PR-B onward record local results for those tiers instead.
+
 ## Validation
 
 - `pnpm spikes:check`: 35 passed (the existing shared-contract suite; the new spike adds no test there).
