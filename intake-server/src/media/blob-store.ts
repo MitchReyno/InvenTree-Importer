@@ -1,5 +1,6 @@
 import { bindMediaStore } from './store-binding.ts'
 import { MEDIA_SOURCE_MAX_BYTES } from '@invimport/contracts/media'
+import { MEDIA_LIMITS } from './decoder-protocol.ts'
 import { constants } from 'node:fs'
 import { link, lstat, mkdir, open, realpath, unlink } from 'node:fs/promises'
 import { createHash, randomUUID } from 'node:crypto'
@@ -9,6 +10,8 @@ import { sql } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 
 export const MAX_UPLOAD_BYTES = MEDIA_SOURCE_MAX_BYTES
+/** Uploads are bounded at the route; decoded previews may be larger than any upload. */
+export const MAX_BLOB_BYTES = Math.max(MAX_UPLOAD_BYTES, MEDIA_LIMITS.outputBytes)
 export const MIN_GC_AGE_MS = 24 * 60 * 60 * 1000
 const DIGEST = /^[a-f0-9]{64}$/
 
@@ -103,7 +106,7 @@ export class BlobStore {
 
   /** Caller commits its receipt while retaining the digest lock acquired here. */
   async publish(client: PoolClient, bytes: Buffer): Promise<RetainedBlob> {
-    if (!bytes.length || bytes.length > MAX_UPLOAD_BYTES) {
+    if (!bytes.length || bytes.length > MAX_BLOB_BYTES) {
       throw new Error('upload_byte_limit')
     }
     const digest = createHash('sha256').update(bytes).digest('hex')
@@ -157,7 +160,7 @@ export class BlobStore {
         (typeof process.getuid === 'function' && metadata.uid !== process.getuid()) ||
         (metadata.mode & 0o077) !== 0 ||
         metadata.size <= 0 ||
-        metadata.size > MAX_UPLOAD_BYTES
+        metadata.size > MAX_BLOB_BYTES
       ) {
         throw new Error('unsafe_blob_file')
       }

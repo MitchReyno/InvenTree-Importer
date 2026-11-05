@@ -9,7 +9,8 @@ import { grantProcessing } from '../processing/grants.ts'
 import { grantMedia } from '../media/grants.ts'
 import { grantCaptureRead } from '../capture/grants.ts'
 import { grantProjection } from '../operations/grants.ts'
-import { readDevState, type DevState, type FakeDevState } from './state.ts'
+import { readDevState, schedulerUrl, type DevState, type FakeDevState } from './state.ts'
+import { reownProcessingRows } from './scheduler-owner.ts'
 import { developmentAdminUrl } from './postgres-url.ts'
 import { developmentTarget, type DevelopmentTarget } from './target.ts'
 import { readonlyState } from './readonly-setup.ts'
@@ -192,6 +193,7 @@ async function main() {
   } finally {
     await db.close()
   }
+  await reownProcessingRows(schedulerUrl(state))
   process.stdout.write(
     'Owned development state ready; data retained across application restarts.\n',
   )

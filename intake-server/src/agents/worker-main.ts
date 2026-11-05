@@ -7,6 +7,7 @@ import { readMediaStoreIdentity } from '../media/store-identity.ts'
 import { BlobStore } from '../media/blob-store.ts'
 import { dispatchProcessingCommands, executeProcessingCommand } from '../processing/delivery.ts'
 import { requireHandlerVersion } from '../workers/delivery.ts'
+import { processingApplication } from '../processing/queue.ts'
 import { nativeAgentHost, privateDirectory } from './environment.ts'
 import { nativeProfileId, nativeHandlerVersion } from './policy.ts'
 import { nativeAgentRunner } from './runner.ts'
@@ -57,7 +58,7 @@ async function main() {
       : undefined
     const runner = nativeAgentRunner(db.pool, config, host, store, shutdown.signal)
     DBOS.setConfig({
-      name: 'bench-intake-native-agent',
+      name: processingApplication,
       applicationVersion: nativeHandlerVersion,
       systemDatabaseUrl: localDatabaseUrl(process.env.INTAKE_AGENT_SCHEDULER_DATABASE_URL),
       executorID: `native-${config.actorId}`,

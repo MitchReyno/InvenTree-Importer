@@ -58,7 +58,8 @@ export function MediaUpload({
   useImperativeHandle(ref, () => ({ choose }))
 
   function selected(file: File | undefined, kind: 'photos' | 'document') {
-    if (!file || pending || unfinished || disabled) {
+    // Not gated on `disabled`: the picker's return of focus briefly re-reads the batch. Retain stays gated.
+    if (!file || pending || unfinished) {
       return
     }
     const allowed = kind === 'photos' ? ['image/jpeg', 'image/png'] : ['application/pdf']
