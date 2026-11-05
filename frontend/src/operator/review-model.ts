@@ -1,3 +1,4 @@
+import { locationDraftName } from '../capture/context'
 import {
   lotLocationGroups,
   resolveLotLocation,
@@ -208,8 +209,15 @@ export function lotLocationFact(
         value: `${value} · ${groupLabels(resolution.group_ids)}`,
         provenance: 'evidence_group',
       }
-    case 'batch':
-      return { value: display(lot.location, batch, 'location'), provenance: 'inherited' }
+    case 'batch': {
+      const draft = resolution.location.mode === 'unset' ? locationDraftName(batch) : null
+      return {
+        value: draft
+          ? `New location ${draft} · created only after approval`
+          : display(lot.location, batch, 'location'),
+        provenance: 'inherited',
+      }
+    }
     default:
       return { value, provenance: lotProvenance(lot.location, batch.defaults.location) }
   }

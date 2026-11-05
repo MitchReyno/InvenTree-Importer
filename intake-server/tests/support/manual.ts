@@ -1,4 +1,7 @@
 import { registerLive } from '../../src/live/routes.ts'
+import { registerProcessing } from '../../src/processing/routes.ts'
+import { grantProcessing } from '../../src/processing/grants.ts'
+import { lockCaptureForEdit } from '../../src/capture/repository.ts'
 import {
   EFFECTS_BUILD,
   EFFECTS_CAPABILITY,
@@ -39,7 +42,14 @@ import type { ManualRunnerConfig } from '../../src/review/runner.ts'
 
 /** Only fresh synthetic roles/credentials and random isolated databases on the shared owned PG. */
 export async function manualFixture(
-  options: { media?: boolean; effects?: boolean; records?: boolean; retainedRoot?: string } = {},
+  options: {
+    media?: boolean
+    effects?: boolean
+    records?: boolean
+    /** Also serves synthetic Processing on the same disposable database, for connected journeys. */
+    processing?: boolean
+    retainedRoot?: string
+  } = {},
 ) {
   // Record creation is a separate `/2` deployment; it includes every `/1` effect.
   const effectsCapability = options.records
@@ -100,7 +110,7 @@ export async function manualFixture(
       capability,
     }),
   )
-  async function role(purpose: 'api' | 'runner' | 'apply' | 'scheduler') {
+  async function role(purpose: 'api' | 'runner' | 'apply' | 'scheduler' | 'processing') {
     const name = `intake_${randomUUID().replaceAll('-', '')}`
     const password = randomUUID()
     roles.push(name)
@@ -114,8 +124,13 @@ export async function manualFixture(
       if (options.media) {
         await grantMedia(db.pool, name, 'api')
       }
+      if (options.processing) {
+        await grantProcessing(db.pool, name, 'api')
+      }
     }
-    if (purpose === 'scheduler') {
+    if (purpose === 'processing') {
+      await grantProcessing(db.pool, name, 'runner')
+    } else if (purpose === 'scheduler') {
       await db.pool.query(`GRANT CREATE ON DATABASE ${db.name} TO ${name}`)
     } else {
       await grantManual(db.pool, name, purpose)
@@ -131,6 +146,7 @@ export async function manualFixture(
   const runner = await role('runner')
   const apply = await role('apply')
   const scheduler = await role('scheduler')
+  const processingRunner = options.processing ? await role('processing') : undefined
   const profile: TargetProfile = {
     kind: 'owned-disposable' as const,
     targetId: identity.target,
@@ -162,6 +178,7 @@ export async function manualFixture(
     deploymentId,
     readOrigin: fake.origin,
     ...(options.media ? { mediaEnabled: true } : {}),
+    ...(options.processing ? { channelSecret: `synthetic-channel-${randomUUID()}` } : {}),
   }
   const transport = inventoryTransport({ ...profile, kind: 'protected-read-only' })
   const read = captureRead((operation) =>
@@ -187,6 +204,9 @@ export async function manualFixture(
     })
     if (store) {
       registerMediaRoutes(app, api.pool, config, store)
+    }
+    if (options.processing) {
+      registerProcessing(app, api.pool, config as never, lockCaptureForEdit)
     }
     config.origin = await app.listen({ host: '127.0.0.1', port: 0 })
     await authenticate()
@@ -225,6 +245,7 @@ export async function manualFixture(
     scheduler,
     runnerConfig,
     runnerConfigPath,
+    processingRunner,
     http,
     start,
     stop,

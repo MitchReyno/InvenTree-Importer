@@ -49,7 +49,7 @@ Find a suitable supplier logo automatically when creating a supplier. This is a 
 - Change: `automatic-supplier-logos`
 - Status: Proposed
 - Size: Unknown
-- Prerequisites: Unknown — discovery sources, image handling and execution support need assessment; BI-003 supplies the planned entry point but is not yet implemented.
+- Prerequisites: Unknown — discovery sources, image handling and execution support need assessment; BI-003 supplies the planned entry point as a disabled Find automatically control; automatic discovery is not implemented.
 - OpenSpec: [automatic-supplier-logos](../openspec/changes/automatic-supplier-logos/)
 
 #### BI-005 — Purchase-order support
@@ -95,7 +95,7 @@ Replace the top-right Manual workflow element with a clickable connection-status
 Replace technical selection modes and explicit settings saves with concise reusable inputs and safe autosave. Add optional batch/order notes, typo-tolerant searchable default-location and supplier selection with new-record drafts, reviewed evidence-derived quantities, order/date choices, shared Part tags and Custom instructions. Remove the Physical lots and Part proposals panes from Capture and default to the original mockup layout. Preserve explicit location precedence and keep PO creation and automatic logo discovery disabled for separate future work.
 
 - Change: `batch-settings-overhaul`
-- Status: Proposed
+- Status: In review
 - Size: L — cross-layer settings, search, inheritance, inference preferences and supervised new-record support.
 - Prerequisites: BI-001 and BI-002 are satisfied; existing capture, review and transport foundations are merged. New catalogue and new-record execution contracts are included in this change; future PO and logo items are not prerequisites.
 - OpenSpec: [batch-settings-overhaul](../openspec/changes/batch-settings-overhaul/)

@@ -27,6 +27,10 @@ export function contextDescription(
   field: keyof CaptureLotContextDto,
 ): string {
   const choice = captureContext(batch, subjectId)[field]
+  const draft = field === 'supplier' && subjectId === null ? supplierDraftName(batch) : null
+  if (draft) {
+    return `New supplier ${draft} · created only after approval`
+  }
   if (choice.mode === 'inherit') {
     return `Inherited · ${contextDescription(batch, null, field)}`
   }
@@ -54,4 +58,26 @@ export function normalizeContextTags(context: CaptureLotContextDto): CaptureLotC
     ...context,
     tags: { mode: 'set', value: context.tags.value.map((tag) => tag.trim()).filter(Boolean) },
   }
+}
+
+/** The batch supplier's pending new-supplier draft, kept apart from the legacy context value. */
+export function supplierDraftName(batch: Snapshot) {
+  const supplier = batch.settings_intent?.value.supplier
+  if (!supplier || supplier.absent || supplier.selection.mode !== 'draft') {
+    return null
+  }
+  const draftId = supplier.selection.draft_id
+  const draft = batch.reference_drafts?.find(
+    (record) => record.draft_id === draftId && record.kind === 'company',
+  )
+  return draft?.value.name ?? null
+}
+
+/** The pending Default-location draft, which applies only while the batch default is unset. */
+export function locationDraftName(batch: Snapshot) {
+  const draftId = batch.settings_intent?.default_location_draft
+  const draft = batch.reference_drafts?.find(
+    (record) => record.draft_id === draftId && record.kind === 'location',
+  )
+  return draft && batch.defaults.location.mode === 'unset' ? draft.value.name : null
 }

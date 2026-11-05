@@ -1,6 +1,6 @@
 # Batch settings overhaul implementation
 
-Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) merged as #88 (`2ba6b47`). PR-D (Tasks 7 and 8) is in progress on `feat/batch-settings-overhaul-records`. PR-D has not started. Reviews, CI and merges are recorded only after they occur.
+Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) merged as #88 (`2ba6b47`). PR-D (Tasks 7 and 8) is implemented on `feat/batch-settings-overhaul-records` and in independent review; Task 8.4 stays open until that review is clean and the selected CI passes. PR-D has not started. Reviews, CI and merges are recorded only after they occur.
 
 ## Authority and boundaries
 
@@ -469,3 +469,45 @@ Codex (`gpt-6.1-sol`, read-only) reviewed exactly `2ba6b47..125da0f`: no Critica
 3. Minor: the logo and its original bypassed the 64-version/256 MiB preparation check and failed later in plan decoding. The closure check now includes them and raises `media_scope_limit`. Regression `tests/record-media-closure.test.ts` (count, byte boundary, a logo already in subject evidence); negative control fails.
 
 Codex also noted that development-stack admission is still `/1`-only; that belongs to Task 8.
+
+## PR-D Task 8: integrated acceptance
+
+### Connected journey (8.1)
+
+`tests/pg/batch-settings-journey.test.ts` runs one journey on one disposable database, with the real HTTP server, Processing, media and the supervised runner (the manual fixture's `processing` option serves synthetic Processing beside the `/2` owned fake):
+
+1. A `batch_settings` save (the command autosave sends) against a stale revision is refused and writes nothing; a fresh read, as on reconnect, then saves the Default-location and supplier drafts. Nothing is sent to the target.
+2. Location resolution: Packet A uses the unset batch default's draft, and Packet B keeps its own location.
+3. A Processing `/4` estimate of 17 for Packet A, bound to its linked label photo, is retained on a ready job; the lot stays unset until the explicit human edit that Review issues.
+4. Review, preparation (create location and company), approval and the supervised run settle complete. Read-back from the owned fake returns the new location (`Reel shelf`, parent 43), the supplier (`Acme Reels`, supplier and manufacturer) and stock of 17 in the new location.
+
+The browser run in [the evidence record](../bench-intake/evidence/batch-settings-overhaul/README.md#supervised-record-creation-pr-d) drives Review, Approve and Results in Chrome against the same kind of owned fixture, with fake read-back. It found and fixed Review facts that showed the drafts as "Not selected" and "Explicitly unknown"; both now name the pending draft (`operator/location-fact.test.ts`).
+
+### Behaviour and accessibility (8.2)
+
+PR-D does not change the Capture panel's controls. Their behaviour is covered by the frontend suite (309 passing) and the PR-B browser runs:
+
+- Note Hide and Remove: `OptionalNotesField.test.tsx`, `BatchSettingsPanel.test.tsx`.
+- No supplier: `BatchSettingsPanel.test.tsx`, `SearchableReferencePicker.test.tsx`.
+- Disabled purchase-order preview: `BatchSettingsPanel.test.tsx`.
+- Disabled automatic-logo explanation (Find automatically): `DisabledFeature.test.tsx`.
+- Shared tags: `SharedTagsInput.test.tsx`, `BatchSettingsPanel.test.tsx`.
+- Instruction interleaving: `BatchSettingsPanel.test.tsx`.
+- Dirty navigation: `App.test.tsx`, `OperatorReview.test.tsx`.
+- Narrow and native 200%: Capture in the PR-B runs; Review, Approve and Results in the PR-D runs, all with zero horizontal overflow.
+
+### Checks (8.3)
+
+On the Task 8 head before review: contracts 61, intake fast 178, frontend 309 (47 files); PostgreSQL 157 (all `tests/pg`, including the connected journey); process tier 37 passed and 4 skipped (all `tests/process`; the skips are existing environment-gated tests); typecheck, frontend lint, readability lint, Markdown lint, Prettier, generated contracts and the frontend build all pass. `pnpm workflow-sync` and backend checks are unaffected (no skill, agent or backend changes).
+
+Packages and advisories: PR-D adds no dependency and no lockfile change.
+
+Rollout: apply migration `0016_record_effects.sql` (additive). Record creation is available only where an `owned-fake-effects/2` deployment row and runner are provisioned; other deployments keep their builds and report `record_creation_unavailable`. The development stack stays on `/1`, so record creation is unavailable there.
+
+Rollback: stop provisioning `/2` deployments; preparation then refuses drafts and existing `/1` runs are untouched. Do not drop `executor_record_identity` or reinterpret retained effects: an unknown create stays unknown under its original run.
+
+Unqualified boundaries: no real InvenTree mutation profile; the owned fake does not prove InvenTree compatibility (for example Company `currency` and image storage). No same-name reconciliation command; an unknown create can only be inspected by its attributed PK. Live providers and model inference are not involved.
+
+### Index (8.5)
+
+[BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul) is "In review" while PR-D is open; BI-004 (automatic supplier logos) and BI-005 (purchase-order support) remain Proposed. Merge, Done and archive are not claimed.
