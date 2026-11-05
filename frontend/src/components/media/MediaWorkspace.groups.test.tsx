@@ -180,12 +180,10 @@ test('an uncertain note uses one request and closes only after the exact retry i
   await user.click(screen.getByRole('button', { name: 'Save evidence note' }))
   expect(screen.getByRole('textbox', { name: 'Note for Front label' })).toHaveValue('Original ink')
   expect(screen.getByRole('textbox', { name: 'Note for Front label' })).toBeDisabled()
-  // The retained request holds the text, and its retry sits outside the viewer.
+  // The viewer keeps the editor until the request settles, and offers its retry itself.
   const viewer = screen.getByRole('dialog', { name: 'Front label' })
-  await user.click(within(viewer).getByRole('button', { name: 'Close' }))
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: 'Retry exact media request' }))
-  await user.click(await screen.findByRole('button', { name: 'Open Front label' }))
+  expect(within(viewer).getByRole('button', { name: 'Close' })).toBeDisabled()
+  await user.click(within(viewer).getByRole('button', { name: 'Retry exact media request' }))
   await waitFor(() =>
     expect(screen.queryByRole('textbox', { name: 'Note for Front label' })).toBeNull(),
   )
@@ -440,4 +438,33 @@ test('a read-only workspace still lets the viewer close', async () => {
     new Event('cancel', { cancelable: true }),
   )
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+test('a refused retry of an uncertain note keeps the typed text in the viewer', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  vi.mocked(client.edit)
+    .mockRejectedValueOnce(new Error('lost acknowledgment'))
+    .mockRejectedValueOnce(new IntakeRequestError(409, 'revision_conflict'))
+  render(
+    <MediaWorkspace
+      batch={batch}
+      client={client}
+      disabled={false}
+      selectedSubject="defaults"
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Open Front label' }))
+  await user.click(screen.getByRole('button', { name: 'Edit note for Front label' }))
+  await user.type(screen.getByLabelText('Note for Front label'), 'Original ink')
+  await user.click(screen.getByRole('button', { name: 'Save evidence note' }))
+  const viewer = screen.getByRole('dialog', { name: 'Front label' })
+  await user.click(within(viewer).getByRole('button', { name: 'Retry exact media request' }))
+
+  await waitFor(() =>
+    expect(within(viewer).queryByRole('button', { name: 'Retry exact media request' })).toBeNull(),
+  )
+  expect(screen.getByLabelText('Note for Front label')).toHaveValue('Original ink')
+  expect(within(viewer).getByRole('button', { name: 'Close' })).toBeDisabled()
 })

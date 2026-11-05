@@ -1,6 +1,6 @@
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import { GroupLocationControl } from './GroupLocationControl'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import type {
   CaptureSnapshotDto,
@@ -32,6 +32,8 @@ type Props = {
   confirmation: number
   frozen: boolean
   pending: boolean
+  /** Retry and discard for an unconfirmed request, shown in the viewer that made it. */
+  retained: ReactNode
   selected: string[]
   edit: EditMedia
   blocked: (owner: string) => boolean
@@ -54,6 +56,7 @@ export function EvidenceGroupPanel({
   confirmation,
   frozen,
   pending,
+  retained,
   selected,
   edit,
   blocked,
@@ -109,13 +112,8 @@ export function EvidenceGroupPanel({
     setNoteDirty(false)
   }, [confirmation, dirty, renameKey, noteId])
 
-  // An unconfirmed save keeps its text in the retained request, so only the editor goes.
   function closeViewer() {
-    if (noteId) {
-      dirty(`note:${noteId}`)(false)
-    }
     setNoteId(null)
-    setNoteDirty(false)
     setOpenId(null)
   }
 
@@ -239,7 +237,7 @@ export function EvidenceGroupPanel({
         })}
       </EvidenceGrid>
       {opened && (
-        <Modal title={fileName(opened)} onClose={closeViewer} closeDisabled={noteDirty && !pending}>
+        <Modal title={fileName(opened)} onClose={closeViewer} closeDisabled={noteDirty}>
           <MediaEvidenceCard
             labels={labels}
             batchId={batch.id}
@@ -271,6 +269,7 @@ export function EvidenceGroupPanel({
               }
             />
           )}
+          {noteDirty && pending && retained}
           <MediaEvidenceRelations
             batch={batch}
             evidence={opened}

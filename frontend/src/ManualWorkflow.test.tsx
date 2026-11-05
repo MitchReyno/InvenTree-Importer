@@ -568,40 +568,34 @@ test(
   },
 )
 
-test('returning to Changes reopens the preparation last shown, not the newest one', async () => {
+test('opening bare Ready to add picks the newest preparation without a history entry', async () => {
   const client = fakeClient()
-  const newer: ManualPreviewDto = { ...preview, id: 'a0000000-0000-4000-8000-000000000002' }
   vi.mocked(client.workspace).mockImplementation(async () =>
     checked<Awaited<ReturnType<ManualClient['workspace']>>>('ManualWorkspace', {
       batch_id: batchId,
       revision: batch.revision,
       supported: true,
       capability: 'owned-fake-stock/1',
-      lots: [
-        { lot_id: a, reviewed: true, issues: [] },
-        { lot_id: b, reviewed: true, issues: [] },
-      ],
+      lots: [{ lot_id: a, reviewed: true, issues: [] }],
       runs: [],
-      preparations: [newer, preview],
+      preparations: [preview],
       preparations_truncated: false,
       cursor: batch.cursor,
     }),
   )
   const navigate = vi.fn()
-  const props = {
-    batch,
-    client,
-    edit: vi.fn(async () => undefined),
-    navigate,
-    reload: vi.fn(async () => undefined),
-  }
-  const view = render(<ManualWorkspace {...props} stage="approve" preparationId={prep} />)
-  await screen.findByText('0.000001 × Packet A')
-  view.rerender(<ManualWorkspace {...props} stage="review" />)
-  view.rerender(<ManualWorkspace {...props} stage="approve" />)
+  render(
+    <ManualWorkspace
+      batch={batch}
+      client={client}
+      edit={vi.fn(async () => undefined)}
+      navigate={navigate}
+      reload={vi.fn(async () => undefined)}
+      stage="approve"
+    />,
+  )
 
-  await waitFor(() => expect(navigate).toHaveBeenCalledWith('approve', prep))
-  expect(navigate).not.toHaveBeenCalledWith('approve', newer.id)
+  await waitFor(() => expect(navigate).toHaveBeenCalledWith('approve', prep, { replace: true }))
 })
 
 test('a paused offline read retains cached review but cannot authorize a command', async () => {

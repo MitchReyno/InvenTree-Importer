@@ -35,7 +35,7 @@ export function RecordDecisions({ batchId, attention, unavailable }: RecordDecis
           </div>
         )}
         {attention === undefined && !unavailable && <Empty>Reading what needs a decision…</Empty>}
-        {attention && (
+        {attention && (decisions.length > 0 || unlisted === 0) && (
           <NeedsYou
             items={decisions.map((item) => ({
               id: item.key,
@@ -47,8 +47,8 @@ export function RecordDecisions({ batchId, attention, unavailable }: RecordDecis
         )}
         {unlisted > 0 && (
           <Empty>
-            {unlisted} more {unlisted === 1 ? 'decision is' : 'decisions are'} not listed. Lots
-            shows every lot&apos;s decisions.
+            {`${unlisted} ${decisions.length > 0 ? 'more ' : ''}${unlisted === 1 ? 'decision is' : 'decisions are'} not listed here.`}{' '}
+            Lots shows every lot&apos;s decisions.
           </Empty>
         )}
       </Card>

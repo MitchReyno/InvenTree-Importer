@@ -34,7 +34,14 @@ describe('RecordDecisions', () => {
     render(<RecordDecisions batchId={b} attention={attention(2, 5, true)} unavailable={false} />)
 
     expect(screen.getAllByRole('link', { name: /^Decision/ })).toHaveLength(2)
-    expect(screen.getByText(/3 more decisions are not listed/)).toBeInTheDocument()
+    expect(screen.getByText(/3 more decisions are not listed here/)).toBeInTheDocument()
+  })
+
+  it('does not say nothing needs you when every decision was cut from the list', () => {
+    render(<RecordDecisions batchId={b} attention={attention(0, 3, true)} unavailable={false} />)
+
+    expect(screen.queryByText(/Nothing needs you/)).not.toBeInTheDocument()
+    expect(screen.getByText(/3 decisions are not listed here/)).toBeInTheDocument()
   })
 
   it('says the decisions are unavailable when the read fails', () => {

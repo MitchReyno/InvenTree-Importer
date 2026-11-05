@@ -39,7 +39,7 @@ interface Props {
   preparationId?: string
   edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   observe?: CaptureWorkspaceProps['observe']
-  navigate: (stage: ManualStage, resourceId?: string) => void
+  navigate: (stage: ManualStage, resourceId?: string, options?: { replace?: boolean }) => void
   reload: () => Promise<void>
   /** Present only when its revision matches `batch`; stale projections are not shown. */
   operatorReview?: OperatorReviewDto
@@ -159,15 +159,7 @@ export function ManualWorkspace({
       const first = workspace.preparations[0]
       if (first) {
         setLastPreview(first)
-        navigate('approve', first.id)
-      }
-    } else {
-      // The Changes tab links to bare Ready to add; come back to the preparation last shown.
-      const shown =
-        workspace.preparations.find((value) => value.id === lastPreview?.id) ??
-        workspace.preparations[0]
-      if (shown) {
-        navigate('approve', shown.id)
+        navigate('approve', first.id, { replace: true })
       }
     }
   }, [workspace, stage, preparationId, lastPreview, navigate])

@@ -99,8 +99,31 @@ export function Batch({
     }
   }, [redirectTo])
 
-  function navigate(value: ManualStage, resourceId?: string) {
-    location.hash = batchHref(id, stageRoute(value, resourceId))
+  // Bare Ready to add returns to the preparation last shown, whichever tab came between.
+  const shownPreparation = useRef<string | null>(null)
+  const readyPreparation =
+    batchRoute?.tab === 'changes' && batchRoute.view === 'ready' ? batchRoute.preparationId : null
+  const bareReady =
+    batchRoute?.tab === 'changes' && batchRoute.view === 'ready' && !readyPreparation
+  if (readyPreparation) {
+    shownPreparation.current = readyPreparation
+  }
+  useEffect(() => {
+    if (bareReady && shownPreparation.current) {
+      location.replace(
+        batchHref(id, { tab: 'changes', view: 'ready', preparationId: shownPreparation.current }),
+      )
+    }
+  }, [bareReady, id])
+
+  /** Automatic choices replace the entry, so Back never returns to a route that redirects. */
+  function navigate(value: ManualStage, resourceId?: string, options?: { replace?: boolean }) {
+    const href = batchHref(id, stageRoute(value, resourceId))
+    if (options?.replace) {
+      location.replace(href)
+    } else {
+      location.hash = href
+    }
   }
 
   const pollInterval = useRetainedPollInterval()

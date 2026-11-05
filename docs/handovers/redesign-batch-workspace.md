@@ -176,3 +176,12 @@ Fresh read-only Claude reviewer at `7fb44f8`: 1 Important, 5 Minor, 1 Nitpick, a
 - **Minor:** the viewer's dirty flag resets when a confirmation closes the editor; `BatchAttention.processing.steps` gives exact per-step counts so step badges no longer undercount from the 200-item list, and Records says how many decisions are not listed; approved lots read "Approved" on the glance (approval includes queued and failed runs, so "Added" overstated it); bare Changes › Ready to add returns to the preparation last shown, or the newest if it is gone; a failed attention read shows "Needs you unavailable" in the header and an alert on Records instead of loading forever.
 - **Nitpick:** `reviewHash` builds through `batchHref`, so every in-app batch link does.
 
+### PR-B review round 3
+
+Fresh read-only Claude reviewer at `2552765`: 1 Important, 3 Minor, all verified, each fix test-first.
+
+- **Back trapped on Changes (Important):** the round-2 return-to-preparation pushed a history entry on every bare Ready to add, so Back looped. `Batch` now remembers the last preparation shown in the batch (surviving other tabs, which unmount the workspace) and returns to it with `location.replace`; the workspace's first automatic choice also replaces. A `Batch` test asserts the redirect adds no history entry, and a workspace test asserts the replace option.
+- **Unconfirmed note text could be lost (Minor):** round 2 let the viewer close during an unconfirmed save, and a refused retry then discarded the text. The viewer now stays open while its note is dirty, including while saving, and shows the retry and discard inside itself (the page behind a modal is inert). A test covers uncertain save, retry, refusal, text still in the editor.
+- **Records with every decision cut (Minor):** it no longer says "Nothing needs you" above the unlisted count.
+- **Doc scope (Minor):** the architecture now says where the remembered preparation lives.
+
