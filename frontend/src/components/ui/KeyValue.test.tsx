@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { KeyValue } from './KeyValue'
+import { SourceChip } from './SourceChip'
 
 describe('KeyValue', () => {
   it('states edited, override and inherited values in words', () => {
@@ -20,6 +21,31 @@ describe('KeyValue', () => {
     expect(screen.getByText('· overrides batch')).toBeInTheDocument()
     expect(screen.getByText('· from batch')).toBeInTheDocument()
     expect(screen.getByText('· edited')).toBeInTheDocument()
+  })
+
+  it('keeps the source chip outside the edit trigger', async () => {
+    const onEdit = vi.fn()
+    const onOpen = vi.fn()
+    render(
+      <KeyValue
+        rows={[
+          {
+            label: 'Supplier',
+            value: 'Mouser',
+            state: 'plain',
+            onEdit,
+            source: <SourceChip source="Slip" certainty="Read" onOpen={onOpen} />,
+          },
+        ]}
+      />,
+    )
+    const edit = screen.getByRole('button', { name: 'Edit Supplier: Mouser' })
+    const chip = screen.getByRole('button', { name: 'Source: Slip, Read. Open evidence' })
+
+    expect(edit).not.toContainElement(chip)
+    await userEvent.click(chip)
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('textbox', { name: 'Supplier' })).not.toBeInTheDocument()
   })
 
   it('edits in place: Enter saves and Escape cancels', async () => {

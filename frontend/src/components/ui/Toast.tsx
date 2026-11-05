@@ -19,7 +19,9 @@ export function Toast({
   durationMs = DEFAULT_DURATION_MS,
   onDismiss,
 }: ToastProps) {
-  const [paused, setPaused] = useState(false)
+  const [hovered, setHovered] = useState(false)
+  const [focused, setFocused] = useState(false)
+  const paused = hovered || focused
 
   useEffect(() => {
     if (paused) {
@@ -33,10 +35,10 @@ export function Toast({
     <Body
       role="status"
       aria-live="polite"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
     >
       <span>{message}</span>
       {action && (

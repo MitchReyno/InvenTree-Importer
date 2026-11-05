@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 import { color, radius, space } from '../../theme/generated/tokens'
 
@@ -23,6 +23,8 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
   const { name, count, note, actions, dropState = 'none', ungrouped = false, children } = props
   const [draft, setDraft] = useState(name)
   const [shownName, setShownName] = useState(name)
+  // The last name sent, so Enter then blur doesn't send it twice before the parent catches up.
+  const submitted = useRef<string | null>(null)
 
   if (shownName !== name) {
     setShownName(name)
@@ -31,11 +33,15 @@ export function EvidenceGroup(props: EvidenceGroupProps) {
 
   function commit() {
     const trimmed = draft.trim()
-    if (trimmed && trimmed !== name) {
-      props.onRename?.(trimmed)
-    } else {
+    if (!trimmed || trimmed === name) {
       setDraft(name)
+      return
     }
+    if (trimmed === submitted.current) {
+      return
+    }
+    submitted.current = trimmed
+    props.onRename?.(trimmed)
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {

@@ -1,5 +1,6 @@
 import styled from 'styled-components'
 import { color, radius, space } from '../../theme/generated/tokens'
+import { media } from './media'
 import { useRovingFocus } from './useRovingFocus'
 
 export type SegmentOption = { id: string; label: string }
@@ -58,5 +59,9 @@ const Segment = styled.button`
   }
   &:focus-visible {
     outline-offset: -2px;
+  }
+  ${media.compact} {
+    min-width: 44px;
+    min-height: 44px;
   }
 `

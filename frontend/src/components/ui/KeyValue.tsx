@@ -31,7 +31,6 @@ function Value({ row }: { row: KeyValueRow }) {
         {row.value}
       </ValueText>
       {note && <Note $state={row.state}>{note}</Note>}
-      {row.source}
     </>
   )
 }
@@ -45,12 +44,16 @@ export function KeyValue({ rows }: { rows: KeyValueRow[] }) {
           <dt>{row.label}</dt>
           <dd>
             {row.onEdit ? (
-              <InlineEdit label={row.label} value={row.value} onSave={row.onEdit} mono={row.mono}>
-                <Value row={row} />
-              </InlineEdit>
+              <Editable>
+                <InlineEdit label={row.label} value={row.value} onSave={row.onEdit} mono={row.mono}>
+                  <Value row={row} />
+                </InlineEdit>
+                {row.source}
+              </Editable>
             ) : (
               <Static>
                 <Value row={row} />
+                {row.source}
               </Static>
             )}
           </dd>
@@ -91,6 +94,18 @@ const Static = styled.div`
   gap: ${space[1]} ${space[2]};
   padding: 3px ${space['1-5']};
   margin: 0 -6px;
+`
+
+// The source chip is its own button, so it sits beside the edit trigger rather than inside it.
+const Editable = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: ${space[2]};
+  min-width: 0;
+  & > button:first-child {
+    flex: 0 1 auto;
+    width: auto;
+  }
 `
 
 const ValueText = styled.span<{ $state: ValueState; $mono: boolean }>`

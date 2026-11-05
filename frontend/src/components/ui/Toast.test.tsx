@@ -37,6 +37,29 @@ describe('Toast', () => {
     expect(onDismiss).toHaveBeenCalledTimes(1)
   })
 
+  it('stays paused while its action keeps focus after the pointer leaves', () => {
+    const onDismiss = vi.fn()
+    render(
+      <Toast
+        message="Lot moved"
+        durationMs={1000}
+        action={{ label: 'Undo', onClick: () => {} }}
+        onDismiss={onDismiss}
+      />,
+    )
+    const toast = screen.getByRole('status')
+
+    fireEvent.mouseEnter(toast)
+    fireEvent.focus(screen.getByRole('button', { name: 'Undo' }))
+    fireEvent.mouseLeave(toast)
+    act(() => vi.advanceTimersByTime(3000))
+    expect(onDismiss).not.toHaveBeenCalled()
+
+    fireEvent.blur(screen.getByRole('button', { name: 'Undo' }))
+    act(() => vi.advanceTimersByTime(1000))
+    expect(onDismiss).toHaveBeenCalledTimes(1)
+  })
+
   it('runs its action', async () => {
     vi.useRealTimers()
     const onClick = vi.fn()

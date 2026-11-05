@@ -1,7 +1,7 @@
 import { useId, useState, type ReactNode } from 'react'
 import styled from 'styled-components'
 import { color, radius, space } from '../../theme/generated/tokens'
-import { formatCount } from './media'
+import { formatCount, media } from './media'
 
 type BulkBarProps = {
   count: number
@@ -58,6 +58,13 @@ const Bar = styled.div`
     border-radius: ${radius.input};
     background: ${color.bg};
     color: ${color.fg};
+  }
+  ${media.compact} {
+    input,
+    select,
+    button {
+      min-height: 44px;
+    }
   }
 `
 

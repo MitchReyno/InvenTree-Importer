@@ -83,6 +83,18 @@ describe('EvidenceGroup', () => {
     expect(screen.getByRole('region', { name: 'Resistor bag' })).toHaveTextContent('2 files')
   })
 
+  it('sends a rename once when Enter is followed by blur', async () => {
+    const onRename = vi.fn()
+    render(<EvidenceGroup name="Bag" count={1} onRename={onRename} />)
+    const name = screen.getByRole('textbox', { name: 'Group name' })
+
+    await userEvent.clear(name)
+    await userEvent.type(name, 'New name{Enter}')
+    await userEvent.tab()
+    expect(onRename).toHaveBeenCalledTimes(1)
+    expect(onRename).toHaveBeenCalledWith('New name')
+  })
+
   it('restores the name on Escape and labels ungrouped files', async () => {
     const onRename = vi.fn()
     const { rerender } = render(<EvidenceGroup name="Bag" count={1} onRename={onRename} />)

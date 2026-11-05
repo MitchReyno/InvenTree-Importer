@@ -1,6 +1,6 @@
 import styled from 'styled-components'
 import { color, radius, space } from '../../theme/generated/tokens'
-import { formatCount } from './media'
+import { formatCount, media } from './media'
 import { useRovingFocus } from './useRovingFocus'
 
 export type FilterOption = { id: string; label: string; count: number }
@@ -57,6 +57,10 @@ const Chip = styled.button`
     border-color: ${color.fg};
     background: ${color.fg};
     color: ${color.bg};
+  }
+  ${media.compact} {
+    min-width: 44px;
+    min-height: 44px;
   }
 `
 
