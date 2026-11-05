@@ -163,6 +163,8 @@ export const SessionTimeline = object({
   session_state: SessionState,
   outbox: Type.Array(SessionOutboxItem, { maxItems: 500 }),
   inbox: Type.Array(SessionInboxItem, { maxItems: 500 }),
+  /** True when older items exist beyond the newest 500 returned. */
+  truncated: Type.Boolean(),
 })
 export const sessionSchemas = {
   SessionLatestStatus,

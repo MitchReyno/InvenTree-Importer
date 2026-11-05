@@ -112,6 +112,7 @@ export function registerProcessing(
       },
       (request) =>
         submitSessionInbox(pool, {
+          binding: config,
           batchId: id(request),
           lineageId: id(request, 'jobId'),
           actorId: config.actorId,

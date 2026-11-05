@@ -81,6 +81,7 @@ async function sessionHarness(provider: Provider) {
     ).rows[0]
   const chat = (key: string, text: string) =>
     submitSessionInbox(fixture.api.pool, {
+      binding: fixture.config,
       lineageId: session.job,
       actorId: fixture.identity.actor,
       idempotencyKey: key,
@@ -100,6 +101,7 @@ async function sessionHarness(provider: Provider) {
   return {
     fixture,
     session,
+    stateRoot,
     deps,
     events,
     state,
@@ -299,3 +301,89 @@ for (const provider of ['claude', 'codex'] as const) {
     },
   )
 }
+
+for (const provider of ['claude', 'codex'] as const) {
+  test(
+    `${provider}: cancelling a running session aborts the child and frees its slot`,
+    { timeout: 60000 },
+    async () => {
+      const h = await sessionHarness(provider)
+      try {
+        const running = runSessionTurn(
+          h.deps('hold'),
+          h.session.attempt,
+          new AbortController().signal,
+        )
+        const deadline = Date.now() + 20000
+        while (
+          !(await h.events()).some((event) => event.event === 'holding') &&
+          Date.now() < deadline
+        ) {
+          await delay(50)
+        }
+        const job = await h.fixture.db.pool.query<{ revision: string }>(
+          'SELECT revision::text FROM processing_job WHERE id=$1',
+          [h.session.job],
+        )
+        const cancelled = await h.fixture.http(
+          `/batches/${h.session.manifest.batch_id}/processing/${h.session.job}/cancellation`,
+          { expected_revision: job.rows[0].revision, attempt_id: h.session.attempt },
+        )
+        assert.equal(cancelled.status, 200, JSON.stringify(cancelled.value))
+        assert.equal(await running, 'cancelled')
+        const current = await h.state()
+        assert.equal(current.session_state, 'cancelled')
+        assert.equal(current.capability_sha256, null)
+        const slots = await h.fixture.db.pool.query(
+          'SELECT 1 FROM agent_slot WHERE attempt_id IS NOT NULL',
+        )
+        assert.equal(slots.rowCount, 0)
+        const attempt = await h.fixture.db.pool.query<{ state: string }>(
+          'SELECT state FROM processing_attempt WHERE id=$1',
+          [h.session.attempt],
+        )
+        assert.equal(attempt.rows[0].state, 'cancelled')
+      } finally {
+        await h.dispose()
+      }
+    },
+  )
+}
+
+test('a queued session cancelled before its claim never runs', { timeout: 60000 }, async () => {
+  const h = await sessionHarness('claude')
+  try {
+    await h.fixture.db.pool.query("UPDATE processing_attempt SET state='cancelled' WHERE id=$1", [
+      h.session.attempt,
+    ])
+    assert.equal(
+      await runSessionTurn(h.deps('normal'), h.session.attempt, new AbortController().signal),
+      'cancelled',
+    )
+    assert.equal((await h.state()).session_state, 'cancelled')
+    assert.equal((await h.events()).length, 0)
+  } finally {
+    await h.dispose()
+  }
+})
+
+test(
+  'codex: a dedicated home with its own configuration is refused before start',
+  { timeout: 60000 },
+  async () => {
+    const h = await sessionHarness('codex')
+    try {
+      const { writeFile: write, mkdir: makeDir } = await import('node:fs/promises')
+      const home = join(h.stateRoot, 'codex-api')
+      await makeDir(home, { recursive: true, mode: 0o700 })
+      await write(join(home, 'config.toml'), 'model = "other"\n')
+      assert.equal(
+        await runSessionTurn(h.deps('normal'), h.session.attempt, new AbortController().signal),
+        'failed',
+      )
+      assert.equal((await h.events()).length, 0)
+    } finally {
+      await h.dispose()
+    }
+  },
+)

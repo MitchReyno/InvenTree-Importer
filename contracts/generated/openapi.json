@@ -57999,7 +57999,8 @@
           "attempt_id",
           "session_state",
           "outbox",
-          "inbox"
+          "inbox",
+          "truncated"
         ],
         "properties": {
           "job_id": {
@@ -58658,6 +58659,9 @@
                 }
               ]
             }
+          },
+          "truncated": {
+            "type": "boolean"
           }
         }
       },

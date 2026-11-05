@@ -43,6 +43,7 @@ export function SessionTimeline({ timeline }: { timeline: SessionTimelineDto }) 
           ? `Current activity: ${(latest.payload as { text: string }).text}`
           : 'No status yet'}
       </Current>
+      {timeline.truncated && <Small>Older entries are not shown.</Small>}
       <Heading as="h4">Steps</Heading>
       <Steps aria-label="Session steps">
         {steps.map((item) => (

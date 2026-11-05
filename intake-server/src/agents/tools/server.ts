@@ -89,6 +89,7 @@ export async function startSessionToolServer(options: SessionToolServerOptions) 
     store: options.store,
     statusIntervalMs: options.statusIntervalMs ?? DEFAULT_STATUS_INTERVAL_MS,
     imageBudget: new Map(),
+    deliveredMedia: new Map(),
   })
   const hostGuard = localhostHostValidation()
   const app = Fastify({ logger: false, bodyLimit: 1024 * 1024 })

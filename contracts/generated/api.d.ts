@@ -13674,6 +13674,7 @@ export interface components {
                     reason: string;
                 };
             })[];
+            truncated: boolean;
         };
         SessionEnvelope: {
             /** @constant */

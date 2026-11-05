@@ -1,5 +1,6 @@
 import type {
   ProcessingInputDto,
+  ProcessingProposalV5Dto,
   ProcessingProposalDto,
   ProcessingSourceDto,
   ProcessingSourceV3Dto,
@@ -92,4 +93,23 @@ export function validateProposalSources(
       fail('runner_source_mismatch', 422)
     }
   }
+}
+
+/** Every source a `/5` catalogue value cites, including choices and companies. */
+export function catalogueSources(proposal: ProcessingProposalV5Dto) {
+  const catalogue = proposal.catalogue
+  if (!catalogue) {
+    return []
+  }
+  return [
+    ...(catalogue.category?.sources ?? []),
+    ...catalogue.parameters.flatMap((parameter) => parameter.sources),
+    ...(catalogue.manufacturer
+      ? [...catalogue.manufacturer.sources, ...catalogue.manufacturer.company.sources]
+      : []),
+    ...(catalogue.supplier
+      ? [...catalogue.supplier.sources, ...catalogue.supplier.company.sources]
+      : []),
+    ...(catalogue.description?.sources ?? []),
+  ]
 }

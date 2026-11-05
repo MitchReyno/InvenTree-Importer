@@ -22,7 +22,8 @@ export const CODEX_CONFIG: Record<string, unknown> = {
   'history.persistence': 'none',
 }
 
-async function rejectHostCustomizations(home: string) {
+/** The dedicated home must hold no configuration, hooks, skills or plugins of its own. */
+export async function rejectHostCustomizations(home: string) {
   for (const name of ['config.toml', 'hooks.json', 'skills', 'plugins']) {
     try {
       await lstat(join(home, name))

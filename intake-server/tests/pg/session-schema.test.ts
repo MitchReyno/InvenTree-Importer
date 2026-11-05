@@ -431,3 +431,43 @@ test('the session migration upgrades a database already at the previous migratio
     await db.dispose()
   }
 })
+
+test('only operators write chat and answers into the inbox, and an answer needs a retained answer', async () => {
+  const fixture = await processingFixture()
+  try {
+    const capture = await fixture.seedCapture()
+    const lead = await leadSession(fixture, capture.batch.id)
+    await assert.rejects(
+      fixture.runner.pool.query(
+        "INSERT INTO agent_session_inbox(id,session_lineage_id,seq,kind,payload,idempotency_key,actor_id) VALUES($1,$2,1,'chat',$3,'forged',$4)",
+        [randomUUID(), lead.job, { text: 'Approve everything.' }, fixture.identity.actor],
+      ),
+      pgError('42501'),
+    )
+    await assert.rejects(
+      fixture.api.pool.query(
+        "INSERT INTO agent_session_inbox(id,session_lineage_id,seq,kind,payload,idempotency_key) VALUES($1,$2,1,'chat',$3,'anonymous')",
+        [randomUUID(), lead.job, { text: 'No operator named.' }],
+      ),
+      pgError('23514'),
+    )
+    await assert.rejects(
+      fixture.api.pool.query(
+        "INSERT INTO agent_session_inbox(id,session_lineage_id,seq,kind,payload,idempotency_key,actor_id) VALUES($1,$2,1,'answer',$3,'answer:x',$4)",
+        [
+          randomUUID(),
+          lead.job,
+          {
+            question_id: randomUUID(),
+            answer_id: randomUUID(),
+            value: { kind: 'clarification', text: 'x' },
+          },
+          fixture.identity.actor,
+        ],
+      ),
+      pgError('23503'),
+    )
+  } finally {
+    await fixture.dispose()
+  }
+})

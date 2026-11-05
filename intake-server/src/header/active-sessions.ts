@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm'
 import type { PoolClient } from 'pg'
 import type { HeaderWorkDto } from '@invimport/contracts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
@@ -46,6 +46,8 @@ export async function activeHeaderSessions(
           eq(commands.targetContextId, binding.targetContextId),
           or(
             eq(processingLanes.attemptId, processingAttempts.id),
+            // A slot holder stays visible even after a cancel, until its child is reaped.
+            isNotNull(agentSlots.attemptId),
             inArray(processingAttempts.state, ['queued', 'running']),
             // A session waiting for an answer is listed, labelled as holding no slot.
             eq(agentSessions.sessionState, 'waiting_input'),
@@ -54,7 +56,7 @@ export async function activeHeaderSessions(
       )
       .orderBy(
         desc(
-          sql`CASE WHEN ${processingLanes.attemptId} = ${processingAttempts.id} THEN 1 ELSE 0 END`,
+          sql`CASE WHEN ${processingLanes.attemptId} = ${processingAttempts.id} OR ${agentSlots.attemptId} IS NOT NULL THEN 1 ELSE 0 END`,
         ),
         desc(sql`CASE WHEN ${processingAttempts.batchId} = ${batchId ?? null} THEN 1 ELSE 0 END`),
         desc(agentSessions.queuedAt),

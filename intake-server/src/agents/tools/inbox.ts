@@ -13,12 +13,15 @@ import { captureBatches } from '../../capture/schema.ts'
 import { processingJobs } from '../../processing/schema.ts'
 import { fail } from '../../processing/model.ts'
 import { agentSessionCursors, agentSessionInbox, agentSessions } from '../schema.ts'
+import type { CaptureBinding } from '../../capture/repository.ts'
 
 export const INBOX_READ_LIMIT = 20
 
 type InboxEntry = Pick<SessionInboxItemDto, 'kind' | 'payload'>
 
 export interface InboxSubmission {
+  /** The caller's account scope; the session's batch must belong to it. */
+  binding: CaptureBinding
   /** When given, the session must belong to this batch. */
   batchId?: string
   lineageId: string
@@ -42,7 +45,13 @@ export async function appendSessionInbox(
   const db = queryDatabase(client)
   const jobs = await executeDatabaseQuery(
     db
-      .select({ batchId: processingJobs.batchId, streamId: captureBatches.streamId })
+      .select({
+        batchId: processingJobs.batchId,
+        streamId: captureBatches.streamId,
+        actorId: captureBatches.actorId,
+        targetId: captureBatches.targetId,
+        targetContextId: captureBatches.targetContextId,
+      })
       .from(processingJobs)
       .innerJoin(captureBatches, eq(captureBatches.id, processingJobs.batchId))
       .where(eq(processingJobs.id, submission.lineageId))
@@ -56,7 +65,16 @@ export async function appendSessionInbox(
       .where(eq(agentSessions.sessionLineageId, submission.lineageId))
       .limit(1),
   )
-  if (!job || !hasSession.length || (submission.batchId && job.batchId !== submission.batchId)) {
+  const outOfScope =
+    !job ||
+    job.actorId !== submission.binding.actorId ||
+    job.targetId !== submission.binding.targetId ||
+    job.targetContextId !== submission.binding.targetContextId
+  if (
+    outOfScope ||
+    !hasSession.length ||
+    (submission.batchId && job.batchId !== submission.batchId)
+  ) {
     fail('session_not_found', 404)
   }
   const existing = await executeDatabaseQuery(

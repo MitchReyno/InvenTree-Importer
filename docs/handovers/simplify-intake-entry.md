@@ -265,7 +265,7 @@ The task 4 runs are the baseline for the lane and settings tests: PostgreSQL 176
 
 ### Reads
 
-- `GET /api/v1/batches/:id/processing/:jobId/session` returns `SessionTimeline`: the latest session's state, every outbox item across the job's attempts in time order, and its inbox items (each up to 500). It is scoped to the batch and the caller's account; an unknown job is 404.
+- `GET /api/v1/batches/:id/processing/:jobId/session` returns `SessionTimeline`: the latest session's state, the newest 500 outbox items across the job's attempts and the newest 500 inbox items, each oldest first, and `truncated` when older items exist (review round 1). It is scoped to the batch and the caller's account; an unknown job is 404.
 - `ProcessingJob` carries `session_state` for session jobs, so the UI shows a session panel only where one exists.
 - `AgentSessionList` and `HeaderWork` rows carry `session_state` and `latest_status` (text and time). The header also lists sessions waiting for input; `occupies_lane` there means holding the `/1` lane or a session slot, so a waiting session shows `false`.
 - The processing client adds `session` and `chat`. `configuredRunnerStatus` reports `native_unverified` for `native-agent/2`.
@@ -301,6 +301,30 @@ The app's own reads confirmed each step's session state and inbox. Screenshots a
 - `pnpm test:intake`: 72 contract and 181 intake-server tests passed. `pnpm test:frontend`: 318 passed.
 - `pnpm db:intake test`: 183 passed. `pnpm db:intake test:process`: 58 tests, 54 passed, with only the pre-existing media failure and its 3 skips.
 - `agents/ARCHITECTURE.md` and `processing/ARCHITECTURE.md` describe the session profiles, tool server, adapters, state machine, slots and worker.
+
+## PR-A review round 1
+
+Independent review by Codex (`gpt-6.1-sol`, read-only) of `8f4a81c..e70bd69` (head `e70bd693f0137dc663f8447e5b8826fbe46813a4`) reported 15 findings: 12 important, 3 minor. Each was checked against the code and all were confirmed. Fixes:
+
+1. **Cancellation reached no provider.** The runner now watches the attempt and aborts the turn when it leaves `running`. Settlement keeps `cancelled`, and a claim of a cancelled queued session settles it `cancelled` without running.
+2. **Settlement locked in the reverse order.** Claims, settlement, interruption and tool calls now all lock job and attempt before the session row; publication locks capture first.
+3. **Chat ignored the account scope.** Inbox submissions take the caller's binding and refuse a job whose batch belongs to another actor, target or context.
+4. **A capability could outlive its revocation.** Each tool call locks job, attempt and the session row and checks the capability digest, the running session and the running, current attempt under those locks.
+5. **A turn that settled to `queued` could stay there.** The wake sweep now makes sure every queued session has a live workflow.
+6. **Resume scheduling had a commit/enqueue gap, and a crashed resume reused its workflow ID.** `agent_session.turn_count` counts claimed turns, and wake workflow IDs are `resume:<attempt>:<turn>:<generation>`: a live workflow is left alone, a finished one gets the next generation.
+7. **The Codex dedicated-home preflight was dropped.** `runCodexSession` calls the shared `rejectHostCustomizations` before starting the child.
+8. **Citations were not limited to delivered sources.** Media must have been returned by `fetch_evidence` in the lineage (tracked in the worker, so a restart means fetching again before citing); a relied-on proposal must be pinned or the lineage's own; nested catalogue sources are checked on publication and on retained reads (`catalogueSources`).
+9. **The runner could forge operator inbox entries.** The runner's insert grant excludes `actor_id`; a CHECK requires chat and answers to name an operator and notices not to; a trigger requires an answer item to match a retained answer for the same job, question and operator. Runner notices, when tasks 8 and 11 add them, must list their columns explicitly.
+10. **Replies were not idempotent.** A reply to an inbox item that already has one in the lineage adopts it and writes nothing.
+11. **The header could drop an occupied slot.** Slot holders are included and ordered first, like the `/1` lane.
+12. **Session history had no polling fallback.** The session panel uses the retained-read poll interval and says when a refresh failed.
+13. **The image budget was per attempt and racy.** It is now per provider run (capability digest) and reserved before fetching.
+14. **The timeline stopped at 500 entries.** It returns the newest 500 of each, oldest first, with `truncated`.
+15. **Editing could abandon an unconfirmed chat send.** An unconfirmed send is kept with its key until retried or discarded; drafting is separate and cannot send until then.
+
+Results after the fixes: contracts 72, intake server 181 and frontend 320 passed; `pnpm db:intake test` 187 passed; `pnpm db:intake test:process` 62 tests, 58 passed, with only the pre-existing media failure and its 3 skips; typecheck, lint, Prettier and build pass.
+
+Regression tests: `tests/pg/session-schema.test.ts` (forged or anonymous inbox entries, unbound answers), `tests/pg/session-tools.test.ts` (cancelled attempt, other-scope chat, duplicate reply, undelivered nested and proposal citations, the header slot holder, the wake sweep with a recording scheduler), `tests/process/sessions.test.ts` (cancelling a running session for both CLIs, a cancelled queued session, a customized Codex home), and the chat composer tests.
 
 ## Validation
 

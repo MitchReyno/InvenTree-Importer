@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import type { Pool } from 'pg'
 import {
   validate,
@@ -58,17 +58,23 @@ export async function readSessionTimeline(
       .from(agentSessionOutbox)
       .innerJoin(agentSessions, eq(agentSessions.attemptId, agentSessionOutbox.sessionId))
       .where(eq(agentSessions.sessionLineageId, jobId))
-      .orderBy(asc(agentSessionOutbox.createdAt), asc(agentSessionOutbox.seq))
-      .limit(TIMELINE_LIMIT),
+      .orderBy(desc(agentSessionOutbox.createdAt), desc(agentSessionOutbox.seq))
+      .limit(TIMELINE_LIMIT + 1),
   )
   const inbox = await executeDatabaseQuery(
     db
       .select()
       .from(agentSessionInbox)
       .where(eq(agentSessionInbox.sessionLineageId, jobId))
-      .orderBy(asc(agentSessionInbox.seq))
-      .limit(TIMELINE_LIMIT),
+      .orderBy(desc(agentSessionInbox.seq))
+      .limit(TIMELINE_LIMIT + 1),
   )
+  // The newest window, oldest first, so the current activity is always present.
+  const truncated = outbox.length > TIMELINE_LIMIT || inbox.length > TIMELINE_LIMIT
+  outbox.splice(TIMELINE_LIMIT)
+  inbox.splice(TIMELINE_LIMIT)
+  outbox.reverse()
+  inbox.reverse()
   const timeline = {
     job_id: jobId,
     attempt_id: latest!.attemptId,
@@ -93,6 +99,7 @@ export async function readSessionTimeline(
           created_at: item.createdAt.toISOString(),
         }) as SessionInboxItemDto,
     ),
+    truncated,
   }
   validate('SessionTimeline', timeline)
   return timeline

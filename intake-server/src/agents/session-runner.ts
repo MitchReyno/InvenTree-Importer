@@ -33,6 +33,7 @@ import { ResearchReapPendingError } from '../research/errors.ts'
 
 /** Tools every session gets; the lot-forming tools are added for the Examine lead session. */
 const SLOT_WAIT_MS = 500
+const CANCEL_POLL_MS = 500
 
 export const SESSION_TOOLS = ['ask', 'fetch_evidence', 'propose', 'read_inbox', 'reply', 'status']
 
@@ -77,14 +78,21 @@ async function setSessionState(
   client: PoolClient,
   attemptId: string,
   jobId: string,
-  state: SessionStateDto,
+  requested: SessionStateDto,
   expected?: SessionStateDto[],
-) {
+  { countTurn = false }: { countTurn?: boolean } = {},
+): Promise<SessionStateDto | false> {
   const { job, attempt } = await lockProcessingAttempt(client, jobId, attemptId)
+  // Processing owns cancellation: a cancelled or superseded attempt is never revived.
+  const cancelled = attempt.state === 'cancelled' || attempt.state === 'superseded'
+  const state: SessionStateDto = cancelled ? 'cancelled' : requested
   const updated = await executeDatabaseQuery(
     queryDatabase(client)
       .update(agentSessions)
-      .set({ sessionState: state })
+      .set({
+        sessionState: state,
+        ...(countTurn && !cancelled ? { turnCount: sql`${agentSessions.turnCount}+1` } : {}),
+      })
       .where(
         and(
           eq(agentSessions.attemptId, attemptId),
@@ -96,8 +104,10 @@ async function setSessionState(
   if (!updated.length) {
     return false
   }
-  await transitionAttempt(client, job, attempt, attemptStateFor[state])
-  return true
+  if (!cancelled) {
+    await transitionAttempt(client, job, attempt, attemptStateFor[state])
+  }
+  return state
 }
 
 async function publish(client: PoolClient, batchId: string) {
@@ -126,6 +136,7 @@ export async function interruptRunningSessions(pool: Pool) {
     )
     const interrupted: string[] = []
     for (const session of running) {
+      // The fence refused to start while any slot was held, so these slots are already clear.
       const changed = await setSessionState(
         client,
         session.attemptId,
@@ -165,11 +176,37 @@ export async function queueSessionResume(client: PoolClient, lineageId: string) 
   if (!session?.state || !RESUMABLE.includes(session.state)) {
     return undefined
   }
-  if (!(await setSessionState(client, session.attemptId, lineageId, 'queued', RESUMABLE))) {
+  if (
+    (await setSessionState(client, session.attemptId, lineageId, 'queued', RESUMABLE)) !== 'queued'
+  ) {
     return undefined
   }
   await publish(client, session.batchId)
   return session.attemptId
+}
+
+/** Aborts the turn when its attempt is no longer running, for example after a cancel. */
+async function watchAttempt(pool: Pool, attemptId: string, control: AbortController) {
+  while (!control.signal.aborted) {
+    await new Promise((resolve) => setTimeout(resolve, CANCEL_POLL_MS))
+    if (control.signal.aborted) {
+      return
+    }
+    try {
+      const rows = await executeDatabaseQuery(
+        queryDatabase(pool)
+          .select({ state: processingAttempts.state })
+          .from(processingAttempts)
+          .where(eq(processingAttempts.id, attemptId)),
+      )
+      if (rows[0]?.state !== 'running') {
+        control.abort()
+      }
+    } catch {
+      // Database uncertainty stops new provider work, as for earlier profiles.
+      control.abort()
+    }
+  }
 }
 
 function inboxText(item: { id: string; seq: bigint; kind: string; payload: unknown }) {
@@ -257,7 +294,15 @@ export async function runSessionTurn(
       if (!(await claimSessionSlot(client, config, attemptId))) {
         return undefined
       }
-      if (!(await setSessionState(client, attemptId, row.jobId, 'running', ['queued']))) {
+      const state = await setSessionState(client, attemptId, row.jobId, 'running', ['queued'], {
+        countTurn: true,
+      })
+      if (state === 'cancelled') {
+        await releaseSessionSlot(client, attemptId)
+        await publish(client, row.batchId)
+        return 'cancelled' as const
+      }
+      if (state !== 'running') {
         throw new Error('session_not_queued')
       }
       const capability = await issueSessionCapability(client, attemptId)
@@ -278,21 +323,25 @@ export async function runSessionTurn(
     }
     claimed = await claim()
   }
+  if (claimed === 'cancelled') {
+    return 'cancelled' as const
+  }
+  const current = claimed
 
   let delivered = await transaction(pool, async (client) => {
     const cursor = await client.query<{ acked_seq: string }>(
       'SELECT acked_seq FROM agent_session_cursor WHERE session_lineage_id=$1',
-      [claimed.jobId],
+      [current.jobId],
     )
     return BigInt(cursor.rows[0]?.acked_seq ?? '0')
   })
-  const resumed = claimed.providerSessionId !== null
+  const resumed = current.providerSessionId !== null
   const turn: SessionTurn = {
-    instructions: claimed.instructions.toString('utf8'),
-    text: openingText(claimed.manifest, claimed.pending, resumed),
-    resume: claimed.providerSessionId ?? undefined,
+    instructions: current.instructions.toString('utf8'),
+    text: openingText(current.manifest, current.pending, resumed),
+    resume: current.providerSessionId ?? undefined,
     toolUrl: deps.toolUrl,
-    capability: claimed.capability,
+    capability: current.capability,
     tools: SESSION_TOOLS,
     // At least once: items stay pending until the session acknowledges them with read_inbox.
     nextDelivery: async () => {
@@ -302,7 +351,7 @@ export async function runSessionTurn(
           .from(agentSessionInbox)
           .where(
             and(
-              eq(agentSessionInbox.sessionLineageId, claimed.jobId),
+              eq(agentSessionInbox.sessionLineageId, current.jobId),
               sql`${agentSessionInbox.seq} > ${delivered.toString()}::bigint`,
             ),
           )
@@ -323,25 +372,33 @@ export async function runSessionTurn(
       }),
   }
 
+  // One controller per turn: worker shutdown or the attempt leaving `running` aborts the child.
+  const turnControl = new AbortController()
+
+  const stopTurn = () => turnControl.abort()
+
+  signal.addEventListener('abort', stopTurn, { once: true })
+  const watching = watchAttempt(pool, attemptId, turnControl)
   let next: SessionStateDto
   try {
-    const cwd = await privateDirectory(join(host.stateRoot, 'sessions', claimed.jobId))
+    const cwd = await privateDirectory(join(host.stateRoot, 'sessions', current.jobId))
     const driver =
-      deps.drivers?.[claimed.manifest.profile_id] ??
-      (claimed.manifest.agent
-        ? nativeDriver(host, claimed.manifest.agent)
+      deps.drivers?.[current.manifest.profile_id] ??
+      (current.manifest.agent
+        ? nativeDriver(host, current.manifest.agent)
         : (() => {
             throw new Error('agent_input_invalid')
           })())
-    await driver(turn, { manifest: claimed.manifest, cwd, signal })
+    await driver(turn, { manifest: current.manifest, cwd, signal: turnControl.signal })
     next = 'finished'
   } catch (error) {
     if (error instanceof ResearchReapPendingError) {
+      // The child was not confirmed gone, so the session keeps its slot and stays visible.
       throw error
     }
     if (error instanceof SessionResumeUnavailable) {
       next = 'resume_unavailable'
-    } else if (signal.aborted) {
+    } else if (turnControl.signal.aborted) {
       next = 'interrupted'
     } else if (error instanceof Error && error.message === 'agent_process_failed') {
       // A provider crash is resumable, like a worker restart; refusals are failures.
@@ -353,18 +410,20 @@ export async function runSessionTurn(
     }
   }
 
+  signal.removeEventListener('abort', stopTurn)
+  turnControl.abort()
+  await watching
+
   return transaction(pool, async (client) => {
-    await revokeSessionCapability(client, attemptId)
-    await releaseSessionSlot(client, attemptId)
     if (next === 'finished') {
-      const pending = await pendingSessionInbox(client, claimed.jobId)
+      const pending = await pendingSessionInbox(client, current.jobId)
       const open = await executeDatabaseQuery(
         queryDatabase(client)
           .select({ id: processingQuestions.id })
           .from(processingQuestions)
           .where(
             and(
-              eq(processingQuestions.jobId, claimed.jobId),
+              eq(processingQuestions.jobId, current.jobId),
               eq(processingQuestions.state, 'open'),
             ),
           ),
@@ -375,15 +434,18 @@ export async function runSessionTurn(
         next = 'waiting_input'
       }
     }
+    // Job and attempt first, then the session row, as the tool handlers lock them.
+    const settled = (await setSessionState(client, attemptId, current.jobId, next)) || next
+    await revokeSessionCapability(client, attemptId)
+    await releaseSessionSlot(client, attemptId)
     await executeDatabaseQuery(
       queryDatabase(client)
         .update(agentSessions)
         .set({ progress: 'settled', finishedAt: new Date() })
         .where(eq(agentSessions.attemptId, attemptId)),
     )
-    await setSessionState(client, attemptId, claimed.jobId, next)
-    await publish(client, claimed.batchId)
-    return next
+    await publish(client, current.batchId)
+    return settled
   })
 }
 

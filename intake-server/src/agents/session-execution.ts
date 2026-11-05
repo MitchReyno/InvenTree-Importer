@@ -65,17 +65,34 @@ export async function executeSessionCommand(
   return runSessionTurn(deps, command.attempt_id, signal)
 }
 
+const LIVE_WORKFLOW = new Set(['PENDING', 'ENQUEUED'])
+const MAX_WAKE_GENERATIONS = 50
+
+async function liveWorkflow(scheduler: DBOSClient, workflowID: string) {
+  const status = await scheduler.getWorkflow(workflowID)
+  return status ? LIVE_WORKFLOW.has(status.status) : undefined
+}
+
 /**
- * Wakes sessions that are not running but have inbox items after their cursor. Each wake has a
- * workflow ID keyed by lineage and inbox high-water mark, so a repeated wake is a no-op.
+ * Makes sure every session that has work to do has a live workflow. Sessions waiting, finished
+ * or interrupted with inbox items after their cursor are re-queued; queued sessions with no live
+ * workflow (a turn that settled to queued, a crash between commit and enqueue, a workflow that
+ * ended without claiming) get a fresh one. A duplicate run is harmless: only one claim of a
+ * queued session can move it to running.
  */
 export async function wakePendingSessions(
   pool: Pool,
   config: ProcessingConfig,
   scheduler: DBOSClient,
 ) {
-  const candidates = await executeDatabaseQuery(
-    queryDatabase(pool)
+  const db = queryDatabase(pool)
+  const scope = and(
+    eq(commands.actorId, config.actorId),
+    eq(commands.targetId, config.targetId),
+    eq(commands.targetContextId, config.targetContextId),
+  )
+  const waiting = await executeDatabaseQuery(
+    db
       .selectDistinct({ lineageId: agentSessions.sessionLineageId })
       .from(agentSessions)
       .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
@@ -86,9 +103,7 @@ export async function wakePendingSessions(
       )
       .where(
         and(
-          eq(commands.actorId, config.actorId),
-          eq(commands.targetId, config.targetId),
-          eq(commands.targetContextId, config.targetContextId),
+          scope,
           inArray(agentSessions.sessionState, ['waiting_input', 'finished', 'interrupted']),
           gt(
             agentSessionInbox.seq,
@@ -98,43 +113,59 @@ export async function wakePendingSessions(
       )
       .limit(20),
   )
+  for (const { lineageId } of waiting) {
+    if (lineageId) {
+      await transaction(pool, (client) => queueSessionResume(client, lineageId))
+    }
+  }
+  const queued = await executeDatabaseQuery(
+    db
+      .select({
+        attemptId: agentSessions.attemptId,
+        lineageId: agentSessions.sessionLineageId,
+        turnCount: agentSessions.turnCount,
+        workflowId: commands.workflowId,
+      })
+      .from(agentSessions)
+      .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
+      .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
+      .where(and(scope, eq(agentSessions.sessionState, 'queued')))
+      .orderBy(desc(agentSessions.queuedAt))
+      .limit(50),
+  )
   let woken = 0
-  for (const { lineageId } of candidates) {
-    if (!lineageId) {
+  for (const session of queued) {
+    // A first turn not yet delivered or still waiting belongs to its command workflow.
+    if (session.turnCount === 0n && (await liveWorkflow(scheduler, session.workflowId)) !== false) {
       continue
     }
-    const wake = await transaction(pool, async (client) => {
-      const attemptId = await queueSessionResume(client, lineageId)
-      const newest = await executeDatabaseQuery(
-        queryDatabase(client)
-          .select({ seq: agentSessionInbox.seq })
-          .from(agentSessionInbox)
-          .where(eq(agentSessionInbox.sessionLineageId, lineageId))
-          .orderBy(desc(agentSessionInbox.seq))
-          .limit(1),
-      )
-      return attemptId ? { attemptId, highWater: newest[0].seq } : undefined
-    })
-    if (!wake) {
-      continue
-    }
-    const workflowID = `resume:${lineageId}:${wake.highWater}`
-    try {
-      await scheduler.enqueue(
-        {
-          workflowID,
-          workflowName: SESSION_RESUME_WORKFLOW,
-          queueName: sessionCommandQueue,
-          appVersion: sessionHandlerVersion,
-        },
-        wake.attemptId,
-      )
-    } catch (error) {
-      if (!(await scheduler.getWorkflow(workflowID))) {
-        throw error
+    for (let generation = 0; generation < MAX_WAKE_GENERATIONS; generation += 1) {
+      const workflowID = `resume:${session.attemptId}:${session.turnCount}:${generation}`
+      const live = await liveWorkflow(scheduler, workflowID)
+      if (live) {
+        break
       }
+      if (live === false) {
+        continue
+      }
+      try {
+        await scheduler.enqueue(
+          {
+            workflowID,
+            workflowName: SESSION_RESUME_WORKFLOW,
+            queueName: sessionCommandQueue,
+            appVersion: sessionHandlerVersion,
+          },
+          session.attemptId,
+        )
+      } catch (error) {
+        if ((await liveWorkflow(scheduler, workflowID)) === undefined) {
+          throw error
+        }
+      }
+      woken += 1
+      break
     }
-    woken += 1
   }
   return woken
 }

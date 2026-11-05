@@ -40,6 +40,8 @@ ALTER TABLE agent_session
   ADD COLUMN session_state text CHECK (session_state IN ('queued','running','waiting_input','finished','cancelling','cancelled','interrupted','failed','waiting_for_login','waiting_for_capacity','resume_unavailable')),
   ADD COLUMN session_lineage_id uuid REFERENCES processing_job(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
   ADD COLUMN capability_sha256 bytea CHECK (octet_length(capability_sha256)=32),
+  -- Each claimed turn increments this, so a wake for the next turn has its own workflow ID.
+  ADD COLUMN turn_count bigint NOT NULL DEFAULT 0 CHECK (turn_count>=0),
   ADD CONSTRAINT agent_session_lineage_state_check CHECK ((session_state IS NULL) = (session_lineage_id IS NULL));
 CREATE OR REPLACE FUNCTION guard_agent_session() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -87,8 +89,26 @@ CREATE TABLE agent_session_inbox (
   actor_id uuid REFERENCES operator(id) ON DELETE RESTRICT,
   created_at timestamptz(3) NOT NULL DEFAULT now(),
   UNIQUE(session_lineage_id,seq),
-  UNIQUE(session_lineage_id,idempotency_key)
+  UNIQUE(session_lineage_id,idempotency_key),
+  -- Operator items name their operator; system notices name none.
+  CHECK ((kind IN ('answer','chat')) = (actor_id IS NOT NULL))
 );
+-- An answer item must carry a retained human answer to a question of the same job.
+CREATE FUNCTION require_session_answer_binding() RETURNS trigger LANGUAGE plpgsql
+  SECURITY DEFINER SET search_path=pg_catalog AS $$
+BEGIN
+  IF NEW.kind='answer' AND NOT EXISTS (
+    SELECT 1 FROM public.processing_answer a
+    WHERE a.id::text=NEW.payload->>'answer_id' AND a.question_id::text=NEW.payload->>'question_id'
+      AND a.job_id=NEW.session_lineage_id AND a.actor_id=NEW.actor_id
+  ) THEN
+    RAISE EXCEPTION 'session_answer_binding_invalid' USING ERRCODE='23503';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION require_session_answer_binding() FROM PUBLIC;
+CREATE TRIGGER agent_session_inbox_answer BEFORE INSERT ON agent_session_inbox FOR EACH ROW EXECUTE FUNCTION require_session_answer_binding();
 CREATE TRIGGER agent_session_inbox_sequence BEFORE INSERT ON agent_session_inbox FOR EACH ROW EXECUTE FUNCTION require_next_session_sequence();
 CREATE TRIGGER agent_session_inbox_immutable BEFORE UPDATE OR DELETE ON agent_session_inbox FOR EACH ROW EXECUTE FUNCTION reject_authority_change();
 CREATE TABLE agent_session_cursor (

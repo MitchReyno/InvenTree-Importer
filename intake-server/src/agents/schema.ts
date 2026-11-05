@@ -47,6 +47,7 @@ export const agentSessions = pgTable('agent_session', {
   sessionState: text('session_state').$type<SessionStateDto>(),
   sessionLineageId: uuid('session_lineage_id'),
   capabilitySha256: bytea('capability_sha256'),
+  turnCount: bigint('turn_count', { mode: 'bigint' }).notNull().default(0n),
 })
 
 export const agentSessionOutbox = pgTable(

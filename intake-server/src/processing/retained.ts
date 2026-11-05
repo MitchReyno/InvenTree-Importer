@@ -18,7 +18,7 @@ import {
   type ProcessingProposalDto,
   type ProcessingInputDto,
 } from '@invimport/contracts'
-import { deliveredSourceCheck, validateProposalSources } from './provenance.ts'
+import { catalogueSources, deliveredSourceCheck, validateProposalSources } from './provenance.ts'
 import { canonical } from '@invimport/contracts/json'
 import { decodeProposal, decodeQuestionSpec, fail, unseal } from './model.ts'
 
@@ -153,7 +153,7 @@ export function retainedSessionProposal(
     notes: manifest.notes,
     media: manifest.media,
   })
-  if (!proposal.sources.every(delivered)) {
+  if (![...proposal.sources, ...catalogueSources(proposal)].every(delivered)) {
     fail('retained_proposal_binding_invalid')
   }
   return proposal

@@ -217,6 +217,7 @@ test('inbox items are idempotent and redelivered until acknowledged', async () =
   await withSessions(async ({ fixture, url, a }) => {
     const submit = (key: string, text: string) =>
       submitSessionInbox(fixture.api.pool, {
+        binding: fixture.config,
         lineageId: a.job,
         actorId: fixture.identity.actor,
         idempotencyKey: key,
@@ -498,5 +499,144 @@ test('the timeline, session list and header show the latest status line and the 
     assert.equal(row.session_state, 'waiting_input')
     assert.equal(row.occupies_lane, false)
     assert.equal(row.latest_status?.text, 'Reading the label')
+  })
+})
+
+test('tools refuse a cancelled attempt, chat from another account, duplicate replies and undelivered citations', async () => {
+  await withSessions(async ({ fixture, url, a, capture }) => {
+    const chat = await submitSessionInbox(fixture.api.pool, {
+      binding: fixture.config,
+      lineageId: a.job,
+      actorId: fixture.identity.actor,
+      idempotencyKey: 'chat-1',
+      kind: 'chat',
+      payload: { text: 'Check the back label.' },
+    })
+    await assert.rejects(
+      submitSessionInbox(fixture.api.pool, {
+        binding: { ...fixture.config, targetContextId: randomUUID() },
+        lineageId: a.job,
+        actorId: fixture.identity.actor,
+        idempotencyKey: 'chat-2',
+        kind: 'chat',
+        payload: { text: 'From another scope.' },
+      }),
+      /session_not_found/,
+    )
+    const session = await connect(url, a.token)
+    try {
+      const reply = { inbox_item_id: chat.item_id, text: 'Checking now.' }
+      assert.equal((await call(session, 'reply', reply)).ok, true)
+      assert.equal((await call(session, 'reply', { ...reply, text: 'A second answer' })).ok, true)
+      const replies = await fixture.db.pool.query(
+        "SELECT 1 FROM agent_session_outbox WHERE session_id=$1 AND kind='reply'",
+        [a.attempt],
+      )
+      assert.equal(replies.rowCount, 1)
+
+      const note = a.manifest.notes.find((item) => item.subject_id === capture.packetA.id)!
+      const noteSource = {
+        kind: 'note',
+        note_id: note.id,
+        text_sha256: createHash('sha256').update(note.text, 'utf8').digest('hex'),
+      }
+      const base = {
+        schema_version: 'bench-intake-proposal/5',
+        subject_id: capture.packetA.id,
+        summary: 'About 20 parts.',
+        sources: [noteSource],
+        relies_on: { fields: ['quantity'], sources: [noteSource] },
+      }
+      const undeliveredNested = {
+        ...base,
+        catalogue: {
+          category: {
+            choice: 'proposed_new',
+            name: 'Resistors',
+            reason: 'Seen on the label.',
+            sources: [{ kind: 'note', note_id: randomUUID(), text_sha256: 'b'.repeat(64) }],
+          },
+          parameters: [],
+          manufacturer: null,
+          supplier: null,
+          description: null,
+        },
+      }
+      assert.equal(
+        (await call(session, 'propose', { proposal: undeliveredNested })).error,
+        'source_not_delivered',
+      )
+      const otherLineage = {
+        ...base,
+        relies_on: {
+          fields: ['quantity'],
+          sources: [noteSource, { kind: 'proposal', proposal_id: randomUUID() }],
+        },
+      }
+      assert.equal(
+        (await call(session, 'propose', { proposal: otherLineage })).error,
+        'source_not_delivered',
+      )
+      assert.equal((await counts(fixture, a.attempt, a.job)).proposals, '0')
+
+      await fixture.db.pool.query("UPDATE processing_attempt SET state='cancelled' WHERE id=$1", [
+        a.attempt,
+      ])
+      assert.equal(
+        (await call(session, 'status', { text: 'Still here' })).error,
+        'capability_refused',
+      )
+    } finally {
+      await session.close()
+    }
+  })
+})
+
+test('the header keeps a cancelled attempt that still holds a slot', async () => {
+  const { activeHeaderSessions } = await import('../../src/header/active-sessions.ts')
+  await withSessions(async ({ fixture, a, capture }) => {
+    await fixture.db.pool.query("UPDATE processing_attempt SET state='cancelled' WHERE id=$1", [
+      a.attempt,
+    ])
+    await fixture.db.pool.query(
+      "UPDATE agent_session SET session_state='cancelling' WHERE attempt_id=$1",
+      [a.attempt],
+    )
+    await fixture.db.pool.query(
+      'INSERT INTO agent_slot(actor_id,slot_index,attempt_id,claimed_at) VALUES($1,0,$2,now())',
+      [fixture.identity.actor, a.attempt],
+    )
+    const header = await transaction(fixture.api.pool, (client) =>
+      activeHeaderSessions(client, fixture.config, capture.batch.id),
+    )
+    const row = header.sessions.find((item) => item.attempt_id === a.attempt)
+    assert.ok(row, 'the slot holder is listed')
+    assert.equal(row.occupies_lane, true)
+  })
+})
+
+test('the wake sweep gives a queued session with no live workflow a fresh one', async () => {
+  const { wakePendingSessions } = await import('../../src/agents/session-execution.ts')
+  await withSessions(async ({ fixture, a }) => {
+    await fixture.db.pool.query(
+      "UPDATE agent_session SET session_state='queued',turn_count=1 WHERE attempt_id=$1",
+      [a.attempt],
+    )
+    const workflows = new Map<string, string>([[`resume:${a.attempt}:1:0`, 'SUCCESS']])
+    const enqueued: string[] = []
+    const scheduler = {
+      getWorkflow: async (id: string) =>
+        workflows.has(id) ? { status: workflows.get(id) } : undefined,
+      enqueue: async (options: { workflowID: string }) => {
+        enqueued.push(options.workflowID)
+        workflows.set(options.workflowID, 'ENQUEUED')
+      },
+    }
+    const config = fixture.config
+    await wakePendingSessions(fixture.runner.pool, config, scheduler as never)
+    assert.deepEqual(enqueued, [`resume:${a.attempt}:1:1`])
+    // A live workflow is left alone.
+    await wakePendingSessions(fixture.runner.pool, config, scheduler as never)
+    assert.deepEqual(enqueued, [`resume:${a.attempt}:1:1`])
   })
 })

@@ -7,7 +7,9 @@ import { processingAttempts, processingInputs, processingJobs } from '../../proc
 import { decodeSessionInput } from '../../processing/session-input.ts'
 import { isSessionProfile } from '../../processing/session-policy.ts'
 
-const digest = (token: string) => createHash('sha256').update(token).digest()
+export const capabilityDigest = (token: string) => createHash('sha256').update(token).digest()
+
+const digest = capabilityDigest
 
 /** Issues a fresh capability for one provider run; only its SHA-256 is stored. */
 export async function issueSessionCapability(client: PoolClient, attemptId: string) {

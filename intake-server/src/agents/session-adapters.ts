@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import type { AgentSelectionDto } from '@invimport/contracts'
 import { AgentChild, record } from './child.ts'
 import type { NativeAgentHost } from './environment.ts'
-import { CODEX_CONFIG } from './codex.ts'
+import { CODEX_CONFIG, rejectHostCustomizations } from './codex.ts'
 
 /** The MCP server name both providers see; tool names are `mcp__intake__<tool>`. */
 export const SESSION_MCP_SERVER = 'intake'
@@ -205,6 +205,8 @@ export async function runCodexSession(
   env: NodeJS.ProcessEnv,
   signal: AbortSignal,
 ) {
+  // The same dedicated-home preflight as `/1`, before any child starts.
+  await rejectHostCustomizations(env.CODEX_HOME!)
   const args = ['app-server', '--listen', 'stdio://']
   const config = {
     ...CODEX_SESSION_CONFIG,

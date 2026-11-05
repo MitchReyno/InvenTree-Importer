@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import { eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import {
   validate,
   type ProcessingProposalV5Dto,
+  type ProcessingSourceDto,
   type SessionAskArgsDto,
   type SessionToolErrorDto,
   type SessionToolResultDto,
@@ -14,20 +15,20 @@ import { captureBatches } from '../../capture/schema.ts'
 import { lockCaptureForInputSettlement } from '../../capture/repository.ts'
 import type { ProcessingConfig } from '../../processing/attempts.ts'
 import { sealed } from '../../processing/model.ts'
-import { deliveredSourceCheck } from '../../processing/provenance.ts'
+import { catalogueSources, deliveredSourceCheck } from '../../processing/provenance.ts'
 import { lockProcessingAttempt } from '../../processing/state.ts'
 import {
   processingAttempts,
   processingMessages,
   processingProposals,
   processingQuestions,
-  processingJobs,
 } from '../../processing/schema.ts'
 import { decodeMediaInputs } from '../../media/inputs.ts'
 import { mediaContent } from '../../media/content.ts'
 import type { BlobStore } from '../../media/blob-store.ts'
 import { sha256 } from '../../db/authority.ts'
-import { resolveSessionCapability, type SessionPrincipal } from './capability.ts'
+import { capabilityDigest, resolveSessionCapability, type SessionPrincipal } from './capability.ts'
+import { agentSessionOutbox, agentSessions } from '../schema.ts'
 import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
 import { pendingSessionInbox, readSessionInbox, sessionInboxItem } from './inbox.ts'
 
@@ -39,8 +40,10 @@ export interface SessionToolContext {
   config: ProcessingConfig
   store?: BlobStore
   statusIntervalMs: number
-  /** Image bytes already returned in this provider run, by attempt. */
+  /** Image bytes already returned, by provider run (capability digest). */
   imageBudget: Map<string, number>
+  /** Media versions actually returned to each lineage by fetch_evidence. */
+  deliveredMedia: Map<string, Set<string>>
 }
 
 export interface SessionToolOutput {
@@ -83,24 +86,53 @@ async function batchStream(client: PoolClient, batchId: string) {
   return rows[0].streamId
 }
 
+type LockedCapture = Awaited<ReturnType<typeof lockCaptureForInputSettlement>>
+
 /**
- * Runs one tool call in its own transaction. The capability is resolved again inside it, so a
- * revoke or state change between the HTTP check and the write refuses the call with no change.
+ * Runs one tool call in its own transaction, under the same locks as session lifecycle changes:
+ * capture (when publishing), then job and attempt, then the session row. The capability and the
+ * running state are checked again under those locks, so a call racing a revoke, cancel or
+ * settlement is refused with no change.
  */
 async function withSession(
   context: SessionToolContext,
   token: string,
+  options: { capture: boolean },
   work: (
     client: PoolClient,
     principal: SessionPrincipal,
+    capture: LockedCapture | undefined,
   ) => Promise<SessionToolOutput['result'] | SessionToolOutput>,
 ): Promise<SessionToolOutput> {
   try {
     return await transaction(context.pool, async (client) => {
-      const principal =
+      const found =
         (await resolveSessionCapability(client, token)) ??
         refuse('capability_refused', 'This session capability is not valid.')
-      const output = await work(client, principal)
+      const capture = options.capture
+        ? await lockCaptureForInputSettlement(client, context.config, found.batchId)
+        : undefined
+      const { job, attempt } = await lockProcessingAttempt(client, found.jobId, found.attemptId)
+      const live = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({ attemptId: agentSessions.attemptId })
+          .from(agentSessions)
+          .where(
+            and(
+              eq(agentSessions.attemptId, found.attemptId),
+              eq(agentSessions.capabilitySha256, capabilityDigest(token)),
+              eq(agentSessions.sessionState, 'running'),
+            ),
+          )
+          .for('update'),
+      )
+      if (!live.length || attempt.state !== 'running' || job.current_attempt_id !== attempt.id) {
+        refuse('capability_refused', 'This session capability is not valid.')
+      }
+      if (capture?.snapshot.archived) {
+        refuse('session_not_running', 'This session can no longer publish results.')
+      }
+      const output = await work(client, found, capture)
       return 'result' in output ? output : { result: output }
     })
   } catch (error) {
@@ -125,19 +157,28 @@ async function ok(client: PoolClient, principal: SessionPrincipal, extra: object
   }
 }
 
-/** Every citation must come from what this session was given. */
+/**
+ * Every citation must come from what this session was given: notes from its opening manifest,
+ * media it actually fetched, inbox items of its lineage, and proposals pinned for it or its own.
+ */
 async function requireDeliveredSources(
   client: PoolClient,
+  context: SessionToolContext,
   principal: SessionPrincipal,
   proposal: ProcessingProposalV5Dto,
 ) {
   const manifest = principal.manifest
-  const delivered = deliveredSourceCheck({
+  const inManifest = deliveredSourceCheck({
     batchId: manifest.batch_id,
     notes: manifest.notes,
     media: manifest.media,
   })
-  for (const source of proposal.sources) {
+  const fetched = context.deliveredMedia.get(principal.jobId) ?? new Set<string>()
+
+  const delivered = (source: ProcessingSourceDto) =>
+    inManifest(source) && (source.kind === 'note' || fetched.has(source.version_id))
+
+  for (const source of [...proposal.sources, ...catalogueSources(proposal)]) {
     if (!delivered(source)) {
       refuse('source_not_delivered', 'A cited source was not delivered to this session.')
     }
@@ -154,14 +195,14 @@ async function requireDeliveredSources(
     } else if (source.kind === 'proposal') {
       const rows = await executeDatabaseQuery(
         queryDatabase(client)
-          .select({ batchId: processingJobs.batchId })
+          .select({ jobId: processingAttempts.jobId })
           .from(processingProposals)
           .innerJoin(processingAttempts, eq(processingAttempts.id, processingProposals.attemptId))
-          .innerJoin(processingJobs, eq(processingJobs.id, processingAttempts.jobId))
           .where(eq(processingProposals.id, source.proposal_id)),
       )
-      if (rows[0]?.batchId !== manifest.batch_id) {
-        refuse('source_not_delivered', 'A relied-on proposal does not belong to this batch.')
+      const own = rows[0]?.jobId === principal.jobId
+      if (!own && !manifest.pinned_proposal_ids.includes(source.proposal_id)) {
+        refuse('source_not_delivered', 'A relied-on proposal was not delivered to this session.')
       }
     } else {
       // Evidence observations and lot membership arrive with the lead session.
@@ -173,21 +214,20 @@ async function requireDeliveredSources(
 /** Retains a session proposal or question as an authenticated message, like runner envelopes. */
 async function retainSessionMessage(
   client: PoolClient,
-  context: SessionToolContext,
+  capture: LockedCapture,
   principal: SessionPrincipal,
   kind: 'proposal' | 'question',
   payload: ProcessingProposalV5Dto | SessionAskArgsDto,
 ) {
-  const capture = await lockCaptureForInputSettlement(client, context.config, principal.batchId)
-  const { job, attempt } = await lockProcessingAttempt(client, principal.jobId, principal.attemptId)
-  if (
-    capture.snapshot.archived ||
-    attempt.state !== 'running' ||
-    job.current_attempt_id !== attempt.id
-  ) {
-    refuse('session_not_running', 'This session can no longer publish results.')
-  }
-  const sequence = BigInt(attempt.last_sequence) + 1n
+  // withSession holds the capture, job, attempt and session locks.
+  const attempts = await executeDatabaseQuery(
+    queryDatabase(client)
+      .select({ lastSequence: processingAttempts.lastSequence })
+      .from(processingAttempts)
+      .where(eq(processingAttempts.id, principal.attemptId)),
+  )
+  const attempt = { id: principal.attemptId }
+  const sequence = attempts[0].lastSequence + 1n
   const envelope = sealed({
     schema_version: 'bench-intake-session/1',
     job_id: principal.jobId,
@@ -223,7 +263,7 @@ async function retainSessionMessage(
 export function sessionTools(context: SessionToolContext) {
   return {
     status: (token: string, args: unknown) =>
-      withSession(context, token, async (client, principal) => {
+      withSession(context, token, { capture: false }, async (client, principal) => {
         const { text } = validated<{ text: string }>('SessionStatusArgs', args)
         const last = await lastStatusAt(client, principal.attemptId)
         if (last && Date.now() - last.getTime() < context.statusIntervalMs) {
@@ -243,10 +283,28 @@ export function sessionTools(context: SessionToolContext) {
       }),
 
     reply: (token: string, args: unknown) =>
-      withSession(context, token, async (client, principal) => {
+      withSession(context, token, { capture: false }, async (client, principal) => {
         const reply = validated<{ inbox_item_id: string; text: string }>('SessionReplyArgs', args)
         if (!(await sessionInboxItem(client, principal.lineageId!, reply.inbox_item_id))) {
           refuse('inbox_item_unknown', 'That inbox item does not belong to this session.')
+        }
+        // One reply per inbox item: a redelivered item adopts the reply already published.
+        const earlier = await executeDatabaseQuery(
+          queryDatabase(client)
+            .select({ seq: agentSessionOutbox.seq })
+            .from(agentSessionOutbox)
+            .innerJoin(agentSessions, eq(agentSessions.attemptId, agentSessionOutbox.sessionId))
+            .where(
+              and(
+                eq(agentSessions.sessionLineageId, principal.jobId),
+                eq(agentSessionOutbox.kind, 'reply'),
+                sql`${agentSessionOutbox.payload}->>'inbox_item_id' = ${reply.inbox_item_id}`,
+              ),
+            )
+            .limit(1),
+        )
+        if (earlier.length) {
+          return ok(client, principal)
         }
         await appendSessionOutbox(client, principal.attemptId, { kind: 'reply', payload: reply })
         await appendEvent(client, await batchStream(client, principal.batchId), 'session_changed', {
@@ -256,14 +314,14 @@ export function sessionTools(context: SessionToolContext) {
       }),
 
     read_inbox: (token: string, args: unknown) =>
-      withSession(context, token, async (client, principal) => {
+      withSession(context, token, { capture: false }, async (client, principal) => {
         const { after_seq } = validated<{ after_seq: string }>('SessionReadInboxArgs', args)
         const items = await readSessionInbox(client, principal.lineageId!, BigInt(after_seq))
         return ok(client, principal, { items })
       }),
 
     propose: (token: string, args: unknown) =>
-      withSession(context, token, async (client, principal) => {
+      withSession(context, token, { capture: true }, async (client, principal, capture) => {
         const { proposal } = validated<{ proposal: ProcessingProposalV5Dto }>(
           'SessionProposeArgs',
           args,
@@ -271,10 +329,10 @@ export function sessionTools(context: SessionToolContext) {
         if (principal.subjectId === null || proposal.subject_id !== principal.subjectId) {
           refuse('validation_failed', 'A proposal must be for this session’s lot.')
         }
-        await requireDeliveredSources(client, principal, proposal)
+        await requireDeliveredSources(client, context, principal, proposal)
         const { messageId, streamId } = await retainSessionMessage(
           client,
-          context,
+          capture!,
           principal,
           'proposal',
           proposal,
@@ -300,14 +358,14 @@ export function sessionTools(context: SessionToolContext) {
       }),
 
     ask: (token: string, args: unknown) =>
-      withSession(context, token, async (client, principal) => {
+      withSession(context, token, { capture: true }, async (client, principal, capture) => {
         const ask = validated<SessionAskArgsDto>('SessionAskArgs', args)
         if (principal.subjectId === null || ask.subject_id !== principal.subjectId) {
           refuse('validation_failed', 'A question must be about this session’s lot.')
         }
         const { messageId, streamId } = await retainSessionMessage(
           client,
-          context,
+          capture!,
           principal,
           'question',
           ask,
@@ -346,7 +404,7 @@ export function sessionTools(context: SessionToolContext) {
       }),
 
     fetch_evidence: (token: string, args: unknown) =>
-      withSession(context, token, async (client, principal) => {
+      withSession(context, token, { capture: false }, async (client, principal) => {
         const request = validated<{
           evidence_id: string
           version_id?: string
@@ -368,22 +426,34 @@ export function sessionTools(context: SessionToolContext) {
         if (!version) {
           refuse('source_not_delivered', 'That evidence was not delivered to this session.')
         }
-        const used = context.imageBudget.get(principal.attemptId) ?? 0
-        const fits = BigInt(version!.byteSize) <= BigInt(SESSION_IMAGE_BUDGET_BYTES - used)
+        // The budget belongs to this provider run and is reserved before any await.
+        const run = capabilityDigest(token).toString('hex')
+        const used = context.imageBudget.get(run) ?? 0
+        const size = Number(version!.byteSize)
+        const fits = size <= SESSION_IMAGE_BUDGET_BYTES - used
         if (!context.store || !SUPPORTED_IMAGES.has(version!.mediaType) || !fits) {
           return ok(client, principal, { id: version!.versionId })
         }
-        const bytes = await mediaContent(context.pool, context.config, context.store).original(
-          principal.batchId,
-          version!.versionId,
-        )
+        context.imageBudget.set(run, used + size)
+        let bytes: Buffer
+        try {
+          bytes = await mediaContent(context.pool, context.config, context.store).original(
+            principal.batchId,
+            version!.versionId,
+          )
+        } catch (error) {
+          context.imageBudget.set(run, (context.imageBudget.get(run) ?? size) - size)
+          throw error
+        }
         if (
           bytes.length.toString() !== version!.byteSize ||
           sha256(bytes).toString('hex') !== version!.digest
         ) {
           throw new Error('agent_media_invalid')
         }
-        context.imageBudget.set(principal.attemptId, used + bytes.length)
+        const fetched = context.deliveredMedia.get(principal.jobId) ?? new Set<string>()
+        fetched.add(version!.versionId)
+        context.deliveredMedia.set(principal.jobId, fetched)
         return {
           result: await ok(client, principal, { id: version!.versionId }),
           images: [{ mediaType: version!.mediaType, base64: bytes.toString('base64') }],

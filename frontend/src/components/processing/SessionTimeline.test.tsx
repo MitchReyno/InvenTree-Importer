@@ -50,6 +50,7 @@ const timeline: SessionTimelineDto = {
       created_at: at(4),
     },
   ],
+  truncated: false,
 }
 
 test('status lines form an ordered timeline and the latest is the current activity', () => {
@@ -73,20 +74,44 @@ test('chat shows the operator message and the agent reply in order', () => {
   ])
 })
 
-test('the composer queues a message for a finished session and keeps the key on retry', async () => {
-  const send = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined)
+test('the composer queues a message for a finished session', async () => {
+  const send = vi.fn().mockResolvedValue(undefined)
   render(<SessionChat state="finished" send={send} startFresh={vi.fn()} />)
   const field = screen.getByLabelText('Message this session')
   expect(field).toBeEnabled()
   fireEvent.change(field, { target: { value: 'Is the date code readable?' } })
   fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-  await screen.findByText(/not confirmed/)
+  await screen.findByText(/Queued/)
+  expect(send).toHaveBeenCalledWith('Is the date code readable?', expect.any(String))
+  await waitFor(() => expect(field).toHaveValue(''))
+})
+
+test('an unconfirmed send keeps its message and key until retried or discarded', async () => {
+  const send = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined)
+  render(<SessionChat state="running" send={send} startFresh={vi.fn()} />)
+  fireEvent.change(screen.getByLabelText('Message this session'), {
+    target: { value: 'Is the date code readable?' },
+  })
   fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+  await screen.findByText(/was not confirmed/)
+  // A new draft cannot be sent, nor can it change the pending message or its key.
+  fireEvent.change(screen.getByLabelText('Message this session'), { target: { value: 'Another' } })
+  expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
+  fireEvent.click(screen.getByRole('button', { name: 'Retry this message' }))
   await screen.findByText(/Queued/)
   expect(send).toHaveBeenCalledTimes(2)
-  expect(send.mock.calls[0][1]).toBe(send.mock.calls[1][1])
-  expect(send.mock.calls[0][0]).toBe('Is the date code readable?')
-  await waitFor(() => expect(field).toHaveValue(''))
+  expect(send.mock.calls[1]).toEqual(send.mock.calls[0])
+  expect(send.mock.calls[1][0]).toBe('Is the date code readable?')
+  expect(screen.getByLabelText('Message this session')).toHaveValue('Another')
+})
+
+test('discarding an unconfirmed send frees the composer', async () => {
+  const send = vi.fn().mockRejectedValueOnce(new Error('offline'))
+  render(<SessionChat state="running" send={send} startFresh={vi.fn()} />)
+  fireEvent.change(screen.getByLabelText('Message this session'), { target: { value: 'Hello' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Discard' }))
+  expect(screen.queryByText(/was not confirmed/)).not.toBeInTheDocument()
 })
 
 test('a cancelled session offers a fresh session instead of the composer', () => {

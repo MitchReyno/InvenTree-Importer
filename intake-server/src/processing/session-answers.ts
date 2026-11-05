@@ -114,6 +114,7 @@ export async function answerSessionQuestion(
   await appendSessionInbox(
     client,
     {
+      binding: config,
       lineageId: job.id,
       actorId: config.actorId,
       idempotencyKey: `answer:${questionId}`,
