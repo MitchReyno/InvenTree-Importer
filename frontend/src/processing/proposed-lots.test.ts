@@ -8,7 +8,7 @@ const lot = (n: number) => `a0000000-0000-4000-8000-00000000000${n}`
 
 const batch = {
   id: batchId,
-  lots: [1, 2, 3, 4, 5].map((n) => ({ id: lot(n), label: `Lot ${n}` })),
+  lots: [1, 2, 3, 4, 5, 6].map((n) => ({ id: lot(n), label: `Lot ${n}` })),
 } as unknown as CaptureSnapshotDto
 
 function reviewLot(n: number, state: string, blocking = false) {
@@ -25,6 +25,7 @@ const review = {
     reviewLot(2, 'unreviewed'),
     reviewLot(3, 'changed_after_review'),
     reviewLot(4, 'reviewed', true),
+    { ...reviewLot(6, 'unreviewed', true), approved: true },
   ],
 } as unknown as OperatorReviewDto
 
@@ -35,11 +36,13 @@ describe('proposedLots', () => {
       { id: lot(2), label: 'Lot 2', state: 'to_review', href: `#${batchId}/review/lots/${lot(2)}` },
       { id: lot(3), label: 'Lot 3', state: 'changed', href: `#${batchId}/review/lots/${lot(3)}` },
       { id: lot(4), label: 'Lot 4', state: 'blocked', href: `#${batchId}/review/lots/${lot(4)}` },
+      { id: lot(6), label: 'Lot 6', state: 'added', href: `#${batchId}/review/lots/${lot(6)}` },
     ])
   })
 
   it('reads every lot as to review before the review projection loads', () => {
     expect(proposedLots(batch, undefined, new Set()).map((item) => item.state)).toEqual([
+      'to_review',
       'to_review',
       'to_review',
       'to_review',

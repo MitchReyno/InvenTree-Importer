@@ -4995,7 +4995,7 @@ export interface components {
         };
         AttentionItem: {
             key: string;
-            group: "question" | "changed_lot" | "decision" | "result";
+            group: "question" | "failed_job" | "changed_lot" | "decision" | "result";
             tab: "processing" | "review" | "changes";
             title: string;
             detail: string | null;
@@ -5007,6 +5007,7 @@ export interface components {
             revision: string;
             processing: {
                 questions: number;
+                failed: number;
             };
             review: {
                 to_check: number;
@@ -5020,7 +5021,7 @@ export interface components {
             };
             items: {
                 key: string;
-                group: "question" | "changed_lot" | "decision" | "result";
+                group: "question" | "failed_job" | "changed_lot" | "decision" | "result";
                 tab: "processing" | "review" | "changes";
                 title: string;
                 detail: string | null;

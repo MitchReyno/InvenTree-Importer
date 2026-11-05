@@ -16,7 +16,7 @@ const config = devConfig({
 const empty: BatchAttentionDto = {
   batch_id: batch,
   revision: '1',
-  processing: { questions: 0 },
+  processing: { questions: 0, failed: 0 },
   review: { to_check: 0, changed_after_review: 0, to_decide: 0 },
   changes: { ready: 0, failed: 0, uncertain: 0 },
   items: [],

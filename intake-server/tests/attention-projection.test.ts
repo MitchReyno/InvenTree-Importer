@@ -72,7 +72,7 @@ function operatorLot(
     review_state: state,
     approved: false,
     issues: Array.from({ length: issues }, (_, index) => ({
-      code: 'part_not_chosen',
+      code: 'part_choice_required',
       severity: index === 0 ? 'blocking' : 'warning',
       message: `Choose the Part for lot ${n}`,
       subject_id: lot(n),
@@ -127,7 +127,7 @@ test('counts each tab from the same reads the screens use', () => {
   const attention = projectAttention({ batchId: batch, processing, review, manual })
 
   validate('BatchAttention', attention)
-  assert.deepEqual(attention.processing, { questions: 2 })
+  assert.deepEqual(attention.processing, { questions: 2, failed: 0 })
   assert.deepEqual(attention.review, { to_check: 2, changed_after_review: 1, to_decide: 1 })
   assert.deepEqual(attention.changes, { ready: 2, failed: 1, uncertain: 1 })
   assert.equal(attention.revision, '7')
@@ -149,8 +149,11 @@ test('routes each item to the screen that owns it', () => {
   assert.equal(byKey[`question:${id(2)}`], undefined)
   assert.equal(byKey[`changed:${lot(2)}`].route, `${batch}/review/lots/${lot(2)}`)
   assert.equal(byKey[`changed:${lot(2)}`].group, 'changed_lot')
-  assert.equal(byKey[`decision:${lot(1)}:part_not_chosen`].group, 'decision')
-  assert.equal(byKey[`decision:${lot(1)}:part_not_chosen`].route, `${batch}/review/lots/${lot(1)}`)
+  assert.equal(byKey[`decision:${lot(1)}:part_choice_required`].group, 'decision')
+  assert.equal(
+    byKey[`decision:${lot(1)}:part_choice_required`].route,
+    `${batch}/review/lots/${lot(1)}`,
+  )
   assert.equal(byKey[`result:${id(6)}`].route, `${batch}/changes/added/${id(6)}`)
   assert.equal(byKey[`result:${id(7)}`].group, 'result')
   assert.equal(byKey[`result:${id(5)}`], undefined)
@@ -177,9 +180,74 @@ test('orders items by tab and keeps counts exact when items are truncated', () =
   validate('BatchAttention', attention)
 })
 
+test('a failed or interrupted attempt needs the operator in its step', () => {
+  const withFailed = {
+    ...processing,
+    jobs: [
+      ...processing.jobs,
+      { ...job(4, 'reading', []), state: 'failed' },
+      { ...job(5, 'research', []), state: 'interrupted' },
+      { ...job(6, 'research', []), state: 'succeeded' },
+    ],
+  } as unknown as ProcessingSnapshotDto
+  const attention = projectAttention({ batchId: batch, processing: withFailed, review, manual })
+  const failed = attention.items.filter((item) => item.group === 'failed_job')
+
+  validate('BatchAttention', attention)
+  assert.deepEqual(attention.processing, { questions: 2, failed: 2 })
+  assert.deepEqual(
+    failed.map((item) => [item.title, item.route]),
+    [
+      ['An Examine attempt failed', `${batch}/processing/examine`],
+      ['A Research attempt was interrupted', `${batch}/processing/research`],
+    ],
+  )
+})
+
 test('works without processing, as in setups with no runner', () => {
   const attention = projectAttention({ batchId: batch, processing: undefined, review, manual })
 
   assert.equal(attention.processing.questions, 0)
   assert.equal(attention.items[0].tab, 'review')
+})
+
+test('status issues and approved lots are not decisions or work to check', () => {
+  const status = (code: string) => ({
+    code,
+    severity: 'blocking',
+    message: code,
+    subject_id: null,
+    lot_id: lot(5),
+    run_id: null,
+    dependency_digest: null,
+    disposition: null,
+  })
+  const approved = {
+    ...operatorLot(5, 'unreviewed'),
+    approved: true,
+    issues: [status('original_contribution_already_approved'), status('quantity_required')],
+  }
+  const archived = {
+    ...operatorLot(6, 'unreviewed'),
+    issues: ['batch_archived', 'source_history_unsettled', 'media_not_ready'].map(status),
+  }
+  const withStatus = { ...review, lots: [...review.lots, approved, archived] } as OperatorReviewDto
+  const manualWithApproved = {
+    ...manual,
+    lots: [...manual.lots, { lot_id: lot(5), reviewed: true, issues: [] }],
+  } as ManualWorkspaceDto
+  const attention = projectAttention({
+    batchId: batch,
+    processing,
+    review: withStatus,
+    manual: manualWithApproved,
+  })
+
+  assert.equal(attention.review.to_decide, 1)
+  assert.equal(attention.review.to_check, 3)
+  assert.equal(attention.changes.ready, 2)
+  assert.deepEqual(
+    attention.items.filter((item) => item.group === 'decision').map((item) => item.key),
+    [`decision:${lot(1)}:part_choice_required`],
+  )
 })

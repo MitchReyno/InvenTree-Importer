@@ -1,4 +1,5 @@
 import * as Popover from '@radix-ui/react-popover'
+import { useState } from 'react'
 import type { AttentionItemDto, BatchAttentionDto } from '@invimport/contracts'
 import styled, { keyframes } from 'styled-components'
 import { color, radius, shadow, space, type } from '../../theme/generated/tokens'
@@ -14,6 +15,7 @@ const GROUPS: { tab: AttentionItemDto['tab']; title: string }[] = [
 
 const GROUP_WORD: Record<AttentionItemDto['group'], string> = {
   question: 'Question',
+  failed_job: 'Failed',
   changed_lot: 'Changed',
   decision: 'Decide',
   result: 'Result',
@@ -21,6 +23,7 @@ const GROUP_WORD: Record<AttentionItemDto['group'], string> = {
 
 /** Every open item in the batch, grouped by the tab that owns it. */
 export function NeedYouPanel({ attention }: { attention: BatchAttentionDto }) {
+  const [open, setOpen] = useState(false)
   const total = attention.items.length
   const label = attention.items_truncated ? `${total}+ need you` : `${total} need you`
 
@@ -29,7 +32,7 @@ export function NeedYouPanel({ attention }: { attention: BatchAttentionDto }) {
   }
 
   return (
-    <Popover.Root modal={false}>
+    <Popover.Root modal={false} open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <Trigger type="button">
           <span aria-hidden="true">!</span>
@@ -37,7 +40,18 @@ export function NeedYouPanel({ attention }: { attention: BatchAttentionDto }) {
         </Trigger>
       </Popover.Trigger>
       <Popover.Portal>
-        <Content align="end" sideOffset={8} collisionPadding={12} aria-label="Needs you">
+        <Content
+          align="end"
+          sideOffset={8}
+          collisionPadding={12}
+          aria-label="Needs you"
+          // The header stays mounted across navigation, so close once an item is chosen.
+          onClick={(event) => {
+            if ((event.target as Element).closest('a')) {
+              setOpen(false)
+            }
+          }}
+        >
           {GROUPS.map(({ tab, title }) => {
             const items = attention.items.filter((item) => item.tab === tab)
             if (items.length === 0) {
@@ -68,7 +82,7 @@ export function NeedYouPanel({ attention }: { attention: BatchAttentionDto }) {
   )
 }
 
-const open = keyframes`
+const appear = keyframes`
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 `
@@ -104,7 +118,7 @@ const Content = styled(Popover.Content)`
   background: ${color.surface};
   color: ${color.fg};
   box-shadow: ${shadow};
-  animation: ${open} 120ms ease-out;
+  animation: ${appear} 120ms ease-out;
   ${media.reducedMotion} {
     animation: none;
   }

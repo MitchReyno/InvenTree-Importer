@@ -12961,6 +12961,10 @@
                 "type": "string"
               },
               {
+                "const": "failed_job",
+                "type": "string"
+              },
+              {
                 "const": "changed_lot",
                 "type": "string"
               },
@@ -13040,10 +13044,16 @@
             "additionalProperties": false,
             "type": "object",
             "required": [
-              "questions"
+              "questions",
+              "failed"
             ],
             "properties": {
               "questions": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              },
+              "failed": {
                 "minimum": 0,
                 "maximum": 100000,
                 "type": "integer"
@@ -13126,6 +13136,10 @@
                   "anyOf": [
                     {
                       "const": "question",
+                      "type": "string"
+                    },
+                    {
+                      "const": "failed_job",
                       "type": "string"
                     },
                     {

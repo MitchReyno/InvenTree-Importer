@@ -12,7 +12,13 @@ const count = Type.Integer({ minimum: 0, maximum: 100000 })
 /** Bounds the panel; counts stay exact when items are truncated. */
 export const MAX_ATTENTION_ITEMS = 200
 
-export const AttentionGroup = choice(['question', 'changed_lot', 'decision', 'result'])
+export const AttentionGroup = choice([
+  'question',
+  'failed_job',
+  'changed_lot',
+  'decision',
+  'result',
+])
 
 export const AttentionTab = choice(['processing', 'review', 'changes'])
 
@@ -30,11 +36,11 @@ export const AttentionItem = object({
   }),
 })
 
-/** Tab counts and need-you items from one read, so badges and the panel always agree. */
+/** Tab counts and need-you items projected together, so badges and the panel agree. */
 export const BatchAttention = object({
   batch_id: Id,
   revision: Revision,
-  processing: object({ questions: count }),
+  processing: object({ questions: count, failed: count }),
   review: object({ to_check: count, changed_after_review: count, to_decide: count }),
   changes: object({ ready: count, failed: count, uncertain: count }),
   items: Type.Array(AttentionItem, { maxItems: MAX_ATTENTION_ITEMS }),

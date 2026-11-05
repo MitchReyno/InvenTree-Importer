@@ -10,7 +10,7 @@ const run = 'r0000000-0000-4000-8000-000000000002'
 const attention: BatchAttentionDto = {
   batch_id: b,
   revision: '3',
-  processing: { questions: 1 },
+  processing: { questions: 1, failed: 0 },
   review: { to_check: 1, changed_after_review: 1, to_decide: 0 },
   changes: { ready: 0, failed: 1, uncertain: 0 },
   items: [
@@ -60,6 +60,16 @@ describe('NeedYouPanel', () => {
       `#${b}/changes/added/${run}`,
     )
     expect(within(panel).getByText('Assuming 10kΩ')).toBeVisible()
+  })
+
+  it('closes once an item is chosen, so it does not cover the screen it opens', async () => {
+    const user = userEvent.setup()
+    render(<NeedYouPanel attention={attention} />)
+
+    await user.click(screen.getByRole('button', { name: '3 need you' }))
+    await user.click(screen.getByRole('link', { name: 'A run needs recovery' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Needs you' })).not.toBeInTheDocument()
   })
 
   it('closes with Escape and returns focus to the pill', async () => {

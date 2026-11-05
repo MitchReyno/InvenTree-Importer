@@ -116,7 +116,7 @@ const media: MediaSnapshotDto = {
 const attention: BatchAttentionDto = {
   batch_id: batchId,
   revision: '7',
-  processing: { questions: 3 },
+  processing: { questions: 3, failed: 0 },
   review: { to_check: 4, changed_after_review: 1, to_decide: 2 },
   changes: { ready: 1, failed: 0, uncertain: 0 },
   items: [

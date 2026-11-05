@@ -15,7 +15,7 @@ const batch = {
 const attention: BatchAttentionDto = {
   batch_id: batchId,
   revision: '3',
-  processing: { questions: 3 },
+  processing: { questions: 3, failed: 0 },
   review: { to_check: 8, changed_after_review: 0, to_decide: 3 },
   changes: { ready: 6, failed: 0, uncertain: 0 },
   items: [],
@@ -37,6 +37,40 @@ function header(route: Parameters<typeof BatchHeader>[0]['route']) {
 }
 
 describe('BatchHeader', () => {
+  it('flags failed attempts on Processing and on their step', () => {
+    render(
+      <BatchHeader
+        batch={batch}
+        route={{ tab: 'processing', step: 'overview' }}
+        attention={{
+          ...attention,
+          processing: { questions: 3, failed: 1 },
+          items: [
+            {
+              key: 'failed:j1',
+              group: 'failed_job',
+              tab: 'processing',
+              title: 'A Research attempt failed',
+              detail: null,
+              route: `${batchId}/processing/research`,
+            },
+          ],
+        }}
+        activeLotCount={8}
+        retiredLotCount={0}
+        busy={false}
+        onArchive={vi.fn()}
+      />,
+    )
+    const tabs = within(screen.getByRole('navigation', { name: 'Batch' }))
+    const steps = within(screen.getByRole('navigation', { name: 'Processing steps' }))
+
+    expect(
+      tabs.getByRole('link', { name: 'Processing, 3 questions · 1 failed' }),
+    ).toBeInTheDocument()
+    expect(steps.getByRole('link', { name: 'Research, 1 failed' })).toBeInTheDocument()
+  })
+
   it('reads every tab count from the attention read, warnings apart from plain counts', () => {
     header({ tab: 'capture' })
     const tabs = within(screen.getByRole('navigation', { name: 'Batch' }))

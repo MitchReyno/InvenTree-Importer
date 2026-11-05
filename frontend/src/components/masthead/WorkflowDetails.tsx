@@ -2,6 +2,7 @@ import type { HeaderWorkDto } from '@invimport/contracts'
 import { Link, Paragraph, Small, Subheading } from '../ui/primitives'
 import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
+import { batchHref } from '../../navigation/batch-route'
 
 interface Props {
   data?: HeaderWorkDto
@@ -74,8 +75,8 @@ export function WorkflowDetails({ data, batchId, unavailable, fresh }: Props) {
           <Action
             href={
               item.kind === 'processing'
-                ? `#${item.batch_id}/processing/overview`
-                : `#${item.batch_id}/results/${item.id}`
+                ? batchHref(item.batch_id, { tab: 'processing', step: 'overview' })
+                : batchHref(item.batch_id, { tab: 'changes', view: 'added', runId: item.id })
             }
           >
             {item.kind === 'processing' ? 'Open processing' : 'Open original run'}
@@ -130,7 +131,9 @@ export function WorkflowDetails({ data, batchId, unavailable, fresh }: Props) {
           <Small>
             Batch {session.batch_id} · attempt {session.attempt_id}
           </Small>
-          <Action href={`#${session.batch_id}/processing/overview`}>Open session work</Action>
+          <Action href={batchHref(session.batch_id, { tab: 'processing', step: 'overview' })}>
+            Open session work
+          </Action>
         </Work>
       ))}
       {fresh &&

@@ -39,7 +39,7 @@ export interface ReviewLocation {
   filter: ReviewFilter
 }
 
-/** Review URLs: `#<batch>/review[/<lot>][?view=table&filter=warnings]`. */
+/** Review URLs: `#<batch>/review/lots[/<lot>][?view=table&filter=warnings]`. */
 export function parseReviewLocation(hash: string): ReviewLocation {
   const [path, query = ''] = hash.replace(/^#/, '').split('?')
   const params = new URLSearchParams(query)

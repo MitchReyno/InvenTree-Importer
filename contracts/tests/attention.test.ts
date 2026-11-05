@@ -9,7 +9,7 @@ const question = '00000000-0000-4000-8000-000000000002'
 const attention = {
   batch_id: batch,
   revision: '7',
-  processing: { questions: 1 },
+  processing: { questions: 1, failed: 0 },
   review: { to_check: 2, changed_after_review: 1, to_decide: 1 },
   changes: { ready: 3, failed: 0, uncertain: 1 },
   items: [
@@ -28,6 +28,21 @@ const attention = {
 test('batch attention gives tab counts and routed need-you items', () => {
   validate('BatchAttention', attention)
   validate('BatchAttention', { ...attention, items: [] })
+  validate('BatchAttention', {
+    ...attention,
+    processing: { questions: 1, failed: 1 },
+    items: [
+      ...attention.items,
+      {
+        key: `failed:${question}`,
+        group: 'failed_job',
+        tab: 'processing',
+        title: 'An Examine attempt failed',
+        detail: null,
+        route: `${batch}/processing/examine`,
+      },
+    ],
+  })
 })
 
 test('batch attention refuses unknown fields, groups and routes outside the batch', () => {

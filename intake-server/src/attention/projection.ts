@@ -9,7 +9,6 @@ import {
 
 export type AttentionSources = {
   batchId: string
-  /** Absent when this setup has no processing runner. */
   processing: ProcessingSnapshotDto | undefined
   review: OperatorReviewDto
   manual: ManualWorkspaceDto
@@ -24,6 +23,24 @@ const STEP_BY_STAGE: Record<string, string> = {
   images: 'images',
   inventory: 'inventory',
 }
+
+/** Issues the operator settles with a choice; the rest report status, such as approval or archive. */
+const DECISION_CODES = new Set([
+  'part_choice_required',
+  'quantity_required',
+  'location_required',
+  'location_conflict',
+  'location_draft_parent_invalid',
+])
+
+const STEP_LABEL: Record<string, string> = {
+  examine: 'An Examine',
+  research: 'A Research',
+  images: 'An Images',
+  inventory: 'An Inventory',
+}
+
+const FAILED_JOB_STATES = new Set(['failed', 'interrupted'])
 
 const FAILED_RUN_STATES = new Set(['recovery_required', 'settled_incomplete'])
 const UNCERTAIN_CERTAINTY = new Set(['unknown', 'mixed'])
@@ -43,8 +60,26 @@ function questionItems({ batchId, processing }: AttentionSources): AttentionItem
   )
 }
 
+function failedJobItems({ batchId, processing }: AttentionSources): AttentionItemDto[] {
+  return (processing?.jobs ?? [])
+    .filter((job) => FAILED_JOB_STATES.has(job.state))
+    .map((job) => {
+      const step = STEP_BY_STAGE[job.stage] ?? 'overview'
+      const outcome = job.state === 'failed' ? 'failed' : 'was interrupted'
+
+      return {
+        key: `failed:${job.id}`,
+        group: 'failed_job' as const,
+        tab: 'processing' as const,
+        title: `${STEP_LABEL[step] ?? 'A Processing'} attempt ${outcome}`,
+        detail: null,
+        route: `${batchId}/processing/${step}`,
+      }
+    })
+}
+
 function changedLotItems({ batchId, review }: AttentionSources): AttentionItemDto[] {
-  return review.lots
+  return openLots(review)
     .filter((lot) => lot.review_state === 'changed_after_review')
     .map((lot) => ({
       key: `changed:${lot.lot_id}`,
@@ -56,11 +91,21 @@ function changedLotItems({ batchId, review }: AttentionSources): AttentionItemDt
     }))
 }
 
-/** Until record decisions exist, an open blocking issue is the choice Review needs. */
+/** Lots still to approve; an approved lot needs nothing more from Review. */
+function openLots(review: OperatorReviewDto) {
+  return review.lots.filter((lot) => !lot.approved)
+}
+
+/** Until record decisions exist, an open blocking choice is the decision Review needs. */
 function decisionItems({ batchId, review }: AttentionSources): AttentionItemDto[] {
-  return review.lots.flatMap((lot) =>
+  return openLots(review).flatMap((lot) =>
     lot.issues
-      .filter((issue) => issue.severity === 'blocking' && issue.disposition === null)
+      .filter(
+        (issue) =>
+          issue.severity === 'blocking' &&
+          issue.disposition === null &&
+          DECISION_CODES.has(issue.code),
+      )
       .map((issue) => ({
         key: `decision:${lot.lot_id}:${issue.code}`,
         group: 'decision' as const,
@@ -89,26 +134,32 @@ function resultItems({ batchId, manual }: AttentionSources): AttentionItemDto[] 
     }))
 }
 
-/** Tab counts and need-you items from one set of reads, so badges and the panel agree. */
+/** Tab counts and need-you items projected together, so badges and the panel agree. */
 export function projectAttention(sources: AttentionSources): BatchAttentionDto {
   const questions = questionItems(sources)
+  const failedJobs = failedJobItems(sources)
   const changed = changedLotItems(sources)
   const decisions = decisionItems(sources)
   const results = resultItems(sources)
-  const items = [...questions, ...changed, ...decisions, ...results]
+  const items = [...questions, ...failedJobs, ...changed, ...decisions, ...results]
+  const approved = new Set(
+    sources.review.lots.filter((lot) => lot.approved).map((lot) => lot.lot_id),
+  )
   const failed = sources.manual.runs.filter((run) => FAILED_RUN_STATES.has(run.state)).length
 
   return {
     batch_id: sources.batchId,
     revision: sources.review.revision,
-    processing: { questions: questions.length },
+    processing: { questions: questions.length, failed: failedJobs.length },
     review: {
-      to_check: sources.review.lots.filter((lot) => lot.review_state !== 'reviewed').length,
+      to_check: openLots(sources.review).filter((lot) => lot.review_state !== 'reviewed').length,
       changed_after_review: changed.length,
       to_decide: decisions.length,
     },
     changes: {
-      ready: sources.manual.lots.filter((lot) => lot.reviewed && lot.issues.length === 0).length,
+      ready: sources.manual.lots.filter(
+        (lot) => lot.reviewed && lot.issues.length === 0 && !approved.has(lot.lot_id),
+      ).length,
       failed,
       uncertain: results.length - failed,
     },

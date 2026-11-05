@@ -379,3 +379,32 @@ test('duplicate filenames have distinct exact-identity selection, drag and note 
   await userEvent.setup().click(screen.getByRole('button', { name: /Open photo.png.*70000000/ }))
   expect(screen.getByRole('button', { name: /Edit note for photo.png.*70000000/ })).toBeVisible()
 })
+
+test('the viewer cannot close over an unsaved note, so the draft is never lost', async () => {
+  const user = userEvent.setup()
+  const client = mediaClient()
+  const onDirtyChange = vi.fn()
+  render(
+    <ServerStateProvider scope={fixtureScope} client={createServerQueryClient()}>
+      <MediaWorkspace
+        batch={batch}
+        client={client}
+        disabled={false}
+        selectedSubject="defaults"
+        onDirtyChange={onDirtyChange}
+      />
+    </ServerStateProvider>,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Open Front label' }))
+  await user.click(screen.getByRole('button', { name: 'Edit note for Front label' }))
+  await user.type(screen.getByLabelText('Note for Front label'), 'Keep both sides together.')
+  const viewer = screen.getByRole('dialog', { name: 'Front label' })
+
+  expect(within(viewer).getByRole('button', { name: 'Close' })).toBeDisabled()
+  await user.keyboard('{Escape}')
+  expect(screen.getByLabelText('Note for Front label')).toHaveValue('Keep both sides together.')
+
+  await user.click(within(viewer).getByRole('button', { name: /^Discard note for front label/i }))
+  expect(within(viewer).getByRole('button', { name: 'Close' })).toBeEnabled()
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+})

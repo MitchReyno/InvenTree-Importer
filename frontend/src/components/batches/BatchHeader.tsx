@@ -36,22 +36,40 @@ function plural(count: number, one: string, many: string) {
   return count === 1 ? one : many
 }
 
-/** Open questions per Processing step, read from the routes of the attention items. */
-function questionsByStep(attention: BatchAttentionDto | undefined) {
-  const counts = new Map<ProcessingStep, number>()
+type StepWork = { questions: number; failed: number }
+
+/** Open questions and failed attempts per Processing step, read from the item routes. */
+function workByStep(attention: BatchAttentionDto | undefined) {
+  const counts = new Map<ProcessingStep, StepWork>()
   for (const item of attention?.items ?? []) {
-    if (item.group !== 'question') {
+    if (item.group !== 'question' && item.group !== 'failed_job') {
       continue
     }
     const step = processingStepFor(item.route.split('/')[2] ?? '')
-    counts.set(step, (counts.get(step) ?? 0) + 1)
+    const work = counts.get(step) ?? { questions: 0, failed: 0 }
+    counts.set(step, {
+      questions: work.questions + (item.group === 'question' ? 1 : 0),
+      failed: work.failed + (item.group === 'failed_job' ? 1 : 0),
+    })
   }
 
   return counts
 }
 
+/** A failed attempt outranks a question, so the badge turns to the stronger tone. */
+function processingBadge({ questions, failed }: StepWork): Pick<TabItem, 'badge'> {
+  const parts = [
+    questions > 0 ? `${questions} ${plural(questions, 'question', 'questions')}` : '',
+    failed > 0 ? `${failed} failed` : '',
+  ].filter(Boolean)
+  if (parts.length === 0) {
+    return {}
+  }
+
+  return { badge: { label: parts.join(' · '), tone: failed > 0 ? 'bad' : 'warn' } }
+}
+
 function primaryTabs(batchId: string, attention: BatchAttentionDto | undefined): TabItem[] {
-  const questions = attention?.processing.questions ?? 0
   const review = attention?.review
   const changes = attention?.changes
   const changeProblems = (changes?.failed ?? 0) + (changes?.uncertain ?? 0)
@@ -62,14 +80,7 @@ function primaryTabs(batchId: string, attention: BatchAttentionDto | undefined):
       id: 'processing',
       label: 'Processing',
       href: batchHref(batchId, { tab: 'processing', step: 'overview' }),
-      ...(questions > 0
-        ? {
-            badge: {
-              label: `${questions} ${plural(questions, 'question', 'questions')}`,
-              tone: 'warn',
-            },
-          }
-        : {}),
+      ...processingBadge(attention?.processing ?? { questions: 0, failed: 0 }),
     },
     {
       id: 'review',
@@ -93,17 +104,18 @@ function primaryTabs(batchId: string, attention: BatchAttentionDto | undefined):
 }
 
 function processingRow(batchId: string, attention: BatchAttentionDto | undefined): TabItem[] {
-  const counts = questionsByStep(attention)
+  const counts = workByStep(attention)
 
   return STEPS.map(({ id, label }) => {
-    const open = id === 'overview' ? (attention?.processing.questions ?? 0) : (counts.get(id) ?? 0)
+    const work =
+      id === 'overview'
+        ? (attention?.processing ?? { questions: 0, failed: 0 })
+        : (counts.get(id) ?? { questions: 0, failed: 0 })
     return {
       id,
       label,
       href: batchHref(batchId, { tab: 'processing', step: id }),
-      ...(open > 0
-        ? { badge: { label: `${open} ${plural(open, 'question', 'questions')}`, tone: 'warn' } }
-        : {}),
+      ...processingBadge(work),
     }
   })
 }

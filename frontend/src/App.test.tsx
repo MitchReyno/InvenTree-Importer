@@ -2,7 +2,6 @@ import { act, cleanup } from '@testing-library/react'
 import { useState, type ReactNode } from 'react'
 import { captureClient, manualClient } from '@invimport/contracts/client'
 import { Batch } from './components/batches/Batch'
-import { BatchHeader } from './components/batches/BatchHeader'
 import { ServerStateProvider } from './components/query/ServerStateProvider'
 import { createServerQueryClient } from './queries/client'
 import { serverQueryKey } from './queries/scope'
@@ -270,21 +269,28 @@ test('archive is read-only until explicit resume; no approval or write button is
   expect(screen.getByLabelText('Batch title')).toBeDisabled()
   expect(screen.queryByRole('button', { name: /Approve|Apply|Upload/ })).not.toBeInTheDocument()
   cleanup()
-  // Resume now lives in the batch header, which Batch maps to the same edit.
-  const onArchive = vi.fn()
+  const sent: unknown[] = []
+  const client = captureClient(location.origin, 'a'.repeat(64), async (_input, init) => {
+    if (init?.method && init.method !== 'GET') {
+      sent.push(JSON.parse(String(init.body)))
+      return response(fixture)
+    }
+    return response({ ...fixture, archived: true })
+  })
+  history.replaceState(null, '', `#${batchId}/capture`)
   render(
-    <BatchHeader
-      batch={{ ...fixture, archived: true }}
-      route={{ tab: 'capture' }}
-      attention={undefined}
-      activeLotCount={fixture.lots.length}
-      retiredLotCount={0}
-      busy={false}
-      onArchive={onArchive}
+    <Batch
+      id={batchId}
+      route={`${batchId}/capture`}
+      client={client}
+      manual={reviewManual()}
+      onDirtyChange={vi.fn()}
     />,
   )
-  await user.click(screen.getByRole('button', { name: 'Resume archived batch' }))
-  expect(onArchive).toHaveBeenCalledTimes(1)
+  await user.click(await screen.findByRole('button', { name: 'Resume archived batch' }))
+  await waitFor(() =>
+    expect(sent).toEqual([expect.objectContaining({ change: { kind: 'batch', archived: false } })]),
+  )
 })
 
 test('inbox resumes retained capture, filters archives and creates a batch with a human note', async () => {

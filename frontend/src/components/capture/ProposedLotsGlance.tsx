@@ -5,6 +5,7 @@ import { color, radius, space, type } from '../../theme/generated/tokens'
 import { Pill, type PillTone } from '../ui/Pill'
 
 const STATE: Record<ProposedLotState, { tone: PillTone; word: string }> = {
+  added: { tone: 'ok', word: 'Added' },
   ready: { tone: 'ok', word: 'Ready' },
   to_review: { tone: 'neutral', word: 'To review' },
   changed: { tone: 'warn', word: 'Changed' },

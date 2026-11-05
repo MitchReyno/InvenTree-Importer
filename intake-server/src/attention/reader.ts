@@ -8,7 +8,10 @@ import { manualRepository } from '../review/repository.ts'
 import type { ManualConfig } from '../review/authority.ts'
 import { projectAttention } from './projection.ts'
 
-/** Reads the same processing, review and manual projections the batch screens use. */
+/**
+ * Reads the same processing, review and manual projections the batch screens use. Each is its
+ * own snapshot; the client refetches when the batch revision moves, so a mixed read is brief.
+ */
 export function attentionReader(
   pool: Pool,
   manualConfig: ManualConfig,

@@ -69,6 +69,8 @@ export function EvidenceGroupPanel({
   const [rename, setRename] = useState(false)
   const [noteId, setNoteId] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+  // Closing the viewer would unmount the note editor and lose its draft.
+  const [noteDirty, setNoteDirty] = useState(false)
   const [instructions, setInstructions] = useState(false)
   const group = snapshot.groups.find((item) => item.id === groupId)
   const name = group?.label ?? 'Ungrouped'
@@ -229,7 +231,7 @@ export function EvidenceGroupPanel({
         <Modal
           title={fileName(opened)}
           onClose={() => setOpenId(null)}
-          closeDisabled={blocked(`note:${opened.id}`)}
+          closeDisabled={blocked(`note:${opened.id}`) || noteDirty || pending}
         >
           <MediaEvidenceCard
             labels={labels}
@@ -252,7 +254,10 @@ export function EvidenceGroupPanel({
               multiline
               disabled={blocked(`note:${opened.id}`)}
               pending={pending}
-              onDirtyChange={dirty(`note:${opened.id}`)}
+              onDirtyChange={(value) => {
+                setNoteDirty(value)
+                dirty(`note:${opened.id}`)(value)
+              }}
               onCancel={() => setNoteId(null)}
               onSave={(text, revision) =>
                 edit({ kind: 'evidence_note', evidence_id: opened.id, text }, revision)

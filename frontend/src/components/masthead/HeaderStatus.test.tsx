@@ -281,7 +281,7 @@ test('workflow retains original-run navigation and shared observers deduplicate 
   await user.click(screen.getAllByRole('button', { name: 'Workflow activity' })[0])
   expect(screen.getByRole('link', { name: 'Open original run' })).toHaveAttribute(
     'href',
-    `#${batchId}/results/${id}`,
+    `#${batchId}/changes/added/${id}`,
   )
   expect(screen.queryByRole('button', { name: /retry|resume|apply|cancel/i })).toBeNull()
 })
