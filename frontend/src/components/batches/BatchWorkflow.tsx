@@ -1,6 +1,7 @@
 import type { InboxWorkflowDto } from '@invimport/contracts'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, radius, space } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
 import { Link, Small } from '../ui/primitives'
 import { batchHref } from '../../navigation/batch-route'
 
@@ -35,7 +36,7 @@ export function BatchWorkflow({
         </Link>
       )}
       {(workflow.open_questions > 0 || workflow.active_jobs > 0) && (
-        <Link href={`#${batchId}/processing/overview`}>
+        <Link href={batchHref(batchId, { tab: 'processing', step: 'overview' })}>
           {workflow.open_questions} open questions · {workflow.active_jobs} active jobs
         </Link>
       )}
@@ -58,14 +59,30 @@ export function BatchWorkflow({
 
 const Summary = styled.div`
   display: flex;
-  align-items: center;
-  gap: 0 14px;
   flex-wrap: wrap;
-  font-size: 13px;
+  align-items: center;
+  gap: ${space[1]} ${space['1-5']};
+  font-size: 12.5px;
   color: ${color.muted};
+  > span {
+    padding: 1px 0;
+  }
   a {
     display: inline-flex;
     align-items: center;
-    min-height: 44px;
+    padding: 1px ${space[2]};
+    border-radius: ${radius.pill};
+    background: ${color.surface2};
+    color: ${color.fg};
+    font-weight: 500;
+    text-decoration: none;
+  }
+  a:hover {
+    background: ${color.accentWeak};
+  }
+  ${media.compact} {
+    a {
+      min-height: 44px;
+    }
   }
 `

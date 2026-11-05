@@ -1,5 +1,7 @@
-import { HeadingRow, Eyebrow, Intro, Caption, CheckboxLabel, Label, Small } from '../ui/primitives'
-import { Button, Heading, Input, Link, PageTitle, Panel, Paragraph } from '../ui/primitives'
+import { Input } from '../ui/primitives'
+import { Banner } from '../ui/Banner'
+import { Button } from '../ui/Button'
+import { media } from '../ui/media'
 import { useEffect, useRef, useState } from 'react'
 import { NewBatchForm } from './NewBatchForm'
 import { BatchWorkflow } from './BatchWorkflow'
@@ -10,7 +12,7 @@ import { BatchStageLinks } from './BatchStageLinks'
 import type { BatchCreate } from '../../../../contracts/generated/api.d.ts'
 import type { Client } from '../../capture/client'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, radius, space, type } from '../../theme/generated/tokens'
 import { useQuery } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { batchHref } from '../../navigation/batch-route'
@@ -29,7 +31,7 @@ const INBOX_PAGE_SIZE = 10
 function resumeAction(batch: InboxBatch) {
   if (batch.workflow?.open_questions) {
     return {
-      href: `#${batch.id}/processing/overview`,
+      href: batchHref(batch.id, { tab: 'processing', step: 'overview' }),
       label: `Open ${batch.workflow.open_questions} questions`,
     }
   }
@@ -39,7 +41,7 @@ function resumeAction(batch: InboxBatch) {
       label: `Review ${batch.workflow.lots} lots`,
     }
   }
-  return { href: `#${batch.id}/capture`, label: 'Continue Capture' }
+  return { href: batchHref(batch.id, { tab: 'capture' }), label: 'Continue Capture' }
 }
 
 export function Batches({ client, onDirtyChange }: Props) {
@@ -90,54 +92,97 @@ export function Batches({ client, onDirtyChange }: Props) {
     : 'No other visible batches. Show archived or create a batch.'
   return (
     <Inbox>
-      <HeadingRow>
+      <PageHead>
         <div>
-          <Eyebrow>Your bench, retained</Eyebrow>
-          <PageTitle>Batches</PageTitle>
+          <Title>Batches</Title>
+          <Lead>
+            Photograph what's on the bench; we propose the stock lots and Parts for you to check.
+          </Lead>
         </div>
-        <Button onClick={() => setCreating(true)}>New batch</Button>
-      </HeadingRow>
-      <Intro>
-        Start with a note or known values. Each packet stays a distinct physical lot, even when it
-        shares a Part.
-      </Intro>
+        <Button variant="primary" icon="+" onClick={() => setCreating(true)}>
+          New batch
+        </Button>
+      </PageHead>
       {(batchesQuery.isError || batchesQuery.fetchStatus === 'paused') && (
-        <Paragraph role="alert">
-          Cannot load retained batches. Check the connection and retry.
-          <Button onClick={() => void batchesQuery.refetch()}>Retry retained batches</Button>
-        </Paragraph>
+        <Banner
+          tone="bad"
+          action={
+            <Button size="sm" onClick={() => void batchesQuery.refetch()}>
+              Retry retained batches
+            </Button>
+          }
+        >
+          <span role="alert">Cannot load retained batches. Check the connection and retry.</span>
+        </Banner>
       )}
       {(creating || (!submitted && offset === 0 && batches?.batches.length === 0)) && (
-        <Panel aria-labelledby="new-batch">
-          <Heading id="new-batch">New batch</Heading>
+        <Card aria-labelledby="new-batch">
+          <CardTitle id="new-batch">New batch</CardTitle>
           <NewBatchForm
             create={createBatch}
             onDirtyChange={reportDraftDirty}
             onDiscard={() => setCreating(false)}
           />
-        </Panel>
+        </Card>
       )}
       {continued && (
         <ContinueCard aria-labelledby="continue-title">
           <BatchThumbnail batchId={continued.id} thumbnail={continued.workflow?.thumbnail} />
-          <div>
-            <Eyebrow>Continue your latest batch</Eyebrow>
-            <Heading id="continue-title">{continued.title}</Heading>
-            <Caption>
-              Saved revision {continued.revision} ·{' '}
-              {new Date(continued.updated_at).toLocaleString()}
-            </Caption>
+          <ContinueBody>
+            <Eyebrow>Continue</Eyebrow>
+            <CardTitle id="continue-title">{continued.title}</CardTitle>
+            <Meta>Last saved {new Date(continued.updated_at).toLocaleString()}</Meta>
             <BatchWorkflow batchId={continued.id} workflow={continued.workflow} />
-            {resume && <ResumeLink href={resume.href}>{resume.label}</ResumeLink>}
-            <BatchStageLinks batchId={continued.id} title={continued.title} />
-          </div>
+            <Actions>
+              {resume && (
+                <Button as="a" href={resume.href} variant="primary">
+                  {resume.label}
+                </Button>
+              )}
+              <BatchStageLinks batchId={continued.id} title={continued.title} />
+            </Actions>
+          </ContinueBody>
         </ContinueCard>
       )}
-      <Panel aria-labelledby="retained-batches">
-        <HeadingRow>
-          <Heading id="retained-batches">Retained batches</Heading>
-          <CheckboxLabel>
-            <Input
+      <Card aria-labelledby="retained-batches">
+        <ListHead>
+          <CardTitle id="retained-batches">All batches</CardTitle>
+          <SearchForm
+            role="search"
+            onSubmit={(event) => {
+              event.preventDefault()
+              setOffset(0)
+              setSubmitted(search.trim())
+            }}
+          >
+            <label>
+              <SearchInput
+                type="search"
+                aria-label="Search retained batches"
+                value={search}
+                maxLength={256}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Find a batch by title"
+              />
+            </label>
+            <Button type="submit" size="sm">
+              Search
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setSearch('')
+                setSubmitted('')
+                setOffset(0)
+              }}
+            >
+              Clear search
+            </Button>
+          </SearchForm>
+          <ArchiveToggle>
+            <input
               type="checkbox"
               checked={archived}
               onChange={(e) => {
@@ -146,59 +191,25 @@ export function Batches({ client, onDirtyChange }: Props) {
               }}
             />
             Show archived
-          </CheckboxLabel>
-        </HeadingRow>
-        <SearchForm
-          role="search"
-          onSubmit={(event) => {
-            event.preventDefault()
-            setOffset(0)
-            setSubmitted(search.trim())
-          }}
-        >
-          <SearchLabel>
-            Search retained batches
-            <Input
-              type="search"
-              value={search}
-              maxLength={256}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Find a batch by title"
-            />
-          </SearchLabel>
-          <Button type="submit">Search</Button>
-          <Button
-            type="button"
-            onClick={() => {
-              setSearch('')
-              setSubmitted('')
-              setOffset(0)
-            }}
-          >
-            Clear search
-          </Button>
-        </SearchForm>
-        <Small>
-          Searches all retained batch titles on the server. Workflow counts are saved observations;
-          open a batch to verify current choices.
-        </Small>
+          </ArchiveToggle>
+        </ListHead>
         {!batches && batchesQuery.isError ? null : !batches ? (
-          <Paragraph role="status">Loading retained batches…</Paragraph>
+          <Note role="status">Loading retained batches…</Note>
         ) : !visible.length ? (
-          <Paragraph>{emptyMessage}</Paragraph>
+          <Note>{emptyMessage}</Note>
         ) : (
           <BatchList>
             {visible.map((b) => (
               <li key={b.id}>
                 <BatchThumbnail batchId={b.id} thumbnail={b.workflow?.thumbnail} />
                 <BatchIdentity>
-                  <Link href={`#${b.id}/capture`}>
+                  <a href={batchHref(b.id, { tab: 'capture' })}>
                     <strong>{b.title}</strong>
-                  </Link>
-                  <Small>
-                    {b.archived ? 'Archived · ' : ''}Revision {b.revision} ·{' '}
+                  </a>
+                  <Meta>
+                    {b.archived ? 'Archived · ' : ''}
                     {new Date(b.updated_at).toLocaleString()}
-                  </Small>
+                  </Meta>
                   <BatchWorkflow batchId={b.id} workflow={b.workflow} />
                 </BatchIdentity>
                 <BatchStageLinks batchId={b.id} title={b.title} />
@@ -209,13 +220,15 @@ export function Batches({ client, onDirtyChange }: Props) {
         {(offset > 0 || batches?.truncated) && (
           <Pagination aria-label="Batch pages">
             <Button
+              size="sm"
               disabled={offset === 0 || batchesQuery.isFetching}
               onClick={() => setOffset((value) => Math.max(0, value - INBOX_PAGE_SIZE))}
             >
               Previous batches
             </Button>
-            <Small>Page {offset / INBOX_PAGE_SIZE + 1}</Small>
+            <Meta>Page {offset / INBOX_PAGE_SIZE + 1}</Meta>
             <Button
+              size="sm"
               disabled={!batches?.truncated || batchesQuery.isFetching || offset >= 999990}
               onClick={() => setOffset((value) => value + INBOX_PAGE_SIZE)}
             >
@@ -223,98 +236,179 @@ export function Batches({ client, onDirtyChange }: Props) {
             </Button>
           </Pagination>
         )}
-      </Panel>
+        <Footnote>
+          Search covers every retained batch title. Counts are saved observations; open a batch to
+          check current choices.
+        </Footnote>
+      </Card>
     </Inbox>
   )
 }
 
-const ContinueCard = styled(Panel)`
+const Inbox = styled.section`
+  display: grid;
+  gap: ${space['4-5']};
+  max-width: 1240px;
+  margin: 0 auto;
+`
+
+const PageHead = styled.div`
   display: flex;
-  gap: 22px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: ${space[3]};
+`
+
+const Title = styled.h1`
+  margin: 0;
+  ${type.h1}
+`
+
+const Lead = styled.p`
+  margin: ${space[1]} 0 0;
+  color: ${color.muted};
+`
+
+const Card = styled.section`
+  padding: ${space['3-5']} ${space[4]};
+  border: 1px solid ${color.line};
+  border-radius: ${radius.card};
+  background: ${color.surface};
+  min-width: 0;
+`
+
+const CardTitle = styled.h2`
+  margin: 0;
+  ${type.h2}
+  overflow-wrap: anywhere;
+`
+
+const ContinueCard = styled(Card)`
+  --thumbnail-size: 200px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: ${space['4-5']};
   align-items: center;
-  --thumbnail-size: 180px;
-  > div:last-child {
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
-  @media (max-width: 700px) {
+  ${media.compact} {
     --thumbnail-size: 76px;
-    gap: 12px;
+    gap: ${space[3]};
     align-items: start;
   }
+`
 
-  border-left: 4px solid ${color.accent};
-  background: linear-gradient(110deg, ${color.accentWeak}, ${color.surface} 75%);
-  ${Eyebrow} {
-    margin: 0 0 6px;
-  }
-  ${Caption} {
-    margin: 6px 0;
-  }
-`
-const SearchLabel = styled(Label)`
-  max-width: 440px;
-  margin: 6px 0;
-`
-const BatchIdentity = styled.div`
+const ContinueBody = styled.div`
+  display: grid;
+  gap: ${space['2-5']};
   min-width: 0;
-  flex: 1;
-  a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    text-decoration: none;
-    overflow-wrap: anywhere;
-  }
 `
-const BatchList = styled.ul`
-  list-style: none;
-  padding: 0;
-  margin: 10px 0 0;
-  li {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 4px 20px;
-    padding: 8px 0;
-    border-top: 1px solid ${color.line};
+
+const Eyebrow = styled.span`
+  ${type.label}
+  color: ${color.accent};
+`
+
+const Meta = styled.span`
+  font-size: 12.5px;
+  color: ${color.muted};
+`
+
+const Actions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[2]};
+`
+
+const ListHead = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[2]} ${space[3]};
+  margin-bottom: ${space[2]};
+  ${CardTitle} {
+    margin-right: auto;
   }
 `
 
 const SearchForm = styled.form`
   display: flex;
-  align-items: end;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 10px 0;
+  align-items: center;
+  gap: ${space['1-5']};
   label {
-    flex: 1;
-    min-width: 160px;
+    min-width: 200px;
   }
 `
+
+const SearchInput = styled(Input)`
+  min-height: 32px;
+`
+
+const ArchiveToggle = styled.label`
+  display: inline-flex;
+  align-items: center;
+  gap: ${space['1-5']};
+  font-size: 12.5px;
+  color: ${color.muted};
+  ${media.compact} {
+    min-height: 44px;
+  }
+`
+
+const BatchList = styled.ul`
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  --thumbnail-size: 56px;
+  li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: ${space['3-5']};
+    padding: ${space[3]} 0;
+    border-top: 1px solid ${color.line};
+  }
+  ${media.compact} {
+    li {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+    li > nav {
+      grid-column: 1 / -1;
+    }
+  }
+`
+
+const BatchIdentity = styled.div`
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  > a {
+    color: ${color.fg};
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+  > a:hover {
+    text-decoration: underline;
+  }
+`
+
 const Pagination = styled.nav`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-top: 14px;
+  gap: ${space[2]};
+  padding-top: ${space[3]};
+  border-top: 1px solid ${color.line};
 `
 
-const Inbox = styled.section`
-  max-width: 1120px;
-  margin: 0 auto;
+const Note = styled.p`
+  margin: ${space[3]} 0;
+  color: ${color.muted};
 `
 
-const ResumeLink = styled(Link)`
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 9px 14px;
-  margin-top: 6px;
-  background: ${color.accentWeak};
-  border: 1px solid ${color.lineStrong};
-  border-radius: 6px;
-  text-decoration: none;
-  font-weight: 600;
+const Footnote = styled.p`
+  margin: ${space[3]} 0 0;
+  font-size: 12.5px;
+  color: ${color.muted};
 `
