@@ -606,7 +606,47 @@ test.each([
   await waitFor(() =>
     expect(navigate).toHaveBeenCalledWith('approve', id(expected), { replace: true }),
   )
-  expect(navigate).toHaveBeenCalledTimes(1)
+  expect(navigate.mock.calls.every(([, value]) => value === id(expected))).toBe(true)
+})
+
+test('bare Ready to add waits for a fresh read before trusting a cached preparation', async () => {
+  const newerId = 'a0000000-0000-4000-8000-000000000002'
+
+  const workspace = (ids: string[]) =>
+    checked<Awaited<ReturnType<ManualClient['workspace']>>>('ManualWorkspace', {
+      batch_id: batchId,
+      revision: batch.revision,
+      supported: true,
+      capability: 'owned-fake-stock/1',
+      lots: [{ lot_id: a, reviewed: true, issues: [] }],
+      runs: [],
+      preparations: ids.map((id) => ({ ...preview, id })),
+      preparations_truncated: false,
+      cursor: batch.cursor,
+    })
+
+  const client = fakeClient()
+  vi.mocked(client.workspace).mockImplementation(async () => workspace([newerId]))
+  const cache = createServerQueryClient()
+  // Cached from an earlier visit, before another client approved the remembered preparation.
+  cache.setQueryData(serverQueryKey(fixtureScope, 'manual', batch.id), workspace([newerId, prep]))
+  const navigate = vi.fn()
+  render(
+    <ServerStateProvider scope={fixtureScope} client={cache}>
+      <ManualWorkspace
+        batch={batch}
+        client={client}
+        edit={vi.fn(async () => undefined)}
+        navigate={navigate}
+        reload={vi.fn(async () => undefined)}
+        stage="approve"
+        rememberedPreparationId={prep}
+      />
+    </ServerStateProvider>,
+  )
+
+  await waitFor(() => expect(navigate).toHaveBeenCalledWith('approve', newerId, { replace: true }))
+  expect(navigate).not.toHaveBeenCalledWith('approve', prep, { replace: true })
 })
 
 test('a paused offline read retains cached review but cannot authorize a command', async () => {

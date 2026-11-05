@@ -195,3 +195,10 @@ Fresh read-only Claude reviewer at `4cc845f`: 3 Minor, 1 Nitpick, doc drift.
 - **Duplicate history entry on Ready to add from the same preparation (Nitpick, accepted):** clicking the tab pushes bare Ready to add, which the workspace replaces with the current preparation. Linking the tab straight to the remembered preparation would reintroduce the gone-preparation problem, because the header cannot tell whether it is still current.
 - **Docs:** the architecture and this handover now describe the remembered-or-newest choice; the round-2 and round-3 bullets above record the earlier behaviour.
 
+### PR-B review round 5
+
+Fresh read-only Claude reviewer at `007e80d`: 2 Minor, both fixed test-first.
+
+- **Choice made from a cached read (Minor):** returning to Changes remounts the workspace on cached data, so a preparation approved elsewhere could still be chosen and then shown as unavailable. The bare choice now waits for the mount's own read (`isFetchedAfterMount`). The test seeds a cache listing the remembered preparation and a fresh read without it, and expects the newest.
+- **`Batch` memory untested (Minor):** a `Batch` test again goes from a shown preparation through Capture to bare Ready to add and asserts the hash returns to it with no new history entry; removing the prop from `Batch` makes it fail (checked).
+

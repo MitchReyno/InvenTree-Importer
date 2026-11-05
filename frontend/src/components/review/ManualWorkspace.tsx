@@ -157,7 +157,11 @@ export function ManualWorkspace({
       }
       return
     }
-    // Bare Ready to add opens the remembered preparation, or the newest once that is gone.
+    // Bare Ready to add opens the remembered preparation, or the newest once that is gone,
+    // judged by this mount's own read rather than a cached one.
+    if (waitingForFirstRead) {
+      return
+    }
     const shown =
       workspace.preparations.find((value) => value.id === rememberedPreparationId) ??
       workspace.preparations[0]
@@ -165,7 +169,15 @@ export function ManualWorkspace({
       setLastPreview(shown)
       navigate('approve', shown.id, { replace: true })
     }
-  }, [workspace, stage, preparationId, rememberedPreparationId, lastPreview, navigate])
+  }, [
+    workspace,
+    waitingForFirstRead,
+    stage,
+    preparationId,
+    rememberedPreparationId,
+    lastPreview,
+    navigate,
+  ])
   const displayedPreview = preparationId
     ? (workspace?.preparations.find((value) => value.id === preparationId) ??
       (lastPreview?.id === preparationId ? lastPreview : null))
