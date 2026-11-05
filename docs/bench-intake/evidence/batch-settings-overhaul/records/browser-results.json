@@ -1,29 +1,8 @@
 [
  {
   "run": "desktop-1280",
-  "view": "review",
-  "cssWidth": 1280,
-  "overflow": 0,
-  "zoom": 1
- },
- {
-  "run": "desktop-1280",
   "view": "approve",
   "cssWidth": 1280,
-  "overflow": 0,
-  "zoom": 1
- },
- {
-  "run": "desktop-1280",
-  "view": "results",
-  "cssWidth": 1280,
-  "overflow": 0,
-  "zoom": 1
- },
- {
-  "run": "narrow-390",
-  "view": "review",
-  "cssWidth": 390,
   "overflow": 0,
   "zoom": 1
  },
@@ -35,43 +14,71 @@
   "zoom": 1
  },
  {
-  "run": "narrow-390",
-  "view": "results",
-  "cssWidth": 390,
-  "overflow": 0,
-  "zoom": 1
- },
- {
-  "run": "narrow-360",
-  "view": "review",
-  "cssWidth": 360,
-  "overflow": 0,
-  "zoom": 1
- },
- {
   "run": "narrow-360",
   "view": "approve",
-  "cssWidth": 360,
-  "overflow": 0,
-  "zoom": 1
- },
- {
-  "run": "narrow-360",
-  "view": "results",
   "cssWidth": 360,
   "overflow": 0,
   "zoom": 1
  },
  {
   "run": "native-zoom-200-1280",
-  "view": "review",
+  "view": "approve",
   "cssWidth": 640,
   "overflow": 0,
   "zoom": 2
  },
  {
-  "run": "native-zoom-200-1280",
+  "run": "native-zoom-200-720",
   "view": "approve",
+  "cssWidth": 360,
+  "overflow": 0,
+  "zoom": 2
+ },
+ {
+  "run": "desktop-1280",
+  "view": "review",
+  "cssWidth": 1280,
+  "overflow": 0,
+  "zoom": 1
+ },
+ {
+  "run": "desktop-1280",
+  "view": "results",
+  "cssWidth": 1280,
+  "overflow": 0,
+  "zoom": 1
+ },
+ {
+  "run": "narrow-390",
+  "view": "review",
+  "cssWidth": 390,
+  "overflow": 0,
+  "zoom": 1
+ },
+ {
+  "run": "narrow-390",
+  "view": "results",
+  "cssWidth": 390,
+  "overflow": 0,
+  "zoom": 1
+ },
+ {
+  "run": "narrow-360",
+  "view": "review",
+  "cssWidth": 360,
+  "overflow": 0,
+  "zoom": 1
+ },
+ {
+  "run": "narrow-360",
+  "view": "results",
+  "cssWidth": 360,
+  "overflow": 0,
+  "zoom": 1
+ },
+ {
+  "run": "native-zoom-200-1280",
+  "view": "review",
   "cssWidth": 640,
   "overflow": 0,
   "zoom": 2
@@ -86,13 +93,6 @@
  {
   "run": "native-zoom-200-720",
   "view": "review",
-  "cssWidth": 360,
-  "overflow": 0,
-  "zoom": 2
- },
- {
-  "run": "native-zoom-200-720",
-  "view": "approve",
   "cssWidth": 360,
   "overflow": 0,
   "zoom": 2

@@ -133,7 +133,7 @@ async function supplierCreateBody(
   return { ...step.input, part, manufacturer_part: manufacturer.remotePks[0] }
 }
 
-/** A new location's PK comes only from a usable confirmed single-PK create; `undefined` waits. */
+/** A new location's PK comes only from its confirmed single-PK create; `undefined` waits. */
 async function stockLocation(
   pool: Pool,
   runId: string,
@@ -146,10 +146,7 @@ async function stockLocation(
   const state = (await supportedStates(pool, runId, plan)).find(
     (item) => item.operationKey === step.locationOperationKey,
   )
-  return state?.certainty === 'confirmed' &&
-    state.verification !== 'missing_or_changed' &&
-    state.verification !== 'unavailable' &&
-    state.remotePks.length === 1
+  return state?.certainty === 'confirmed' && state.remotePks.length === 1
     ? state.remotePks[0]
     : undefined
 }

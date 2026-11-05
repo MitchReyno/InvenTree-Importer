@@ -262,6 +262,7 @@ export function materialize(
 ): ManualMaterial {
   const selected = [...selectedIds].sort()
   const locationDraft = defaultLocationDraft(snapshot)
+  const supplier = supplierDraft(snapshot)
   const usedLocationDrafts = new Map<string, MaterialLocation>()
   const issues: ManualIssueDto[] = []
   const effects: ManualEffectDto[] = []
@@ -441,6 +442,8 @@ export function materialize(
       effectiveLocation: location,
       // Only a lot that uses a new-location draft records it, so other fact bytes are unchanged.
       ...(draftLocation ? { locationDraft: draftLocation.location } : {}),
+      // A selected supplier draft is created for every lot's run, so its content binds review.
+      ...(supplier ? { supplierDraft: supplier } : {}),
       // Lot and batch sources keep the original fact bytes; other sources are recorded.
       ...locationSourceFact(resolution),
       partDigest: part ? subjects.get(part.id)!.digest.toString('hex') : null,
@@ -621,7 +624,7 @@ export function materialize(
     a.subjectId.localeCompare(b.subjectId),
   )
   const locations = [...usedLocationDrafts.values()]
-  const company = effects.length ? supplierDraft(snapshot) : null
+  const company = effects.length ? supplier : null
   const companies = company ? [company] : []
   // Record drafts are bound only when present, so legacy selection bytes are unchanged.
   const records = locations.length || companies.length ? { locations, companies } : null

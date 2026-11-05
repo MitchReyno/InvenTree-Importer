@@ -1,6 +1,6 @@
 # Batch settings overhaul implementation
 
-Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) merged as #88 (`2ba6b47`). PR-D (Tasks 7 and 8) is implemented on `feat/batch-settings-overhaul-records` and in independent review; Task 8.4 stays open until that review is clean and the selected CI passes. PR-D has not started. Reviews, CI and merges are recorded only after they occur.
+Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) merged as #88 (`2ba6b47`). PR-D (Tasks 7 and 8) is implemented on `feat/batch-settings-overhaul-records` and in independent review; Task 8.4 stays open until that review is clean and the selected CI passes. Reviews, CI and merges are recorded only after they occur.
 
 ## Authority and boundaries
 
@@ -485,6 +485,15 @@ Codex (`gpt-6.1-sol`, read-only) reviewed exactly `2ba6b47..ccece39`: no Critica
 1. Important: a reused supplier was never rechecked during execution. A reusing run could settle complete after the original run's inspection reported the supplier changed. A new stock create now waits unless every reused record in its plan, location or supplier, still passes `requirePriorRecord` (`reusedRecordsUsable` in `effects-apply.ts`). Settlement stays journal-derived, so a run that already settled is not changed afterwards. Regression: the resume test now runs for both a changed location and a changed supplier; both negative controls fail.
 2. Minor: the Round 2 gate sat in `stockLocation`, so it also skipped a read-only inspection of stock already placed in a reused location. Body resolution now always returns the retained PK, and the gate applies only after the inspection and already-confirmed branches. Regression: after the reused location changes, inspecting the existing stock reads it and records `matches`; the negative control, which moves the gate back before inspection, fails.
 
+#### Round 4 (Tasks 7–8)
+
+Codex (`gpt-6.1-sol`, read-only) reviewed exactly `2ba6b47..6a66304`: no Critical findings; one Important and three Minor. It confirmed the earlier fixes.
+
+1. Important: supplier draft edits did not invalidate review. The supplier draft entered only the selection material, after the subject review fingerprints were built, so a changed name, manufacturer flag or logo reused the old review. Each lot's review facts now carry `supplierDraft` when a supplier draft is selected; facts without one keep their exact bytes. Regression: editing the supplier draft after review refuses preparation until a fresh review, which then prepares the new name; negative control fails.
+2. Minor: inspecting stock was still skipped when its same-run new location had failed an inspection, because `stockLocation` returned `undefined`. `stockLocation` now returns the confirmed create's PK whatever later inspections found, and `stockWritable` in `effects-apply.ts` blocks only new stock creates, both for a same-run location that failed inspection and for reused records. Regression: one test shows a changed same-run location blocks a resumed stock create, and that inspecting existing stock still reads it and records `matches`; both negative controls fail.
+3. Minor: the responsive Approve screenshots showed "No current prepared selection". They were retaken with the exact preparation loaded, after asserting "New records · 2"; all runs still had zero horizontal overflow.
+4. Minor: a stale "PR-D has not started" sentence in the status paragraph was removed.
+
 ## PR-D Task 8: integrated acceptance
 
 ### Connected journey (8.1)
@@ -511,11 +520,11 @@ PR-D does not change the Capture panel's controls. Their behaviour is covered by
 - Shared tags: `SharedTagsInput.test.tsx`, `BatchSettingsPanel.test.tsx`.
 - Instruction interleaving: `BatchSettingsPanel.test.tsx`.
 - Dirty navigation: `App.test.tsx`, `OperatorReview.test.tsx`.
-- Narrow and native 200%: Capture in the PR-B runs; Review, Approve and Results in the PR-D runs, all with zero horizontal overflow.
+- Narrow and native 200%: Capture in the PR-B runs; Review, Approve (with the two-record preparation loaded) and Results in the PR-D runs, all with zero horizontal overflow.
 
 ### Checks (8.3)
 
-On the Round 3 fix head: contracts 61, intake fast 178, frontend 309 (47 files); PostgreSQL 161 (all `tests/pg`, including the connected journey and the Round 2 and 3 regressions); process tier 37 passed and 4 skipped (all `tests/process`; the skips are existing environment-gated tests); typecheck, frontend lint, readability lint, Markdown lint, Prettier, generated contracts and the frontend build all pass. `pnpm workflow-sync` and backend checks are unaffected (no skill, agent or backend changes).
+On the Round 4 fix head: contracts 61, intake fast 178, frontend 309 (47 files); PostgreSQL 163 (all `tests/pg`, including the connected journey and the Round 2–4 regressions); process tier 37 passed and 4 skipped (all `tests/process`; the skips are existing environment-gated tests); typecheck, frontend lint, readability lint, Markdown lint, Prettier, generated contracts and the frontend build all pass. `pnpm workflow-sync` and backend checks are unaffected (no skill, agent or backend changes).
 
 Packages and advisories: PR-D adds no dependency and no lockfile change.
 

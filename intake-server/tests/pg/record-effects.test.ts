@@ -303,6 +303,82 @@ test(
   },
 )
 
+/** Selects recovery or inspection keys on a run and executes that dispatch. */
+async function recover(fixture: Fixture, runId: string, selection: Record<string, string[]>) {
+  const current = (await fixture.http(`/runs/${runId}`)).value as ManualRunDto
+  const chosen = await fixture.http(`/runs/${runId}/recover`, {
+    expected_run_revision: current.revision,
+    ...selection,
+  })
+  assert.equal(chosen.status, 200, JSON.stringify(chosen.value))
+  const command = (
+    await fixture.db.pool.query(
+      'SELECT c.workflow_id,c.payload_bytes FROM manual_dispatch d JOIN command c ON c.id=d.command_id WHERE d.run_id=$1 ORDER BY d.sequence DESC LIMIT 1',
+      [runId],
+    )
+  ).rows[0]
+  return executeManualDispatch(
+    fixture.runner.pool,
+    fixture.runnerConfig,
+    command.workflow_id,
+    JSON.parse(command.payload_bytes.toString('utf8')),
+  )
+}
+
+/** Changes the stored location and has the run that created it inspect that create. */
+async function invalidateLocation(fixture: Fixture, runId: string, locationDraft: string) {
+  await fixture.db.pool.query(
+    "UPDATE fake_record SET body=jsonb_set(body,'{name}','\"Renamed\"') WHERE family='location'",
+  )
+  await recover(fixture, runId, { assessment_keys: [locationCreateKey(locationDraft)] })
+  const inspected = (await fixture.http(`/runs/${runId}`)).value as ManualRunDto
+  assert.equal(
+    inspected.supported_effects!.find((effect) => effect.kind === 'create_location')!.verification,
+    'missing_or_changed',
+  )
+}
+
+test(
+  'a same-run new location inspected as changed blocks new stock but not stock inspection',
+  { timeout: 90000 },
+  async () => {
+    const blocked = await manualFixture({ records: true })
+    try {
+      const { capture, locationDraft } = await draftedBatch(blocked)
+      const runId = await approved(blocked, capture.batch, capture.a.id)
+      await blocked.fake.fault('read_unavailable')
+      assert.equal((await apply(blocked, runId)).state, 'settled_incomplete')
+      await blocked.fake.fault('none')
+      await recover(blocked, runId, { effect_keys: [locationCreateKey(locationDraft)] })
+      assert.equal(await posts(blocked, '/api/stock/location/'), 1)
+      await invalidateLocation(blocked, runId, locationDraft)
+      await recover(blocked, runId, { effect_keys: [capture.a.id] })
+      assert.equal(await posts(blocked, '/api/stock/'), 0, 'no stock into the changed location')
+    } finally {
+      await blocked.dispose()
+    }
+    const inspected = await manualFixture({ records: true })
+    try {
+      const { capture, locationDraft } = await draftedBatch(inspected)
+      const runId = await approved(inspected, capture.batch, capture.a.id)
+      assert.equal((await apply(inspected, runId)).state, 'settled_complete')
+      await invalidateLocation(inspected, runId, locationDraft)
+      const before = (await inspected.fake.records()).filter((v) => v.method === 'GET').length
+      await recover(inspected, runId, { assessment_keys: [capture.a.id] })
+      const after = (await inspected.fake.records()).filter((v) => v.method === 'GET').length
+      assert.ok(after > before, 'the inspection reads the stock')
+      const run = (await inspected.http(`/runs/${runId}`)).value as ManualRunDto
+      assert.equal(
+        run.supported_effects!.find((effect) => effect.operation_key === capture.a.id)!
+          .verification,
+        'matches',
+      )
+    } finally {
+      await inspected.dispose()
+    }
+  },
+)
+
 /** Run A creates the records; run B reuses them for Packet B and settles before its stock. */
 async function reusingRun(fixture: Fixture) {
   const drafted = await draftedBatch(fixture)
@@ -311,26 +387,8 @@ async function reusingRun(fixture: Fixture) {
   assert.equal((await apply(fixture, first)).state, 'settled_complete')
   await capture.edit({ kind: 'lot', id: capture.b.id, location: { mode: 'inherit' } })
   const later = await approved(fixture, capture.batch, capture.b.id)
-  async function dispatch(runId: string, selection: Record<string, string[]>) {
-    const current = (await fixture.http(`/runs/${runId}`)).value as ManualRunDto
-    const chosen = await fixture.http(`/runs/${runId}/recover`, {
-      expected_run_revision: current.revision,
-      ...selection,
-    })
-    assert.equal(chosen.status, 200, JSON.stringify(chosen.value))
-    const command = (
-      await fixture.db.pool.query(
-        'SELECT c.workflow_id,c.payload_bytes FROM manual_dispatch d JOIN command c ON c.id=d.command_id WHERE d.run_id=$1 ORDER BY d.sequence DESC LIMIT 1',
-        [runId],
-      )
-    ).rows[0]
-    return executeManualDispatch(
-      fixture.runner.pool,
-      fixture.runnerConfig,
-      command.workflow_id,
-      JSON.parse(command.payload_bytes.toString('utf8')),
-    )
-  }
+  const dispatch = (runId: string, selection: Record<string, string[]>) =>
+    recover(fixture, runId, selection)
   /** Changes the stored record and has run A inspect its create, which reports the change. */
   async function invalidate(family: 'location' | 'company') {
     await fixture.db.pool.query(
@@ -581,6 +639,48 @@ test(
     }
   },
 )
+
+test('editing the supplier draft after review requires a fresh review', async () => {
+  const fixture = await manualFixture({ records: true })
+  try {
+    const { capture } = await draftedBatch(fixture)
+    const scope = () => ({
+      expected_batch_revision: capture.batch.revision,
+      selected_lot_ids: [capture.a.id],
+    })
+    assert.equal((await fixture.http(`/batches/${capture.batch.id}/reviews`, scope())).status, 200)
+    const current = capture.batch
+    await capture.edit({
+      kind: 'batch_settings',
+      title: current.title,
+      default_location: {
+        mode: 'draft',
+        draft_id: current.reference_drafts!.find((draft) => draft.kind === 'location')!.draft_id,
+      },
+      intent: current.settings_intent!.value,
+      notes: { batch: null, order: null },
+      drafts: current.reference_drafts!.map(({ draft_id, kind, value }) =>
+        kind === 'company'
+          ? {
+              draft_id,
+              kind,
+              value: { ...value, name: 'Acme Reels Pty', also_manufacturer: false },
+            }
+          : { draft_id, kind, value },
+      ),
+    } as never)
+    const stale = await fixture.http(`/batches/${capture.batch.id}/preparations`, scope())
+    assert.notEqual(stale.value.status, 'prepared', JSON.stringify(stale.value))
+    const fresh = await prepare(fixture, capture.batch, capture.a.id)
+    assert.equal(fresh.value.status, 'prepared', JSON.stringify(fresh.value))
+    const preview = fresh.value.preparation as ManualPreviewDto
+    const company = preview.supported_effects!.find((effect) => effect.kind === 'create_company')!
+    assert.equal(company.inputs.name, 'Acme Reels Pty')
+    assert.equal((await fixture.fake.records()).filter((v) => v.method === 'POST').length, 0)
+  } finally {
+    await fixture.dispose()
+  }
+})
 
 test('cancellation, a changed draft and an unreadable parent all stop before any create', async () => {
   const fixture = await manualFixture({ records: true })

@@ -85,8 +85,9 @@ location must be consumed by a stock line. A company is a standalone output (`is
 sent as the company `image` in one multipart create, confirmed only when the output carries an
 image. Migration `0016_record_effects.sql` admits the capability and kinds and adds
 `executor_record_identity`; a later run of the same source reuses a confirmed, verified output
-by draft identity and never creates again; new stock waits while any reused location or supplier
-is no longer confirmed or has failed an inspection. A lost or malformed create stays unknown under the
+by draft identity and never creates again. New stock waits while its new location, or any
+reused location or supplier, is unconfirmed or has failed an inspection; inspecting existing stock
+still runs. A lost or malformed create stays unknown under the
 original operation; only the existing explicit `verify_effect` of an attributed PK can confirm
 it, and nothing ever searches by name. Transport record creates require `/2` on an owned
 loopback target.

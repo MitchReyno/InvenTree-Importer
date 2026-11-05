@@ -38,7 +38,7 @@ Journey (`records/` screenshots `review-drafts`, `approve`, `results`):
 - Approve and Queue supervised apply produced Results "Created new location #12001", "Created new supplier #12002" and "Stock #7101 confirmed".
 - Read-back from the owned fake: `GET /api/stock/location/12001/` returned `{"name":"Reel shelf","parent":"43","description":"Opened reels"}` and `GET /api/company/12002/` returned `{"name":"Acme Reels","is_supplier":true,"is_manufacturer":true}`.
 
-Layout runs (`records/browser-results.json`): Review, Approve and Results at 1280, 390 and 360 CSS px (Playwright-driven Chrome) and at native 200% zoom (profile `partition.default_zoom_level`, 640 and 360 CSS px, device pixel ratio 2) all had zero document horizontal overflow.
+Layout runs (`records/browser-results.json`): Review, Approve and Results at 1280, 390 and 360 CSS px (Playwright-driven Chrome) and at native 200% zoom (profile `partition.default_zoom_level`, 640 and 360 CSS px, device pixel ratio 2) all had zero document horizontal overflow. Approve was measured with the exact preparation loaded, before approval: each run first asserted "New records · 2" and the absence of "No current prepared selection". Review and Results were measured after the run settled. The screenshots capture the viewport only.
 
 Found and fixed during qualification: Review showed the drafted Default location as "Inherited · Not selected" and the drafted supplier as "Explicitly unknown". Both now name the pending draft.
 

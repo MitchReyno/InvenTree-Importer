@@ -1,5 +1,6 @@
 import { executorGuards, executorAttachmentRecoveries } from './schema.ts'
 import { and, eq, inArray } from 'drizzle-orm'
+import type { Pool } from 'pg'
 import { canonical } from '@invimport/contracts/json'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { inventoryTransport } from '../inventory/transport.ts'
@@ -96,8 +97,8 @@ export async function applySupportedEffects(
     if (current.certainty === 'unknown' || states.some((state) => state.certainty === 'unknown')) {
       break
     }
-    // New stock waits while any reused record is no longer its original usable output.
-    if (!('kind' in step) && !(await reusedRecordsUsable(deps.pool, plan))) {
+    // New stock waits while its new location or any reused record has failed an inspection.
+    if (!('kind' in step) && !(await stockWritable(deps.pool, plan, step, states))) {
       continue
     }
     const complete = await cataloguePreconditionsComplete(
@@ -241,4 +242,19 @@ async function inspectKnownEffect(
     outcome,
     remotePk,
   )
+}
+
+async function stockWritable(
+  pool: Pool,
+  plan: EffectsPlan,
+  step: { locationOperationKey?: string | null },
+  states: SupportedState[],
+) {
+  const location = step.locationOperationKey
+    ? states.find((state) => state.operationKey === step.locationOperationKey)
+    : null
+  if (location?.verification === 'missing_or_changed' || location?.verification === 'unavailable') {
+    return false
+  }
+  return reusedRecordsUsable(pool, plan)
 }
