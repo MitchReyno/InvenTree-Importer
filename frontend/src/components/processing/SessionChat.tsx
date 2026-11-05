@@ -55,6 +55,14 @@ async function deliver(
   }
 }
 
+const confirmation: Partial<Record<SessionStateDto, string>> = {
+  running: 'Queued. The agent receives it during this turn.',
+  failed: 'Queued. This session stopped with an error, so start a fresh session to continue.',
+  resume_unavailable:
+    'Queued. This session cannot be resumed, so start a fresh session to continue.',
+  waiting_for_login: 'Queued. Sign the agent in again, then start a fresh session to continue.',
+}
+
 /** Chat queues in every session state; a cancelled session offers a fresh one instead. */
 export function SessionChat({ storeKey, state, send, startFresh }: Props) {
   const [draft, setDraft] = useState('')
@@ -72,11 +80,7 @@ export function SessionChat({ storeKey, state, send, startFresh }: Props) {
   }
 
   const confirmed = () =>
-    setMessage(
-      state === 'running'
-        ? 'Queued. The agent receives it during this turn.'
-        : 'Queued. The session resumes to answer.',
-    )
+    setMessage(confirmation[state] ?? 'Queued. The session resumes to answer.')
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault()

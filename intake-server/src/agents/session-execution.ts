@@ -15,7 +15,7 @@ import { agentSessionCursors, agentSessionInbox, agentSessions } from './schema.
 import {
   queueSessionResume,
   runSessionTurn,
-  settleCancelledQueuedSessions,
+  settleCancelledIdleSessions,
   type SessionRunnerDeps,
 } from './session-runner.ts'
 
@@ -124,7 +124,7 @@ export async function wakePendingSessions(
       .orderBy(asc(agentSessions.sessionLineageId))
       .limit(20),
   )
-  await settleCancelledQueuedSessions(pool, config)
+  await settleCancelledIdleSessions(pool, config)
   for (const { lineageId } of waiting) {
     if (lineageId) {
       await transaction(pool, (client) => queueSessionResume(client, lineageId))

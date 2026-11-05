@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, or, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import type { ProcessingInputV6Dto, SessionStateDto } from '@invimport/contracts'
@@ -176,8 +176,22 @@ export async function interruptRunningSessions(pool: Pool, config: ProcessingCon
   return interrupted
 }
 
-/** Settles queued sessions whose attempt was cancelled or superseded before any claim. */
-export async function settleCancelledQueuedSessions(pool: Pool, config: ProcessingConfig) {
+/** Session states with no turn in flight and no slot held. */
+const IDLE: SessionStateDto[] = [
+  'queued',
+  'waiting_input',
+  'finished',
+  'interrupted',
+  'failed',
+  'waiting_for_login',
+  'resume_unavailable',
+]
+
+/**
+ * Settles idle sessions whose attempt was cancelled, and queued ones whose attempt was superseded
+ * before any claim. Running sessions settle through their own turn.
+ */
+export async function settleCancelledIdleSessions(pool: Pool, config: ProcessingConfig) {
   const stale = await executeDatabaseQuery(
     queryDatabase(pool)
       .select({
@@ -193,17 +207,29 @@ export async function settleCancelledQueuedSessions(pool: Pool, config: Processi
           eq(commands.actorId, config.actorId),
           eq(commands.targetId, config.targetId),
           eq(commands.targetContextId, config.targetContextId),
-          eq(agentSessions.sessionState, 'queued'),
-          inArray(processingAttempts.state, ['cancelled', 'superseded']),
+          or(
+            and(
+              inArray(agentSessions.sessionState, IDLE),
+              eq(processingAttempts.state, 'cancelled'),
+            ),
+            and(
+              eq(agentSessions.sessionState, 'queued'),
+              eq(processingAttempts.state, 'superseded'),
+            ),
+          ),
         ),
       ),
   )
   // One transaction each, so a stream lock is only ever taken last.
   for (const session of stale) {
     await transaction(pool, async (client) => {
-      const settled = await setSessionState(client, session.attemptId, session.jobId, 'cancelled', [
-        'queued',
-      ])
+      const settled = await setSessionState(
+        client,
+        session.attemptId,
+        session.jobId,
+        'cancelled',
+        IDLE,
+      )
       if (settled === 'cancelled') {
         await publish(client, session.batchId)
       }

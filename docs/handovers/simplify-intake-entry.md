@@ -403,6 +403,18 @@ Results after the fix: contracts 72, intake server 181 and frontend passed; `pnp
 
 Regression test: for both CLIs, a turn held past a 1.5-second test deadline is reaped and settles `failed`, with its capability revoked and slot freed.
 
+## PR-A review round 7
+
+Codex (`gpt-6.1-sol`, read-only) reviewed `8f4a81c..144c652`: 1 important finding, confirmed, and one minor. It confirmed the round 6 deadline fix and found no other blocking issue.
+
+1. **Cancelling an idle session left it active.** Cancellation changes the job and attempt, and the cleanup sweep only handled `queued` sessions, so a cancelled `waiting_input` or `waiting_for_login` session stayed listed as waiting and kept its composer. The sweep (`settleCancelledIdleSessions`) now settles every idle state (queued, waiting for input or login, finished, interrupted, failed, resume unavailable) of a cancelled attempt, and queued sessions of a superseded one. Running and cancelling sessions still settle through their own turn, so the reap requirement is unchanged.
+
+Minor: after a send, `failed`, `resume_unavailable` and `waiting_for_login` sessions now say to start a fresh session instead of promising a resume.
+
+Results after the fix: contracts 72, intake server 181 and frontend 323 passed; `pnpm db:intake test` 192 passed; `pnpm db:intake test:process` 70 tests, 66 passed, with only the pre-existing media failure and its 3 skips; typecheck, lint, Prettier and build pass.
+
+Regression tests: a cancelled `waiting_input` session with no inbox and a cancelled `waiting_for_login` session with pending chat both settle `cancelled` on the next sweep; a failed session's send shows the fresh-session guidance.
+
 ## Validation
 
 - `pnpm spikes:check`: 35 passed (the existing shared-contract suite; the new spike adds no test there).

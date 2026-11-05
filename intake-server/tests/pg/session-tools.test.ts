@@ -825,3 +825,39 @@ test('many small questions across jobs stop before the snapshot overflows', asyn
     }
   })
 })
+
+test('cancelling an idle session settles it, with or without pending chat', async () => {
+  const { wakePendingSessions } = await import('../../src/agents/session-execution.ts')
+  await withSessions(async ({ fixture, a, b }) => {
+    await fixture.db.pool.query(
+      "UPDATE agent_session SET session_state='waiting_input' WHERE attempt_id=$1",
+      [a.attempt],
+    )
+    await fixture.db.pool.query(
+      "UPDATE agent_session SET session_state='waiting_for_login' WHERE attempt_id=$1",
+      [b.attempt],
+    )
+    await submitSessionInbox(fixture.api.pool, {
+      binding: fixture.config,
+      lineageId: b.job,
+      actorId: fixture.identity.actor,
+      idempotencyKey: 'login-chat',
+      kind: 'chat',
+      payload: { text: 'Still there?' },
+    })
+    await fixture.db.pool.query(
+      "UPDATE processing_attempt SET state='cancelled' WHERE id=ANY($1)",
+      [[a.attempt, b.attempt]],
+    )
+    const scheduler = { getWorkflow: async () => undefined, enqueue: async () => undefined }
+    await wakePendingSessions(fixture.runner.pool, fixture.config, scheduler as never)
+    const states = await fixture.db.pool.query<{ session_state: string }>(
+      'SELECT session_state FROM agent_session WHERE attempt_id=ANY($1)',
+      [[a.attempt, b.attempt]],
+    )
+    assert.deepEqual(
+      states.rows.map((row) => row.session_state),
+      ['cancelled', 'cancelled'],
+    )
+  })
+})

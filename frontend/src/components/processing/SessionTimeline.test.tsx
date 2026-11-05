@@ -183,3 +183,11 @@ test('leaving during an unresolved send cannot start a second send of it', async
   expect(send).toHaveBeenCalledTimes(2)
   expect(send.mock.calls[1]).toEqual(send.mock.calls[0])
 })
+
+test('a failed session explains that a fresh session is needed after sending', async () => {
+  const send = vi.fn().mockResolvedValue(undefined)
+  render(<SessionChat storeKey="batch:failed" state="failed" send={send} startFresh={vi.fn()} />)
+  fireEvent.change(screen.getByLabelText('Message this session'), { target: { value: 'Hello?' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+  expect(await screen.findByText(/start a fresh session to continue/)).toBeVisible()
+})
