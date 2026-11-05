@@ -399,6 +399,17 @@ export function Batch({
         reload={reloadSavedValues}
         onDirtyChange={reportDirty}
         retiredLotIds={retired}
+        attention={attentionQuery.data}
+        instructions={{
+          text:
+            currentOperatorReview?.instructions.find((item) => item.group_id === null)?.text ?? '',
+          instruct: settingsPorts.instruct
+            ? async (text, revision, key) => {
+                await settingsPorts.instruct?.(text, revision, key)
+                await reloadSavedValues()
+              }
+            : undefined,
+        }}
       />
     )
   } else if (batch && batchRoute?.tab === 'review' && batchRoute.view === 'records') {

@@ -51,6 +51,7 @@ function snapshot(jobs: Job[]): ProcessingSnapshotDto {
 }
 
 const subjects = new Map([[lot, 'Packet A']])
+const lots = new Set([lot])
 
 describe('retainedJobsSource', () => {
   it('maps every job kind to its step, with Reading and Identifying on Examine', () => {
@@ -64,6 +65,7 @@ describe('retainedJobsSource', () => {
         job(6, 'inventory', 'interrupted'),
       ]),
       subjects,
+      lots,
     )
 
     expect(source.jobsOn('examine').map((item) => item.id)).toEqual([id(1), id(2), id(3)])
@@ -81,7 +83,7 @@ describe('retainedJobsSource', () => {
   })
 
   it('reports no sessions for the fixture profile', () => {
-    const source = retainedJobsSource(snapshot([job(1, 'reading', 'running')]), subjects)
+    const source = retainedJobsSource(snapshot([job(1, 'reading', 'running')]), subjects, lots)
 
     expect(source.sessions).toEqual([])
   })
@@ -93,6 +95,7 @@ describe('retainedJobsSource', () => {
         job(2, 'images', 'ready'),
       ]),
       subjects,
+      lots,
     )
 
     expect(source.sessions).toEqual([
@@ -111,6 +114,7 @@ describe('retainedJobsSource', () => {
         } as Partial<Job>),
       ]),
       subjects,
+      lots,
     )
 
     expect(source.questions).toEqual([
@@ -121,6 +125,7 @@ describe('retainedJobsSource', () => {
         subject: 'Packet A',
         prompt: 'Question 1?',
         assumption: 'Assuming 10 kΩ',
+        lotId: lot,
       },
       {
         id: id(3),
@@ -129,6 +134,7 @@ describe('retainedJobsSource', () => {
         subject: 'Packet A',
         prompt: 'Question 3?',
         assumption: null,
+        lotId: lot,
       },
     ])
     expect(source.steps.find((step) => step.step === 'examine')?.questions).toBe(1)
@@ -147,6 +153,7 @@ describe('retainedJobsSource', () => {
         } as Partial<Job>),
       ]),
       subjects,
+      lots,
     )
 
     expect(source.sessions.map((session) => session.subject)).toEqual([
@@ -156,7 +163,7 @@ describe('retainedJobsSource', () => {
   })
 
   it('says which steps have no retained work', () => {
-    const source = retainedJobsSource(snapshot([job(1, 'reading', 'ready')]), subjects)
+    const source = retainedJobsSource(snapshot([job(1, 'reading', 'ready')]), subjects, lots)
 
     expect(source.steps.filter((step) => step.jobs === 0).map((step) => step.step)).toEqual([
       'research',
@@ -164,4 +171,28 @@ describe('retainedJobsSource', () => {
       'inventory',
     ])
   })
+})
+
+it('links a question to Review only when it is about an active lot', () => {
+  const part = id(80)
+  const source = retainedJobsSource(
+    snapshot([
+      job(1, 'research', 'waiting_for_user', {
+        questions: [
+          question(1, 'open'),
+          { ...question(2, 'open'), spec: { ...question(2, 'open').spec, subject_id: part } },
+        ],
+      } as Partial<Job>),
+    ]),
+    new Map([
+      [lot, 'Packet A'],
+      [part, 'Shared Part'],
+    ]),
+    lots,
+  )
+
+  expect(source.questions.map((item) => [item.subject, item.lotId])).toEqual([
+    ['Packet A', lot],
+    ['Shared Part', null],
+  ])
 })

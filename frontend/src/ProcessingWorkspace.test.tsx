@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import { onlineManager } from '@tanstack/react-query'
@@ -426,4 +426,95 @@ test('stale running input exposes its exact cancel action, while explicit false 
     expect(screen.queryByRole('button', { name: 'Cancel this attempt' })).not.toBeInTheDocument(),
   )
   expect(client.cancel).toHaveBeenCalledTimes(1)
+})
+
+function mountView(client: ProcessingClient, view: 'overview' | 'examine') {
+  render(
+    <ServerStateProvider scope={scope} client={createServerQueryClient()}>
+      <ProcessingWorkspace
+        batch={batch}
+        client={client}
+        view={view}
+        navigate={vi.fn()}
+        onDirtyChange={vi.fn()}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+      />
+    </ServerStateProvider>,
+  )
+}
+
+test('the fixture profile shows its jobs and questions by step, and claims no live session', async () => {
+  mountView(clientFixture(), 'overview')
+  const steps = await screen.findByRole('list', { name: 'Steps' })
+
+  expect(within(steps).getByText('1 waiting · 1 question')).toBeInTheDocument()
+  expect(
+    within(screen.getByRole('region', { name: 'Needs you' })).getByRole('link', {
+      name: 'How many are in Packet A?',
+    }),
+  ).toHaveAttribute('href', `#${batchId}/processing/examine/${questionId}`)
+  expect(screen.queryByRole('button', { name: /Open session/ })).not.toBeInTheDocument()
+  cleanup()
+
+  mountView(clientFixture(), 'examine')
+  const outputs = await screen.findByRole('region', { name: 'Outputs' })
+  expect(within(outputs).getAllByText(/Packet A/).length).toBeGreaterThan(0)
+  expect(screen.queryByRole('button', { name: /Open session/ })).not.toBeInTheDocument()
+})
+
+test('a job with a session opens its timeline and chat in a drawer', async () => {
+  const withSession: ProcessingSnapshotDto = {
+    ...snapshot,
+    jobs: [{ ...snapshot.jobs[0], session_state: 'waiting_input' }],
+  }
+  const session = vi.fn().mockResolvedValue({
+    job_id: jobId,
+    attempt_id: attemptId,
+    session_state: 'waiting_input',
+    outbox: [],
+    inbox: [],
+  })
+  const client = {
+    ...clientFixture(),
+    read: vi.fn().mockResolvedValue(withSession),
+    session,
+    chat: vi.fn(),
+  } as ProcessingClient
+  mountView(client, 'examine')
+  await userEvent.click(await screen.findByRole('button', { name: 'Open session for Packet A' }))
+  const drawer = screen.getByRole('dialog', { name: 'Examine · Packet A' })
+
+  await waitFor(() => expect(session).toHaveBeenCalledWith(batchId, jobId))
+  expect(
+    within(drawer).getByRole('link', { name: 'How many are in Packet A?' }),
+  ).toBeInTheDocument()
+  await userEvent.click(within(drawer).getByRole('button', { name: 'Close' }))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+test('an instruction draft keeps the guard until it is saved, apart from the answer form', async () => {
+  const dirty = vi.fn()
+  const instruct = vi.fn().mockResolvedValue(undefined)
+  render(
+    <ServerStateProvider scope={scope} client={createServerQueryClient()}>
+      <ProcessingWorkspace
+        batch={batch}
+        client={clientFixture()}
+        view="overview"
+        navigate={vi.fn()}
+        onDirtyChange={dirty}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+        instructions={{ text: '', instruct }}
+      />
+    </ServerStateProvider>,
+  )
+  await userEvent.type(
+    await screen.findByLabelText('Instructions for the whole batch'),
+    'Keep packets apart',
+  )
+  expect(dirty).toHaveBeenLastCalledWith(true)
+
+  await userEvent.click(screen.getByRole('button', { name: 'Save instructions' }))
+  expect(instruct).toHaveBeenCalledWith('Keep packets apart', batch.revision, expect.any(String))
+  expect(dirty).toHaveBeenLastCalledWith(false)
 })

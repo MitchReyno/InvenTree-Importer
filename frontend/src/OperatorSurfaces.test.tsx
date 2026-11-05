@@ -183,15 +183,15 @@ test('Processing keeps retired history but offers only active lots for new attem
   expect(within(picker).getByLabelText('Active packet')).toBeVisible()
   expect(within(picker).queryByLabelText('Retired bag')).not.toBeInTheDocument()
   const needsYou = screen.getByRole('region', { name: 'Needs you' })
-  expect(within(needsYou).getByText('1 needs you')).toBeVisible()
-  expect(within(needsYou).getByRole('link', { name: 'Active packet · reading' })).toHaveAttribute(
+  expect(within(needsYou).getAllByRole('listitem')).toHaveLength(1)
+  expect(within(needsYou).getByText(/Examine · Active packet/)).toBeVisible()
+  expect(within(needsYou).getByRole('link', { name: 'How many?' })).toHaveAttribute(
     'href',
     `#${batchId}/processing/examine/${questionId}`,
   )
-  expect(within(needsYou).getByRole('link', { name: 'Open in Review' })).toHaveAttribute(
-    'href',
-    `#${batchId}/review/lots/${active}`,
-  )
+  expect(
+    within(needsYou).getByRole('link', { name: 'Open Active packet in Review' }),
+  ).toHaveAttribute('href', `#${batchId}/review/lots/${active}`)
   expect(screen.queryByRole('link', { name: 'Open this lot in Review' })).not.toBeInTheDocument()
 })
 

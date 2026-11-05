@@ -32,6 +32,8 @@ export type SourceQuestion = {
   subject: string
   prompt: string
   assumption: string | null
+  /** The active lot the question is about, which Review can open. */
+  lotId: string | null
 }
 
 export type SourceSession = {
@@ -63,6 +65,7 @@ function workStep(job: Job): WorkStep {
 export function retainedJobsSource(
   snapshot: ProcessingSnapshotDto,
   subjects: ReadonlyMap<string, string>,
+  activeLotIds: ReadonlySet<string> = new Set(),
 ): ProcessingSource {
   const subject = (job: Job) =>
     job.subject_id === null ? 'Whole batch' : (subjects.get(job.subject_id) ?? 'Unknown subject')
@@ -76,9 +79,10 @@ export function retainedJobsSource(
         id: question.id,
         jobId: job.id,
         step: workStep(job),
-        subject: subject(job),
+        subject: subjects.get(question.spec.subject_id) ?? subject(job),
         prompt: question.spec.prompt,
         assumption: question.assumption ?? null,
+        lotId: activeLotIds.has(question.spec.subject_id) ? question.spec.subject_id : null,
       })),
   )
 

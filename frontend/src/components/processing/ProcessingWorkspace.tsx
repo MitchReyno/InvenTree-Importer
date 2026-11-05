@@ -24,12 +24,18 @@ import {
 } from '../ui/primitives'
 import type { MediaClient } from '../../media/types'
 import { ProcessingImages } from './ProcessingImages'
-import { ProcessingStageSummary } from './ProcessingStageSummary'
 import { ProcessingJobCard } from './ProcessingJobCard'
 import { SessionPanel } from './SessionPanel'
-import { ProcessingNeedsYou } from './ProcessingNeedsYou'
 import { QuestionAnswer } from './QuestionAnswer'
+import { ProcessingOverview } from './ProcessingOverview'
+import { StepPage } from './StepPage'
+import { InstructionField } from './InstructionField'
+import { Card, CardTitle, STEP_LABEL } from './ProcessingParts'
+import { Modal } from '../operator/Modal'
 import { batchHref, processingStepFor } from '../../navigation/batch-route'
+import { retainedJobsSource } from '../../processing/source'
+import { useDirtySources } from '../../operator/useDirtySources'
+import type { BatchAttentionDto } from '@invimport/contracts'
 
 /** Whether a job belongs on a Processing step; Examine covers the Reading and Identifying stages. */
 function onStep(stage: string, view: ProcessingView) {
@@ -46,6 +52,13 @@ interface Props {
   onDirtyChange: (dirty: boolean) => void
   onSaved: () => Promise<void>
   retiredLotIds?: ReadonlySet<string>
+  /** Counts for the Overview's links to Review and Changes. */
+  attention?: BatchAttentionDto
+  /** The batch instructions and how to save them; absent where this setup has none. */
+  instructions?: {
+    text: string
+    instruct?: (text: string, revision: string, key: string) => Promise<unknown>
+  }
 }
 
 type PinnedQuestion = {
@@ -63,7 +76,12 @@ export function ProcessingWorkspace({
   onDirtyChange,
   onSaved,
   retiredLotIds = NO_RETIRED_LOTS,
+  attention,
+  instructions,
 }: Props) {
+  const [sessionJobId, setSessionJobId] = useState<string | null>(null)
+  // The answer form and the instruction field each keep the navigation guard on their own.
+  const drafts = useDirtySources(onDirtyChange)
   const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const queryKey = serverQueryKey(scope, 'processing', batch.id)
@@ -182,7 +200,7 @@ export function ProcessingWorkspace({
 
   async function answer(id: string, input: ProcessingAnswerDto, key: string) {
     await perform(() => client.answer(batch.id, id, input, key))
-    onDirtyChange(false)
+    drafts.forSource('answer')(false)
     try {
       await onSaved()
     } catch {
@@ -236,6 +254,57 @@ export function ProcessingWorkspace({
   const unconfigured = snapshot?.runner_status === 'unconfigured'
   const disabled = batch.archived || busy || offline || waitingForRead
   const runnerDisabled = disabled || unconfigured
+  const subjects = new Map(
+    [...batch.lots, ...batch.parts].map((subject) => [subject.id, subject.label] as const),
+  )
+
+  const subjectLabel = (id: string | null) =>
+    id === null ? 'Whole batch' : (subjects.get(id) ?? 'Unknown subject')
+
+  const activeLotIds = new Set(
+    batch.lots.filter((lot) => !retiredLotIds.has(lot.id)).map((lot) => lot.id),
+  )
+  const source = snapshot ? retainedJobsSource(snapshot, subjects, activeLotIds) : null
+  const sessionJob = snapshot?.jobs.find((job) => job.id === sessionJobId && job.session_state)
+  const jobCards = (
+    <>
+      {jobs.map((job) => (
+        <div key={job.id}>
+          <ProcessingJobCard
+            key={job.id}
+            job={job}
+            batch={batch}
+            disabled={disabled}
+            chooseQuestion={(id) => navigate(view, id)}
+            cancel={() => {
+              void perform(() =>
+                client.cancel(
+                  batch.id,
+                  job.id,
+                  { expected_revision: job.revision, attempt_id: job.attempt_id },
+                  crypto.randomUUID(),
+                ),
+              ).catch(() => {})
+            }}
+          />
+          {job.subject_id !== null &&
+            batch.lots.some((lot) => lot.id === job.subject_id) &&
+            !retiredLotIds.has(job.subject_id) && (
+              <ReviewLink
+                href={batchHref(batch.id, {
+                  tab: 'review',
+                  view: 'lots',
+                  lotId: job.subject_id ?? undefined,
+                })}
+              >
+                Open this lot in Review
+              </ReviewLink>
+            )}
+        </div>
+      ))}
+    </>
+  )
+
   return (
     <Workspace>
       {batch.archived && (
@@ -267,11 +336,10 @@ export function ProcessingWorkspace({
           Verifying current processing state. Cached results cannot authorize commands.
         </Notice>
       )}
-      {!snapshot ? (
+      {!snapshot || !source ? (
         <Paragraph role="status">Reading retained processing state…</Paragraph>
       ) : (
         <>
-          {view === 'images' && <ProcessingImages batchId={batch.id} client={media} />}
           <Panel>
             <Heading>
               {snapshot.jobs.filter((job) => job.state === 'running').length} running ·{' '}
@@ -317,8 +385,6 @@ export function ProcessingWorkspace({
               <Small>New attempts preserve saved human values and previous results.</Small>
             </details>
           </Panel>
-          {view === 'overview' && <ProcessingStageSummary batchId={batch.id} snapshot={snapshot} />}
-          {view === 'overview' && <ProcessingNeedsYou batch={batch} snapshot={snapshot} />}
           {questionId && pinned?.question.id === questionId ? (
             <QuestionAnswer
               key={pinned.question.id}
@@ -329,7 +395,7 @@ export function ProcessingWorkspace({
               disabled={runnerDisabled}
               readOnly={batch.archived}
               answer={answer}
-              onDirtyChange={onDirtyChange}
+              onDirtyChange={drafts.forSource('answer')}
             />
           ) : (
             questionId && (
@@ -340,57 +406,72 @@ export function ProcessingWorkspace({
               </Notice>
             )
           )}
-          {jobs.length === 0 && (
-            <Paragraph>
-              No retained work in this stage. Select saved subjects to queue an attempt.
-            </Paragraph>
+          {view === 'overview' ? (
+            <ProcessingOverview
+              batchId={batch.id}
+              source={source}
+              attention={attention}
+              onOpenSession={setSessionJobId}
+              instructions={
+                <InstructionField
+                  text={instructions?.text ?? ''}
+                  revision={batch.revision}
+                  instruct={batch.archived ? undefined : instructions?.instruct}
+                  onDirtyChange={drafts.forSource('instructions')}
+                />
+              }
+              activity={
+                <Card aria-label="Activity">
+                  <CardTitle>Activity</CardTitle>
+                  {jobs.length === 0 ? (
+                    <Paragraph>
+                      No retained work yet. Select saved subjects to queue an attempt.
+                    </Paragraph>
+                  ) : (
+                    jobCards
+                  )}
+                </Card>
+              }
+            />
+          ) : (
+            <StepPage
+              batchId={batch.id}
+              step={view}
+              source={source}
+              onOpenSession={setSessionJobId}
+            >
+              {view === 'images' && <ProcessingImages batchId={batch.id} client={media} />}
+              {jobs.length > 0 && jobCards}
+            </StepPage>
           )}
-          {jobs.map((job) => (
-            <div key={job.id}>
-              <ProcessingJobCard
-                key={job.id}
-                job={job}
-                batch={batch}
-                disabled={disabled}
-                chooseQuestion={(id) => navigate(view, id)}
-                session={
-                  job.session_state &&
-                  client.session &&
-                  client.chat && (
-                    <SessionPanel
-                      batchId={batch.id}
-                      job={job}
-                      client={{ session: client.session, chat: client.chat }}
-                      startFresh={() => restart(job)}
-                    />
-                  )
-                }
-                cancel={() => {
-                  void perform(() =>
-                    client.cancel(
-                      batch.id,
-                      job.id,
-                      { expected_revision: job.revision, attempt_id: job.attempt_id },
-                      crypto.randomUUID(),
-                    ),
-                  ).catch(() => {})
-                }}
-              />
-              {job.subject_id !== null &&
-                batch.lots.some((lot) => lot.id === job.subject_id) &&
-                !retiredLotIds.has(job.subject_id) && (
-                  <ReviewLink
+          {sessionJob && client.session && client.chat && (
+            <Modal
+              title={`${STEP_LABEL[processingStepFor(sessionJob.stage)] ?? 'Processing'} · ${subjectLabel(sessionJob.subject_id)}`}
+              onClose={() => setSessionJobId(null)}
+            >
+              {sessionJob.questions
+                .filter((question) => question.state === 'open')
+                .map((question) => (
+                  <a
+                    key={question.id}
                     href={batchHref(batch.id, {
-                      tab: 'review',
-                      view: 'lots',
-                      lotId: job.subject_id ?? undefined,
+                      tab: 'processing',
+                      step: processingStepFor(sessionJob.stage),
+                      questionId: question.id,
                     })}
+                    onClick={() => setSessionJobId(null)}
                   >
-                    Open this lot in Review
-                  </ReviewLink>
-                )}
-            </div>
-          ))}
+                    {question.spec.prompt}
+                  </a>
+                ))}
+              <SessionPanel
+                batchId={batch.id}
+                job={sessionJob}
+                client={{ session: client.session, chat: client.chat }}
+                startFresh={() => restart(sessionJob)}
+              />
+            </Modal>
+          )}
         </>
       )}
     </Workspace>
