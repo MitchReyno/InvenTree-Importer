@@ -6,7 +6,7 @@ Batch settings exposes internal selection modes, record-ID reads and explicit sa
 
 ## Change identity and linked items
 
-Canonical name: `batch-settings-overhaul`; linked [BI-003](../../../docs/PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul). Delivering branches contain this name and subjects use `type(batch-settings-overhaul): description`. The index owns current metadata. [Automatic supplier logos](../automatic-supplier-logos/) and [purchase-order support](../purchase-order-support/) are separate brief placeholders, not implementation prerequisites.
+Canonical name: `batch-settings-overhaul`; linked [BI-003](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul). Delivering branches contain this name and subjects use `type(batch-settings-overhaul): description`. The index owns current metadata. [Automatic supplier logos](../../automatic-supplier-logos/) and [purchase-order support](../../purchase-order-support/) are separate brief placeholders, not implementation prerequisites.
 
 ## Current behavior and evidence
 
@@ -18,7 +18,7 @@ Canonical name: `batch-settings-overhaul`; linked [BI-003](../../../docs/PLANNED
 
 ## Scope and non-goals
 
-Use the [original Capture screenshot](../../../docs/bench-intake/reference/03-capture.png) and [HTML Capture composition](../../../docs/bench-intake/reference/bench-intake.html) as the default: evidence actions/groups form the primary left column and Batch settings the right column, with a single-column narrow reflow. Remove the Physical lots and Part proposals panes from Capture, including their persistent queue/editor chrome. Retain the approved light/neutral palette and real contracts; the mockup's dark mode, simulated status, inactive known-part input and fake links are not copied as behaviour. Explicit changes in this request override the mockup's older field arrangement.
+Use the [original Capture screenshot](../../../../docs/bench-intake/reference/03-capture.png) and [HTML Capture composition](../../../../docs/bench-intake/reference/bench-intake.html) as the default: evidence actions/groups form the primary left column and Batch settings the right column, with a single-column narrow reflow. Remove the Physical lots and Part proposals panes from Capture, including their persistent queue/editor chrome. Retain the approved light/neutral palette and real contracts; the mockup's dark mode, simulated status, inactive known-part input and fake links are not copied as behaviour. Explicit changes in this request override the mockup's older field arrangement.
 
 | Area | Intended behaviour |
 | --- | --- |

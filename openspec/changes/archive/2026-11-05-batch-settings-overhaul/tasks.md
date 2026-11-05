@@ -2,7 +2,7 @@
 
 ## Plan context
 
-Canonical change: `batch-settings-overhaul`; [BI-003](../../../docs/PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul). Read the [proposal and reuse assessment](proposal.md), [design](design.md), [settings requirements](specs/capture-batch-settings/spec.md), [reference requirements](specs/capture-reference-selection/spec.md) and [inference requirements](specs/capture-inference-preferences/spec.md). Future [PO](../purchase-order-support/) and [logo](../automatic-supplier-logos/) changes remain briefs only. All work below is planned, not implemented; this proposal grants no execution or live-operation authority.
+Canonical change: `batch-settings-overhaul`; [BI-003](../../../../docs/PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul). Read the [proposal and reuse assessment](proposal.md), [design](design.md), [settings requirements](specs/capture-batch-settings/spec.md), [reference requirements](specs/capture-reference-selection/spec.md) and [inference requirements](specs/capture-inference-preferences/spec.md). Future [PO](../../purchase-order-support/) and [logo](../../automatic-supplier-logos/) changes remain briefs only. All work below is planned, not implemented; this proposal grants no execution or live-operation authority.
 
 ## Completion and commit ordering
 
