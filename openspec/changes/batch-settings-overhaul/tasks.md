@@ -174,7 +174,7 @@ All checklist work belongs to its task's bundle. Each task includes its document
 - [x] 8.1 Exercise the full connected autosave → reconnect/conflict → location resolution → estimate review → supervised fake new-record journey with explicit retained read-back.
 - [x] 8.2 Verify note Hide/Remove, no supplier, disabled PO preview, disabled automatic-logo explanation, shared tags, instruction interleaving, dirty navigation and narrow/native200% accessibility.
 - [x] 8.3 Run required affected checks and document actual passes/failures/skips, package/advisory costs, rollout/rollback and unqualified boundaries.
-- [ ] 8.4 Obtain fresh independent read-only exact-head review, fix/re-review findings, publish through normal PR tools and verify selected green CI; record actual SHA and PR state.
+- [x] 8.4 Obtain fresh independent read-only exact-head review, fix/re-review findings, publish through normal PR tools and verify selected green CI; record actual SHA and PR state.
 - [x] 8.5 Verify the candidate index status matches actual evidence, future PO/logo items remain Proposed and every acceptance claim has a linked result; leave merge/Done/archive outcomes unclaimed until they occur.
 
 ## 9. Adopt the mockup Capture layout and remove subject panes

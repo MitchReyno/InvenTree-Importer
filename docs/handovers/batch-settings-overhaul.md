@@ -1,6 +1,6 @@
 # Batch settings overhaul implementation
 
-Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) merged as #88 (`2ba6b47`). PR-D (Tasks 7 and 8) is implemented on `feat/batch-settings-overhaul-records` and in independent review; Task 8.4 stays open until that review is clean and the selected CI passes. Reviews, CI and merges are recorded only after they occur.
+Maintained implementation handover for [`batch-settings-overhaul`](../../openspec/changes/batch-settings-overhaul/) ([BI-003](../PLANNED_FUNCTIONALITY.md#bi-003--batch-settings-overhaul)). Status: PR-A (Tasks 1–2) merged into `interactive-app` as #85. PR-B (Tasks 3, 4 and 9) merged as #87. PR-C (Tasks 5 and 6) merged as #88 (`2ba6b47`). PR-D (Tasks 7 and 8) is open as #89 from `feat/batch-settings-overhaul-records`; its review is clean and the selected CI passed (see PR-D publication). Reviews, CI and merges are recorded only after they occur.
 
 ## Authority and boundaries
 
@@ -537,6 +537,14 @@ Rollout: apply migration `0016_record_effects.sql` (additive). Record creation i
 Rollback: set the API's `INTAKE_DEPLOYMENT_ID` to a `/1` (`owned-fake-effects/1`) deployment and restart it. New preparations then bind to that deployment, and a record draft reports `record_creation_unavailable`. Existing `/1` runs are untouched. Keep the `/2` deployment row and its runner, because a run is executed only by the runner of the deployment its plan names (`runner.ts`). Settle or inspect retained `/2` runs before retiring that runner. Do not drop `executor_record_identity` or reinterpret retained effects: an unknown create stays unknown under its original run.
 
 Unqualified boundaries: no real InvenTree mutation profile; the owned fake does not prove InvenTree compatibility (for example Company `currency` and image storage). No same-name reconciliation command; an unknown create can only be inspected by its attributed PK. Live providers and model inference are not involved.
+
+### Publication (8.4)
+
+- Independent review: Codex (`gpt-6.1-sol`, read-only) took five rounds on exact heads (`125da0f`, `13a617e`, `ccece39`, `6a66304`, `47770d1`). Round 5 had one Minor documentation finding, fixed in `ed4c1da` (docs only) and not re-reviewed, as for earlier docs-only fixes.
+- `git range-diff 2ba6b47..47770d1 2ba6b47..ed4c1da` shows commits 1–11 unchanged (`=`) and adds only `ed4c1da`.
+- PR [#89](https://github.com/MitchReyno/InvenTree-Importer/pull/89) targets `interactive-app`. Its body carries a 42s walkthrough video of Review → Approve → Results on the owned fake, built from captures of the real app; the wait for the supervised run is shortened.
+- Selected CI on `ed4c1da` passed: Frontend, Intake contracts and HTTP, Intake PostgreSQL and process, TypeScript lint, Markdown lint and Changed paths. Backend and shared-workflow jobs were skipped as unaffected.
+- Merge is not claimed here.
 
 ### Index (8.5)
 
