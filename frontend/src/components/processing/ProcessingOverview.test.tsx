@@ -123,7 +123,7 @@ describe('ProcessingOverview', () => {
     expect(within(sessions).getByText('Research · Packet B')).toBeInTheDocument()
     expect(within(sessions).getByText('Waiting for you')).toBeInTheDocument()
     await userEvent.click(
-      within(sessions).getByRole('button', { name: 'Open session for Packet B' }),
+      within(sessions).getByRole('button', { name: 'Open Research session for Packet B' }),
     )
     expect(onOpenSession).toHaveBeenCalledWith('j2')
   })
@@ -178,6 +178,50 @@ describe('InstructionField', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/changed since/)
     expect(screen.getByLabelText('Instructions for the whole batch')).toHaveValue('Keep apart')
+  })
+
+  it('waits for the saved instructions, then shows them without offering an empty save', async () => {
+    const instruct = vi.fn(async () => undefined)
+    const { rerender } = render(
+      <InstructionField
+        text={undefined}
+        revision="4"
+        instruct={instruct}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByLabelText('Instructions for the whole batch')).toBeDisabled()
+    expect(screen.getByText('Reading the saved instructions…')).toBeInTheDocument()
+
+    rerender(
+      <InstructionField
+        text="Keep packets apart."
+        revision="5"
+        instruct={instruct}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByLabelText('Instructions for the whole batch')).toHaveValue(
+      'Keep packets apart.',
+    )
+    expect(screen.getByRole('button', { name: 'Save instructions' })).toBeDisabled()
+  })
+
+  it('discards a draft back to the saved instructions and releases the guard', async () => {
+    const onDirtyChange = vi.fn()
+    render(
+      <InstructionField
+        text="Saved."
+        revision="4"
+        instruct={vi.fn()}
+        onDirtyChange={onDirtyChange}
+      />,
+    )
+    await userEvent.type(screen.getByLabelText('Instructions for the whole batch'), ' Draft')
+    await userEvent.click(screen.getByRole('button', { name: 'Discard changes' }))
+
+    expect(screen.getByLabelText('Instructions for the whole batch')).toHaveValue('Saved.')
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false)
   })
 
   it('says where to set instructions when this setup cannot save them', () => {

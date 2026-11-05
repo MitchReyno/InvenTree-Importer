@@ -65,7 +65,7 @@ export function SessionRows({
           <Button
             size="sm"
             variant="ghost"
-            aria-label={`Open session for ${session.subject}`}
+            aria-label={`Open ${STEP_LABEL[session.step]} session for ${session.subject}`}
             onClick={() => onOpen(session.jobId)}
           >
             Open session

@@ -56,7 +56,7 @@ interface Props {
   attention?: BatchAttentionDto
   /** The batch instructions and how to save them; absent where this setup has none. */
   instructions?: {
-    text: string
+    text: string | undefined
     instruct?: (text: string, revision: string, key: string) => Promise<unknown>
   }
 }
@@ -82,6 +82,10 @@ export function ProcessingWorkspace({
   const [sessionJobId, setSessionJobId] = useState<string | null>(null)
   // The answer form and the instruction field each keep the navigation guard on their own.
   const drafts = useDirtySources(onDirtyChange)
+  // Opening a question navigates; the drawer closes only once that navigation happens.
+  useEffect(() => {
+    setSessionJobId(null)
+  }, [questionId])
   const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const queryKey = serverQueryKey(scope, 'processing', batch.id)
@@ -414,7 +418,7 @@ export function ProcessingWorkspace({
               onOpenSession={setSessionJobId}
               instructions={
                 <InstructionField
-                  text={instructions?.text ?? ''}
+                  text={instructions ? instructions.text : ''}
                   revision={batch.revision}
                   instruct={batch.archived ? undefined : instructions?.instruct}
                   onDirtyChange={drafts.forSource('instructions')}
@@ -440,8 +444,12 @@ export function ProcessingWorkspace({
               source={source}
               onOpenSession={setSessionJobId}
             >
-              {view === 'images' && <ProcessingImages batchId={batch.id} client={media} />}
-              {jobs.length > 0 && jobCards}
+              {view === 'images' || jobs.length > 0 ? (
+                <>
+                  {view === 'images' && <ProcessingImages batchId={batch.id} client={media} />}
+                  {jobCards}
+                </>
+              ) : undefined}
             </StepPage>
           )}
           {sessionJob && client.session && client.chat && (
@@ -459,7 +467,6 @@ export function ProcessingWorkspace({
                       step: processingStepFor(sessionJob.stage),
                       questionId: question.id,
                     })}
-                    onClick={() => setSessionJobId(null)}
                   >
                     {question.spec.prompt}
                   </a>

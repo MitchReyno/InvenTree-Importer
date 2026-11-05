@@ -20,12 +20,12 @@ import { isSessionProfile } from '../processing/session-policy.ts'
 
 const SESSION_PAGE_SIZE = 50
 
-/** History is scoped through command authority, including attempts no longer selected on their job. */
 /** Whether the configured profile runs agent sessions at all. */
 export function sessionsSupported(config: Pick<ProcessingConfig, 'profileId'>) {
   return isSessionProfile(config.profileId ?? mediaProfileId)
 }
 
+/** History is scoped through command authority, including attempts no longer selected on their job. */
 export async function listAgentSessions(
   pool: Pool,
   binding: ProcessingConfig,

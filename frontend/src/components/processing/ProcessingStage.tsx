@@ -17,7 +17,7 @@ interface Props {
   retiredLotIds?: ReadonlySet<string>
   attention?: BatchAttentionDto
   instructions?: {
-    text: string
+    text: string | undefined
     instruct?: (text: string, revision: string, key: string) => Promise<unknown>
   }
 }

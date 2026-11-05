@@ -481,7 +481,9 @@ test('a job with a session opens its timeline and chat in a drawer', async () =>
     chat: vi.fn(),
   } as ProcessingClient
   mountView(client, 'examine')
-  await userEvent.click(await screen.findByRole('button', { name: 'Open session for Packet A' }))
+  await userEvent.click(
+    await screen.findByRole('button', { name: 'Open Examine session for Packet A' }),
+  )
   const drawer = screen.getByRole('dialog', { name: 'Examine · Packet A' })
 
   await waitFor(() => expect(session).toHaveBeenCalledWith(batchId, jobId))
@@ -492,7 +494,7 @@ test('a job with a session opens its timeline and chat in a drawer', async () =>
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
 
-test('an instruction draft keeps the guard until it is saved, apart from the answer form', async () => {
+test('an instruction save leaves the answer draft guarded', async () => {
   const dirty = vi.fn()
   const instruct = vi.fn().mockResolvedValue(undefined)
   render(
@@ -501,6 +503,7 @@ test('an instruction draft keeps the guard until it is saved, apart from the ans
         batch={batch}
         client={clientFixture()}
         view="overview"
+        questionId={questionId}
         navigate={vi.fn()}
         onDirtyChange={dirty}
         onSaved={vi.fn().mockResolvedValue(undefined)}
@@ -508,13 +511,31 @@ test('an instruction draft keeps the guard until it is saved, apart from the ans
       />
     </ServerStateProvider>,
   )
-  await userEvent.type(
-    await screen.findByLabelText('Instructions for the whole batch'),
-    'Keep packets apart',
-  )
+  const form = await screen.findByRole('form', { name: 'Pinned application question' })
+  await userEvent.type(within(form).getByLabelText('Quantity'), '51')
+  await userEvent.type(screen.getByLabelText('Instructions for the whole batch'), 'Keep apart')
   expect(dirty).toHaveBeenLastCalledWith(true)
 
   await userEvent.click(screen.getByRole('button', { name: 'Save instructions' }))
-  expect(instruct).toHaveBeenCalledWith('Keep packets apart', batch.revision, expect.any(String))
-  expect(dirty).toHaveBeenLastCalledWith(false)
+  expect(instruct).toHaveBeenCalledWith('Keep apart', batch.revision, expect.any(String))
+  // The answer is still unsaved, so the guard stays on.
+  expect(dirty).toHaveBeenLastCalledWith(true)
+})
+
+test('a step with no retained work has no empty outputs region', async () => {
+  render(
+    <ServerStateProvider scope={scope} client={createServerQueryClient()}>
+      <ProcessingWorkspace
+        batch={batch}
+        client={clientFixture()}
+        view="research"
+        navigate={vi.fn()}
+        onDirtyChange={vi.fn()}
+        onSaved={vi.fn().mockResolvedValue(undefined)}
+      />
+    </ServerStateProvider>,
+  )
+
+  expect(await screen.findByText('No retained work on Research yet.')).toBeInTheDocument()
+  expect(screen.queryByRole('region', { name: 'Outputs' })).not.toBeInTheDocument()
 })

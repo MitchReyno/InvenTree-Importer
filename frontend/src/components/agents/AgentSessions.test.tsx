@@ -66,14 +66,15 @@ const sessions: Session[] = [
     attempt_id: 'finished-today',
     state: 'ready',
     session_state: 'finished',
-    finished_at: '2026-11-06T03:00:00.000Z',
+    // Local times, so "today" holds in every timezone.
+    finished_at: new Date(2026, 10, 6, 8).toISOString(),
   },
   {
     ...base,
     attempt_id: 'finished-yesterday',
     state: 'ready',
     session_state: 'finished',
-    finished_at: '2026-11-05T03:00:00.000Z',
+    finished_at: new Date(2026, 10, 5, 8).toISOString(),
     latest_status: { text: 'Old work', at: '2026-11-05T03:00:00.000Z' },
   },
 ]
@@ -99,7 +100,7 @@ const batches = vi.fn(async (id: string) =>
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
-  vi.setSystemTime(new Date('2026-11-06T09:00:00.000Z'))
+  vi.setSystemTime(new Date(2026, 10, 6, 12))
 })
 
 afterEach(() => {

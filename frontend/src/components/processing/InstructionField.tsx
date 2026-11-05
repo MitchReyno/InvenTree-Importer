@@ -1,12 +1,13 @@
 import { IntakeRequestError } from '@invimport/contracts/client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { color, space } from '../../theme/generated/tokens'
 import { Button } from '../ui/Button'
 import { Small, TextArea } from '../ui/primitives'
 
 type Props = {
-  text: string
+  /** Undefined until the saved instructions are read; never assumed empty. */
+  text: string | undefined
   revision: string
   /** Absent where this setup cannot save instructions. */
   instruct: ((text: string, revision: string, key: string) => Promise<unknown>) | undefined
@@ -17,10 +18,26 @@ const MAX_CHARACTERS = 8192
 
 /** Instructions for every agent working on the batch, saved explicitly from Processing. */
 export function InstructionField({ text, revision, instruct, onDirtyChange }: Props) {
-  const [draft, setDraft] = useState(text)
+  const [draft, setDraft] = useState(text ?? '')
+  const [edited, setEdited] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const dirty = draft !== text
+  const loaded = text !== undefined
+  const dirty = loaded && edited && draft !== text
+
+  // Saved instructions can arrive after mount; take them unless the operator is editing.
+  useEffect(() => {
+    if (text !== undefined && !edited) {
+      setDraft(text)
+    }
+  }, [text, edited])
+
+  function discard() {
+    setDraft(text ?? '')
+    setEdited(false)
+    setError('')
+    onDirtyChange(false)
+  }
 
   async function save() {
     if (!instruct) {
@@ -30,6 +47,7 @@ export function InstructionField({ text, revision, instruct, onDirtyChange }: Pr
     setError('')
     try {
       await instruct(draft, revision, crypto.randomUUID())
+      setEdited(false)
       onDirtyChange(false)
     } catch (caught) {
       setError(
@@ -49,17 +67,24 @@ export function InstructionField({ text, revision, instruct, onDirtyChange }: Pr
         id="batch-instructions"
         value={draft}
         maxLength={MAX_CHARACTERS}
-        disabled={!instruct || saving}
+        disabled={!instruct || !loaded || saving}
         onChange={(event) => {
           setDraft(event.target.value)
+          setEdited(true)
           onDirtyChange(event.target.value !== text)
         }}
       />
       {error && <Problem role="alert">{error}</Problem>}
+      {!loaded && <Small role="status">Reading the saved instructions…</Small>}
       {instruct ? (
-        <Button size="sm" disabled={!dirty} busy={saving} onClick={() => void save()}>
-          Save instructions
-        </Button>
+        <Actions>
+          <Button size="sm" disabled={!dirty} busy={saving} onClick={() => void save()}>
+            Save instructions
+          </Button>
+          <Button size="sm" variant="ghost" disabled={!dirty || saving} onClick={discard}>
+            Discard changes
+          </Button>
+        </Actions>
       ) : (
         <Small>Instructions are not available in this setup.</Small>
       )}
@@ -74,9 +99,12 @@ const Field = styled.div`
   label {
     font-weight: 600;
   }
-  > button {
-    justify-self: start;
-  }
+`
+
+const Actions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${space[2]};
 `
 
 const Problem = styled.p`

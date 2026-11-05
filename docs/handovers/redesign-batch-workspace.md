@@ -237,6 +237,25 @@ Branch `feat/redesign-batch-workspace-processing` from `4080ea9`. Mitch authoris
   - **Instructions:** `InstructionField` saves explicitly with the batch revision through the same `instruct` command as Capture, reports a conflict without losing the draft, and keeps its own navigation-guard source apart from the answer form.
   - The removed `ProcessingStageSummary` and `ProcessingNeedsYou` are replaced by the Overview; their Review link per lot question is kept.
   - Tests first for each new component (Overview 8, step page 2, adapter 7) and for the workspace (fixture profile shows jobs and questions by step with no session; a session job opens its drawer; the instruction guard), then GREEN. One existing test moved to the new Needs you wording. Frontend suite 506/506.
-- **12 Agents page:** `AgentSessionList` gains `sessions_supported` (`sessionsSupported(config)`: whether the configured profile is a session profile); contract, unit and agents PostgreSQL tests cover it (agents PG 4/4 locally). `AgentSessions` shows the summary (slots in use from `occupies_lane` against `session_concurrency`, waiting sessions holding no slot, the model for new sessions), filter chips (all, running, waiting for you, queued, finished today), and per-batch groups named from a capture read with an Open Processing link; each session shows step, subject, latest status line, state and when it started. Without session support it says so and links to Agent settings, with no summary or filters. Tests first: four new page tests failed, then passed; the history-failure test is kept. Frontend 509/509, intake 193/193.
+- **12 Agents page:** `AgentSessionList` gains `sessions_supported` (`sessionsSupported(config)`: whether the configured profile is a session profile); contract, unit and agents PostgreSQL tests cover it (agents PG 4/4 locally). `AgentSessions` shows the summary (slots in use from `occupies_lane` against `session_concurrency`, waiting sessions holding no slot, the model for new sessions), filter chips (all, running, waiting for you, queued, finished today), and per-batch groups named from a capture read with an Open Processing link; each session shows step, subject, latest status line, state and when that state started (finish, start or queue time). Without session support it says so and links to Agent settings, with no summary or filters. Tests first: four new page tests failed, then passed; the history-failure test is kept. Frontend 509/509, intake 193/193.
 - **Browser check:** `frontend/tests/fixtures/processing.html` renders the real `ProcessingWorkspace` and `AgentSessions` from synthetic clients (no API, provider or InvenTree traffic): a session profile (`#overview`, `#examine`, `#agents`) and the fixture profile (`#overview-fixture`, `#research-fixture`, `#agents-fixture`). No horizontal overflow at 1440 or 390px. Screenshots checked: Overview, the Examine step with its session drawer, the Agents page, and the not-available state. Fixes from it: `Modal` had no background (white in dark mode, also the evidence viewer) and now uses the surface token with accent links; session rows no longer stretch the state pill; links inside a `Banner` inherit its tone. The screenshot script's dark theme did not take effect in these fixtures (the PR-B captures were affected too), so dark mode was checked only through the token and contrast checks.
+
+### PR-C review round 1
+
+Fresh read-only Claude reviewer at `8f86faf`: 1 Important, 6 Minor, 3 Nitpick. All verified; fixes test-first where behaviour changed.
+
+- **Instruction field could save empty over the stored instructions (Important):** the field copied its text once at mount, often before the review projection for the current revision arrived (first entry, or the remount after a save). It now takes `undefined` until that projection is read (disabled, "Reading the saved instructions…"), adopts the saved text when it arrives unless the operator is editing, and only offers Save after an edit.
+- **Minor:**
+  - **Discard:** the field gains "Discard changes", which restores the saved text and releases the guard.
+  - **Timezone-safe test:** the "Finished today" test uses local times, and passes in New York and Auckland.
+  - **Empty outputs:** a step with no work renders no empty Outputs region (tested).
+  - **Unique session buttons:** each is named with its step.
+  - **Guard test:** it now mounts both drafts, and fails if the instruction field shares the answer's source (checked).
+  - **Activity order:** the comment now states snapshot order. "Needs you, oldest first" is not met: questions carry no timestamp in the retained snapshot, so the order is job then question. This waits for Task 14's session questions.
+- **Nitpick:**
+  - **Doc comment:** `listAgentSessions` has its comment back.
+  - **PostgreSQL assertion:** it now expects the literal `false` for `native-agent/1`.
+  - **Drawer closing:** the drawer closes when the route's question changes, not on the link click, so a guard-blocked click leaves it open.
+  - **Handover wording:** corrected.
+- **Checks:** frontend 512/512, contracts 76, agents PG 4/4. One intake run hit the known `media-startup` start-up timeout under load; it passed on its own.
 

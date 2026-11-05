@@ -6,8 +6,6 @@ import { strictJson } from '@invimport/contracts/json'
 import { processingFixture } from '../support/processing.ts'
 import { readAgentSettings, saveAgentSettings } from '../../src/agents/settings.ts'
 import { listAgentSessions } from '../../src/agents/sessions.ts'
-import { mediaProfileId } from '../../src/processing/model.ts'
-import { isSessionProfile } from '../../src/processing/session-policy.ts'
 import { claimProcessingCommand, acceptEnvelope } from '../../src/processing/runner.ts'
 import { acquireAgentSupervisor } from '../../src/agents/worker.ts'
 import { startProcessing } from '../../src/processing/commands.ts'
@@ -192,10 +190,8 @@ test('session history pages every retained attempt in queue order and refuses id
     const older = await listAgentSessions(fixture.api.pool, fixture.config, newest.next_before)
     assert.equal(older.sessions.length, 3)
     assert.equal(older.next_before, null)
-    assert.equal(
-      newest.sessions_supported,
-      isSessionProfile(fixture.config.profileId ?? mediaProfileId),
-    )
+    // native-agent/1 runs one-shot attempts, not sessions.
+    assert.equal(newest.sessions_supported, false)
     const all = [...newest.sessions, ...older.sessions]
     assert.deepEqual(new Set(all.map((session) => session.attempt_id)), ids)
     assert.ok(

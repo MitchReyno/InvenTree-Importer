@@ -20,7 +20,7 @@ type Props = {
   attention: BatchAttentionDto | undefined
   /** The batch instruction field, owned by the workspace that saves it. */
   instructions: ReactNode
-  /** Recent work, newest first. */
+  /** The batch's retained attempts, in the snapshot's order. */
   activity?: ReactNode
   onOpenSession: (jobId: string) => void
 }

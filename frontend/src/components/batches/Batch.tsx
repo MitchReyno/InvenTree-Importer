@@ -401,8 +401,11 @@ export function Batch({
         retiredLotIds={retired}
         attention={attentionQuery.data}
         instructions={{
-          text:
-            currentOperatorReview?.instructions.find((item) => item.group_id === null)?.text ?? '',
+          // Undefined until the review projection for this revision is read.
+          text: currentOperatorReview
+            ? (currentOperatorReview.instructions.find((item) => item.group_id === null)?.text ??
+              '')
+            : undefined,
           instruct: settingsPorts.instruct
             ? async (text, revision, key) => {
                 await settingsPorts.instruct?.(text, revision, key)
