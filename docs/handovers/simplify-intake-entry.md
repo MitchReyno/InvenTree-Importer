@@ -375,6 +375,22 @@ Results after the fixes: contracts 72, intake server 181 and frontend 322 passed
 
 Regression tests: in-turn chat acknowledged without `read_inbox` for both CLIs; a pre-aborted shutdown settles without a child; large proposals stop at the size budget with the snapshot still readable. Not separately tested: archived ranking and the cleanup interleaving.
 
+## PR-A review round 5
+
+Codex (`gpt-6.1-sol`, read-only) reviewed `8f4a81c..2f34cd1`: 5 important findings, all confirmed, and one minor. It found capability enforcement, citation checks, endpoint isolation, `/1` paths, migration and grants, adapter boundaries and the frontend sound. Fixes:
+
+1. **The size cap ignored projection overhead.** Each retained proposal or question also counts a 512-byte allowance for the read-model fields around it, so many small results across jobs stop before the snapshot overflows.
+2. **Resume could revive a replaced attempt.** Every session state change, under the job and attempt locks, treats an attempt that is no longer the job's current one as cancelled, so neither resume nor claim can run it.
+3. **Settlement acknowledged input for a superseded attempt.** The cursor moves only when, under the locks, the attempt is still running and current; otherwise delivered input stays pending for the replacement.
+4. **Startup recovery could deadlock.** Each running session is interrupted in its own transaction, as cancelled-session cleanup already is.
+5. **Answer replay returned the opening revision.** `processing_answer.capture_revision` (migration `0018`, null for earlier profiles) retains the revision a session answer returned, and adoption replays it.
+
+Minor: the answer form now says a session answer reaches the agent session rather than queuing a new attempt.
+
+Results after the fixes: contracts 72, intake server 181 and frontend 322 passed; `pnpm db:intake test` 191 passed; `pnpm db:intake test:process` 68 tests, 64 passed, with only the pre-existing media failure and its 3 skips; typecheck, lint, Prettier and build pass.
+
+Regression tests: an answer adopted under a fresh delivery key returns the original receipt; small questions across two jobs stop with the snapshot readable and each projected question within the allowance; a superseded turn leaves delivered chat pending. Not separately tested: resume racing a fresh start, and the recovery interleaving.
+
 ## Validation
 
 - `pnpm spikes:check`: 35 passed (the existing shared-contract suite; the new spike adds no test there).

@@ -24,6 +24,10 @@ ALTER TABLE processing_job
   ADD CONSTRAINT processing_job_lead_subject_check CHECK ((subject_id IS NULL) = (stage='examine'));
 CREATE UNIQUE INDEX processing_job_examine_once ON processing_job(batch_id) WHERE stage='examine';
 
+-- A session answer is recorded against its own attempt, so it keeps the post-edit revision it
+-- returned; earlier profiles leave this null and derive it from the continuation attempt.
+ALTER TABLE processing_answer ADD COLUMN capture_revision bigint CHECK (capture_revision > 0);
+
 -- Session proposals record what they rely on; staleness is appended, never an update.
 ALTER TABLE processing_proposal
   ADD COLUMN relies_on jsonb CHECK (relies_on IS NULL OR (jsonb_typeof(relies_on)='object' AND octet_length(relies_on::text)<=65536));

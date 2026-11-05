@@ -389,6 +389,13 @@ test('answers and chat reach the running session once, through the inbox', async
       key,
     )
     assert.deepEqual(again.value, first.value)
+    // The same answer under a fresh delivery key adopts the retained one, revision included.
+    const adopted = await fixture.http(
+      `/batches/${capture.batch.id}/questions/${questionId}/answers`,
+      answer,
+      randomUUID(),
+    )
+    assert.deepEqual(adopted.value, first.value)
     assert.equal((first.value as { attempt_id: string }).attempt_id, a.attempt)
     const inbox = await fixture.db.pool.query<{ kind: string; payload: { answer_id: string } }>(
       'SELECT kind,payload FROM agent_session_inbox WHERE session_lineage_id=$1',
@@ -778,5 +785,43 @@ test('large results stop at the batch size budget and the snapshot stays readabl
     assert.ok(refused > 0 && refused < 100, `refused at ${refused}`)
     const snapshot = await fixture.http(`/batches/${capture.batch.id}/processing`)
     assert.equal(snapshot.status, 200)
+  })
+})
+
+test('many small questions across jobs stop before the snapshot overflows', async () => {
+  await withSessions(async ({ fixture, url, a, b, capture }) => {
+    let accepted = 0
+    let refused = false
+    for (const principal of [a, b]) {
+      const session = await connect(url, principal.token)
+      try {
+        for (let n = 0; n < 100 && !refused; n += 1) {
+          const result = await call(session, 'ask', {
+            kind: 'clarification',
+            subject_id: principal === a ? capture.packetA.id : capture.packetB.id,
+            prompt: `Q${n}?`,
+            reason: 'r',
+            fields: ['identity'],
+            assumption: 'a',
+          })
+          if (result.ok) {
+            accepted += 1
+          } else {
+            assert.equal(result.error, 'capacity_reached')
+            refused = true
+          }
+        }
+      } finally {
+        await session.close()
+      }
+    }
+    assert.ok(accepted > 100, `accepted ${accepted}`)
+    const snapshot = await fixture.http(`/batches/${capture.batch.id}/processing`)
+    assert.equal(snapshot.status, 200)
+    // The per-item allowance covers each projected question with room to spare.
+    const jobs = (snapshot.value as { jobs: { questions: unknown[] }[] }).jobs
+    for (const question of jobs.flatMap((job) => job.questions)) {
+      assert.ok(JSON.stringify(question).length < 1024)
+    }
   })
 })

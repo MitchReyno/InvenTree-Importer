@@ -94,16 +94,19 @@ export async function answerSessionQuestion(
   const answerId = randomUUID()
   const value = sealed({ ...input, question_id: questionId })
   await executeDatabaseQuery(
-    queryDatabase(client).insert(processingAnswers).values({
-      id: answerId,
-      jobId: job.id,
-      questionId,
-      actorId: config.actorId,
-      valueBytes: value.bytes,
-      valueDigest: value.digest,
-      // No continuation attempt: the same session receives the answer.
-      continuationAttemptId: attempt.id,
-    }),
+    queryDatabase(client)
+      .insert(processingAnswers)
+      .values({
+        id: answerId,
+        jobId: job.id,
+        questionId,
+        actorId: config.actorId,
+        valueBytes: value.bytes,
+        valueDigest: value.digest,
+        // No continuation attempt: the same session receives the answer.
+        continuationAttemptId: attempt.id,
+        captureRevision: BigInt(snapshot.revision),
+      }),
   )
   await executeDatabaseQuery(
     queryDatabase(client)

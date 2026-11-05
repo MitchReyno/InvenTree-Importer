@@ -215,6 +215,8 @@ async function requireDeliveredSources(
 /** The Processing snapshot reads at most this many proposals and questions per attempt. */
 /** Half the snapshot budget, leaving room for JSON framing and the rest of the snapshot. */
 const SESSION_RESULT_BUDGET_BYTES = MAX_PROCESSING_SNAPSHOT_BYTES / 2
+/** A generous upper bound for the read-model fields around one proposal or question. */
+const RESULT_PROJECTION_BYTES = 512
 
 async function requireRoom(
   client: PoolClient,
@@ -241,14 +243,17 @@ async function requireRoom(
     )
   }
   // The whole batch snapshot has a byte budget too; keep retained results within half of it.
+  // Retained bytes plus a per-item allowance for the projection around each result (IDs,
+  // digests, states), so many small results cannot overflow the snapshot either.
   const retained = await client.query<{ bytes: string }>(
-    `SELECT (COALESCE((SELECT sum(octet_length(p.value_bytes)) FROM public.processing_proposal p
+    `SELECT (COALESCE((SELECT sum(octet_length(p.value_bytes)+${RESULT_PROJECTION_BYTES}) FROM public.processing_proposal p
         JOIN public.processing_attempt a ON a.id=p.attempt_id WHERE a.batch_id=$1),0)
-      + COALESCE((SELECT sum(octet_length(q.spec_bytes)) FROM public.processing_question q
+      + COALESCE((SELECT sum(octet_length(q.spec_bytes)+${RESULT_PROJECTION_BYTES}) FROM public.processing_question q
         WHERE q.batch_id=$1),0))::text AS bytes`,
     [principal.batchId],
   )
-  if (BigInt(retained.rows[0].bytes) + BigInt(newBytes) > BigInt(SESSION_RESULT_BUDGET_BYTES)) {
+  const projected = BigInt(retained.rows[0].bytes) + BigInt(newBytes + RESULT_PROJECTION_BYTES)
+  if (projected > BigInt(SESSION_RESULT_BUDGET_BYTES)) {
     refuse('capacity_reached', 'This batch has reached the size limit for retained results.')
   }
 }

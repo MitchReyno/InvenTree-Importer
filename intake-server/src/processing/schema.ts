@@ -120,4 +120,6 @@ export const processingAnswers = pgTable('processing_answer', {
   valueDigest: bytea('value_digest').notNull(),
   continuationAttemptId: uuid('continuation_attempt_id').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  /** Session answers only: the capture revision their receipt returned. */
+  captureRevision: bigint('capture_revision', { mode: 'bigint' }),
 })

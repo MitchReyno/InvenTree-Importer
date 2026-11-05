@@ -246,7 +246,11 @@ export function QuestionAnswer({
           </Button>
         )}
       </Actions>
-      <Small>This human answer updates the saved lot or note and queues a new attempt.</Small>
+      <Small>
+        {question.assumption
+          ? 'This human answer updates the saved lot or note and reaches the agent session.'
+          : 'This human answer updates the saved lot or note and queues a new attempt.'}
+      </Small>
     </Card>
   )
 }

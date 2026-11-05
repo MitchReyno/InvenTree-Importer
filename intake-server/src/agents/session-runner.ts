@@ -86,7 +86,11 @@ async function setSessionState(
 ): Promise<SessionStateDto | false> {
   const { job, attempt } = await lockProcessingAttempt(client, jobId, attemptId)
   // Processing owns cancellation: a cancelled or superseded attempt is never revived.
-  const cancelled = attempt.state === 'cancelled' || attempt.state === 'superseded'
+  // A replaced attempt (no longer the job's current one) is treated the same way.
+  const cancelled =
+    attempt.state === 'cancelled' ||
+    attempt.state === 'superseded' ||
+    job.current_attempt_id !== attempt.id
   const state: SessionStateDto = cancelled ? 'cancelled' : requested
   const updated = await executeDatabaseQuery(
     queryDatabase(client)
@@ -125,29 +129,30 @@ async function publish(client: PoolClient, batchId: string) {
 
 /** A worker start never continues a turn that was in flight; those sessions wait for a resume. */
 export async function interruptRunningSessions(pool: Pool, config: ProcessingConfig) {
-  return transaction(pool, async (client) => {
-    // Only this worker's account: another actor's worker may be running its own sessions.
-    const running = await executeDatabaseQuery(
-      queryDatabase(client)
-        .select({
-          attemptId: agentSessions.attemptId,
-          jobId: processingAttempts.jobId,
-          batchId: processingAttempts.batchId,
-        })
-        .from(agentSessions)
-        .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
-        .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
-        .where(
-          and(
-            eq(commands.actorId, config.actorId),
-            eq(commands.targetId, config.targetId),
-            eq(commands.targetContextId, config.targetContextId),
-            inArray(agentSessions.sessionState, ['running', 'cancelling']),
-          ),
+  // Only this worker's account: another actor's worker may be running its own sessions.
+  const running = await executeDatabaseQuery(
+    queryDatabase(pool)
+      .select({
+        attemptId: agentSessions.attemptId,
+        jobId: processingAttempts.jobId,
+        batchId: processingAttempts.batchId,
+      })
+      .from(agentSessions)
+      .innerJoin(processingAttempts, eq(processingAttempts.id, agentSessions.attemptId))
+      .innerJoin(commands, eq(commands.id, processingAttempts.commandId))
+      .where(
+        and(
+          eq(commands.actorId, config.actorId),
+          eq(commands.targetId, config.targetId),
+          eq(commands.targetContextId, config.targetContextId),
+          inArray(agentSessions.sessionState, ['running', 'cancelling']),
         ),
-    )
-    const interrupted: string[] = []
-    for (const session of running) {
+      ),
+  )
+  const interrupted: string[] = []
+  // One transaction each, so a stream lock is only ever taken last.
+  for (const session of running) {
+    await transaction(pool, async (client) => {
       // The fence refused to start while any slot was held, so these slots are already clear.
       const changed = await setSessionState(
         client,
@@ -161,9 +166,9 @@ export async function interruptRunningSessions(pool: Pool, config: ProcessingCon
         await publish(client, session.batchId)
         interrupted.push(session.attemptId)
       }
-    }
-    return interrupted
-  })
+    })
+  }
+  return interrupted
 }
 
 /** Settles queued sessions whose attempt was cancelled or superseded before any claim. */
@@ -512,8 +517,11 @@ export async function runSessionTurn(
 
   return transaction(pool, async (client) => {
     // Job and attempt first, as everywhere, before the cursor and the session row.
-    await lockProcessingAttempt(client, current.jobId, attemptId)
-    if (next === 'finished' && accepted > 0n) {
+    const locked = await lockProcessingAttempt(client, current.jobId, attemptId)
+    // A cancelled, superseded or replaced attempt leaves input pending for whatever replaces it.
+    const live =
+      locked.attempt.state === 'running' && locked.job.current_attempt_id === locked.attempt.id
+    if (next === 'finished' && accepted > 0n && live) {
       await acknowledgeSessionInbox(client, current.jobId, accepted)
     }
     if (next === 'finished') {

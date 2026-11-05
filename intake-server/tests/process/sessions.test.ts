@@ -464,3 +464,35 @@ test(
     }
   },
 )
+
+test(
+  'a turn whose attempt is superseded leaves its delivered chat pending',
+  { timeout: 60000 },
+  async () => {
+    const h = await sessionHarness('claude')
+    try {
+      const running = runSessionTurn(
+        h.deps('deliver-no-ack'),
+        h.session.attempt,
+        new AbortController().signal,
+      )
+      const deadline = Date.now() + 20000
+      while ((await h.state()).session_state !== 'running' && Date.now() < deadline) {
+        await delay(50)
+      }
+      await h.chat('chat-1', 'The reel is 1k ohm.')
+      await h.fixture.db.pool.query(
+        "UPDATE processing_attempt SET state='superseded' WHERE id=$1",
+        [h.session.attempt],
+      )
+      await running
+      const cursor = await h.fixture.db.pool.query<{ acked_seq: string }>(
+        'SELECT acked_seq FROM agent_session_cursor WHERE session_lineage_id=$1',
+        [h.session.job],
+      )
+      assert.equal(cursor.rows[0]?.acked_seq ?? '0', '0')
+    } finally {
+      await h.dispose()
+    }
+  },
+)

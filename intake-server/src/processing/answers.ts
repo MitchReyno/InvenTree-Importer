@@ -54,6 +54,7 @@ async function adoptRetainedAnswer(
         valueDigest: processingAnswers.valueDigest,
         continuationAttemptId: processingAnswers.continuationAttemptId,
         captureRevision: processingInputs.captureRevision,
+        answerRevision: processingAnswers.captureRevision,
         commandId: processingAttempts.commandId,
       })
       .from(processingAnswers)
@@ -86,7 +87,8 @@ async function adoptRetainedAnswer(
     answer_id: answer.id,
     question_id: questionId,
     attempt_id: answer.continuationAttemptId,
-    capture_revision: answer.captureRevision.toString(),
+    // Session answers keep the revision they returned; earlier profiles use the continuation's.
+    capture_revision: (answer.answerRevision ?? answer.captureRevision).toString(),
     command_id: answer.commandId,
   }
 }
