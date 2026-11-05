@@ -90,7 +90,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **Verification:** component tests for each new component (states, keyboard, ARIA); existing frontend tests pass unchanged; the literal-colour check is clean.
 
 - [x] 2.1 Build Button, Pill, SourceChip, Banner, ProblemCard, Toast and Kbd, with the glyph-plus-word status rule.
-- [ ] 2.2 Build Tabs, SubTabs, SegmentedControl, FilterChips and Breadcrumb, with tests for roving focus and selection.
+- [x] 2.2 Build Tabs, SubTabs, SegmentedControl, FilterChips and Breadcrumb, with tests for roving focus and selection.
 - [ ] 2.3 Build EvidenceTile, EvidenceGroup, KeyValue, RecordChain, DataTable with BulkBar, ChangeSummary and StickyFooter.
 - [ ] 2.4 Build PhaseRow, QuestionCard, StatusTimeline, NeedsYou and SessionChat.
 - [ ] 2.5 Restyle the AutosaveStatus, reference picker, AutoValueField, tags input and DisabledFeature to tokens, keeping their tests green.

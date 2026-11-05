@@ -33,6 +33,11 @@ export function Count({ value, tone = 'default' }: { value: number; tone?: Count
   return <CountBody $tone={tone}>{formatCount(value)}</CountBody>
 }
 
+/** A short attention label in count styling, such as "3 to decide" on a tab. */
+export function Badge({ tone, children }: { tone: CountTone; children: ReactNode }) {
+  return <CountBody $tone={tone}>{children}</CountBody>
+}
+
 const pillTones = {
   ok: css`
     background: ${color.okWeak};
@@ -107,5 +112,6 @@ const CountBody = styled.span<{ $tone: CountTone }>`
   border-radius: 10px;
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   ${({ $tone }) => countTones[$tone]}
 `
