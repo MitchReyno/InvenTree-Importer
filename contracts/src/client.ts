@@ -192,6 +192,21 @@ export function inboxClient(baseUrl: string, csrfToken: string, transport: typeo
   }
 }
 
+/** The batch's tab counts and need-you items; a read, never command authority. */
+export function attentionClient(
+  baseUrl: string,
+  csrfToken: string,
+  transport: typeof fetch = fetch,
+) {
+  const client = typedClient(baseUrl, transport, csrfToken)
+  return {
+    read: (batchId: string) =>
+      successfulData(
+        client.GET('/api/v1/batches/{id}/attention', { params: { path: { id: batchId } } }),
+      ),
+  }
+}
+
 export function headerClient(baseUrl: string, csrfToken: string, transport: typeof fetch = fetch) {
   const client = typedClient(baseUrl, transport, csrfToken)
   return {

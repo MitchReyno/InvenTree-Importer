@@ -2541,6 +2541,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{id}/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description BatchAttention */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BatchAttention"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/batches/{id}/issue-dispositions": {
         parameters: {
             query?: never;
@@ -4943,6 +4991,41 @@ export interface components {
             work_truncated: boolean;
             sessions_truncated: boolean;
             lane_occupied: boolean;
+        };
+        AttentionItem: {
+            key: string;
+            group: "question" | "changed_lot" | "decision" | "result";
+            tab: "processing" | "review" | "changes";
+            title: string;
+            detail: string | null;
+            route: string;
+        };
+        BatchAttention: {
+            batch_id: string;
+            /** Format: int64 */
+            revision: string;
+            processing: {
+                questions: number;
+            };
+            review: {
+                to_check: number;
+                changed_after_review: number;
+                to_decide: number;
+            };
+            changes: {
+                ready: number;
+                failed: number;
+                uncertain: number;
+            };
+            items: {
+                key: string;
+                group: "question" | "changed_lot" | "decision" | "result";
+                tab: "processing" | "review" | "changes";
+                title: string;
+                detail: string | null;
+                route: string;
+            }[];
+            items_truncated: boolean;
         };
         InventoryModel: "part" | "location" | "category" | "parameter_template" | "category_parameter" | "company";
         InventoryPartSpec: {
@@ -14537,6 +14620,8 @@ export type CatalogueCandidates = components['schemas']['CatalogueCandidates']
 export type ConnectionStatus = components['schemas']['ConnectionStatus']
 export type HeaderWorkQuery = components['schemas']['HeaderWorkQuery']
 export type HeaderWork = components['schemas']['HeaderWork']
+export type AttentionItem = components['schemas']['AttentionItem']
+export type BatchAttention = components['schemas']['BatchAttention']
 export type InventoryModel = components['schemas']['InventoryModel']
 export type InventoryPartSpec = components['schemas']['InventoryPartSpec']
 export type InventoryMapping = components['schemas']['InventoryMapping']

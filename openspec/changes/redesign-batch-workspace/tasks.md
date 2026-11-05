@@ -123,7 +123,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Before the projection, write a failing route test that seeds an open question, a changed-after-review lot and an uncertain result (RED: route missing). GREEN: implement it. Then refactor and re-run the intake suites.
 - **Verification:** contract and OpenAPI checks; intake tests for counts across states, including uncertain results and changed-after-review lots.
 
-- [ ] 4.1 Add the `BatchAttention` contract and the generated client.
+- [x] 4.1 Add the `BatchAttention` contract and the generated client.
 - [ ] 4.2 Write failing route tests for each item group and its route target (RED).
 - [ ] 4.3 Implement the projection and route under the existing batch read authority until they pass (GREEN).
 

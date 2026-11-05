@@ -290,6 +290,7 @@ async function main() {
       '/api/v1/runs/{id}/cancel': { post: post('ManualRunCommand', 'ManualAccepted') },
       '/api/v1/runs/{id}/recover': { post: post('ManualRecoveryCommand', 'ManualAccepted') },
       '/api/v1/batches/{id}/operator-review': { get: get('OperatorReview') },
+      '/api/v1/batches/{id}/attention': { get: get('BatchAttention', CAPTURE_TIMEOUT_MS) },
       '/api/v1/batches/{id}/issue-dispositions': {
         post: post('IssueDisposition', 'OperatorReview'),
       },

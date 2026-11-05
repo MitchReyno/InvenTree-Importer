@@ -13,6 +13,8 @@ import { effectsSchemas } from './effects.ts'
 export * from './effects.ts'
 import { headerSchemas } from './header.ts'
 export * from './header.ts'
+import { attentionSchemas } from './attention.ts'
+export * from './attention.ts'
 import { captureSchemas } from './capture.ts'
 import { catalogueSchemas } from './catalogue.ts'
 import { manualSchemas } from './manual.ts'
@@ -164,6 +166,7 @@ export const schemas = {
   ...captureSchemas,
   ...catalogueSchemas,
   ...headerSchemas,
+  ...attentionSchemas,
   ...effectsSchemas,
   ...manualSchemas,
   ...processingSchemas,
