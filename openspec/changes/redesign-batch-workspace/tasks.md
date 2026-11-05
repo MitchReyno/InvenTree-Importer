@@ -109,7 +109,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
   - Browser frame sampling showing no part over the text boxes in both themes.
   - The reduced-motion still frame.
 
-- [ ] 3.1 Merge the masthead into one bar, in the order wordmark, Dev badge, breadcrumb, spacer, activity, connection, Open InvenTree, and update its tests.
+- [x] 3.1 Merge the masthead into one bar, in the order wordmark, Dev badge, breadcrumb, spacer, activity, connection, Open InvenTree, and update its tests.
 - [ ] 3.2 Widen the mask per D4 and add the frame-sampling browser check.
 - [ ] 3.3 Split the finishes into light and dark, re-tint on theme change without rebuilding geometry, and check outline contrast.
 

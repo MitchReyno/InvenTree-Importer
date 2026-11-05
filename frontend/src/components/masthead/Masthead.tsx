@@ -1,98 +1,100 @@
 import type { ReactNode } from 'react'
 import styled from 'styled-components'
-import { color } from '../../theme/generated/tokens'
+import { color, radius, space, type } from '../../theme/generated/tokens'
+import type { ThemeController } from '../../theme/theme'
+import { Breadcrumb, type BreadcrumbItem } from '../ui/Breadcrumb'
+import { media } from '../ui/media'
 import { ElectronicsCurrent } from './ElectronicsCurrent'
+import { MastheadMenu } from './MastheadMenu'
 
-/** Decorative brand header; scoped application status controls and navigation occupy its slots. */
-export function Masthead({ actions, children }: { actions?: ReactNode; children?: ReactNode }) {
+type MastheadProps = {
+  breadcrumb?: BreadcrumbItem[]
+  /** Workflow activity, connection status and Open InvenTree. */
+  status?: ReactNode
+  themeController?: ThemeController
+}
+
+/** One bar over the electronics current: wordmark, Dev badge, breadcrumb, status, menu. */
+export function Masthead({ breadcrumb, status, themeController }: MastheadProps) {
   return (
     <Header>
       <ElectronicsCurrent />
-      <TopRow>
-        <BrandGroup>
-          <Brand>
-            Bench <span>Intake</span>
-          </Brand>
-          <DevBadge>Dev mode</DevBadge>
-        </BrandGroup>
-        <Actions>{actions ?? <WorkflowLabel>Manual workflow</WorkflowLabel>}</Actions>
-      </TopRow>
-      {children}
+      <Row>
+        <Wordmark href="#" aria-label="Bench Intake, Batches">
+          Bench <span>Intake</span>
+        </Wordmark>
+        <DevBadge>Dev mode</DevBadge>
+        {breadcrumb && breadcrumb.length > 0 && (
+          <Crumbs data-compact="hidden">
+            <Breadcrumb items={breadcrumb} />
+          </Crumbs>
+        )}
+        <Spacer />
+        {status ?? <WorkflowLabel>Manual workflow</WorkflowLabel>}
+        <MastheadMenu themeController={themeController} />
+      </Row>
     </Header>
   )
 }
 
 const Header = styled.header`
   position: relative;
-  background-color: ${color.surface2};
+  overflow: hidden;
+  background-color: ${color.mastheadGround};
   background-image: radial-gradient(circle, ${color.mastheadDot} 1px, transparent 1.4px);
   background-size: 16px 16px;
-  overflow: hidden;
+  border-bottom: 1px solid ${color.line};
 `
 
-const TopRow = styled.div`
+const Row = styled.div`
   position: relative;
-  min-height: 76px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 8px 16px;
-  @media (max-width: 700px) {
-    min-height: 60px;
-    font-size: 12px;
-  }
-`
-
-const BrandGroup = styled.div`
-  padding: 0 12px;
-  position: relative;
-  display: flex;
   align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
+  gap: ${space[3]};
+  min-height: 56px;
+  padding: ${space['2-5']} ${space[4]};
 `
 
-const Brand = styled.strong`
-  font-size: 22px;
-  font-weight: 750;
+const Wordmark = styled.a`
+  ${type.brand}
   color: ${color.fg};
+  white-space: nowrap;
+  text-decoration: none;
   span {
     font-weight: 450;
-  }
-  @media (max-width: 700px) {
-    font-size: 20px;
   }
 `
 
 const DevBadge = styled.span`
-  padding: 2px 8px;
-  color: ${color.warn};
-  background: ${color.warnWeak};
-  border: 1px solid ${color.warn};
-  border-radius: 999px;
+  padding: 2px ${space[2]};
+  border: 1px solid ${color.devLine};
+  border-radius: ${radius.pill};
+  background: ${color.devBg};
+  color: ${color.devFg};
   font-size: 11px;
   font-weight: 600;
   line-height: 1.4;
+  white-space: nowrap;
 `
 
-const WorkflowLabel = styled.span`
-  position: relative;
-  padding: 6px 12px;
-  color: ${color.muted};
-  background: ${color.surface2};
-  border: 1px solid ${color.line};
-  border-radius: 999px;
-  font-size: 13px;
-  @media (max-width: 700px) {
-    font-size: 12px;
+const Crumbs = styled.div`
+  min-width: 0;
+  flex: 0 1 auto;
+  ${media.compact} {
+    display: none;
   }
 `
 
-const Actions = styled.div`
-  position: relative;
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+const Spacer = styled.span`
+  flex: 1;
+`
+
+const WorkflowLabel = styled.span`
+  padding: 3px ${space['2-5']};
+  border: 1px solid ${color.line};
+  border-radius: ${radius.pill};
+  background: ${color.surface};
+  color: ${color.muted};
+  font-size: 12.5px;
 `

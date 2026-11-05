@@ -25,7 +25,7 @@ import styled from 'styled-components'
 import { color } from './theme/generated/tokens'
 import { Diagnostics } from './components/operations/Diagnostics'
 import { HeaderStatus } from './components/masthead/HeaderStatus'
-import { Masthead } from './components/masthead/Masthead'
+import { AppMasthead } from './components/masthead/AppMasthead'
 import { useNavigationGuard } from './navigation/useNavigationGuard'
 
 export default function App() {
@@ -159,8 +159,10 @@ export default function App() {
           showStatus={false}
           refreshBootstrap={refreshBootstrap}
         >
-          <Masthead
-            actions={
+          <AppMasthead
+            route={route}
+            readBatch={client?.read}
+            status={
               header && scope ? (
                 <HeaderStatus
                   client={header}
@@ -168,15 +170,12 @@ export default function App() {
                   bootstrapUnavailable={bootstrapUnavailable}
                 />
               ) : (
-                <span>{bootstrap ? 'Local setup required' : 'Connecting to application…'}</span>
+                <SetupStatus>
+                  {bootstrap ? 'Local setup required' : 'Connecting to application…'}
+                </SetupStatus>
               )
             }
-          >
-            <MainNav aria-label="Application">
-              <a href="#">Batches</a>
-              <a href="#settings">Agent settings</a>
-            </MainNav>
-          </Masthead>
+          />
           {bootstrapUnavailable && bootstrap && (
             <Notice role="alert">
               Application connection unavailable. Showing the last development context; retained
@@ -221,10 +220,7 @@ const Footer = styled.footer`
   line-height: 1.6;
 `
 
-const MainNav = styled.nav`
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  padding: 0 12px 12px 12px;
+const SetupStatus = styled.span`
+  font-size: 12.5px;
+  color: ${color.muted};
 `

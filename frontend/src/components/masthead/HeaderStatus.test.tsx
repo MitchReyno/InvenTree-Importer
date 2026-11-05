@@ -201,6 +201,13 @@ test('healthy sockets retain foreground target polling and local expiry while a 
   const connectedLabel = screen.getByText('inventory.example.test')
   expect(connectedLabel).toBeVisible()
   expect(connectedLabel.previousElementSibling).toHaveAttribute('data-tone', 'ok')
+  // At phone width the full text stays for assistive tech; only a short word is drawn.
+  expect(connectedLabel).toHaveAttribute('data-compact', 'visually-hidden')
+  expect(connectedLabel.nextElementSibling).toHaveAttribute('aria-hidden', 'true')
+  expect(connectedLabel.nextElementSibling).toHaveAttribute('data-short', 'inventory.example.test')
+  expect(
+    screen.getByRole('button', { name: 'Workflow activity' }).querySelector('[data-compact]'),
+  ).toHaveAttribute('data-compact', 'visually-hidden')
   await act(async () => {
     await vi.advanceTimersByTimeAsync(30_100)
   })

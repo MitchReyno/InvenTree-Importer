@@ -21,7 +21,7 @@ export function HeaderDisclosureProof() {
     <>
       <GlobalStyle />
       <Masthead
-        actions={
+        status={
           <Actions>
             <HeaderDisclosure
               label="Connection status"

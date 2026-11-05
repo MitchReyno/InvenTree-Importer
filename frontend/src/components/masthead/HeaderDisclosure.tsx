@@ -1,7 +1,8 @@
 import { useId, type ReactNode } from 'react'
 import * as Popover from '@radix-ui/react-popover'
-import styled from 'styled-components'
-import { color, shadow } from '../../theme/generated/tokens'
+import styled, { keyframes } from 'styled-components'
+import { color, radius, shadow, space, type } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
 
 interface HeaderDisclosureProps {
   label: string
@@ -9,6 +10,8 @@ interface HeaderDisclosureProps {
   trigger: ReactNode
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Accent pill while work is running. */
+  active?: boolean
   children: ReactNode
 }
 
@@ -18,13 +21,14 @@ export function HeaderDisclosure({
   trigger,
   open,
   onOpenChange,
+  active = false,
   children,
 }: HeaderDisclosureProps) {
   const titleId = useId()
   return (
     <Popover.Root open={open} onOpenChange={onOpenChange} modal={false}>
       <Popover.Trigger asChild>
-        <Trigger type="button" aria-label={label}>
+        <Trigger type="button" aria-label={label} data-active={active}>
           {trigger}
         </Trigger>
       </Popover.Trigger>
@@ -45,22 +49,34 @@ export function HeaderDisclosure({
   )
 }
 
+const open = keyframes`
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+`
+
 const Trigger = styled.button`
-  min-height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
   max-width: 100%;
-  border: 1px solid ${color.lineStrong};
-  border-radius: 1rem;
-  padding: 8px 12px;
-  color: ${color.fg};
+  min-width: 0;
+  padding: 3px ${space['2-5']};
+  border: 1px solid ${color.line};
+  border-radius: ${radius.pill};
   background: ${color.surface};
+  color: ${color.fg};
+  font-size: 12.5px;
   cursor: pointer;
-  &[data-state='open'] {
+  &[data-active='true'] {
     border-color: ${color.accent};
     background: ${color.accentWeak};
   }
-  &:hover {
+  &:hover,
+  &[data-state='open'] {
     border-color: ${color.accent};
-    background: ${color.accentWeak};
+  }
+  ${media.compact} {
+    min-height: 44px;
   }
 `
 
@@ -71,34 +87,43 @@ const Content = styled(Popover.Content)`
   max-height: min(70vh, var(--radix-popover-content-available-height));
   overflow: auto;
   overscroll-behavior: contain;
-  border: 1px solid ${color.lineStrong};
-  border-radius: 10px;
-  padding: 14px;
+  padding: ${space['3-5']};
+  border: 1px solid ${color.line};
+  border-radius: ${radius.popover};
   background: ${color.surface};
   color: ${color.fg};
   box-shadow: ${shadow};
-  font-size: 14px;
   overflow-wrap: anywhere;
+  animation: ${open} 120ms ease-out;
+  ${media.reducedMotion} {
+    animation: none;
+  }
 `
 
 const TitleRow = styled.div`
   display: flex;
-  gap: 12px;
+  gap: ${space[3]};
   align-items: center;
   justify-content: space-between;
 `
 
 const Title = styled.h2`
   margin: 0;
-  font-size: 16px;
+  ${type.h2}
 `
 
 const Close = styled.button`
-  min-height: 44px;
+  min-height: 32px;
+  padding: ${space['1-5']} ${space['2-5']};
   border: 1px solid ${color.lineStrong};
-  border-radius: 6px;
-  padding: 6px 10px;
-  background: ${color.surface2};
+  border-radius: ${radius.btn};
+  background: ${color.surface};
   color: ${color.fg};
   cursor: pointer;
+  &:hover {
+    background: ${color.surface2};
+  }
+  ${media.compact} {
+    min-height: 44px;
+  }
 `

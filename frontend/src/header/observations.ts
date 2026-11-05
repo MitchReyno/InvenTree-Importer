@@ -53,37 +53,63 @@ export function safeTargetNavigation(value: string | null | undefined) {
   }
 }
 
+export type TargetTone = 'ok' | 'warn' | 'bad' | 'muted'
+
+/** Connection text, its tone and a short phone-width word. Stale data is never `ok`. */
+export type TargetStatus = { summary: string; tone: TargetTone; short: string }
+
+const UNKNOWN: TargetStatus = {
+  summary: 'InvenTree status unknown',
+  tone: 'muted',
+  short: 'Unknown',
+}
+const UNAVAILABLE: TargetStatus = {
+  summary: 'InvenTree unavailable',
+  tone: 'bad',
+  short: 'Offline',
+}
+
+export function targetStatus(
+  target: ConnectionStatusDto['target'] | undefined,
+  unavailable: boolean,
+  now: number,
+): TargetStatus {
+  if (unavailable) {
+    return UNAVAILABLE
+  }
+  if (!target) {
+    return { summary: 'Reading connection…', tone: 'muted', short: 'Reading…' }
+  }
+  if (target.state === 'unconfigured') {
+    return { summary: 'InvenTree target unconfigured', tone: 'muted', short: 'Not set up' }
+  }
+  if (!target.observed_at || target.freshness === 'unobserved') {
+    return UNKNOWN
+  }
+  if (target.freshness === 'stale' || !observationFresh(target.observed_at, now)) {
+    return { summary: 'InvenTree status stale', tone: 'warn', short: 'Stale' }
+  }
+  if (target.state === 'reachable') {
+    const safeUrl = safeTargetNavigation(target.navigation_url)
+    if (safeUrl) {
+      const hostname = new URL(safeUrl).hostname
+      return { summary: hostname, tone: 'ok', short: hostname }
+    }
+    return { summary: 'InvenTree connected', tone: 'ok', short: 'Connected' }
+  }
+  if (target.state === 'unavailable') {
+    return UNAVAILABLE
+  }
+
+  return UNKNOWN
+}
+
 export function targetSummary(
   target: ConnectionStatusDto['target'] | undefined,
   unavailable: boolean,
   now: number,
 ) {
-  if (unavailable) {
-    return 'InvenTree unavailable'
-  }
-  if (!target) {
-    return 'Reading connection…'
-  }
-  if (target.state === 'unconfigured') {
-    return 'InvenTree target unconfigured'
-  }
-  if (!target.observed_at || target.freshness === 'unobserved') {
-    return 'InvenTree status unknown'
-  }
-  if (target.freshness === 'stale' || !observationFresh(target.observed_at, now)) {
-    return 'InvenTree status stale'
-  }
-  if (target.state === 'reachable') {
-    const safeUrl = safeTargetNavigation(target.navigation_url)
-    if (safeUrl) {
-      return new URL(safeUrl).hostname
-    }
-    return 'InvenTree connected'
-  }
-  if (target.state === 'unavailable') {
-    return 'InvenTree unavailable'
-  }
-  return 'InvenTree status unknown'
+  return targetStatus(target, unavailable, now).summary
 }
 
 export type HeaderWorkItem = HeaderWorkDto['work'][number]

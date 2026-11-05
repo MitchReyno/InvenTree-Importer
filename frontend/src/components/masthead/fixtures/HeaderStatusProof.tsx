@@ -129,7 +129,7 @@ export function HeaderStatusProof() {
       <GlobalStyle />
       <Main>
         <Masthead
-          actions={
+          status={
             <UpdateHealthContext.Provider
               value={{
                 state: 'live',
