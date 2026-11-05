@@ -1,6 +1,6 @@
 # Batch workspace redesign implementation
 
-Maintained implementation handover for [`redesign-batch-workspace`](../../openspec/changes/redesign-batch-workspace/) ([BI-008](../PLANNED_FUNCTIONALITY.md#bi-008--batch-workspace-redesign)). Status: PR-A (Tasks 1–3) in progress on `feat/redesign-batch-workspace-foundation`. Reviews, CI and merges are recorded only after they occur.
+Maintained implementation handover for [`redesign-batch-workspace`](../../openspec/changes/redesign-batch-workspace/) ([BI-008](../PLANNED_FUNCTIONALITY.md#bi-008--batch-workspace-redesign)). Status: PR-A (Tasks 1–3) implemented on `feat/redesign-batch-workspace-foundation`; independent review clear at `9fea7c7`. Reviews, CI and merges are recorded only after they occur.
 
 ## Authority and boundaries
 
@@ -94,4 +94,17 @@ Codex `gpt-6.1-sol`, read-only, against `origin/interactive-app...<head>`; every
 | 8 | `709e181` | 1 Important, 1 Minor | Fixed. At phone width the workflow activity control draws a short word ("Idle", "Reading…", "Stale", "Offline") whenever it has no spinner or segments to show, keeps its hidden live text, and is at least 44×44px; the idle fixture at 390px drew "Idle" at 44×44px, and the unavailable case is unit-tested. The overflow menu's dialog is named "Application options" (tested) |
 | 9 | `1aeef17` | 2 Minor | Fixed. The evidence tile's selection checkbox and preview button draw focus in `photo-fg` (11.6:1 on `photo-stage`, 7.0:1 on the scrim over white, both in the contrast check), the preview's ring inset because the tile clips overflow. Tabs and SubTabs draw focus inside the link so the scrolling row can't clip it, and the record chain keeps 4px of room for focus rings inside its scroll container; no page overflow at 390px or 200% zoom |
 | 10 | `344c432` | 3 Minor | Fixed. The evidence preview's focus is an overlay drawn above the image: a 2px `photo-fg` ring between `photo-stage` bands, so it reads on any picture; keyboard focus on a white preview in the gallery showed the dark–white–dark ring. The breadcrumb container keeps 4px of room for its link's focus ring. The reference picker's pressed option uses `accent-weak` with `fg` text instead of react-select's default blues |
+| 11 | `9fea7c7` | None | Verdict "ready". 292 tests passed in the reviewer's sandbox; token, contrast and literal-colour checks passed |
+
+The commit after `9fea7c7` changes only this handover.
+
+Final checks at `9fea7c7`: frontend typecheck, lint (token freshness, contrast, literal colours, ESLint), 416 tests and production build; `pnpm lint:readability`, `pnpm format:check`, `pnpm lint:markdown`, `openspec validate redesign-batch-workspace --strict`; the masthead mask check passed in every scenario.
+
+### Design system artifact
+
+The [design system](https://claude.ai/artifact/TbKY47cDmdA3Nuh2jufTmo) now carries the same token changes as `frontend/src/theme/tokens.json` (version 7): `photo-scrim` and `photo-fg`, the dark `part-*` values, the Public Sans Variable stack, and `color-scheme` on both theme blocks of its `tokens.css`.
+
+### Remaining for PR-A
+
+D.1 stays open until selected CI is green and the PR is merged.
 
