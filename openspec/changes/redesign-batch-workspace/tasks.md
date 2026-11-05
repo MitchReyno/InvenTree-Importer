@@ -175,7 +175,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Before the adapter, write failing tests mapping each fixture job kind to its step, and asserting that no session appears (RED). GREEN: implement the adapter. Screen layout is verified in the browser.
 - **Verification:** component tests with the fixture profile (no fabricated sessions); a browser check.
 
-- [ ] 7.1 Define the `ProcessingSource` interface and the retained-jobs adapter, with tests mapping each job kind to its step.
+- [x] 7.1 Define the `ProcessingSource` interface and the retained-jobs adapter, with tests mapping each job kind to its step.
 - [ ] 7.2 Build Overview: step progress, the session list, Needs you, batch instructions, activity, and glances.
 - [ ] 7.3 Build the step-page pattern and the Examine, Research, Images and Inventory pages from it.
 - [ ] 7.4 Build the session drawer (status timeline, question, chat), shown only when the adapter reports sessions.

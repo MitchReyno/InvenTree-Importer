@@ -227,3 +227,7 @@ Branch `feat/redesign-batch-workspace-processing` from `4080ea9`. Mitch authoris
 - **12:** the Agents page gets the summary (slots in use against `session_concurrency`, model, waiting count), filters (running, waiting for you, queued, finished today), per-batch groups linking to Processing, and the not-available state.
 - **Deferred to Task 14 per the tasks:** latest status lines on Overview, corrections from step outputs, and slot-counting scenarios.
 
+## PR-C results
+
+- **7.1 adapter:** `frontend/src/processing/source.ts` defines `ProcessingSource` (step progress in counts, open questions with step, subject and assumption, sessions, and jobs per step) and `retainedJobsSource` over the processing snapshot. Reading, Identifying and Examine jobs map to Examine; failed and interrupted count as failed; the three waiting states count as waiting. Sessions come only from jobs with a `session_state`, so the fixture profile yields none. A batch-level job reads "Whole batch" and a subject outside the batch "Unknown subject". Six tests failed first (module missing), then passed. The Capture glance keeps its own small source function until Task 14 supplies live lots.
+
