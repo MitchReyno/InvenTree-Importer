@@ -271,6 +271,7 @@ const styles: StylesConfig<Option, false> = {
     overflowWrap: 'anywhere',
     color: color.fg,
     background: state.isSelected || state.isFocused ? color.accentWeak : 'transparent',
+    ':active': { backgroundColor: color.accentWeak, color: color.fg },
   }),
   noOptionsMessage: (base) => ({ ...base, color: color.muted }),
 }

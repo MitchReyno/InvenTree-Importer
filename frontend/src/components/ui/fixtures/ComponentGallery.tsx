@@ -35,6 +35,10 @@ import { SubTabs, Tabs } from '../Tabs'
 import { Toast } from '../Toast'
 import { Input, Label, Notice, Panel } from '../primitives'
 
+// A blank white page, the hardest ground for a focus ring on a preview.
+const WHITE_PREVIEW =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect width='400' height='300' fill='white'/%3E%3C/svg%3E"
+
 /** Owned browser fixture: every design-system component with synthetic data, no API. */
 export function ComponentGallery() {
   const [view, setView] = useState('workspace')
@@ -209,7 +213,7 @@ export function ComponentGallery() {
         <Section title="Evidence">
           <EvidenceGroup name="Packet front and back" count={3} onRename={() => {}}>
             <EvidenceGrid>
-              <EvidenceTile name="IMG_2041.jpg" support="1 lot" kind="photo" state="ready" selectable selected onOpen={() => {}} />
+              <EvidenceTile name="IMG_2041.jpg" preview={WHITE_PREVIEW} support="1 lot" kind="photo" state="ready" selectable selected onOpen={() => {}} />
               <EvidenceTile name="IMG_2042.jpg" kind="photo" state="preparing" onOpen={() => {}} />
               <EvidenceTile name="slip.pdf" support="2 lots" kind="document" state="failed" onOpen={() => {}} onRetry={() => {}} />
             </EvidenceGrid>

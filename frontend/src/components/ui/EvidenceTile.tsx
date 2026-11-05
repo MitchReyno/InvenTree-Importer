@@ -118,10 +118,21 @@ const Preview = styled.button`
   aspect-ratio: 4 / 3;
   background: ${color.photoStage};
   cursor: zoom-in;
-  /* The tile clips overflow, so the ring sits inside the photo in photo-fg. */
+  position: relative;
+  /* Drawn above the image: a photo-fg ring between photo-stage bands reads on any picture. */
   &:focus-visible {
-    outline-color: ${color.photoFg};
-    outline-offset: -4px;
+    outline: none;
+  }
+  &:focus-visible::after {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border: 2px solid ${color.photoFg};
+    border-radius: ${radius.sm};
+    box-shadow:
+      0 0 0 2px ${color.photoStage},
+      inset 0 0 0 2px ${color.photoStage};
+    pointer-events: none;
   }
 `
 

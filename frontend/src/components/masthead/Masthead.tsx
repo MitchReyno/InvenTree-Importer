@@ -158,6 +158,9 @@ const Crumbs = styled.div`
   min-width: 0;
   flex: 0 1 auto;
   overflow: hidden;
+  /* Room for the link's focus ring inside the clipped box. */
+  margin: -4px;
+  padding: 4px;
   ${media.compact} {
     display: none;
   }
