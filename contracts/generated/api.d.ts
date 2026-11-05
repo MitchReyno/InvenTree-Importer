@@ -4747,13 +4747,13 @@ export interface components {
                 id: string;
                 batch_id: string;
                 attempt_id: string;
-                stage: "reading" | "identifying" | "research" | "images" | "inventory";
+                stage: "examine" | "reading" | "identifying" | "research" | "images" | "inventory";
                 state: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
                 input_current: boolean | null;
                 occupies_lane: boolean;
                 blocked_code: ("media_not_ready" | "media_input_capacity" | "worker_version_conflict") | null;
                 steps: {
-                    stage: "reading" | "identifying" | "research" | "images" | "inventory";
+                    stage: "examine" | "reading" | "identifying" | "research" | "images" | "inventory";
                     state: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
                 }[];
                 steps_complete: boolean;
@@ -4775,7 +4775,7 @@ export interface components {
                 attempt_id: string;
                 batch_id: string;
                 job_id: string;
-                stage: "reading" | "identifying" | "research" | "images" | "inventory";
+                stage: "examine" | "reading" | "identifying" | "research" | "images" | "inventory";
                 state: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
                 selection: {
                     provider: "codex" | "claude";
@@ -5634,6 +5634,1441 @@ export interface components {
                 state: "queued" | "running" | "stopping" | "settled_complete" | "settled_incomplete" | "recovery_required";
             }[];
             truncated: boolean;
+        };
+        ProcessingStageV2: "examine" | "reading" | "identifying" | "research" | "images" | "inventory";
+        ProcessingInputV6: {
+            /** @constant */
+            schema_version: "bench-intake-input/6";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location" | "category" | "parameter_template" | "category_parameter" | "company";
+                mapping?: {
+                    /** @constant */
+                    kind: "category";
+                } | {
+                    /** @constant */
+                    kind: "parameter_template";
+                    model_type: "part.part" | null;
+                    enabled: boolean;
+                } | {
+                    /** @constant */
+                    kind: "category_parameter";
+                    /** Format: int64 */
+                    category_id: string;
+                    /** Format: int64 */
+                    template_id: string;
+                } | {
+                    /** @constant */
+                    kind: "company";
+                    manufacturer: boolean;
+                    supplier: boolean;
+                };
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            instruction_sha256: string;
+            /** @constant */
+            tool_profile_version: "native-session-tools/1";
+            media: {
+                manifest: string;
+                sha256: string;
+            };
+            pinned_proposal_ids: string[];
+            /** @constant */
+            profile_id: "native-agent/2";
+            /** @constant */
+            instruction_version: "native-agent/2";
+            agent: {
+                provider: "codex" | "claude";
+                authentication: "api_key" | "subscription";
+                model: string;
+            };
+            /** Format: int64 */
+            settings_revision: string;
+            /** @constant */
+            stage: "examine";
+            subject_id: null;
+            subject: null;
+            linked_part: null;
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-input/6";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location" | "category" | "parameter_template" | "category_parameter" | "company";
+                mapping?: {
+                    /** @constant */
+                    kind: "category";
+                } | {
+                    /** @constant */
+                    kind: "parameter_template";
+                    model_type: "part.part" | null;
+                    enabled: boolean;
+                } | {
+                    /** @constant */
+                    kind: "category_parameter";
+                    /** Format: int64 */
+                    category_id: string;
+                    /** Format: int64 */
+                    template_id: string;
+                } | {
+                    /** @constant */
+                    kind: "company";
+                    manufacturer: boolean;
+                    supplier: boolean;
+                };
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            instruction_sha256: string;
+            /** @constant */
+            tool_profile_version: "native-session-tools/1";
+            media: {
+                manifest: string;
+                sha256: string;
+            };
+            pinned_proposal_ids: string[];
+            /** @constant */
+            profile_id: "native-agent/2";
+            /** @constant */
+            instruction_version: "native-agent/2";
+            agent: {
+                provider: "codex" | "claude";
+                authentication: "api_key" | "subscription";
+                model: string;
+            };
+            /** Format: int64 */
+            settings_revision: string;
+            stage: "research" | "images" | "inventory";
+            subject_id: string;
+            subject: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                contribution_key: string;
+                part_subject_id: string | null;
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                /** @constant */
+                retired?: true;
+            } | {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "create";
+                    spec: {
+                        name: string;
+                        category: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        parameters: {
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            value: string;
+                        }[];
+                        manufacturer: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            mpn: string;
+                        };
+                        supplier: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sku: string;
+                        };
+                        tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            };
+            linked_part: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "create";
+                    spec: {
+                        name: string;
+                        category: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        parameters: {
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            value: string;
+                        }[];
+                        manufacturer: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            mpn: string;
+                        };
+                        supplier: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sku: string;
+                        };
+                        tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            } | null;
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-input/6";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location" | "category" | "parameter_template" | "category_parameter" | "company";
+                mapping?: {
+                    /** @constant */
+                    kind: "category";
+                } | {
+                    /** @constant */
+                    kind: "parameter_template";
+                    model_type: "part.part" | null;
+                    enabled: boolean;
+                } | {
+                    /** @constant */
+                    kind: "category_parameter";
+                    /** Format: int64 */
+                    category_id: string;
+                    /** Format: int64 */
+                    template_id: string;
+                } | {
+                    /** @constant */
+                    kind: "company";
+                    manufacturer: boolean;
+                    supplier: boolean;
+                };
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            instruction_sha256: string;
+            /** @constant */
+            tool_profile_version: "native-session-tools/1";
+            media: {
+                manifest: string;
+                sha256: string;
+            };
+            pinned_proposal_ids: string[];
+            /** @constant */
+            profile_id: "synthetic-session/1";
+            /** @constant */
+            instruction_version: "synthetic-session/1";
+            agent: null;
+            settings_revision: null;
+            /** @constant */
+            stage: "examine";
+            subject_id: null;
+            subject: null;
+            linked_part: null;
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-input/6";
+            batch_id: string;
+            source_id: string;
+            /** Format: int64 */
+            capture_revision: string;
+            defaults: {
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+            };
+            notes: {
+                id: string;
+                subject_id: string | null;
+                text: string;
+                actor_id: string;
+                created_at: string;
+                /** @constant */
+                producer: "human";
+            }[];
+            observations: {
+                id: string;
+                model: "part" | "location" | "category" | "parameter_template" | "category_parameter" | "company";
+                mapping?: {
+                    /** @constant */
+                    kind: "category";
+                } | {
+                    /** @constant */
+                    kind: "parameter_template";
+                    model_type: "part.part" | null;
+                    enabled: boolean;
+                } | {
+                    /** @constant */
+                    kind: "category_parameter";
+                    /** Format: int64 */
+                    category_id: string;
+                    /** Format: int64 */
+                    template_id: string;
+                } | {
+                    /** @constant */
+                    kind: "company";
+                    manufacturer: boolean;
+                    supplier: boolean;
+                };
+                /** Format: int64 */
+                pk: string;
+                target_context_id: string;
+                label: string;
+                observed_at: string;
+            }[];
+            instruction_sha256: string;
+            /** @constant */
+            tool_profile_version: "native-session-tools/1";
+            media: {
+                manifest: string;
+                sha256: string;
+            };
+            pinned_proposal_ids: string[];
+            /** @constant */
+            profile_id: "synthetic-session/1";
+            /** @constant */
+            instruction_version: "synthetic-session/1";
+            agent: null;
+            settings_revision: null;
+            stage: "research" | "images" | "inventory";
+            subject_id: string;
+            subject: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                contribution_key: string;
+                part_subject_id: string | null;
+                quantity: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: string;
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                location: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "inherit";
+                };
+                /** @constant */
+                retired?: true;
+            } | {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "create";
+                    spec: {
+                        name: string;
+                        category: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        parameters: {
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            value: string;
+                        }[];
+                        manufacturer: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            mpn: string;
+                        };
+                        supplier: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sku: string;
+                        };
+                        tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            };
+            linked_part: {
+                id: string;
+                label: string;
+                /** Format: int64 */
+                revision: string;
+                choice: {
+                    /** @constant */
+                    mode: "unset";
+                } | {
+                    /** @constant */
+                    mode: "unknown";
+                } | {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    mode: "create";
+                    spec: {
+                        name: string;
+                        category: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        parameters: {
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            value: string;
+                        }[];
+                        manufacturer: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            mpn: string;
+                        };
+                        supplier: null | {
+                            company: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sku: string;
+                        };
+                        tags: string[];
+                    };
+                };
+                location?: {
+                    /** @constant */
+                    mode: "clear";
+                } | {
+                    /** @constant */
+                    mode: "set";
+                    value: {
+                        observation_id: string;
+                        target_context_id: string;
+                        model: "part" | "location";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                };
+            } | null;
+        };
+        ProcessingCommandV5: {
+            /** @constant */
+            schema_version: "bench-intake-processing-command/5";
+            job_id: string;
+            attempt_id: string;
+            input_id: string;
+            input_sha256: string;
+            profile_id: "native-agent/2" | "synthetic-session/1";
+            /** @constant */
+            handler_version: "processing/5";
+            command_id: string;
+        };
+        ProcessingField: "markings" | "identity" | "quantity" | "research" | "images";
+        ProcessingReliance: {
+            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            } | {
+                /** @constant */
+                kind: "evidence_observation";
+                evidence_observation_id: string;
+                /** Format: int64 */
+                revision: string;
+            } | {
+                /** @constant */
+                kind: "observation_set";
+                lot_id: string;
+                /** Format: int64 */
+                version: string;
+            } | {
+                /** @constant */
+                kind: "inbox_item";
+                inbox_item_id: string;
+            } | {
+                /** @constant */
+                kind: "proposal";
+                proposal_id: string;
+            })[];
+        };
+        CatalogueProposal: {
+            category: ({
+                /** @constant */
+                choice: "existing";
+                reference: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            } | {
+                /** @constant */
+                choice: "proposed_new";
+                name: string;
+                reason: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }) | null;
+            parameters: {
+                name: string;
+                value: string;
+                template: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "parameter_template";
+                    /** Format: int64 */
+                    pk: string;
+                } | null;
+                category_mapping: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category_parameter";
+                    /** Format: int64 */
+                    pk: string;
+                } | null;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            }[];
+            manufacturer: {
+                company: {
+                    /** @constant */
+                    choice: "existing";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "company";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                } | {
+                    /** @constant */
+                    choice: "proposed_new";
+                    name: string;
+                    reason: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                };
+                mpn: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            } | null;
+            supplier: {
+                company: {
+                    /** @constant */
+                    choice: "existing";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "company";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                } | {
+                    /** @constant */
+                    choice: "proposed_new";
+                    name: string;
+                    reason: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                };
+                sku: string | null;
+                price: {
+                    amount: string;
+                    currency: string;
+                } | null;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            } | null;
+            description: {
+                text: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+            } | null;
+        };
+        ProcessingProposalV5: {
+            /** @constant */
+            schema_version: "bench-intake-proposal/5";
+            subject_id: string;
+            summary: string;
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+            quantity?: {
+                value: string;
+                /** @constant */
+                status: "estimated";
+            };
+            tags?: string[];
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            catalogue?: {
+                category: ({
+                    /** @constant */
+                    choice: "existing";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                } | {
+                    /** @constant */
+                    choice: "proposed_new";
+                    name: string;
+                    reason: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }) | null;
+                parameters: {
+                    name: string;
+                    value: string;
+                    template: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "parameter_template";
+                        /** Format: int64 */
+                        pk: string;
+                    } | null;
+                    category_mapping: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category_parameter";
+                        /** Format: int64 */
+                        pk: string;
+                    } | null;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }[];
+                manufacturer: {
+                    company: {
+                        /** @constant */
+                        choice: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "company";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    } | {
+                        /** @constant */
+                        choice: "proposed_new";
+                        name: string;
+                        reason: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    };
+                    mpn: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                } | null;
+                supplier: {
+                    company: {
+                        /** @constant */
+                        choice: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "company";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    } | {
+                        /** @constant */
+                        choice: "proposed_new";
+                        name: string;
+                        reason: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    };
+                    sku: string | null;
+                    price: {
+                        amount: string;
+                        currency: string;
+                    } | null;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                } | null;
+                description: {
+                    text: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                } | null;
+            };
         };
         ProcessingInputV4: {
             /** @constant */
@@ -9527,6 +10962,17 @@ export interface components {
         };
         ProcessingCommand: {
             /** @constant */
+            schema_version: "bench-intake-processing-command/5";
+            job_id: string;
+            attempt_id: string;
+            input_id: string;
+            input_sha256: string;
+            profile_id: "native-agent/2" | "synthetic-session/1";
+            /** @constant */
+            handler_version: "processing/5";
+            command_id: string;
+        } | {
+            /** @constant */
             schema_version: "bench-intake-processing-command/4";
             job_id: string;
             attempt_id: string;
@@ -9704,6 +11150,270 @@ export interface components {
                 status: "estimated";
             };
             tags?: string[];
+        } | {
+            /** @constant */
+            schema_version: "bench-intake-proposal/5";
+            subject_id: string;
+            summary: string;
+            sources: ({
+                /** @constant */
+                kind: "note";
+                note_id: string;
+                text_sha256: string;
+            } | {
+                /** @constant */
+                kind: "media_version";
+                evidence_id: string;
+                version_id: string;
+                sha256: string;
+            })[];
+            quantity?: {
+                value: string;
+                /** @constant */
+                status: "estimated";
+            };
+            tags?: string[];
+            relies_on: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "evidence_observation";
+                    evidence_observation_id: string;
+                    /** Format: int64 */
+                    revision: string;
+                } | {
+                    /** @constant */
+                    kind: "observation_set";
+                    lot_id: string;
+                    /** Format: int64 */
+                    version: string;
+                } | {
+                    /** @constant */
+                    kind: "inbox_item";
+                    inbox_item_id: string;
+                } | {
+                    /** @constant */
+                    kind: "proposal";
+                    proposal_id: string;
+                })[];
+            };
+            catalogue?: {
+                category: ({
+                    /** @constant */
+                    choice: "existing";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                } | {
+                    /** @constant */
+                    choice: "proposed_new";
+                    name: string;
+                    reason: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }) | null;
+                parameters: {
+                    name: string;
+                    value: string;
+                    template: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "parameter_template";
+                        /** Format: int64 */
+                        pk: string;
+                    } | null;
+                    category_mapping: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category_parameter";
+                        /** Format: int64 */
+                        pk: string;
+                    } | null;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                }[];
+                manufacturer: {
+                    company: {
+                        /** @constant */
+                        choice: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "company";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    } | {
+                        /** @constant */
+                        choice: "proposed_new";
+                        name: string;
+                        reason: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    };
+                    mpn: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                } | null;
+                supplier: {
+                    company: {
+                        /** @constant */
+                        choice: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "company";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    } | {
+                        /** @constant */
+                        choice: "proposed_new";
+                        name: string;
+                        reason: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    };
+                    sku: string | null;
+                    price: {
+                        amount: string;
+                        currency: string;
+                    } | null;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                } | null;
+                description: {
+                    text: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                } | null;
+            };
         };
         ProcessingProposalV4: {
             /** @constant */
@@ -10050,8 +11760,8 @@ export interface components {
         };
         ProcessingJob: {
             id: string;
-            subject_id: string;
-            stage: "reading" | "identifying" | "research" | "images" | "inventory";
+            subject_id: string | null;
+            stage: "examine" | "reading" | "identifying" | "research" | "images" | "inventory";
             /** Format: int64 */
             revision: string;
             state: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
@@ -10131,6 +11841,270 @@ export interface components {
                         status: "estimated";
                     };
                     tags?: string[];
+                } | {
+                    /** @constant */
+                    schema_version: "bench-intake-proposal/5";
+                    subject_id: string;
+                    summary: string;
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    })[];
+                    quantity?: {
+                        value: string;
+                        /** @constant */
+                        status: "estimated";
+                    };
+                    tags?: string[];
+                    relies_on: {
+                        fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "evidence_observation";
+                            evidence_observation_id: string;
+                            /** Format: int64 */
+                            revision: string;
+                        } | {
+                            /** @constant */
+                            kind: "observation_set";
+                            lot_id: string;
+                            /** Format: int64 */
+                            version: string;
+                        } | {
+                            /** @constant */
+                            kind: "inbox_item";
+                            inbox_item_id: string;
+                        } | {
+                            /** @constant */
+                            kind: "proposal";
+                            proposal_id: string;
+                        })[];
+                    };
+                    catalogue?: {
+                        category: ({
+                            /** @constant */
+                            choice: "existing";
+                            reference: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        } | {
+                            /** @constant */
+                            choice: "proposed_new";
+                            name: string;
+                            reason: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }) | null;
+                        parameters: {
+                            name: string;
+                            value: string;
+                            template: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "parameter_template";
+                                /** Format: int64 */
+                                pk: string;
+                            } | null;
+                            category_mapping: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "category_parameter";
+                                /** Format: int64 */
+                                pk: string;
+                            } | null;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        }[];
+                        manufacturer: {
+                            company: {
+                                /** @constant */
+                                choice: "existing";
+                                reference: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "company";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            } | {
+                                /** @constant */
+                                choice: "proposed_new";
+                                name: string;
+                                reason: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            };
+                            mpn: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        } | null;
+                        supplier: {
+                            company: {
+                                /** @constant */
+                                choice: "existing";
+                                reference: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "company";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            } | {
+                                /** @constant */
+                                choice: "proposed_new";
+                                name: string;
+                                reason: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            };
+                            sku: string | null;
+                            price: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        } | null;
+                        description: {
+                            text: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        } | null;
+                    };
                 };
             }[];
             questions: {
@@ -10156,8 +12130,8 @@ export interface components {
             capture_revision: string;
             jobs: {
                 id: string;
-                subject_id: string;
-                stage: "reading" | "identifying" | "research" | "images" | "inventory";
+                subject_id: string | null;
+                stage: "examine" | "reading" | "identifying" | "research" | "images" | "inventory";
                 /** Format: int64 */
                 revision: string;
                 state: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
@@ -10237,6 +12211,270 @@ export interface components {
                             status: "estimated";
                         };
                         tags?: string[];
+                    } | {
+                        /** @constant */
+                        schema_version: "bench-intake-proposal/5";
+                        subject_id: string;
+                        summary: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                        quantity?: {
+                            value: string;
+                            /** @constant */
+                            status: "estimated";
+                        };
+                        tags?: string[];
+                        relies_on: {
+                            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "evidence_observation";
+                                evidence_observation_id: string;
+                                /** Format: int64 */
+                                revision: string;
+                            } | {
+                                /** @constant */
+                                kind: "observation_set";
+                                lot_id: string;
+                                /** Format: int64 */
+                                version: string;
+                            } | {
+                                /** @constant */
+                                kind: "inbox_item";
+                                inbox_item_id: string;
+                            } | {
+                                /** @constant */
+                                kind: "proposal";
+                                proposal_id: string;
+                            })[];
+                        };
+                        catalogue?: {
+                            category: ({
+                                /** @constant */
+                                choice: "existing";
+                                reference: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "category";
+                                    /** Format: int64 */
+                                    pk: string;
+                                };
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            } | {
+                                /** @constant */
+                                choice: "proposed_new";
+                                name: string;
+                                reason: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }) | null;
+                            parameters: {
+                                name: string;
+                                value: string;
+                                template: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "parameter_template";
+                                    /** Format: int64 */
+                                    pk: string;
+                                } | null;
+                                category_mapping: {
+                                    observation_id: string;
+                                    target_context_id: string;
+                                    /** @constant */
+                                    model: "category_parameter";
+                                    /** Format: int64 */
+                                    pk: string;
+                                } | null;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            }[];
+                            manufacturer: {
+                                company: {
+                                    /** @constant */
+                                    choice: "existing";
+                                    reference: {
+                                        observation_id: string;
+                                        target_context_id: string;
+                                        /** @constant */
+                                        model: "company";
+                                        /** Format: int64 */
+                                        pk: string;
+                                    };
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                } | {
+                                    /** @constant */
+                                    choice: "proposed_new";
+                                    name: string;
+                                    reason: string;
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                };
+                                mpn: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            } | null;
+                            supplier: {
+                                company: {
+                                    /** @constant */
+                                    choice: "existing";
+                                    reference: {
+                                        observation_id: string;
+                                        target_context_id: string;
+                                        /** @constant */
+                                        model: "company";
+                                        /** Format: int64 */
+                                        pk: string;
+                                    };
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                } | {
+                                    /** @constant */
+                                    choice: "proposed_new";
+                                    name: string;
+                                    reason: string;
+                                    sources: ({
+                                        /** @constant */
+                                        kind: "note";
+                                        note_id: string;
+                                        text_sha256: string;
+                                    } | {
+                                        /** @constant */
+                                        kind: "media_version";
+                                        evidence_id: string;
+                                        version_id: string;
+                                        sha256: string;
+                                    })[];
+                                };
+                                sku: string | null;
+                                price: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            } | null;
+                            description: {
+                                text: string;
+                                sources: ({
+                                    /** @constant */
+                                    kind: "note";
+                                    note_id: string;
+                                    text_sha256: string;
+                                } | {
+                                    /** @constant */
+                                    kind: "media_version";
+                                    evidence_id: string;
+                                    version_id: string;
+                                    sha256: string;
+                                })[];
+                            } | null;
+                        };
                     };
                 }[];
                 questions: {
@@ -11113,8 +13351,8 @@ export interface components {
                 attempt_id: string;
                 batch_id: string;
                 job_id: string;
-                subject_id: string;
-                stage: "reading" | "identifying" | "research" | "images" | "inventory";
+                subject_id: string | null;
+                stage: "examine" | "reading" | "identifying" | "research" | "images" | "inventory";
                 state: "queued" | "running" | "waiting_for_user" | "waiting_for_login" | "waiting_for_capacity" | "ready" | "failed" | "cancelled" | "superseded" | "interrupted";
                 latest_on_job: boolean;
                 selection: {
@@ -11133,6 +13371,457 @@ export interface components {
                 occupies_lane: boolean;
             }[];
             next_before: string | null;
+        };
+        SessionState: "queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable";
+        SessionStatusArgs: {
+            text: string;
+        };
+        SessionAskArgs: {
+            kind: "quantity" | "clarification";
+            subject_id: string | null;
+            prompt: string;
+            reason: string;
+            fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+            assumption: string;
+        };
+        SessionReplyArgs: {
+            inbox_item_id: string;
+            text: string;
+        };
+        SessionReadInboxArgs: {
+            /** Format: int64 */
+            after_seq: string;
+        };
+        SessionFetchEvidenceArgs: {
+            evidence_id: string;
+            version_id?: string;
+            page?: number;
+            region?: {
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+                source_width: number;
+                source_height: number;
+            };
+        };
+        SessionProposeArgs: {
+            proposal: {
+                /** @constant */
+                schema_version: "bench-intake-proposal/5";
+                subject_id: string;
+                summary: string;
+                sources: ({
+                    /** @constant */
+                    kind: "note";
+                    note_id: string;
+                    text_sha256: string;
+                } | {
+                    /** @constant */
+                    kind: "media_version";
+                    evidence_id: string;
+                    version_id: string;
+                    sha256: string;
+                })[];
+                quantity?: {
+                    value: string;
+                    /** @constant */
+                    status: "estimated";
+                };
+                tags?: string[];
+                relies_on: {
+                    fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                    sources: ({
+                        /** @constant */
+                        kind: "note";
+                        note_id: string;
+                        text_sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "media_version";
+                        evidence_id: string;
+                        version_id: string;
+                        sha256: string;
+                    } | {
+                        /** @constant */
+                        kind: "evidence_observation";
+                        evidence_observation_id: string;
+                        /** Format: int64 */
+                        revision: string;
+                    } | {
+                        /** @constant */
+                        kind: "observation_set";
+                        lot_id: string;
+                        /** Format: int64 */
+                        version: string;
+                    } | {
+                        /** @constant */
+                        kind: "inbox_item";
+                        inbox_item_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "proposal";
+                        proposal_id: string;
+                    })[];
+                };
+                catalogue?: {
+                    category: ({
+                        /** @constant */
+                        choice: "existing";
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    } | {
+                        /** @constant */
+                        choice: "proposed_new";
+                        name: string;
+                        reason: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }) | null;
+                    parameters: {
+                        name: string;
+                        value: string;
+                        template: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "parameter_template";
+                            /** Format: int64 */
+                            pk: string;
+                        } | null;
+                        category_mapping: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category_parameter";
+                            /** Format: int64 */
+                            pk: string;
+                        } | null;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    }[];
+                    manufacturer: {
+                        company: {
+                            /** @constant */
+                            choice: "existing";
+                            reference: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        } | {
+                            /** @constant */
+                            choice: "proposed_new";
+                            name: string;
+                            reason: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        };
+                        mpn: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    } | null;
+                    supplier: {
+                        company: {
+                            /** @constant */
+                            choice: "existing";
+                            reference: {
+                                observation_id: string;
+                                target_context_id: string;
+                                /** @constant */
+                                model: "company";
+                                /** Format: int64 */
+                                pk: string;
+                            };
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        } | {
+                            /** @constant */
+                            choice: "proposed_new";
+                            name: string;
+                            reason: string;
+                            sources: ({
+                                /** @constant */
+                                kind: "note";
+                                note_id: string;
+                                text_sha256: string;
+                            } | {
+                                /** @constant */
+                                kind: "media_version";
+                                evidence_id: string;
+                                version_id: string;
+                                sha256: string;
+                            })[];
+                        };
+                        sku: string | null;
+                        price: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    } | null;
+                    description: {
+                        text: string;
+                        sources: ({
+                            /** @constant */
+                            kind: "note";
+                            note_id: string;
+                            text_sha256: string;
+                        } | {
+                            /** @constant */
+                            kind: "media_version";
+                            evidence_id: string;
+                            version_id: string;
+                            sha256: string;
+                        })[];
+                    } | null;
+                };
+            };
+        };
+        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running";
+        SessionToolResult: {
+            /** @constant */
+            ok: true;
+            pending_inbox: number;
+            /** Format: int64 */
+            revision?: string;
+        } | {
+            /** @constant */
+            ok: false;
+            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running";
+            message: string;
+            pending_inbox: number;
+            /** Format: int64 */
+            revision?: string;
+        };
+        SessionOutboxItem: {
+            session_id: string;
+            /** Format: int64 */
+            seq: string;
+            created_at: string;
+            /** @constant */
+            kind: "status";
+            payload: {
+                text: string;
+            };
+        } | {
+            session_id: string;
+            /** Format: int64 */
+            seq: string;
+            created_at: string;
+            /** @constant */
+            kind: "observation";
+            payload: {
+                evidence_observation_id: string;
+            };
+        } | {
+            session_id: string;
+            /** Format: int64 */
+            seq: string;
+            created_at: string;
+            /** @constant */
+            kind: "lot";
+            payload: {
+                lot_id: string;
+            };
+        } | {
+            session_id: string;
+            /** Format: int64 */
+            seq: string;
+            created_at: string;
+            /** @constant */
+            kind: "regroup";
+            payload: {
+                lot_ids: string[];
+            };
+        } | {
+            session_id: string;
+            /** Format: int64 */
+            seq: string;
+            created_at: string;
+            /** @constant */
+            kind: "proposal";
+            payload: {
+                proposal_id: string;
+            };
+        } | {
+            session_id: string;
+            /** Format: int64 */
+            seq: string;
+            created_at: string;
+            /** @constant */
+            kind: "question";
+            payload: {
+                question_id: string;
+            };
+        } | {
+            session_id: string;
+            /** Format: int64 */
+            seq: string;
+            created_at: string;
+            /** @constant */
+            kind: "reply";
+            payload: {
+                inbox_item_id: string;
+                text: string;
+            };
+        };
+        SessionInboxItem: {
+            id: string;
+            /** Format: int64 */
+            seq: string;
+            created_at: string;
+            /** @constant */
+            kind: "answer";
+            payload: {
+                question_id: string;
+                answer_id: string;
+                value: {
+                    /** @constant */
+                    kind: "quantity";
+                    value: string;
+                    basis: "counted" | "estimated";
+                } | {
+                    /** @constant */
+                    kind: "clarification";
+                    text: string;
+                };
+            };
+        } | {
+            id: string;
+            /** Format: int64 */
+            seq: string;
+            created_at: string;
+            /** @constant */
+            kind: "chat";
+            payload: {
+                text: string;
+            };
+        } | {
+            id: string;
+            /** Format: int64 */
+            seq: string;
+            created_at: string;
+            /** @constant */
+            kind: "evidence";
+            payload: {
+                evidence_id: string;
+                version_id: string;
+            };
+        } | {
+            id: string;
+            /** Format: int64 */
+            seq: string;
+            created_at: string;
+            /** @constant */
+            kind: "revision";
+            payload: {
+                fields: ("markings" | "identity" | "quantity" | "research" | "images")[];
+                reason: string;
+            };
+        };
+        SessionInboxSubmission: {
+            idempotency_key: string;
+            text: string;
+        };
+        SessionInboxReceipt: {
+            item_id: string;
+            /** Format: int64 */
+            seq: string;
         };
     };
     responses: never;
@@ -11215,6 +13904,13 @@ export type ManualRecoveryCommand = components['schemas']['ManualRecoveryCommand
 export type ManualRun = components['schemas']['ManualRun']
 export type ManualWorkspace = components['schemas']['ManualWorkspace']
 export type ManualActivity = components['schemas']['ManualActivity']
+export type ProcessingStageV2 = components['schemas']['ProcessingStageV2']
+export type ProcessingInputV6 = components['schemas']['ProcessingInputV6']
+export type ProcessingCommandV5 = components['schemas']['ProcessingCommandV5']
+export type ProcessingField = components['schemas']['ProcessingField']
+export type ProcessingReliance = components['schemas']['ProcessingReliance']
+export type CatalogueProposal = components['schemas']['CatalogueProposal']
+export type ProcessingProposalV5 = components['schemas']['ProcessingProposalV5']
 export type ProcessingInputV4 = components['schemas']['ProcessingInputV4']
 export type ProcessingCommandV4 = components['schemas']['ProcessingCommandV4']
 export type ProcessingEnvelopeV4 = components['schemas']['ProcessingEnvelopeV4']
@@ -11291,3 +13987,16 @@ export type AgentSelection = components['schemas']['AgentSelection']
 export type AgentSettings = components['schemas']['AgentSettings']
 export type AgentSettingsUpdate = components['schemas']['AgentSettingsUpdate']
 export type AgentSessionList = components['schemas']['AgentSessionList']
+export type SessionState = components['schemas']['SessionState']
+export type SessionStatusArgs = components['schemas']['SessionStatusArgs']
+export type SessionAskArgs = components['schemas']['SessionAskArgs']
+export type SessionReplyArgs = components['schemas']['SessionReplyArgs']
+export type SessionReadInboxArgs = components['schemas']['SessionReadInboxArgs']
+export type SessionFetchEvidenceArgs = components['schemas']['SessionFetchEvidenceArgs']
+export type SessionProposeArgs = components['schemas']['SessionProposeArgs']
+export type SessionToolError = components['schemas']['SessionToolError']
+export type SessionToolResult = components['schemas']['SessionToolResult']
+export type SessionOutboxItem = components['schemas']['SessionOutboxItem']
+export type SessionInboxItem = components['schemas']['SessionInboxItem']
+export type SessionInboxSubmission = components['schemas']['SessionInboxSubmission']
+export type SessionInboxReceipt = components['schemas']['SessionInboxReceipt']

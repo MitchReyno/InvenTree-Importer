@@ -1,6 +1,6 @@
 import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Id } from './scalars.ts'
-import { ProcessingStage, ProcessingState, ProcessingBlocker } from './processing.ts'
+import { ProcessingStageV2, ProcessingState, ProcessingBlocker } from './processing.ts'
 import { ManualRun } from './manual.ts'
 import { AgentSelection } from './agent-selection.ts'
 
@@ -55,12 +55,12 @@ export const HeaderWork = object({
         id: Id,
         batch_id: Id,
         attempt_id: Id,
-        stage: ProcessingStage,
+        stage: ProcessingStageV2,
         state: ProcessingState,
         input_current: Type.Union([Type.Boolean(), Type.Null()]),
         occupies_lane: Type.Boolean(),
         blocked_code: Type.Union([ProcessingBlocker, Type.Null()]),
-        steps: Type.Array(object({ stage: ProcessingStage, state: ProcessingState }), {
+        steps: Type.Array(object({ stage: ProcessingStageV2, state: ProcessingState }), {
           maxItems: 5,
         }),
         steps_complete: Type.Boolean(),
@@ -98,7 +98,7 @@ export const HeaderWork = object({
       attempt_id: Id,
       batch_id: Id,
       job_id: Id,
-      stage: ProcessingStage,
+      stage: ProcessingStageV2,
       state: ProcessingState,
       selection: AgentSelection,
       actual_model: Type.Union([Type.String({ maxLength: 128 }), Type.Null()]),

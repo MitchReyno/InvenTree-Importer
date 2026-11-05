@@ -418,7 +418,9 @@ export async function inboxProcessing(
     return { open_questions: 0, active_jobs: 0 }
   }
   const snapshot = await processingSnapshot(client, config, capture)
-  const jobs = snapshot.jobs.filter((job) => activeSubjects.has(job.subject_id))
+  const jobs = snapshot.jobs.filter(
+    (job) => job.subject_id !== null && activeSubjects.has(job.subject_id),
+  )
   return {
     open_questions: jobs
       .flatMap((job) => job.questions)

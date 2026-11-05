@@ -89,11 +89,11 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm contracts:check`, `pnpm test:intake`, `pnpm test:intake:pg` (the migration applies on a fresh DB and on one migrated to the latest existing migration).
 - **Risks and decisions:** keep migrations additive so that rolling back means only switching the profile.
 
-- [ ] 2.1 Baseline: run the contract and PG suites, and record the counts.
-- [ ] 2.2 RED: add the failing contract/bounds tests and the migration constraint tests.
-- [ ] 2.3 GREEN: add the contracts, migration and grants; regenerate client contracts.
-- [ ] 2.4 Verify that retained `/1`–`/5` fixtures still decode byte-identically.
-- [ ] 2.5 Record the results in the handover.
+- [x] 2.1 Baseline: run the contract and PG suites, and record the counts.
+- [x] 2.2 RED: add the failing contract/bounds tests and the migration constraint tests.
+- [x] 2.3 GREEN: add the contracts, migration and grants; regenerate client contracts.
+- [x] 2.4 Verify that retained `/1`–`/5` fixtures still decode byte-identically.
+- [x] 2.5 Record the results in the handover.
 
 ## 3. App-owned tool server and session runtime
 

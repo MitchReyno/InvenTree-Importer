@@ -1,6 +1,6 @@
 import { bigint, customType, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type {
-  ProcessingJobDto,
+  ProcessingInputV1Dto,
   ProcessingQuestionDto,
   ProcessingStateDto,
 } from '@invimport/contracts'
@@ -29,8 +29,10 @@ export const processingInputs = pgTable('processing_input', {
 export const processingJobs = pgTable('processing_job', {
   id: uuid().primaryKey(),
   batchId: uuid('batch_id').notNull(),
+  // Only the session profiles' batch-level Examine job has a null subject; its reads arrive
+  // with the lead session, so subject jobs keep this narrower row type until then.
   subjectId: uuid('subject_id').notNull(),
-  stage: text().$type<ProcessingJobDto['stage']>().notNull(),
+  stage: text().$type<ProcessingInputV1Dto['stage']>().notNull(),
   revision: bigint({ mode: 'bigint' }).notNull().default(1n),
   currentAttemptId: uuid('current_attempt_id').notNull(),
   state: text().$type<ProcessingStateDto>().notNull(),

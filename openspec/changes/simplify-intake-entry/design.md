@@ -80,7 +80,8 @@ running ──crash/restart──▶ interrupted ──resume/inbox──▶ que
 ### D4. Inbox and outbox are Processing-owned tables
 
 - `agent_session_outbox(session_id, seq, kind, payload, created_at)` is append-only, with sequences checked by compare-and-set (CAS). `kind` is exactly `status | observation | lot | regroup | proposal | question | reply`; capture writes by lot-forming tools also append their outbox item in the same transaction, so the timeline shows them.
-- `agent_session_inbox(id, session_lineage_id, seq, kind, payload, idempotency_key, created_at)`, plus `agent_session_cursor(session_lineage_id, acked_seq, acked_at)`. Acknowledgements only move the cursor forward (CAS).
+- `agent_session_inbox(id, session_lineage_id, seq, kind, payload, idempotency_key, actor_id, created_at)`, plus `agent_session_cursor(session_lineage_id, acked_seq, acked_at)`. Acknowledgements only move the cursor forward (CAS). A session lineage is its Processing job (`session_lineage_id` references `processing_job`), so pending items and the cursor carry over to a fresh attempt or a fresh provider session on the same job. Outbox and inbox sequences are gap-free: a trigger refuses any `seq` other than the next one.
+- The outbox item (`SessionOutboxItem`) is the session envelope of D1: it binds each item to its session and sequence, and the tool server validates it before it is persisted.
 - Writes reuse the existing transaction, lock order (capture → media → lane/slot → job → attempt → question) and publish-last rules. Hints go out after commit.
 - DBOS delivers wake-ups only: a resume workflow keyed `resume:<session_lineage>:<inbox_high_water>` makes duplicate wake-ups harmless.
 - **Rejected: DBOS `send`/`recv` as the inbox.** Those messages belong to one workflow ID and cannot be listed or queried for the UI or history.

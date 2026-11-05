@@ -362,7 +362,8 @@ export function ProcessingWorkspace({
                   ).catch(() => {})
                 }}
               />
-              {batch.lots.some((lot) => lot.id === job.subject_id) &&
+              {job.subject_id !== null &&
+                batch.lots.some((lot) => lot.id === job.subject_id) &&
                 !retiredLotIds.has(job.subject_id) && (
                   <ReviewLink href={`#${batch.id}/review/${job.subject_id}`}>
                     Open this lot in Review

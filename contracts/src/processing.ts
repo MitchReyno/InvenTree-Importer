@@ -4,6 +4,7 @@ import { CaptureDefaults, CaptureSnapshot } from './capture.ts'
 import { captureTags } from './capture-primitives.ts'
 import { AgentSelection } from './agent-selection.ts'
 import { ResearchReceiptSource } from './research.ts'
+import { mappedReference } from './effects.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -11,6 +12,11 @@ const object = <T extends TProperties>(properties: T) =>
 const text = Type.String({ minLength: 1, maxLength: 2048 })
 const stages = ['reading', 'identifying', 'research', 'images', 'inventory'] as const
 export const ProcessingStage = Type.Union(stages.map((stage) => Type.Literal(stage)))
+/** Stages of the session profiles. Earlier input versions keep `ProcessingStage` unchanged. */
+export const ProcessingStageV2 = Type.Union(
+  (['examine', ...stages] as const).map((stage) => Type.Literal(stage)),
+)
+const lotStages = ['research', 'images', 'inventory'] as const
 export const ProcessingState = Type.Union(
   (
     [
@@ -92,6 +98,57 @@ export const ProcessingInputV5 = object({
   ...ProcessingInputV2.properties,
   schema_version: Type.Literal('bench-intake-input/5'),
 })
+const inputV6Shared = {
+  schema_version: Type.Literal('bench-intake-input/6'),
+  batch_id: Id,
+  source_id: Id,
+  capture_revision: Revision,
+  defaults: CaptureDefaults,
+  notes: ProcessingInputV2.properties.notes,
+  observations: CaptureSnapshot.properties.observations,
+  instruction_sha256: Digest,
+  tool_profile_version: Type.Literal('native-session-tools/1'),
+  media: ProcessingInputV2.properties.media,
+  /** Proposals a successor started from; later revisions arrive as inbox items. */
+  pinned_proposal_ids: Type.Array(Id, { maxItems: 16, uniqueItems: true }),
+}
+const inputV6Profiles = [
+  {
+    profile_id: Type.Literal('native-agent/2'),
+    instruction_version: Type.Literal('native-agent/2'),
+    agent: AgentSelection,
+    settings_revision: Revision,
+  },
+  {
+    profile_id: Type.Literal('synthetic-session/1'),
+    instruction_version: Type.Literal('synthetic-session/1'),
+    agent: Type.Null(),
+    settings_revision: Type.Null(),
+  },
+]
+const inputV6Scopes = [
+  {
+    stage: Type.Literal('examine'),
+    subject_id: Type.Null(),
+    subject: Type.Null(),
+    linked_part: Type.Null(),
+  },
+  {
+    stage: Type.Union(lotStages.map((stage) => Type.Literal(stage))),
+    subject_id: Id,
+    subject: ProcessingInputV2.properties.subject,
+    linked_part: ProcessingInputV2.properties.linked_part,
+  },
+]
+/**
+ * A session's opening manifest: the batch-level Examine lead session, or one per-lot session.
+ * Only the session handler decodes it, so it is not part of `ProcessingInput`.
+ */
+export const ProcessingInputV6 = Type.Union(
+  inputV6Profiles.flatMap((profile) =>
+    inputV6Scopes.map((scope) => object({ ...inputV6Shared, ...profile, ...scope })),
+  ),
+)
 export const ProcessingInput = Type.Union([
   ProcessingInputV1,
   ProcessingInputV2,
@@ -129,7 +186,14 @@ export const ProcessingCommandV4 = object({
   profile_id: Type.Literal('native-agent/1'),
   handler_version: Type.Literal('processing/4'),
 })
+export const ProcessingCommandV5 = object({
+  ...ProcessingCommandV2.properties,
+  schema_version: Type.Literal('bench-intake-processing-command/5'),
+  profile_id: Type.Union([Type.Literal('native-agent/2'), Type.Literal('synthetic-session/1')]),
+  handler_version: Type.Literal('processing/5'),
+})
 export const ProcessingCommand = Type.Union([
+  ProcessingCommandV5,
   ProcessingCommandV4,
   ProcessingCommandV1,
   ProcessingCommandV2,
@@ -193,11 +257,104 @@ export const ProcessingProposalV4 = object({
   quantity: Type.Optional(object({ value: Quantity, status: Type.Literal('estimated') })),
   tags: Type.Optional(captureTags),
 })
+export const ProcessingField = Type.Union(
+  (['markings', 'identity', 'quantity', 'research', 'images'] as const).map((field) =>
+    Type.Literal(field),
+  ),
+)
+export const ProcessingFields = Type.Array(ProcessingField, {
+  minItems: 1,
+  maxItems: 5,
+  uniqueItems: true,
+})
+/** What a session proposal relies on; it stays current while every source is current. */
+export const ProcessingReliance = object({
+  fields: ProcessingFields,
+  sources: Type.Array(
+    Type.Union([
+      ...ProcessingSource.anyOf,
+      object({
+        kind: Type.Literal('evidence_observation'),
+        evidence_observation_id: Id,
+        revision: Revision,
+      }),
+      object({ kind: Type.Literal('observation_set'), lot_id: Id, version: Revision }),
+      object({ kind: Type.Literal('inbox_item'), inbox_item_id: Id }),
+      object({ kind: Type.Literal('proposal'), proposal_id: Id }),
+    ]),
+    { minItems: 1, maxItems: 200, uniqueItems: true },
+  ),
+})
+const catalogueSources = Type.Array(ProcessingSource, {
+  minItems: 1,
+  maxItems: 32,
+  uniqueItems: true,
+})
+const catalogueText = Type.String({ minLength: 1, maxLength: 256 })
+
+const catalogueChoice = <M extends 'category' | 'company'>(model: M) =>
+  Type.Union([
+    object({
+      choice: Type.Literal('existing'),
+      reference: mappedReference(model),
+      sources: catalogueSources,
+    }),
+    object({
+      choice: Type.Literal('proposed_new'),
+      name: catalogueText,
+      reason: text,
+      sources: catalogueSources,
+    }),
+  ])
+
+/**
+ * Catalogue values with their sources. Whether a value can enter a Part spec is assessed
+ * against target observations; unsupported values stay here and are shown with a reason.
+ */
+export const CatalogueProposal = object({
+  category: Type.Union([catalogueChoice('category'), Type.Null()]),
+  parameters: Type.Array(
+    object({
+      name: catalogueText,
+      value: catalogueText,
+      /** Null proposes a new template, or a template not yet mapped to the category. */
+      template: Type.Union([mappedReference('parameter_template'), Type.Null()]),
+      category_mapping: Type.Union([mappedReference('category_parameter'), Type.Null()]),
+      sources: catalogueSources,
+    }),
+    { maxItems: 32 },
+  ),
+  manufacturer: Type.Union([
+    object({ company: catalogueChoice('company'), mpn: catalogueText, sources: catalogueSources }),
+    Type.Null(),
+  ]),
+  supplier: Type.Union([
+    object({
+      company: catalogueChoice('company'),
+      sku: Type.Union([catalogueText, Type.Null()]),
+      price: Type.Union([
+        object({ amount: Quantity, currency: Type.String({ pattern: '^[A-Z]{3}$' }) }),
+        Type.Null(),
+      ]),
+      sources: catalogueSources,
+    }),
+    Type.Null(),
+  ]),
+  description: Type.Union([object({ text, sources: catalogueSources }), Type.Null()]),
+})
+/** A session proposal: `/4` plus what it relies on and a structured catalogue block. */
+export const ProcessingProposalV5 = object({
+  ...ProcessingProposalV4.properties,
+  schema_version: Type.Literal('bench-intake-proposal/5'),
+  relies_on: ProcessingReliance,
+  catalogue: Type.Optional(CatalogueProposal),
+})
 export const ProcessingProposal = Type.Union([
   ProcessingProposalV1,
   ProcessingProposalV2,
   ProcessingProposalV3,
   ProcessingProposalV4,
+  ProcessingProposalV5,
 ])
 
 const runnerBinding = {
@@ -296,8 +453,9 @@ export const ProcessingQuestion = object({
 })
 export const ProcessingJob = object({
   id: Id,
-  subject_id: Id,
-  stage: ProcessingStage,
+  /** Null only for the batch-level Examine lead job. */
+  subject_id: Type.Union([Id, Type.Null()]),
+  stage: ProcessingStageV2,
   revision: Revision,
   state: ProcessingState,
   attempt_id: Id,
@@ -351,6 +509,13 @@ export const ProcessingActivity = object({
   truncated: Type.Boolean(),
 })
 export const processingSchemas = {
+  ProcessingStageV2,
+  ProcessingInputV6,
+  ProcessingCommandV5,
+  ProcessingField,
+  ProcessingReliance,
+  CatalogueProposal,
+  ProcessingProposalV5,
   ProcessingInputV4,
   ProcessingCommandV4,
   ProcessingEnvelopeV4,
@@ -432,3 +597,11 @@ export type ProcessingEnvelopeV3Dto = Static<typeof ProcessingEnvelopeV3>
 export type ProcessingInputV4Dto = Static<typeof ProcessingInputV4>
 export type ProcessingCommandV4Dto = Static<typeof ProcessingCommandV4>
 export type ProcessingEnvelopeV4Dto = Static<typeof ProcessingEnvelopeV4>
+
+export type ProcessingStageV2Dto = Static<typeof ProcessingStageV2>
+export type ProcessingInputV6Dto = Static<typeof ProcessingInputV6>
+export type ProcessingCommandV5Dto = Static<typeof ProcessingCommandV5>
+export type ProcessingFieldDto = Static<typeof ProcessingField>
+export type ProcessingRelianceDto = Static<typeof ProcessingReliance>
+export type CatalogueProposalDto = Static<typeof CatalogueProposal>
+export type ProcessingProposalV5Dto = Static<typeof ProcessingProposalV5>

@@ -2,7 +2,7 @@ import { Type, type Static, type TProperties } from '@sinclair/typebox'
 import { Id, Revision, CursorSequence } from './scalars.ts'
 import {
   ProcessingState,
-  ProcessingStage,
+  ProcessingStageV2,
   ProcessingQuestionSpec,
   ProcessingProposalV2,
 } from './processing.ts'
@@ -26,8 +26,9 @@ export const AgentSessionList = object({
       attempt_id: Id,
       batch_id: Id,
       job_id: Id,
-      subject_id: Id,
-      stage: ProcessingStage,
+      /** Null only for the batch-level Examine lead session. */
+      subject_id: Type.Union([Id, Type.Null()]),
+      stage: ProcessingStageV2,
       state: ProcessingState,
       latest_on_job: Type.Boolean(),
       selection: AgentSelection,
