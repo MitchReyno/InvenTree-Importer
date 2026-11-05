@@ -62,11 +62,11 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Risks and decisions:**
   - Claude's mid-turn stream-JSON behavior cannot be proven offline. Record it as unverified, and keep `read_inbox` as the guaranteed path.
 
-- [ ] 1.1 Install candidate MCP SDK packages in a spike workspace only, and record versions, licences and Node/Fastify compatibility.
-- [ ] 1.2 Build a minimal Streamable HTTP MCP endpoint with bearer auth on loopback, and call it from a scripted client.
-- [ ] 1.3 Confirm the Claude flag combination for a tool-only allowlist and resume using `claude --help` and a fake executable harness. Check whether `--mcp-config` files expand `${VAR}` in headers (decides design D2's secret delivery or its 0600-file fallback). Record anything that needs live confirmation.
-- [ ] 1.4 Confirm the Codex `mcp_servers` override, `thread/resume` and `turn/steer` shapes from `codex app-server generate-json-schema`.
-- [ ] 1.5 Update design D2/D3 with the decisions and pinned versions, and start the handover with the spike evidence.
+- [x] 1.1 Install candidate MCP SDK packages in a spike workspace only, and record versions, licences and Node/Fastify compatibility.
+- [x] 1.2 Build a minimal Streamable HTTP MCP endpoint with bearer auth on loopback, and call it from a scripted client.
+- [x] 1.3 Confirm the Claude flag combination for a tool-only allowlist and resume using `claude --help` and a fake executable harness. Check whether `--mcp-config` files expand `${VAR}` in headers (decides design D2's secret delivery or its 0600-file fallback). Record anything that needs live confirmation.
+- [x] 1.4 Confirm the Codex `mcp_servers` override, `thread/resume` and `turn/steer` shapes from `codex app-server generate-json-schema`.
+- [x] 1.5 Update design D2/D3 with the decisions and pinned versions, and start the handover with the spike evidence.
 
 ## 2. Session contracts and migrations
 
@@ -126,11 +126,11 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Outcome:** both adapters run `/2` sessions that use only app tools, resume finished conversations, deliver in-turn input where supported, and keep the cancel, reap and crash guarantees.
 - **Scope and approach:**
   - `agents/claude.ts`:
-    - Write `mcp.json` with no secret, using `${INTAKE_TOOL_CAPABILITY}` expansion if task 1.3 confirms it; otherwise the 0600 fallback file, deleted as soon as init is confirmed and on cleanup (design D2). Pass the allowlist flags.
+    - Write `mcp.json` with no secret, using `${INTAKE_TOOL_CAPABILITY}` expansion (confirmed in task 1.3). Pass the allowlist flags, without `--safe-mode` (design D2).
     - Remove `--no-session-persistence` for `/2` only, and add `--resume` support.
     - Change the init tool check to app tools only.
     - Write stdin stream-JSON for queued messages.
-  - `agents/codex.ts`: `mcp_servers` override, effective-config check, non-ephemeral threads, `thread/resume`, `turn/steer` with `expectedTurnId`.
+  - `agents/codex.ts`: `mcp_servers` override with `default_tools_approval_mode = "approve"`, `features.goals = false`, effective-config and MCP-status tool checks, non-ephemeral threads, `thread/resume`, `turn/steer` with `expectedTurnId` (design D2/D3).
   - The session state machine (design D3) and the DBOS resume workflow keyed by inbox high-water mark.
   - Fake `claude`/`codex` executables that drive real tool calls, and a `synthetic-session/1` runner.
 - **Prerequisites:** task 3.

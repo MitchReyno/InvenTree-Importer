@@ -38,15 +38,17 @@ The proposal's reuse assessment carries forward unchanged: CLI adapters, the off
 
 The agents worker hosts one MCP endpoint on `127.0.0.1` on an ephemeral port. Each provider run (a start or a resume) gets a fresh random 256-bit capability. The database stores only its SHA-256; the plaintext lives only in worker memory and the child's environment. Tools: `status`, `record_observation`, `propose_lot`, `regroup`, `propose`, `ask`, `reply`, `fetch_evidence`, `read_inbox`. Each session gets only the tools for its stage: the lot-forming tools are given to the Examine lead session alone. Each tool response also carries `pending_inbox: n`, so agents notice queued input without polling.
 
-- **Claude**
-  - Runs with `--tools ""`, `--strict-mcp-config` and `--mcp-config <session-dir>/mcp.json`. The file holds no secret: its `Authorization` header uses `${INTAKE_TOOL_CAPABILITY}` environment expansion, and the capability is set only in the allowlisted child environment.
-  - Task 1.3 must confirm that `--mcp-config` files expand environment variables. If they don't, the fallback is a 0600 file written just before start and deleted as soon as init is confirmed, and on terminal or interrupted cleanup, recorded as a documented exception.
-  - Adds `--allowedTools mcp__intake__*`.
-  - The init check changes from "only StructuredOutput" to "only `mcp__intake__*`".
-- **Codex**
-  - Gets `config` overrides `mcp_servers.intake.url` and `bearer_token_env_var`, with the capability in an allowlisted child environment variable.
-  - The dedicated `CODEX_HOME` preflight is unchanged. The effective config read after `thread/start` must list only `intake`.
-- **SDK line:** task 1.1 decides it. Prefer v2 `@modelcontextprotocol/server` with the Node transport if it supports Node 24 and Streamable HTTP without Express. Otherwise pin v1 1.32.1. Either way, pin an exact version.
+- **Claude** (flags confirmed offline in task 1 against Claude Code 2.1.318; see `spikes/mcp-session-tools/`)
+  - Runs with `--tools ""`, `--strict-mcp-config`, `--setting-sources ""` and `--mcp-config <session-dir>/mcp.json`. The file holds no secret: its `Authorization` header uses `${INTAKE_TOOL_CAPABILITY}` environment expansion, and the capability is set only in the allowlisted child environment. Expansion is confirmed: the server connects when the variable is set and reports `failed` with no tools when it is unset. No 0600-file fallback is needed.
+  - **Does not pass `--safe-mode`.** Safe mode drops `--mcp-config` servers entirely, leaving the session with no tools. Without it, `--setting-sources ""` and `--strict-mcp-config` still keep out a user `CLAUDE.md`, settings hooks and settings MCP servers (checked with all three planted). The API-key path keeps `--bare`; the subscription path never uses it.
+  - Adds `--allowedTools mcp__intake__*`. It is required: without it, `-p` denies every MCP call.
+  - The init check changes from "only StructuredOutput" to: `tools` is exactly the stage's `mcp__intake__*` set, and `mcp_servers` is exactly `intake` with status `connected`.
+- **Codex** (confirmed offline against codex-cli 0.166.0)
+  - Gets `-c` overrides `mcp_servers.intake={url, bearer_token_env_var, default_tools_approval_mode="approve"}`, with the capability in an allowlisted child environment variable. The approval mode is required: under `approval_policy = "never"`, an MCP call without it is refused with "requires approval".
+  - Adds `features.goals = false` to the existing hardening keys, which removes the built-in goal tools.
+  - **Accepted exception:** codex 0.166.0 still offers four built-in tools that no config key removes: `list_mcp_resources`, `list_mcp_resource_templates` and `read_mcp_resource`, which read only configured servers (the intake server declares no resources), and `request_user_input`, which Codex answers itself as unavailable in Default mode without any client request. Neither gives a capability beyond the listed tools. The adapter keeps refusing every server-initiated request.
+  - The dedicated `CODEX_HOME` preflight is unchanged. After `thread/start`, `config/read` must list only `intake`, and `mcpServerStatus/list` must report exactly the stage's tools for it, with no resources.
+- **SDK line:** v2, pinned exactly: `@modelcontextprotocol/server` 2.4.0 and `@modelcontextprotocol/node` 2.1.2 (Apache-2.0, Node ≥ 20), with `zod` 4.2.1 and `@modelcontextprotocol/client` 2.4.0 for tests. On Node 24.22.2 with Fastify 5.12.7 it serves Streamable HTTP through `reply.hijack()` and the pre-parsed body, with a stateless per-request `McpServer` whose tools come from the capability's session, and it ships a localhost `Host` guard. v1 1.32.2 (MIT) passed the same checks but pulls in Express, `cors` and `express-rate-limit`.
 - **Rejected:** Codex `dynamicTools` (experimental in 0.166.0, Codex-only); the Claude Agent SDK (replaces the qualified CLI boundary); stdio MCP subprocesses (one more child per session to reap, and the capability would sit in its environment).
 
 ### D3. Session lifecycle state machine
@@ -64,12 +66,12 @@ running ──crash/restart──▶ interrupted ──resume/inbox──▶ que
 
 - `running` and `cancelling` hold a slot. `cancelling` keeps its slot until the reap is confirmed, which preserves the existing unconfirmed-reap rule.
 - **Resume**
-  - Claude: `--resume <provider_session_id>` with persistence enabled. The cwd is the session directory, so transcripts land under the host user's Claude project store, keyed by that directory.
-  - Codex: `thread/resume` in the dedicated `CODEX_HOME`, with `ephemeral` false.
+  - Claude: start with `--session-id <uuid>` and without `--no-session-persistence`, then `--resume <provider_session_id>`. The cwd is the session directory, so transcripts land under the host user's Claude project store, keyed by that directory. Confirmed offline: the resumed request carries the earlier turn and its tool results.
+  - Codex: `thread/start` with `ephemeral: false`, then `thread/resume {threadId}` from a new app-server process on the same `CODEX_HOME`. Confirmed offline: history is restored and the new run's capability is used.
   - A resume failure keeps the inbox pending and records `resume_unavailable` or `waiting_for_login`. The operator may start a fresh session that receives the pending items plus a summary built from retained outbox items and, for the Examine lead session, the batch's current evidence observations and lots.
 - **In-turn delivery**
-  - Codex: `turn/steer` with `expectedTurnId` for chat and answers while a turn is active.
-  - Claude: the stream-JSON user message is written to stdin. Whether it is processed mid-turn or queued is unverified, so `read_inbox` is the guaranteed path for both providers.
+  - Codex: `turn/steer {threadId, expectedTurnId, input}` for chat and answers while a turn is active. It returns `{turnId}`; a mismatched `expectedTurnId` is refused with JSON-RPC `-32600`, which the adapter treats as "turn already ended" and leaves the item for resume. Confirmed offline: the steered text reaches the very next provider request of the same turn.
+  - Claude: the stream-JSON user message is written to stdin. Confirmed offline at the CLI layer: the CLI adds it to the running turn after the next tool result, as a "new message while you were working" notice. Whether models act on it promptly is unverified, so `read_inbox` stays the guaranteed path for both providers.
   - **Delivery is at least once, acknowledged by cursor.** Inbox items carry a per-lineage sequence and a stable ID.
     - `read_inbox(after_seq)` returns the items after the cursor. Passing a cursor acknowledges everything up to it.
     - Items delivered by steer or resume are acknowledged when the next tool call carries their sequence, or when the turn completes.
@@ -236,7 +238,7 @@ Sorting and identifying cannot run as separate steps. A photo can hold several l
 | Crash | On restart, running sessions become `interrupted` and keep their slot until the reap is confirmed. No turn is silently continued (agents architecture rule retained). |
 | Provider failure | Login, capacity or rate-limit failures map to existing typed outcomes. The session goes to `waiting_for_login` or `waiting_for_capacity` without a slot; its inbox stays pending. |
 | Media | `fetch_evidence` reads through the owning media boundary, verifying the version and pin. The per-turn image budget is enforced, and excess items are reported as unavailable. |
-| Secrets | The database holds only capability hashes. Plaintext exists only in worker memory and the child's environment (both providers). A capability is revoked at turn end, cancellation, interruption and worker start, and a resume issues a new one. Tests prove that an old capability is refused after finish, resume and restart. The 0600-file fallback, if needed, is deleted when init is confirmed and on cleanup. |
+| Secrets | The database holds only capability hashes. Plaintext exists only in worker memory and the child's environment (both providers). A capability is revoked at turn end, cancellation, interruption and worker start, and a resume issues a new one. Tests prove that an old capability is refused after finish, resume and restart. Claude's `mcp.json` holds only the `${INTAKE_TOOL_CAPABILITY}` reference, never the value. |
 | Observability | Status lines and outbox kinds are retained. Provider streams, stderr and private reasoning stay unretained, as today. |
 
 ## Verification strategy
@@ -268,7 +270,7 @@ Sorting and identifying cannot run as separate steps. A photo can hold several l
   - header latest line
   - legacy Reading/Identifying display
 - **Browser check (browser-harness, headless):** synthetic profile on a photo-only batch with one photo holding three items and one item spanning two photos. Lots appear while the lead session runs, each with the right observations and no double counting; an answer is queued mid-run; Research and Images run concurrently.
-- **Limits:** fake CLIs prove only our protocol handling. Real Claude/Codex MCP tool use, mid-turn behavior and resume fidelity need a separately authorized live qualification (task 13), and remain `native_unverified` until then.
+- **Limits:** fake CLIs prove only our protocol handling. The task 1 spike ran the real CLIs against loopback provider stubs, which confirms flags, tool exposure, MCP calls, resume and in-turn delivery at the CLI layer, but not model behavior. Whether real models call the tools reliably and act on in-turn input needs a separately authorized live qualification (task 13), and stays `native_unverified` until then.
 
 ## Migration, rollout and recovery
 
@@ -291,9 +293,9 @@ Sorting and identifying cannot run as separate steps. A photo can hold several l
 ## Risks and open decisions
 
 - **Providers may not call tools reliably or promptly.** Mitigations: instructions require a status call at each step, the server tracks time since the last status line, and the Examine lead session falls back to a final-turn summary check. Live qualification decides whether this is good enough.
-- **Claude mid-turn input is unverified.** Mitigated by `read_inbox` and `pending_inbox` hints.
+- **Models may ignore mid-turn input.** Both CLIs deliver it into the running turn (task 1), but model behavior is unverified. Mitigated by `read_inbox` and `pending_inbox` hints.
+- **CLI flag drift.** The safe-mode, approval-mode and built-in-tool findings are tied to Claude Code 2.1.318 and codex-cli 0.166.0. The init checks fail closed if a later version exposes other tools or drops the intake server; rerun the spike before raising either pin.
 - **Token cost.** Long sessions, resumes and parallel Research/Images raise usage. Mitigations: the concurrency limit, waiting sessions holding no slot, and the 48-thumbnail Examine input.
 - **Transcript retention** under the host Claude project store and `CODEX_HOME` grows without bound. Retention cleanup is a follow-up; the design records session directories for later cleanup.
 - **Large batches run serially in the lead session.** Mitigation: preview paging, and parallel observation helpers as a follow-up if timing shows a need.
 - **Lead-session context grows with the batch.** Mitigation: photos are fetched on demand within the image budget, observations are retained rows the agent can re-read, and a resume or fresh start summarises the retained outbox together with the batch's current evidence observations and lots.
-- **Open:** MCP SDK v1 versus v2, decided in task 1.1. No user decision is needed.
