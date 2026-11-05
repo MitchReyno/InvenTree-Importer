@@ -21,7 +21,7 @@ type Props = {
 }
 
 const text: Record<AutosaveState, (revision: string) => string> = {
-  saved: (revision) => `Saved · revision ${revision}`,
+  saved: () => 'Saved',
   pending: () => 'Unsaved changes · saving shortly',
   saving: () => 'Saving…',
   invalid: () => 'Not saved · fix the highlighted fields',
@@ -52,7 +52,7 @@ export function AutosaveStatus({ label, state, revision, onRetry, onReload }: Pr
     )
   }
   return (
-    <Status role="status" data-state={state}>
+    <Status role="status" data-state={state} data-revision={revision}>
       {message}
     </Status>
   )

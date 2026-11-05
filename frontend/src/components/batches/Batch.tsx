@@ -25,6 +25,42 @@ import type { ManualClient, ManualStage } from '../../manual/types'
 import type { ProcessingClient } from '../../processing/types'
 import { ProcessingStage } from '../processing/ProcessingStage'
 import { ManualWorkspace } from '../review/ManualWorkspace'
+import { batchHref, parseBatchRoute, type BatchRoute } from '../../navigation/batch-route'
+import { useBatchAttention, type AttentionClient } from '../../attention/useBatchAttention'
+import { BatchHeader } from './BatchHeader'
+import { RecordDecisions } from '../review/RecordDecisions'
+import { MapPending } from '../review/MapPending'
+
+/** The screen each Review and Changes route mounts until their redesigns replace them. */
+function manualStage(route: BatchRoute | null): ManualStage {
+  if (route?.tab === 'review' && route.view === 'lots') {
+    return 'review'
+  }
+  if (route?.tab === 'changes') {
+    return route.view === 'ready' ? 'approve' : 'results'
+  }
+
+  return 'capture'
+}
+
+function stageRoute(stage: ManualStage, resourceId?: string): BatchRoute {
+  switch (stage) {
+    case 'review':
+      return resourceId
+        ? { tab: 'review', view: 'lots', lotId: resourceId }
+        : { tab: 'review', view: 'lots' }
+    case 'approve':
+      return resourceId
+        ? { tab: 'changes', view: 'ready', preparationId: resourceId }
+        : { tab: 'changes', view: 'ready' }
+    case 'results':
+      return resourceId
+        ? { tab: 'changes', view: 'added', runId: resourceId }
+        : { tab: 'changes', view: 'added' }
+    default:
+      return { tab: 'capture' }
+  }
+}
 
 export function Batch({
   id,
@@ -34,6 +70,7 @@ export function Batch({
   media,
   operator,
   catalogue,
+  attention,
   route,
   onDirtyChange,
 }: {
@@ -44,25 +81,39 @@ export function Batch({
   processing?: ProcessingClient
   media?: MediaClient
   operator?: OperatorReviewClient
+  attention?: AttentionClient
   route: string
   onDirtyChange: (dirty: boolean) => void
 }) {
-  const segments = route.split('?')[0].split('/')
-  const segment = segments[1]
-  const processingSelected = segment === 'processing' && processing !== undefined
-  const stage: ManualStage =
-    segment === 'review' || segment === 'approve' || segment === 'results' ? segment : 'capture'
+  const parsed = parseBatchRoute(route)
+  const batchRoute = parsed.kind === 'route' ? parsed.route : null
+  const legacySubject = parsed.kind === 'route' ? parsed.legacySubject : undefined
+  const processingSelected = batchRoute?.tab === 'processing' && processing !== undefined
+  const stage = manualStage(batchRoute)
 
-  function navigate(value: ManualStage, resourceId?: string) {
-    location.hash =
-      value === 'capture' ? `${id}/capture` : `${id}/${value}${resourceId ? `/${resourceId}` : ''}`
+  // Old links move to their new routes; the navigation guard still blocks this with a dirty draft.
+  const redirectTo = parsed.kind === 'redirect' ? parsed.to : null
+  useEffect(() => {
+    if (redirectTo) {
+      location.replace(`#${redirectTo}`)
+    }
+  }, [redirectTo])
+
+  // Remembered across tabs, which unmount the workspace, so bare Ready to add can return to it.
+  const shownPreparation = useRef<string | null>(null)
+  if (batchRoute?.tab === 'changes' && batchRoute.view === 'ready' && batchRoute.preparationId) {
+    shownPreparation.current = batchRoute.preparationId
   }
 
-  function openProcessing() {
-    location.hash = `${id}/processing/overview`
+  /** Automatic choices replace the entry, so Back never returns to a route that redirects. */
+  function navigate(value: ManualStage, resourceId?: string, options?: { replace?: boolean }) {
+    const href = batchHref(id, stageRoute(value, resourceId))
+    if (options?.replace) {
+      location.replace(href)
+    } else {
+      location.hash = href
+    }
   }
-
-  const onProcessing = processing ? openProcessing : undefined
 
   const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
@@ -118,32 +169,47 @@ export function Batch({
     })
   }
 
-  const captureDirty = useRef(false)
-  const reportCaptureDirty = useCallback(
+  // Archive stays disabled while any screen holds an unsaved draft.
+  const [draftDirty, setDraftDirty] = useState(false)
+  const reportDirty = useCallback(
     (dirty: boolean) => {
-      captureDirty.current = dirty
+      setDraftDirty(dirty)
       onDirtyChange(dirty)
     },
     [onDirtyChange],
   )
+  const captureDirty = useRef(false)
+  const reportCaptureDirty = useCallback(
+    (dirty: boolean) => {
+      captureDirty.current = dirty
+      reportDirty(dirty)
+    },
+    [reportDirty],
+  )
 
   // Former Capture subject links now open the same subject in Review.
   useEffect(() => {
-    if (!batch || stage !== 'capture' || !segment) {
+    if (!batch || !legacySubject) {
       return
     }
-    const lot = batch.lots.some((item) => item.id === segment)
+    const lot = batch.lots.some((item) => item.id === legacySubject)
     const subject =
       lot ||
-      batch.parts.some((item) => item.id === segment) ||
-      segment === 'add_lot' ||
-      segment === 'add_part'
+      batch.parts.some((item) => item.id === legacySubject) ||
+      legacySubject === 'add_lot' ||
+      legacySubject === 'add_part'
     if (subject) {
       location.replace(
-        `#${id}/review${lot ? `/${segment}` : ''}?edit=${encodeURIComponent(segment)}`,
+        batchHref(
+          id,
+          lot
+            ? { tab: 'review', view: 'lots', lotId: legacySubject }
+            : { tab: 'review', view: 'lots' },
+          `?edit=${encodeURIComponent(legacySubject)}`,
+        ),
       )
     }
-  }, [batch, id, segment, stage])
+  }, [batch, id, legacySubject])
 
   // Capture follows newer saved values only while it holds no local edits.
   useEffect(() => {
@@ -295,6 +361,7 @@ export function Batch({
     [batch, operatorReview],
   )
 
+  const attentionQuery = useBatchAttention(attention, id, batch?.revision)
   const readUnavailable = captureQuery.isError || captureQuery.fetchStatus === 'paused'
   const applicationAvailable = useApplicationAvailable(captureQuery.dataUpdatedAt, readUnavailable)
   const visibleError =
@@ -318,22 +385,32 @@ export function Batch({
   }
 
   let content: ReactNode
-  if (batch && processingSelected) {
+  if (redirectTo) {
+    content = null
+  } else if (batch && processingSelected && batchRoute?.tab === 'processing') {
     content = (
       <ProcessingStage
         key={`${batch.id}:${batch.revision}:${reset}`}
         batch={batch}
         client={processing}
         media={media}
-        route={route}
-        disabled={readOrCommandBusy || readUnavailable}
-        edit={edit}
-        navigate={navigate}
+        step={batchRoute.step}
+        questionId={batchRoute.questionId}
         reload={reloadSavedValues}
-        onDirtyChange={onDirtyChange}
+        onDirtyChange={reportDirty}
         retiredLotIds={retired}
       />
     )
+  } else if (batch && batchRoute?.tab === 'review' && batchRoute.view === 'records') {
+    content = (
+      <RecordDecisions
+        batchId={batch.id}
+        attention={attentionQuery.data}
+        unavailable={attentionQuery.isError}
+      />
+    )
+  } else if (batch && batchRoute?.tab === 'review' && batchRoute.view === 'map') {
+    content = <MapPending batchId={batch.id} />
   } else if (batch && stage !== 'capture') {
     content = (
       <ManualWorkspace
@@ -341,18 +418,26 @@ export function Batch({
         batch={batch}
         client={manual}
         stage={stage}
-        runId={stage === 'results' ? segments[2] : undefined}
-        preparationId={stage === 'approve' ? segments[2] : undefined}
+        runId={
+          batchRoute?.tab === 'changes' && batchRoute.view === 'added'
+            ? batchRoute.runId
+            : undefined
+        }
+        preparationId={
+          batchRoute?.tab === 'changes' && batchRoute.view === 'ready'
+            ? batchRoute.preparationId
+            : undefined
+        }
         edit={edit}
         observe={observe}
         navigate={navigate}
+        rememberedPreparationId={shownPreparation.current}
         reload={reloadSavedValues}
-        onProcessing={onProcessing}
         operatorReview={currentOperatorReview}
         operator={operator}
         media={media}
         processing={processing}
-        onDirtyChange={onDirtyChange}
+        onDirtyChange={reportDirty}
       />
     )
   } else if (batch && activeBatch) {
@@ -372,7 +457,6 @@ export function Batch({
         edit={edit}
         observe={observe}
         onStage={navigate}
-        onProcessing={onProcessing}
         onDirtyChange={reportCaptureDirty}
         settings={settingsPorts}
       />
@@ -383,6 +467,18 @@ export function Batch({
 
   return (
     <>
+      {batch && batchRoute && (
+        <BatchHeader
+          batch={batch}
+          route={batchRoute}
+          attention={attentionQuery.data}
+          attentionUnavailable={attentionQuery.isError}
+          activeLotCount={batch.lots.length - retired.size}
+          retiredLotCount={retired.size}
+          busy={readOrCommandBusy || readUnavailable || draftDirty}
+          onArchive={() => void edit({ kind: 'batch', archived: !batch.archived })}
+        />
+      )}
       {operatorUnavailable && acceptedOperatorReview && !visibleError && (
         <ErrorNotice role="status">
           <Paragraph>

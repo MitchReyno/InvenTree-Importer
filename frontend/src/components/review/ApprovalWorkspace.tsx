@@ -18,6 +18,7 @@ import {
   Link,
   Label,
 } from '../ui/primitives'
+import { batchHref } from '../../navigation/batch-route'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -104,7 +105,7 @@ export function ApprovalWorkspace({
               <ul>
                 {preview.remaining_lot_ids.map((id) => (
                   <li key={id}>
-                    <Link href={`#${batch.id}/review/${id}`}>
+                    <Link href={batchHref(batch.id, { tab: 'review', view: 'lots', lotId: id })}>
                       {batch.lots.find((value) => value.id === id)?.label ?? 'Another physical lot'}
                     </Link>
                   </li>

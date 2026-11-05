@@ -55,3 +55,25 @@ test('generated header client uses scoped read routes and validated response con
   assert.equal(new URL(calls[0]).pathname, '/api/v1/header-work')
   assert.equal(new URL(calls[0]).searchParams.get('batch_id'), id)
 })
+
+test('the connection target may name its kind, and only the two known kinds', () => {
+  const status = {
+    actor_id: id,
+    target_id: id,
+    target_context_id: id,
+    target: {
+      state: 'reachable',
+      freshness: 'fresh',
+      observed_at: '2026-11-03T00:00:00Z',
+      failure_code: null,
+      navigation_url: 'http://127.0.0.1:4999/',
+      label: '127.0.0.1:4999',
+    },
+  }
+  validate('ConnectionStatus', status)
+  validate('ConnectionStatus', { ...status, target: { ...status.target, kind: 'owned_test' } })
+  validate('ConnectionStatus', { ...status, target: { ...status.target, kind: 'configured' } })
+  assert.throws(() =>
+    validate('ConnectionStatus', { ...status, target: { ...status.target, kind: 'production' } }),
+  )
+})

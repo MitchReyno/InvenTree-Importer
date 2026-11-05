@@ -181,9 +181,9 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
 ### D8. Need-you aggregate
 
 - **Decision.** Add `GET /api/v1/batches/:id/attention`, returning counts and items grouped by owner:
-  - processing questions;
+  - processing questions, and failed or interrupted attempts in their step;
   - review lots changed since review, blocking, or needing an answer;
-  - record decisions;
+  - record decisions: open blocking issues that need an operator choice, not status such as an earlier approval;
   - changes failures or uncertain results.
   
   Each item carries a route. The tab badges and the panel both use it.

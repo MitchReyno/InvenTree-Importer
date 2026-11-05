@@ -1,4 +1,4 @@
-import { act } from '@testing-library/react'
+import { act, cleanup } from '@testing-library/react'
 import { useState, type ReactNode } from 'react'
 import { captureClient, manualClient } from '@invimport/contracts/client'
 import { Batch } from './components/batches/Batch'
@@ -16,6 +16,14 @@ import { Batches } from './components/batches/Batches'
 import type { Client } from './capture/client'
 import { CaptureWorkspace } from './components/capture/CaptureWorkspace'
 import type { CaptureSnapshotDto } from '@invimport/contracts'
+
+/** The revision behind a "<label>: Saved" status; the number is kept off the visible text. */
+function savedRevision(label: string) {
+  return screen
+    .queryAllByRole('status')
+    .find((item) => item.textContent === `${label}: Saved`)
+    ?.getAttribute('data-revision')
+}
 
 const batchId = '10000000-0000-4000-8000-000000000001'
 const partId = '20000000-0000-4000-8000-000000000002'
@@ -260,8 +268,29 @@ test('archive is read-only until explicit resume; no approval or write button is
   expect(screen.getByText(/Archived, not deleted/)).toHaveAttribute('role', 'status')
   expect(screen.getByLabelText('Batch title')).toBeDisabled()
   expect(screen.queryByRole('button', { name: /Approve|Apply|Upload/ })).not.toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: 'Resume archived batch' }))
-  expect(edit).toHaveBeenCalledWith({ kind: 'batch', archived: false })
+  cleanup()
+  const sent: unknown[] = []
+  const client = captureClient(location.origin, 'a'.repeat(64), async (_input, init) => {
+    if (init?.method && init.method !== 'GET') {
+      sent.push(JSON.parse(String(init.body)))
+      return response(fixture)
+    }
+    return response({ ...fixture, archived: true })
+  })
+  history.replaceState(null, '', `#${batchId}/capture`)
+  render(
+    <Batch
+      id={batchId}
+      route={`${batchId}/capture`}
+      client={client}
+      manual={reviewManual()}
+      onDirtyChange={vi.fn()}
+    />,
+  )
+  await user.click(await screen.findByRole('button', { name: 'Resume archived batch' }))
+  await waitFor(() =>
+    expect(sent).toEqual([expect.objectContaining({ change: { kind: 'batch', archived: false } })]),
+  )
 })
 
 test('inbox resumes retained capture, filters archives and creates a batch with a human note', async () => {
@@ -344,7 +373,7 @@ test('inbox resumes retained capture, filters archives and creates a batch with 
 })
 
 const activityRunId = 'a0000000-0000-4000-8000-00000000000a'
-const activityDestination = `${batchId}/results/${activityRunId}`
+const activityDestination = `${batchId}/changes/added/${activityRunId}`
 
 function navigationServer(conflict = false, gate?: Promise<void>) {
   let saved = fixture
@@ -488,7 +517,7 @@ test('hash and browser Back cannot discard dirty input; confirmed save permits r
   await screen.findByText('Batch settings: Saving…')
   expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(false)
   release()
-  await screen.findByText('Batch settings: Saved · revision 9007199254740994')
+  await waitFor(() => expect(savedRevision('Batch settings')).toBe('9007199254740994'))
   expect(window.dispatchEvent(new Event('beforeunload', { cancelable: true }))).toBe(true)
   history.back()
   await screen.findByRole('heading', { name: 'Retained results' })
@@ -781,8 +810,12 @@ test('following an inbox workflow filter opens Review through the actual App rou
   render(<App />)
   await user.click(await screen.findByRole('link', { name: '1 need review' }))
   expect(await screen.findByRole('heading', { name: 'Review selected lots' })).toBeVisible()
-  expect(location.hash).toBe(`#${batchId}/review?filter=needs_review`)
-  expect(screen.getByRole('button', { name: 'Review' })).toHaveAttribute('aria-current', 'page')
+  expect(location.hash).toBe(`#${batchId}/review/lots?filter=needs_review`)
+  expect(
+    within(screen.getByRole('navigation', { name: 'Batch' })).getByRole('link', {
+      name: /^Review/,
+    }),
+  ).toHaveAttribute('aria-current', 'page')
 })
 
 test('uncertain composite settings save retries identical revision, payload and key; changed input requires reconciliation', async () => {
@@ -857,7 +890,7 @@ test('a locally refused lot context in the Review editor remains correctable bef
     }
     throw new Error('unexpected_manual_call')
   })
-  const route = `${batchId}/review/${lotId}?edit=${lotId}`
+  const route = `${batchId}/review/lots/${lotId}?edit=${lotId}`
   history.replaceState(null, '', `#${route}`)
   render(
     <Batch id={batchId} route={route} client={client} manual={manual} onDirtyChange={vi.fn()} />,
@@ -904,8 +937,8 @@ function reviewManual() {
 test('legacy Capture subject links open the same subject in Review', async () => {
   const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
   for (const [subject, expected] of [
-    [lotId, `#${batchId}/review/${lotId}?edit=${lotId}`],
-    [partId, `#${batchId}/review?edit=${partId}`],
+    [lotId, `#${batchId}/review/lots/${lotId}?edit=${lotId}`],
+    [partId, `#${batchId}/review/lots?edit=${partId}`],
   ]) {
     history.replaceState(null, '', `#${batchId}/${subject}`)
     const view = render(
@@ -922,10 +955,57 @@ test('legacy Capture subject links open the same subject in Review', async () =>
   }
 })
 
+test('old approval, results, review and processing links redirect with their query intact', async () => {
+  const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
+  const preparation = '70000000-0000-4000-8000-000000000007'
+  for (const [legacy, expected] of [
+    [`approve/${preparation}?view=all`, `changes/ready/${preparation}?view=all`],
+    ['results', 'changes/added'],
+    [`review/${lotId}?source=S&version=V&page=2`, `review/lots/${lotId}?source=S&version=V&page=2`],
+    ['processing/identifying/q1', 'processing/examine/q1'],
+  ]) {
+    history.replaceState(null, '', `#${batchId}/${legacy}`)
+    const view = render(
+      <Batch
+        id={batchId}
+        route={`${batchId}/${legacy}`}
+        client={client}
+        manual={reviewManual()}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await waitFor(() => expect(location.hash).toBe(`#${batchId}/${expected}`))
+    view.unmount()
+  }
+})
+
+test('Changes returns to the preparation last shown across other tabs, without a history entry', async () => {
+  const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
+  const shown = '70000000-0000-4000-8000-000000000007'
+  const newer = '70000000-0000-4000-8000-000000000008'
+  const manual = reviewManual()
+  vi.spyOn(manual, 'workspace').mockResolvedValue({
+    ...(await manual.workspace(batchId)),
+    preparations: [newer, shown].map(
+      (id) => ({ id, effects: [], selected_lot_ids: [], remaining_lot_ids: [] }) as never,
+    ),
+  })
+  const props = { id: batchId, client, manual, onDirtyChange: vi.fn() }
+  history.replaceState(null, '', `#${batchId}/changes/ready/${shown}`)
+  const view = render(<Batch {...props} route={`${batchId}/changes/ready/${shown}`} />)
+  view.rerender(<Batch {...props} route={`${batchId}/capture`} />)
+  history.replaceState(null, '', `#${batchId}/changes/ready`)
+  const entries = history.length
+  view.rerender(<Batch {...props} route={`${batchId}/changes/ready`} />)
+
+  await waitFor(() => expect(location.hash).toBe(`#${batchId}/changes/ready/${shown}`))
+  expect(history.length).toBe(entries)
+})
+
 test('Review offers manual lot and Part creation; a dirty editor cannot be closed silently', async () => {
   const user = userEvent.setup()
   const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
-  const route = `${batchId}/review`
+  const route = `${batchId}/review/lots`
   history.replaceState(null, '', `#${route}`)
   render(
     <Batch
@@ -949,7 +1029,7 @@ test('Review offers manual lot and Part creation; a dirty editor cannot be close
 test('Compare matches with no candidates opens the shared Part editor in Review', async () => {
   const user = userEvent.setup()
   const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
-  const route = `${batchId}/review/${lotId}`
+  const route = `${batchId}/review/lots/${lotId}`
   history.replaceState(null, '', `#${route}`)
   render(
     <Batch
@@ -973,7 +1053,7 @@ test('a shared Part linked to no lot can be reopened from Review', async () => {
   const user = userEvent.setup()
   const unlinked = { ...fixture, lots: [] }
   const client = captureClient(location.origin, 'a'.repeat(64), async () => response(unlinked))
-  const route = `${batchId}/review`
+  const route = `${batchId}/review/lots`
   history.replaceState(null, '', `#${route}`)
   render(
     <Batch
@@ -994,7 +1074,7 @@ test('a shared Part linked to no lot can be reopened from Review', async () => {
 test('a dirty Review subject editor fences sibling lot commands that would remount it', async () => {
   const user = userEvent.setup()
   const client = captureClient(location.origin, 'a'.repeat(64), async () => response(fixture))
-  const route = `${batchId}/review/${lotId}?edit=add_lot`
+  const route = `${batchId}/review/lots/${lotId}?edit=add_lot`
   history.replaceState(null, '', `#${route}`)
   render(
     <Batch

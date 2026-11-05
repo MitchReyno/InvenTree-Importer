@@ -9,7 +9,7 @@ import {
 } from '@invimport/contracts'
 import { render } from './test/render'
 import { CaptureWorkspace } from './components/capture/CaptureWorkspace'
-import { CaptureHeader } from './components/capture/CaptureHeader'
+import { BatchHeader } from './components/batches/BatchHeader'
 import { LotEvidence } from './components/operator/LotEvidence'
 import { IssuePanel } from './components/operator/IssuePanel'
 import { retiredLotIds } from './operator/review-model'
@@ -143,7 +143,8 @@ test('Custom instructions keep their version and autosave with the loaded revisi
   expect(screen.getByText(/instructions do not approve inventory values/)).toBeVisible()
   const text = screen.getByLabelText('Custom instructions')
   expect(text).toHaveValue('Same order, separate packets.')
-  expect(screen.getByText(/Version 6/)).toBeVisible()
+  // The loaded version stays checkable without being shown inline.
+  expect(screen.getByText(/^Saved .*Versioned human context/)).toHaveAttribute('data-version', '6')
   await user.type(text, ' Keep date codes apart.')
   expect(dirty).toHaveBeenLastCalledWith(true)
   await waitFor(() => expect(settings.instruct).toHaveBeenCalledTimes(1))
@@ -185,29 +186,29 @@ test('Processing keeps retired history but offers only active lots for new attem
   expect(within(needsYou).getByText('1 needs you')).toBeVisible()
   expect(within(needsYou).getByRole('link', { name: 'Active packet · reading' })).toHaveAttribute(
     'href',
-    `#${batchId}/processing/reading/${questionId}`,
+    `#${batchId}/processing/examine/${questionId}`,
   )
   expect(within(needsYou).getByRole('link', { name: 'Open in Review' })).toHaveAttribute(
     'href',
-    `#${batchId}/review/${active}`,
+    `#${batchId}/review/lots/${active}`,
   )
   expect(screen.queryByRole('link', { name: 'Open this lot in Review' })).not.toBeInTheDocument()
 })
 
 test('the batch header counts active lots and states retired history separately', () => {
   render(
-    <CaptureHeader
+    <BatchHeader
       batch={batch}
+      route={{ tab: 'review', view: 'lots' }}
+      attention={undefined}
+      activeLotCount={batch.lots.filter((lot) => lot.id !== retired).length}
+      retiredLotCount={1}
       busy={false}
-      dirty={false}
-      edit={vi.fn()}
-      onStage={vi.fn()}
-      stage="review"
-      retiredLotIds={new Set([retired])}
+      onArchive={vi.fn()}
     />,
   )
 
-  expect(screen.getByText(/1 physical lots \(1 retired\)/)).toBeTruthy()
+  expect(screen.getByText(/1 lot \(1 retired\)/)).toBeTruthy()
 })
 
 test('a shared Part warning states every affected lot before dismissal', () => {
@@ -309,7 +310,6 @@ test('Capture omits subject panes and opens Review for subject editing', async (
       edit={vi.fn(async () => undefined)}
       observe={vi.fn()}
       onStage={onStage}
-      onProcessing={vi.fn()}
     />,
   )
   expect(screen.getByRole('heading', { name: 'Batch settings' })).toBeInTheDocument()
@@ -317,6 +317,8 @@ test('Capture omits subject panes and opens Review for subject editing', async (
   expect(screen.queryByRole('heading', { name: /Physical lots/ })).not.toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: /Part proposals/ })).not.toBeInTheDocument()
   expect(screen.queryByRole('region', { name: /^Lot:|^Shared Part:/ })).not.toBeInTheDocument()
+  // Provenance on demand: no revision or version numbers inline on Capture.
+  expect(screen.queryByText(/revision \d|Version \d/)).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Go to review →' }))
   expect(onStage).toHaveBeenCalledWith('review')
   history.replaceState(null, '', location.pathname)

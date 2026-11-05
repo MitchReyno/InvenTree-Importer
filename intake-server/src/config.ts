@@ -15,6 +15,8 @@ export interface DevConfig {
   targetContextId: string
   credentialRef: string
   apiKey?: string
+  /** The owned test fake in development, otherwise a configured InvenTree. */
+  targetKind?: 'owned_test' | 'configured'
 }
 
 export interface RuntimeFeatures {
@@ -30,6 +32,8 @@ export function devConfig(env: NodeJS.ProcessEnv): DevConfig {
     targetContextId: env.INTAKE_TARGET_CONTEXT_ID ?? '00000000-0000-4000-8000-000000000003',
     credentialRef: env.INTAKE_CREDENTIAL_REF ?? 'unconfigured',
     apiKey: env.INTAKE_DEV_API_KEY,
+    targetKind:
+      env.INTAKE_TARGET_PROFILE === 'fake' ? ('owned_test' as const) : ('configured' as const),
   }
   const url = new URL(config.origin)
   if (url.hostname !== '127.0.0.1' || url.protocol !== 'http:' || url.origin !== config.origin) {

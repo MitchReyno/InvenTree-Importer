@@ -123,9 +123,9 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Before the projection, write a failing route test that seeds an open question, a changed-after-review lot and an uncertain result (RED: route missing). GREEN: implement it. Then refactor and re-run the intake suites.
 - **Verification:** contract and OpenAPI checks; intake tests for counts across states, including uncertain results and changed-after-review lots.
 
-- [ ] 4.1 Add the `BatchAttention` contract and the generated client.
-- [ ] 4.2 Write failing route tests for each item group and its route target (RED).
-- [ ] 4.3 Implement the projection and route under the existing batch read authority until they pass (GREEN).
+- [x] 4.1 Add the `BatchAttention` contract and the generated client.
+- [x] 4.2 Write failing route tests for each item group and its route target (RED).
+- [x] 4.3 Implement the projection and route under the existing batch read authority until they pass (GREEN).
 
 ## 5. Batch navigation and redirects
 
@@ -137,11 +137,11 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Before the parser, write failing route tests for each redirect row, including query-string preservation and a dirty-draft block (RED). GREEN: implement them. The visual parts of the header are verified in the browser.
 - **Verification:** unit tests for every redirect, including dirty-draft blocks and pinned preparation and run IDs; keyboard and Escape tests for the panel.
 
-- [ ] 5.1 Build the route parser and builder for the new routes, with redirect handling for `approve`, `results`, bare `review`, the legacy `review/<lot>` and subject links, bare `processing`, and `processing/reading` and `processing/identifying` (to `examine`), preserving the query string.
-- [ ] 5.2 Build BatchHeader with the tabs, the second row and badges from the attention read.
-- [ ] 5.3 Build the need-you panel on the Radix popover, with focus return.
-- [ ] 5.4 Mount the existing Review, Approve and Results components under the new routes temporarily, until tasks 8 and 11 replace them.
-- [ ] 5.5 Add a target-kind field (owned test target or configured target) to the header connection contract, and show the `info` "Test InvenTree" connection state from it, test-first. This is the single place the test target is named outside Changes.
+- [x] 5.1 Build the route parser and builder for the new routes, with redirect handling for `approve`, `results`, bare `review`, the legacy `review/<lot>` and subject links, bare `processing`, and `processing/reading` and `processing/identifying` (to `examine`), preserving the query string.
+- [x] 5.2 Build BatchHeader with the tabs, the second row and badges from the attention read.
+- [x] 5.3 Build the need-you panel on the Radix popover, with focus return.
+- [x] 5.4 Mount the existing Review, Approve and Results components under the new routes temporarily, until tasks 8 and 11 replace them.
+- [x] 5.5 Add a target-kind field (owned test target or configured target) to the header connection contract, and show the `info` "Test InvenTree" connection state from it, test-first. This is the single place the test target is named outside Changes.
 
 ## 6. Batches home and Capture
 
@@ -160,10 +160,10 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
   - A new glance test.
   - A browser check at 1440, 860 and 390 and 200% showing Capture under 2,500 px tall for an 11-file fixture.
 
-- [ ] 6.1 Redesign the Batches home: continue card with counted actions, compact list, search toolbar.
-- [ ] 6.2 Replace evidence cards with EvidenceTile, moving crop, rotation, download and identity into the viewer and its Details.
-- [ ] 6.3 Add the read-only Proposed lots glance from the `ProcessingSource` adapter, linking to Review. The per-lot agent status line appears with task 14 (PR-G).
-- [ ] 6.4 Restyle Batch settings and the evidence groups. Remove inline IDs and revisions.
+- [x] 6.1 Redesign the Batches home: continue card with counted actions, compact list, search toolbar.
+- [x] 6.2 Replace evidence cards with EvidenceTile, moving crop, rotation, download and identity into the viewer and its Details.
+- [x] 6.3 Add the read-only Proposed lots glance, linking to Review. It reads proposed lots through a small source function over the existing lot reads, which task 7.1 folds into the `ProcessingSource` adapter, so no part of task 7 moves into PR-B. The per-lot agent status line appears with task 14 (PR-G).
+- [x] 6.4 Restyle Batch settings and the evidence groups. Remove inline IDs and revisions.
 
 ## 7. Processing workspace
 
@@ -305,7 +305,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization.
+- [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Review clear at `9fea7c7`; merged as #96 (`50ff181`). The frontend, TypeScript, Markdown and workflow checks passed; the two intake jobs failed identically on `interactive-app` itself (#93's sandbox limit test and #97's startup timeouts).
 - [ ] D.2 PR-B: same gates.
 - [ ] D.3 PR-C: same gates.
 - [ ] D.4 PR-D: same gates.

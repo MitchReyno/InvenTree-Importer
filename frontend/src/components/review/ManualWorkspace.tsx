@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
@@ -14,9 +14,7 @@ import type { ProcessingClient } from '../../processing/types'
 import type { OperatorReviewClient } from '../../operator/types'
 import { IntakeRequestError } from '@invimport/contracts/client'
 import type { ManualClient, ManualStage, RunRecoverySelection } from '../../manual/types'
-import { CaptureHeader } from '../capture/CaptureHeader'
 import { useDirtySources } from '../../operator/useDirtySources'
-import { retiredLotIds } from '../../operator/review-model'
 import {
   Button,
   ErrorNotice,
@@ -39,11 +37,12 @@ interface Props {
   stage: Exclude<ManualStage, 'capture'>
   runId?: string
   preparationId?: string
+  /** The preparation last shown in this batch, which bare Ready to add returns to. */
+  rememberedPreparationId?: string | null
   edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   observe?: CaptureWorkspaceProps['observe']
-  navigate: (stage: ManualStage, resourceId?: string) => void
+  navigate: (stage: ManualStage, resourceId?: string, options?: { replace?: boolean }) => void
   reload: () => Promise<void>
-  onProcessing?: () => void
   /** Present only when its revision matches `batch`; stale projections are not shown. */
   operatorReview?: OperatorReviewDto
   operator?: OperatorReviewClient
@@ -79,11 +78,11 @@ export function ManualWorkspace({
   stage,
   runId,
   preparationId,
+  rememberedPreparationId,
   edit,
   observe,
   navigate,
   reload,
-  onProcessing,
   operatorReview,
   operator,
   media,
@@ -116,7 +115,6 @@ export function ManualWorkspace({
   const drafts = useDirtySources(onDirtyChange)
   const [selected, setSelected] = useState<string[]>([])
   const [lastPreview, setLastPreview] = useState<ManualPreviewDto | null>(null)
-  const initialChoiceMade = useRef(false)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
 
@@ -153,20 +151,34 @@ export function ManualWorkspace({
       return
     }
     if (preparationId) {
-      initialChoiceMade.current = true
       const matching = workspace.preparations.find((value) => value.id === preparationId)
       if (matching && matching !== lastPreview) {
         setLastPreview(matching)
       }
-    } else if (!initialChoiceMade.current) {
-      initialChoiceMade.current = true
-      const first = workspace.preparations[0]
-      if (first) {
-        setLastPreview(first)
-        navigate('approve', first.id)
-      }
+      return
     }
-  }, [workspace, stage, preparationId, lastPreview, navigate])
+    // Bare Ready to add opens the remembered preparation, or the newest once that is gone,
+    // judged by this mount's own successful read rather than a cached one.
+    if (waitingForFirstRead || connectionLost) {
+      return
+    }
+    const shown =
+      workspace.preparations.find((value) => value.id === rememberedPreparationId) ??
+      workspace.preparations[0]
+    if (shown) {
+      setLastPreview(shown)
+      navigate('approve', shown.id, { replace: true })
+    }
+  }, [
+    workspace,
+    waitingForFirstRead,
+    connectionLost,
+    stage,
+    preparationId,
+    rememberedPreparationId,
+    lastPreview,
+    navigate,
+  ])
   const displayedPreview = preparationId
     ? (workspace?.preparations.find((value) => value.id === preparationId) ??
       (lastPreview?.id === preparationId ? lastPreview : null))
@@ -354,18 +366,6 @@ export function ManualWorkspace({
   }
   return (
     <>
-      <CaptureHeader
-        batch={batch}
-        busy={disabled}
-        dirty={drafts.dirty}
-        edit={edit}
-        stage={stage}
-        retiredLotIds={retiredLotIds(operatorReview, batch)}
-        onProcessing={onProcessing}
-        onStage={(value) =>
-          navigate(value, value === 'approve' ? (preparationId ?? lastPreview?.id) : undefined)
-        }
-      />
       <HeadingRow>
         <Heading>
           {

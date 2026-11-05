@@ -2,6 +2,7 @@ import type { ProcessingSnapshotDto } from '@invimport/contracts'
 import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
 import { Small } from '../ui/primitives'
+import { batchHref, processingStepFor } from '../../navigation/batch-route'
 
 const stages = ['reading', 'identifying', 'research', 'images', 'inventory'] as const
 
@@ -21,7 +22,10 @@ export function ProcessingStageSummary({
           .filter((question) => question.state === 'open').length
         const ready = jobs.filter((job) => job.state === 'ready').length
         return (
-          <a key={stage} href={`#${batchId}/processing/${stage}`}>
+          <a
+            key={stage}
+            href={batchHref(batchId, { tab: 'processing', step: processingStepFor(stage) })}
+          >
             <strong>{stage[0].toUpperCase() + stage.slice(1)}</strong>
             <Small>
               {jobs.length} saved jobs · {ready} ready

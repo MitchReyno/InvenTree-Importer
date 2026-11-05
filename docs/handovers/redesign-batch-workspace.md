@@ -1,6 +1,6 @@
 # Batch workspace redesign implementation
 
-Maintained implementation handover for [`redesign-batch-workspace`](../../openspec/changes/redesign-batch-workspace/) ([BI-008](../PLANNED_FUNCTIONALITY.md#bi-008--batch-workspace-redesign)). Status: PR-A (Tasks 1–3) implemented on `feat/redesign-batch-workspace-foundation`; independent review clear at `9fea7c7`. Reviews, CI and merges are recorded only after they occur.
+Maintained implementation handover for [`redesign-batch-workspace`](../../openspec/changes/redesign-batch-workspace/) ([BI-008](../PLANNED_FUNCTIONALITY.md#bi-008--batch-workspace-redesign)). Status: PR-A (Tasks 1–3) merged as #96 (`50ff181`). PR-B (Tasks 4–6) in progress on `feat/redesign-batch-workspace-navigation`. Reviews, CI and merges are recorded only after they occur.
 
 ## Authority and boundaries
 
@@ -104,7 +104,111 @@ Final checks at `9fea7c7`: frontend typecheck, lint (token freshness, contrast, 
 
 The [design system](https://claude.ai/artifact/TbKY47cDmdA3Nuh2jufTmo) now carries the same token changes as `frontend/src/theme/tokens.json` (version 7): `photo-scrim` and `photo-fg`, the dark `part-*` values, the Public Sans Variable stack, and `color-scheme` on both theme blocks of its `tokens.css`.
 
-### Remaining for PR-A
+### PR-A delivery
 
-D.1 stays open until selected CI is green and the PR is merged.
+Mitch asked to merge. `interactive-app` had moved (simplify-intake-entry PR-A, #97), so `origin/interactive-app` was merged into the branch; the only conflict was `pnpm-lock.yaml`, regenerated with the font packages (16 lines over the base). All frontend checks passed again (429 tests with #97's). Squash-merged as #96 (`50ff181`). The two failing intake CI jobs fail the same way on `interactive-app`: `media-resources.test.ts` expects a 512 MiB sandbox limit after #93 raised it to 1 GiB, and two process tests time out at start-up since #97.
+
+Reviews from PR-B on use a fresh read-only Claude reviewer subagent per round, at Mitch's request.
+
+## PR-B plan: navigation, attention, Batches and Capture (Tasks 4–6)
+
+### Attention read (Task 4)
+
+- **Contract:** `contracts/src/attention.ts` adds `BatchAttention`: per-tab counts (Processing open questions; Review lots to check and decisions; Changes lots ready, failed and uncertain results) and bounded need-you items, each with a group, a title, an optional detail and a route. Registered with the other schemas and the generated client.
+- **Server:** `intake-server/src/attention/` holds a pure projection over the existing processing snapshot, operator review and manual workspace reads, and a route `GET /api/v1/batches/:id/attention` registered like the header routes, reusing the same repositories, setup guard and error mapping. Until Task 9, decisions are the operator-review blocking issues that need a choice.
+- **Tests first:** projection tests over fixtures (open question, changed-after-review lot, blocking issue, uncertain and failed results), then an HTTP route test.
+
+### Navigation (Task 5)
+
+- `frontend/src/navigation/batch-route.ts`: a pure parser and builder for the new routes and every legacy redirect in design D5, keeping the query string. `Batch.tsx` follows redirects with `location.replace`, so the navigation guard still blocks them with a dirty draft.
+- `BatchHeader` shows the four tabs, the second row and badges from the attention read, plus the "N need you" pill opening the need-you panel on the Radix popover. The existing Review, Approve and Results screens mount under the new routes until Tasks 8 and 11 replace them.
+- The header connection contract gains a target kind, and the connection status shows the `info` "Test InvenTree" state for the owned test target.
+
+### Batches and Capture (Task 6)
+
+- Batches home: continue card, compact list and search toolbar from the design-system components.
+- Capture: EvidenceTile instead of the evidence cards, with crop, rotation, download and identity in the viewer; the read-only Proposed lots glance; restyled settings and groups without inline IDs and revisions.
+
+### Verification plan
+
+Contract and OpenAPI checks, intake tests, frontend checks, redirect tests, and a browser check of Capture at 1440, 860 and 390px and 200% zoom (under 2,500px tall for an 11-file fixture).
+
+## PR-B results
+
+### Task 4
+
+- **4.1 contract:** `contracts/src/attention.ts` (`BatchAttention`, `AttentionItem`); routes are in-app hash routes under the batch, limited by pattern to Processing, Review and Changes. 3 contract tests failed first (missing `attentionClient`), then passed; contracts suite 75/75 and `pnpm contracts:check` clean.
+- **4.2–4.3 projection and route:** `intake-server/src/attention/` holds the pure projection, the route and a reader composing the existing processing, operator-review and manual repositories, registered in `main.ts` beside the manual routes. Questions route to their step (Reading and Identifying to Examine); changed-after-review lots and open blocking issues route to Review › Lots; runs needing recovery or with unknown or mixed certainty route to Changes › Added. Counts stay exact when the 200 items are truncated. 4 projection and 3 route tests failed first (modules missing), then passed. A PostgreSQL test through the manual fixture (now also serving the route when processing is enabled) reviews two lots, bulk-edits one and checks that the attention read agrees with the operator-review and manual reads; it passed against the owned dev Postgres. Intake unit suite 188/188.
+
+### Task 5
+
+- **5.1 routes:** `frontend/src/navigation/batch-route.ts` parses and builds the new routes and names the redirect for every legacy row in design D5, carrying the remaining path and the whole query string. 25 parser tests failed first (module missing), then passed after one fix (the redirects repeated the segment after the old step or lot). `Batch.tsx` follows a redirect with `location.replace`, which fires `hashchange` through the navigation guard; a guard test shows a legacy link is held back with a dirty draft before any redirect runs, and a Batch test follows approval, results, review and processing links with their query strings. Former `#<batch>/<subject>` links still resolve to Review › Lots with `?edit=`. Every in-app link uses `batchHref`, including `EvidenceViewer`'s same-lot comparison.
+- **5.2 header:** `BatchHeader` replaces `CaptureHeader` (removed) and is rendered once by `Batch`. The four tabs and the second row take their counts and badges from the attention read through `useBatchAttention`, whose key includes the batch revision; warnings and failures are badges, plain counts are counts. Review › Map is shown disabled until Task 8, and Review › Records opens an interim list of decisions linking to their lots until Task 10. Archive is disabled while any screen reports a dirty draft, which keeps the rule `CaptureHeader` enforced. `ProcessingWorkspace` lost its own step tabs (the header's second row holds them) and Examine shows the Reading and Identifying stages.
+- **5.3 panel:** `NeedYouPanel` is a Radix popover named "Needs you", grouped by tab, each item linking to its route; Escape closes it and returns focus to the pill (tested).
+- **5.4 screens:** Review › Lots mounts the current Review, Changes › Ready to add the current Approve (pinned preparation from the route) and Changes › Added the current Results (pinned run).
+- **Test updates:** 30 existing tests asserted old route strings or the old header. Route strings moved to the new shapes; tests rendering a screen directly now start on its new route rather than relying on a redirect; header-button assertions moved to the `Batch` links; the two workspace-level "Archive disabled while dirty" checks assert the dirty report that `Batch` turns into the disabled Archive, and the revision-conflict test through `Batch` still sees Archive disabled. Frontend suite 462/462.
+- **5.5 target kind:** `ConnectionStatus.target.kind` is optional (`owned_test` or `configured`; absent means configured, so older producers and fixtures stay valid). `devConfig` sets `targetKind` to `owned_test` only for `INTAKE_TARGET_PROFILE=fake`, which the dev supervisor now passes to the API child (and the standalone API allowlist accepts). A reachable, fresh owned test target reads "Test InvenTree" with the `info` dot and short word "Test"; stale and unavailable keep their warning tones. Tests failed first at all three layers (contract, server config and connection status, frontend `targetStatus`), then passed; contracts 76, intake 190, frontend 463, dev tooling 15.
+
+### Task 6
+
+- **6.1 Batches home:** the existing data, search, archive filter, paging and creation logic is unchanged; the page now has a primary New batch action, a continue card with its counted resume action and tab links, and one All batches card with search and Show archived in a single toolbar. Inline revision numbers are gone. Existing Batches and App tests passed unchanged (30).
+- **6.2 evidence tiles:** each file is an `EvidenceTile` (via `EvidenceFileTile`) inside the existing drag handle: the preview is a ready crop if there is one, otherwise the original; `queued` is "Preparing…", any other undecoded state is one sentence without decoder detail; PDFs are tagged Document; support counts the file's linked lots. "Open <file>" shows a viewer (the existing `Modal`) with the former card (versions, crop and rotation, download, byte identity under its disclosure), the note editor and the lot links. Order note: the tile and viewer were written before their tests this time; the new tests (3 tile, 1 viewer through `MediaWorkspace`) were added afterwards and pass. Five existing media tests now open the viewer before using its controls, and one note assertion is scoped to the viewer because the note also shows on the tile. Frontend suite 467/467.
+- **6.3 Proposed lots glance:** `frontend/src/processing/proposed-lots.ts` turns the active lots and the operator review into a name, a state in words (Ready, To review, Changed, Blocked) and a Review link; Task 7.1's adapter takes it over. `ProposedLotsGlance` sits at the top of Capture's settings column with no edit control and an Open Review link. Source and glance tests (4) failed first (modules missing), then passed. One existing test now accepts both "Packet A" links, the override and the glance, each checked to open the lot in Review. Frontend suite 471/471.
+- **6.4 settings and groups:** evidence groups use the design-system group look (card, dashed when ungrouped, accent ring while a file is dragged over) with the name, a file count and the existing actions. Inline revisions and versions are gone from Capture: the save status reads "Saved" and the custom instructions line reads "Saved <date>", each keeping the number as `data-revision` or `data-version`. The six "Saved · revision N" assertions and the "Version 6" assertion now check those attributes, waiting for the exact number where the old test waited for the text, so the 64-bit revision check keeps its precision. A Capture test asserts no inline revision or version, and the viewer test asserts no digest on the tile. Frontend suite 472/472; build passes.
+- **Browser check:** `frontend/tests/fixtures/batch-capture.html` renders the real Batches home and Batch views with synthetic clients (no API, provider or InvenTree traffic): 5 lots, 3 groups, 11 files (2 PDFs, one still preparing) and an attention projection. Capture is 2,353px tall at 1440px (limit 2,500), 3,513px at 860px, 4,854px at 390px and 3,777px at 200% zoom, with no horizontal overflow in light or dark; Batches has none at 1440px or 390px. Needs you, Review › Records and the second-row tabs were checked by screenshot. Previews show as dark tiles in the fixture because it serves no preview bytes.
+
+### PR-B review round 1
+
+Fresh read-only Claude reviewer at `40437af`: 3 Important, 5 Minor, 2 Nitpick. All were verified against the code; each fix had its test written first and fail first.
+
+- **Status issues counted as decisions (Important):** every operator-review issue has `disposition: null`, so approval, unsettled history, archive and media status issues showed as "to decide". Decisions now need one of `part_choice_required`, `quantity_required`, `location_required`, `location_conflict` or `location_draft_parent_invalid`, and approved lots count nowhere in Review or in Changes › ready. The Capture glance shows approved lots as "Added".
+- **Viewer could close over an unsaved note (Important):** Close and Escape are refused while the open note is dirty or saving, so the draft and the navigation guard stay consistent.
+- **Architecture drift (Important):** `frontend/ARCHITECTURE.md` gains a batch navigation and attention section and the new Review URL; `intake-server/ARCHITECTURE.md` documents the attention read and `target.kind`.
+- **Minor:** the last hand-built links (`DecisionPanel`, `WorkflowDetails`, `ProcessingImages`) use `batchHref`; Needs you closes once an item is chosen; failed and interrupted Processing attempts are restored as `processing.failed` and `failed_job` items, badged on Processing and their step in the stronger tone; the reader's comment no longer claims one snapshot (each projection is its own, and the client refetches on revision change); the Resume test drives `Batch` and asserts the `archived: false` edit.
+- **Nitpick:** the `review-model` URL comment and the projection's `processing` comment are corrected.
+- **Local PostgreSQL:** the attention PG test passes. Eight other PG tests fail locally only for environment reasons (no pinned decoder image; `docker` not on the test's PATH) and are untouched by this branch; CI's PG lane passes on the base.
+
+### PR-B review round 2
+
+Fresh read-only Claude reviewer at `7fb44f8`: 1 Important, 5 Minor, 1 Nitpick, all verified, each fix test-first.
+
+- **Viewer could trap the operator (Important):** Close was disabled whenever the workspace was frozen (archived batch, a dirty settings draft, polls) or a request was unconfirmed, while the retry controls sat behind the modal. Close is now refused only while the viewer's own note has unsaved edits; during an unconfirmed save the retained request holds the text, so closing drops the editor and clears its draft. jsdom does not raise the dialog's `cancel` on Escape, so the tests dispatch `cancel` as the browser does (the round-1 Escape assertion had not exercised it).
+- **Minor:** the viewer's dirty flag resets when a confirmation closes the editor; `BatchAttention.processing.steps` gives exact per-step counts so step badges no longer undercount from the 200-item list, and Records says how many decisions are not listed; approved lots read "Approved" on the glance (approval includes queued and failed runs, so "Added" overstated it); bare Changes › Ready to add returns to the preparation last shown, or the newest if it is gone; a failed attention read shows "Needs you unavailable" in the header and an alert on Records instead of loading forever.
+- **Nitpick:** `reviewHash` builds through `batchHref`, so every in-app batch link does.
+
+### PR-B review round 3
+
+Fresh read-only Claude reviewer at `2552765`: 1 Important, 3 Minor, all verified, each fix test-first.
+
+- **Back trapped on Changes (Important):** the round-2 return-to-preparation pushed a history entry on every bare Ready to add, so Back looped. `Batch` now remembers the last preparation shown in the batch (surviving other tabs, which unmount the workspace) and returns to it with `location.replace`; the workspace's first automatic choice also replaces. A `Batch` test asserts the redirect adds no history entry, and a workspace test asserts the replace option.
+- **Unconfirmed note text could be lost (Minor):** round 2 let the viewer close during an unconfirmed save, and a refused retry then discarded the text. The viewer now stays open while its note is dirty, including while saving, and shows the retry and discard inside itself (the page behind a modal is inert). A test covers uncertain save, retry, refusal, text still in the editor.
+- **Records with every decision cut (Minor):** it no longer says "Nothing needs you" above the unlisted count.
+- **Doc scope (Minor):** the architecture now says where the remembered preparation lives.
+
+### PR-B review round 4
+
+Fresh read-only Claude reviewer at `4cc845f`: 3 Minor, 1 Nitpick, doc drift.
+
+- **Redirect to a preparation that is gone (Minor, fixed):** round 3's `Batch` redirect did not check the preparation still existed, dropping round 2's fallback. `Batch` now only remembers the last preparation and passes it to the workspace, which opens it if current, otherwise the newest, with `replace`. A pinned preparation in the URL still asks for an explicit choice when it is gone. Tests cover both choices and assert one replace-navigation.
+- **Refusal reason hidden behind the viewer (Minor, fixed):** the viewer shows the request's error while its note is dirty; the refused-retry test asserts the alert inside the dialog.
+- **Viewer lock when the open file leaves the group (Minor, not reproduced):** a dirty note freezes the media snapshot (`useEvidenceWorkspace` accepts reads only while no source but a crop is dirty), so a poll cannot move the open file away. A test written for it confirmed the viewer stays; no change.
+- **Duplicate history entry on Ready to add from the same preparation (Nitpick, accepted):** clicking the tab pushes bare Ready to add, which the workspace replaces with the current preparation. Linking the tab straight to the remembered preparation would reintroduce the gone-preparation problem, because the header cannot tell whether it is still current.
+- **Docs:** the architecture and this handover now describe the remembered-or-newest choice; the round-2 and round-3 bullets above record the earlier behaviour.
+
+### PR-B review round 5
+
+Fresh read-only Claude reviewer at `007e80d`: 2 Minor, both fixed test-first.
+
+- **Choice made from a cached read (Minor):** returning to Changes remounts the workspace on cached data, so a preparation approved elsewhere could still be chosen and then shown as unavailable. The bare choice now waits for the mount's own read (`isFetchedAfterMount`). The test seeds a cache listing the remembered preparation and a fresh read without it, and expects the newest.
+- **`Batch` memory untested (Minor):** a `Batch` test again goes from a shown preparation through Capture to bare Ready to add and asserts the hash returns to it with no new history entry; removing the prop from `Batch` makes it fail (checked).
+
+### PR-B review round 6
+
+Fresh read-only Claude reviewer at `e088b56`: 1 Minor, fixed test-first.
+
+- **A failed first read opened the gate (Minor):** `isFetchedAfterMount` also turns true on an error, leaving the cached list in place, so the bare choice could still pick a gone preparation. The choice now also waits while the read is in error. The test fails the mount's first read, lets the failure settle (asserting no choice yet), then refetches and expects the newest; without the fix it fails (checked).
+
+### PR-B review round 7
+
+Fresh read-only Claude reviewer at `7c42f99`: clean, no findings. Later commits on the branch change only this handover.
 

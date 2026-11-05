@@ -53,7 +53,7 @@ export function safeTargetNavigation(value: string | null | undefined) {
   }
 }
 
-export type TargetTone = 'ok' | 'warn' | 'bad' | 'muted'
+export type TargetTone = 'ok' | 'info' | 'warn' | 'bad' | 'muted'
 
 /** Connection text, its tone and a short phone-width word. Stale data is never `ok`. */
 export type TargetStatus = { summary: string; tone: TargetTone; short: string }
@@ -88,6 +88,10 @@ export function targetStatus(
   }
   if (target.freshness === 'stale' || !observationFresh(target.observed_at, now)) {
     return { summary: 'InvenTree status stale', tone: 'warn', short: 'Stale' }
+  }
+  if (target.state === 'reachable' && target.kind === 'owned_test') {
+    // The one place the test target is named outside Changes.
+    return { summary: 'Test InvenTree', tone: 'info', short: 'Test' }
   }
   if (target.state === 'reachable') {
     const safeUrl = safeTargetNavigation(target.navigation_url)

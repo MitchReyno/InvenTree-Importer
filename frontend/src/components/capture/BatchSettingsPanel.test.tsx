@@ -15,6 +15,14 @@ import { fixtureScope, render } from '../../test/render'
 import { UpdateHealthContext } from '../operations/LiveUpdates'
 import { CaptureWorkspace } from './CaptureWorkspace'
 
+/** The revision behind a "<label>: Saved" status; the number is kept off the visible text. */
+function savedRevision(label: string) {
+  return screen
+    .queryAllByRole('status')
+    .find((item) => item.textContent === `${label}: Saved`)
+    ?.getAttribute('data-revision')
+}
+
 const batch: CaptureSnapshotDto = {
   id: '10000000-0000-4000-8000-000000000001',
   source_id: '20000000-0000-4000-8000-000000000002',
@@ -169,9 +177,7 @@ test('typing waits for the idle debounce, then sends one complete batch_settings
   })
   await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
   await settle()
-  expect(screen.getAllByRole('status').map((item) => item.textContent)).toContain(
-    'Batch settings: Saved · revision 2',
-  )
+  expect(savedRevision('Batch settings')).toBe('2')
   expect(dirty).toHaveBeenLastCalledWith(false)
 })
 
@@ -213,7 +219,7 @@ test('newer input during an in-flight save is sent later against the acknowledge
   await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
   await settle()
   expect(title).toHaveValue('Two packets AB')
-  expect(screen.queryByText('Batch settings: Saved · revision 2')).not.toBeInTheDocument()
+  expect(savedRevision('Batch settings')).not.toBe('2')
   expect(saves[1]).toMatchObject({ revision: '2', change: { title: 'Two packets AB' } })
   expect(saves[1].key).not.toBe(saves[0].key)
 })
@@ -274,8 +280,9 @@ test('custom instructions save separately in the same serialized revision queue'
   await act(async () => saves[0].resolve(nextSnapshot(batch, saves[0])))
   await settle()
   expect(instructs).toEqual([expect.objectContaining({ text: 'Keep lots', revision: '2' })])
-  expect(screen.getAllByRole('status').map((item) => item.textContent)).toEqual(
-    expect.arrayContaining(['Batch settings: Saved · revision 2', 'Custom instructions: Saving…']),
+  expect(savedRevision('Batch settings')).toBe('2')
+  expect(screen.getAllByRole('status').map((item) => item.textContent)).toContain(
+    'Custom instructions: Saving…',
   )
 })
 
@@ -477,10 +484,12 @@ test('lot overrides stay visible and link to the pinned Review subject', () => {
       ],
     },
   })
-  expect(screen.getByRole('link', { name: 'Packet A' })).toHaveAttribute(
-    'href',
-    `#${batch.id}/review/${lotId}`,
-  )
+  // The override and the Proposed lots glance both open the lot in Review.
+  const links = screen.getAllByRole('link', { name: 'Packet A' })
+  expect(links.length).toBeGreaterThan(0)
+  for (const link of links) {
+    expect(link).toHaveAttribute('href', `#${batch.id}/review/lots/${lotId}`)
+  }
   expect(screen.getByText(/Location: Lot override/)).toBeInTheDocument()
 })
 

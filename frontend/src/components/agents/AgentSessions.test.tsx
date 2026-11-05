@@ -62,7 +62,7 @@ test('session filters keep a cancelled but physically occupied command active un
   expect(screen.queryByText('Codex · still-running-model')).not.toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Open batch processing and controls' })).toHaveAttribute(
     'href',
-    '#batch/processing/reading',
+    '#batch/processing/examine',
   )
 })
 

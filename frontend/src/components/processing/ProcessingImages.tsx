@@ -7,6 +7,7 @@ import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { EvidenceViewer } from '../operator/EvidenceViewer'
 import { Heading, Link, Notice, Panel, Paragraph, Small } from '../ui/primitives'
+import { batchHref } from '../../navigation/batch-route'
 
 export function ProcessingImages({ batchId, client }: { batchId: string; client?: MediaClient }) {
   const scope = useServerScope()
@@ -28,7 +29,9 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
         Inspect saved outputs before choosing attachments. A prepared crop is not an approved
         inventory effect.
       </Paragraph>
-      <Link href={`#${batchId}/capture`}>Add evidence or prepare another crop in Capture</Link>
+      <Link href={batchHref(batchId, { tab: 'capture' })}>
+        Add evidence or prepare another crop in Capture
+      </Link>
       {unavailable && (
         <Notice role="alert">
           Current media status is unavailable. Any displayed outputs are the last retained snapshot.

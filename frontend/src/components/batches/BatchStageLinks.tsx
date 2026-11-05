@@ -1,18 +1,21 @@
 import styled from 'styled-components'
-import { Link } from '../ui/primitives'
+import { batchHref } from '../../navigation/batch-route'
+import { color, radius, space } from '../../theme/generated/tokens'
+import { media } from '../ui/media'
 
 interface Props {
   batchId: string
   title: string
 }
 
+/** Direct links to a batch's four tabs. */
 export function BatchStageLinks({ batchId, title }: Props) {
   return (
     <Stages aria-label={`Open ${title}`}>
-      <Link href={`#${batchId}/capture`}>Capture</Link>
-      <Link href={`#${batchId}/processing/overview`}>Processing</Link>
-      <Link href={`#${batchId}/review`}>Review</Link>
-      <Link href={`#${batchId}/results`}>Results</Link>
+      <a href={batchHref(batchId, { tab: 'capture' })}>Capture</a>
+      <a href={batchHref(batchId, { tab: 'processing', step: 'overview' })}>Processing</a>
+      <a href={batchHref(batchId, { tab: 'review', view: 'lots' })}>Review</a>
+      <a href={batchHref(batchId, { tab: 'changes', view: 'ready' })}>Changes</a>
     </Stages>
   )
 }
@@ -20,12 +23,24 @@ export function BatchStageLinks({ batchId, title }: Props) {
 const Stages = styled.nav`
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 12px;
+  gap: ${space[1]};
   a {
     display: inline-flex;
     align-items: center;
-    min-height: 44px;
-    font-size: 13px;
-    font-weight: 550;
+    min-height: 28px;
+    padding: 0 ${space[2]};
+    border-radius: ${radius.btn};
+    color: ${color.accent};
+    font-size: 12.5px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  a:hover {
+    background: ${color.surface2};
+  }
+  ${media.compact} {
+    a {
+      min-height: 44px;
+    }
   }
 `

@@ -5,6 +5,7 @@ import { useCallback, useMemo, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   agentsClient,
+  attentionClient,
   captureClient,
   catalogueClient,
   inboxClient,
@@ -98,6 +99,11 @@ export default function App() {
         : undefined,
     [bootstrap],
   )
+  const attention = useMemo(
+    () =>
+      bootstrap?.csrf_token ? attentionClient(location.origin, bootstrap.csrf_token) : undefined,
+    [bootstrap?.csrf_token],
+  )
   const header = useMemo(
     () => (bootstrap?.csrf_token ? headerClient(location.origin, bootstrap.csrf_token) : null),
     [bootstrap?.csrf_token],
@@ -142,6 +148,7 @@ export default function App() {
         media={media}
         operator={operator}
         catalogue={catalogue}
+        attention={attention}
         route={route}
         onDirtyChange={onDirtyChange}
       />

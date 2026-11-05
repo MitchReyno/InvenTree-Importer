@@ -75,3 +75,21 @@ describe('targetStatus', () => {
     expect(targetSummary(value, unavailable, now)).toBe(summary)
   })
 })
+
+describe('owned test target', () => {
+  it('reads Test InvenTree in the info tone while fresh, and keeps warnings otherwise', () => {
+    const owned = (overrides: Partial<Target>) =>
+      target({ kind: 'owned_test', ...overrides } as Partial<Target>)
+
+    expect(targetStatus(owned({}), false, now)).toEqual({
+      summary: 'Test InvenTree',
+      tone: 'info',
+      short: 'Test',
+    })
+    expect(targetStatus(owned({ freshness: 'stale' }), false, now).tone).toBe('warn')
+    expect(targetStatus(owned({ state: 'unavailable' }), false, now).tone).toBe('bad')
+    expect(targetStatus(target({ kind: 'configured' } as Partial<Target>), false, now).tone).toBe(
+      'ok',
+    )
+  })
+})

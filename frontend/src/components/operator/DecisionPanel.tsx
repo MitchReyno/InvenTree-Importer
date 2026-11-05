@@ -19,6 +19,7 @@ import { SharedTagsChoice } from './SharedTagsChoice'
 import { IssuePanel } from './IssuePanel'
 import { QUICK_QUANTITY_INPUT_ID, QuickLotEdit } from './QuickLotEdit'
 import { RestructureDialog, type RestructureKind } from './RestructureDialog'
+import { batchHref } from '../../navigation/batch-route'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Part = CaptureSnapshotDto['parts'][number]
@@ -175,7 +176,15 @@ export function DecisionPanel({
             {problem.run_id && (
               <>
                 <br />
-                <Link href={`#${batch.id}/results/${problem.run_id}`}>Inspect original run</Link>
+                <Link
+                  href={batchHref(batch.id, {
+                    tab: 'changes',
+                    view: 'added',
+                    runId: problem.run_id,
+                  })}
+                >
+                  Inspect original run
+                </Link>
               </>
             )}
           </Notice>

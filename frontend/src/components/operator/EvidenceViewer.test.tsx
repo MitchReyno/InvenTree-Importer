@@ -148,7 +148,7 @@ test('a new lot lifetime chooses its own evidence and resets zoom', async () => 
 })
 
 test('exact source/version/page/preview link survives remount and refuses a changed preview', async () => {
-  history.replaceState(null, '', '#batch/review/lot?filter=warnings')
+  history.replaceState(null, '', '#batch/review/lots/lot?filter=warnings')
   const user = userEvent.setup()
   const view = render(<EvidenceViewer batchId="batch" lotId="lot" evidence={[evidence]} />)
   await user.selectOptions(screen.getByLabelText('Document page'), '2')
@@ -188,7 +188,7 @@ test('exact source/version/page/preview link survives remount and refuses a chan
 })
 
 test('partial or malformed evidence links cannot fall back to the first ready source', () => {
-  history.replaceState(null, '', '#batch/review/lot?source=untrusted')
+  history.replaceState(null, '', '#batch/review/lots/lot?source=untrusted')
   render(<EvidenceViewer batchId="batch" lotId="lot" evidence={[evidence]} />)
   expect(screen.queryByRole('img')).not.toBeInTheDocument()
   expect(screen.getByText(/link is incomplete or invalid/)).toBeVisible()
@@ -196,7 +196,7 @@ test('partial or malformed evidence links cannot fall back to the first ready so
 })
 
 test('same-document same-lot navigation follows exact pages and refuses unavailable or malformed links', async () => {
-  const path = '#batch/review/lot'
+  const path = '#batch/review/lots/lot'
   const first = {
     evidenceId: evidence.id,
     versionId: original.id,
@@ -251,7 +251,7 @@ function GuardedEvidence() {
 }
 
 test('same-lot inspection navigation cannot bypass the real application dirty-URL guard', async () => {
-  const path = '#batch/review/lot'
+  const path = '#batch/review/lots/lot'
   const first = {
     evidenceId: evidence.id,
     versionId: original.id,

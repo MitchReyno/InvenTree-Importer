@@ -22,7 +22,6 @@ export type CaptureWorkspaceProps = {
   edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   observe: (model: InventoryModelDto, pk: string) => Promise<CaptureObservationDto | null>
   onDirtyChange?: (dirty: boolean) => void
-  onProcessing?: () => void
   onStage?: (stage: 'capture' | 'review' | 'approve' | 'results') => void
   operatorReview?: OperatorReviewDto
   operator?: OperatorReviewClient

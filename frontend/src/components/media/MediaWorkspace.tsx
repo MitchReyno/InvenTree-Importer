@@ -65,6 +65,20 @@ export function MediaWorkspace({
 
   const blocked = (owner: string) => frozen || drafts.hasOtherSources(owner)
 
+  const retained = (
+    <>
+      <Button
+        disabled={command.busy || state.unavailable || disabled}
+        onClick={() => void state.retry()}
+      >
+        Retry exact media request
+      </Button>
+      <Button disabled={command.busy} onClick={state.discard}>
+        Discard unconfirmed media request
+      </Button>
+    </>
+  )
+
   return (
     <section aria-label="Retained evidence">
       <MediaUpload
@@ -103,19 +117,7 @@ export function MediaWorkspace({
       )}
       {state.error && <Paragraph role="alert">{state.error}</Paragraph>}
       {command.message && <Paragraph role="alert">{command.message}</Paragraph>}
-      {command.pending && (
-        <>
-          <Button
-            disabled={command.busy || state.unavailable || disabled}
-            onClick={() => void state.retry()}
-          >
-            Retry exact media request
-          </Button>
-          <Button disabled={command.busy} onClick={state.discard}>
-            Discard unconfirmed media request
-          </Button>
-        </>
-      )}
+      {command.pending && retained}
       <Button
         disabled={command.busy}
         onClick={() =>
@@ -204,6 +206,8 @@ export function MediaWorkspace({
                   labels={identityLabels}
                   frozen={frozen}
                   pending={command.pending}
+                  retained={retained}
+                  notice={command.message || state.error || null}
                   selected={state.selected}
                   edit={edit}
                   captureEdit={captureEdit}

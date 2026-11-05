@@ -2559,6 +2559,47 @@
         }
       ]
     },
+    "/api/v1/batches/{id}/attention": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "BatchAttention",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchAttention"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ]
+    },
     "/api/v1/batches/{id}/issue-dispositions": {
       "post": {
         "x-intake-client": {
@@ -12184,6 +12225,18 @@
                     "type": "null"
                   }
                 ]
+              },
+              "kind": {
+                "anyOf": [
+                  {
+                    "const": "owned_test",
+                    "type": "string"
+                  },
+                  {
+                    "const": "configured",
+                    "type": "string"
+                  }
+                ]
               }
             }
           }
@@ -12880,6 +12933,364 @@
             "type": "boolean"
           },
           "lane_occupied": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AttentionItem": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "group",
+          "tab",
+          "title",
+          "detail",
+          "route"
+        ],
+        "properties": {
+          "key": {
+            "minLength": 1,
+            "maxLength": 128,
+            "type": "string"
+          },
+          "group": {
+            "anyOf": [
+              {
+                "const": "question",
+                "type": "string"
+              },
+              {
+                "const": "failed_job",
+                "type": "string"
+              },
+              {
+                "const": "changed_lot",
+                "type": "string"
+              },
+              {
+                "const": "decision",
+                "type": "string"
+              },
+              {
+                "const": "result",
+                "type": "string"
+              }
+            ]
+          },
+          "tab": {
+            "anyOf": [
+              {
+                "const": "processing",
+                "type": "string"
+              },
+              {
+                "const": "review",
+                "type": "string"
+              },
+              {
+                "const": "changes",
+                "type": "string"
+              }
+            ]
+          },
+          "title": {
+            "minLength": 1,
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "route": {
+            "maxLength": 512,
+            "pattern": "^[0-9a-f-]{36}/(processing|review|changes)(/[A-Za-z0-9_-]+)*$",
+            "type": "string"
+          }
+        }
+      },
+      "BatchAttention": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "batch_id",
+          "revision",
+          "processing",
+          "review",
+          "changes",
+          "items",
+          "items_truncated"
+        ],
+        "properties": {
+          "batch_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "revision": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "processing": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "questions",
+              "failed",
+              "steps"
+            ],
+            "properties": {
+              "questions": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              },
+              "failed": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              },
+              "steps": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "examine",
+                  "research",
+                  "images",
+                  "inventory"
+                ],
+                "properties": {
+                  "examine": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "questions",
+                      "failed"
+                    ],
+                    "properties": {
+                      "questions": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "failed": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      }
+                    }
+                  },
+                  "research": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "questions",
+                      "failed"
+                    ],
+                    "properties": {
+                      "questions": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "failed": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      }
+                    }
+                  },
+                  "images": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "questions",
+                      "failed"
+                    ],
+                    "properties": {
+                      "questions": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "failed": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      }
+                    }
+                  },
+                  "inventory": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "questions",
+                      "failed"
+                    ],
+                    "properties": {
+                      "questions": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      },
+                      "failed": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "review": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "to_check",
+              "changed_after_review",
+              "to_decide"
+            ],
+            "properties": {
+              "to_check": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              },
+              "changed_after_review": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              },
+              "to_decide": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              }
+            }
+          },
+          "changes": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "ready",
+              "failed",
+              "uncertain"
+            ],
+            "properties": {
+              "ready": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              },
+              "failed": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              },
+              "uncertain": {
+                "minimum": 0,
+                "maximum": 100000,
+                "type": "integer"
+              }
+            }
+          },
+          "items": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "key",
+                "group",
+                "tab",
+                "title",
+                "detail",
+                "route"
+              ],
+              "properties": {
+                "key": {
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                "group": {
+                  "anyOf": [
+                    {
+                      "const": "question",
+                      "type": "string"
+                    },
+                    {
+                      "const": "failed_job",
+                      "type": "string"
+                    },
+                    {
+                      "const": "changed_lot",
+                      "type": "string"
+                    },
+                    {
+                      "const": "decision",
+                      "type": "string"
+                    },
+                    {
+                      "const": "result",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "tab": {
+                  "anyOf": [
+                    {
+                      "const": "processing",
+                      "type": "string"
+                    },
+                    {
+                      "const": "review",
+                      "type": "string"
+                    },
+                    {
+                      "const": "changes",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "title": {
+                  "minLength": 1,
+                  "maxLength": 2048,
+                  "type": "string"
+                },
+                "detail": {
+                  "anyOf": [
+                    {
+                      "minLength": 1,
+                      "maxLength": 2048,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "route": {
+                  "maxLength": 512,
+                  "pattern": "^[0-9a-f-]{36}/(processing|review|changes)(/[A-Za-z0-9_-]+)*$",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "items_truncated": {
             "type": "boolean"
           }
         }

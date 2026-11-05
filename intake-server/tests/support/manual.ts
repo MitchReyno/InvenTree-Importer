@@ -1,5 +1,7 @@
 import { registerLive } from '../../src/live/routes.ts'
 import { registerProcessing } from '../../src/processing/routes.ts'
+import { registerAttention } from '../../src/attention/routes.ts'
+import { attentionReader } from '../../src/attention/reader.ts'
 import { grantProcessing } from '../../src/processing/grants.ts'
 import { lockCaptureForEdit } from '../../src/capture/repository.ts'
 import {
@@ -207,6 +209,11 @@ export async function manualFixture(
     }
     if (options.processing) {
       registerProcessing(app, api.pool, config as never, lockCaptureForEdit)
+      registerAttention(
+        app,
+        config,
+        attentionReader(api.pool, config, config as never, lockCaptureForEdit),
+      )
     }
     config.origin = await app.listen({ host: '127.0.0.1', port: 0 })
     await authenticate()

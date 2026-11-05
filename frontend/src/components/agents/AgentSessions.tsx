@@ -7,6 +7,7 @@ import type { agentsClient } from '@invimport/contracts/client'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { Button, Notice, PageTitle, Panel, Paragraph, Small } from '../ui/primitives'
+import { batchHref, processingStepFor } from '../../navigation/batch-route'
 
 type Session = AgentSessionListDto['sessions'][number]
 type View = 'All' | 'Queued' | 'Active' | 'Completed' | 'Needs attention'
@@ -96,7 +97,12 @@ export function AgentSessions({ client }: { client: ReturnType<typeof agentsClie
               </Notice>
             )}
             <Paragraph>
-              <a href={`#${session.batch_id}/processing/${session.stage}`}>
+              <a
+                href={batchHref(session.batch_id, {
+                  tab: 'processing',
+                  step: processingStepFor(session.stage),
+                })}
+              >
                 Open batch processing and controls
               </a>
             </Paragraph>

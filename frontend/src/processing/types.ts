@@ -34,5 +34,5 @@ export interface ProcessingClient {
     key: string,
   ): Promise<SessionInboxReceiptDto>
 }
-export type ProcessingView =
-  'overview' | 'reading' | 'identifying' | 'research' | 'images' | 'inventory'
+/** The Processing steps; Examine shows the Reading and Identifying stages. */
+export type ProcessingView = 'overview' | 'examine' | 'research' | 'images' | 'inventory'

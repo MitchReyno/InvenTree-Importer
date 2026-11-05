@@ -2,7 +2,7 @@ import type { ConnectionStatusDto } from '@invimport/contracts'
 import { InventoryTransportError } from '../inventory/transport.ts'
 import type { DevConfig } from '../config.ts'
 
-type Binding = Pick<DevConfig, 'actorId' | 'targetId' | 'targetContextId'>
+type Binding = Pick<DevConfig, 'actorId' | 'targetId' | 'targetContextId' | 'targetKind'>
 type Observation = ConnectionStatusDto['target']
 const CACHE_MS = 30000
 const STALE_MS = 60000
@@ -94,6 +94,7 @@ export function connectionStatus(
     target_context_id: binding.targetContextId,
   }
   const url = navigation(origin)
+  const kind = binding.targetKind ?? 'configured'
   let completed: { at: number; value: Observation } | undefined
   let pending: Promise<void> | undefined
 
@@ -108,6 +109,7 @@ export function connectionStatus(
           navigation_url: null,
           label: null,
           failure_code: origin ? 'invalid_configuration' : null,
+          kind,
         },
       }
     }
@@ -123,6 +125,7 @@ export function connectionStatus(
             observed_at: new Date(at).toISOString(),
             navigation_url: url.href,
             label: url.host,
+            kind,
           },
         }
       })().finally(() => {

@@ -300,6 +300,8 @@ async function main() {
             target.kind === 'read-only' ? target.origin : state.runnerConfig.profile.origin,
           ...(state.version === 1 ? { INTAKE_DEPLOYMENT_ID: state.runnerConfig.deploymentId } : {}),
           INTAKE_PROCESSING_PROFILE: profile,
+          // Lets the connection status name the owned test target.
+          INTAKE_TARGET_PROFILE: target.kind,
         },
         (text) => text.includes('"web_ready"'),
       ).ready()

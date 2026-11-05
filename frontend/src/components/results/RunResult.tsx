@@ -16,6 +16,7 @@ import {
   Field,
   Link,
 } from '../ui/primitives'
+import { batchHref } from '../../navigation/batch-route'
 
 interface Props {
   run: ManualRunDto
@@ -186,7 +187,9 @@ export function RunResult({ run, busy, command }: Props) {
           )}
         </Details>
       </details>
-      <Link href={`#${run.batch_id}/review`}>Continue reviewing remaining lots</Link>
+      <Link href={batchHref(run.batch_id, { tab: 'review', view: 'lots' })}>
+        Continue reviewing remaining lots
+      </Link>
     </Panel>
   )
 }

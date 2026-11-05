@@ -9,6 +9,7 @@ import {
   type OperatorReviewDto,
 } from '@invimport/contracts'
 import { display } from '../capture/display'
+import { batchHref } from '../navigation/batch-route'
 
 export const REVIEW_FILTERS = [
   'all',
@@ -39,14 +40,14 @@ export interface ReviewLocation {
   filter: ReviewFilter
 }
 
-/** Review URLs: `#<batch>/review[/<lot>][?view=table&filter=warnings]`. */
+/** Review URLs: `#<batch>/review/lots[/<lot>][?view=table&filter=warnings]`. */
 export function parseReviewLocation(hash: string): ReviewLocation {
   const [path, query = ''] = hash.replace(/^#/, '').split('?')
   const params = new URLSearchParams(query)
   const segments = path.split('/')
   const filter = params.get('filter')
   return {
-    lotId: segments[1] === 'review' && segments[2] ? segments[2] : null,
+    lotId: segments[1] === 'review' && segments[2] === 'lots' && segments[3] ? segments[3] : null,
     view: params.get('view') === 'table' ? 'table' : 'evidence',
     filter: REVIEW_FILTERS.includes(filter as ReviewFilter) ? (filter as ReviewFilter) : 'all',
   }
@@ -61,8 +62,11 @@ export function reviewHash(batchId: string, value: ReviewLocation): string {
     params.set('filter', value.filter)
   }
   const query = params.toString()
-  const lot = value.lotId ? `/${value.lotId}` : ''
-  return `#${batchId}/review${lot}${query ? `?${query}` : ''}`
+  return batchHref(
+    batchId,
+    { tab: 'review', view: 'lots', ...(value.lotId ? { lotId: value.lotId } : {}) },
+    query ? `?${query}` : '',
+  )
 }
 
 export function blockingIssues(lot: OperatorLotDto): OperatorIssueDto[] {
