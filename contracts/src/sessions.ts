@@ -30,6 +30,7 @@ export const SessionState = Type.Union(
       'cancelling',
       'cancelled',
       'interrupted',
+      'failed',
       'waiting_for_login',
       'waiting_for_capacity',
       'resume_unavailable',

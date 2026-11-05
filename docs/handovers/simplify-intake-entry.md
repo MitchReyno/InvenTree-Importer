@@ -6,7 +6,7 @@ This change delivers [BI-006](../PLANNED_FUNCTIONALITY.md#bi-006--agent-led-inta
 
 | Bundle | Tasks | Branch | State |
 | --- | --- | --- | --- |
-| PR-A resumable sessions | 1–6 | `feat/simplify-intake-entry-sessions` | Tasks 1–3 done; tasks 4–6 pending |
+| PR-A resumable sessions | 1–6 | `feat/simplify-intake-entry-sessions` | Tasks 1–4 done; tasks 5–6 pending |
 | PR-B lot forming | 7–9 | `feat/simplify-intake-entry-lot-forming` | Not started; needs PR-A merged |
 | PR-C per-lot pipeline | 10–12 | `feat/simplify-intake-entry-examine-pipeline` | Not started; needs PR-B merged |
 | PR-D live qualification | 13 | `feat/simplify-intake-entry-live-qualification` | Held until live provider use is authorized |
@@ -174,6 +174,61 @@ The tests failed before the modules existed. As a negative control, the delivere
 - `pnpm contracts:check` clean; `pnpm typecheck`, `pnpm lint:readability`, `pnpm lint:frontend` and Prettier pass.
 - `pnpm test:intake`: 72 contract and 181 intake-server tests passed. `pnpm test:frontend`: 310 passed.
 - `pnpm db:intake test`: 176 passed (171 plus the 5 tool-server tests).
+
+## Task 4: session adapters, state machine and worker
+
+### Baseline (task 4.1)
+
+The task 3.1 process baseline applies: 44 tests, 40 passed, the pre-existing media memory failure and its 3 dependent skips. The `/1` adapter tests (`tests/process/agents.test.ts`) were among the passes.
+
+### Adapters
+
+`agents/session-adapters.ts` adds `runClaudeSession` and `runCodexSession`. The `/1` adapters are unchanged; Codex reuses the exported `/1` hardening keys plus `features.goals = false`.
+
+- **Claude:** writes `mcp.json` (mode 0600) naming `${INTAKE_TOOL_CAPABILITY}`, never the value; passes `--tools ""`, `--strict-mcp-config`, `--setting-sources ""`, `--allowedTools mcp__intake__*` and no `--safe-mode`; starts with `--session-id` and resumes with `--resume`. The init check requires exactly the session's `mcp__intake__*` tools and one connected `intake` server, and only those tools may appear as `tool_use`. Operator items are written to stdin as stream-JSON while the turn runs. A resume that exits before init (for example, a missing transcript) is `resume_unavailable`.
+- **Codex:** passes `mcp_servers.intake={url, bearer_token_env_var, default_tools_approval_mode="approve"}`; starts non-ephemeral threads and resumes with `thread/resume`. After start, `config/read` must list only `intake` and `mcpServerStatus/list` must report exactly the session's tools. Operator items are sent with `turn/steer` and the active `expectedTurnId`; a refused steer leaves the item for `read_inbox` or a resume. A refused `thread/resume` is `resume_unavailable`. Server-initiated requests are still refused.
+
+Both put the capability only in the child environment, and both poll the inbox during a turn (every 500 ms) so delivery happens in turn where the CLI supports it. `read_inbox` stays the guaranteed path.
+
+### State machine
+
+`agents/session-runner.ts`:
+
+- `runSessionTurn` claims a `queued` session (a guarded `queued → running` change, so two claims cannot both win), checks the profile instructions against the manifest digest, issues a fresh capability, and resumes the provider conversation when one exists. It then settles: the capability is revoked and the next state is `queued` (more inbox items), `waiting_input` (an open question), or `finished`. `resume_unavailable`, `waiting_for_login`, `interrupted` (shutdown or provider crash) and `failed` (refusals) come from the error. The attempt and job follow: `running`, `waiting_for_user`, `ready`, `interrupted`, `failed` and so on.
+- `interruptRunningSessions` runs at worker start: running sessions become `interrupted` with their capability revoked, and no turn continues.
+- `queueSessionResume` re-queues a lineage's latest session when it is waiting, finished or interrupted.
+- Locks follow the tool handlers' order (job, attempt, then session row).
+- `syntheticSessionDriver` is the deterministic `synthetic-session/1` runner. It calls the same tools: a status line, a proposal from the first delivered note, replies to chat, and one quantity question when nothing has been answered, so the answer arrives through a resume.
+- `failed` was added to the session states in migration `0018` and `SessionState`, and the session lineage foreign key is deferred, because `queueJob` writes the attempt before its job.
+
+### Worker and creation
+
+- `createAttempt` hands the session profiles to `processing/session-attempts.ts`. That builds the `/6` manifest (with the saved agent selection for `native-agent/2`), a `/5` command on `bench-sessions` and a `queued` session whose lineage is the job. Reading and identifying are refused for session profiles; the Examine stage replaces them in task 8.
+- `INTAKE_PROCESSING_PROFILE` accepts `native-agent/2` and `synthetic-session/1`.
+- `agents/session-worker-main.ts` is the supervised session worker. It takes the same per-actor supervisor lock as the `/1` worker, interrupts running sessions, starts the tool server, registers `intakeCommand` and `sessionResume` on `bench-sessions` (`processing/5`, worker and global concurrency 8), dispatches commands and wakes sessions with pending inbox items. A wake's workflow ID is `resume:<lineage>:<inbox high-water>`, so a repeated wake is a no-op.
+- Session commands are authorized by `executeSessionCommand` from the retained command row (queue, handler, account binding, workflow ID, exact payload bytes), not by `loadProcessingAuthority`, which keeps accepting only `bench-research`. Design D9 records this.
+
+### Tests
+
+- `tests/process/sessions.test.ts` (12 tests: six cases, each for Claude and Codex) runs the real adapters against `tests/fixtures/session-agent.cjs`, a fake CLI that speaks each protocol and calls the real tool server: an extra tool at start is refused and the session fails with its capability revoked; chat reaches the running turn (stdin or `turn/steer`) and is acknowledged; `mcp.json` holds no capability; a finished session resumes with queued chat and its old capability is refused; a resume without a transcript is `resume_unavailable` with the item still pending; a crash interrupts, a worker restart interrupts a running session and no turn starts on its own; a child that ignores SIGTERM is reaped and the session interrupted.
+- `tests/process/session-worker.test.ts` runs `session-worker-main` through the real DBOS boundary: a synthetic session started from the Processing route publishes a status line, a proposal and a question and waits; the HTTP answer reaches the inbox, the sweep resumes the session, and it proposes again relying on the answer and finishes.
+- The adapter environment is an allowlist, so the fake reads its mode from the private session directory instead of the environment.
+
+For this task the adapters and runner were written before the fake-CLI tests, not test first. To compensate, two negative controls were run with backups: with the init tool check disabled, the extra-tool test failed; with in-turn delivery disabled, the delivery test never completed. Both files were restored with identical SHA-256.
+
+### Left for later tasks
+
+- Slots and the configured limit, including "a child that ignores SIGTERM keeps its slot until reaped": task 5. The worker already registers `bench-sessions`.
+- The browser view of sessions: task 6.
+- Live provider behaviour, including whether models act on in-turn input: task 13.
+
+### Results (task 4.4, 4.5)
+
+- `pnpm contracts:check` clean; `pnpm typecheck`, `pnpm lint:readability`, `pnpm lint:frontend` and Prettier pass.
+- `pnpm test:intake`: 72 contract and 181 intake-server tests passed. `pnpm test:frontend`: 310 passed.
+- `pnpm db:intake test`: 176 passed.
+- `pnpm db:intake test:process`: 57 tests, 53 passed, 1 failed, 3 skipped. The failure and skips are the pre-existing media sandbox memory check from task 3.1. The `/1` adapter tests and the duplicate-supervisor fence pass unchanged; the 13 new tests pass.
+- Remaining live unknowns, for task 13: whether real models call the tools reliably, act on in-turn input, and resume with full context; the subscription login paths.
 
 ## Validation
 

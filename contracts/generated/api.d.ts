@@ -13673,7 +13673,7 @@ export interface components {
                 assumption: string;
             };
         };
-        SessionState: "queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable";
+        SessionState: "queued" | "running" | "waiting_input" | "finished" | "cancelling" | "cancelled" | "interrupted" | "failed" | "waiting_for_login" | "waiting_for_capacity" | "resume_unavailable";
         SessionStatusArgs: {
             text: string;
         };

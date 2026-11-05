@@ -151,7 +151,7 @@ Sorting and identifying cannot run as separate steps. A photo can hold several l
 ### D9. Slots replace the single lane for `/2`
 
 - `agent_slot(actor, slot_index)` rows are claimed with `FOR UPDATE SKIP LOCKED`. The limit comes from Agent settings (1–8, default 3) and is read on claim.
-- `/2` sessions use a separate DBOS queue, `bench-sessions`, registered under the shared Processing application name with `workerConcurrency: 8` and `globalConcurrency: 8`. Slot claims enforce the configured limit below that. `loadProcessingAuthority` (`processing/authority.ts`) currently accepts only `bench-research`; it is extended to accept `bench-sessions` for `/2` commands and to keep rejecting any other queue.
+- `/2` sessions use a separate DBOS queue, `bench-sessions`, registered under the shared Processing application name with `workerConcurrency: 8` and `globalConcurrency: 8`. Slot claims enforce the configured limit below that. `loadProcessingAuthority` (`processing/authority.ts`) keeps accepting only `bench-research`. Session commands do not pass through it: the session worker checks the retained command row itself (queue `bench-sessions`, handler `processing/5`, account binding, workflow ID and exact payload bytes) and claims the session with a guarded `queued → running` change, so no other queue or handler is admitted.
 - `bench-research` keeps `workerConcurrency: 1, globalConcurrency: 1` for `/1`, so retained queue rows and the dev launcher's application re-own are unaffected. A process test proves that sessions run concurrently through the real DBOS boundary.
 - **Lowering the limit** does not abort running sessions; it only stops new claims.
 - **Occupancy truth** stays as today: only terminal settlement or a confirmed reap frees a slot.

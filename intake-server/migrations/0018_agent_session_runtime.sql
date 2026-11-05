@@ -37,8 +37,8 @@ CREATE TRIGGER processing_proposal_stale_immutable BEFORE UPDATE OR DELETE ON pr
 
 -- A session lineage is its Processing job: inbox items and cursors outlive any one attempt.
 ALTER TABLE agent_session
-  ADD COLUMN session_state text CHECK (session_state IN ('queued','running','waiting_input','finished','cancelling','cancelled','interrupted','waiting_for_login','waiting_for_capacity','resume_unavailable')),
-  ADD COLUMN session_lineage_id uuid REFERENCES processing_job(id) ON DELETE RESTRICT,
+  ADD COLUMN session_state text CHECK (session_state IN ('queued','running','waiting_input','finished','cancelling','cancelled','interrupted','failed','waiting_for_login','waiting_for_capacity','resume_unavailable')),
+  ADD COLUMN session_lineage_id uuid REFERENCES processing_job(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
   ADD COLUMN capability_sha256 bytea CHECK (octet_length(capability_sha256)=32),
   ADD CONSTRAINT agent_session_lineage_state_check CHECK ((session_state IS NULL) = (session_lineage_id IS NULL));
 CREATE OR REPLACE FUNCTION guard_agent_session() RETURNS trigger LANGUAGE plpgsql AS $$

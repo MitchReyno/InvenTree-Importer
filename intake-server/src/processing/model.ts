@@ -47,7 +47,11 @@ export const researchHandlerVersion = 'processing/3'
 export const researchProfileId = 'restricted-research-stub/1'
 
 export type SelectedProcessingProfile =
-  typeof mediaProfileId | typeof researchProfileId | typeof nativeProfileId
+  | typeof mediaProfileId
+  | typeof researchProfileId
+  | typeof nativeProfileId
+  | 'native-agent/2'
+  | 'synthetic-session/1'
 
 export const stageOrder = ['reading', 'identifying', 'research', 'images', 'inventory'] as const
 

@@ -1,0 +1,197 @@
+// Deterministic session executable for Claude stream-JSON and Codex app-server. It calls the real
+// intake tool server over loopback HTTP and never contacts a provider.
+const fs = require('node:fs')
+const path = require('node:path')
+const readline = require('node:readline')
+
+const args = process.argv.slice(2)
+// The adapter passes only an allowlisted environment, so the test leaves its settings in the
+// private session directory the child runs in.
+const settingsFile = path.join(process.cwd(), 'fake-session.json')
+const settings = fs.existsSync(settingsFile) ? JSON.parse(fs.readFileSync(settingsFile, 'utf8')) : {}
+const mode = settings.mode ?? 'normal'
+const log = (entry) => {
+  if (settings.log) {
+    fs.appendFileSync(settings.log, JSON.stringify(entry) + '\n')
+  }
+}
+const send = (value) => process.stdout.write(JSON.stringify(value) + '\n')
+const sessionsDir = path.join(process.cwd(), 'fake-sessions')
+const TOOLS = ['ask', 'fetch_evidence', 'propose', 'read_inbox', 'reply', 'status']
+
+if (mode === 'ignore-sigterm') {
+  process.on('SIGTERM', () => log({ event: 'sigterm-ignored' }))
+}
+
+function toolTarget() {
+  if (args[0] === 'app-server') {
+    const override = args.find((arg) => arg.startsWith('mcp_servers.intake='))
+    const url = /url="([^"]+)"/.exec(override)[1]
+    const variable = /bearer_token_env_var="([^"]+)"/.exec(override)[1]
+    return { url, token: process.env[variable] }
+  }
+  const file = args[args.indexOf('--mcp-config') + 1]
+  const raw = fs.readFileSync(file, 'utf8')
+  log({ event: 'mcp-config', contains_capability: raw.includes(process.env.INTAKE_TOOL_CAPABILITY) })
+  const server = JSON.parse(raw).mcpServers.intake
+  const header = server.headers.Authorization.replace(/\$\{([A-Z_]+)\}/g, (_, name) => process.env[name] ?? '')
+  return { url: server.url, token: header.replace(/^Bearer /, '') }
+}
+
+let rpc = 0
+async function callTool(name, toolArgs) {
+  const { url, token } = toolTarget()
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+      accept: 'application/json, text/event-stream',
+    },
+    body: JSON.stringify({ jsonrpc: '2.0', id: ++rpc, method: 'tools/call', params: { name, arguments: toolArgs } }),
+  })
+  const body = await response.json()
+  const result = body.result?.structuredContent
+  log({ event: 'tool', name, status: response.status, ok: result?.ok, error: result?.error })
+  return result
+}
+
+/** Calls status, then (in delivery mode) waits for an in-turn message naming an inbox item. */
+async function work(waitForDelivery) {
+  log({ event: 'capability', value: toolTarget().token })
+  await callTool('status', { text: 'Reading the evidence' })
+  if (mode === 'crash') {
+    process.exit(3)
+  }
+  if (mode === 'ignore-sigterm') {
+    await new Promise(() => {})
+  }
+  if (mode === 'deliver') {
+    const delivered = await waitForDelivery()
+    const seq = /sequence (\d+)/.exec(delivered)?.[1]
+    if (seq) {
+      await callTool('read_inbox', { after_seq: seq })
+    }
+  }
+  if (mode === 'reply') {
+    const read = await callTool('read_inbox', { after_seq: '0' })
+    for (const item of read.items ?? []) {
+      if (item.kind === 'chat') {
+        await callTool('reply', { inbox_item_id: item.id, text: 'Noted, thanks.' })
+      }
+    }
+    const last = read.items?.at(-1)
+    if (last) {
+      await callTool('read_inbox', { after_seq: last.seq })
+    }
+  }
+}
+
+function persisted(id) {
+  return fs.existsSync(path.join(sessionsDir, id))
+}
+function persist(id) {
+  fs.mkdirSync(sessionsDir, { recursive: true })
+  fs.writeFileSync(path.join(sessionsDir, id), 'transcript')
+}
+
+function inbox() {
+  const queue = []
+  let waiter
+  return {
+    push(text) {
+      log({ event: 'delivered', text })
+      queue.push(text)
+      waiter?.()
+    },
+    next() {
+      return new Promise((resolve) => {
+        const take = () => (queue.length ? resolve(queue.shift()) : (waiter = take))
+        take()
+      })
+    },
+  }
+}
+
+if (args[0] === 'app-server') {
+  const deliveries = inbox()
+  let threadId
+  let turnId
+  const lines = readline.createInterface({ input: process.stdin })
+  lines.on('line', async (line) => {
+    const frame = JSON.parse(line)
+    const reply = (result) => send({ id: frame.id, result })
+    if (frame.method === 'initialize') reply({})
+    if (frame.method === 'thread/start') {
+      threadId = `fake-thread-${Date.now()}`
+      persist(threadId)
+      reply({ thread: { id: threadId }, model: 'fake-codex-model' })
+    }
+    if (frame.method === 'thread/resume') {
+      log({ event: 'resume', id: frame.params.threadId })
+      if (mode === 'resume-missing' || !persisted(frame.params.threadId)) {
+        send({ id: frame.id, error: { code: -32600, message: 'no rollout found' } })
+        return
+      }
+      threadId = frame.params.threadId
+      reply({ thread: { id: threadId }, model: 'fake-codex-model' })
+    }
+    if (frame.method === 'config/read') {
+      reply({ config: { mcp_servers: { intake: {} } } })
+    }
+    if (frame.method === 'mcpServerStatus/list') {
+      const tools = Object.fromEntries([...TOOLS, ...(mode === 'extra-tool' ? ['shell'] : [])].map((name) => [name, {}]))
+      reply({ data: [{ name: 'intake', tools }] })
+    }
+    if (frame.method === 'turn/start') {
+      turnId = `fake-turn-${Date.now()}`
+      log({ event: 'opening', text: frame.params.input[0].text })
+      reply({ turn: { id: turnId } })
+      await work(() => deliveries.next())
+      send({ method: 'turn/completed', params: { turn: { id: turnId, status: 'completed' } } })
+    }
+    if (frame.method === 'turn/steer') {
+      if (frame.params.expectedTurnId !== turnId) {
+        send({ id: frame.id, error: { code: -32600, message: 'turn mismatch' } })
+        return
+      }
+      reply({ turnId })
+      deliveries.push(frame.params.input[0].text)
+    }
+  })
+} else {
+  const deliveries = inbox()
+  const resume = args.includes('--resume') ? args[args.indexOf('--resume') + 1] : undefined
+  const sessionId = resume ?? args[args.indexOf('--session-id') + 1]
+  let started = false
+  const lines = readline.createInterface({ input: process.stdin })
+  lines.on('line', async (line) => {
+    const text = JSON.parse(line).message.content[0].text
+    if (started) {
+      deliveries.push(text)
+      return
+    }
+    started = true
+    if (resume) {
+      log({ event: 'resume', id: resume })
+      if (mode === 'resume-missing' || !persisted(resume)) {
+        process.stderr.write('No conversation found with session ID\n')
+        process.exit(1)
+      }
+    }
+    persist(sessionId)
+    const tools = [...TOOLS.map((name) => `mcp__intake__${name}`), ...(mode === 'extra-tool' ? ['Bash'] : [])]
+    send({
+      type: 'system',
+      subtype: 'init',
+      session_id: sessionId,
+      model: 'fake-claude-model',
+      tools,
+      mcp_servers: [{ name: 'intake', status: 'connected' }],
+    })
+    log({ event: 'opening', text })
+    await work(() => deliveries.next())
+    send({ type: 'result', subtype: 'success', is_error: false, session_id: sessionId })
+  })
+  lines.on('close', () => process.exit(0))
+}

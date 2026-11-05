@@ -6,7 +6,7 @@ import type { NativeAgentHost } from './environment.ts'
 import { NativeAgentResult, decodeNativeResult } from './result.ts'
 import type { NativePrompt, NativeProgress } from './types.ts'
 
-const CODEX_CONFIG: Record<string, unknown> = {
+export const CODEX_CONFIG: Record<string, unknown> = {
   approval_policy: 'never',
   sandbox_mode: 'read-only',
   web_search: 'disabled',

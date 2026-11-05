@@ -118,6 +118,7 @@ test('session states include waiting and recovery states', () => {
     'cancelling',
     'cancelled',
     'interrupted',
+    'failed',
     'waiting_for_login',
     'waiting_for_capacity',
     'resume_unavailable',

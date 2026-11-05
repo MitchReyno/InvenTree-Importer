@@ -131,7 +131,9 @@ export function processingConfig(config: DevConfig, env: NodeJS.ProcessEnv): Pro
   if (
     profileId !== 'synthetic-research/2' &&
     profileId !== 'restricted-research-stub/1' &&
-    profileId !== 'native-agent/1'
+    profileId !== 'native-agent/1' &&
+    profileId !== 'native-agent/2' &&
+    profileId !== 'synthetic-session/1'
   ) {
     throw new Error('unsupported_processing_profile')
   }

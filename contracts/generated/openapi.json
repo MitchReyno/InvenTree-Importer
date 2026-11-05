@@ -59096,6 +59096,10 @@
             "type": "string"
           },
           {
+            "const": "failed",
+            "type": "string"
+          },
+          {
             "const": "waiting_for_login",
             "type": "string"
           },

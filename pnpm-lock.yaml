@@ -331,6 +331,9 @@ importers:
       '@invimport/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@modelcontextprotocol/client':
+        specifier: 2.4.0
+        version: 2.4.0
       '@modelcontextprotocol/node':
         specifier: 2.1.2
         version: 2.1.2(@modelcontextprotocol/server@2.4.0)
@@ -362,9 +365,6 @@ importers:
         specifier: 8.22.1
         version: 8.22.1
     devDependencies:
-      '@modelcontextprotocol/client':
-        specifier: 2.4.0
-        version: 2.4.0
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2

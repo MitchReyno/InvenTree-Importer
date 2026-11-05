@@ -145,7 +145,7 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
     - an answer is delivered via `turn/steer` (Codex) or `read_inbox` (Claude)
     - resume after finish carries the queued chat
     - a missing transcript gives `resume_unavailable`
-    - with the fallback config file, it is gone once init is confirmed
+    - the Claude `mcp.json` never contains the capability value (task 1 removed the fallback file)
     - a crash gives interrupted with no automatic turn
     - a capability is refused after finish, after resume (the old one) and after worker restart
     - a child that ignores SIGTERM keeps its slot until reaped
@@ -153,11 +153,11 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm test:intake:process`, `pnpm test:intake`; the existing `/1` adapter tests unchanged.
 - **Risks and decisions:** real provider behavior stays unverified (task 13).
 
-- [ ] 4.1 Baseline the existing adapter process tests.
-- [ ] 4.2 RED: fake-CLI regressions for allowlist refusal, in-turn delivery, resume, resume failure, crash, stubborn child and capability revocation.
-- [ ] 4.3 GREEN: Claude and Codex `/2` adapters, the state machine and the resume workflow.
-- [ ] 4.4 Refactor shared child supervision. Verify the `/1` adapter tests and the duplicate-supervisor fence.
-- [ ] 4.5 Record results and remaining live unknowns.
+- [x] 4.1 Baseline the existing adapter process tests.
+- [x] 4.2 RED: fake-CLI regressions for allowlist refusal, in-turn delivery, resume, resume failure, crash, stubborn child and capability revocation.
+- [x] 4.3 GREEN: Claude and Codex `/2` adapters, the state machine and the resume workflow.
+- [x] 4.4 Refactor shared child supervision. Verify the `/1` adapter tests and the duplicate-supervisor fence.
+- [x] 4.5 Record results and remaining live unknowns.
 
 ## 5. Session slots and concurrency setting
 
