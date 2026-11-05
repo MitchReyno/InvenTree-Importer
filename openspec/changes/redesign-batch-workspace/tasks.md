@@ -162,7 +162,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 
 - [ ] 6.1 Redesign the Batches home: continue card with counted actions, compact list, search toolbar.
 - [ ] 6.2 Replace evidence cards with EvidenceTile, moving crop, rotation, download and identity into the viewer and its Details.
-- [ ] 6.3 Add the read-only Proposed lots glance from the `ProcessingSource` adapter, linking to Review. The per-lot agent status line appears with task 14 (PR-G).
+- [ ] 6.3 Add the read-only Proposed lots glance, linking to Review. It reads proposed lots through a small source function over the existing lot reads, which task 7.1 folds into the `ProcessingSource` adapter, so no part of task 7 moves into PR-B. The per-lot agent status line appears with task 14 (PR-G).
 - [ ] 6.4 Restyle Batch settings and the evidence groups. Remove inline IDs and revisions.
 
 ## 7. Processing workspace
@@ -305,7 +305,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization.
+- [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Review clear at `9fea7c7`; merged as #96 (`50ff181`). The frontend, TypeScript, Markdown and workflow checks passed; the two intake jobs failed identically on `interactive-app` itself (#93's sandbox limit test and #97's startup timeouts).
 - [ ] D.2 PR-B: same gates.
 - [ ] D.3 PR-C: same gates.
 - [ ] D.4 PR-D: same gates.

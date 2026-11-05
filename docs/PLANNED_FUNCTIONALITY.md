@@ -57,7 +57,7 @@ Remove manual lot entry and question-blocked processing from Capture and Process
 Adopt the Bench Intake Design System (tokens, light and dark themes, components, content rules) and masthead option A, and restructure the batch into Capture, Processing, Review and Changes with a second tab row and a need-you panel. Review gains Lots, Map and Records with record-level edits; Changes combines Ready to add (By type and Tree) and Added; an app-level Agents page lists sessions.
 
 - Change: `redesign-batch-workspace`
-- Status: Planned
+- Status: In progress — PR-A (tokens, themes, components, masthead) merged in #96
 - Size: XL — design system, navigation, every batch screen and a record-edit backend, delivered in six PRs.
 - Prerequisites: None to start. Agent-backed panels (sessions, live lots, region-level Map) arrive with BI-006 and fall back to retained jobs until then.
 - OpenSpec: [redesign-batch-workspace](../openspec/changes/redesign-batch-workspace/)

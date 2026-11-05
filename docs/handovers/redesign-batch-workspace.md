@@ -1,6 +1,6 @@
 # Batch workspace redesign implementation
 
-Maintained implementation handover for [`redesign-batch-workspace`](../../openspec/changes/redesign-batch-workspace/) ([BI-008](../PLANNED_FUNCTIONALITY.md#bi-008--batch-workspace-redesign)). Status: PR-A (Tasks 1–3) implemented on `feat/redesign-batch-workspace-foundation`; independent review clear at `9fea7c7`. Reviews, CI and merges are recorded only after they occur.
+Maintained implementation handover for [`redesign-batch-workspace`](../../openspec/changes/redesign-batch-workspace/) ([BI-008](../PLANNED_FUNCTIONALITY.md#bi-008--batch-workspace-redesign)). Status: PR-A (Tasks 1–3) merged as #96 (`50ff181`). PR-B (Tasks 4–6) in progress on `feat/redesign-batch-workspace-navigation`. Reviews, CI and merges are recorded only after they occur.
 
 ## Authority and boundaries
 
@@ -104,7 +104,32 @@ Final checks at `9fea7c7`: frontend typecheck, lint (token freshness, contrast, 
 
 The [design system](https://claude.ai/artifact/TbKY47cDmdA3Nuh2jufTmo) now carries the same token changes as `frontend/src/theme/tokens.json` (version 7): `photo-scrim` and `photo-fg`, the dark `part-*` values, the Public Sans Variable stack, and `color-scheme` on both theme blocks of its `tokens.css`.
 
-### Remaining for PR-A
+### PR-A delivery
 
-D.1 stays open until selected CI is green and the PR is merged.
+Mitch asked to merge. `interactive-app` had moved (simplify-intake-entry PR-A, #97), so `origin/interactive-app` was merged into the branch; the only conflict was `pnpm-lock.yaml`, regenerated with the font packages (16 lines over the base). All frontend checks passed again (429 tests with #97's). Squash-merged as #96 (`50ff181`). The two failing intake CI jobs fail the same way on `interactive-app`: `media-resources.test.ts` expects a 512 MiB sandbox limit after #93 raised it to 1 GiB, and two process tests time out at start-up since #97.
+
+Reviews from PR-B on use a fresh read-only Claude reviewer subagent per round, at Mitch's request.
+
+## PR-B plan: navigation, attention, Batches and Capture (Tasks 4–6)
+
+### Attention read (Task 4)
+
+- **Contract:** `contracts/src/attention.ts` adds `BatchAttention`: per-tab counts (Processing open questions; Review lots to check and decisions; Changes lots ready, failed and uncertain results) and bounded need-you items, each with a group, a title, an optional detail and a route. Registered with the other schemas and the generated client.
+- **Server:** `intake-server/src/attention/` holds a pure projection over the existing processing snapshot, operator review and manual workspace reads, and a route `GET /api/v1/batches/:id/attention` registered like the header routes, reusing the same repositories, setup guard and error mapping. Until Task 9, decisions are the operator-review blocking issues that need a choice.
+- **Tests first:** projection tests over fixtures (open question, changed-after-review lot, blocking issue, uncertain and failed results), then an HTTP route test.
+
+### Navigation (Task 5)
+
+- `frontend/src/navigation/batch-route.ts`: a pure parser and builder for the new routes and every legacy redirect in design D5, keeping the query string. `Batch.tsx` follows redirects with `location.replace`, so the navigation guard still blocks them with a dirty draft.
+- `BatchHeader` shows the four tabs, the second row and badges from the attention read, plus the "N need you" pill opening the need-you panel on the Radix popover. The existing Review, Approve and Results screens mount under the new routes until Tasks 8 and 11 replace them.
+- The header connection contract gains a target kind, and the connection status shows the `info` "Test InvenTree" state for the owned test target.
+
+### Batches and Capture (Task 6)
+
+- Batches home: continue card, compact list and search toolbar from the design-system components.
+- Capture: EvidenceTile instead of the evidence cards, with crop, rotation, download and identity in the viewer; the read-only Proposed lots glance; restyled settings and groups without inline IDs and revisions.
+
+### Verification plan
+
+Contract and OpenAPI checks, intake tests, frontend checks, redirect tests, and a browser check of Capture at 1440, 860 and 390px and 200% zoom (under 2,500px tall for an 11-file fixture).
 
