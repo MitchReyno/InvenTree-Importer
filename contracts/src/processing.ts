@@ -491,9 +491,39 @@ export const ProcessingJob = object({
   blocked_code: Type.Optional(ProcessingBlocker),
   /** Present for session profiles: the state of the job's latest session. */
   session_state: Type.Optional(SessionState),
-  proposals: Type.Array(object({ id: Id, message_id: Id, value: ProcessingProposal }), {
-    maxItems: 100,
-  }),
+  proposals: Type.Array(
+    object({
+      id: Id,
+      message_id: Id,
+      value: ProcessingProposal,
+      /**
+       * Session proposals only. Stale when a source it relies on changed; provisional while a
+       * question about one of its fields is open.
+       */
+      currentness: Type.Optional(
+        Type.Union([
+          object({ state: Type.Literal('current') }),
+          object({ state: Type.Literal('provisional') }),
+          object({
+            state: Type.Literal('stale'),
+            reason: Type.Union(
+              (
+                [
+                  'source_superseded',
+                  'evidence_removed',
+                  'answer_received',
+                  'operator_correction',
+                  'lot_regrouped',
+                  'subject_retired',
+                ] as const
+              ).map((reason) => Type.Literal(reason)),
+            ),
+          }),
+        ]),
+      ),
+    }),
+    { maxItems: 100 },
+  ),
   questions: Type.Array(ProcessingQuestion, { maxItems: 100 }),
 })
 export const ProcessingSnapshot = object({

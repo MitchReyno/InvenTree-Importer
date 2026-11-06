@@ -1,4 +1,4 @@
-import { pinnedIdentityCurrent } from '../processing/stable-identity.ts'
+import { pinnedIdentityCurrent, successorsCurrent } from '../processing/stable-identity.ts'
 import { supersedeJobAttempts } from '../processing/jobs.ts'
 import { join } from 'node:path'
 import { and, eq, inArray, or, sql } from 'drizzle-orm'
@@ -440,6 +440,14 @@ export async function runSessionTurn(
         await publish(client, row.batchId)
         return 'cancelled' as const
       }
+      // Inventory waits, queued and without a slot, until the lot's Research and Images are current.
+      if (
+        manifest.stage === 'inventory' &&
+        manifest.subject_id &&
+        !(await successorsCurrent(client, row.batchId, manifest.subject_id))
+      ) {
+        return 'waiting' as const
+      }
       // Without a free slot the session stays queued; the caller waits and tries again.
       if (!(await claimSessionSlot(client, config, attemptId))) {
         return undefined
@@ -478,7 +486,7 @@ export async function runSessionTurn(
   if (claimed === 'cancelled') {
     return 'cancelled' as const
   }
-  if (claimed === 'archived') {
+  if (claimed === 'archived' || claimed === 'waiting') {
     return 'queued' as const
   }
   const current = claimed

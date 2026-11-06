@@ -13,6 +13,13 @@ const SUCCESSOR_STAGES = ['research', 'images'] as const
  * stale; the next stable identity queues fresh attempts. Running sessions keep running.
  */
 export async function lotRegrouped(client: PoolClient, lotId: string) {
+  // Deployments without Processing grant capture roles nothing on its tables.
+  const visible = await client.query<{ visible: boolean }>(
+    "SELECT has_table_privilege('public.processing_job', 'SELECT') AS visible",
+  )
+  if (visible.rows[0]?.visible !== true) {
+    return { superseded: [] as string[], stale: [] as string[] }
+  }
   const db = queryDatabase(client)
   const jobs = await executeDatabaseQuery(
     db

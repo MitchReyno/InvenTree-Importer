@@ -89,11 +89,12 @@ async function leadDeliveredVersions(client: PoolClient, principal: SessionPrinc
 export const LEAD_PREVIEW_LONG_EDGE = 768
 
 /**
- * The lead session's evidence: its pinned batch media plus versions sent to it as evidence
- * notices. Previews come back downscaled; a region comes back as a crop of the full preview.
+ * A session's evidence as previews: its pinned media plus versions sent to it as evidence
+ * notices. The lead session always fetches this way; a lot session does for pages, region
+ * crops and versions it learned of from a notice. Previews come back downscaled; a region comes back as a crop of the full preview.
  * Every answer lists each page's full preview size, which regions are measured against.
  */
-async function leadFetchEvidence(
+async function previewFetchEvidence(
   context: SessionToolContext,
   token: string,
   run: string,
@@ -464,8 +465,19 @@ async function requireDeliveredSources(
   })
   const fetched = context.deliveredMedia.get(principal.jobId) ?? new Set<string>()
 
+  const manifestVersions = new Set(
+    decodeMediaInputs(
+      Buffer.from(manifest.media.manifest, 'utf8'),
+      Buffer.from(manifest.media.sha256, 'hex'),
+    ).versions.map((item) => item.versionId),
+  )
+
+  // A version from an evidence notice is outside the manifest; fetching it delivered it.
   const delivered = (source: ProcessingSourceDto) =>
-    inManifest(source) && (source.kind === 'note' || fetched.has(source.version_id))
+    source.kind === 'note'
+      ? inManifest(source)
+      : fetched.has(source.version_id) &&
+        (manifestVersions.has(source.version_id) ? inManifest(source) : true)
 
   for (const source of [...proposal.sources, ...catalogueSources(proposal)]) {
     if (!delivered(source)) {
@@ -865,8 +877,24 @@ export function sessionTools(context: SessionToolContext) {
     fetch_evidence: async (token: string, args: unknown): Promise<SessionToolOutput> => {
       const run = capabilityDigest(token).toString('hex')
       const found = await resolveSessionCapability(context.pool, token)
-      if (found && (found.stage as string) === 'examine') {
-        return leadFetchEvidence(context, token, run, args)
+      const request = (args ?? {}) as { version_id?: unknown; region?: unknown; page?: unknown }
+
+      const inManifest = (versionId: unknown) =>
+        found !== null &&
+        found !== undefined &&
+        decodeMediaInputs(
+          Buffer.from(found.manifest.media.manifest, 'utf8'),
+          Buffer.from(found.manifest.media.sha256, 'hex'),
+        ).versions.some((item) => item.versionId === versionId)
+
+      if (
+        found &&
+        ((found.stage as string) === 'examine' ||
+          request.region !== undefined ||
+          request.page !== undefined ||
+          (typeof request.version_id === 'string' && !inManifest(request.version_id)))
+      ) {
+        return previewFetchEvidence(context, token, run, args)
       }
       let reserved: { version: MediaInputVersion; jobId: string; batchId: string } | undefined
       // Authorize and reserve under the session locks; the bytes are read after the transaction,

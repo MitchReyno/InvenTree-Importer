@@ -84,9 +84,12 @@ test('the synthetic lead session forms lots from regions and adds later evidence
     )
     assert.deepEqual(led.quantity, { mode: 'inherit' })
     const processing = (await fixture.http(`/batches/${batchId}/processing`)).value as {
-      jobs: { stage: string; proposals: { value: { subject_id: string } }[] }[]
+      jobs: { stage: string; proposals: { value: { subject_id: string; summary: string } }[] }[]
     }
-    const proposals = processing.jobs.find((job) => job.stage === 'examine')!.proposals
+    // One identity per lot; estimated quantities are proposals of their own.
+    const proposals = processing.jobs
+      .find((job) => job.stage === 'examine')!
+      .proposals.filter((p) => p.value.summary.startsWith('Identity'))
     assert.deepEqual(
       proposals.map((p) => p.value.subject_id).sort(),
       formed.map((lot) => lot.id).sort(),

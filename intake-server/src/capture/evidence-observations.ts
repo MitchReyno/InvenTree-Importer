@@ -292,7 +292,7 @@ async function setActiveLot(
           ),
         ),
     )
-    await bumpObservationSet(client, from, revision)
+    await bumpObservationSet(client, from, revision, { removed: observationId })
   }
   await executeDatabaseQuery(
     db
@@ -313,10 +313,15 @@ async function setActiveLot(
         set: { status: 'active', revision },
       }),
   )
-  await bumpObservationSet(client, to, revision)
+  await bumpObservationSet(client, to, revision, { added: observationId })
 }
 
-async function bumpObservationSet(client: PoolClient, lotId: string, revision: bigint) {
+async function bumpObservationSet(
+  client: PoolClient,
+  lotId: string,
+  revision: bigint,
+  change: { added?: string; removed?: string } = {},
+) {
   await executeDatabaseQuery(
     queryDatabase(client)
       .update(captureLots)
@@ -326,8 +331,18 @@ async function bumpObservationSet(client: PoolClient, lotId: string, revision: b
       })
       .where(eq(captureLots.id, lotId)),
   )
+  // Loaded on use: Processing depends on capture, so capture must not import it eagerly.
+  const { observationAdded, observationRemoved } = await import('../processing/currentness.ts')
+  // Proposals citing a removed observation are stale for that reason, before the regroup.
+  if (change.removed) {
+    await observationRemoved(client, lotId, change.removed)
+  }
   // Successors that have not started wait for the next stable identity.
   await lotRegrouped(client, lotId)
+  // Sessions already working on the lot hear about new evidence.
+  if (change.added) {
+    await observationAdded(client, lotId, change.added)
+  }
 }
 
 /** A suggested membership row for the operator; it counts towards nothing until accepted. */
@@ -714,7 +729,7 @@ async function moveByOperator(
           ),
         ),
     )
-    await bumpObservationSet(client, from, revision)
+    await bumpObservationSet(client, from, revision, { removed: observationId })
     await markLotEdited(client, from, revision)
   }
   if (to) {
@@ -737,7 +752,7 @@ async function moveByOperator(
           set: { status: 'active', revision },
         }),
     )
-    await bumpObservationSet(client, to, revision)
+    await bumpObservationSet(client, to, revision, { added: observationId })
     await markLotEdited(client, to, revision)
   }
 }

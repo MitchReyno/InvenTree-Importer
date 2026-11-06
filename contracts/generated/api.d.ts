@@ -12568,6 +12568,17 @@ export interface components {
                         } | null;
                     };
                 };
+                currentness?: {
+                    /** @constant */
+                    state: "current";
+                } | {
+                    /** @constant */
+                    state: "provisional";
+                } | {
+                    /** @constant */
+                    state: "stale";
+                    reason: "source_superseded" | "evidence_removed" | "answer_received" | "operator_correction" | "lot_regrouped" | "subject_retired";
+                };
             }[];
             questions: {
                 id: string;
@@ -12940,6 +12951,17 @@ export interface components {
                                 })[];
                             } | null;
                         };
+                    };
+                    currentness?: {
+                        /** @constant */
+                        state: "current";
+                    } | {
+                        /** @constant */
+                        state: "provisional";
+                    } | {
+                        /** @constant */
+                        state: "stale";
+                        reason: "source_superseded" | "evidence_removed" | "answer_received" | "operator_correction" | "lot_regrouped" | "subject_retired";
                     };
                 }[];
                 questions: {

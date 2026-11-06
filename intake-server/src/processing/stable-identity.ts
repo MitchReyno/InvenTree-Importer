@@ -13,15 +13,11 @@ import { processingAttempts, processingJobs, processingProposalStale } from './s
 /** The per-lot sessions a stable identity starts, in parallel. Inventory waits for both. */
 export const SUCCESSOR_STAGES = ['research', 'images'] as const
 
-/** Attempt states a revised identity reaches as an inbox item instead of a new attempt. */
-const LIVE_STATES = [
-  'queued',
-  'running',
-  'waiting_for_user',
-  'waiting_for_login',
-  'waiting_for_capacity',
-  'interrupted',
-] as const
+/**
+ * Attempt states that end a successor: only then does a stable identity queue a fresh one. Any
+ * other successor, running or finished, gets the revision as an inbox item and is resumed.
+ */
+const ENDED_STATES = ['superseded', 'cancelled', 'failed'] as const
 
 /** The observation set version an identity proposal relies on for its own lot, if any. */
 export function reliedObservationSet(proposal: ProcessingProposalV5Dto): string | null {
@@ -106,7 +102,7 @@ export async function onLeadIdentity(
         .for('update', { of: processingJobs }),
     )
     const job = jobs[0]
-    if (job && (LIVE_STATES as readonly string[]).includes(job.attemptState)) {
+    if (job && !(ENDED_STATES as readonly string[]).includes(job.attemptState)) {
       await appendSessionInbox(
         client,
         {

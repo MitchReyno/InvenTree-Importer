@@ -693,3 +693,47 @@ Results at the reviewed head `04c69ae`, plus the job card label fix below.
   - `pnpm test:intake`: contracts 76/76, intake server 213/213. Frontend 585/585. Typecheck, lint, format and `contracts:check` are clean.
   - An earlier tier run hung for about 2.7 hours in `processing-suggestions.test.ts`. It was started without `INTAKE_MEDIA_DECODER_IMAGE`, so the media fixtures refused to start. Tier runs now get a hard time cap and a stall check.
 
+## PR-C task 11: proposal currentness, selective rework and new evidence pickup
+
+- **Fan-out (`processing/currentness.ts`, `fieldsSuperseded`).**
+  - **What goes stale:** an answer or an operator correction supersedes fields of a subject. In the same transaction, these proposals become stale:
+    - every current proposal for that subject whose `relies_on.fields` overlaps the answered fields;
+    - every proposal relying on one of those through a `proposal` source.
+  - **Who is told:** each relying session gets a `revision` inbox item:
+    - the owners of those proposals;
+    - sessions whose opening manifest pinned one of them, even before they have published anything.
+  - The asker already has its `answer` item. Proposals relying on other fields stay current.
+- **Answers.** `answerSessionQuestion` calls the fan-out with the question's declared `fields` (`answer_received`). A quantity answer therefore leaves identity proposals current.
+- **Corrections.** In `capture.edit`, a `lot` edit of `part_subject_id` corrects `identity` and one of `quantity` corrects `quantity` (`operator_correction`).
+  - The answer path applies its value through `capture.apply`, not `edit`, so an answer is not counted twice.
+  - Bulk and operator-review edit paths do not fan out yet.
+- **Evidence hooks.** `bumpObservationSet` now knows the observation that moved.
+  - **Removed:** proposals citing the observation as an `evidence_observation` source become stale (`evidence_removed`) before the regroup, and their sessions get a revision notice.
+  - **Added:** the lot's Research and Images sessions get an `evidence` notice for the observation's photo. The wake sweep resumes finished or waiting sessions with unread items.
+  - **Lazy loading:** capture loads `currentness.ts` lazily, to avoid an import cycle with media.
+- **Finished successors are revised, not replaced.** A stable identity now queues a fresh attempt only when the successor is missing, superseded, cancelled or failed. Running, waiting and finished sessions get the revision as an inbox item and are resumed.
+- **Lot sessions fetch previews.** A lot session's `fetch_evidence` uses the preview path for pages, region crops and versions outside its manifest (from evidence notices), and it may cite a version it fetched. The path is `previewFetchEvidence`, formerly `leadFetchEvidence`.
+- **Read model.**
+  - Each session proposal in the Processing snapshot has `currentness`:
+    - `stale`, with its reason;
+    - `provisional`, while an open question on a current attempt shares one of its fields and its subject;
+    - `current` otherwise.
+  - It is one bounded query per batch (`proposalCurrentness` in `processing/read.ts`).
+- **Inventory waits.** A queued Inventory whose lot's Research and Images are not current stays queued at claim, without taking a slot.
+- **Synthetic lead.**
+  - It publishes its quantity estimate as a separate proposal relying on `quantity`.
+  - It cites each lot's observations as `evidence_observation` sources.
+- **Tests (`tests/pg/selective-rework.test.ts`):**
+  - "Unclear quantity" (provisional, then stale on answer, with the identity current);
+  - an identity correction reaching Research and Images, including Research with nothing published;
+  - Inventory waiting;
+  - "Evidence removed";
+  - "Photo added mid-run".
+- **Ask validation.** `session-tools.test.ts` now refuses an `ask` without fields or without an assumption ("Agent asks without an assumption").
+- **Shared helpers.** These moved to `tests/support/lot-pipeline.ts`.
+- **Deployments without Processing.** On a manual-only deployment the capture `api` role has no Processing grants, so the currentness and regroup hooks do nothing there (`has_table_privilege` check). The first tier run failed 57 manual-execution tests on exactly this.
+- **Results (11.4, 11.5):**
+  - `pnpm db:intake test` passed 231/231. The `/1` answer, closure and supersession suites (`processing`, `processing-dependencies`) pass unchanged.
+  - `pnpm db:intake test:process` passed 70/70.
+  - `pnpm test:intake`: contracts 76/76, intake server 213/213. Frontend 585/585. Typecheck, lint, format and `contracts:check` are clean.
+

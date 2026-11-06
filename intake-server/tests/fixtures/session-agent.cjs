@@ -8,7 +8,9 @@ const args = process.argv.slice(2)
 // The adapter passes only an allowlisted environment, so the test leaves its settings in the
 // private session directory the child runs in.
 const settingsFile = path.join(process.cwd(), 'fake-session.json')
-const settings = fs.existsSync(settingsFile) ? JSON.parse(fs.readFileSync(settingsFile, 'utf8')) : {}
+const settings = fs.existsSync(settingsFile)
+  ? JSON.parse(fs.readFileSync(settingsFile, 'utf8'))
+  : {}
 // A test that cannot reach the session directory first may bake a mode into the executable.
 // eslint-disable-next-line no-undef
 const mode = settings.mode ?? (typeof FORCED_MODE === 'string' ? FORCED_MODE : 'normal')
@@ -34,9 +36,15 @@ function toolTarget() {
   }
   const file = args[args.indexOf('--mcp-config') + 1]
   const raw = fs.readFileSync(file, 'utf8')
-  log({ event: 'mcp-config', contains_capability: raw.includes(process.env.INTAKE_TOOL_CAPABILITY) })
+  log({
+    event: 'mcp-config',
+    contains_capability: raw.includes(process.env.INTAKE_TOOL_CAPABILITY),
+  })
   const server = JSON.parse(raw).mcpServers.intake
-  const header = server.headers.Authorization.replace(/\$\{([A-Z_]+)\}/g, (_, name) => process.env[name] ?? '')
+  const header = server.headers.Authorization.replace(
+    /\$\{([A-Z_]+)\}/g,
+    (_, name) => process.env[name] ?? '',
+  )
   return { url: server.url, token: header.replace(/^Bearer /, '') }
 }
 
@@ -50,7 +58,12 @@ async function callTool(name, toolArgs) {
       'content-type': 'application/json',
       accept: 'application/json, text/event-stream',
     },
-    body: JSON.stringify({ jsonrpc: '2.0', id: ++rpc, method: 'tools/call', params: { name, arguments: toolArgs } }),
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: ++rpc,
+      method: 'tools/call',
+      params: { name, arguments: toolArgs },
+    }),
   })
   const body = await response.json()
   const result = body.result?.structuredContent
@@ -163,7 +176,9 @@ if (args[0] === 'app-server') {
       reply({ config: { mcp_servers: { intake: {} } } })
     }
     if (frame.method === 'mcpServerStatus/list') {
-      const tools = Object.fromEntries([...TOOLS, ...(mode === 'extra-tool' ? ['shell'] : [])].map((name) => [name, {}]))
+      const tools = Object.fromEntries(
+        [...TOOLS, ...(mode === 'extra-tool' ? ['shell'] : [])].map((name) => [name, {}]),
+      )
       reply({ data: [{ name: 'intake', tools }] })
     }
     if (frame.method === 'turn/start') {
@@ -171,7 +186,10 @@ if (args[0] === 'app-server') {
       log({ event: 'opening', text: frame.params.input[0].text })
       reply({ turn: { id: turnId } })
       if (mode === 'command-item') {
-        send({ method: 'item/started', params: { threadId, turnId, item: { type: 'commandExecution', id: 'c1', command: 'ls' } } })
+        send({
+          method: 'item/started',
+          params: { threadId, turnId, item: { type: 'commandExecution', id: 'c1', command: 'ls' } },
+        })
       }
       await work(() => deliveries.next())
       send({ method: 'turn/completed', params: { turn: { id: turnId, status: 'completed' } } })
@@ -206,7 +224,10 @@ if (args[0] === 'app-server') {
       }
     }
     persist(sessionId)
-    const tools = [...TOOLS.map((name) => `mcp__intake__${name}`), ...(mode === 'extra-tool' ? ['Bash'] : [])]
+    const tools = [
+      ...TOOLS.map((name) => `mcp__intake__${name}`),
+      ...(mode === 'extra-tool' ? ['Bash'] : []),
+    ]
     send({
       type: 'system',
       subtype: 'init',

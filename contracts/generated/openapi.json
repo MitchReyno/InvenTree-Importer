@@ -51575,6 +51575,78 @@
                       }
                     }
                   ]
+                },
+                "currentness": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "state"
+                      ],
+                      "properties": {
+                        "state": {
+                          "const": "current",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "state"
+                      ],
+                      "properties": {
+                        "state": {
+                          "const": "provisional",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "state",
+                        "reason"
+                      ],
+                      "properties": {
+                        "state": {
+                          "const": "stale",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "anyOf": [
+                            {
+                              "const": "source_superseded",
+                              "type": "string"
+                            },
+                            {
+                              "const": "evidence_removed",
+                              "type": "string"
+                            },
+                            {
+                              "const": "answer_received",
+                              "type": "string"
+                            },
+                            {
+                              "const": "operator_correction",
+                              "type": "string"
+                            },
+                            {
+                              "const": "lot_regrouped",
+                              "type": "string"
+                            },
+                            {
+                              "const": "subject_retired",
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -53673,6 +53745,78 @@
                                     ]
                                   }
                                 }
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "currentness": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "state"
+                            ],
+                            "properties": {
+                              "state": {
+                                "const": "current",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "state"
+                            ],
+                            "properties": {
+                              "state": {
+                                "const": "provisional",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "state",
+                              "reason"
+                            ],
+                            "properties": {
+                              "state": {
+                                "const": "stale",
+                                "type": "string"
+                              },
+                              "reason": {
+                                "anyOf": [
+                                  {
+                                    "const": "source_superseded",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "evidence_removed",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "answer_received",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "operator_correction",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "lot_regrouped",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "subject_retired",
+                                    "type": "string"
+                                  }
+                                ]
                               }
                             }
                           }

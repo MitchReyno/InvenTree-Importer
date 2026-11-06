@@ -334,11 +334,11 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - **Verification:** `pnpm test:intake:pg`, `pnpm test:intake:process`.
 - **Risks and decisions:** the projection must stay bounded per batch. Reuse the existing bounded closure queries.
 
-- [ ] 11.1 Baseline the currentness/answer suites.
-- [ ] 11.2 RED: selective-currentness, fan-out, evidence-removal and resume-on-evidence regressions.
-- [ ] 11.3 GREEN: projection, fan-out and evidence hooks.
-- [ ] 11.4 Verify `/1` answer closure and supersession behavior is unchanged.
-- [ ] 11.5 Record the results.
+- [x] 11.1 Baseline the currentness/answer suites.
+- [x] 11.2 RED: selective-currentness, fan-out, evidence-removal and resume-on-evidence regressions.
+- [x] 11.3 GREEN: projection, fan-out and evidence hooks.
+- [x] 11.4 Verify `/1` answer closure and supersession behavior is unchanged.
+- [x] 11.5 Record the results.
 
 ## 12. Pipeline UI, documentation and browser qualification
 
