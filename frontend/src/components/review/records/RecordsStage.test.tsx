@@ -550,6 +550,33 @@ describe('RecordsStage', () => {
     })
   })
 
+  it('holds every other save while one is in flight', async () => {
+    const user = userEvent.setup()
+
+    let finish: (saved: boolean) => void = () => {}
+
+    const edit = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finish = resolve
+        }),
+    )
+    stage(edit)
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const name = screen.getByLabelText('Name')
+    await user.clear(name)
+    await user.type(name, 'Carbon resistor')
+    const tags = screen.getByLabelText('Tags')
+    await user.clear(tags)
+    await user.type(tags, 'THT')
+    await user.click(screen.getByRole('button', { name: 'Save name' }))
+
+    expect(screen.getByRole('button', { name: 'Save tags' })).toBeDisabled()
+    finish(true)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save tags' })).toBeEnabled())
+    expect(edit).toHaveBeenCalledTimes(1)
+  })
+
   it('says when records cannot be read', async () => {
     render(
       <RecordsStage
@@ -569,12 +596,15 @@ function LiveStage({
   conflictFirst = false,
   renamedElsewhere,
   failReadAfterSave = false,
+  slowReadAfterSave,
 }: {
   conflictFirst?: boolean
   /** A name another client saves, which loading current values brings in. */
   renamedElsewhere?: string
   /** The records read for any revision after the first fails once. */
   failReadAfterSave?: boolean
+  /** Holds the records read for any later revision until this promise settles. */
+  slowReadAfterSave?: Promise<void>
 }) {
   const [failing, setFailing] = useState(failReadAfterSave)
   const [current, setCurrent] = useState(batch)
@@ -605,6 +635,9 @@ function LiveStage({
       batch={current}
       client={{
         read: vi.fn(async () => {
+          if (slowReadAfterSave && current.revision !== batch.revision) {
+            await slowReadAfterSave
+          }
           if (failing && current.revision !== batch.revision) {
             setFailing(false)
             throw new Error('records read failed')
@@ -757,6 +790,27 @@ describe('RecordsStage with saves that move the revision', () => {
     await user.click(screen.getByRole('button', { name: 'Save Composition' }))
     await waitFor(() => expect(screen.getByLabelText('Composition')).toHaveValue('Metal film'))
     expect(screen.getByRole('button', { name: 'Save Composition' })).toBeDisabled()
+  })
+
+  it('does not warn that records are out of date while a save’s new read arrives', async () => {
+    const user = userEvent.setup()
+
+    let arrive = () => {}
+
+    const slow = new Promise<void>((resolve) => {
+      arrive = resolve
+    })
+    render(<LiveStage slowReadAfterSave={slow} />)
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const name = screen.getByLabelText('Name')
+    await user.clear(name)
+    await user.type(name, 'Carbon resistor')
+    await user.click(screen.getByRole('button', { name: 'Save name' }))
+
+    await waitFor(() => expect(screen.getByLabelText('Name')).toBeDisabled())
+    expect(screen.queryByText(/Records may be out of date/)).not.toBeInTheDocument()
+    arrive()
+    await waitFor(() => expect(screen.getByLabelText('Name')).toBeEnabled())
   })
 
   it('ignores an unknown record type in the route', async () => {

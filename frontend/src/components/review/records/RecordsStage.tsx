@@ -18,7 +18,7 @@ import { Pill } from '../../ui/Pill'
 import { Small } from '../../ui/primitives'
 import { MappingReader } from '../../capture/MappingReader'
 import { RecordDetail, STATE_TONE } from './RecordDetail'
-import { ReloadContext, type Save } from './draft'
+import { ReloadContext, SavingContext, type Save } from './draft'
 
 type Props = {
   batch: CaptureSnapshotDto
@@ -53,6 +53,7 @@ export function RecordsStage({
   )
   const [blocked, setBlocked] = useState(false)
   const [discards, setDiscards] = useState(0)
+  const [saving, setSaving] = useState(false)
   // A failed read after a save keeps the last good records, so the open drafts stay mounted.
   const lastGood = useRef(query.data)
   if (query.data) {
@@ -76,8 +77,10 @@ export function RecordsStage({
       </div>
     )
   }
-  const stale = query.isError || records.revision !== batch.revision
-  const disabled = stale || batch.archived
+  // Just after a save the previous read stands in until the new revision's read arrives.
+  const refreshing = query.isPlaceholderData && query.isFetching
+  const stale = query.isError || (!refreshing && records.revision !== batch.revision)
+  const disabled = stale || refreshing || batch.archived
 
   const withRecords = records.counts.filter(
     (count) => count.new + count.existing + count.decide > 0,
@@ -104,67 +107,45 @@ export function RecordsStage({
 
   return (
     <ReloadContext.Provider value={reload}>
-      <Layout>
-        <Rail aria-label="Record types">
-          {records.counts.map((count) => (
-            <TypeButton
-              key={count.type}
-              type="button"
-              aria-current={count.type === type ? 'true' : undefined}
-              onClick={() => choose(count.type, null)}
-            >
-              <strong>{TYPE_LABELS[count.type]}</strong>
-              <Small>
-                {count.new} new · {count.existing} existing
-              </Small>
-              {count.decide > 0 && <Pill tone="warn">{count.decide} to decide</Pill>}
-            </TypeButton>
-          ))}
-        </Rail>
-        <List aria-label={TYPE_LABELS[type]}>
-          {ofType.length === 0 && (
-            <Small>No {TYPE_LABELS[type].toLowerCase()} in this batch.</Small>
-          )}
-          {ofType.map((record) => (
-            <RecordButton
-              key={record.key}
-              type="button"
-              aria-label={record.label}
-              aria-description={`${STATE_LABELS[record.state]}. ${lotsText(record)}`}
-              aria-current={record.key === selected?.key ? 'true' : undefined}
-              onClick={() => choose(type, record.key)}
-            >
-              <span>{record.label}</span>
-              <Pill tone={STATE_TONE[record.state]}>{STATE_LABELS[record.state]}</Pill>
-              <Small>{lotsText(record)}</Small>
-            </RecordButton>
-          ))}
-        </List>
-        <Detail>
-          {stale && (
-            <Banner
-              tone="warn"
-              action={
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    void (async () => {
-                      await reload?.()
-                      await query.refetch()
-                    })()
-                  }}
-                >
-                  Load current values
-                </Button>
-              }
-            >
-              Records may be out of date, so editing waits for current values. Unsaved record
-              changes stay.
-            </Banner>
-          )}
-          {blocked && (
-            <div role="alert">
+      <SavingContext.Provider value={{ saving, setSaving }}>
+        <Layout>
+          <Rail aria-label="Record types">
+            {records.counts.map((count) => (
+              <TypeButton
+                key={count.type}
+                type="button"
+                aria-current={count.type === type ? 'true' : undefined}
+                onClick={() => choose(count.type, null)}
+              >
+                <strong>{TYPE_LABELS[count.type]}</strong>
+                <Small>
+                  {count.new} new · {count.existing} existing
+                </Small>
+                {count.decide > 0 && <Pill tone="warn">{count.decide} to decide</Pill>}
+              </TypeButton>
+            ))}
+          </Rail>
+          <List aria-label={TYPE_LABELS[type]}>
+            {ofType.length === 0 && (
+              <Small>No {TYPE_LABELS[type].toLowerCase()} in this batch.</Small>
+            )}
+            {ofType.map((record) => (
+              <RecordButton
+                key={record.key}
+                type="button"
+                aria-label={record.label}
+                aria-description={`${STATE_LABELS[record.state]}. ${lotsText(record)}`}
+                aria-current={record.key === selected?.key ? 'true' : undefined}
+                onClick={() => choose(type, record.key)}
+              >
+                <span>{record.label}</span>
+                <Pill tone={STATE_TONE[record.state]}>{STATE_LABELS[record.state]}</Pill>
+                <Small>{lotsText(record)}</Small>
+              </RecordButton>
+            ))}
+          </List>
+          <Detail>
+            {stale && (
               <Banner
                 tone="warn"
                 action={
@@ -172,36 +153,60 @@ export function RecordsStage({
                     size="sm"
                     variant="ghost"
                     onClick={() => {
-                      setDiscards((value) => value + 1)
-                      setBlocked(false)
+                      void (async () => {
+                        await reload?.()
+                        await query.refetch()
+                      })()
                     }}
                   >
-                    Discard changes
+                    Load current values
                   </Button>
                 }
               >
-                Save or discard this record’s changes before opening another.
+                Records may be out of date, so editing waits for current values. Unsaved record
+                changes stay.
               </Banner>
-            </div>
-          )}
-          {selected ? (
-            <RecordDetail
-              key={`${selected.key}:${discards}`}
-              batch={batch}
-              record={selected}
-              save={edit}
-              disabled={disabled}
-              reportFor={drafts.forSource}
-            />
-          ) : (
-            <Small>Choose a record to see its values and who set them.</Small>
-          )}
-          <details>
-            <summary>Read another existing record</summary>
-            <MappingReader observe={observe} />
-          </details>
-        </Detail>
-      </Layout>
+            )}
+            {blocked && (
+              <div role="alert">
+                <Banner
+                  tone="warn"
+                  action={
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setDiscards((value) => value + 1)
+                        setBlocked(false)
+                      }}
+                    >
+                      Discard changes
+                    </Button>
+                  }
+                >
+                  Save or discard this record’s changes before opening another.
+                </Banner>
+              </div>
+            )}
+            {selected ? (
+              <RecordDetail
+                key={`${selected.key}:${discards}`}
+                batch={batch}
+                record={selected}
+                save={edit}
+                disabled={disabled}
+                reportFor={drafts.forSource}
+              />
+            ) : (
+              <Small>Choose a record to see its values and who set them.</Small>
+            )}
+            <details>
+              <summary>Read another existing record</summary>
+              <MappingReader observe={observe} />
+            </details>
+          </Detail>
+        </Layout>
+      </SavingContext.Provider>
     </ReloadContext.Provider>
   )
 }

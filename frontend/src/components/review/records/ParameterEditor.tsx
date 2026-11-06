@@ -1,8 +1,9 @@
+import { useContext } from 'react'
 import type { CaptureSnapshotDto, InventoryPartSpecDto } from '@invimport/contracts'
 import { mappingsFor, partTemplates, referenceTo } from '../../../records/model'
 import { Button } from '../../ui/Button'
 import { Input, Label, Select } from '../../ui/primitives'
-import { SaveRow, useDraft, useRecordSave, type Save } from './draft'
+import { SaveRow, SavingContext, useDraft, useRecordSave, type Save } from './draft'
 
 type Parameter = InventoryPartSpecDto['parameters'][number]
 
@@ -23,6 +24,7 @@ const templateLabel = (batch: CaptureSnapshotDto, parameter: Parameter) =>
 export function ParameterEditor({ batch, partId, parameter, save, disabled, report }: Props) {
   const [value, setValue, dirty] = useDraft(parameter.value, report)
   const { send, problem, busy, retry } = useRecordSave(batch, save)
+  const { saving } = useContext(SavingContext)
   const name = templateLabel(batch, parameter)
   const target = {
     kind: 'parameter' as const,
@@ -67,7 +69,7 @@ export function ParameterEditor({ batch, partId, parameter, save, disabled, repo
         <Button
           size="sm"
           variant="ghost"
-          disabled={disabled || busy}
+          disabled={disabled || busy || saving}
           onClick={() =>
             void send({ kind: 'record', target, operation: { op: 'remove_parameter' } })
           }

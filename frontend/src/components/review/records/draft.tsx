@@ -38,6 +38,15 @@ export function useDraft<T>(saved: T, report: (dirty: boolean) => void) {
 /** Loads the current batch without touching record drafts, so a refused save can be retried. */
 export const ReloadContext = createContext<(() => Promise<void>) | undefined>(undefined)
 
+/** One record save at a time: the batch sends one edit, so every Save waits for it. */
+export const SavingContext = createContext<{
+  saving: boolean
+  setSaving: (value: boolean) => void
+}>({
+  saving: false,
+  setSaving: () => {},
+})
+
 /**
  * Checks a record edit against the loaded batch, then sends it. A refused or failed save keeps the
  * draft and offers to load current values, so the operator retries explicitly. `onSaved` clears
@@ -48,6 +57,7 @@ export function useRecordSave(batch: CaptureSnapshotDto, save: Save, onSaved?: (
   const [unsaved, setUnsaved] = useState(false)
   const [busy, setBusy] = useState(false)
   const reload = useContext(ReloadContext)
+  const { setSaving } = useContext(SavingContext)
 
   async function send(change: RecordChangeDto | CaptureEditDto['change']) {
     if (change.kind === 'record') {
@@ -60,6 +70,7 @@ export function useRecordSave(batch: CaptureSnapshotDto, save: Save, onSaved?: (
     setProblem('')
     setUnsaved(false)
     setBusy(true)
+    setSaving(true)
     try {
       const saved = await save(change)
       setUnsaved(!saved)
@@ -69,6 +80,7 @@ export function useRecordSave(batch: CaptureSnapshotDto, save: Save, onSaved?: (
       return saved
     } finally {
       setBusy(false)
+      setSaving(false)
     }
   }
 
@@ -101,9 +113,10 @@ export function SaveRow({
   onSave: () => void
   children?: ReactNode
 }) {
+  const { saving } = useContext(SavingContext)
   return (
     <Row>
-      <Button size="sm" disabled={disabled || busy} busy={busy} onClick={onSave}>
+      <Button size="sm" disabled={disabled || busy || saving} busy={busy} onClick={onSave}>
         {label}
       </Button>
       {children}
