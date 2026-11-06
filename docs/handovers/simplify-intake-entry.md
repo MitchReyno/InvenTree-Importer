@@ -806,3 +806,15 @@ A fresh reviewer subagent reviewed `49ec7c0` and found one important and two min
 3. **Minor: docs drifted from round 1.** The replace rule for unstarted successors, the cascade, the operator-regroup notice, the removal notices and the Inventory queue exclusion are now in `processing/ARCHITECTURE.md`, `agents/ARCHITECTURE.md`, design D9, `stable-identity.ts` and this handover.
 4. **Nitpick, fixed:** the `SUCCESSOR_STAGES` import and re-export are tidied.
 
+## PR-C review round 3
+
+A fresh reviewer subagent reviewed `b462069` and found it clean: no critical or important findings, two minor ones and a nitpick.
+
+- **Tiers on `b462069`:**
+  - `pnpm db:intake test` passed 238/238, and `pnpm db:intake test:process` passed 70/70.
+  - Contracts passed 76/76, the intake server 213/213, and the frontend 589/589.
+
+1. **Minor: an answer or correction cascaded only one level.** `fieldsSuperseded` now passes what it made stale to `cascadeAll`, so every downstream proposal is stale, as D7 says. No test builds a chain deeper than two levels, because the synthetic sessions do not form one.
+2. **Minor: the operator-regroup notice told lot sessions to publish an identity.** Only the lead session's lineage is now asked to publish the identity again. A Research or Images session is asked to revise what relied on the lot's observations.
+3. **Nitpick, fixed:** a comment explains that the cascade's depth bound of 8 is not expected to be reached.
+

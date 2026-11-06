@@ -120,6 +120,8 @@ export async function fieldsSuperseded(
        SELECT unnest($1::uuid[]),$2 ON CONFLICT DO NOTHING`,
       [ids, input.reason],
     )
+    // Deeper results relying on these are stale too, and their sessions are told.
+    await cascadeAll(client, ids, input.reason)
   }
   // Sessions started from one of these proposals rely on it even before publishing anything.
   const pinned = ids.length
@@ -267,9 +269,11 @@ async function cascadeStale(client: PoolClient, ids: readonly string[], reason: 
   return downstream.rows.map((row) => row.id)
 }
 
-/** Every proposal downstream of newly stale ones, level by level; a batch holds few levels. */
+/** Every proposal downstream of newly stale ones, level by level. */
 async function cascadeAll(client: PoolClient, ids: readonly string[], reason: StaleReason) {
   let level = ids
+  // Real chains are a few levels (identity, then Research or Images, then what cites them);
+  // the bound only guards against a pathological one.
   for (let depth = 0; level.length && depth < 8; depth += 1) {
     level = await cascadeStale(client, level, reason)
   }
@@ -291,8 +295,8 @@ export async function lotRegroupedNotices(
   if (!operator) {
     return
   }
-  const owners = await client.query<{ id: string; lineage: string }>(
-    `SELECT p.id, j.id AS lineage FROM public.processing_proposal p
+  const owners = await client.query<{ id: string; lineage: string; lead: boolean }>(
+    `SELECT p.id, j.id AS lineage, (j.subject_id IS NULL) AS lead FROM public.processing_proposal p
      JOIN public.processing_attempt a ON a.id=p.attempt_id JOIN public.processing_job j ON j.id=a.job_id
      WHERE p.id = ANY($1::uuid[])`,
     [[...staleIds]],
@@ -300,7 +304,10 @@ export async function lotRegroupedNotices(
   for (const row of owners.rows) {
     await notice(client, row.lineage, `regrouped:${row.id}`, 'revision', {
       fields: ['identity'],
-      reason: 'The operator changed this lot’s observations; publish its identity again.',
+      // Only the lead session publishes identities; a lot session revises what it found.
+      reason: row.lead
+        ? 'The operator changed this lot’s observations; publish its identity again.'
+        : 'The operator changed this lot’s observations; revise what relied on them.',
     })
   }
 }
