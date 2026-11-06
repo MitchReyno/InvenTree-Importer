@@ -750,5 +750,5 @@ Fresh read-only Claude reviewer at `e99d14f`: clean, with 2 Nitpicks, both fixed
 
 CI on #110 passed on every job that ran (frontend, TypeScript, Markdown, intake contracts and HTTP); the backend, PostgreSQL and workflow-sync lanes did not apply. Squash-merged as #110 (`3ed53f2`) under Mitch's standing authorisation, at the reviewed head `2139767`. The demo (108 s) was recorded at `3160ae7` from `processing.html`, `batch-capture.html?agents` and `records.html` and attached; later review fixes are not filmed. Every task in the change is now ticked.
 
-The optional Nitpick from the review of `2139767` is handled in this record: `intake-server/ARCHITECTURE.md` says no server code calls `assessCatalogue` directly, and the server runs it only through `projectRecords`. Syncing and archiving the change wait for Mitch's authorisation.
+A fresh read-only review of the wording follow-up `2139767` was clean, with one optional Nitpick: saying the server never calls `assessCatalogue` was literally true but missed that it runs through `projectRecords`. It is handled in this record: `intake-server/ARCHITECTURE.md` says no server code calls `assessCatalogue` directly, and the server runs it only through `projectRecords`. Syncing and archiving the change wait for Mitch's authorisation.
 
