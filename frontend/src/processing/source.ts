@@ -69,6 +69,26 @@ function workStep(job: Job): WorkStep {
   return step === 'overview' ? 'examine' : step
 }
 
+/** Each subject's newest status line across its session jobs. */
+export function subjectStatuses(snapshot: Pick<ProcessingSnapshotDto, 'jobs'>) {
+  const newest = new Map<string, Job>()
+  for (const job of snapshot.jobs) {
+    if (job.subject_id === null || !job.session_state || !job.latest_status) {
+      continue
+    }
+    const known = newest.get(job.subject_id)
+    if (!known || job.latest_status.at > known.latest_status!.at) {
+      newest.set(job.subject_id, job)
+    }
+  }
+  return new Map<string, LotStatus>(
+    [...newest].map(([subjectId, job]) => [
+      subjectId,
+      { step: workStep(job), text: job.latest_status!.text, state: job.session_state! },
+    ]),
+  )
+}
+
 export function retainedJobsSource(
   snapshot: ProcessingSnapshotDto,
   subjects: ReadonlyMap<string, string>,
@@ -97,6 +117,7 @@ export function retainedJobsSource(
       }),
   )
 
+  const statuses = subjectStatuses(snapshot)
   const sessions: SourceSession[] = snapshot.jobs.flatMap((job) =>
     job.session_state
       ? [
@@ -134,14 +155,7 @@ export function retainedJobsSource(
     questions,
     sessions,
     lead: sessions.find((session) => session.step === 'examine' && session.lotId === null) ?? null,
-    lotStatus: (lotId) => {
-      const newest = snapshot.jobs
-        .filter((job) => job.subject_id === lotId && job.session_state && job.latest_status)
-        .sort((left, right) => right.latest_status!.at.localeCompare(left.latest_status!.at))[0]
-      return newest
-        ? { step: workStep(newest), text: newest.latest_status!.text, state: newest.session_state! }
-        : null
-    },
+    lotStatus: (lotId) => statuses.get(lotId) ?? null,
     jobsOn,
   }
 }

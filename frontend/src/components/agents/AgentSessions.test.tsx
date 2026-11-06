@@ -116,6 +116,38 @@ test('the summary counts slots against the limit, the model and the sessions wai
   expect(within(summary).getByText('Codex · chosen-model')).toBeInTheDocument()
 })
 
+test('waiting sessions do not count as running: 3 of 3 slots, 2 waiting, each holding no slot', async () => {
+  const running = (id: string): Session => ({
+    ...base,
+    attempt_id: id,
+    state: 'running',
+    occupies_lane: true,
+    session_state: 'running',
+  })
+
+  const waiting = (id: string): Session => ({
+    ...base,
+    attempt_id: id,
+    state: 'waiting_for_user',
+    occupies_lane: false,
+    session_state: 'waiting_input',
+  })
+
+  render(
+    <AgentSessions
+      client={client({
+        sessions: [running('r1'), running('r2'), running('r3'), waiting('w1'), waiting('w2')],
+      })}
+      batches={batches}
+    />,
+  )
+  const summary = await screen.findByRole('region', { name: 'Summary' })
+
+  expect(await within(summary).findByText('3 of 3 slots in use')).toBeInTheDocument()
+  expect(within(summary).getByText('2 waiting for you')).toBeInTheDocument()
+  expect(screen.getAllByText(/holds no slot/)).toHaveLength(2)
+})
+
 test('filters show running, waiting, queued and finished-today sessions', async () => {
   render(<AgentSessions client={client()} batches={batches} />)
   await screen.findByText('Checking the supplier page')
