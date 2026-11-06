@@ -150,3 +150,7 @@ Checked on 2026-11-06 with Docker Compose v5.6.1 on arm64, in a throwaway projec
 
   Current totals: `pnpm test:dev` 53/53 and `pnpm --filter @invimport/intake-server test` 208/208.
 - **Round 8** (fresh reviewer, `9f57ec6`) did a full final pass and reported no findings at any severity. It noted one cosmetic point that is not a finding: the docs write the fake namespace as `app-<server id>`, and the code uses the first 16 hex characters. Its checks: `pnpm test:dev` 53/53, intake-server 208/208, `.github/scripts` 22/22, `lint:backend` and typecheck clean. Since then the branch has changed only to record this outcome here and tick task 6.1.
+
+## Delivery
+
+PR-B was opened as #105 against `interactive-app`. The independent review was clean on `9f57ec6`. CI passed on the final head `bd950b2`, a docs-only commit recording that review: lint for backend, Markdown and TypeScript, and tests for backend, frontend and intake contracts/HTTP. Two jobs were skipped. The PostgreSQL/process tier has been disabled in CI since #99 (`if: ${{ false && inputs.intake }}` in `test.yml`) and was run locally, as recorded above. Shared workflow sync was not selected, because no skills or agents changed. #105 was squash-merged as `21575ca`, and BI-009 is Done. Archiving the change is a separate, authorized step.
