@@ -55,6 +55,7 @@ export function visibleQueueLotIds(
   batch: CaptureSnapshotDto,
   operatorReview: OperatorReviewDto | undefined,
   filter: ReviewFilter,
+  questionLotIds?: ReadonlySet<string>,
 ): string[] {
   if (!operatorReview) {
     return batch.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
@@ -62,7 +63,11 @@ export function visibleQueueLotIds(
   const active = new Map(operatorReview.lots.map((lot) => [lot.lot_id, lot]))
   const lots = batch.lots.filter((lot) => {
     const operatorLot = active.get(lot.id)
-    return !lot.retired && operatorLot !== undefined && matchesFilter(operatorLot, filter)
+    return (
+      !lot.retired &&
+      operatorLot !== undefined &&
+      matchesFilter(operatorLot, filter, questionLotIds)
+    )
   })
   return groupsFor(lots, operatorReview).flatMap((group) => group.lots.map((lot) => lot.id))
 }

@@ -63,6 +63,11 @@ export function problemActions(issue: OperatorIssueDto, context: Context): Probl
   } else if (issue.code === 'no_supporting_evidence') {
     actions.push({
       kind: 'link',
+      label: 'Link evidence on the Map',
+      href: batchHref(batchId, { tab: 'review', view: 'map' }),
+    })
+    actions.push({
+      kind: 'link',
       label: 'Add evidence in Capture',
       href: batchHref(batchId, { tab: 'capture' }),
     })

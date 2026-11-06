@@ -12,16 +12,21 @@ interface Props {
   review: OperatorReviewDto
   filter: ReviewFilter
   choose: (filter: ReviewFilter) => void
+  questionLotIds?: ReadonlySet<string>
 }
 
-function count(review: OperatorReviewDto, filter: ReviewFilter) {
+function count(
+  review: OperatorReviewDto,
+  filter: ReviewFilter,
+  questionLotIds: ReadonlySet<string> | undefined,
+) {
   if (filter === 'retired') {
     return review.retired_lots.length
   }
-  return review.lots.filter((lot) => matchesFilter(lot, filter)).length
+  return review.lots.filter((lot) => matchesFilter(lot, filter, questionLotIds)).length
 }
 
-export function ReviewFilters({ review, filter, choose }: Props) {
+export function ReviewFilters({ review, filter, choose, questionLotIds }: Props) {
   return (
     <Chips role="group" aria-label="Filter lots" tabIndex={0}>
       {REVIEW_FILTERS.map((value) => (
@@ -31,7 +36,7 @@ export function ReviewFilters({ review, filter, choose }: Props) {
           aria-pressed={filter === value}
           onClick={() => choose(value)}
         >
-          {FILTER_LABELS[value]} <span>{count(review, value)}</span>
+          {FILTER_LABELS[value]} <span>{count(review, value, questionLotIds)}</span>
         </Chip>
       ))}
     </Chips>

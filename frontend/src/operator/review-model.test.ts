@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { OperatorReviewDto } from '@invimport/contracts'
-import { approvedLotIds } from './review-model'
+import type { OperatorLotDto, OperatorReviewDto, ProcessingSnapshotDto } from '@invimport/contracts'
+import { approvedLotIds, matchesFilter, openQuestionLotIds } from './review-model'
 
 const review = (lots: [string, boolean][]) =>
   ({
@@ -25,5 +25,34 @@ describe('approvedLotIds', () => {
       'a',
       'b',
     ])
+  })
+})
+
+describe('the Needs answer filter', () => {
+  const processing = {
+    jobs: [
+      {
+        questions: [
+          { state: 'open', spec: { subject_id: 'a' } },
+          { state: 'answered', spec: { subject_id: 'b' } },
+          { state: 'open', spec: { subject_id: null } },
+        ],
+      },
+    ],
+  } as unknown as ProcessingSnapshotDto
+
+  const lot = (lot_id: string) => ({ lot_id }) as OperatorLotDto
+
+  it('shows lots with an open Processing question', () => {
+    const ids = openQuestionLotIds(processing)
+
+    expect([...ids]).toEqual(['a'])
+    expect(matchesFilter(lot('a'), 'needs_answer', ids)).toBe(true)
+    expect(matchesFilter(lot('b'), 'needs_answer', ids)).toBe(false)
+  })
+
+  it('shows nothing before Processing is read', () => {
+    expect(matchesFilter(lot('a'), 'needs_answer')).toBe(false)
+    expect(openQuestionLotIds(undefined).size).toBe(0)
   })
 })

@@ -7,6 +7,7 @@ import {
   type OperatorIssueDto,
   type OperatorLotDto,
   type OperatorReviewDto,
+  type ProcessingSnapshotDto,
 } from '@invimport/contracts'
 import { display } from '../capture/display'
 import { batchHref } from '../navigation/batch-route'
@@ -14,6 +15,7 @@ import { batchHref } from '../navigation/batch-route'
 export const REVIEW_FILTERS = [
   'all',
   'needs_review',
+  'needs_answer',
   'blocking',
   'warnings',
   'changed',
@@ -27,6 +29,7 @@ export type ReviewView = 'evidence' | 'table'
 export const FILTER_LABELS: Record<ReviewFilter, string> = {
   all: 'All',
   needs_review: 'Needs review',
+  needs_answer: 'Needs answer',
   blocking: 'Blocking',
   warnings: 'Warnings',
   changed: 'Changed after review',
@@ -81,12 +84,35 @@ export function dismissedWarnings(lot: OperatorLotDto): OperatorIssueDto[] {
   return lot.issues.filter((issue) => issue.severity === 'warning' && issue.disposition)
 }
 
-export function matchesFilter(lot: OperatorLotDto, filter: ReviewFilter): boolean {
+const NO_QUESTIONS: ReadonlySet<string> = new Set()
+
+/** Lots with an open Processing question, which the "Needs answer" filter shows. */
+export function openQuestionLotIds(
+  processing: ProcessingSnapshotDto | undefined,
+): ReadonlySet<string> {
+  const ids = new Set<string>()
+  for (const job of processing?.jobs ?? []) {
+    for (const question of job.questions) {
+      if (question.state === 'open' && question.spec.subject_id) {
+        ids.add(question.spec.subject_id)
+      }
+    }
+  }
+  return ids
+}
+
+export function matchesFilter(
+  lot: OperatorLotDto,
+  filter: ReviewFilter,
+  questionLotIds: ReadonlySet<string> = NO_QUESTIONS,
+): boolean {
   switch (filter) {
     case 'all':
       return true
     case 'needs_review':
       return lot.review_state !== 'reviewed' && !lot.approved
+    case 'needs_answer':
+      return questionLotIds.has(lot.lot_id)
     case 'blocking':
       return blockingIssues(lot).length > 0
     case 'warnings':

@@ -15,6 +15,7 @@ import { ReviewQueue, visibleQueueLotIds } from './ReviewQueue'
 import {
   blockingIssues,
   openWarnings,
+  openQuestionLotIds,
   parseReviewLocation,
   reviewHash,
   retiredLotIds,
@@ -215,7 +216,8 @@ export function ReviewWorkspace({
   const previousFocus = useRef(route.lotId)
   const retired = retiredLotIds(operatorReview, batch)
   const activeLotIds = batch.lots.filter((lot) => !retired.has(lot.id)).map((lot) => lot.id)
-  const visibleIds = visibleQueueLotIds(batch, operatorReview, route.filter)
+  const questionLotIds = openQuestionLotIds(processing)
+  const visibleIds = visibleQueueLotIds(batch, operatorReview, route.filter, questionLotIds)
   const focused = route.lotId && activeLotIds.includes(route.lotId) ? route.lotId : null
 
   // Review opens on the first queued lot, so its evidence shows without a separate step.
@@ -463,6 +465,7 @@ export function ReviewWorkspace({
         <ReviewFilters
           review={operatorReview}
           filter={route.filter}
+          questionLotIds={questionLotIds}
           choose={(filter: ReviewFilter) => navigate({ filter })}
         />
       )}

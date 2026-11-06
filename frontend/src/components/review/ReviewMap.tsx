@@ -63,6 +63,13 @@ export function ReviewMap({
   // A merge or split retires lots; only active, unadded lots stay chosen.
   const chosen = merging.filter((id) => lotLabel.has(id) && !approvedLotIds.has(id))
   const restructureLocked = disabled || restructureUnavailable
+  // Until the latest review is read, a retired lot's files may already be inherited by its successors.
+  const lineagePending = restructureUnavailable && retiredLotIds.size > 0
+  const fromRetired = new Set(
+    evidence
+      .filter((file) => file.linked_subject_ids.some((id) => retiredLotIds.has(id)))
+      .map((file) => file.id),
+  )
 
   return (
     <Layout>
@@ -73,7 +80,11 @@ export function ReviewMap({
             <li key={file.id} aria-label={file.label}>
               <Head>
                 <strong>{file.label}</strong>
-                {file.unused && <Pill tone="warn">Used by no lot</Pill>}
+                {file.unused && (
+                  <Pill tone="warn">
+                    {lineagePending ? 'No lot yet · checking history' : 'Used by no lot'}
+                  </Pill>
+                )}
               </Head>
               {file.lotIds.length > 0 && (
                 <Links>
@@ -106,7 +117,10 @@ export function ReviewMap({
                 >
                   <option value="">Link to a lot…</option>
                   {map.lots
-                    .filter((lot) => !file.lotIds.includes(lot.id))
+                    .filter(
+                      (lot) =>
+                        !file.links.some((item) => item.lotId === lot.id && item.via === 'direct'),
+                    )
                     .map((lot) => (
                       <option key={lot.id} value={lot.id}>
                         {lot.label}
@@ -124,7 +138,7 @@ export function ReviewMap({
                   <Button
                     size="sm"
                     variant="ghost"
-                    disabled={disabled}
+                    disabled={disabled || (lineagePending && fromRetired.has(file.id))}
                     aria-label={`New lot from this: ${file.label}`}
                     onClick={() => void newLotFrom(file.id, file.label)}
                   >
@@ -160,7 +174,11 @@ export function ReviewMap({
                 )}
                 <strong>{lot.label}</strong>
                 {lot.singleSource && <Pill tone="info">Rests on one file</Pill>}
-                {lot.fileIds.length === 0 && <Pill tone="warn">No evidence</Pill>}
+                {lot.fileIds.length === 0 && (
+                  <Pill tone="warn">
+                    {lineagePending ? 'No evidence yet · checking history' : 'No evidence'}
+                  </Pill>
+                )}
               </Head>
               {lot.fileIds.length > 0 && (
                 <Muted>From: {lot.fileIds.map((id) => fileLabel.get(id)).join(', ')}</Muted>

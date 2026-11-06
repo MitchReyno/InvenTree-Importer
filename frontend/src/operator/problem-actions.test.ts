@@ -56,6 +56,7 @@ describe('problemActions', () => {
 
   it('routes the warnings the server raises to the screens that own them', () => {
     expect(problemActions(issue('no_supporting_evidence', 'warning'), context)).toEqual([
+      { kind: 'link', label: 'Link evidence on the Map', href: `#${b}/review/map` },
       { kind: 'link', label: 'Add evidence in Capture', href: `#${b}/capture` },
     ])
     expect(problemActions(issue('possible_duplicate_part', 'warning'), context)).toEqual([

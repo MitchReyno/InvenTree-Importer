@@ -323,7 +323,7 @@ Branch `feat/redesign-batch-workspace-review-lots` from `d38e6ad`. Merge is auth
 
 - **8.1 Workspace panes:** Review opens on the first queued lot, once per mount (the narrow layout's back-to-list still works), so its evidence and details show without a separate step. Each queue row has a "Show" button (named "Show <lot>", current lot marked).
   - **Details pane:** it now starts with the lot's record chain (Part, Stock item, Location, each with its state, linking to Review › Records). A per-lot "Mark reviewed" is disabled with a stated reason ("Fix N blocking problems first", "Dismiss or fix N warnings first", already reviewed or added).
-  - **Exclude:** shown disabled with "Excluding a lot arrives with record edits", because no command backs it yet (gap for Task 9/10).
+  - **Exclude:** shown disabled with "Excluding a lot arrives with record edits", because no command backs it yet (gap for Task 9/10). The spec's "excluded" filter waits for the same command, since no lot can be excluded yet; it is not mapped to Retired, which means split or merged.
   - **Tests:** five new tests (open on the first lot, show a chosen lot, blocked lot reason, Exclude and no UUIDs in details, record chain) failed first, then passed. Existing tests now use "Show <lot>", and URL assertions include the auto-shown lot. Frontend 522/522.
 - **8.2 problem fixes:** `frontend/src/operator/problem-actions.ts` maps each problem to its fix on the owning screen:
   - **Part not chosen:** "Choose the Part" opens the Part editor, and "Decide in Records" links to Records.
@@ -334,7 +334,7 @@ Branch `feat/redesign-batch-workspace-review-lots` from `d38e6ad`. Merge is auth
   - **UI:** `IssuePanel` shows the fixes under each blocking problem and warning.
   - **Tests:** first 5 unit tests, then 1 integration test (Records link, Capture link for a warning, "Set the quantity" opening the lot editor). Each failed first, then passed.
 - **8.3 Table:** one selection, held by `ManualWorkspace`, is now shared by the Workspace and the Table, and the filter was already shared through the URL, so switching views keeps both. The Workspace queue keeps its 10-lot cap. The Table can select more for bulk edits, which the contract allows up to the active-lot limit. Mark reviewed and Prepare then say "Select at most 10 lots to review or prepare together." The Table already used the design tokens from PR-A, and its bulk edit already named its scope ("applies to every selected lot or to none", "Apply to N lots"); its look was then checked in the browser. The test (select in Workspace, see it in Table, change it and the filter there, see both back in Workspace) failed first, then passed.
-- **8.4 Map:** `operator/review-map.ts` derives file-level links (a file supports a lot when linked to the lot or its Part), flags files no active lot uses, and flags lots resting on a single file. `ReviewMap` shows Evidence and Lots side by side:
+- **8.4 Map:** `operator/review-map.ts` derives file-level links (a file supports a lot when linked to the lot, its Part, or, since round 3, a lot it was split or merged from), flags files no active lot uses, and flags lots resting on a single file. `ReviewMap` shows Evidence and Lots side by side:
   - **Files:** "Supports" chips with Unlink, a "Link to a lot…" choice, and "New lot from this" on unused files.
   - **Lots:** "From" file lists, Split, and merge checkboxes.
   - **No instruction field:** none appears without agent sessions.
@@ -388,4 +388,12 @@ Fresh read-only Claude reviewer at `d9538a3`: 1 Important, 2 Minor, 1 Nitpick, a
 - **Blocked return to the list (Minor):** a test now makes a draft dirty, presses back, discards and remounts, and expects the lot still open; it fails if `inspect` writes the choice unconditionally.
 - **Raw names left (Minor):** the Processing images versions region and the viewer's image alt text now use the numbered names.
 - **Nitpick:** the architecture says identifiers appear only in a viewer (Review's Details, Capture's file viewer).
+
+### PR-D review round 4
+
+Fresh read-only Claude reviewer at `7d24e81`: 2 Minor, 3 Nitpick, all fixed except the "excluded" filter, recorded as a gap. It confirmed the round-3 lineage matches the server's edges and walk.
+
+- **Missing filters (Minor):** "Needs answer" now lists lots with an open Processing question (`openQuestionLotIds`, the same rule as "Answer the open question"), with a count. "Excluded" waits for the Exclude command (Task 9/10), recorded with Exclude above.
+- **Stale lineage looked final (Minor):** while the latest review is unread and the batch has retired lots, the Map's "Used by no lot" and "No evidence" read "… · checking history", and "New lot from this" is disabled for files linked to a retired lot. Linking stays available.
+- **Nitpicks:** the 8.4 line above mentions earlier lots; "No supporting evidence" also offers "Link evidence on the Map"; the Map's link list now offers lots the file supports only through a Part or an earlier lot, so a direct link can be added.
 

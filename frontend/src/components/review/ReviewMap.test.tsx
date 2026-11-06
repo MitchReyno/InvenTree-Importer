@@ -162,4 +162,31 @@ describe('ReviewMap', () => {
     expect(photo).not.toHaveTextContent('Used by no lot')
     expect(within(photo).queryByRole('button', { name: /^Unlink/ })).not.toBeInTheDocument()
   })
+
+  it('does not present a retired lot’s files as unused while the latest review is loading', () => {
+    map({
+      evidence: [
+        file('f9', 'Old photo', ['gone']),
+        file('f4', 'Stray photo', []),
+      ] as unknown as MediaSnapshotDto['evidence'],
+      retiredLotIds: new Set(['gone']),
+      restructureUnavailable: true,
+    })
+    const old = screen.getByRole('listitem', { name: /Old photo/ })
+
+    expect(old).toHaveTextContent('No lot yet · checking history')
+    expect(old).not.toHaveTextContent('Used by no lot')
+    expect(within(old).getByRole('button', { name: 'New lot from this: Old photo' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'New lot from this: Stray photo' })).toBeEnabled()
+  })
+
+  it('offers a direct link to a lot the file supports only through its Part', () => {
+    map()
+    const slip = screen.getByRole('listitem', { name: /Packing slip/ })
+    const options = within(within(slip).getByLabelText('Link Packing slip to a lot'))
+      .getAllByRole('option')
+      .map((option) => option.textContent)
+
+    expect(options).toEqual(['Link to a lot…', 'Packet A', 'Packet B', 'Bag'])
+  })
 })
