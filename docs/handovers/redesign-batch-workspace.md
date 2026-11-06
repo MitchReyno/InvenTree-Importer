@@ -325,4 +325,12 @@ Branch `feat/redesign-batch-workspace-review-lots` from `d38e6ad`. Merge is auth
   - **Details pane:** it now starts with the lot's record chain (Part, Stock item, Location, each with its state, linking to Review › Records). A per-lot "Mark reviewed" is disabled with a stated reason ("Fix N blocking problems first", "Dismiss or fix N warnings first", already reviewed or added).
   - **Exclude:** shown disabled with "Excluding a lot arrives with record edits", because no command backs it yet (gap for Task 9/10).
   - **Tests:** five new tests (open on the first lot, show a chosen lot, blocked lot reason, Exclude and no UUIDs in details, record chain) failed first, then passed. Existing tests now use "Show <lot>", and URL assertions include the auto-shown lot. Frontend 522/522.
+- **8.2 problem fixes:** `frontend/src/operator/problem-actions.ts` maps each problem to its fix on the owning screen:
+  - **Part not chosen:** "Choose the Part" opens the Part editor, and "Decide in Records" links to Records.
+  - **Quantity and location problems:** "Set the quantity" or "Set the location" opens the lot's own editor. A location conflict or unconfirmed group also links to "Check evidence groups in Capture".
+  - **Warnings:** evidence warnings link to Capture, reading warnings to Processing › Examine, crop warnings to Processing › Images.
+  - **Open question:** when the lot has an open Processing question, "Answer the open question" comes first and links to it. Answering inline and queuing to the asking session wait for Task 14's sessions.
+  - **Unroutable problems:** no fix is offered (for example unsettled source history).
+  - **UI:** `IssuePanel` shows the fixes under each blocking problem and warning.
+  - **Tests:** first 5 unit tests, then 1 integration test (Records link, Capture link for a warning, "Set the quantity" opening the lot editor). Each failed first, then passed.
 

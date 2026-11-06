@@ -196,7 +196,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **Verification:** existing review and operator tests stay green; new tests for keeping the place across views, problem routing and the Map flags; a browser check.
 
 - [x] 8.1 Rebuild the Workspace's three panes, loading the evidence pane on selection (no Inspect step).
-- [ ] 8.2 Add problem fix actions that route to their owners.
+- [x] 8.2 Add problem fix actions that route to their owners.
 - [ ] 8.3 Restyle the Table with shared selection and filters.
 - [ ] 8.4 Build the Map from lot–evidence links, with flags and the existing split, merge and move commands.
 

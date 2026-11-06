@@ -1002,3 +1002,49 @@ test('lot details show the records the lot becomes', async () => {
   expect(within(details).getByLabelText(/^Part .*: (exists|new|choose)$/)).toBeVisible()
   expect(within(details).getByLabelText(/^Location .*: (exists|choose)$/)).toBeVisible()
 })
+
+test('each problem offers its fix, on the lot or on the screen that owns it', async () => {
+  const user = userEvent.setup()
+
+  const blocking = (code: string, message: string) => ({
+    code,
+    severity: 'blocking' as const,
+    message,
+    subject_id: b,
+    lot_id: b,
+    run_id: null,
+    dependency_digest: null,
+    disposition: null,
+  })
+
+  renderReview({
+    review: {
+      ...operatorReview,
+      lots: operatorReview.lots.map((item) =>
+        item.lot_id === b
+          ? {
+              ...item,
+              issues: [
+                ...item.issues,
+                blocking('quantity_required', 'Choose an exact positive quantity for this lot.'),
+                blocking('part_choice_required', 'Choose the Part for this lot.'),
+              ],
+            }
+          : item,
+      ),
+    },
+  })
+  const problems = await screen.findByRole('region', { name: 'Blocking problems' })
+
+  expect(within(problems).getByRole('link', { name: 'Decide in Records' })).toHaveAttribute(
+    'href',
+    `#${batchId}/review/records`,
+  )
+  expect(
+    within(screen.getByRole('region', { name: 'Warnings' })).getByRole('link', {
+      name: 'Add evidence in Capture',
+    }),
+  ).toHaveAttribute('href', `#${batchId}/capture`)
+  await user.click(within(problems).getByRole('button', { name: 'Set the quantity' }))
+  expect(await screen.findByLabelText('Exact pieces')).toBeVisible()
+})

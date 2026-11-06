@@ -33,6 +33,7 @@ import { TableWorkspace } from '../operator/TableWorkspace'
 import type { CaptureWorkspaceProps } from '../../capture/types'
 import type { MediaClient } from '../../media/types'
 import { ADD_LOT, ADD_PART, ReviewSubjectEditor } from './ReviewSubjectEditor'
+import { processingStepFor } from '../../navigation/batch-route'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -133,6 +134,20 @@ function scopeReviewed(
   }
   const statuses = workspace.lots.filter((value) => selected.includes(value.lot_id))
   return statuses.length === selected.length && statuses.every((value) => value.reviewed)
+}
+
+/** The lot's first open Processing question, which its problems can offer to answer. */
+function openQuestionFor(processing: ProcessingSnapshotDto | undefined, lotId: string) {
+  for (const job of processing?.jobs ?? []) {
+    const question = job.questions.find(
+      (item) => item.state === 'open' && item.spec.subject_id === lotId,
+    )
+    if (question) {
+      return { id: question.id, step: processingStepFor(job.stage) }
+    }
+  }
+
+  return null
 }
 
 export function ReviewWorkspace({
@@ -505,6 +520,7 @@ export function ReviewWorkspace({
                 reload={reload}
                 inspect={inspect}
                 markReviewed={() => reviewLots([lot.id])}
+                openQuestion={openQuestionFor(processing, lot.id)}
                 editPart={openEditor}
                 editSignal={editSignal}
                 onDirtyChange={drafts.forSource('workspace')}

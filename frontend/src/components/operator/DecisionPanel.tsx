@@ -19,8 +19,9 @@ import { SharedTagsChoice } from './SharedTagsChoice'
 import { IssuePanel } from './IssuePanel'
 import { QUICK_QUANTITY_INPUT_ID, QuickLotEdit } from './QuickLotEdit'
 import { RestructureDialog, type RestructureKind } from './RestructureDialog'
-import { batchHref } from '../../navigation/batch-route'
+import { batchHref, type ProcessingStep } from '../../navigation/batch-route'
 import { RecordChain, type RecordLink } from '../ui/RecordChain'
+import { problemActions } from '../../operator/problem-actions'
 import type { Provenance } from '../../operator/review-model'
 
 type Lot = CaptureSnapshotDto['lots'][number]
@@ -41,6 +42,8 @@ interface Props {
   edit: (change: CaptureEditDto['change']) => Promise<boolean | void>
   reload: () => Promise<void>
   inspect: (lotId: string) => void
+  /** The lot's open Processing question, which problems can offer to answer. */
+  openQuestion?: { id: string; step: ProcessingStep } | null
   /** Marks this one lot reviewed; refused while it has unresolved problems. */
   markReviewed?: () => void
   /** Opens Review's shared Part editor for this Part. */
@@ -142,6 +145,7 @@ export function DecisionPanel({
   reload,
   inspect,
   markReviewed,
+  openQuestion = null,
   editPart,
   editSignal = 0,
   onDirtyChange,
@@ -240,6 +244,16 @@ export function DecisionPanel({
             (id) => batch.lots.find((value) => value.id === id)?.label ?? id,
           )}
           client={operator}
+          actionsFor={(issue) =>
+            problemActions(issue, {
+              batchId: batch.id,
+              lotId: lot.id,
+              partId: part?.id ?? null,
+              openQuestion,
+            })
+          }
+          onEditValues={() => setEditing(true)}
+          onEditPart={editPart && part ? () => editPart(part.id) : undefined}
           disabled={
             disabled ||
             drafts.isDirty('quick') ||

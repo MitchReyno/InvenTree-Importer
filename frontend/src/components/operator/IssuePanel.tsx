@@ -5,6 +5,7 @@ import type { CaptureSnapshotDto, OperatorIssueDto } from '@invimport/contracts'
 import type { OperatorReviewClient } from '../../operator/types'
 import { Button, Link, Paragraph, Small } from '../ui/primitives'
 import { DismissWarning } from './DismissWarning'
+import type { ProblemAction } from '../../operator/problem-actions'
 import { batchHref } from '../../navigation/batch-route'
 
 interface Props {
@@ -16,6 +17,46 @@ interface Props {
   disabled: boolean
   reload: () => Promise<void>
   onDirtyChange?: (dirty: boolean) => void
+  /** The fixes each problem offers, routed to their owners. */
+  actionsFor?: (issue: OperatorIssueDto) => ProblemAction[]
+  onEditValues?: () => void
+  onEditPart?: () => void
+}
+
+function Fixes({
+  actions,
+  disabled,
+  onEditValues,
+  onEditPart,
+}: {
+  actions: ProblemAction[]
+  disabled: boolean
+  onEditValues?: () => void
+  onEditPart?: () => void
+}) {
+  if (!actions.length) {
+    return null
+  }
+
+  return (
+    <FixRow>
+      {actions.map((action) =>
+        action.kind === 'link' ? (
+          <Link key={action.label} href={action.href}>
+            {action.label}
+          </Link>
+        ) : (
+          <Button
+            key={action.label}
+            disabled={disabled || (action.kind === 'edit_values' ? !onEditValues : !onEditPart)}
+            onClick={action.kind === 'edit_values' ? onEditValues : onEditPart}
+          >
+            {action.label}
+          </Button>
+        ),
+      )}
+    </FixRow>
+  )
 }
 
 function issueKey(issue: OperatorIssueDto) {
@@ -40,7 +81,19 @@ export function IssuePanel({
   disabled,
   reload,
   onDirtyChange,
+  actionsFor,
+  onEditValues,
+  onEditPart,
 }: Props) {
+  const fixes = (issue: OperatorIssueDto) => (
+    <Fixes
+      actions={actionsFor?.(issue) ?? []}
+      disabled={disabled}
+      onEditValues={onEditValues}
+      onEditPart={onEditPart}
+    />
+  )
+
   const [dismissing, setDismissing] = useState<string | null>(null)
   const blocking = issues.filter((issue) => issue.severity === 'blocking')
   const warnings = issues.filter((issue) => issue.severity === 'warning')
@@ -57,6 +110,7 @@ export function IssuePanel({
           {blocking.map((issue, index) => (
             <Item key={`${issue.code}:${index}`}>
               <Paragraph>{issue.message}</Paragraph>
+              {fixes(issue)}
               {issue.run_id && (
                 <Link
                   href={batchHref(batch.id, { tab: 'changes', view: 'added', runId: issue.run_id })}
@@ -82,6 +136,7 @@ export function IssuePanel({
               {subjectNote(batch, issue, partLotLabels) && (
                 <Small>{subjectNote(batch, issue, partLotLabels)}</Small>
               )}
+              {fixes(issue)}
               <WarningAction
                 batch={batch}
                 issue={issue}
@@ -167,4 +222,12 @@ const Item = styled.div`
   display: grid;
   gap: 6px;
   justify-items: start;
+`
+
+const FixRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
 `
