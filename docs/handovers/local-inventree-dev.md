@@ -144,4 +144,8 @@ Checked on 2026-11-06 with Docker Compose v5.6.1 on arm64, in a throwaway projec
 - **Round 6** (fresh reviewer, `74a58d0`) found no Critical or Important issues. It confirmed the round-5 changes, found one Minor test gap and one stale-count nitpick. Fixed:
   - the supervisor's whole startup sequence (shared child env, services, scoped root, lock, instance re-check, release on failure) is one tested `startSupervision` helper that `tooling/dev.cjs` calls, so removing a step fails a test.
 
-  Current totals: `pnpm test:dev` 52/52 and `pnpm --filter @invimport/intake-server test` 208/208. A live `local-inventree` start read seeded part 3 with 201.
+  After round 6: `pnpm test:dev` 52/52 and `pnpm --filter @invimport/intake-server test` 208/208. A live `local-inventree` start read seeded part 3 with 201.
+- **Round 7** (fresh reviewer, `1cf8518`) found no Critical or Important issues. It confirmed that `startSupervision` keeps the fake and read-only behaviour, and found one Minor test gap. Fixed:
+  - a fake-profile `startSupervision` case asserts the shared child env passed to `startServices` and the lock order. Reverting `startServices` to run without that env now fails it.
+
+  Current totals: `pnpm test:dev` 53/53 and `pnpm --filter @invimport/intake-server test` 208/208.

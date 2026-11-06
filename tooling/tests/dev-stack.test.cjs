@@ -196,3 +196,29 @@ test('supervision starts the stack with the shared child env, locks the root, th
     'the lock is released when the re-check fails',
   )
 })
+
+test('fake supervision starts the shared server with the shared child env before the lock', async () => {
+  const calls = []
+  const started = await startSupervision(
+    {},
+    { kind: 'fake' },
+    {
+      baseEnv: { PATH: '/bin' },
+      stateDirectory: () => '/resolved/state',
+      startServices: async (env) => calls.push(['start-services', env]),
+      startLocalInventree: async () => calls.push('start-local'),
+      serverIdentity: async () => 'd'.repeat(32),
+      readLocalInventree: async () => calls.push('read-local'),
+      stateRoot: () => '/state/fake',
+      privateState: async (root) => {
+        calls.push(`lock:${root}`)
+        return async () => {}
+      },
+    },
+  )
+  assert.deepEqual(calls, [
+    ['start-services', { PATH: '/bin', INTAKE_DEV_STATE: '/resolved/state', INTAKE_ENV_FILE: '' }],
+    'lock:/state/fake',
+  ])
+  assert.equal(started.prepared.root, '/state/fake')
+})
