@@ -39,7 +39,7 @@ The planning artifacts were delivered separately in `docs(local-inventree-dev): 
 - Outcome: `pnpm dev` and `db:intake` provision intake roles and databases on the Compose `inventree-db` service at `127.0.0.1:55433` for every profile. They never create `bench-intake-dev-pg` and never touch it.
 - Scope and approach:
   - `tooling/inventree-dev/compose.yaml` with the `inventree-db` service, labels, limits and health check.
-  - New `intake-server/scripts/dev-pg-identity.cjs`, the single source of the host, port, project, service and container identity.
+  - New `intake-server/src/dev/pg-identity.ts` (erasable TypeScript, so the `.cjs` scripts load it through Node type stripping), the single source of the host, port, project, service and container identity.
   - `dev-services.cjs` rewritten to generate private `inventree-db.json` and `inventree-db.env`, run `compose up --wait inventree-db`, then do the existing role and database provisioning. The legacy `postgres.json` is never read or written.
   - Explicit volume `name:` and labels, and container name `bench-inventree-dev-db`.
   - `up --no-recreate --wait inventree-db` from any checkout, after a drift check that refuses with `owned_service_allocation_changed_request_coordinator`.
@@ -57,11 +57,11 @@ The planning artifacts were delivered separately in `docs(local-inventree-dev): 
   - `pnpm lint`.
 - Risks and decisions: an existing app state namespace bound to the old server; see the design's migration section.
 
-- [ ] 1.1 Confirm every reference to 55432 and `bench-intake-dev-pg` (`rg`) and the current tooling-test fakes.
-- [ ] 1.2 RED: add tooling tests for the Compose `up --wait inventree-db` argv, labelled-ownership refusal, the legacy container ignored, `postgres.json` left byte-for-byte unchanged, new state files created privately, no secrets in argv, `setup.ts` and `run-media-pg.cjs` reading `inventree-db.json`, a fresh server-scoped namespace on first start with old `app` state present, the stale explicit-namespace refusal, identity resolved before the lock on a first run, the `INTAKE_DEV_ADMIN_URL` identity, the volume-without-state refusal on a first `pnpm dev` with the labelled volume present and no `inventree-db.json`, a second checkout starting the existing `inventree-db` without recreating it, and a refusal on drift. Run them and confirm they fail.
-- [ ] 1.3 GREEN: add the `inventree-db` Compose service and `dev-pg-identity.cjs`, move `dev-services.cjs` onto them, and update `setup.ts`, `run-media-pg.cjs` and `pg-tools.ts`.
-- [ ] 1.4 Refactor: remove the dead `docker run` path and keep the budgets and grant contract unchanged.
-- [ ] 1.5 Run the suites and the local PostgreSQL and process tiers on the new server, check AC4 manually with the legacy container present, and record the results.
+- [x] 1.1 Confirm every reference to 55432 and `bench-intake-dev-pg` (`rg`) and the current tooling-test fakes.
+- [x] 1.2 RED: add tooling tests for the Compose `up --wait inventree-db` argv, labelled-ownership refusal, the legacy container ignored, `postgres.json` left byte-for-byte unchanged, new state files created privately, no secrets in argv, `setup.ts` and `run-media-pg.cjs` reading `inventree-db.json`, a fresh server-scoped namespace on first start with old `app` state present, the stale explicit-namespace refusal, identity resolved before the lock on a first run, the `INTAKE_DEV_ADMIN_URL` identity, the volume-without-state refusal on a first `pnpm dev` with the labelled volume present and no `inventree-db.json`, a second checkout starting the existing `inventree-db` without recreating it, and a refusal on drift. Run them and confirm they fail.
+- [x] 1.3 GREEN: add the `inventree-db` Compose service and `pg-identity.ts`, move `dev-services.cjs` onto them, and update `setup.ts`, `run-media-pg.cjs` and `pg-tools.ts`.
+- [x] 1.4 Refactor: remove the dead `docker run` path and keep the budgets and grant contract unchanged.
+- [x] 1.5 Run the suites and the local PostgreSQL and process tiers on the new server, check AC4 manually with the legacy container present, and record the results.
 
 ## 2. InvenTree stack, bootstrap and lifecycle CLI
 
@@ -94,20 +94,20 @@ The planning artifacts were delivered separately in `docs(local-inventree-dev): 
   - recorded in the handover.
 - Risks and decisions: whitenoise serving `/web/` without Caddy. Verify in 2.1 and fall back to adding Caddy if needed.
 
-- [ ] 2.1 Proof of fit: in a throwaway Compose run, confirm migrate, static, the env admin, whitenoise UI serving, ApiToken creation and lookup on the pinned image, `env_file` with `required: false` for all three generated files and an interpolated path on the local Compose version, `up --wait` together with a `service_completed_successfully` one-shot service, `compose cp` from an exited container to a host path, and the duration of the first-run `inventree-init` (migrate and static) on a fresh database, to confirm its timeout.
-- [ ] 2.2 RED: CLI tests for the lifecycle argv, ownership and labels, `reset` confirmation, order and scope (stop server, worker and init before `DROP DATABASE ... WITH (FORCE)`; InvenTree only by default; `--database-server` refused while a supervisor lock is held, otherwise stopping `inventree-db` before removing its volume; never `postgres.json`), the other-checkout refusal (InvenTree services only), the `inventree-dev.lock` contention refusal, `--database-server` refusing on a held lock in the scanned directories or with `INTAKE_APP_STATE` set, no admin password or token in the server or worker env file, `inventree-init` always removed after a failure, `up` running `dev-services start` first, the reset file scope (`inventree-dev.json`, `inventree.env` and `inventree-init.env`; plus `inventree-db.json` and `inventree-db.env` with `--database-server`), idempotent `inventree` role and database creation, private state creation and refusal, and redacted failure output. Run them and confirm they fail.
-- [ ] 2.3 GREEN: add the remaining Compose services, `bootstrap.py`, the CLI and the root script, and make the tests pass.
-  - [ ] 2.3.1 Reuse tokens that still validate, and re-issue only the named token otherwise.
-  - [ ] 2.3.2 Extend `.github/scripts/ci_paths.py` and `test_ci_paths.py` for the new tooling paths, add `../tooling/inventree-dev/scripts` to the ruff step in `.github/workflows/lint.yml`, select the intake job for `backend/config/` changes (which the fixture test depends on), and run `python3 -m unittest discover -s .github/scripts -p 'test_*.py'`.
-- [ ] 2.4 Refactor: share Docker discovery and state helpers with `dev-services.cjs`.
-- [ ] 2.5 Run `up` twice live and check AC1, AC2 and AC6. Record the results and the peak `pg_stat_activity` connections for the `inventree` role against its limit of 20.
+- [x] 2.1 Proof of fit: in a throwaway Compose run, confirm migrate, static, the env admin, whitenoise UI serving, ApiToken creation and lookup on the pinned image, `env_file` with `required: false` for all three generated files and an interpolated path on the local Compose version, `up --wait` together with a `service_completed_successfully` one-shot service, `compose cp` from an exited container to a host path, and the duration of the first-run `inventree-init` (migrate and static) on a fresh database, to confirm its timeout.
+- [x] 2.2 RED: CLI tests for the lifecycle argv, ownership and labels, `reset` confirmation, order and scope (stop server, worker and init before `DROP DATABASE ... WITH (FORCE)`; InvenTree only by default; `--database-server` refused while a supervisor lock is held, otherwise stopping `inventree-db` before removing its volume; never `postgres.json`), the other-checkout refusal (InvenTree services only), the `inventree-dev.lock` contention refusal, `--database-server` refusing on a held lock in the scanned directories or with `INTAKE_APP_STATE` set, no admin password or token in the server or worker env file, `inventree-init` always removed after a failure, `up` running `dev-services start` first, the reset file scope (`inventree-dev.json`, `inventree.env` and `inventree-init.env`; plus `inventree-db.json` and `inventree-db.env` with `--database-server`), idempotent `inventree` role and database creation, private state creation and refusal, and redacted failure output. Run them and confirm they fail.
+- [x] 2.3 GREEN: add the remaining Compose services, `bootstrap.py`, the CLI and the root script, and make the tests pass.
+  - [x] 2.3.1 Reuse tokens that still validate, and re-issue only the named token otherwise.
+  - [x] 2.3.2 Extend `.github/scripts/ci_paths.py` and `test_ci_paths.py` for the new tooling paths, add `../tooling/inventree-dev/scripts` to the ruff step in `.github/workflows/lint.yml`, select the intake job for `backend/config/` changes (which the fixture test depends on), and run `python3 -m unittest discover -s .github/scripts -p 'test_*.py'`.
+- [x] 2.4 Refactor: share Docker discovery and state helpers with `dev-services.cjs`.
+- [x] 2.5 Run `up` twice live and check AC1, AC2 and AC6. Record the results and the peak `pg_stat_activity` connections for the `inventree` role against its limit of 20.
 
 ## 3. Deterministic seeding
 
 - PR delivery: PR-B.
 - Outcome: `pnpm inventree:dev seed`, also run at the end of `up`, makes the instance match `backend/config/` and loads the fixture records exactly once.
 - Scope and approach:
-  - Run `invimport parameters --write` and `categories --write` through `uv run --project backend`, with `--env-file` set to an empty private file. The URL and write token come through the child environment, with `INVENTREE_USER`/`INVENTREE_PASSWORD` removed.
+  - Run `invimport parameters --write` and `categories --write` through `uv run --project backend`, with `--env-file /dev/null`. The URL and write token come through the child environment, with `INVENTREE_USER`/`INVENTREE_PASSWORD` removed.
   - Add `tooling/inventree-dev/seed/fixtures.json` and a REST loader keyed by `metadata.bench_intake_seed`, with tests in `tooling/tests/inventree-dev-seed.test.cjs` added to `test:dev`.
 - Prerequisites: Task 2.
 - Acceptance: AC3.
@@ -118,11 +118,11 @@ The planning artifacts were delivered separately in `docs(local-inventree-dev): 
   - `pnpm lint`.
 - Risks and decisions: the fixture parts must use categories and parameters that exist in `backend/config/`. Check this in a loader test.
 
-- [ ] 3.1 Choose the fixture contents from `backend/config/`, confirm the REST endpoints and fields on API 530, and record whether `metadata` can be set in the create call or needs `/metadata/` with the natural-key fallback.
-- [ ] 3.2 RED: a post-sync completeness check that fails with `inventree_dev_seed_incomplete` when a configured category or template is missing; loader tests for create-once, re-run no-op, records it did not seed untouched, an interrupted create-then-tag adopted without duplicating, and unknown categories rejected. Add a seeding-child test asserting the `--env-file` argument and the scrubbed environment. Run them and confirm they fail.
-- [ ] 3.3 GREEN: add the fixtures and loader, and wire the `invimport` sync into `seed` and `up`.
-- [ ] 3.4 Refactor: keep the loader free of InvenTree-model assumptions beyond the endpoints it uses.
-- [ ] 3.5 Run `seed` twice live and record the counts.
+- [x] 3.1 Choose the fixture contents from `backend/config/`, confirm the REST endpoints and fields on API 530, and record whether `metadata` can be set in the create call or needs `/metadata/` with the natural-key fallback.
+- [x] 3.2 RED: a post-sync completeness check that fails with `inventree_dev_seed_incomplete` when a configured category or template is missing; loader tests for create-once, re-run no-op, records it did not seed untouched, an interrupted create-then-tag adopted without duplicating, and unknown categories rejected. Add a seeding-child test asserting the `--env-file` argument and the scrubbed environment. Run them and confirm they fail.
+- [x] 3.3 GREEN: add the fixtures and loader, and wire the `invimport` sync into `seed` and `up`.
+- [x] 3.4 Refactor: keep the loader free of InvenTree-model assumptions beyond the endpoints it uses.
+- [x] 3.5 Run `seed` twice live and record the counts.
 
 ## 4. `local-inventree` profile in `pnpm dev`
 
@@ -141,11 +141,11 @@ The planning artifacts were delivered separately in `docs(local-inventree-dev): 
   - recorded in the handover.
 - Risks and decisions: none beyond the design.
 
-- [ ] 4.1 Confirm the current target, state and namespace contracts and the supervisor branches.
-- [ ] 4.2 RED: tests for the profile, its conflict errors, a missing local state error, the setup child deriving the target from the profile alone, the v3 state binding, the supervisor starting the stack before resolving the root and lock on a first run with no `inventree-dev.json`, the key read only after the stack start, `local-inventree` with `INTAKE_DEV_ADMIN_URL` refused, the API child env carrying `INTAKE_CREDENTIAL_REF=local_inventree_dev`, the origin and the key without reading `runnerConfig`, and a reset `instance_id` changing the namespace. Run them and confirm they fail.
-- [ ] 4.3 GREEN: implement the profile and supervisor integration.
-- [ ] 4.4 Refactor: share the read-transport wiring with `read-only`.
-- [ ] 4.5 Run the live AC5 check and record it.
+- [x] 4.1 Confirm the current target, state and namespace contracts and the supervisor branches.
+- [x] 4.2 RED: tests for the profile, its conflict errors, a missing local state error, the setup child deriving the target from the profile alone, the v3 state binding, the supervisor starting the stack before resolving the root and lock on a first run with no `inventree-dev.json`, the key read only after the stack start, `local-inventree` with `INTAKE_DEV_ADMIN_URL` refused, the API child env carrying `INTAKE_CREDENTIAL_REF=local_inventree_dev`, the origin and the key without reading `runnerConfig`, and a reset `instance_id` changing the namespace. Run them and confirm they fail.
+- [x] 4.3 GREEN: implement the profile and supervisor integration.
+- [x] 4.4 Refactor: share the read-transport wiring with `read-only`.
+- [x] 4.5 Run the live AC5 check and record it.
 
 ## 5. Documentation, ledger and handover
 
@@ -161,13 +161,13 @@ The planning artifacts were delivered separately in `docs(local-inventree-dev): 
 - Verification: `pnpm lint`, and a manual read-through against the code.
 - Risks and decisions: none.
 
-- [ ] 5.1 Update the docs, ledger and env template.
-- [ ] 5.2 Write the handover, with the live evidence from tasks 1–4.
-- [ ] 5.3 Check the references and run the markdown lint.
+- [x] 5.1 Update the docs, ledger and env template.
+- [x] 5.2 Write the handover, with the live evidence from tasks 1–4.
+- [x] 5.3 Check the references and run the markdown lint.
 
 ## Delivery evidence and lifecycle follow-up
 
-- [ ] 6.1 An independent read-only review of the exact PR-B head is clean. Record the reviewed SHA.
+- [x] 6.1 An independent read-only review of the exact PR-B head is clean. Record the reviewed SHA. (Clean on `9f57ec6`; see the handover.)
 - [ ] 6.2 PR-B is opened against `interactive-app` and CI is green.
 - [ ] 6.3 PR-B is merged, and BI-009 is updated to its evidenced status.
 

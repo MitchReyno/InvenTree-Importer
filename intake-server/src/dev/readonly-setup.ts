@@ -8,19 +8,25 @@ import { grantMedia } from '../media/grants.ts'
 import { grantProcessing } from '../processing/grants.ts'
 import { readMediaStoreIdentity } from '../media/store-identity.ts'
 import { BlobStore } from '../media/blob-store.ts'
-import type { ReadOnlyDevState } from './state.ts'
+import type { LocalDevState, ReadOnlyDevState } from './state.ts'
 import type { DevelopmentTarget } from './target.ts'
+
+type ReadTarget = Extract<DevelopmentTarget, { kind: 'read-only' | 'local-inventree' }>
 
 /** Provision only local app authority. No target token, network read or apply deployment. */
 export async function readonlyState(
   root: string,
-  target: Extract<DevelopmentTarget, { kind: 'read-only' }>,
-): Promise<ReadOnlyDevState> {
+  target: ReadTarget,
+  instanceId?: string,
+): Promise<ReadOnlyDevState | LocalDevState> {
   const db = await isolatedDatabase({ retainedDev: true })
   try {
     const identity = await seedAuthority(db.pool, {
       profile: 'protected-read-only',
-      contextHash: createHash('sha256').update(JSON.stringify(target)).digest(),
+      // A reset local instance is a different target context.
+      contextHash: createHash('sha256')
+        .update(JSON.stringify(target.kind === 'local-inventree' ? { target, instanceId } : target))
+        .digest(),
     })
     const blobRoot = join(root, 'retained/blobs')
     await BlobStore.initialize(blobRoot, await readMediaStoreIdentity(db.pool))
@@ -53,11 +59,9 @@ export async function readonlyState(
       return url.toString()
     }
 
-    return {
-      version: 2,
+    const common = {
       databaseName: db.name,
       identity,
-      target,
       apiUrl: await role('api'),
       processingUrl: await role('processing'),
       mediaUrl: await role('media'),
@@ -65,6 +69,13 @@ export async function readonlyState(
       blobRoot,
       channelSecret: randomBytes(32).toString('hex'),
     }
+    if (target.kind === 'local-inventree') {
+      if (!instanceId) {
+        throw new Error('local_inventree_instance_required')
+      }
+      return { version: 3, instanceId, target, ...common }
+    }
+    return { version: 2, target, ...common }
   } finally {
     await db.close()
   }

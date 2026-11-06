@@ -2,12 +2,23 @@ import { createHash } from 'node:crypto'
 import { join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 
+export const LOCAL_INVENTREE = {
+  kind: 'local-inventree',
+  origin: 'http://127.0.0.1:4320',
+  credentialRef: 'local_inventree_dev',
+} as const
+
 export type DevelopmentTarget =
   | { kind: 'fake' }
   | {
       kind: 'read-only'
       origin: string
       credentialRef: string
+    }
+  | {
+      kind: 'local-inventree'
+      origin: typeof LOCAL_INVENTREE.origin
+      credentialRef: typeof LOCAL_INVENTREE.credentialRef
     }
 
 export function developmentTarget(env: NodeJS.ProcessEnv): DevelopmentTarget {
@@ -18,6 +29,17 @@ export function developmentTarget(env: NodeJS.ProcessEnv): DevelopmentTarget {
       throw new Error('conflicting_development_target_settings')
     }
     return { kind }
+  }
+  if (kind === 'local-inventree') {
+    // The local stack owns its origin, key and database server; nothing may redirect them.
+    if (
+      supplied ||
+      env.INTAKE_DEV_API_KEY !== undefined ||
+      env.INTAKE_DEV_ADMIN_URL !== undefined
+    ) {
+      throw new Error('conflicting_development_target_settings')
+    }
+    return { ...LOCAL_INVENTREE }
   }
   if (kind !== 'read-only') {
     throw new Error('unsupported_development_target')
@@ -56,7 +78,8 @@ export function developmentCredential(
   env: NodeJS.ProcessEnv,
   target: DevelopmentTarget,
 ): string | undefined {
-  if (target.kind === 'fake') {
+  if (target.kind !== 'read-only') {
+    // Fake uses its owned token; local-inventree reads its key from private state.
     return undefined
   }
   const key = env.INTAKE_DEV_API_KEY
@@ -66,13 +89,35 @@ export function developmentCredential(
   return key
 }
 
-export function developmentStateRoot(env: NodeJS.ProcessEnv, target: DevelopmentTarget): string {
+/** What a default namespace is bound to besides the target: its database server. */
+export interface StateScope {
+  serverId: string
+  /** The local InvenTree instance; a reset gives it a new ID. */
+  instanceId?: string
+}
+
+/** Default namespaces are scoped to the database server, so a new server gets fresh app state. */
+export function developmentStateRoot(
+  env: NodeJS.ProcessEnv,
+  target: DevelopmentTarget,
+  scope: StateScope,
+): string {
   if (env.INTAKE_APP_STATE !== undefined) {
     return resolve(env.INTAKE_APP_STATE)
   }
-  if (target.kind === 'fake') {
-    return join(homedir(), '.local/state/bench-intake/app')
+  if (!/^[a-f0-9]{32}$/.test(scope.serverId)) {
+    throw new Error('development_server_identity_required')
   }
-  const digest = createHash('sha256').update(JSON.stringify(target)).digest('hex').slice(0, 32)
-  return join(homedir(), '.local/state/bench-intake', `read-only-${digest}`)
+  if (target.kind === 'fake') {
+    return join(homedir(), '.local/state/bench-intake', `app-${scope.serverId.slice(0, 16)}`)
+  }
+  if (target.kind === 'local-inventree' && !/^[a-f0-9]{32}$/.test(scope.instanceId ?? '')) {
+    throw new Error('local_inventree_instance_required')
+  }
+  const binding =
+    target.kind === 'local-inventree'
+      ? { target, serverId: scope.serverId, instanceId: scope.instanceId }
+      : { target, serverId: scope.serverId }
+  const digest = createHash('sha256').update(JSON.stringify(binding)).digest('hex').slice(0, 32)
+  return join(homedir(), '.local/state/bench-intake', `${target.kind}-${digest}`)
 }

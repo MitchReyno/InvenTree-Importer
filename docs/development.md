@@ -1,8 +1,8 @@
 # Running the local application
 
-Use `pnpm dev` from the repository root to start the complete local Bench Intake app at **<http://127.0.0.1:4330>**. By default the command owns the UI, API, apply worker, decoder, Processing worker and a persistent fake inventory service. An explicitly configured external inventory uses the read-only profile described below, without a fake service or apply worker. Ctrl-C stops those processes and preserves PostgreSQL and app data. The previous preview is not automatically migrated into this separate namespace.
+Use `pnpm dev` from the repository root to start the complete local Bench Intake app at **<http://127.0.0.1:4330>**. By default the command owns the UI, API, apply worker, decoder, Processing worker and a persistent fake inventory service. An explicitly configured external inventory uses the read-only profile described below, without a fake service or apply worker. The `local-inventree` profile reads from a [local development InvenTree](#local-development-inventree) instead. Ctrl-C stops those processes and preserves PostgreSQL and app data. The previous preview is not automatically migrated into this separate namespace.
 
-Install the pinned Node 24/pnpm versions and run `pnpm install --frozen-lockfile` first. Docker must be available for the managed PostgreSQL service and bounded image decoder. First startup builds the decoder image; later builds reuse Docker's cache. See the [service ledger](../intake-server/README.md#shared-development-service-ledger) before sharing the local PostgreSQL allocation.
+Install the pinned Node 24/pnpm versions and run `pnpm install --frozen-lockfile` first. Docker with Compose 2.24 or later must be available for the shared `inventree-db` PostgreSQL and bounded image decoder. First startup builds the decoder image; later builds reuse Docker's cache. See the [service ledger](../intake-server/README.md#shared-development-service-ledger) before sharing the local PostgreSQL allocation.
 
 ```bash
 pnpm dev       # full local app, synthetic Processing by default
@@ -33,13 +33,48 @@ Read-only mode supports connection status, existing-record lookups, local Captur
 
 The env-file allowlist covers full-stack options `INTAKE_DEV_PORT`, `INTAKE_APP_STATE`, `INTAKE_DEV_STATE`, `INTAKE_DEV_ADMIN_URL`, `INTAKE_MEDIA_DECODER_IMAGE`, `INTAKE_PROCESSING_PROFILE`, `INTAKE_TARGET_PROFILE`, the three target settings above, the native executable overrides and provider API-key names documented below. Standalone `dev:intake` additionally accepts its explicit `INTAKE_ORIGIN`, `INTAKE_DATABASE_URL`, actor/target/context IDs, blob root, deployment ID, Processing channel secret and research URL lists. The full-stack launcher continues to own its local app database/identity settings. File-provided PATH, HOME, Node process flags, Vite variables and unknown keys are ignored; Vite dotenv discovery remains disabled. The standalone API child additionally receives only its required runtime settings and basic host environment, excluding setup-admin URLs, provider keys, native executable overrides and unrelated shell secrets.
 
+## Local development InvenTree
+
+`pnpm inventree:dev up` starts a full InvenTree 1.5.0 (API 530) at **<http://127.0.0.1:4320>**, ready and seeded. It is the Docker Compose project `bench-inventree-dev` in `tooling/inventree-dev/`, pinned to the `inventree/inventree:stable` image by digest. A one-shot `inventree-init` migrates the database and collects static files. It then runs `scripts/bootstrap.py`, which creates the `admin` superuser and the `intake-reader` (view-only) and `intake-writer` users, each with an API token. The `inventree-server` and `inventree-worker` containers start only after init succeeds. Every port binds to loopback only.
+
+```bash
+pnpm inventree:dev up           # start, make ready and seed (idempotent)
+pnpm inventree:dev seed         # re-run seeding
+pnpm inventree:dev credentials  # admin password and API tokens
+pnpm inventree:dev env          # INVENTREE_URL / INVENTREE_TOKEN for the importer
+pnpm inventree:dev status
+pnpm inventree:dev down         # stop InvenTree; inventree-db keeps running
+pnpm inventree:dev reset --yes  # wipe InvenTree; intake dev databases are kept
+```
+
+To read from it in the app, set `INTAKE_TARGET_PROFILE=local-inventree` and run `pnpm dev`. The launcher runs `inventree:dev up` first, then reads with the reader token from private state. Do not also set `INTAKE_READ_ORIGIN`, `INTAKE_CREDENTIAL_REF`, `INTAKE_DEV_API_KEY` or `INTAKE_DEV_ADMIN_URL`; with this profile they are refused. The app only reads from the instance, as with the read-only profile. For importer testing, `eval "$(pnpm --silent inventree:dev env)"` points `invimport` at the instance with the writer token.
+
+Seeding first runs `invimport parameters --write` and `categories --write` with `--env-file /dev/null`, so the instance matches `backend/config/` and the root `.env` is never read. A dry-run check then fails seeding if anything is still pending. Finally it loads `tooling/inventree-dev/seed/fixtures.json` over REST: locations, companies, parts, manufacturer and supplier parts, and stock. Each seeded record carries `metadata.bench_intake_seed`, so re-runs create nothing and records seeded under another key are left alone. An untagged record that matches a fixture's natural key (name, IPN, MPN, SKU, or part and location) is adopted and tagged, which recovers from a run interrupted between create and tag.
+
+Secrets are generated per machine and kept in the private state directory (`INTAKE_DEV_STATE`, default `~/.local/state/bench-intake`). `inventree-dev.json` holds the instance's secrets and tokens. `inventree.env` and `inventree-init.env` are the Compose env files; only the one-shot init container receives the admin password and tokens. Nothing secret is committed or passed on a command line.
+
+One checkout drives the InvenTree services, because they mount that checkout's scripts. `up` refuses with `inventree_dev_owned_by_other_checkout` while another checkout's containers exist; run `pnpm inventree:dev down` there first. A reset gives the instance a new ID, so the next `local-inventree` app starts in a fresh namespace. `reset --yes` refuses, naming the namespace, while a `local-inventree` app is running, because its read token would no longer exist; stop `pnpm dev` first. `reset --yes --database-server` also wipes the shared database server and every intake dev database. It refuses, naming the namespace, while a live supervisor lock is held under `~/.local/state/bench-intake`, and when `INTAKE_APP_STATE` is set. Neither reset can see app namespaces at other explicit `INTAKE_APP_STATE` paths, so stop those apps yourself first.
+
+### Shared database server
+
+Every profile keeps its intake databases on the stack's `inventree-db` service: PostgreSQL 17, container `bench-inventree-dev-db`, `127.0.0.1:55433`. `pnpm dev` and `pnpm db:intake start` start that service alone when InvenTree is not needed. Its secrets are in `inventree-db.json` and `inventree-db.env`. InvenTree's own `inventree` database is closed to every other role. The server allows 120 connections, enough for InvenTree, one fake namespace and one read-only or local namespace at the same time; two fake namespaces at once would exceed it.
+
+The earlier `bench-intake-dev-pg` container (port 55432), its `bench-intake-dev-pg-data` volume, `postgres.json` and the old `app` namespace are no longer used, and the tooling never touches them. Once you no longer need their data, remove them by hand:
+
+```bash
+docker rm -f bench-intake-dev-pg && docker volume rm bench-intake-dev-pg-data
+rm ~/.local/state/bench-intake/postgres.json   # and, if unwanted, ~/.local/state/bench-intake/app
+```
+
+An explicit `INTAKE_APP_STATE` created on the old server is refused with `development_state_server_changed`; choose a new directory.
+
 ## Reload and persistence
 
 Frontend source edits use Vite HMR. Server and shared-contract source edits drain and restart the owned API/workers without replacing the UI server, database or fake inventory state. Migration SQL changes run the existing migration verifier before restart; previously applied migrations remain immutable. Compiler/startup failures during a reload leave the watcher active: fixing code retries startup. An unrelated child failure stops the command for inspection.
 
 Only changed source bytes trigger application reload. Runtime state, uploads, logs, docs, tests, build output and an unchanged-byte source save do not restart the API/workers. Watch roots are `frontend/src`, `contracts/src`, `intake-server/src` and `intake-server/migrations`. Changing dependency manifests, launcher tooling (including the pure `intake-server/src/dev/target.ts` policy) or reused test-fixture implementations requires restarting the command. Vite handles its configuration and HTML files using its normal development behavior.
 
-Private state defaults to `$HOME/.local/state/bench-intake/app`; set `INTAKE_APP_STATE` to another private directory **outside the repository** to select a separate retained app. Setup creates an `intake_dev_…` database and dedicated runtime roles. Its synthetic credentials and fixed fake-server port remain in private configuration; the shared PostgreSQL administrator credential is used only during setup/migrations. The development launchers load only the documented server settings from their selected environment file. Existing Python importer variables are not translated into target configuration.
+Private state defaults to `$HOME/.local/state/bench-intake/app-<server id>`, a namespace scoped to the database server; set `INTAKE_APP_STATE` to another private directory **outside the repository** to select a separate retained app. Setup creates an `intake_dev_…` database and dedicated runtime roles. Its synthetic credentials and fixed fake-server port remain in private configuration; the shared PostgreSQL administrator credential is used only during setup/migrations. The development launchers load only the documented server settings from their selected environment file. Existing Python importer variables are not translated into target configuration.
 
 `INTAKE_DEV_PORT` changes the public loopback port (4330 by default). An occupied port causes failure rather than silently choosing a different address. Retained fixture port 4310 and reserved port 4350 are refused by the full-stack launcher. Keep `INTAKE_APP_STATE` stable across starts to retain batches and uploads. `INTAKE_DEV_STATE` selects the existing PostgreSQL helper state directory. CI can explicitly inject an owned loopback `/postgres` connection through `INTAKE_DEV_ADMIN_URL`; that value is not passed to runtime children or saved in app configuration.
 
@@ -57,7 +92,7 @@ INTAKE_PROCESSING_PROFILE=native-agent/1 pnpm dev
 
 Then select the global provider, authentication route and model in Settings before starting an agent. Claude subscription authentication uses the signed-in CLI account under the host `HOME`. Codex subscription mode uses the worker's isolated `$INTAKE_APP_STATE/agents/codex` as `CODEX_HOME`; the default host Codex login is not automatically reused.
 
-Use the exact private app-state directory belonging to your target. A value loaded from `.env` is not exported back into the shell: export the same resolved `INTAKE_APP_STATE` path before logging in. Automatic read-only namespaces use `read-only-<hash>` directories, so the fake profile's `app` directory is not a substitute. If your app already has retained data, use its existing directory.
+Use the exact private app-state directory belonging to your target. A value loaded from `.env` is not exported back into the shell: export the same resolved `INTAKE_APP_STATE` path before logging in. Automatic read-only and local namespaces use `read-only-<hash>` and `local-inventree-<hash>` directories, so the fake profile's `app-<server id>` directory is not a substitute. If your app already has retained data, use its existing directory.
 
 For a new namespace, select an explicit private path before first startup, and keep the same exported value for login and later launches:
 

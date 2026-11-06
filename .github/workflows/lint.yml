@@ -30,7 +30,7 @@ jobs:
       - name: Install Python project
         run: uv sync --project backend --locked
       - name: Lint Python and shared skill scripts
-        run: uv run --directory backend ruff check --config pyproject.toml . ../.agents/skills ../.claude/skills ../.github/scripts
+        run: uv run --directory backend ruff check --config pyproject.toml . ../.agents/skills ../.claude/skills ../.github/scripts ../tooling/inventree-dev/scripts
 
   frontend:
     name: TypeScript

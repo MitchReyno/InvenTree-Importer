@@ -14,9 +14,10 @@
     "contracts:generate": "pnpm --filter @invimport/contracts generate",
     "contracts:check": "pnpm --filter @invimport/contracts check:generated",
     "db:intake": "pnpm --filter @invimport/intake-server db:dev",
+    "inventree:dev": "node tooling/inventree-dev/cli.cjs",
     "lint": "pnpm run lint:readability && pnpm run lint:frontend && pnpm run lint:backend && pnpm run lint:markdown",
     "lint:frontend": "pnpm --filter @invimport/frontend lint",
-    "lint:backend": "uv run --directory backend ruff check --config pyproject.toml . ../.agents/skills ../.claude/skills",
+    "lint:backend": "uv run --directory backend ruff check --config pyproject.toml . ../.agents/skills ../.claude/skills ../tooling/inventree-dev/scripts",
     "lint:markdown": "remark . --ignore-path .gitignore --ignore-pattern '.claude/worktrees/**' --ignore-pattern '.amp/**' --frail --no-stdout",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -42,7 +43,7 @@
     "test:readability": "node --test tooling/tests/readability.test.mjs",
     "format:readability": "eslint --config eslint.config.mjs frontend/src intake-server/src contracts/src --fix --max-warnings 0",
     "dev:ui": "pnpm --filter @invimport/frontend dev",
-    "test:dev": "node --test tooling/tests/dev.test.cjs tooling/tests/dev-environment.test.cjs"
+    "test:dev": "node --test tooling/tests/dev.test.cjs tooling/tests/dev-environment.test.cjs tooling/tests/dev-stack.test.cjs tooling/tests/inventree-dev.test.cjs tooling/tests/inventree-dev-seed.test.cjs"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "5.10.0",
