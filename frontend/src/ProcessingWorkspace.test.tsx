@@ -592,6 +592,8 @@ test('the drawer closes when its link points at the question already open', asyn
 test('while one draft saves and Processing reloads, the other cannot be edited', async () => {
   let finishInstructions: () => void = () => undefined
 
+  let finishReload: () => void = () => undefined
+
   const instruct = vi.fn(
     () => new Promise<void>((resolve) => (finishInstructions = () => resolve())),
   )
@@ -605,7 +607,7 @@ test('while one draft saves and Processing reloads, the other cannot be edited',
         questionId={questionId}
         navigate={vi.fn()}
         onDirtyChange={vi.fn()}
-        onSaved={() => new Promise(() => undefined)}
+        onSaved={() => new Promise<void>((resolve) => (finishReload = () => resolve()))}
         instructions={{ text: '', instruct }}
       />
     </ServerStateProvider>,
@@ -624,4 +626,51 @@ test('while one draft saves and Processing reloads, the other cannot be edited',
   // The answer is saved and Processing is still reloading.
   await waitFor(() => expect(client.answer).toHaveBeenCalled())
   expect(screen.getByLabelText('Instructions for the whole batch')).toBeDisabled()
+  await act(async () => finishReload())
+  expect(screen.getByLabelText('Instructions for the whole batch')).toBeEnabled()
+})
+
+test('the drawer closes when its link moves from Overview to the step page', async () => {
+  const withSession: ProcessingSnapshotDto = {
+    ...snapshot,
+    jobs: [{ ...snapshot.jobs[0], session_state: 'waiting_input' }],
+  }
+  const client = {
+    ...clientFixture(),
+    read: vi.fn().mockResolvedValue(withSession),
+    session: vi.fn().mockResolvedValue({
+      job_id: jobId,
+      attempt_id: attemptId,
+      session_state: 'waiting_input',
+      outbox: [],
+      inbox: [],
+    }),
+    chat: vi.fn(),
+  } as ProcessingClient
+  const cache = createServerQueryClient()
+  const props = {
+    batch,
+    client,
+    questionId,
+    navigate: vi.fn(),
+    onDirtyChange: vi.fn(),
+    onSaved: vi.fn().mockResolvedValue(undefined),
+  }
+  const view = render(
+    <ServerStateProvider scope={scope} client={cache}>
+      <ProcessingWorkspace {...props} view="overview" />
+    </ServerStateProvider>,
+  )
+  await userEvent.click(
+    await screen.findByRole('button', { name: 'Open session: Examine · Packet A' }),
+  )
+  expect(screen.getByRole('dialog', { name: 'Examine · Packet A' })).toBeInTheDocument()
+
+  // The link's route is the Examine step with the same question.
+  view.rerender(
+    <ServerStateProvider scope={scope} client={cache}>
+      <ProcessingWorkspace {...props} view="examine" />
+    </ServerStateProvider>,
+  )
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })

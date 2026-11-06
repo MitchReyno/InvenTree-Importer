@@ -85,10 +85,10 @@ export function ProcessingWorkspace({
   const drafts = useDirtySources(onDirtyChange)
   // A save reloads Processing; the other draft is locked until that finishes.
   const [saving, setSaving] = useState<'answer' | 'instructions' | null>(null)
-  // Opening a question navigates; the drawer closes only once that navigation happens.
+  // Opening a question navigates; the drawer closes only once the route actually changes.
   useEffect(() => {
     setSessionJobId(null)
-  }, [questionId])
+  }, [questionId, view])
   const pollInterval = useRetainedPollInterval()
   const scope = useServerScope()
   const queryKey = serverQueryKey(scope, 'processing', batch.id)

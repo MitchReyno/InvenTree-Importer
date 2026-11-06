@@ -283,3 +283,10 @@ Fresh read-only Claude reviewer at `453000e`: 2 Minor, 2 Nitpick, all fixed.
   - **Both-drafts test:** it now checks that the answer's save re-enables once the instructions are discarded.
 - **Checks:** frontend 516/516; typecheck, lint and build pass.
 
+### PR-C review round 4
+
+Fresh read-only Claude reviewer at `12b04f5`: 1 Minor, 1 Nitpick, both fixed. The save lock was confirmed sound: it always clears in `finally`, and it cannot overlap the answer's retry or discard.
+
+- **Drawer left open across a step change (Minor):** a drawer link from Overview to the same question's step page changed `view` but not `questionId`, so the drawer stayed open. It now closes on any change of question or view. A test rerenders from Overview to Examine with the same question.
+- **Test gap (Nitpick):** the held-answer test now resolves the reload and checks the instruction field unlocks.
+
