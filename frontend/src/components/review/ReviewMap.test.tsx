@@ -196,4 +196,30 @@ describe('ReviewMap', () => {
 
     expect(options).toEqual(['Link to a lot…', 'Packet A', 'Packet B', 'Bag'])
   })
+
+  it('forgets a chosen lot once the file links to it, so Link cannot resend', async () => {
+    const user = userEvent.setup()
+    const props = {
+      batch,
+      evidence,
+      retiredLotIds: new Set<string>(),
+      disabled: false,
+      link: vi.fn(async () => undefined),
+      newLotFrom: vi.fn(async () => undefined),
+      approvedLotIds: new Set<string>(),
+      loading: false,
+    }
+    const view = render(<ReviewMap {...props} />)
+
+    const stray = () => screen.getByRole('listitem', { name: /Stray photo/ })
+
+    await user.selectOptions(within(stray()).getByLabelText('Link Stray photo to a lot'), 'c')
+    await user.click(within(stray()).getByRole('button', { name: 'Link' }))
+
+    const linked = [...evidence.slice(0, 3), file('f4', 'Stray photo', ['c'])]
+    view.rerender(<ReviewMap {...props} evidence={linked as never} />)
+
+    expect(within(stray()).getByLabelText('Link Stray photo to a lot')).toHaveValue('')
+    expect(within(stray()).getByRole('button', { name: 'Link' })).toBeDisabled()
+  })
 })

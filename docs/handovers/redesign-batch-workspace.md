@@ -328,7 +328,7 @@ Branch `feat/redesign-batch-workspace-review-lots` from `d38e6ad`. Merge is auth
 - **8.2 problem fixes:** `frontend/src/operator/problem-actions.ts` maps each problem to its fix on the owning screen:
   - **Part not chosen:** "Choose the Part" opens the Part editor, and "Decide in Records" links to Records.
   - **Quantity and location problems:** "Set the quantity" or "Set the location" opens the lot's own editor. Every location problem except a missing location (a conflict, an invalid draft parent, an unconfirmed group) also links to "Check evidence groups in Capture".
-  - **Warnings:** evidence warnings link to Capture (reading and crop routes were dropped in review round 1, because no server code raises them).
+  - **Warnings:** evidence warnings link to Capture, and a missing-evidence warning also to "Link evidence on the Map" (since round 4) (reading and crop routes were dropped in review round 1, because no server code raises them).
   - **Open question:** when the lot (or, since round 5, its Part) has an open Processing question, the details pane links to it under the record chain (since round 6), and "Answer the open question" also comes first on the problems an answer can settle (Part choice, quantity, location). Answering inline and queuing to the asking session wait for Task 14's sessions.
   - **Unroutable problems:** no fix is offered (for example unsettled source history).
   - **UI:** `IssuePanel` shows the fixes under each blocking problem and warning.
@@ -411,4 +411,11 @@ Fresh read-only Claude reviewer at `02e0374`: 3 Minor, 2 Nitpick, all fixed. It 
 Fresh read-only Claude reviewer at `d24198f`: 1 Minor, fixed test-first. It confirmed the round-5 fixes.
 
 - **A lot under "Needs answer" could have no way to its question (Minor):** the question link appeared only on Part-choice, quantity and location problems. The details pane now says "Processing has an open question about this lot" with "Answer the open question" under the record chain whenever the lot has one. The integration test puts a question on a lot whose only problem is missing evidence; it failed first, then passed.
+
+### PR-D review round 7
+
+Fresh read-only Claude reviewer at `0b8c86e`: 1 Minor, 1 Nitpick, fixed (the Minor test-first). It confirmed the round-6 fix.
+
+- **Stale Map link target (Minor):** after a successful link the chosen lot left the "Link to a lot…" list but stayed chosen, so Link stayed enabled and could resend the link, or send one to a lot retired since. A choice that is no longer offered now counts as none. The test links, rerenders with the new link, and expects the placeholder and a disabled Link; it failed first, then passed.
+- **Nitpick:** the architecture and the 8.2 Warnings line now name the Map among the places problems route to.
 

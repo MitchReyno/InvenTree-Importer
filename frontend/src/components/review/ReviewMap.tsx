@@ -63,6 +63,18 @@ export function ReviewMap({
   // A merge or split retires lots; only active, unadded lots stay chosen.
   const chosen = merging.filter((id) => lotLabel.has(id) && !approvedLotIds.has(id))
   const restructureLocked = disabled || restructureUnavailable
+
+  // Lots a file can still be linked to directly; a choice that has since left the list is no choice.
+  const linkOptions = (file: (typeof map.files)[number]) =>
+    map.lots.filter(
+      (lot) => !file.links.some((item) => item.lotId === lot.id && item.via === 'direct'),
+    )
+
+  const targetFor = (file: (typeof map.files)[number]) => {
+    const chosenLot = targets[file.id]
+    return chosenLot && linkOptions(file).some((lot) => lot.id === chosenLot) ? chosenLot : ''
+  }
+
   // Until the latest review is read, a retired lot's files may already be inherited by its successors.
   const lineagePending = restructureUnavailable && retiredLotIds.size > 0
   const fromRetired = new Set(
@@ -113,26 +125,21 @@ export function ReviewMap({
               <Controls>
                 <select
                   aria-label={`Link ${file.label} to a lot`}
-                  value={targets[file.id] ?? ''}
+                  value={targetFor(file)}
                   disabled={disabled}
                   onChange={(event) => setTargets({ ...targets, [file.id]: event.target.value })}
                 >
                   <option value="">Link to a lot…</option>
-                  {map.lots
-                    .filter(
-                      (lot) =>
-                        !file.links.some((item) => item.lotId === lot.id && item.via === 'direct'),
-                    )
-                    .map((lot) => (
-                      <option key={lot.id} value={lot.id}>
-                        {lot.label}
-                      </option>
-                    ))}
+                  {linkOptions(file).map((lot) => (
+                    <option key={lot.id} value={lot.id}>
+                      {lot.label}
+                    </option>
+                  ))}
                 </select>
                 <Button
                   size="sm"
-                  disabled={disabled || !targets[file.id]}
-                  onClick={() => void link(file.id, targets[file.id], true)}
+                  disabled={disabled || !targetFor(file)}
+                  onClick={() => void link(file.id, targetFor(file), true)}
                 >
                   Link
                 </Button>
