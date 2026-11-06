@@ -251,7 +251,10 @@ describe('retainedJobsSource', () => {
 
     const source = retainedJobsSource(
       snapshot([
-        job(1, 'examine', 'running', { subject_id: null } as Partial<Job>),
+        job(1, 'examine', 'running', {
+          subject_id: null,
+          session_state: 'running',
+        } as Partial<Job>),
         job(2, 'research', 'running', {
           session_state: 'running',
           proposals: [proposal(10, { state: 'stale', reason: 'answer_received' })],

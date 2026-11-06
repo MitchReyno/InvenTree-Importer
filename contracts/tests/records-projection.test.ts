@@ -961,3 +961,47 @@ test('a superseded catalogue no longer counts once a current job has proposed', 
     false,
   )
 })
+
+test('a stale catalogue gives way to the current one from the same job', () => {
+  const stale = catalogueJob(partB, {
+    manufacturer: {
+      company: proposedNew('GCT', 'The reel label reads GCT'),
+      mpn: 'R-10',
+      sources: [],
+    },
+  })
+  const job = stale.jobs[0]
+  const [first] = job.proposals
+  const revised = {
+    ...first,
+    id: id(731),
+    message_id: id(732),
+    value: {
+      ...first.value,
+      catalogue: {
+        category: null,
+        parameters: [],
+        manufacturer: null,
+        supplier: null,
+        description: null,
+      },
+    },
+    currentness: { state: 'current' },
+  }
+  const processing = {
+    jobs: [
+      {
+        ...job,
+        proposals: [
+          { ...first, currentness: { state: 'stale', reason: 'operator_correction' } },
+          revised,
+        ],
+      },
+    ],
+  } as unknown as ProcessingSnapshotDto
+  const result = projectRecords({ capture: withGct, processing, lotGroups: null })
+  assert.equal(
+    of(result.records, 'company').some((record) => record.proposed?.name === 'GCT'),
+    false,
+  )
+})

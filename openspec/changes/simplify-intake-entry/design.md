@@ -120,6 +120,7 @@ running ──crash/restart──▶ interrupted ──resume/inbox──▶ que
   - the session that asked
 - In the same transaction, every downstream proposal relying on the superseded value becomes stale, so Inventory cannot consume it while a revision is pending.
 - Proposals that don't rely on those fields stay current.
+- **Limit:** an operator correction is a capture `lot` edit of its Part link (identity) or quantity. An edit to a Part's spec in Records does not fan out yet, because it changes a Part rather than the lot proposals that rely on it.
 
 ### D8. The Examine lead session as a batch-scoped job
 

@@ -833,4 +833,17 @@ A fresh reviewer subagent reviewed `b462069` and found it clean: no critical or 
   - **Read model:** `read.ts` computes both the status lines and the currentness.
   - **Docs:** `frontend/ARCHITECTURE.md` combines both descriptions.
 - **Checks after the merge:** contracts passed 117/117, the intake server 227/227, and the frontend 660/660. Typecheck, lint, format and `contracts:check` are clean.
+- **Tiers on the merge `716ea1e`:** `pnpm db:intake test` passed 251/251, and `pnpm db:intake test:process` passed 70/70.
+
+## PR-C review round 5 (the merge)
+
+A fresh reviewer subagent reviewed `716ea1e` and confirmed every conflict resolution. It found one important finding, two minor ones and a nitpick in how #110 meets PR-C.
+
+1. **Important: Records treated stale catalogue proposals as current.** `projectRecords` judged currentness by job state only, so after a revision in the same job, a stale and a current catalogue tied, and the first one read won.
+   - A proposal is now current only while its job is not superseded and its own `currentness` is not stale.
+   - Field origins prefer current proposals, and so does the catalogue choice.
+   - A projection test puts a stale and a current catalogue in one job and checks the stale one raises no company decision.
+2. **Minor, accepted as a limit (design D7): a Records edit to a Part's spec is not an operator correction.** It changes a Part, not the lot proposals that rely on it, so it sends no revision notice and makes nothing stale. Only capture `lot` edits of the Part link or quantity fan out.
+3. **Minor: docs drifted after the merge.** `intake-server/ARCHITECTURE.md` now says that session runners publish catalogues, that `applicableCatalogueSpec` builds on `assessCatalogue`, and that Records prefers current proposals.
+4. **Nitpick, fixed:** the pipeline's lead uses `examineLead`, so the Overview's two lead lookups agree.
 

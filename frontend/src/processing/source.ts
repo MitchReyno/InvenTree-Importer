@@ -96,7 +96,7 @@ function pipeline(
   snapshot: ProcessingSnapshotDto,
   subjects: ReadonlyMap<string, string>,
 ): ProcessingSource['pipeline'] {
-  const lead = snapshot.jobs.find((job) => job.stage === 'examine' && job.subject_id === null)
+  const lead = examineLead(snapshot)
   const byLot = new Map<string, PipelineLot>()
   for (const job of snapshot.jobs) {
     const stage = job.stage as string
