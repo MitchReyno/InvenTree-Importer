@@ -1,160 +1,144 @@
-const { execFileSync, spawnSync } = require('node:child_process')
-const { access, lstat, mkdir, readFile, writeFile } = require('node:fs/promises')
-const { homedir } = require('node:os')
+const { spawnSync } = require('node:child_process')
+const { mkdir, writeFile, rename } = require('node:fs/promises')
 const { resolve } = require('node:path')
 const { randomBytes } = require('node:crypto')
 const { Pool } = require('pg')
-// Reuse the runtime grant contract through pinned Node's native type stripping.
+// Reuse the runtime grant contract and dev identity through pinned Node's native type stripping.
 const { grantFoundation } = require('../src/operations/grants.ts')
+const {
+  PG,
+  ALLOCATION,
+  SERVER_ENV_FILE,
+  SERVER_STATE_FILE,
+  composeFile,
+  readServerState,
+  serverUrl,
+  stateDirectory,
+} = require('../src/dev/pg-identity.ts')
+const { dockerPath, jsonLines, labels, runner } = require('../src/dev/docker-cli.ts')
+
+const ACTIONS = [
+  'start',
+  'test',
+  'migrate',
+  'test:process',
+  'preview:manual',
+  'preview:attachments',
+]
+
+function drifted(inspected) {
+  const port = inspected.HostConfig?.PortBindings?.['5432/tcp']
+  return (
+    inspected.Config?.Image !== ALLOCATION.image ||
+    JSON.stringify(inspected.Config?.Cmd) !== JSON.stringify(ALLOCATION.command) ||
+    port?.length !== 1 ||
+    port[0].HostIp !== PG.host ||
+    port[0].HostPort !== String(PG.port) ||
+    inspected.HostConfig.Memory !== ALLOCATION.memory ||
+    inspected.HostConfig.NanoCpus !== ALLOCATION.nanoCpus ||
+    inspected.HostConfig.PidsLimit !== ALLOCATION.pids ||
+    inspected.HostConfig.RestartPolicy?.Name !== 'no' ||
+    !inspected.Mounts?.some(
+      (mount) =>
+        mount.Type === 'volume' &&
+        mount.Name === PG.volume &&
+        mount.Destination === '/var/lib/postgresql/data',
+    )
+  )
+}
+
+async function writePrivate(path, content) {
+  const temporary = `${path}.${randomBytes(6).toString('hex')}`
+  await writeFile(temporary, content, { mode: 0o600, flag: 'wx' })
+  await rename(temporary, path)
+}
 
 async function main() {
-  const name = 'bench-intake-dev-pg'
-  const volume = 'bench-intake-dev-pg-data'
-  const stateDirectory = resolve(
-    process.env.INTAKE_DEV_STATE ?? resolve(homedir(), '.local/state/bench-intake'),
-  )
-  const stateFile = resolve(stateDirectory, 'postgres.json')
-  async function dockerPath() {
-    if (process.env.DOCKER_BIN) return process.env.DOCKER_BIN
-    const found = spawnSync('which', ['docker'], { encoding: 'utf8' })
-    if (found.status === 0) return found.stdout.trim()
-    // Discover Docker.app by bundle ID; no developer-specific absolute executable path.
-    const applications = execFileSync(
-      'mdfind',
-      ['kMDItemCFBundleIdentifier == "com.docker.docker"'],
-      { encoding: 'utf8' },
-    )
-      .trim()
-      .split('\n')
-    for (const app of applications) {
-      const candidate = resolve(app, 'Contents/Resources/bin/docker')
-      try {
-        await access(candidate)
-        return candidate
-      } catch {
-        /* next bundle */
-      }
-    }
-    throw new Error('docker_not_found_set_DOCKER_BIN')
-  }
-  const docker = await dockerPath()
-  const run = (...args) =>
-    execFileSync(docker, args, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
-  const containers = run('ps', '-a', '--format', 'json')
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => JSON.parse(line))
+  const directory = stateDirectory(process.env)
+  const docker = await dockerPath(process.env)
+  const run = runner(docker)
+  const containers = jsonLines(run('ps', '-a', '--format', 'json'))
   process.stdout.write(
     `Inspected containers: ${JSON.stringify(containers.map(({ Names, Image, Status, Ports }) => ({ Names, Image, Status, Ports })))}\n`,
   )
   process.stdout.write(run('compose', 'ls'))
   const action = process.argv[2] ?? 'status'
-  if (action === 'status') process.exit(0)
+  if (action === 'status') return
+  if (!ACTIONS.includes(action)) throw new Error('unsupported_service_action')
+
+  const volumes = jsonLines(run('volume', 'ls', '--format', 'json'))
+  const volume = volumes.find((row) => row.Name === PG.volume)
+  if (volume && labels(volume.Labels)[PG.ownerLabel] !== PG.owner)
+    throw new Error('service_not_owned')
+  const existing = containers.find((row) => row.Names === PG.container)
   if (
-    !['start', 'test', 'migrate', 'test:process', 'preview:manual', 'preview:attachments'].includes(
-      action,
+    containers.some(
+      (row) => row.Names !== PG.container && String(row.Ports ?? '').includes(`:${PG.port}->`),
     )
   )
-    throw new Error('unsupported_service_action')
+    throw new Error('service_port_not_owned')
+
   let state
   try {
-    const info = await lstat(stateFile)
-    if (!info.isFile() || (info.mode & 0o077) !== 0 || info.uid !== process.getuid?.())
-      throw new Error('private_owned_state_required')
-    state = JSON.parse(await readFile(stateFile, 'utf8'))
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw new Error('invalid_owned_service_state')
-    if (containers.some((container) => container.Names === name))
-      throw new Error('existing_service_missing_owned_state')
+    state = await readServerState(process.env)
+  } catch {
+    throw new Error('invalid_owned_service_state')
+  }
+  if (!state && (volume || existing))
+    throw new Error('inventree_db_state_missing_for_existing_volume')
+
+  if (existing) {
+    // Do not print inspect: Config.Env contains the private initialization secret.
+    const inspected = JSON.parse(run('inspect', PG.container))[0]
+    if (inspected.Config?.Labels?.[PG.ownerLabel] !== PG.owner) throw new Error('service_not_owned')
+    if (drifted(inspected)) throw new Error('owned_service_allocation_changed_request_coordinator')
+    if (!String(existing.Status).startsWith('Up') && action !== 'start')
+      throw new Error('owned_service_stopped_run_start')
+  } else if (action !== 'start') {
+    throw new Error('owned_service_missing_run_start')
+  }
+
+  if (!state) {
     state = {
+      version: 1,
+      server_id: randomBytes(16).toString('hex'),
       admin: randomBytes(24).toString('hex'),
       migrator: randomBytes(24).toString('hex'),
       app: randomBytes(24).toString('hex'),
     }
-    await mkdir(stateDirectory, { recursive: true, mode: 0o700 })
-    await writeFile(stateFile, JSON.stringify(state), { mode: 0o600, flag: 'wx' })
+    await mkdir(directory, { recursive: true, mode: 0o700 })
+    await writeFile(resolve(directory, SERVER_STATE_FILE), JSON.stringify(state), {
+      mode: 0o600,
+      flag: 'wx',
+    })
   }
-  if (!state || !['admin', 'migrator', 'app'].every((key) => /^[a-f0-9]{48}$/.test(state[key])))
-    throw new Error('invalid_owned_service_state')
-  const existing = containers.find((container) => container.Names === name)
-  if (existing) {
-    // Do not print inspect: Config.Env contains the private initialization secret.
-    const inspected = JSON.parse(run('inspect', name))[0]
-    const port = inspected.HostConfig.PortBindings?.['5432/tcp']
-    if (inspected.Config.Labels?.['bench-intake.owner'] !== 'T01')
-      throw new Error('service_not_owned')
-    if (
-      inspected.Config.Image !== 'postgres:17' ||
-      port?.length !== 1 ||
-      port[0].HostIp !== '127.0.0.1' ||
-      port[0].HostPort !== '55432' ||
-      inspected.HostConfig.Memory !== 268435456 ||
-      inspected.HostConfig.NanoCpus !== 500000000 ||
-      inspected.HostConfig.PidsLimit !== 128 ||
-      inspected.HostConfig.RestartPolicy.Name !== 'no' ||
-      !inspected.Mounts.some(
-        (mount) =>
-          mount.Type === 'volume' &&
-          mount.Name === volume &&
-          mount.Destination === '/var/lib/postgresql/data',
-      ) ||
-      JSON.stringify(inspected.Config.Cmd) !==
-        JSON.stringify(['-c', 'max_connections=40', '-c', 'shared_buffers=32MB'])
-    )
-      throw new Error('owned_service_allocation_changed_request_coordinator')
-    // Only an explicit start may start a stopped owned service. No stop/restart/cleanup command.
-    if (!existing.Status.startsWith('Up')) {
-      if (action !== 'start') throw new Error('owned_service_stopped_run_start')
-      run('start', name)
-    }
-  } else {
-    if (containers.some((container) => /postgres/i.test(container.Image)))
-      throw new Error('existing_postgres_request_ledger_allocation_before_creating')
-    execFileSync(
+  if (action === 'start') {
+    // Compose reads POSTGRES_PASSWORD from this file; it only applies when the volume is created.
+    await writePrivate(resolve(directory, SERVER_ENV_FILE), `POSTGRES_PASSWORD=${state.admin}\n`)
+    const result = spawnSync(
       docker,
       [
-        'run',
-        '-d',
-        '--name',
-        name,
-        '--label',
-        'bench-intake.owner=T01',
-        '--cpus',
-        '0.5',
-        '--memory',
-        '256m',
-        '--pids-limit',
-        '128',
-        '--restart',
-        'no',
+        'compose',
+        '-f',
+        composeFile(),
         '-p',
-        '127.0.0.1:55432:5432',
-        '-v',
-        `${volume}:/var/lib/postgresql/data`,
-        '-e',
-        'POSTGRES_PASSWORD',
-        'postgres:17',
-        '-c',
-        'max_connections=40',
-        '-c',
-        'shared_buffers=32MB',
+        PG.project,
+        'up',
+        '-d',
+        '--no-recreate',
+        '--wait',
+        PG.service,
       ],
       {
-        env: { ...process.env, POSTGRES_PASSWORD: state.admin },
-        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, BENCH_INVENTREE_DEV_STATE: directory },
+        stdio: ['ignore', 'ignore', 'inherit'],
       },
     )
+    if (result.status !== 0) throw new Error('postgres_start_failed')
   }
-  const adminUrl = `postgresql://postgres:${state.admin}@127.0.0.1:55432/postgres`
-  for (let i = 0; ; i++) {
-    if (
-      spawnSync(docker, ['exec', name, 'pg_isready', '-U', 'postgres'], { stdio: 'ignore' })
-        .status === 0
-    )
-      break
-    if (i === 30) throw new Error('postgres_start_timeout')
-    await new Promise((resolve) => setTimeout(resolve, 500))
-  }
+
+  const adminUrl = serverUrl('postgres', state.admin, 'postgres').toString()
+  const migratorUrl = serverUrl('intake_dev_migrator', state.migrator, 'intake_dev').toString()
   const admin = new Pool({ connectionString: adminUrl, max: 1 })
   try {
     for (const [role, password] of [
@@ -172,7 +156,7 @@ async function main() {
     await admin.end()
   }
   process.stdout.write(
-    'Owned PostgreSQL ready: loopback 55432; intake_dev; runtime/migration roles separate; secrets retained privately.\n',
+    `Owned PostgreSQL ready: inventree-db on loopback ${PG.port}; intake_dev; runtime/migration roles separate; secrets retained privately.\n`,
   )
   if (action !== 'start') {
     const command = action === 'test' ? 'test:pg' : action
@@ -182,15 +166,12 @@ async function main() {
         ...process.env,
         INTAKE_TEST_ADMIN_URL: adminUrl,
         INTAKE_TEST_ALLOW_CREATE_DATABASE: 'owned-sandbox',
-        INTAKE_DATABASE_URL: `postgresql://intake_dev_migrator:${state.migrator}@127.0.0.1:55432/intake_dev`,
+        INTAKE_DATABASE_URL: migratorUrl,
       },
     })
     process.exitCode = result.status ?? 1
     if (action === 'migrate' && result.status === 0) {
-      const owner = new Pool({
-        connectionString: `postgresql://intake_dev_migrator:${state.migrator}@127.0.0.1:55432/intake_dev`,
-        max: 1,
-      })
+      const owner = new Pool({ connectionString: migratorUrl, max: 1 })
       try {
         await grantFoundation(owner, 'intake_dev_app')
       } finally {

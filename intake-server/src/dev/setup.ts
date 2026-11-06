@@ -1,7 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto'
-import { mkdir, readFile, writeFile, access, lstat } from 'node:fs/promises'
+import { mkdir, writeFile, access } from 'node:fs/promises'
 import { join } from 'node:path'
-import { homedir } from 'node:os'
 import { manualFixture } from '../../tests/support/manual.ts'
 import { database } from '../db/database.ts'
 import { migrate } from '../operations/migrate.ts'
@@ -9,52 +8,31 @@ import { grantProcessing } from '../processing/grants.ts'
 import { grantMedia } from '../media/grants.ts'
 import { grantCaptureRead } from '../capture/grants.ts'
 import { grantProjection } from '../operations/grants.ts'
-import { readDevState, schedulerUrl, type DevState, type FakeDevState } from './state.ts'
+import {
+  assertStateServer,
+  readDevState,
+  schedulerUrl,
+  type DevState,
+  type FakeDevState,
+} from './state.ts'
 import { reownProcessingRows } from './scheduler-owner.ts'
-import { developmentAdminUrl } from './postgres-url.ts'
+import { developmentAdmin, serverIdentity } from './pg-identity.ts'
 import { developmentTarget, type DevelopmentTarget } from './target.ts'
 import { readonlyState } from './readonly-setup.ts'
+import { readLocalInventree } from './local-inventree.ts'
 import { grantFoundation } from '../operations/grants.ts'
 import { grantCapture } from '../capture/grants.ts'
 import { grantManual } from '../review/grants.ts'
 
-async function adminUrl() {
-  if (process.env.INTAKE_DEV_ADMIN_URL) {
-    return developmentAdminUrl(process.env.INTAKE_DEV_ADMIN_URL)
-  }
-  const file = join(
-    process.env.INTAKE_DEV_STATE ?? join(homedir(), '.local/state/bench-intake'),
-    'postgres.json',
-  )
-  const stat = await lstat(file)
-  if (
-    !stat.isFile() ||
-    stat.isSymbolicLink() ||
-    stat.uid !== process.getuid?.() ||
-    stat.mode & 0o077 ||
-    stat.size > 16384
-  ) {
-    throw new Error('private_pg_state_required')
-  }
-
-  const state = JSON.parse(
-    await readFile(
-      join(
-        process.env.INTAKE_DEV_STATE ?? join(homedir(), '.local/state/bench-intake'),
-        'postgres.json',
-      ),
-      'utf8',
-    ),
-  )
-  if (!/^[a-f0-9]{48}$/.test(state.admin)) {
-    throw new Error('private_pg_state_required')
-  }
-  const url = new URL('postgresql://postgres@127.0.0.1:55432/postgres')
-  url.password = state.admin
-  return url
+function adminUrl() {
+  return developmentAdmin(process.env)
 }
 
-async function newState(root: string, target: DevelopmentTarget): Promise<DevState> {
+async function newState(
+  root: string,
+  target: DevelopmentTarget,
+  serverId: string,
+): Promise<DevState> {
   await writeFile(
     join(root, 'initializing'),
     'Retained first-setup marker. app.json records completed setup; inspect interrupted setup before retrying.\n',
@@ -65,8 +43,12 @@ async function newState(root: string, target: DevelopmentTarget): Promise<DevSta
   const admin = await adminUrl()
   process.env.INTAKE_TEST_ADMIN_URL = admin.toString()
   process.env.INTAKE_TEST_ALLOW_CREATE_DATABASE = 'owned-sandbox'
-  if (target.kind === 'read-only') {
-    const state = await readonlyState(root, target)
+  if (target.kind !== 'fake') {
+    const instanceId =
+      target.kind === 'local-inventree'
+        ? (await readLocalInventree(process.env)).instanceId
+        : undefined
+    const state = { ...(await readonlyState(root, target, instanceId)), serverId }
     await writeFile(join(root, 'app.json'), JSON.stringify(state), { flag: 'wx', mode: 0o600 })
     return state
   }
@@ -123,6 +105,7 @@ async function newState(root: string, target: DevelopmentTarget): Promise<DevSta
 
     const state: FakeDevState = {
       version: 1,
+      serverId,
       databaseName: fixture.db.name,
       identity: fixture.identity,
       apiUrl: fixture.api.url,
@@ -154,21 +137,28 @@ async function main() {
     throw new Error('dev_state_required')
   }
   const target = developmentTarget(process.env)
+  const serverId = await serverIdentity(process.env)
   try {
     await access(join(root, 'app.json'))
   } catch (error) {
     if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'ENOENT') {
       throw error
     }
-    await newState(root, target)
+    await newState(root, target, serverId)
   }
   const state = await readDevState(root)
+  assertStateServer(state, serverId)
+  const instanceId =
+    target.kind === 'local-inventree'
+      ? (await readLocalInventree(process.env)).instanceId
+      : undefined
   if (
     (state.version === 1 && target.kind !== 'fake') ||
     (state.version === 2 &&
       (target.kind !== 'read-only' ||
         state.target.origin !== target.origin ||
-        state.target.credentialRef !== target.credentialRef))
+        state.target.credentialRef !== target.credentialRef)) ||
+    (state.version === 3 && (target.kind !== 'local-inventree' || state.instanceId !== instanceId))
   ) {
     throw new Error('development_target_binding_changed')
   }
@@ -199,9 +189,12 @@ async function main() {
   )
 }
 
-main().catch(() => {
+main().catch((error: unknown) => {
+  // Driver diagnostics may carry configuration; name only stable refusal codes.
+  const message = error instanceof Error ? error.message : ''
+  const code = /^[a-z_]+$/.test(message) ? ` (${message})` : ''
   process.stderr.write(
-    'Development setup refused; inspect owned state and PostgreSQL. No retained data was removed.\n',
+    `Development setup refused${code}; inspect owned state and PostgreSQL. No retained data was removed.\n`,
   )
   process.exitCode = 1
 })

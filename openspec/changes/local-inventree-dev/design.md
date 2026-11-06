@@ -47,8 +47,8 @@ The Compose file is `tooling/inventree-dev/compose.yaml`, project name `bench-in
 | Service | Image | Role |
 | --- | --- | --- |
 | `inventree-db` | `postgres:17` | Container `bench-inventree-dev-db`. Publishes `127.0.0.1:55433:5432`. Volume `bench-inventree-dev-db`. Health check `pg_isready`. Runs with `max_connections=120` and `shared_buffers=64MB`. Limited to 1 CPU, 512 MiB and 256 PIDs. The drift check also covers the PID limit. These server limits are deliberately higher than the legacy 40 connections, 32 MiB, 0.5 CPU, 256 MiB and 128 PIDs, because the server now also hosts InvenTree. |
-| `inventree-init` | base image, pinned by digest | One-shot, `restart: "no"`. Runs `invoke migrate`, `invoke static`, then `bootstrap.py` through the Django shell. Exits 0 when the instance is ready. |
-| `inventree-server` | base image | Gunicorn with 2 workers. Publishes `127.0.0.1:4320:8000`. Waits for `inventree-init` to complete successfully. |
+| `inventree-init` | base image, pinned by digest | One-shot, `restart: "no"`. Runs `invoke migrate`, `invoke static`, then `bootstrap.py` through the Django shell. Exits 0 when the instance is ready. The CLI runs it explicitly with `compose up --no-deps --exit-code-from inventree-init`, so no service depends on it. |
+| `inventree-server` | base image | Gunicorn with 2 workers. Publishes `127.0.0.1:4320:8000`. Started with `--no-deps` only after `inventree-init` has exited 0, so starting it can never recreate the shared `inventree-db`. |
 | `inventree-worker` | base image | `invoke worker` with 1 background worker. |
 
 The base image is `inventree/inventree@sha256:36027b18ac12e428d0adeda1428325a79c915d571f9c22e2efa0d736f68a3d53`. That is the repository digest of the named image ID `sha256:49b5d7a6…`.
@@ -88,11 +88,11 @@ Rejected: the `GET /api/user/me/token/` Basic-auth flow. It would put the user p
 
 `pnpm inventree:dev seed` (also run at the end of `up`) does two steps, both with the write token:
 
-1. Runs `uv run --project backend invimport --env-file <empty private file> parameters --write` and then `categories --write` the same way. `INVENTREE_URL` and `INVENTREE_TOKEN` come through the child environment, and `INVENTREE_USER`/`INVENTREE_PASSWORD` are removed from it. This reuses the importer's own config sync, so the local instance always matches `backend/config/`.
+1. Runs `uv run --project backend invimport --env-file /dev/null parameters --write` and then `categories --write` the same way. `INVENTREE_URL` and `INVENTREE_TOKEN` come through the child environment, and `INVENTREE_USER`/`INVENTREE_PASSWORD` are removed from it. This reuses the importer's own config sync, so the local instance always matches `backend/config/`.
    Both commands exit 0 even when they report problems, so `seed` then checks over REST that every category and parameter template defined in `backend/config/` exists, and fails with `inventree_dev_seed_incomplete` otherwise.
 2. Loads `tooling/inventree-dev/seed/fixtures.json` over REST: stock locations, a manufacturer and a supplier, a few parts in configured categories with supplier parts, and stock items.
 
-Each fixture record has a stable seed key in `metadata.bench_intake_seed`. The loader looks records up by that key before creating them, so it is idempotent and never updates or deletes records it did not seed. If API 530 cannot set metadata in the create call, task 3.1 records that. The loader then creates the record, tags it through the `/metadata/` endpoint, and on lookup also matches untagged records by the fixture's natural key (name, or IPN for parts). That match tags them instead of duplicating, so an interrupted create-then-tag does not duplicate on re-run.
+Each fixture record has a stable seed key in `metadata.bench_intake_seed`. The loader looks records up by that key before creating them, so it is idempotent and never updates or deletes records it did not seed. API 530 cannot set metadata in the create call (task 3.1), so the loader creates the record, then tags it through `/api/metadata/<model>/<pk>/` (the old `/api/<model>/<pk>/metadata/` path redirects there), and on lookup also matches untagged records by the fixture's natural key (name, or IPN for parts). That match tags them instead of duplicating, so an interrupted create-then-tag does not duplicate on re-run.
 
 Rejected: Django `loaddata` fixtures, which are coupled to model internals and fixed primary keys. Also rejected: the upstream demo dataset; see the proposal.
 
@@ -121,7 +121,7 @@ Connection budget for `max_connections=120`, using the existing role limits:
 
 One fake namespace and one local namespace can therefore run at the same time. Two concurrent fake namespaces would exceed the budget, and the docs say so.
 
-Port and container identity live in one module, `intake-server/scripts/dev-pg-identity.cjs`, which exports the host, port, Compose project, service and container names. `setup.ts`, `run-media-pg.cjs` and `tests/support/pg-tools.ts` read it, and tests can still override it through `INTAKE_TEST_PG_CONTAINER`. `setup.ts` and `run-media-pg.cjs` also switch their admin secret source from `postgres.json` to `inventree-db.json`.
+Port and container identity live in one module, `intake-server/src/dev/pg-identity.ts` (erasable TypeScript, so the `.cjs` scripts load it through Node type stripping), which exports the host, port, Compose project, service and container names. `setup.ts`, `run-media-pg.cjs` and `tests/support/pg-tools.ts` read it, and tests can still override it through `INTAKE_TEST_PG_CONTAINER`. `setup.ts` and `run-media-pg.cjs` also switch their admin secret source from `postgres.json` to `inventree-db.json`.
 
 App state gets a server identity. `inventree-db.json` carries a generated `server_id`, and every app state binding records it. The default namespaces move to new roots, `app-<server_id prefix>` for fake and the target digest including the server ID for the others. So the first `pnpm dev` after the move starts a fresh namespace instead of migrating a database that does not exist, and the old `app` directory is left untouched. An explicit `INTAKE_APP_STATE` bound to another server, or to none, is refused with `development_state_server_changed`.
 
@@ -166,7 +166,7 @@ pnpm dev ──(any profile)──▶ dev-services start ──▶ compose up --
   - a seeding error.
 
   When it fails, it prints the last lines of the failing service's log, with secrets redacted. It leaves the database, server and worker containers and the volumes in place for diagnosis, but always removes `inventree-init` (see bootstrap). A re-run is safe because every step is idempotent.
-- **Authority.** The intake app only reads. The importer write token is shown only by `credentials` and `env`, both explicit opt-ins. The seeding child runs `invimport` with `--env-file` set to an empty private file, so it never loads the root `.env` InvenTree credentials of the protected server. It also never falls back to username and password.
+- **Authority.** The intake app only reads. The importer write token is shown only by `credentials` and `env`, both explicit opt-ins. The seeding child runs `invimport` with `--env-file /dev/null`, which always exists and is always empty, so it never loads the root `.env` InvenTree credentials of the protected server. It also never falls back to username and password.
 - **Image changes.** A new digest in the Compose file re-runs `inventree-init`, which applies migrations, on the next `up`. Downgrades are unsupported, and `reset --yes` recovers from them.
 
 ## Verification strategy

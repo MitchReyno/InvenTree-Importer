@@ -1,25 +1,14 @@
 #!/usr/bin/env node
 'use strict'
 
-const { readFile, lstat, readdir } = require('node:fs/promises')
+const { readdir } = require('node:fs/promises')
 const { spawn } = require('node:child_process')
-const { homedir } = require('node:os')
 const { resolve } = require('node:path')
+const { developmentAdmin } = require('../src/dev/pg-identity.ts')
 
 /** Reuses retained helper credentials silently. Never starts, stops or migrates a service. */
 async function main() {
-  const directory = process.env.INTAKE_DEV_STATE ?? resolve(homedir(), '.local/state/bench-intake')
-  const stateFile = resolve(directory, 'postgres.json')
-  const metadata = await lstat(stateFile)
-  if (!metadata.isFile() || metadata.isSymbolicLink() || (metadata.mode & 0o077) !== 0) {
-    throw new Error('private_owned_pg_state_required')
-  }
-  const state = JSON.parse(await readFile(stateFile, 'utf8'))
-  if (typeof state.admin !== 'string' || !/^[a-f0-9]{32,128}$/.test(state.admin)) {
-    throw new Error('invalid_owned_pg_state')
-  }
-  const url = new URL('postgresql://postgres@127.0.0.1:55432/postgres')
-  url.password = state.admin
+  const url = await developmentAdmin({ INTAKE_DEV_STATE: process.env.INTAKE_DEV_STATE })
   const environment = {
     PATH: process.env.PATH,
     INTAKE_TEST_ADMIN_URL: url.toString(),

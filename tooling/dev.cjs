@@ -18,6 +18,7 @@ const { randomUUID } = require('node:crypto')
 const { watchCode, snapshot } = require('./dev/watch.cjs')
 const { launch, stop, startupGroup } = require('./dev/process.cjs')
 const { developmentEnvironment } = require('./dev/environment.cjs')
+const { prepareDevelopment, apiTargetEnv } = require('./dev/stack.cjs')
 
 const repository = resolve(__dirname, '..')
 const intake = join(repository, 'intake-server')
@@ -153,13 +154,55 @@ async function main() {
     throw new Error('invalid_development_port')
   }
   await freePort(port)
-  const root = developmentStateRoot(settings, target)
-  const release = await privateState(root)
-  const env = {
+  const { serverIdentity } = await import(
+    pathToFileURL(join(intake, 'src/dev/pg-identity.ts')).href
+  )
+  const { readLocalInventree } = await import(
+    pathToFileURL(join(intake, 'src/dev/local-inventree.ts')).href
+  )
+  const serviceEnv = {
     ...baseEnv,
-    INTAKE_APP_STATE: root,
     ...(settings.INTAKE_DEV_STATE ? { INTAKE_DEV_STATE: settings.INTAKE_DEV_STATE } : {}),
   }
+  // The database server comes first: the state root is scoped to its identity.
+  const preparing = new AbortController()
+  const abortPreparing = () => preparing.abort()
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    process.once(signal, abortPreparing)
+  }
+  let prepared
+  try {
+    prepared = await prepareDevelopment(settings, target, {
+      startServices: () =>
+        run(
+          process.execPath,
+          [join(intake, 'scripts/dev-services.cjs'), 'start'],
+          serviceEnv,
+          repository,
+          preparing.signal,
+        ),
+      startLocalInventree: () =>
+        run(
+          process.execPath,
+          [join(repository, 'tooling/inventree-dev/cli.cjs'), 'up'],
+          serviceEnv,
+          repository,
+          preparing.signal,
+        ),
+      serverIdentity: (values) => serverIdentity(values),
+      readLocalInventree: (values) => readLocalInventree(values),
+      stateRoot: developmentStateRoot,
+    })
+  } finally {
+    for (const signal of ['SIGINT', 'SIGTERM']) {
+      process.removeListener(signal, abortPreparing)
+    }
+  }
+  const root = prepared.root
+  // The local read key exists only once `inventree:dev up` has run.
+  const readKey = target.kind === 'local-inventree' ? prepared.key : targetKey
+  const release = await privateState(root)
+  const env = { ...serviceEnv, INTAKE_APP_STATE: root }
   const setupEnv = {
     ...env,
     INTAKE_TARGET_PROFILE: target.kind,
@@ -195,15 +238,6 @@ async function main() {
     process.once(signal, shutdown)
   }
   try {
-    if (!settings.INTAKE_DEV_ADMIN_URL) {
-      await run(
-        process.execPath,
-        [join(intake, 'scripts/dev-services.cjs'), 'start'],
-        env,
-        repository,
-        startup.signal,
-      )
-    }
     await run(
       process.execPath,
       applicationArgs('src/dev/setup.ts'),
@@ -292,13 +326,7 @@ async function main() {
           INTAKE_ORIGIN: publicOrigin,
           INTAKE_DEV_LISTEN_PORT: String(apiPort),
           INTAKE_DATABASE_URL: state.apiUrl,
-          INTAKE_CREDENTIAL_REF:
-            target.kind === 'read-only' ? target.credentialRef : 'owned_development',
-          INTAKE_DEV_API_KEY:
-            state.version === 1 ? state.runnerConfig.profile.credential : targetKey,
-          INTAKE_READ_ORIGIN:
-            target.kind === 'read-only' ? target.origin : state.runnerConfig.profile.origin,
-          ...(state.version === 1 ? { INTAKE_DEPLOYMENT_ID: state.runnerConfig.deploymentId } : {}),
+          ...apiTargetEnv(target, state, readKey),
           INTAKE_PROCESSING_PROFILE: profile,
           // Lets the connection status name the owned test target.
           INTAKE_TARGET_PROFILE: target.kind,
