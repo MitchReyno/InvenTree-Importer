@@ -122,6 +122,15 @@ export async function developmentAdmin(env: Env = process.env): Promise<URL> {
   return serverUrl('postgres', state.admin, 'postgres')
 }
 
+/** Superuser access to the shared inventree-db itself; an explicit admin URL never redirects it. */
+export async function sharedServerAdmin(env: Env = process.env): Promise<URL> {
+  const state = await readServerState(env)
+  if (!state) {
+    throw new Error('inventree_db_state_missing_run_dev_services')
+  }
+  return serverUrl('postgres', state.admin, 'postgres')
+}
+
 /** Names the database server that app state is bound to. Never derived from a secret. */
 export async function serverIdentity(env: Env = process.env): Promise<string> {
   if (env.INTAKE_DEV_ADMIN_URL) {

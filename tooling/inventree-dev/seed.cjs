@@ -81,8 +81,10 @@ async function loadFixtures(api, fixtures) {
   const summary = { created: 0, existing: 0, adopted: 0 }
   const tag = (model, pk, key) =>
     api.patch(`/api/metadata/${model}/${pk}/`, { metadata: { [SEED_KEY]: key } })
-  async function ensure(endpoint, model, key, lookup, body) {
-    const candidates = await api.get(`/api/${endpoint}/?${new URLSearchParams(lookup)}`)
+  async function ensure(endpoint, model, key, lookup, body, matches = () => true) {
+    const candidates = (await api.get(`/api/${endpoint}/?${new URLSearchParams(lookup)}`)).filter(
+      matches,
+    )
     let untagged
     for (const row of candidates) {
       const seeded = (await api.get(`/api/metadata/${model}/${row.pk}/`)).metadata?.[SEED_KEY]
@@ -131,6 +133,8 @@ async function loadFixtures(api, fixtures) {
           description: location.description ?? '',
           ...(parent ? { parent } : {}),
         },
+        // A name filter alone also matches nested locations; a top-level fixture needs no parent.
+        (row) => (parent ? row.parent === parent : row.parent == null),
       ),
     )
   }

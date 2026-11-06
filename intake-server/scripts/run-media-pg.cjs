@@ -5,10 +5,12 @@ const { readdir } = require('node:fs/promises')
 const { spawn } = require('node:child_process')
 const { resolve } = require('node:path')
 const { developmentAdmin } = require('../src/dev/pg-identity.ts')
+const { developmentEnvironment } = require('../../tooling/dev/environment.cjs')
 
 /** Reuses retained helper credentials silently. Never starts, stops or migrates a service. */
 async function main() {
-  const url = await developmentAdmin({ INTAKE_DEV_STATE: process.env.INTAKE_DEV_STATE })
+  const settings = await developmentEnvironment(resolve(__dirname, '../..'))
+  const url = await developmentAdmin({ INTAKE_DEV_STATE: settings.INTAKE_DEV_STATE })
   const environment = {
     PATH: process.env.PATH,
     INTAKE_TEST_ADMIN_URL: url.toString(),

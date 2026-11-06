@@ -12,9 +12,12 @@ const {
   SERVER_STATE_FILE,
   composeFile,
   readServerState,
+  serverIdentity,
   serverUrl,
   stateDirectory,
 } = require('../src/dev/pg-identity.ts')
+// The same allowlisted root .env as `pnpm dev`, so both agree on INTAKE_DEV_STATE.
+const { developmentEnvironment } = require('../../tooling/dev/environment.cjs')
 const { dockerPath, jsonLines, labels, runner } = require('../src/dev/docker-cli.ts')
 
 const ACTIONS = [
@@ -54,8 +57,18 @@ async function writePrivate(path, content) {
 }
 
 async function main() {
-  const directory = stateDirectory(process.env)
-  const docker = await dockerPath(process.env)
+  const settings = await developmentEnvironment(resolve(__dirname, '../..'))
+  const env = {
+    ...process.env,
+    ...(settings.INTAKE_DEV_STATE ? { INTAKE_DEV_STATE: settings.INTAKE_DEV_STATE } : {}),
+  }
+  if (process.argv[2] === 'identity') {
+    // Docker-free and read-only: names the provisioned server, never creates it.
+    process.stdout.write(`${await serverIdentity(env)}\n`)
+    return
+  }
+  const directory = stateDirectory(env)
+  const docker = await dockerPath(env)
   const run = runner(docker)
   const containers = jsonLines(run('ps', '-a', '--format', 'json'))
   process.stdout.write(
@@ -80,7 +93,7 @@ async function main() {
 
   let state
   try {
-    state = await readServerState(process.env)
+    state = await readServerState(env)
   } catch {
     throw new Error('invalid_owned_service_state')
   }
@@ -130,7 +143,7 @@ async function main() {
         PG.service,
       ],
       {
-        env: { ...process.env, BENCH_INVENTREE_DEV_STATE: directory },
+        env: { ...env, BENCH_INVENTREE_DEV_STATE: directory },
         stdio: ['ignore', 'ignore', 'inherit'],
       },
     )
@@ -163,7 +176,7 @@ async function main() {
     const result = spawnSync('pnpm', ['--filter', '@invimport/intake-server', command], {
       stdio: 'inherit',
       env: {
-        ...process.env,
+        ...env,
         INTAKE_TEST_ADMIN_URL: adminUrl,
         INTAKE_TEST_ALLOW_CREATE_DATABASE: 'owned-sandbox',
         INTAKE_DATABASE_URL: migratorUrl,

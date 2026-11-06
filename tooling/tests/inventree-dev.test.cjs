@@ -45,6 +45,7 @@ async function harness(options = {}) {
   await writeFile(join(stateDir, 'inventree-db.json'), JSON.stringify(serverState), { mode: 0o600 })
   await writeFile(join(stateDir, 'postgres.json'), '{"admin":"legacy"}', { mode: 0o600 })
   const calls = []
+  const seen = []
   const queries = []
   const log = []
   const containers = options.containers ?? []
@@ -63,8 +64,9 @@ async function harness(options = {}) {
       return { rowCount: 0, rows: [] }
     },
     seed: async () => calls.push(['seed']),
-    docker: async (args) => {
+    docker: async (args, dockerOptions) => {
       calls.push(args)
+      seen.push({ args, options: dockerOptions })
       if (args[0] === 'ps') {
         return { status: 0, stdout: containers.map((row) => JSON.stringify(row)).join('\n') }
       }
@@ -84,7 +86,7 @@ async function harness(options = {}) {
       return { status: 0, stdout: '' }
     },
   }
-  return { root, stateDir, ctx, calls, queries, log }
+  return { root, stateDir, ctx, calls, seen, queries, log }
 }
 
 const composeCalls = (calls) =>
@@ -381,4 +383,57 @@ test('the CLI pins the same image digest as the Compose file', async () => {
     lib.IMAGE,
     /@sha256:36027b18ac12e428d0adeda1428325a79c915d571f9c22e2efa0d736f68a3d53$/,
   )
+})
+
+test('a state written by an older image upgrades with the first-run init timeout', async () => {
+  const h = await harness()
+  try {
+    const older = {
+      ...validState,
+      image: `inventree/inventree@sha256:${'0'.repeat(64)}`,
+      tokens,
+    }
+    await writeFile(join(h.stateDir, 'inventree-dev.json'), JSON.stringify(older), { mode: 0o600 })
+    await lib.up(h.ctx)
+    const init = h.seen.find(({ args }) => lib.composeSubcommand(args) === 'up-init')
+    assert.equal(init.options.timeoutMs, 600_000)
+    const state = JSON.parse(await readFile(join(h.stateDir, 'inventree-dev.json'), 'utf8'))
+    assert.equal(state.image, lib.IMAGE)
+    assert.equal(state.instance_id, older.instance_id)
+  } finally {
+    await rm(h.root, { recursive: true })
+  }
+})
+
+test('an empty lock counts as held, a dead holder is replaced, and a lock taken over is never deleted', async () => {
+  const h = await harness()
+  try {
+    const lock = join(h.stateDir, 'inventree-dev.lock')
+    await writeFile(lock, '', { mode: 0o600 })
+    await assert.rejects(lib.up(h.ctx), /inventree_dev_lock_held/)
+    assert.equal(h.calls.length, 0)
+    await writeFile(lock, JSON.stringify({ pid: 2147483646, nonce: 'dead' }), { mode: 0o600 })
+    await lib.up(h.ctx)
+    await assert.rejects(access(lock), undefined, 'own lock released')
+    h.ctx.seed = async () => {
+      await writeFile(lock, JSON.stringify({ pid: process.pid, nonce: 'someone-else' }))
+    }
+    await lib.up(h.ctx)
+    assert.equal(JSON.parse(await readFile(lock, 'utf8')).nonce, 'someone-else')
+  } finally {
+    await rm(h.root, { recursive: true })
+  }
+})
+
+test('a token handoff left by an interrupted run is swept', async () => {
+  const h = await harness()
+  try {
+    const leftover = join(h.stateDir, 'handoff-interrupted')
+    await mkdir(leftover, { mode: 0o700 })
+    await writeFile(join(leftover, 'tokens.json'), JSON.stringify(tokens), { mode: 0o600 })
+    await lib.up(h.ctx)
+    assert(!(await readdir(h.stateDir)).some((name) => name.startsWith('handoff-')))
+  } finally {
+    await rm(h.root, { recursive: true })
+  }
 })

@@ -1,13 +1,13 @@
 const {
+  link,
+  lstat,
   mkdir,
   mkdtemp,
-  open,
   readFile,
   readdir,
   rename,
   rm,
   writeFile,
-  lstat,
 } = require('node:fs/promises')
 const { join } = require('node:path')
 const { randomBytes } = require('node:crypto')
@@ -116,7 +116,7 @@ function validState(state) {
     state &&
     state.version === 1 &&
     HEX(32).test(state.instance_id) &&
-    state.image === IMAGE &&
+    /^inventree\/inventree@sha256:[a-f0-9]{64}$/.test(state.image) &&
     HEX(48).test(state.db_password) &&
     HEX(64).test(state.secret_key) &&
     HEX(24).test(state.admin_password) &&
@@ -262,11 +262,21 @@ async function runInit(ctx, state) {
   const removeInit = () =>
     ctx.docker(composeArgs(ctx, 'rm', '-fsv', 'inventree-init'), { allowFailure: true })
   await removeInit()
+  // A run killed mid-handoff can leave tokens behind; sweep them before the next.
+  for (const entry of await readdir(ctx.stateDir)) {
+    if (entry.startsWith('handoff-'))
+      await rm(join(ctx.stateDir, entry), { recursive: true, force: true })
+  }
+  // A new image digest migrates like a first run.
+  const upgrading = state.image !== IMAGE
   const handoff = await mkdtemp(join(ctx.stateDir, 'handoff-'))
   try {
     const result = await ctx.docker(
       composeArgs(ctx, 'up', '--no-deps', '--exit-code-from', 'inventree-init', 'inventree-init'),
-      { timeoutMs: state.initialized ? INIT_TIMEOUT_MS.later : INIT_TIMEOUT_MS.first, quiet: true },
+      {
+        timeoutMs: state.initialized && !upgrading ? INIT_TIMEOUT_MS.later : INIT_TIMEOUT_MS.first,
+        quiet: true,
+      },
     )
     if (result.status !== 0) {
       await logTail(ctx, 'inventree-init', state)
@@ -286,6 +296,7 @@ async function runInit(ctx, state) {
     }
     state.tokens = { reader: tokens.reader, writer: tokens.writer }
     state.initialized = true
+    state.image = IMAGE
     await saveState(ctx, state)
   } finally {
     await rm(handoff, { recursive: true, force: true })
@@ -293,34 +304,64 @@ async function runInit(ctx, state) {
   }
 }
 
+async function lockHolder(path) {
+  try {
+    const holder = JSON.parse(await readFile(path, 'utf8'))
+    return Number.isInteger(holder.pid) && typeof holder.nonce === 'string' ? holder : null
+  } catch (error) {
+    return error.code === 'ENOENT' ? undefined : null
+  }
+}
+
+function alive(pid) {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return error.code !== 'ESRCH'
+  }
+}
+
+/** One `up`, `seed` or `reset` at a time; the lock appears whole or not at all. */
 async function withLock(ctx, action) {
   await privateDirectory(ctx.stateDir)
   const path = join(ctx.stateDir, FILES.lock)
-  for (let attempt = 0; ; attempt++) {
-    try {
-      const handle = await open(path, 'wx', 0o600)
-      await handle.writeFile(JSON.stringify({ pid: process.pid }))
-      await handle.close()
-      break
-    } catch (error) {
-      if (error.code !== 'EEXIST' || attempt > 0) throw refuse('inventree_dev_lock_held')
-      let holder
+  const nonce = randomBytes(16).toString('hex')
+  const draft = `${path}.${nonce}`
+  await writeFile(draft, JSON.stringify({ pid: process.pid, nonce }), { mode: 0o600, flag: 'wx' })
+  try {
+    for (let attempt = 0; ; attempt++) {
       try {
-        holder = JSON.parse(await readFile(path, 'utf8')).pid
-        process.kill(holder, 0)
-      } catch (probe) {
-        if (holder === undefined || probe.code === 'ESRCH') {
-          await rm(path, { force: true })
-          continue
-        }
+        await link(draft, path)
+        break
+      } catch (error) {
+        if (error.code !== 'EEXIST' || attempt > 0) throw refuse('inventree_dev_lock_held')
       }
-      throw refuse('inventree_dev_lock_held')
+      // An unreadable or half-written lock is treated as held; only a dead holder is replaced.
+      const holder = await lockHolder(path)
+      if (holder === null || (holder && alive(holder.pid))) throw refuse('inventree_dev_lock_held')
+      const aside = `${path}.stale-${nonce}`
+      try {
+        await rename(path, aside)
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error
+        continue
+      }
+      const moved = await lockHolder(aside)
+      if (holder && moved?.nonce !== holder.nonce) {
+        // Another run replaced the stale lock first; put it back and stand down.
+        await rename(aside, path).catch(() => {})
+        throw refuse('inventree_dev_lock_held')
+      }
+      await rm(aside, { force: true })
     }
+  } finally {
+    await rm(draft, { force: true })
   }
   try {
     return await action()
   } finally {
-    await rm(path, { force: true })
+    if ((await lockHolder(path))?.nonce === nonce) await rm(path, { force: true })
   }
 }
 

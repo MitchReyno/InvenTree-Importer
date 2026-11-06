@@ -1,9 +1,17 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { PG, developmentAdmin, readServerState, serverIdentity } from '../src/dev/pg-identity.ts'
+import {
+  ALLOCATION,
+  PG,
+  composeFile,
+  developmentAdmin,
+  readServerState,
+  serverIdentity,
+  sharedServerAdmin,
+} from '../src/dev/pg-identity.ts'
 import { developmentStateRoot } from '../src/dev/target.ts'
 import { assertStateServer } from '../src/dev/state.ts'
 
@@ -114,4 +122,37 @@ test('app state bound to another server, or to none, is refused', () => {
     /development_state_server_changed/,
   )
   assert.throws(() => assertStateServer({}, state.server_id), /development_state_server_changed/)
+})
+
+test('the inventree-dev CLI always uses the shared server, never an explicit admin URL', async () => {
+  const { root, directory } = privateDirectory()
+  try {
+    writeFileSync(join(directory, 'inventree-db.json'), JSON.stringify(state), { mode: 0o600 })
+    const url = await sharedServerAdmin({
+      INTAKE_DEV_STATE: directory,
+      INTAKE_DEV_ADMIN_URL: 'postgresql://postgres:external@127.0.0.1:6543/postgres',
+    })
+    assert.equal(url.port, '55433')
+    assert.equal(url.password, state.admin)
+  } finally {
+    rmSync(root, { recursive: true })
+  }
+})
+
+test('the drift check matches the inventree-db definition in compose.yaml', () => {
+  const compose = readFileSync(composeFile(), 'utf8')
+  const service = compose.slice(
+    compose.indexOf('  inventree-db:'),
+    compose.indexOf('  inventree-init:'),
+  )
+  assert.match(service, new RegExp(`image: ${ALLOCATION.image}\\n`))
+  assert.match(service, new RegExp(`container_name: ${PG.container}\\n`))
+  assert(service.includes(`command: ${JSON.stringify(ALLOCATION.command).replaceAll(',', ', ')}`))
+  assert.match(service, new RegExp(`- ${PG.host}:${PG.port}:5432\\n`))
+  assert.match(service, new RegExp(`- ${PG.volume}:/var/lib/postgresql/data\\n`))
+  assert.match(service, /restart: "no"\n/)
+  assert.equal(Number(service.match(/cpus: (\d+)/)?.[1]) * 1e9, ALLOCATION.nanoCpus)
+  assert.equal(Number(service.match(/mem_limit: (\d+)m/)?.[1]) * 1024 * 1024, ALLOCATION.memory)
+  assert.equal(Number(service.match(/pids_limit: (\d+)/)?.[1]), ALLOCATION.pids)
+  assert.match(service, new RegExp(`${PG.ownerLabel}: ${PG.owner}\\n`))
 })

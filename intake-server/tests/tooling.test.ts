@@ -64,20 +64,24 @@ function harness() {
   chmodSync(fakeDocker, 0o700)
   const legacyState = JSON.stringify({ admin: 'e'.repeat(48), migrator: 'f'.repeat(48) })
   writeFileSync(resolve(directory, 'postgres.json'), legacyState, { mode: 0o600 })
-  const invoke = (scenario: Record<string, unknown>) => {
+  const invoke = (
+    scenario: Record<string, unknown>,
+    { action = 'start', env = { INTAKE_DEV_STATE: directory } as Record<string, string> } = {},
+  ) => {
     writeFileSync(scenarioFile, JSON.stringify(scenario))
     writeFileSync(calls, '')
     return spawnSync(
       process.execPath,
-      [resolve(directoryOfTest, '../scripts/dev-services.cjs'), 'start'],
+      [resolve(directoryOfTest, '../scripts/dev-services.cjs'), action],
       {
         encoding: 'utf8',
         env: {
           PATH: process.env.PATH,
           DOCKER_BIN: fakeDocker,
-          INTAKE_DEV_STATE: directory,
+          INTAKE_ENV_FILE: '',
           INTAKE_FIXTURE_CALLS: calls,
           INTAKE_FIXTURE_SCENARIO: scenarioFile,
+          ...env,
         },
         timeout: 20000,
       },
@@ -225,6 +229,37 @@ test('refusals issue only read-only Docker operations and never regenerate state
     assert(h.readOnly())
     assert.equal(readFileSync(json, 'utf8'), JSON.stringify(serverState))
     assert.equal(readFileSync(resolve(h.directory, 'postgres.json'), 'utf8'), h.legacyState)
+  } finally {
+    rmSync(h.root, { recursive: true })
+  }
+})
+
+test('the state directory can come from the selected env file, as for pnpm dev', () => {
+  const h = harness()
+  try {
+    const envFile = resolve(h.root, 'outside.env')
+    writeFileSync(envFile, `INTAKE_DEV_STATE=${h.directory}\n`)
+    h.invoke({}, { env: { INTAKE_ENV_FILE: envFile } })
+    assert(existsSync(resolve(h.directory, 'inventree-db.json')))
+  } finally {
+    rmSync(h.root, { recursive: true })
+  }
+})
+
+test('identity reads the server ID without Docker and never creates state', () => {
+  const h = harness()
+  try {
+    const missing = h.invoke({}, { action: 'identity' })
+    assert.equal(missing.status, 1)
+    assert.match(missing.stderr, /inventree_db_state_missing_run_dev_services/)
+    assert.equal(existsSync(resolve(h.directory, 'inventree-db.json')), false)
+    writeFileSync(resolve(h.directory, 'inventree-db.json'), JSON.stringify(serverState), {
+      mode: 0o600,
+    })
+    const found = h.invoke({}, { action: 'identity' })
+    assert.equal(found.status, 0, found.stderr)
+    assert.equal(found.stdout.trim(), serverState.server_id)
+    assert.equal(h.recorded().length, 0)
   } finally {
     rmSync(h.root, { recursive: true })
   }

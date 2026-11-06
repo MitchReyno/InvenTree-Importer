@@ -105,3 +105,17 @@ Checked on 2026-11-06 with Docker Compose v5.6.1 on arm64, in a throwaway projec
 - **No intake writes.** Intake mutations against the local instance are not supported. The importer can write with the writer token.
 - **Unvalidated tokens.** The token reuse check compares the stored key, expiry and revocation in the database. It does not call the API.
 - **Undiscoverable namespaces.** `reset --database-server` cannot discover app namespaces at arbitrary explicit `INTAKE_APP_STATE` paths.
+
+## Review
+
+- **Round 1** (fresh read-only Claude reviewer, `9f11704`) found two Important, five Minor and one Nitpick issue. All were fixed test-first, each new regression failing before its fix:
+  - the CLI's superuser connection now always uses the shared server (`sharedServerAdmin`), never `INTAKE_DEV_ADMIN_URL`;
+  - state from an older image digest is accepted and upgraded: init gets the first-run timeout, and the new digest is recorded after init succeeds;
+  - the lock is created atomically by `link()` with a nonce. An empty or unreadable lock counts as held, a dead holder's lock is renamed aside and checked before it is replaced, and a run releases only its own lock;
+  - `dev-services.cjs` and `run-media-pg.cjs` load the allowlisted root `.env` for `INTAKE_DEV_STATE`;
+  - `dev-services identity` is implemented: Docker-free and read-only;
+  - top-level fixture locations match only unparented locations, and the docs and test name state the adoption rule;
+  - a test ties the drift check's `ALLOCATION` to `compose.yaml`;
+  - leftover `handoff-*` directories are swept before init.
+
+  After the fixes, `pnpm test:dev` passed 42/42 and the intake-server suite 207/207. A live `dev-services identity` and `up` (0 created, 22 existing) also passed.

@@ -134,7 +134,7 @@ test('fixtures load once and a re-run creates nothing', async () => {
   assert.equal(JSON.stringify(api.tables), before)
 })
 
-test('records the loader did not seed are left alone', async () => {
+test('records seeded under another key are left alone', async () => {
   const api = fakeApi({
     'part/category': categories('Integrated Circuits', 'Integrated Circuits/Op-Amps'),
     company: [{ pk: 50, name: 'Seed Maker' }],
@@ -236,4 +236,19 @@ test('fixture parts use categories that the importer config defines', async () =
     .flat()
     .map((row) => row.key)
   assert.equal(new Set(keys).size, keys.length, 'seed keys are unique')
+})
+
+test('a top-level fixture location never adopts a nested location of the same name', async () => {
+  const api = fakeApi({
+    'part/category': categories('Integrated Circuits', 'Integrated Circuits/Op-Amps'),
+    'stock/location': [
+      { pk: 60, name: 'Somewhere', pathstring: 'Somewhere' },
+      { pk: 61, name: 'Bench', parent: 60, pathstring: 'Somewhere/Bench' },
+    ],
+  })
+  await seed.loadFixtures(api, fixtures)
+  assert.equal(api.metadata.get('stocklocation:61'), undefined)
+  assert(
+    api.tables['stock/location'].some((row) => row.name === 'Bench' && row.parent === undefined),
+  )
 })

@@ -79,7 +79,7 @@ async function context(settings) {
       if (!pool) {
         const { Pool } = createRequire(join(intake, 'package.json'))('pg')
         pool = new Pool({
-          connectionString: (await identity.developmentAdmin(settings)).toString(),
+          connectionString: (await identity.sharedServerAdmin(settings)).toString(),
           max: 1,
         })
       }
