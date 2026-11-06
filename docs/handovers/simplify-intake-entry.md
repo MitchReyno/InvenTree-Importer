@@ -631,3 +631,13 @@ Results at the reviewed head `04c69ae`, plus the job card label fix below.
   - A test in `OperatorReview.test.tsx` covers it.
   - `frontend/ARCHITECTURE.md` says so.
 
+## PR-B delivery (D.2)
+
+- **Review:** ten independent review rounds by fresh Claude subagents.
+  - Rounds 6–8 were clear. Round 8 covered `2d7dbac070626e22c86d47df16d3f36c98454b71`.
+  - Rounds 9 and 10 cleared the two merges of `interactive-app`: `15d97607f1941423a405a3c0ef40ec63c1c43e20` and `09484490c3c180fac8625d4be560fcfcdd8fc8f6`.
+- **Published:** [#107](https://github.com/MitchReyno/InvenTree-Importer/pull/107) against `interactive-app`, with no reviewers, and a demo video recorded from the synthetic preview.
+- **CI on `0948449`:** every selected job passed. The PostgreSQL and process job is skipped in CI.
+- **Local tiers on `0948449`:** `pnpm db:intake test` passed 216/216, and `pnpm db:intake test:process` passed 70/70.
+- **Merged:** squash-merged at `0948449` as `776c302`.
+
