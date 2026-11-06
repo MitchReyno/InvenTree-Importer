@@ -207,7 +207,7 @@ export async function observationRemoved(client: PoolClient, lotId: string, obse
     })
   }
   const ids = citing.rows.map((row) => row.id)
-  await cascadeStale(client, ids, 'evidence_removed')
+  await cascadeAll(client, ids, 'evidence_removed')
   // The lot's own sessions hear about the change too, whether or not they cited it.
   const version = await setVersion(client, lotId)
   const told = new Set(citing.rows.map((row) => row.lineage))
@@ -267,6 +267,14 @@ async function cascadeStale(client: PoolClient, ids: readonly string[], reason: 
   return downstream.rows.map((row) => row.id)
 }
 
+/** Every proposal downstream of newly stale ones, level by level; a batch holds few levels. */
+async function cascadeAll(client: PoolClient, ids: readonly string[], reason: StaleReason) {
+  let level = ids
+  for (let depth = 0; level.length && depth < 8; depth += 1) {
+    level = await cascadeStale(client, level, reason)
+  }
+}
+
 /**
  * After a regroup: results relying on the lot's stale identities are stale too. When the operator
  * regrouped, the session that published those identities is told, so it can publish again.
@@ -279,7 +287,7 @@ export async function lotRegroupedNotices(
   if (!staleIds.length || !(await processingVisible(client))) {
     return
   }
-  await cascadeStale(client, staleIds, 'lot_regrouped')
+  await cascadeAll(client, staleIds, 'lot_regrouped')
   if (!operator) {
     return
   }

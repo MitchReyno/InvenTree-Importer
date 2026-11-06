@@ -29,8 +29,9 @@ async function sessionLimit(client: PoolClient, config: ProcessingConfig) {
 /**
  * Claims a slot for a queued session, or returns false to keep it queued. Claims for one actor
  * are serialized, the limit is read on each claim, a `/1` lane holder counts as one slot, and
- * queued sessions start oldest first, Examine lead sessions before per-lot ones. Lowering the
- * limit only stops new claims.
+ * queued sessions start oldest first, Examine lead sessions before per-lot ones. No session
+ * waits behind a queued Inventory, which may be held at its gate. Lowering the limit only stops
+ * new claims.
  */
 export async function claimSessionSlot(
   client: PoolClient,
@@ -123,8 +124,9 @@ export async function claimSessionSlot(
           lead
             ? and(isNull(processingJobs.subjectId), older)
             : or(isNull(processingJobs.subjectId), older),
-          // Inventory waits for Research and Images, so they never queue behind it.
-          mine[0]?.stage === 'inventory' ? undefined : ne(processingJobs.stage, 'inventory'),
+          // A queued Inventory may be waiting at its gate without a slot, so no session queues
+          // behind one: Research and Images it waits for, nor another lot's ready Inventory.
+          ne(processingJobs.stage, 'inventory'),
         ),
       ),
   )

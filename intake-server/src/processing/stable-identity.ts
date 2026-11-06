@@ -10,14 +10,14 @@ import type { ProcessingConfig } from './attempts.ts'
 import { checkJobCapacity, queueJob } from './jobs.ts'
 import { reserveProcessingMedia, reservedMediaFor } from './media.ts'
 import { processingAttempts, processingJobs, processingProposalStale } from './schema.ts'
-
 import { SUCCESSOR_STAGES } from './supersede.ts'
 
-export { SUCCESSOR_STAGES }
+export { SUCCESSOR_STAGES } from './supersede.ts'
 
 /**
- * Attempt states that end a successor: only then does a stable identity queue a fresh one. Any
- * other successor, running or finished, gets the revision as an inbox item and is resumed.
+ * Attempt states that end a successor. A stable identity queues a fresh attempt for an ended or
+ * missing successor, and replaces one that is queued but has never run; any other successor,
+ * running or finished, gets the revision as an inbox item and is resumed.
  */
 const ENDED_STATES = ['superseded', 'cancelled', 'failed'] as const
 
@@ -55,8 +55,9 @@ async function markStale(
 /**
  * The Examine lead session published an identity for a lot. Caller holds the capture lock and the
  * lot's subject head. When the identity relies on the lot's current observation set it is stable:
- * Research and Images are queued in this transaction, pinned to it, or told about the revision if
- * they are already live. An identity relying on an older set is stale at once.
+ * Research and Images are queued in this transaction, pinned to it; a successor that is queued but
+ * has never run is replaced, and one that has run is told about the revision instead. An identity
+ * relying on an older set is stale at once.
  */
 export async function onLeadIdentity(
   client: PoolClient,

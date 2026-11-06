@@ -648,7 +648,7 @@ Results at the reviewed head `04c69ae`, plus the job card label fix below.
   - The lead session's `propose` runs on the `agent_writer` pool (the `leadWriter` option of `withSession`).
   - In the same transaction, `onLeadIdentity` locks the lot row and compares versions:
     - If the version matches, it queues the lot's Research and Images through `queueJob`, pinned to the identity (`pinned_proposal_ids`).
-    - Successors that are already live get a `revision` inbox item instead of a new attempt.
+    - A successor that is queued but has never run is replaced, pinned to the new identity. One that has run gets a `revision` inbox item instead (round 1).
     - An identity relying on an older set is stale at once (`lot_regrouped`) and queues nothing.
   - `/2` successors record no `processing_dependency` rows.
 - **Regrouping (`processing/regroup.ts`).** Every observation-set change (`bumpObservationSet`: agent `propose_lot`/`regroup` and the operator's moves, splits and merges) calls `lotRegrouped`.
@@ -792,4 +792,17 @@ A fresh reviewer subagent reviewed `6ca5360` and found one critical, four import
    - Handover counts and the lazy-loading note are corrected.
    - D6's lot locking stands: `propose` holds the batch lock and the subject heads (`lockCaptureSubjectHeads`), then locks the lot row.
 7. **Nitpicks, fixed.** Pipeline steps are `role="group"`, so their labels are announced. `SUCCESSOR_STAGES` lives in `supersede.ts` and is shared.
+
+## PR-C review round 2
+
+A fresh reviewer subagent reviewed `49ec7c0` and found one important and two minor findings, plus a nitpick. It confirmed the round 1 fixes.
+
+- **Tiers on `49ec7c0`:**
+  - `pnpm db:intake test` passed 237/237, and `pnpm db:intake test:process` passed 70/70.
+  - Contracts passed 76/76, the intake server 213/213, and the frontend 589/589.
+
+1. **Important: a gated Inventory still held back other lots' Inventory.** No claimant now counts a queued Inventory ahead of it. A test queues two lots' Inventory, gates the older one, and claims the younger at a limit of 1.
+2. **Minor: the cascade went one level deep.** It now repeats until no new proposal is stale, with a depth bound of 8 (`cascadeAll`).
+3. **Minor: docs drifted from round 1.** The replace rule for unstarted successors, the cascade, the operator-regroup notice, the removal notices and the Inventory queue exclusion are now in `processing/ARCHITECTURE.md`, `agents/ARCHITECTURE.md`, design D9, `stable-identity.ts` and this handover.
+4. **Nitpick, fixed:** the `SUCCESSOR_STAGES` import and re-export are tidied.
 

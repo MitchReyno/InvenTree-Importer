@@ -421,3 +421,51 @@ test('a gated Inventory never holds back the Research and Images it waits for', 
     assert.equal(await claimSessionSlot(client, fixture.config, research.attempt_id), true)
   })
 })
+
+test('a gated Inventory never holds back another lot’s ready Inventory', async (t) => {
+  const { fixture, deps, batchId, read, lot, successors } = await formedBatch(t)
+  const crystal = await lot('16 mhz crystal')
+  const led = await lot('led 0603 red')
+  for (const target of [crystal, led]) {
+    for (const row of await successors(target.id)) {
+      await runSessionTurn(deps, row.attempt_id, new AbortController().signal)
+    }
+  }
+  // Crystal's Inventory is queued first, then LED's.
+  for (const target of [crystal, led]) {
+    const started = await fixture.http(`/batches/${batchId}/processing`, {
+      schema_version: 'bench-intake-processing/1',
+      expected_capture_revision: (await read()).revision,
+      subject_ids: [target.id],
+      stages: ['inventory'],
+    })
+    assert.equal(started.status, 202)
+  }
+  // Crystal's Research result goes stale, so its Inventory waits at the gate.
+  const crystalResearch = (await successors(crystal.id)).find((row) => row.stage === 'research')!
+  await fixture.db.pool.query(
+    `INSERT INTO processing_proposal_stale(proposal_id,reason)
+     SELECT id,'operator_correction' FROM processing_proposal WHERE attempt_id=$1`,
+    [crystalResearch.attempt_id],
+  )
+  const current = await fixture.http('/agent-settings')
+  await saveAgentSettings(fixture.api.pool, fixture.config, {
+    expected_revision: (current.value as { revision: string }).revision,
+    selection: { provider: 'claude', authentication: 'api_key', model: 'claude-sonnet-5-5' },
+    session_concurrency: 1,
+  })
+  const inventory = async (lotId: string) =>
+    (
+      await fixture.db.pool.query<{ current_attempt_id: string }>(
+        "SELECT current_attempt_id FROM processing_job WHERE subject_id=$1 AND stage='inventory'",
+        [lotId],
+      )
+    ).rows[0].current_attempt_id
+  assert.equal(
+    await runSessionTurn(deps, await inventory(crystal.id), new AbortController().signal),
+    'queued',
+  )
+  await transaction(fixture.runner.pool, async (client) => {
+    assert.equal(await claimSessionSlot(client, fixture.config, await inventory(led.id)), true)
+  })
+})
