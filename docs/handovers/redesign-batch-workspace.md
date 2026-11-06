@@ -334,4 +334,16 @@ Branch `feat/redesign-batch-workspace-review-lots` from `d38e6ad`. Merge is auth
   - **UI:** `IssuePanel` shows the fixes under each blocking problem and warning.
   - **Tests:** first 5 unit tests, then 1 integration test (Records link, Capture link for a warning, "Set the quantity" opening the lot editor). Each failed first, then passed.
 - **8.3 Table:** one selection, held by `ManualWorkspace`, is now shared by the Workspace and the Table, and the filter was already shared through the URL, so switching views keeps both. The Workspace queue keeps its 10-lot cap. The Table can select more for bulk edits, which the contract allows up to the active-lot limit. Mark reviewed and Prepare then say "Select at most 10 lots to review or prepare together." The Table already used the design tokens from PR-A, and its bulk edit already named its scope ("applies to every selected lot or to none", "Apply to N lots"); its look was then checked in the browser. The test (select in Workspace, see it in Table, change it and the filter there, see both back in Workspace) failed first, then passed.
+- **8.4 Map:** `operator/review-map.ts` derives file-level links (a file supports a lot when linked to the lot or its Part), flags files no active lot uses, and flags lots resting on a single file. `ReviewMap` shows Evidence and Lots side by side:
+  - **Files:** "Supports" chips with Unlink, a "Link to a lot…" choice, and "New lot from this" on unused files.
+  - **Lots:** "From" file lists, Split, and merge checkboxes.
+  - **No instruction field:** none appears without agent sessions.
+
+  `ReviewMapStage` reads the media snapshot and applies the edits through existing commands:
+  - **Link and unlink:** the media `link` edit at the read revision.
+  - **New lot from this:** capture `add_lot` with the note "Made from evidence “<file>”." When the refreshed batch shows the new lot, the file is linked to it, because `add_lot` takes no client id.
+  - **Split and merge:** the existing `RestructureDialog`.
+
+  The Map replaces the placeholder at Review › Map, and the header's Map tab is now a link.
+  - **Tests:** model 2 (written alongside the model, not before), map component 5 and stage 2 (written first; they failed on the missing module). The header test now expects a Map link. Frontend 538/538; typecheck, lint and build pass.
 

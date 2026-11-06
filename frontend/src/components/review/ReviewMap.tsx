@@ -1,0 +1,256 @@
+import { useState } from 'react'
+import styled from 'styled-components'
+import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
+import { reviewMap } from '../../operator/review-map'
+import { color, radius, space, type } from '../../theme/generated/tokens'
+import { Banner } from '../ui/Banner'
+import { Button } from '../ui/Button'
+import { Pill } from '../ui/Pill'
+
+type Props = {
+  batch: CaptureSnapshotDto
+  /** Undefined while the media read is unavailable. */
+  evidence: MediaSnapshotDto['evidence'] | undefined
+  retiredLotIds: ReadonlySet<string>
+  disabled: boolean
+  link: (evidenceId: string, lotId: string, linked: boolean) => Promise<void>
+  newLotFrom: (evidenceId: string, label: string) => Promise<void>
+  /** Opens the existing split or merge command; absent where restructuring is unavailable. */
+  openRestructure?: (kind: 'split' | 'merge', lotIds: string[]) => void
+}
+
+const MAX_MERGE_LOTS = 10
+
+/** How the evidence became lots, with the direct edits that change it. */
+export function ReviewMap({
+  batch,
+  evidence,
+  retiredLotIds,
+  disabled,
+  link,
+  newLotFrom,
+  openRestructure,
+}: Props) {
+  const [targets, setTargets] = useState<Record<string, string>>({})
+  const [merging, setMerging] = useState<string[]>([])
+
+  if (!evidence) {
+    return (
+      <Banner tone="bad">
+        Evidence is unavailable, so the map cannot be drawn. Each lot&apos;s evidence is still in
+        Lots.
+      </Banner>
+    )
+  }
+
+  const map = reviewMap(batch, evidence, retiredLotIds)
+  const fileLabel = new Map(map.files.map((file) => [file.id, file.label]))
+  const lotLabel = new Map(map.lots.map((lot) => [lot.id, lot.label]))
+
+  return (
+    <Layout>
+      <Column aria-labelledby="map-evidence">
+        <Title id="map-evidence">Evidence</Title>
+        <Rows>
+          {map.files.map((file) => (
+            <li key={file.id} aria-label={file.label}>
+              <Head>
+                <strong>{file.label}</strong>
+                {file.unused && <Pill tone="warn">Used by no lot</Pill>}
+              </Head>
+              {file.lotIds.length > 0 && (
+                <Links>
+                  Supports:
+                  {file.lotIds.map((lotId) => (
+                    <Chip key={lotId}>
+                      {lotLabel.get(lotId)}
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        aria-label={`Unlink ${lotLabel.get(lotId)} from ${file.label}`}
+                        onClick={() => void link(file.id, lotId, false)}
+                      >
+                        ×
+                      </button>
+                    </Chip>
+                  ))}
+                </Links>
+              )}
+              <Controls>
+                <select
+                  aria-label={`Link ${file.label} to a lot`}
+                  value={targets[file.id] ?? ''}
+                  disabled={disabled}
+                  onChange={(event) => setTargets({ ...targets, [file.id]: event.target.value })}
+                >
+                  <option value="">Link to a lot…</option>
+                  {map.lots
+                    .filter((lot) => !file.lotIds.includes(lot.id))
+                    .map((lot) => (
+                      <option key={lot.id} value={lot.id}>
+                        {lot.label}
+                      </option>
+                    ))}
+                </select>
+                <Button
+                  size="sm"
+                  disabled={disabled || !targets[file.id]}
+                  onClick={() => void link(file.id, targets[file.id], true)}
+                >
+                  Link
+                </Button>
+                {file.unused && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={disabled}
+                    aria-label={`New lot from ${file.label}`}
+                    onClick={() => void newLotFrom(file.id, file.label)}
+                  >
+                    New lot from this
+                  </Button>
+                )}
+              </Controls>
+            </li>
+          ))}
+        </Rows>
+      </Column>
+
+      <Column aria-labelledby="map-lots">
+        <Title id="map-lots">Lots</Title>
+        <Rows>
+          {map.lots.map((lot) => (
+            <li key={lot.id} aria-label={lot.label}>
+              <Head>
+                {openRestructure && (
+                  <input
+                    type="checkbox"
+                    aria-label={`Choose ${lot.label} to merge`}
+                    checked={merging.includes(lot.id)}
+                    disabled={disabled}
+                    onChange={() =>
+                      setMerging(
+                        merging.includes(lot.id)
+                          ? merging.filter((id) => id !== lot.id)
+                          : [...merging, lot.id],
+                      )
+                    }
+                  />
+                )}
+                <strong>{lot.label}</strong>
+                {lot.singleSource && <Pill tone="info">Rests on one file</Pill>}
+                {lot.fileIds.length === 0 && <Pill tone="warn">No evidence</Pill>}
+              </Head>
+              {lot.fileIds.length > 0 && (
+                <Muted>From: {lot.fileIds.map((id) => fileLabel.get(id)).join(', ')}</Muted>
+              )}
+              {openRestructure && (
+                <Controls>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={disabled}
+                    aria-label={`Split ${lot.label}`}
+                    onClick={() => openRestructure('split', [lot.id])}
+                  >
+                    Split
+                  </Button>
+                </Controls>
+              )}
+            </li>
+          ))}
+        </Rows>
+        {openRestructure && (
+          <Button
+            disabled={disabled || merging.length < 2 || merging.length > MAX_MERGE_LOTS}
+            onClick={() => openRestructure('merge', merging)}
+          >
+            Merge {merging.length} lots
+          </Button>
+        )}
+      </Column>
+    </Layout>
+  )
+}
+
+const Layout = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: ${space[3]};
+  align-items: start;
+`
+
+const Column = styled.section`
+  display: grid;
+  gap: ${space[2]};
+  min-width: 0;
+  padding: ${space['3-5']} ${space[4]};
+  border: 1px solid ${color.line};
+  border-radius: ${radius.card};
+  background: ${color.surface};
+`
+
+const Title = styled.h2`
+  margin: 0;
+  ${type.h2}
+`
+
+const Rows = styled.ul`
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  li {
+    display: grid;
+    gap: ${space[1]};
+    padding: ${space['2-5']} 0;
+    border-top: 1px solid ${color.line};
+  }
+  li:first-child {
+    border-top: 0;
+  }
+`
+
+const Head = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[2]};
+`
+
+const Links = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space['1-5']};
+  font-size: 12.5px;
+  color: ${color.muted};
+`
+
+const Chip = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: ${space[1]};
+  padding: 1px ${space[2]};
+  border-radius: ${radius.pill};
+  background: ${color.surface2};
+  color: ${color.fg};
+  button {
+    border: 0;
+    background: none;
+    color: ${color.muted};
+    cursor: pointer;
+  }
+`
+
+const Controls = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${space[2]};
+`
+
+const Muted = styled.span`
+  font-size: 12.5px;
+  color: ${color.muted};
+`
