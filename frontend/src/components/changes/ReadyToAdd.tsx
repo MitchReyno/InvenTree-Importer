@@ -93,7 +93,11 @@ export function ReadyToAdd({
   const counts = summary(nodes)
 
   const ready = [...new Set([...(preview?.selected_lot_ids ?? []), ...readyLotIds(workspace)])]
-  const ticked = chosen ?? preview?.selected_lot_ids ?? ready.slice(0, MAX_PREPARED_LOTS)
+  // A ticked lot that is no longer ready drops out, so it is never sent or counted.
+  const ticked =
+    chosen?.filter((lot) => ready.includes(lot)) ??
+    preview?.selected_lot_ids ??
+    ready.slice(0, MAX_PREPARED_LOTS)
   const untickedAll = ticked.length === 0
   // Approval waits while the shown preparation is not exactly the ticked lots.
   const matches =
@@ -158,7 +162,7 @@ export function ReadyToAdd({
               </CheckboxLabel>
             ))}
             {untickedAll && <Small role="status">Tick at least one lot to add.</Small>}
-            {!matches && ticked.length > 0 && (preview === null || !busy) && (
+            {(!matches || !current) && ticked.length > 0 && (preview === null || !busy) && (
               <Button disabled={busy} onClick={() => prepareLots(ticked)}>
                 Show what will change
               </Button>

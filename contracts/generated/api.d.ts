@@ -5920,6 +5920,8 @@ export interface components {
             remote_pks: string[];
             verification: null | "matches" | "missing_or_changed" | "unavailable";
             recovery_action: null | "resume_effect" | "verify_effect";
+            /** @constant */
+            rejected?: true;
         };
         ManualScope: {
             /** Format: int64 */
@@ -6372,6 +6374,8 @@ export interface components {
                 remote_pks: string[];
                 verification: null | "matches" | "missing_or_changed" | "unavailable";
                 recovery_action: null | "resume_effect" | "verify_effect";
+                /** @constant */
+                rejected?: true;
             }[];
             confirmed_stock_ids: string[];
             attributed_stock_ids: string[];
@@ -6494,6 +6498,8 @@ export interface components {
                     remote_pks: string[];
                     verification: null | "matches" | "missing_or_changed" | "unavailable";
                     recovery_action: null | "resume_effect" | "verify_effect";
+                    /** @constant */
+                    rejected?: true;
                 }[];
                 confirmed_stock_ids: string[];
                 attributed_stock_ids: string[];

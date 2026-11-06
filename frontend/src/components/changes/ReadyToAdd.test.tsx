@@ -163,6 +163,41 @@ describe('ReadyToAdd', () => {
     expect(prepareLots).toHaveBeenCalledWith([lots[0], lots[2]])
   })
 
+  it('a ticked lot that stops being ready drops out of the ticks', async () => {
+    const user = userEvent.setup()
+    const { prepareLots, props, rerender } = setup({ shown: null })
+    await user.click(screen.getByRole('checkbox', { name: 'Packet B' }))
+    const changed = {
+      ...props.workspace,
+      lots: props.workspace.lots.map((lot) =>
+        lot.lot_id === lots[2]
+          ? {
+              ...lot,
+              issues: [
+                {
+                  code: 'changed_after_review',
+                  message: 'Changed',
+                  lot_id: lot.lot_id,
+                  run_id: null,
+                },
+              ],
+            }
+          : lot,
+      ),
+    } as ManualWorkspaceDto
+    rerender(<ReadyToAdd {...props} workspace={changed} />)
+    expect(screen.queryByRole('checkbox', { name: 'Packet C' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Show what will change' }))
+    expect(prepareLots).toHaveBeenCalledWith([lots[0]])
+  })
+
+  it('the same lots can be prepared again when the shown preparation is no longer current', async () => {
+    const user = userEvent.setup()
+    const { prepareLots } = setup({ current: [] })
+    await user.click(screen.getByRole('button', { name: 'Show what will change' }))
+    expect(prepareLots).toHaveBeenCalledWith(lots)
+  })
+
   it('a preparation that is no longer current cannot be approved', () => {
     setup({ current: [] })
     expect(screen.getByText(/This preparation is no longer current/)).toBeVisible()

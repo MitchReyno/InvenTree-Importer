@@ -43,20 +43,11 @@ export const activeRun = (run: ManualRunDto) =>
 
 const PART_VALUES = new Set(['create_part', 'parameter', 'manufacturer', 'supplier'])
 
-/**
- * A Part value InvenTree did not take: in a finished round that was not cancelled, it has no
- * result and nothing to resume or inspect, so the fix is in Review.
- */
+/** A Part value InvenTree refused: the server saw a client error and no record came of it. */
 export function toFix(run: ManualRunDto) {
-  const finished = run.state === 'settled_incomplete' || run.state === 'recovery_required'
-  return finished && !run.cancellation_requested
-    ? (run.supported_effects ?? []).filter(
-        (effect) =>
-          PART_VALUES.has(effect.kind) &&
-          effect.certainty === 'none' &&
-          effect.recovery_action === null,
-      )
-    : []
+  return (run.supported_effects ?? []).filter(
+    (effect) => effect.rejected === true && PART_VALUES.has(effect.kind),
+  )
 }
 
 export function roundSummary(run: ManualRunDto) {
@@ -92,7 +83,7 @@ function partStatus(output: PartOutputDto, unstarted: boolean, base: string | nu
   if (output.usable) {
     return (
       <>
-        <TargetLink base={base} path={`part/${output.remote_pks[0]}/`}>
+        <TargetLink base={base} path={`web/part/${output.remote_pks[0]}/`}>
           {`Part ${output.remote_pks[0]}`}
         </TargetLink>{' '}
         is ready
@@ -181,7 +172,7 @@ export function RoundOutcome({ run, busy, command, targetUrl }: Props) {
           <Paragraph>
             {operation.certainty === 'confirmed' && operation.remote_pk ? (
               <>
-                <TargetLink base={targetUrl} path={`stock/item/${operation.remote_pk}/`}>
+                <TargetLink base={targetUrl} path={`web/stock/item/${operation.remote_pk}/`}>
                   {`Stock item ${operation.remote_pk}`}
                 </TargetLink>{' '}
                 added

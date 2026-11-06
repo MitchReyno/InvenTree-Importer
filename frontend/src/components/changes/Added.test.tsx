@@ -85,6 +85,20 @@ const uncertain = run(2, {
       label: 'Create mapped parameter',
       dependencies: [],
       inputs: {},
+      certainty: 'unknown',
+      remote_pks: [],
+      verification: null,
+      recovery_action: null,
+      rejected: true,
+    },
+    // Not sent, because the round stopped first: nothing to fix in Review.
+    {
+      operation_key: id(803),
+      part_subject_id: partSubject,
+      kind: 'supplier',
+      label: 'Create supplier relationship',
+      dependencies: [],
+      inputs: {},
       certainty: 'none',
       remote_pks: [],
       verification: null,
@@ -113,7 +127,7 @@ const uncertain = run(2, {
       certainty: 'none',
       remote_pks: [],
       verification: null,
-      recovery_action: 'resume_effect',
+      recovery_action: null,
     },
   ] as ManualRunDto['supported_effects'],
 })
@@ -183,11 +197,11 @@ describe('Added', () => {
     setup([confirmed])
     expect(screen.getByRole('link', { name: 'Stock item 7101' })).toHaveAttribute(
       'href',
-      'https://inventory.example.test/stock/item/7101/',
+      'https://inventory.example.test/web/stock/item/7101/',
     )
     expect(screen.getByRole('link', { name: 'Part 77' })).toHaveAttribute(
       'href',
-      'https://inventory.example.test/part/77/',
+      'https://inventory.example.test/web/part/77/',
     )
   })
 
@@ -223,27 +237,13 @@ describe('Added', () => {
     ).toHaveAttribute('href', `#${batch.id}/review/records/part/${partSubject}`)
   })
 
-  it('offers Fix in Review only for a Part value with nothing to resume, in a round not cancelled', () => {
-    const { rerender, command } = setup([uncertain])
+  it('offers Fix in Review only for a value InvenTree refused, not for one never sent', () => {
+    setup([uncertain])
     expect(
       screen.getAllByRole('link', { name: /Fix in Review/ }).map((link) => link.textContent),
     ).toEqual(['Fix in Review: Create mapped parameter'])
-    expect(
-      screen.getByRole('button', { name: /Resume selected original effect: Create manufacturer/ }),
-    ).toBeVisible()
-
-    const cancelled = { ...uncertain, cancellation_requested: true }
-    rerender(
-      <Added
-        batch={batch}
-        workspace={workspace([cancelled])}
-        busy={false}
-        command={command}
-        targetUrl={null}
-      />,
-    )
-    expect(screen.queryByRole('link', { name: /Fix in Review/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Outcome' })).toHaveTextContent('0 to fix')
+    expect(screen.getByText('InvenTree refused this value, so nothing was created')).toBeVisible()
+    expect(screen.getByRole('region', { name: 'Outcome' })).toHaveTextContent('1 to fix')
   })
 
   it('lists pending changes, lots not included and the activity log', () => {

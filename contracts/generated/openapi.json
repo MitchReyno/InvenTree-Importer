@@ -17607,6 +17607,10 @@
                 "type": "string"
               }
             ]
+          },
+          "rejected": {
+            "const": true,
+            "type": "boolean"
           }
         }
       },
@@ -20672,6 +20676,10 @@
                       "type": "string"
                     }
                   ]
+                },
+                "rejected": {
+                  "const": true,
+                  "type": "boolean"
                 }
               }
             }
@@ -21644,6 +21652,10 @@
                             "type": "string"
                           }
                         ]
+                      },
+                      "rejected": {
+                        "const": true,
+                        "type": "boolean"
                       }
                     }
                   }

@@ -348,3 +348,31 @@ test('a new record carries what else it sets, and a long name is cut without spl
   assert.equal(nodes?.find((node) => node.key === `company:new:${id(31)}`)?.detail, null)
   assert.equal(nodes?.find((node) => node.kind === 'stock_item')?.detail, null)
 })
+
+test('a location and company made by an earlier run appear once, by their pk', () => {
+  const plan = effectsPlan('bench-effects-plan/2') as unknown as {
+    operations: { location: string | null; locationOperationKey?: string | null }[]
+    locations: { prior: object | null }[]
+    companies: { prior: object | null }[]
+  }
+  plan.locations[0].prior = { runId: id(60), intentId: id(61), pk: '88' }
+  plan.companies[0].prior = { runId: id(60), intentId: id(62), pk: '91' }
+  plan.operations[0].location = '88'
+  plan.operations[0].locationOperationKey = null
+  const nodes = preparationTree(
+    plan as unknown as ExecutablePlan,
+    preview([newPartEffect({ location_id: '88', location_label: 'Shelf B' })]),
+    label,
+  )
+  assert.deepEqual(
+    nodes?.filter((node) => node.kind === 'location').map((node) => [node.key, node.state]),
+    [['location:88', 'exists']],
+  )
+  assert.deepEqual(
+    nodes
+      ?.filter((node) => node.key.startsWith('company:9') || node.key.startsWith('company:new'))
+      .map((node) => [node.key, node.state]),
+    [['company:91', 'exists']],
+  )
+  assert.equal(nodes?.find((node) => node.kind === 'stock_item')?.location_key, 'location:88')
+})

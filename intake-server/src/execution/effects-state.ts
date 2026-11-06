@@ -18,6 +18,8 @@ export interface SupportedState {
   remotePks: string[]
   createIntentId: string | null
   verification: 'matches' | 'missing_or_changed' | 'unavailable' | null
+  /** The latest create got a client-error response and no record is attributed to it. */
+  rejected: boolean
 }
 
 /** Verification never deletes attribution or makes a historical create repeatable. */
@@ -35,6 +37,7 @@ export async function supportedStates(
         certainty: supportedEffects.certainty,
         remotePks: supportedEffects.remotePks,
         outcome: supportedResults.outcome,
+        status: supportedResults.status,
         responseBytes: supportedResults.responseBytes,
         responseDigest: supportedResults.responseDigest,
       })
@@ -123,7 +126,16 @@ export async function supportedStates(
     )
     const remotePks = [...new Set<string>(rows.flatMap((row) => row.remotePks ?? []))]
     const certainty = unresolved ? 'unknown' : confirmed ? 'confirmed' : 'none'
+    const latest = rows.at(-1)
+    const rejected =
+      certainty !== 'confirmed' &&
+      remotePks.length === 0 &&
+      latest?.outcome === 'response' &&
+      latest.status !== null &&
+      latest.status >= 400 &&
+      latest.status < 500
     return {
+      rejected,
       ...operation,
       certainty,
       remotePks,

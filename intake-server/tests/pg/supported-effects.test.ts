@@ -132,6 +132,30 @@ test('a Part description is sent with the create and confirmed from the target',
   }
 })
 
+test('a value InvenTree refuses is reported as rejected, and only that one', async () => {
+  const fixture = await manualFixture({ effects: true })
+  try {
+    const capture = await createChoice(fixture)
+    await fixture.fake.fault('reject_parameter')
+    const runId = await approve(fixture, capture.batch, capture.a.id)
+    const queued = await fixture.http(`/runs/${runId}/start`, {
+      expected_run_revision: (await run(fixture, runId)).revision,
+    })
+    assert.equal(queued.status, 200, JSON.stringify(queued.value))
+    await dispatch(fixture, runId)
+    const current = await run(fixture, runId)
+    const byKind = (kind: string) =>
+      current.supported_effects!.find((effect) => effect.kind === kind)!
+    assert.equal(byKind('parameter').rejected, true)
+    assert.equal(byKind('parameter').certainty, 'unknown')
+    assert.deepEqual(byKind('parameter').remote_pks, [])
+    assert.equal(byKind('create_part').certainty, 'confirmed')
+    assert.equal('rejected' in byKind('create_part'), false)
+  } finally {
+    await fixture.dispose()
+  }
+})
+
 test('one new shared Part survives dependent failure, restart, selected repair and later lot without duplicate stock', async () => {
   const fixture = await manualFixture({ effects: true })
   try {

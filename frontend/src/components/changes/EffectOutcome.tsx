@@ -30,6 +30,8 @@ export function EffectOutcome({ effect, busy, recover, unstarted = false, fixHre
     status = record
       ? `Created new ${record} #${effect.remote_pks[0]}`
       : 'Historical effect confirmed'
+  } else if (effect.rejected) {
+    status = 'InvenTree refused this value, so nothing was created'
   } else if (effect.certainty === 'unknown') {
     status = record
       ? `The new ${record} may have been created; it is never created again for this draft`

@@ -34,9 +34,11 @@ export function Added({ batch, workspace, focusedRunId, busy, command, targetUrl
     (total, run) =>
       total +
       run.operations.filter((value) => value.certainty === 'unknown').length +
-      // Stock creates also appear as effects; they are counted once, from the operations.
+      // Stock creates also appear as effects and are counted once, from the operations; a
+      // refused value is to fix, not being checked.
       (run.supported_effects ?? []).filter(
-        (value) => value.kind !== 'create_stock' && value.certainty === 'unknown',
+        (value) =>
+          value.kind !== 'create_stock' && value.certainty === 'unknown' && !value.rejected,
       ).length +
       (run.attachments ?? []).filter((value) => value.certainty === 'unknown').length,
     0,

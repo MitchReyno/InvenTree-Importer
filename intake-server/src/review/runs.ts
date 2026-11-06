@@ -646,6 +646,7 @@ export async function manualRunSnapshot(
       certainty: item.certainty,
       remote_pks: item.remotePks,
       verification: item.verification,
+      ...(item.rejected ? { rejected: true as const } : {}),
       recovery_action: inactive
         ? item.certainty !== 'none' && item.remotePks.length === 1
           ? ('verify_effect' as const)

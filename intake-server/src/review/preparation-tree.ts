@@ -80,9 +80,10 @@ export function preparationTree(
       }
     }
   }
+  // A record made by an earlier run is used by its pk, so it is keyed by that pk.
   for (const company of (isEffectsPlan(plan) && plan.companies) || []) {
     add({
-      key: `company:new:${company.draftId}`,
+      key: company.prior ? `company:${company.prior.pk}` : `company:new:${company.draftId}`,
       kind: 'company',
       label: company.spec.name,
       state: company.prior ? 'exists' : 'new',
@@ -106,8 +107,11 @@ export function preparationTree(
     const draft = pending
       ? newLocations.find((binding) => locationCreateKey(binding.draftId) === pending)
       : undefined
-    return draft ? `location:new:${draft.draftId}` : null
+    return draft ? locationNodeKey(draft) : null
   }
+
+  const locationNodeKey = (binding: (typeof newLocations)[number]) =>
+    binding.prior ? `location:${binding.prior.pk}` : `location:new:${binding.draftId}`
 
   for (const operation of plan.operations) {
     if (operation.location !== null) {
@@ -121,7 +125,7 @@ export function preparationTree(
   }
   for (const binding of newLocations) {
     add({
-      key: `location:new:${binding.draftId}`,
+      key: locationNodeKey(binding),
       kind: 'location',
       label: binding.spec.name,
       state: binding.prior ? 'exists' : 'new',
