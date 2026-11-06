@@ -280,7 +280,7 @@ describe('ReviewMap at region level', () => {
       within(regions)
         .getAllByRole('listitem')
         .map((item) => item.textContent),
-    ).toEqual(['1N4148 → Bag', 'Region 2 → no lot'])
+    ).toEqual(['1N4148 → supports Bag', 'Region 2 → no lot'])
     expect(
       within(screen.getByRole('listitem', { name: /Front label/ })).getByText('Packet A'),
     ).toBeInTheDocument()

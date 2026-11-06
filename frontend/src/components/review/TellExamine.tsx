@@ -1,15 +1,19 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
+import { examineLead } from '../../processing/source'
 import type { ProcessingClient } from '../../processing/types'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { space } from '../../theme/generated/tokens'
+import { useRetainedPollInterval } from '../operations/LiveUpdates'
+import { chatConfirmation } from '../processing/SessionChat'
 import { Button } from '../ui/Button'
 import { Label, Small, TextArea } from '../ui/primitives'
 
 /**
  * Review › Map's instruction to the lot-forming agent, sent as chat to the batch's Examine lead
- * session. It appears only once that session exists.
+ * session. It appears only while that session can take one: a cancelled session is restarted from
+ * Processing instead.
  */
 export function TellExamine({
   batchId,
@@ -19,26 +23,31 @@ export function TellExamine({
   processing: ProcessingClient | undefined
 }) {
   const scope = useServerScope()
+  const pollInterval = useRetainedPollInterval()
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
-  const [outcome, setOutcome] = useState<'sent' | 'failed' | null>(null)
+  const [outcome, setOutcome] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
+  // Kept with the unsent text, so retrying after an unconfirmed send cannot queue it twice.
+  const pendingKey = useRef<string | null>(null)
   const snapshot = useQuery({
     queryKey: serverQueryKey(scope, 'processing', batchId),
     queryFn: () => processing!.read(batchId),
     enabled: Boolean(processing?.chat),
+    refetchInterval: pollInterval,
   })
-  const lead = snapshot.data?.jobs.find(
-    (job) => job.stage === 'examine' && job.subject_id === null && job.session_state,
-  )
+  const lead = snapshot.data ? examineLead(snapshot.data) : null
   const chat = processing?.chat
-  if (!lead || !chat) {
+  if (!lead?.session_state || lead.session_state === 'cancelled' || !chat) {
     return null
   }
+  const state = lead.session_state
 
   async function send() {
     setBusy(true)
     setOutcome(null)
-    const key = crypto.randomUUID()
+    setFailed(false)
+    const key = (pendingKey.current ??= crypto.randomUUID())
     try {
       await chat!.call(
         processing,
@@ -47,10 +56,11 @@ export function TellExamine({
         { idempotency_key: key, text: text.trim() },
         key,
       )
+      pendingKey.current = null
       setText('')
-      setOutcome('sent')
+      setOutcome(chatConfirmation(state))
     } catch {
-      setOutcome('failed')
+      setFailed(true)
     } finally {
       setBusy(false)
     }
@@ -72,7 +82,9 @@ export function TellExamine({
           disabled={busy}
           onChange={(event) => {
             setText(event.target.value)
+            pendingKey.current = null
             setOutcome(null)
+            setFailed(false)
           }}
         />
       </Label>
@@ -80,11 +92,12 @@ export function TellExamine({
         <Button type="submit" size="sm" disabled={busy || !text.trim()}>
           Tell Examine
         </Button>
-        {outcome === 'sent' && (
-          <Small role="status">Sent to Examine; it reads it on its next turn.</Small>
-        )}
-        {outcome === 'failed' && (
-          <Small role="alert">The instruction was not sent. It is kept here to try again.</Small>
+        {outcome && <Small role="status">{outcome}</Small>}
+        {failed && (
+          <Small role="alert">
+            The instruction was not confirmed and may already be queued. It is kept here; sending it
+            again cannot queue it twice.
+          </Small>
         )}
       </Row>
     </Form>

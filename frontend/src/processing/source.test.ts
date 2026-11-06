@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ProcessingSnapshotDto } from '@invimport/contracts'
-import { retainedJobsSource } from './source'
+import { retainedJobsSource, subjectStatuses } from './source'
 
 const digest = 'a'.repeat(64)
 
@@ -139,12 +139,24 @@ describe('retainedJobsSource', () => {
       'Checking the datasheet',
       'Choosing the best photo',
     ])
-    expect(source.lotStatus(lot)).toEqual({
+    const statuses = subjectStatuses(
+      snapshot([
+        job(2, 'research', 'running', {
+          session_state: 'running',
+          ...status('Checking the datasheet', '2026-11-06T10:02:00.000Z'),
+        } as Partial<Job>),
+        job(3, 'images', 'running', {
+          session_state: 'waiting_input',
+          ...status('Choosing the best photo', '2026-11-06T10:01:00.000Z'),
+        } as Partial<Job>),
+      ]),
+    )
+    expect(statuses.get(lot)).toEqual({
       step: 'research',
       text: 'Checking the datasheet',
       state: 'running',
     })
-    expect(source.lotStatus(id(77))).toBeNull()
+    expect(statuses.get(id(77))).toBeUndefined()
   })
 
   it('has no lead session when Examine runs without one', () => {

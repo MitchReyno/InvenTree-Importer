@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { subjectStatuses, WORK_STEPS } from './source'
+import { examineLead, subjectStatuses, WORK_STEPS } from './source'
 import type { ProcessingClient } from './types'
 
 export const SESSION_STATUS_REFRESH_MS = 15_000
@@ -40,7 +40,7 @@ export function useSessionStatuses(
         if (!current) {
           return
         }
-        const lead = snapshot.jobs.find((job) => job.stage === 'examine' && job.subject_id === null)
+        const lead = examineLead(snapshot)
 
         const label = (step: string) => WORK_STEPS.find((item) => item.step === step)?.label ?? step
 

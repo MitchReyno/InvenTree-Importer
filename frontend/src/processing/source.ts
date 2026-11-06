@@ -54,10 +54,8 @@ export type ProcessingSource = {
   steps: StepProgress[]
   questions: SourceQuestion[]
   sessions: SourceSession[]
-  /** The batch's Examine lead session, which Tell Examine writes to. */
+  /** The batch's Examine lead session. */
   lead: SourceSession | null
-  /** A lot's newest status line across its sessions. */
-  lotStatus: (lotId: string) => LotStatus | null
   jobsOn: (step: WorkStep) => Job[]
 }
 
@@ -67,6 +65,15 @@ const FAILED = new Set(['failed', 'interrupted'])
 function workStep(job: Job): WorkStep {
   const step = processingStepFor(job.stage)
   return step === 'overview' ? 'examine' : step
+}
+
+/** The batch's Examine lead job: the batch-level Examine job that runs as a session. */
+export function examineLead(snapshot: Pick<ProcessingSnapshotDto, 'jobs'>) {
+  return (
+    snapshot.jobs.find(
+      (job) => job.stage === 'examine' && job.subject_id === null && job.session_state,
+    ) ?? null
+  )
 }
 
 /** Each subject's newest status line across its session jobs. */
@@ -117,7 +124,6 @@ export function retainedJobsSource(
       }),
   )
 
-  const statuses = subjectStatuses(snapshot)
   const sessions: SourceSession[] = snapshot.jobs.flatMap((job) =>
     job.session_state
       ? [
@@ -154,8 +160,7 @@ export function retainedJobsSource(
     }),
     questions,
     sessions,
-    lead: sessions.find((session) => session.step === 'examine' && session.lotId === null) ?? null,
-    lotStatus: (lotId) => statuses.get(lotId) ?? null,
+    lead: sessions.find((session) => session.jobId === examineLead(snapshot)?.id) ?? null,
     jobsOn,
   }
 }

@@ -560,13 +560,15 @@ const proposedNew = (name: string, reason: string) => ({
   sources: [],
 })
 
-function catalogueJob(subject: string, catalogue: object) {
+function catalogueJob(subject: string, catalogue: object, extra: object = {}) {
   return {
     jobs: [
       {
         id: id(720),
         subject_id: subject,
         stage: 'research',
+        state: 'ready',
+        ...extra,
         proposals: [
           proposal(730, {
             schema_version: 'bench-intake-proposal/5',
@@ -619,6 +621,7 @@ test('a proposed new manufacturer is a decision, with a likely existing match by
   })
   validate('BatchRecords', result)
   const gct = of(result.records, 'company').find((record) => record.label === 'GCT')
+  assert.equal(gct?.key, `company:proposed:manufacturer:${partB}`)
   assert.equal(gct?.state, 'choose')
   assert.equal(gct?.decision?.code, 'company_proposed_new')
   assert.deepEqual(gct?.part_ids, [partB])
@@ -719,5 +722,127 @@ test('values the executor cannot create are listed on the Part as not supported 
   assert.equal(
     of(result.records, 'part').find((record) => record.key === `part:${partA}`)?.unsupported,
     undefined,
+  )
+})
+
+const twoParts = (first: object, second: object) =>
+  ({
+    jobs: [
+      ...catalogueJob(partB, first).jobs,
+      { ...catalogueJob(partC, second).jobs[0], id: id(721) },
+    ],
+  }) as unknown as ProcessingSnapshotDto
+
+test('each Part proposing the same new company gets its own decision with its own number', () => {
+  const withC = {
+    ...withGct,
+    parts: withGct.parts.map((item) =>
+      item.id === partC ? { ...item, choice: { mode: 'create', spec: specB } } : item,
+    ),
+  } as unknown as CaptureSnapshotDto
+  const result = projectRecords({
+    capture: withC,
+    processing: twoParts(
+      { manufacturer: { company: proposedNew('GCT', 'Label'), mpn: 'USB4105', sources: [] } },
+      { manufacturer: { company: proposedNew('GCT', 'Label'), mpn: 'USB4085', sources: [] } },
+    ),
+    lotGroups: null,
+  })
+  const gct = of(result.records, 'company').filter((record) => record.label === 'GCT')
+  assert.deepEqual(
+    gct.map((record) => [record.part_ids, record.proposed?.number]),
+    [
+      [[partB], 'USB4105'],
+      [[partC], 'USB4085'],
+    ],
+  )
+})
+
+test('a Part already matched in InvenTree, or still unset, gets no company decision', () => {
+  for (const subject of [partD, partC]) {
+    const result = projectRecords({
+      capture: withGct,
+      processing: catalogueJob(subject, {
+        manufacturer: { company: proposedNew('GCT', 'Label'), mpn: 'R-1', sources: [] },
+      }),
+      lotGroups: null,
+    })
+    assert.equal(
+      of(result.records, 'company').some((record) => record.label === 'GCT'),
+      false,
+    )
+  }
+})
+
+test('names keep their identity in any script, and an empty match is no match', () => {
+  const capture = {
+    ...withGct,
+    observations: [
+      ...withGct.observations,
+      observation(921, 'company', '41', '村田製作所', {
+        kind: 'company',
+        manufacturer: true,
+        supplier: false,
+      }),
+      observation(922, 'company', '42', 'Radiall', {
+        kind: 'company',
+        manufacturer: true,
+        supplier: false,
+      }),
+      observation(923, 'company', '43', 'Murata Manufacturing', {
+        kind: 'company',
+        manufacturer: true,
+        supplier: false,
+      }),
+    ],
+  } as unknown as CaptureSnapshotDto
+  const likely = (name: string) =>
+    of(
+      projectRecords({
+        capture,
+        processing: catalogueJob(partB, {
+          manufacturer: { company: proposedNew(name, 'Label'), mpn: 'R-1', sources: [] },
+        }),
+        lotGroups: null,
+      }).records,
+      'company',
+    ).find((record) => record.proposed)?.proposed?.likely?.label ?? null
+  assert.equal(likely('村田製作所'), '村田製作所')
+  assert.equal(likely('東芝'), null)
+  assert.equal(likely('ADI'), null)
+  assert.equal(likely('Murata'), 'Murata Manufacturing')
+})
+
+test('a current proposal wins over a superseded one', () => {
+  const result = projectRecords({
+    capture: withGct,
+    processing: {
+      jobs: [
+        ...catalogueJob(
+          partB,
+          {
+            manufacturer: {
+              company: proposedNew('Old Co', 'Earlier guess'),
+              mpn: 'R-1',
+              sources: [],
+            },
+          },
+          { state: 'superseded' },
+        ).jobs,
+        {
+          ...catalogueJob(partB, {
+            manufacturer: { company: proposedNew('GCT', 'Label'), mpn: 'R-2', sources: [] },
+          }).jobs[0],
+          id: id(722),
+        },
+      ],
+    } as unknown as ProcessingSnapshotDto,
+    lotGroups: null,
+  })
+  assert.deepEqual(
+    of(result.records, 'company')
+      .filter((record) => record.proposed)
+      .map((record) => record.label),
+    ['GCT'],
   )
 })

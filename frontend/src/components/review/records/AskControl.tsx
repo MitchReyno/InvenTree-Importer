@@ -17,7 +17,8 @@ export function AskControl({
   step: string
   value: string | null
   prefill: string
-  send: (text: string) => Promise<void>
+  /** Sends with an idempotency key kept until the message is confirmed or changed. */
+  send: (text: string, key: string) => Promise<void>
 }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState(prefill)
@@ -25,6 +26,7 @@ export function AskControl({
   const [asked, setAsked] = useState(false)
   const [failed, setFailed] = useState(false)
   const askedValue = useRef(value)
+  const pendingKey = useRef<string | null>(null)
   useEffect(() => {
     if (asked && value !== askedValue.current) {
       setAsked(false)
@@ -47,8 +49,10 @@ export function AskControl({
         event.preventDefault()
         setBusy(true)
         setFailed(false)
-        send(text.trim())
+        const key = (pendingKey.current ??= crypto.randomUUID())
+        send(text.trim(), key)
           .then(() => {
+            pendingKey.current = null
             askedValue.current = value
             setAsked(true)
             setOpen(false)
@@ -63,7 +67,10 @@ export function AskControl({
         rows={2}
         maxLength={4096}
         disabled={busy}
-        onChange={(event) => setText(event.target.value)}
+        onChange={(event) => {
+          setText(event.target.value)
+          pendingKey.current = null
+        }}
       />
       <Row>
         <Button type="submit" size="sm" disabled={busy || !text.trim()}>
@@ -72,7 +79,11 @@ export function AskControl({
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => setOpen(false)}>
           Cancel
         </Button>
-        {failed && <Small role="alert">Not sent. The message is kept to try again.</Small>}
+        {failed && (
+          <Small role="alert">
+            Not confirmed, and it may already be queued. Sending again cannot queue it twice.
+          </Small>
+        )}
       </Row>
     </Form>
   )

@@ -75,7 +75,6 @@ const source: ProcessingSource = {
     },
   ],
   lead: null,
-  lotStatus: () => null,
   jobsOn: () => [],
 }
 

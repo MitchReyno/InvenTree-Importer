@@ -787,17 +787,16 @@ describe('RecordsStage', () => {
       />,
     )
     await open(user, /^Parts/, 'Carbon film resistor')
-    const notes = within(screen.getByRole('region', { name: 'Carbon film resistor' })).getByRole(
-      'region',
-      {
-        name: 'Not supported yet',
-      },
+    const detail = screen.getByRole('region', { name: 'Carbon film resistor' })
+    const category = within(detail).getByRole('row', { name: 'Category as saved' })
+    expect(category).toHaveTextContent(
+      'Proposed Thin-film resistors: Creating a category is not supported yet; choose an existing category. Proposed because: The packet says thin film',
     )
-    expect(notes).toHaveTextContent('Category: Thin-film resistors')
-    expect(notes).toHaveTextContent(
-      'Creating a category is not supported yet; choose an existing category.',
-    )
-    expect(notes).toHaveTextContent('Proposed because: The packet says thin film')
+    // The category editor offers the existing categories.
+    expect(within(detail).getByLabelText('Move to category')).toBeInTheDocument()
+    expect(
+      within(detail).queryByRole('region', { name: 'Not supported yet' }),
+    ).not.toBeInTheDocument()
   })
 
   it('drops record drafts when the batch discards local edits', async () => {

@@ -52,11 +52,15 @@ type Props = {
   disabled: boolean
   reportFor: (source: string) => (dirty: boolean) => void
   /** Present with agent sessions: sends a message to the step's session working on this record. */
-  ask?: (step: string) => ((text: string) => Promise<void>) | undefined
+  ask?: (step: string) => ((text: string, key: string) => Promise<void>) | undefined
 }
 
 /** One record: its values with who set them, what an edit reaches, and its editor. */
 export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: Props) {
+  // A value not supported yet shows at its field when the record lists that field.
+  const listed = new Set(record.fields.map((field) => field.name))
+  const atField = (record.unsupported ?? []).filter((item) => listed.has(item.field))
+  const elsewhere = (record.unsupported ?? []).filter((item) => !listed.has(item.field))
   const target = record.target
   const spec = target && 'part_subject_id' in target ? specOf(batch, target.part_subject_id) : null
   const report = reportFor(record.key)
@@ -125,16 +129,24 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: 
                         />
                       ) : null
                     })()}
+                  {atField
+                    .filter((item) => item.field === field.name)
+                    .map((item) => (
+                      <Small key={item.value}>
+                        Proposed {item.value}: {item.why}
+                        {item.reason && ` Proposed because: ${item.reason}`}
+                      </Small>
+                    ))}
                 </td>
               </tr>
             ))}
           </tbody>
         </Fields>
       )}
-      {record.unsupported && record.unsupported.length > 0 && (
+      {elsewhere.length > 0 && (
         <Unsupported aria-label="Not supported yet">
           <strong>Not supported yet</strong>
-          {record.unsupported.map((item) => (
+          {elsewhere.map((item) => (
             <div key={`${item.field}:${item.value}`}>
               <span>
                 {FIELD_LABELS[item.field] ?? item.field}: {item.value}

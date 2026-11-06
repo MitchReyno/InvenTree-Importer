@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import styled from 'styled-components'
+import { VisuallyHidden } from '../ui/Progress'
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
 import { reviewMap } from '../../operator/review-map'
 import { color, radius, space, type } from '../../theme/generated/tokens'
@@ -126,7 +127,8 @@ export function ReviewMap({
                 <Regions aria-label={`Regions of ${file.label}`}>
                   {file.regions.map((region) => (
                     <li key={region.id}>
-                      {region.label} →{' '}
+                      {region.label} <span aria-hidden="true">→</span>
+                      {region.lotId && <VisuallyHidden> supports</VisuallyHidden>}{' '}
                       {region.lotId ? lotLabel.get(region.lotId) : <Muted>no lot</Muted>}
                     </li>
                   ))}

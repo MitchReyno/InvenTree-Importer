@@ -15,7 +15,6 @@ import {
 
 type Proposal = ProcessingSnapshotDto['jobs'][number]['proposals'][number]
 type Unsupported = NonNullable<BatchRecordDto['unsupported']>[number]
-type ProposedCompany = NonNullable<BatchRecordDto['proposed']>
 type Reference = { observation_id: string; target_context_id: string; model: string; pk: string }
 type Choice = { choice: string; name?: string; reason?: string; reference?: Reference }
 type Catalogue = {
@@ -30,11 +29,17 @@ type Catalogue = {
 }
 type Role = 'manufacturer' | 'supplier'
 
+/** Lower-case words of any script, so non-Latin names keep their identity. */
 const words = (text: string) =>
   text
     .toLowerCase()
-    .split(/[^a-z0-9]+/)
+    .split(/[^\p{L}\p{N}]+/u)
     .filter(Boolean)
+
+/** True when `inner` appears in `outer` as whole consecutive words. */
+const containsWords = (outer: string[], inner: string[]) =>
+  inner.length > 0 &&
+  outer.some((_, start) => inner.every((word, offset) => outer[start + offset] === word))
 
 /**
  * An observed company a proposed name probably means, by an explicit rule: the same name, its
@@ -46,9 +51,12 @@ function likelyMatch(
   name: string,
   candidates: { reference: CompanyReference; label: string }[],
 ): { reference: CompanyReference; label: string; why: string } | null {
-  const wanted = words(name).join(' ')
+  const wanted = words(name)
+  if (wanted.length === 0) {
+    return null
+  }
   const rules: [string, (label: string) => boolean][] = [
-    ['It has the same name', (label) => words(label).join(' ') === wanted],
+    ['It has the same name', (label) => words(label).join(' ') === wanted.join(' ')],
     [
       `Its initials are ${name}`,
       (label) =>
@@ -60,11 +68,11 @@ function likelyMatch(
     [
       'Its name contains the other',
       (label) => {
-        const other = words(label).join(' ')
+        const other = words(label)
         return (
-          wanted.length >= 3 &&
-          other.length >= 3 &&
-          (other.includes(wanted) || wanted.includes(other))
+          wanted.join(' ').length >= 3 &&
+          other.join(' ').length >= 3 &&
+          (containsWords(other, wanted) || containsWords(wanted, other))
         )
       },
     ],
@@ -99,7 +107,7 @@ function stepOf(stage: string): Step {
   return stage === 'research' || stage === 'images' || stage === 'inventory' ? stage : 'examine'
 }
 
-type Proposed = { proposal: Proposal; step: Step }
+type Proposed = { proposal: Proposal; step: Step; current: boolean }
 
 /** Every retained proposal about each subject, with the step that made it. */
 function proposalsBySubject(processing: ProcessingSnapshotDto | undefined) {
@@ -109,7 +117,7 @@ function proposalsBySubject(processing: ProcessingSnapshotDto | undefined) {
       const subject = proposal.value.subject_id
       bySubject.set(subject, [
         ...(bySubject.get(subject) ?? []),
-        { proposal, step: stepOf(job.stage) },
+        { proposal, step: stepOf(job.stage), current: job.state !== 'superseded' },
       ])
     }
   }
@@ -426,10 +434,16 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
   }
 
   // Catalogue proposals: values the executor cannot create are shown, never written into a spec.
+  // One catalogue per Part: from a current job before a superseded one, about the Part itself
+  // before one of its lots. Retained proposals carry no order, so ties take the first read.
   const catalogueOf = (subjects: string[]) =>
     subjects
-      .flatMap((subject) => proposals.get(subject) ?? [])
-      .map((entry) => (entry.proposal.value as { catalogue?: Catalogue }).catalogue)
+      .flatMap((subject, rank) => (proposals.get(subject) ?? []).map((entry) => ({ entry, rank })))
+      .sort(
+        (left, right) =>
+          Number(right.entry.current) - Number(left.entry.current) || left.rank - right.rank,
+      )
+      .map(({ entry }) => (entry.proposal.value as { catalogue?: Catalogue }).catalogue)
       .find((catalogue): catalogue is Catalogue => Boolean(catalogue))
 
   const observedCompanies = (role: Role) =>
@@ -450,10 +464,6 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
         : [],
     )
 
-  const proposedCompanies = new Map<
-    string,
-    { company: Omit<ProposedCompany, 'likely'>; parts: string[] }
-  >()
   for (const part of capture.parts) {
     const catalogue = catalogueOf([part.id, ...lotsOf([part.id])])
     if (!catalogue) {
@@ -491,48 +501,38 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       partRecord.unsupported = unsupported.slice(0, 40)
     }
     const spec = part.choice.mode === 'create' ? part.choice.spec : null
+    // Only a Part being created can take an existing company; one already chosen in InvenTree,
+    // or still unset, has nothing to set it on. A role the Part already has is not asked again.
+    if (!spec) {
+      continue
+    }
     for (const role of ['manufacturer', 'supplier'] as const) {
       const entry = catalogue[role]
-      // A role the Part already has is the operator's choice; it is not asked about again.
-      if (
-        !entry ||
-        entry.company.choice !== 'proposed_new' ||
-        !entry.company.name ||
-        spec?.[role]
-      ) {
+      if (!entry || entry.company.choice !== 'proposed_new' || !entry.company.name || spec[role]) {
         continue
       }
-      const key = `${role}:${words(entry.company.name).join('-')}`
-      const known = proposedCompanies.get(key)
-      if (known) {
-        known.parts.push(part.id)
-        continue
-      }
-      proposedCompanies.set(key, {
-        company: {
+      const name = clip(entry.company.name)
+      // One record per Part, so each choice is one edit with that Part's own number.
+      record({
+        key: `company:proposed:${role}:${part.id}`,
+        type: 'company',
+        label: name,
+        state: 'choose',
+        target: null,
+        part_ids: [part.id],
+        decision: {
+          code: 'company_proposed_new',
+          detail: `Creating a ${role} is not supported yet. Use an existing company or pick another.`,
+        },
+        proposed: {
           role,
-          name: clip(entry.company.name),
+          name,
           reason: entry.company.reason?.slice(0, 512) || null,
           number: ('mpn' in entry ? entry.mpn : entry.sku)?.slice(0, 256) || null,
+          likely: likelyMatch(name, observedCompanies(role)),
         },
-        parts: [part.id],
       })
     }
-  }
-  for (const [key, { company, parts }] of proposedCompanies) {
-    record({
-      key: `company:proposed:${key}`,
-      type: 'company',
-      label: company.name,
-      state: 'choose',
-      target: null,
-      part_ids: parts,
-      decision: {
-        code: 'company_proposed_new',
-        detail: `Creating a ${company.role} is not supported yet. Use an existing company or pick another.`,
-      },
-      proposed: { ...company, likely: likelyMatch(company.name, observedCompanies(company.role)) },
-    })
   }
 
   // Locations group active lots by where they resolve; a lot with none needs a decision.

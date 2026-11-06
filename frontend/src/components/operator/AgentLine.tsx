@@ -13,7 +13,7 @@ export function AgentLine({ batchId, status }: { batchId: string; status: LotSta
   }
   const step = WORK_STEPS.find((item) => item.step === status.step)?.label ?? status.step
   return (
-    <Line role="status" aria-label="Agent">
+    <Line>
       <span>
         {step} · {status.text}
       </span>

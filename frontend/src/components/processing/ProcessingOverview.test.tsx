@@ -42,7 +42,6 @@ const source: ProcessingSource = {
   ],
   sessions: [],
   lead: null,
-  lotStatus: () => null,
   jobsOn: () => [],
 }
 

@@ -9,8 +9,7 @@ it('names the step and its latest line, and opens that step in Processing', () =
       status={{ step: 'research', text: 'Checking the datasheet', state: 'waiting_input' }}
     />,
   )
-  const line = screen.getByRole('status', { name: 'Agent' })
-  expect(line).toHaveTextContent('Research · Checking the datasheet')
+  const line = screen.getByText('Research · Checking the datasheet').closest('p')
   expect(line).toHaveTextContent('Waiting for you')
   expect(screen.getByRole('link', { name: 'Open in Processing' })).toHaveAttribute(
     'href',

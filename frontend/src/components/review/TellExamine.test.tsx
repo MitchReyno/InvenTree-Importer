@@ -5,20 +5,21 @@ import type { ProcessingClient } from '../../processing/types'
 import { render } from '../../test/render'
 import { TellExamine } from './TellExamine'
 
-const snapshot = (session: boolean) => ({
+const snapshot = (state: string | null) => ({
   jobs: [
     {
       id: 'lead',
       stage: 'examine',
       subject_id: null,
-      ...(session ? { session_state: 'running' } : {}),
+      ...(state ? { session_state: state } : {}),
     },
   ],
 })
 
-function client(session: boolean) {
+function client(session: boolean | string) {
+  const state = session === true ? 'running' : session === false ? null : session
   return {
-    read: vi.fn(async () => snapshot(session)),
+    read: vi.fn(async () => snapshot(state)),
     session: vi.fn(),
     chat: vi.fn(async () => ({ id: 'inbox-1' })),
   } as unknown as ProcessingClient & { chat: ReturnType<typeof vi.fn> }
@@ -42,7 +43,9 @@ it('sends a free-text instruction to the Examine lead session', async () => {
       expect.any(String),
     ),
   )
-  expect(await screen.findByRole('status')).toHaveTextContent('Sent to Examine')
+  expect(await screen.findByRole('status')).toHaveTextContent(
+    'Queued. The agent receives it during this turn.',
+  )
   expect(screen.getByLabelText('Instruction for Examine')).toHaveValue('')
 })
 
@@ -54,8 +57,22 @@ it('keeps the instruction when it is not accepted', async () => {
   await user.type(await screen.findByLabelText('Instruction for Examine'), 'Merge them')
   await user.click(screen.getByRole('button', { name: 'Tell Examine' }))
 
-  expect(await screen.findByRole('alert')).toHaveTextContent('not sent')
+  expect(await screen.findByRole('alert')).toHaveTextContent('may already be queued')
   expect(screen.getByLabelText('Instruction for Examine')).toHaveValue('Merge them')
+
+  // Sending the kept text again reuses its key, so it cannot be queued twice.
+  await user.click(screen.getByRole('button', { name: 'Tell Examine' }))
+  await waitFor(() => expect(processing.chat).toHaveBeenCalledTimes(2))
+  const [first, second] = processing.chat.mock.calls
+  expect(second[3]).toBe(first[3])
+  expect(second[2]).toEqual(first[2])
+})
+
+it('is not offered for a cancelled Examine session', async () => {
+  const processing = client('cancelled')
+  render(<TellExamine batchId="b" processing={processing} />)
+  await waitFor(() => expect(processing.read).toHaveBeenCalled())
+  expect(screen.queryByLabelText('Instruction for Examine')).not.toBeInTheDocument()
 })
 
 it('shows no instruction field without an Examine session', async () => {

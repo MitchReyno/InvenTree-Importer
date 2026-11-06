@@ -9,6 +9,7 @@ import {
 import type { CaptureWorkspaceProps } from '../../../capture/types'
 import { batchHref, parseBatchRoute, processingStepFor } from '../../../navigation/batch-route'
 import { serverQueryKey, useServerScope } from '../../../queries/scope'
+import { useRetainedPollInterval } from '../../operations/LiveUpdates'
 import type { ProcessingClient } from '../../../processing/types'
 import { useQuery } from '@tanstack/react-query'
 import { useDirtySources } from '../../../operator/useDirtySources'
@@ -77,10 +78,12 @@ export function RecordsStage({
   const records = query.data ?? lastGood.current
 
   const scope = useServerScope()
+  const pollInterval = useRetainedPollInterval()
   const sessions = useQuery({
     queryKey: serverQueryKey(scope, 'processing', batch.id),
     queryFn: () => processing!.read(batch.id),
     enabled: Boolean(processing?.chat),
+    refetchInterval: pollInterval,
   })
 
   // The session of that step working on the record's Part or one of its lots.
@@ -97,8 +100,7 @@ export function RecordsStage({
     if (!chat || !job) {
       return undefined
     }
-    return async (text: string) => {
-      const key = crypto.randomUUID()
+    return async (text: string, key: string) => {
       await chat.call(processing, batch.id, job.id, { idempotency_key: key, text }, key)
     }
   }
