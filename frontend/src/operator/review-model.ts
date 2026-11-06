@@ -148,6 +148,22 @@ export function retiredLotIds(
   return new Set([...fromReview, ...fromSnapshot])
 }
 
+/** Lots already added to inventory. Adding is never undone, so an older accepted review still counts. */
+export function approvedLotIds(
+  current: OperatorReviewDto | undefined,
+  accepted: OperatorReviewDto | undefined,
+): ReadonlySet<string> {
+  const ids = new Set<string>()
+  for (const review of [current, accepted]) {
+    for (const lot of review?.lots ?? []) {
+      if (lot.approved) {
+        ids.add(lot.lot_id)
+      }
+    }
+  }
+  return ids
+}
+
 export type Provenance =
   | 'human'
   | 'inherited'

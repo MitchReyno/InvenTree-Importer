@@ -8,7 +8,11 @@ import {
   type EvidenceSelection,
 } from '../../operator/evidence-location'
 import { mediaResource } from '../../media/types'
-import { mediaDisplayLabels, mediaIdentityLabels } from '../../media/identity-labels'
+import {
+  mediaDisplayLabels,
+  mediaIdentityLabels,
+  type MediaIdentityLabels,
+} from '../../media/identity-labels'
 import { MediaNoteSummary } from '../media/MediaNoteSummary'
 import { Button, Label, Select, Small } from '../ui/primitives'
 import { batchHref } from '../../navigation/batch-route'
@@ -19,6 +23,8 @@ interface Props {
   evidence: MediaEvidenceDto[]
   groups?: MediaSnapshotDto['groups']
   unavailable?: boolean
+  /** Names numbered across the whole snapshot, so a file reads the same here as in Capture. */
+  labels?: MediaIdentityLabels
 }
 
 type Selection = EvidenceSelection
@@ -45,6 +51,7 @@ export function EvidenceViewer({
   evidence,
   groups = [],
   unavailable = false,
+  labels: snapshotLabels,
 }: Props) {
   const [invalidLink, setInvalidLink] = useState(() =>
     Boolean(lotId && evidenceFromHash(location.hash) === null),
@@ -67,7 +74,7 @@ export function EvidenceViewer({
   const [zoom, setZoom] = useState(1)
   const [failedPreview, setFailedPreview] = useState<string | null>(null)
   const [loadAttempt, setLoadAttempt] = useState(0)
-  const labels = mediaDisplayLabels(evidence)
+  const labels = snapshotLabels ?? mediaDisplayLabels(evidence)
   const identities = mediaIdentityLabels(evidence)
   const source = evidence.find((item) => item.id === selected?.evidenceId)
   const version = source?.versions.find((item) => item.id === selected?.versionId)
@@ -302,7 +309,9 @@ export function EvidenceViewer({
         <summary>Details</summary>
         {evidence.flatMap((item) =>
           item.versions.map((value) => (
-            <Small key={value.id}>{identities.versions.get(value.id)}</Small>
+            <Small key={value.id}>
+              {labels.versions.get(value.id)}: {identities.versions.get(value.id)}
+            </Small>
           )),
         )}
       </details>

@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { color } from '../../theme/generated/tokens'
 import type { MediaClient } from '../../media/types'
 import { mediaResource } from '../../media/types'
+import { mediaDisplayLabels } from '../../media/identity-labels'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { useRetainedPollInterval } from '../operations/LiveUpdates'
 import { EvidenceViewer } from '../operator/EvidenceViewer'
@@ -19,6 +20,7 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
     refetchInterval: interval,
   })
   const unavailable = query.isError || query.fetchStatus === 'paused'
+  const labels = query.data ? mediaDisplayLabels(query.data.evidence) : undefined
   if (!client) {
     return <Notice>Retained media is not configured for this application.</Notice>
   }
@@ -46,12 +48,17 @@ export function ProcessingImages({ batchId, client }: { batchId: string; client?
       <Gallery>
         {query.data?.evidence.map((source) => (
           <Panel key={source.id}>
-            <Heading>{source.label}</Heading>
+            <Heading>{labels?.evidence.get(source.id) ?? source.label}</Heading>
             <Small>
               {source.versions.length} retained versions · {source.linked_subject_ids.length} linked
               subjects
             </Small>
-            <EvidenceViewer batchId={batchId} evidence={[source]} unavailable={unavailable} />
+            <EvidenceViewer
+              batchId={batchId}
+              evidence={[source]}
+              labels={labels}
+              unavailable={unavailable}
+            />
             <Versions aria-label={`Versions of ${source.label}`}>
               {source.versions.map((version) => (
                 <div key={version.id}>

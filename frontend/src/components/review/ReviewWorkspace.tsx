@@ -149,6 +149,11 @@ function listChosen() {
   return (history.state as Record<string, unknown> | null)?.[LIST_CHOSEN] === true
 }
 
+/** Rewrites the URL, keeping the list choice unless it is being set or cleared. */
+function writeHash(hash: string, chosen = listChosen()) {
+  history.replaceState(chosen ? { [LIST_CHOSEN]: true } : null, '', hash)
+}
+
 /** The lot's first open Processing question, which its problems can offer to answer. */
 function openQuestionFor(processing: ProcessingSnapshotDto | undefined, lotId: string) {
   for (const job of processing?.jobs ?? []) {
@@ -238,10 +243,10 @@ export function ReviewWorkspace({
     previousFocus.current = focused
   }, [focused])
 
-  function navigate(next: Partial<ReviewLocation>) {
+  function navigate(next: Partial<ReviewLocation>): boolean {
     if (drafts.isDirty()) {
       setNavigationBlocked(true)
-      return
+      return false
     }
     setNavigationBlocked(false)
     const value = { ...route, ...next }
@@ -250,7 +255,8 @@ export function ReviewWorkspace({
     const hash = sameLot
       ? retainEvidenceQuery(reviewHash(batch.id, value), location.hash)
       : reviewHash(batch.id, value)
-    history.replaceState(null, '', withEditParam(hash, editing))
+    writeHash(withEditParam(hash, editing))
+    return true
   }
 
   function openEditor(subjectId: string) {
@@ -260,23 +266,23 @@ export function ReviewWorkspace({
     }
     setNavigationBlocked(false)
     setEditing(subjectId)
-    history.replaceState(null, '', withEditParam(location.hash, subjectId))
+    writeHash(withEditParam(location.hash, subjectId))
   }
 
   function closeEditor() {
     drafts.forSource('subject')(false)
     setEditing(null)
-    history.replaceState(null, '', withEditParam(location.hash, null))
+    writeHash(withEditParam(location.hash, null))
   }
 
   function retainEditorRoute(retain: boolean) {
-    history.replaceState(null, '', withEditParam(location.hash, retain ? editing : null))
+    writeHash(withEditParam(location.hash, retain ? editing : null))
   }
 
   function inspect(id: string | null) {
-    const chosen = id === null
-    navigate({ lotId: id, view: id ? 'evidence' : route.view })
-    history.replaceState(chosen ? { [LIST_CHOSEN]: true } : null, '', location.hash)
+    if (navigate({ lotId: id, view: id ? 'evidence' : route.view })) {
+      writeHash(location.hash, id === null)
+    }
   }
 
   function move(offset: number) {

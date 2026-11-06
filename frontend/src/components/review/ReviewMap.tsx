@@ -19,6 +19,8 @@ type Props = {
   openRestructure?: (kind: 'split' | 'merge' | 'move', lotIds: string[]) => void
   /** Lots already added to inventory, which cannot be restructured. */
   approvedLotIds: ReadonlySet<string>
+  /** Locks split, merge and move until the latest operator review is read. */
+  restructureUnavailable?: boolean
   loading: boolean
 }
 
@@ -34,6 +36,7 @@ export function ReviewMap({
   newLotFrom,
   openRestructure,
   approvedLotIds,
+  restructureUnavailable = false,
   loading,
 }: Props) {
   const [targets, setTargets] = useState<Record<string, string>>({})
@@ -56,6 +59,7 @@ export function ReviewMap({
   const lotLabel = new Map(map.lots.map((lot) => [lot.id, lot.label]))
   // A merge or split retires lots; only active, unadded lots stay chosen.
   const chosen = merging.filter((id) => lotLabel.has(id) && !approvedLotIds.has(id))
+  const restructureLocked = disabled || restructureUnavailable
 
   return (
     <Layout>
@@ -141,7 +145,7 @@ export function ReviewMap({
                     type="checkbox"
                     aria-label={`Choose ${lot.label} to merge or move`}
                     checked={chosen.includes(lot.id)}
-                    disabled={disabled || approvedLotIds.has(lot.id)}
+                    disabled={restructureLocked || approvedLotIds.has(lot.id)}
                     onChange={() =>
                       setMerging(
                         merging.includes(lot.id)
@@ -163,7 +167,7 @@ export function ReviewMap({
                   <Button
                     size="sm"
                     variant="ghost"
-                    disabled={disabled || approvedLotIds.has(lot.id)}
+                    disabled={restructureLocked || approvedLotIds.has(lot.id)}
                     aria-label={`Split ${lot.label}`}
                     onClick={() => openRestructure('split', [lot.id])}
                   >
@@ -174,17 +178,20 @@ export function ReviewMap({
             </li>
           ))}
         </Rows>
+        {openRestructure && restructureUnavailable && (
+          <Muted role="status">Split, merge and move wait for the latest review to load.</Muted>
+        )}
         {openRestructure && (
           <Controls>
             <Button
-              disabled={disabled || chosen.length < 2 || chosen.length > MAX_MERGE_LOTS}
+              disabled={restructureLocked || chosen.length < 2 || chosen.length > MAX_MERGE_LOTS}
               onClick={() => openRestructure('merge', chosen)}
             >
               Merge {chosen.length} lots
             </Button>
             <Button
               variant="ghost"
-              disabled={disabled || chosen.length < 1 || chosen.length > MAX_MERGE_LOTS}
+              disabled={restructureLocked || chosen.length < 1 || chosen.length > MAX_MERGE_LOTS}
               onClick={() => openRestructure('move', chosen)}
             >
               Move {chosen.length} {chosen.length === 1 ? 'lot' : 'lots'} to a Part proposal

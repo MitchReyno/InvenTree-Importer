@@ -60,4 +60,19 @@ describe('reviewMap', () => {
     expect(map.files.filter((item) => item.unused).map((item) => item.id)).toEqual(['f4', 'f5'])
     expect(map.lots.filter((item) => item.singleSource).map((item) => item.id)).toEqual(['b', 'c'])
   })
+
+  it('numbers files that share a name, so each row and its controls can be told apart', () => {
+    const twins = [
+      file('x1', 'photo.png', ['a']),
+      file('x2', 'photo.png', []),
+      file('x3', 'label.png', ['a']),
+    ] as unknown as MediaSnapshotDto['evidence']
+    const map = reviewMap(batch, twins, new Set())
+
+    expect(map.files.map((item) => item.label)).toEqual([
+      'photo.png (1)',
+      'photo.png (2)',
+      'label.png',
+    ])
+  })
 })

@@ -327,7 +327,7 @@ Branch `feat/redesign-batch-workspace-review-lots` from `d38e6ad`. Merge is auth
   - **Tests:** five new tests (open on the first lot, show a chosen lot, blocked lot reason, Exclude and no UUIDs in details, record chain) failed first, then passed. Existing tests now use "Show <lot>", and URL assertions include the auto-shown lot. Frontend 522/522.
 - **8.2 problem fixes:** `frontend/src/operator/problem-actions.ts` maps each problem to its fix on the owning screen:
   - **Part not chosen:** "Choose the Part" opens the Part editor, and "Decide in Records" links to Records.
-  - **Quantity and location problems:** "Set the quantity" or "Set the location" opens the lot's own editor. A location conflict or unconfirmed group also links to "Check evidence groups in Capture".
+  - **Quantity and location problems:** "Set the quantity" or "Set the location" opens the lot's own editor. Every location problem except a missing location (a conflict, an invalid draft parent, an unconfirmed group) also links to "Check evidence groups in Capture".
   - **Warnings:** evidence warnings link to Capture (reading and crop routes were dropped in review round 1, because no server code raises them).
   - **Open question:** when the lot has an open Processing question, "Answer the open question" comes first and links to it. Answering inline and queuing to the asking session wait for Task 14's sessions.
   - **Unroutable problems:** no fix is offered (for example unsettled source history).
@@ -348,7 +348,7 @@ Branch `feat/redesign-batch-workspace-review-lots` from `d38e6ad`. Merge is auth
   - **Tests:** model 2 (written alongside the model, not before), map component 5 and stage 2 (written first; they failed on the missing module). The header test now expects a Map link. Frontend 538/538; typecheck, lint and build pass.
 - **Browser check and the ID fix:** `batch-capture.html` now gives `Batch` a synthetic manual client and operator projection, with a lot blocked twice and one with a warning, so Review › Lots, Table, Map and Records render.
   - **Captures:** Lots (opened on the blocked lot), the blocked lot's details, Table and Map at 1440px and 390px. No horizontal overflow.
-  - **Fix found:** the evidence pane showed shortened evidence and version IDs in its source picker and note headings, against "No internal identifiers inline". `mediaDisplayLabels` now labels a file by name and kind ("Packing slip · original", "· crop N") and keeps IDs only when two files share a name. A test written first covers it.
+  - **Fix found:** the evidence pane showed shortened evidence and version IDs in its source picker and note headings, against "No internal identifiers inline". `mediaDisplayLabels` now labels a file by name and kind ("Packing slip · original", "· crop N") and numbers files that share a name (round 1), with IDs only in the viewer's Details. A test written first covers it.
   - **Existing behaviour, not changed here:** Review reads its view from the URL when it mounts, so a hash change on an already-open Review page does not switch view.
   - **Checks:** frontend 539/539.
 
@@ -357,7 +357,7 @@ Branch `feat/redesign-batch-workspace-review-lots` from `d38e6ad`. Merge is auth
 Fresh read-only Claude reviewer at `ac2b871`: 2 Important, 10 Minor, 1 Nitpick, all fixed, test-first except the wording changes.
 
 - **Unlink on a Part-derived link did nothing (Important):** the map now records whether each link is direct or through the lot's Part. Part-derived links show "via shared Part" with no Unlink.
-- **A failed "New lot from this" could link a later lot (Important):** `Batch.edit` reports failure as `false`. The stage now clears the pending link on `false`, and links only a new lot whose label matches. Tested with a failed save followed by an unrelated lot.
+- **A failed "New lot from this" could link a later lot (Important):** `Batch.edit` reports failure as `false`. The stage now clears the pending link on `false`, and links only a new lot whose label matches. Tested with a failed save followed by a lot with the same label (tightened in round 2).
 - **Minor:**
   - **`?edit=`:** auto-show keeps it in the URL.
   - **Back to the list:** the choice is kept in `history.state`, so a remount after a save does not jump to a lot.
@@ -369,4 +369,14 @@ Fresh read-only Claude reviewer at `ac2b871`: 2 Important, 10 Minor, 1 Nitpick, 
   - **Label-in-name:** "New lot from this: <file>".
   - **Instruction-field test:** it now renders the normal map.
 - **Nitpick:** "Choose a lot to compare…" replaces the Inspect wording.
+
+### PR-D review round 2
+
+Fresh read-only Claude reviewer at `b4a8815`: 4 Minor, 1 Nitpick, all fixed test-first except the doc lines. It confirmed the server stores `add_lot` labels unchanged and that evidence order is stable, so the label match and the numbering hold across polls.
+
+- **Back to the list was lost by other URL writes (Minor):** every Review URL write now keeps the choice, and it is written only after navigation succeeds, so a blocked navigation leaves it alone. Tested by going back, changing the filter and opening the editor before a remount.
+- **Failed-save test (Minor):** the later lot now has the same label, so only clearing the pending link on `false` keeps the test green; checked by removing the fix.
+- **Numbering across the batch (Minor):** names are numbered once over the whole media snapshot (`evidenceDisplayNames`), so a file reads the same in Capture, Review's viewer, Processing images and the Map. The Map's rows, controls and "From:" lists use the numbered names. Details pairs each numbered name with its identifier.
+- **Map locks while the review is stale (Minor):** the added-lot set falls back to the last accepted review (`approvedLotIds`), since adding is never undone, and split, merge and move are disabled with a note until the latest review is read. Linking stays available.
+- **Nitpick:** the handover lines on numbering and Capture links were corrected.
 

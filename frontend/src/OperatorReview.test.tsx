@@ -1089,3 +1089,18 @@ test('going back to the list is remembered when Review remounts after a save', a
   await screen.findByRole('checkbox', { name: 'Select Packet A' })
   expect(location.hash).toBe(`#${batchId}/review/lots`)
 })
+
+test('going back to the list survives filter changes and the editor before a remount', async () => {
+  const user = userEvent.setup()
+  const first = renderReview()
+  await user.click(await screen.findByText('← Physical lots and selection'))
+  await user.click(screen.getByRole('button', { name: /^Changed/ }))
+  await user.click(screen.getByRole('button', { name: 'Add physical lot' }))
+  first.unmount()
+
+  renderReview()
+  await screen.findByRole('button', { name: /^Changed/ })
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  expect(location.hash).toMatch(new RegExp(`^#${batchId}/review/lots\\?`))
+  expect(location.hash).toContain('filter=changed')
+})

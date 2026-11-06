@@ -15,6 +15,8 @@ type Props = {
   operator?: OperatorReviewClient
   retiredLotIds: ReadonlySet<string>
   approvedLotIds?: ReadonlySet<string>
+  /** True while the latest operator review is unread, so added lots may not be known yet. */
+  restructureUnavailable?: boolean
   reload: () => Promise<void>
   onDirtyChange: (dirty: boolean) => void
 }
@@ -29,6 +31,7 @@ export function ReviewMapStage({
   operator,
   retiredLotIds,
   approvedLotIds = NO_LOTS,
+  restructureUnavailable = false,
   reload,
   onDirtyChange,
 }: Props) {
@@ -124,6 +127,7 @@ export function ReviewMapStage({
           evidence={query.data?.evidence}
           loading={query.isPending}
           approvedLotIds={approvedLotIds}
+          restructureUnavailable={restructureUnavailable}
           retiredLotIds={retiredLotIds}
           disabled={disabled}
           link={link}

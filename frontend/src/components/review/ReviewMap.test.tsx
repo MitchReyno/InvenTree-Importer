@@ -139,4 +139,15 @@ describe('ReviewMap', () => {
     await user.click(screen.getByRole('button', { name: 'Move 1 lot to a Part proposal' }))
     expect(props.openRestructure).toHaveBeenCalledWith('move', ['a'])
   })
+
+  it('locks restructuring until the latest review is read, while links stay available', () => {
+    map({ restructureUnavailable: true })
+
+    expect(screen.getByRole('button', { name: 'Split Packet A' })).toBeDisabled()
+    expect(
+      screen.getByRole('checkbox', { name: 'Choose Packet A to merge or move' }),
+    ).toBeDisabled()
+    expect(screen.getByText(/wait for the latest review/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New lot from this: Stray photo' })).toBeEnabled()
+  })
 })

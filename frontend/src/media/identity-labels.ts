@@ -53,18 +53,10 @@ export function mediaIdentityLabels(evidence: readonly MediaEvidenceDto[]): Medi
  * numbered; identifiers stay in the viewer's Details.
  */
 export function mediaDisplayLabels(evidence: readonly MediaEvidenceDto[]): MediaIdentityLabels {
-  const counts = new Map<string, number>()
-  for (const item of evidence) {
-    counts.set(item.label, (counts.get(item.label) ?? 0) + 1)
-  }
-  const seen = new Map<string, number>()
-  const evidenceLabels = new Map<string, string>()
+  const evidenceLabels = evidenceDisplayNames(evidence)
   const versionLabels = new Map<string, string>()
   for (const item of evidence) {
-    const ordinal = (seen.get(item.label) ?? 0) + 1
-    seen.set(item.label, ordinal)
-    const name = (counts.get(item.label) ?? 0) > 1 ? `${item.label} (${ordinal})` : item.label
-    evidenceLabels.set(item.id, name)
+    const name = evidenceLabels.get(item.id) ?? item.label
     let crops = 0
     for (const version of item.versions) {
       if (version.kind === 'original') {
@@ -76,4 +68,25 @@ export function mediaDisplayLabels(evidence: readonly MediaEvidenceDto[]): Media
     }
   }
   return { evidence: evidenceLabels, versions: versionLabels }
+}
+
+/** Each file's name, numbered in snapshot order when several files share it. */
+export function evidenceDisplayNames(
+  evidence: readonly Pick<MediaEvidenceDto, 'id' | 'label'>[],
+): Map<string, string> {
+  const counts = new Map<string, number>()
+  for (const item of evidence) {
+    counts.set(item.label, (counts.get(item.label) ?? 0) + 1)
+  }
+  const seen = new Map<string, number>()
+  const names = new Map<string, string>()
+  for (const item of evidence) {
+    const ordinal = (seen.get(item.label) ?? 0) + 1
+    seen.set(item.label, ordinal)
+    names.set(
+      item.id,
+      (counts.get(item.label) ?? 0) > 1 ? `${item.label} (${ordinal})` : item.label,
+    )
+  }
+  return names
 }

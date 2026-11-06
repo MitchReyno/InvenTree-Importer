@@ -1,4 +1,5 @@
 import type { CaptureSnapshotDto, MediaSnapshotDto } from '@invimport/contracts'
+import { evidenceDisplayNames } from '../media/identity-labels'
 
 /** A direct link can be unlinked here; a link through the lot's Part belongs to the Part. */
 export type MapLink = { lotId: string; via: 'direct' | 'part' }
@@ -27,6 +28,7 @@ export function reviewMap(
     file.linked_subject_ids.includes(lot.id) ||
     (lot.part_subject_id !== null && file.linked_subject_ids.includes(lot.part_subject_id))
 
+  const names = evidenceDisplayNames(evidence)
   const files: MapFile[] = evidence.map((file) => {
     const links: MapLink[] = lots
       .filter((lot) => supports(file, lot))
@@ -35,7 +37,13 @@ export function reviewMap(
         via: file.linked_subject_ids.includes(lot.id) ? 'direct' : 'part',
       }))
     const lotIds = links.map((link) => link.lotId)
-    return { id: file.id, label: file.label, lotIds, links, unused: lotIds.length === 0 }
+    return {
+      id: file.id,
+      label: names.get(file.id) ?? file.label,
+      lotIds,
+      links,
+      unused: lotIds.length === 0,
+    }
   })
   const mapLots: MapLot[] = lots.map((lot) => {
     const fileIds = evidence.filter((file) => supports(file, lot)).map((file) => file.id)

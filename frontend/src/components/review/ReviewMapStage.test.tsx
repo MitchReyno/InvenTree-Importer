@@ -128,7 +128,7 @@ describe('ReviewMapStage', () => {
           {
             ...batch,
             revision: '5',
-            lots: [...batch.lots, lot('x', 'Somebody else’s lot')],
+            lots: [...batch.lots, lot('x', 'Stray photo')],
           } as unknown as CaptureSnapshotDto
         }
         {...props}
