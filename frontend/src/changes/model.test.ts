@@ -18,6 +18,7 @@ const node = (value: Partial<PreparationNodeDto> & Pick<PreparationNodeDto, 'key
     location_key: null,
     lot_id: null,
     part_subject_id: null,
+    detail: null,
     ...value,
   }) as PreparationNodeDto
 
@@ -133,8 +134,20 @@ describe('preparation views', () => {
       'supplier_part',
       'stock_item',
     ])
+    expect(tree[0].children[0].children[2].node.label).toBe('Lot 1 · 10 · Bin 43')
+    expect(tree[1].children.map((item) => item.node.label)).toEqual([
+      'Lot 2 · 5 · Shelf B',
+      'Lot 3 · 1 · No location',
+    ])
     const byPlace = locationTree(nodes)
     expect(byPlace.map((item) => item.node.label)).toEqual(['Bin 43', 'Shelf B', 'No location'])
+    const lost = locationTree([
+      ...nodes.filter((item) => item.kind !== 'location' || item.key !== 'location:new:x'),
+    ])
+    expect(lost.at(-1)?.children.map((item) => item.node.key)).toEqual([
+      `stock:${lot(2)}`,
+      `stock:${lot(3)}`,
+    ])
     expect(byPlace[0].children[0].children.map((item) => item.node.label)).toEqual(['Bag photo'])
   })
 })
@@ -161,6 +174,30 @@ describe('lots for Ready to add', () => {
           },
         ],
       },
+      {
+        lot_id: lot(5),
+        reviewed: true,
+        issues: [
+          {
+            code: 'warning_unresolved',
+            message: 'Check the warning',
+            lot_id: lot(5),
+            run_id: null,
+          },
+        ],
+      },
+      {
+        lot_id: lot(6),
+        reviewed: true,
+        issues: [
+          {
+            code: 'source_history_unsettled',
+            message: 'An earlier run blocks it',
+            lot_id: lot(6),
+            run_id: null,
+          },
+        ],
+      },
     ],
   }
 
@@ -169,6 +206,8 @@ describe('lots for Ready to add', () => {
     expect(leftOutLots(workspace)).toEqual([
       { lotId: lot(2), reason: 'Not reviewed', filter: 'needs_review' },
       { lotId: lot(3), reason: 'Set it', filter: 'blocking' },
+      { lotId: lot(5), reason: 'Check the warning', filter: 'warnings' },
+      { lotId: lot(6), reason: 'An earlier run blocks it', filter: 'all' },
     ])
   })
 })

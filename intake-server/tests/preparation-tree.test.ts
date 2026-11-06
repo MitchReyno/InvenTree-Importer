@@ -319,3 +319,32 @@ test('an unknown plan version gives no tree', () => {
   const plan = { ...header, version: 'bench-future-plan/9' } as unknown as ExecutablePlan
   assert.equal(preparationTree(plan, preview([stockEffect(lotA, { part_id: '29' })]), label), null)
 })
+
+test('a new record carries what else it sets, and a long name is cut without splitting a character', () => {
+  const plan = effectsPlan('bench-effects-plan/2') as unknown as {
+    parts: { spec: InventoryPartSpecDto }[]
+    locations: { spec: { description: string; parent: string | null } }[]
+  }
+  plan.parts[0].spec = {
+    ...spec,
+    name: `${'Ω'.repeat(511)}😀😀`,
+    description: 'Through-hole',
+    tags: ['SMD', '0603'],
+  }
+  plan.locations[0].spec = { ...plan.locations[0].spec, description: 'Top shelf', parent: '43' }
+  const nodes = preparationTree(
+    plan as unknown as ExecutablePlan,
+    preview([newPartEffect()]),
+    label,
+  )
+  const part = nodes?.find((node) => node.kind === 'part')
+  assert.equal(part?.detail, 'Through-hole · Tags: SMD, 0603')
+  assert.equal(Array.from(part!.label).length, 512)
+  assert.ok(part!.label.endsWith('😀'))
+  assert.equal(
+    nodes?.find((node) => node.key === `location:new:${id(30)}`)?.detail,
+    'Top shelf · Inside location 43',
+  )
+  assert.equal(nodes?.find((node) => node.key === `company:new:${id(31)}`)?.detail, null)
+  assert.equal(nodes?.find((node) => node.kind === 'stock_item')?.detail, null)
+})

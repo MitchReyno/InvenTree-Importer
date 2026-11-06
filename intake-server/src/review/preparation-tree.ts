@@ -5,6 +5,13 @@ import type { ExecutablePlan } from '../execution/media-plan.ts'
 type Node = PreparationNodeDto
 type Label = (observationId: string) => string | undefined
 
+const clip = (text: string) => Array.from(text).slice(0, 512).join('')
+
+const joined = (parts: (string | false | null | undefined)[]) => {
+  const text = parts.filter((part): part is string => Boolean(part)).join(' · ')
+  return text ? clip(text) : null
+}
+
 const KNOWN = new Set([
   'bench-stock-plan/1',
   'bench-media-plan/1',
@@ -28,7 +35,8 @@ export function preparationTree(
   const seen = new Set<string>()
 
   const add = (
-    node: Omit<Node, 'parent_key' | 'location_key' | 'lot_id' | 'part_subject_id'> & Partial<Node>,
+    node: Omit<Node, 'parent_key' | 'location_key' | 'lot_id' | 'part_subject_id' | 'detail'> &
+      Partial<Node>,
   ) => {
     if (seen.has(node.key)) {
       return
@@ -39,8 +47,9 @@ export function preparationTree(
       location_key: null,
       lot_id: null,
       part_subject_id: null,
+      detail: null,
       ...node,
-      label: node.label.slice(0, 512),
+      label: clip(node.label),
     })
   }
 
@@ -77,6 +86,13 @@ export function preparationTree(
       kind: 'company',
       label: company.spec.name,
       state: company.prior ? 'exists' : 'new',
+      detail: company.prior
+        ? null
+        : joined([
+            company.spec.description,
+            company.spec.isManufacturer && 'Also a manufacturer',
+            company.spec.logo && 'Logo sent with the create',
+          ]),
     })
   }
 
@@ -109,6 +125,12 @@ export function preparationTree(
       kind: 'location',
       label: binding.spec.name,
       state: binding.prior ? 'exists' : 'new',
+      detail: binding.prior
+        ? null
+        : joined([
+            binding.spec.description,
+            binding.spec.parent && `Inside location ${binding.spec.parent}`,
+          ]),
     })
   }
 
@@ -137,6 +159,12 @@ export function preparationTree(
       state: binding.prior ? 'exists' : 'new',
       parent_key: `category:${binding.spec.category.pk}`,
       part_subject_id: binding.subjectId,
+      detail: binding.prior
+        ? null
+        : joined([
+            binding.spec.description,
+            binding.spec.tags.length > 0 && `Tags: ${binding.spec.tags.join(', ')}`,
+          ]),
     })
   }
   for (const operation of plan.operations) {

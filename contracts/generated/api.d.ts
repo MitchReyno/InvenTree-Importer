@@ -6660,6 +6660,7 @@ export interface components {
             key: string;
             kind: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter" | "location" | "stock_item" | "attachment";
             label: string;
+            detail: string | null;
             state: "new" | "update" | "exists" | "choose";
             parent_key: string | null;
             location_key: string | null;
@@ -6673,6 +6674,7 @@ export interface components {
                 key: string;
                 kind: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter" | "location" | "stock_item" | "attachment";
                 label: string;
+                detail: string | null;
                 state: "new" | "update" | "exists" | "choose";
                 parent_key: string | null;
                 location_key: string | null;

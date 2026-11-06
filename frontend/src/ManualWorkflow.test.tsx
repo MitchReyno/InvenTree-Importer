@@ -388,7 +388,7 @@ test('manual review and approval keep exact A-only scope, scalar text and server
   expect(screen.getByText('Left out')).toBeVisible()
   expect(screen.getByRole('link', { name: 'Packet B' })).toHaveAttribute(
     'href',
-    `#${batchId}/review/lots?filter=needs_review`,
+    `#${batchId}/review/lots/${b}?filter=needs_review`,
   )
   expect(screen.getByText('Packet A · 0.000001')).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Approve 1 lot and add to InvenTree' }))

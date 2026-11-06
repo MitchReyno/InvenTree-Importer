@@ -4,6 +4,7 @@ import type { TreeItem } from '../../changes/model'
 import { STATE_LABELS } from '../../changes/model'
 import { color, radius, space } from '../../theme/generated/tokens'
 import { Pill, type PillTone } from '../ui/Pill'
+import { Small } from '../ui/primitives'
 
 export const STATE_TONE: Record<keyof typeof STATE_LABELS, PillTone> = {
   new: 'acc',
@@ -12,7 +13,13 @@ export const STATE_TONE: Record<keyof typeof STATE_LABELS, PillTone> = {
   choose: 'warn',
 }
 
-type Visible = { item: TreeItem; level: number; parent: string | null }
+type Visible = {
+  item: TreeItem
+  level: number
+  parent: string | null
+  position: number
+  size: number
+}
 
 /** A WAI-ARIA tree: one tab stop; arrows move, expand and collapse; Home and End jump. */
 export function PreparationTreeView({ label, items }: { label: string; items: TreeItem[] }) {
@@ -24,12 +31,12 @@ export function PreparationTreeView({ label, items }: { label: string; items: Tr
     const rows: Visible[] = []
 
     const walk = (list: TreeItem[], level: number, parent: string | null) => {
-      for (const item of list) {
-        rows.push({ item, level, parent })
+      list.forEach((item, index) => {
+        rows.push({ item, level, parent, position: index + 1, size: list.length })
         if (item.children.length && !collapsed.has(item.node.key)) {
           walk(item.children, level + 1, item.node.key)
         }
-      }
+      })
     }
 
     walk(items, 1, null)
@@ -109,6 +116,8 @@ export function PreparationTreeView({ label, items }: { label: string; items: Tr
             }}
             role="treeitem"
             aria-level={row.level}
+            aria-setsize={row.size}
+            aria-posinset={row.position}
             aria-expanded={children.length ? !collapsed.has(node.key) : undefined}
             aria-selected={node.key === current}
             tabIndex={node.key === current ? 0 : -1}
@@ -125,7 +134,10 @@ export function PreparationTreeView({ label, items }: { label: string; items: Tr
             <span aria-hidden="true">
               {children.length ? (collapsed.has(node.key) ? '▸' : '▾') : '·'}
             </span>
-            <span>{node.label}</span>
+            <Label>
+              {node.label}
+              {node.detail && <Small>{node.detail}</Small>}
+            </Label>
             <Pill tone={STATE_TONE[node.state]}>{STATE_LABELS[node.state]}</Pill>
           </Row>
         )
@@ -134,6 +146,10 @@ export function PreparationTreeView({ label, items }: { label: string; items: Tr
   )
 }
 
+const Label = styled.span`
+  display: grid;
+  gap: 2px;
+`
 const Tree = styled.ul`
   display: grid;
   gap: 2px;

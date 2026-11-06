@@ -72,7 +72,13 @@ export function ReadyToAdd({
   const scope = useServerScope()
   const [view, setView] = useState<'type' | 'tree'>('type')
   const [grouping, setGrouping] = useState<'category' | 'location'>('category')
-  const [untickedAll, setUntickedAll] = useState(false)
+  // The operator's ticks; null follows the shown preparation (or every ready lot before one).
+  const [chosen, setChosen] = useState<string[] | null>(null)
+  const [chosenFor, setChosenFor] = useState(preview?.id)
+  if (chosenFor !== preview?.id) {
+    setChosenFor(preview?.id)
+    setChosen(null)
+  }
   const treeQuery = useQuery({
     queryKey: serverQueryKey(scope, 'preparation-tree', preview?.id ?? ''),
     queryFn: () => readTree!(preview!.id),
@@ -87,7 +93,13 @@ export function ReadyToAdd({
   const counts = summary(nodes)
 
   const ready = [...new Set([...(preview?.selected_lot_ids ?? []), ...readyLotIds(workspace)])]
-  const ticked = untickedAll ? [] : (preview?.selected_lot_ids ?? ready.slice(0, MAX_PREPARED_LOTS))
+  const ticked = chosen ?? preview?.selected_lot_ids ?? ready.slice(0, MAX_PREPARED_LOTS)
+  const untickedAll = ticked.length === 0
+  // Approval waits while the shown preparation is not exactly the ticked lots.
+  const matches =
+    preview !== null &&
+    ticked.length === preview.selected_lot_ids.length &&
+    ticked.every((lot) => preview.selected_lot_ids.includes(lot))
   const leftOut = leftOutLots(workspace)
 
   const lotLabel = (id: string) => batch.lots.find((lot) => lot.id === id)?.label ?? 'Another lot'
@@ -108,17 +120,13 @@ export function ReadyToAdd({
 
   function toggle(id: string) {
     const next = ticked.includes(id) ? ticked.filter((value) => value !== id) : [...ticked, id]
-    if (next.length === 0) {
-      setUntickedAll(true)
-      return
-    }
-    setUntickedAll(false)
-    if (preview) {
+    setChosen(next)
+    if (preview && next.length > 0) {
       prepareLots(next)
     }
   }
 
-  const approvable = !busy && current && !untickedAll && !batch.archived
+  const approvable = !busy && current && matches && !batch.archived
   const lots = preview?.effects.length ?? 0
 
   return (
@@ -150,7 +158,7 @@ export function ReadyToAdd({
               </CheckboxLabel>
             ))}
             {untickedAll && <Small role="status">Tick at least one lot to add.</Small>}
-            {(!preview || untickedAll) && ticked.length > 0 && (
+            {!matches && ticked.length > 0 && (preview === null || !busy) && (
               <Button disabled={busy} onClick={() => prepareLots(ticked)}>
                 Show what will change
               </Button>
@@ -165,7 +173,7 @@ export function ReadyToAdd({
                 <li key={lot.lotId}>
                   <Link
                     href={reviewHash(batch.id, {
-                      lotId: null,
+                      lotId: lot.lotId,
                       view: 'evidence',
                       filter: lot.filter,
                     })}
@@ -186,7 +194,6 @@ export function ReadyToAdd({
               onChange={(event) => {
                 const value = workspace.preparations.find((item) => item.id === event.target.value)
                 if (value) {
-                  setUntickedAll(false)
                   choose(value)
                 }
               }}
@@ -249,7 +256,12 @@ export function ReadyToAdd({
                     id: node.key,
                     label: node.label,
                     href: hrefFor(node),
-                    pill: <Pill tone={STATE_TONE[node.state]}>{STATE_LABELS[node.state]}</Pill>,
+                    pill: (
+                      <>
+                        <Pill tone={STATE_TONE[node.state]}>{STATE_LABELS[node.state]}</Pill>
+                        {node.detail && <Small>{node.detail}</Small>}
+                      </>
+                    ),
                   })),
                 }))}
               />

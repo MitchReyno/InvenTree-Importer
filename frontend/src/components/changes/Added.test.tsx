@@ -90,6 +90,31 @@ const uncertain = run(2, {
       verification: null,
       recovery_action: null,
     },
+    // As the server builds them: one create per stock operation, owned by the lot.
+    {
+      operation_key: lotB,
+      part_subject_id: lotB,
+      kind: 'create_stock',
+      label: 'Create stock',
+      dependencies: [],
+      inputs: {},
+      certainty: 'unknown',
+      remote_pks: ['7102'],
+      verification: null,
+      recovery_action: null,
+    },
+    {
+      operation_key: id(802),
+      part_subject_id: partSubject,
+      kind: 'manufacturer',
+      label: 'Create manufacturer relationship',
+      dependencies: [],
+      inputs: {},
+      certainty: 'none',
+      remote_pks: [],
+      verification: null,
+      recovery_action: 'resume_effect',
+    },
   ] as ManualRunDto['supported_effects'],
 })
 
@@ -170,9 +195,7 @@ describe('Added', () => {
     const { command, rerender } = setup([uncertain])
     const round = screen.getByRole('region', { name: 'Round 2' })
     expect(round).toHaveTextContent('Packet B is being checked by its import reference')
-    expect(
-      within(round).queryByRole('button', { name: /create|resume|retry/i }),
-    ).not.toBeInTheDocument()
+    expect(within(round).queryByRole('button', { name: /Packet B/ })).not.toBeInTheDocument()
     expect(command).not.toHaveBeenCalled()
 
     const resolved = run(2, {
@@ -198,6 +221,29 @@ describe('Added', () => {
     expect(
       screen.getByRole('link', { name: 'Fix in Review: Create mapped parameter' }),
     ).toHaveAttribute('href', `#${batch.id}/review/records/part/${partSubject}`)
+  })
+
+  it('offers Fix in Review only for a Part value with nothing to resume, in a round not cancelled', () => {
+    const { rerender, command } = setup([uncertain])
+    expect(
+      screen.getAllByRole('link', { name: /Fix in Review/ }).map((link) => link.textContent),
+    ).toEqual(['Fix in Review: Create mapped parameter'])
+    expect(
+      screen.getByRole('button', { name: /Resume selected original effect: Create manufacturer/ }),
+    ).toBeVisible()
+
+    const cancelled = { ...uncertain, cancellation_requested: true }
+    rerender(
+      <Added
+        batch={batch}
+        workspace={workspace([cancelled])}
+        busy={false}
+        command={command}
+        targetUrl={null}
+      />,
+    )
+    expect(screen.queryByRole('link', { name: /Fix in Review/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Outcome' })).toHaveTextContent('0 to fix')
   })
 
   it('lists pending changes, lots not included and the activity log', () => {

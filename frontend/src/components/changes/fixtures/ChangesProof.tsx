@@ -166,6 +166,7 @@ function treeFor(shown: ManualPreviewDto): PreparationNodeDto[] {
         location_key: null,
         lot_id: null,
         part_subject_id: null,
+        detail: null,
         ...node,
       })
     }

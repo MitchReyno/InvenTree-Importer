@@ -25,6 +25,8 @@ export const PreparationNode = object({
   key: Type.String({ minLength: 1, maxLength: 160 }),
   kind: choice(PREPARATION_NODE_KINDS),
   label: Type.String({ minLength: 1, maxLength: 512 }),
+  /** What else a new record carries, such as a Part's description and tags. */
+  detail: Type.Union([Type.String({ minLength: 1, maxLength: 512 }), Type.Null()]),
   state: choice(['new', 'update', 'exists', 'choose'] as const),
   parent_key: Type.Union([Type.String({ minLength: 1, maxLength: 160 }), Type.Null()]),
   location_key: Type.Union([Type.String({ minLength: 1, maxLength: 160 }), Type.Null()]),

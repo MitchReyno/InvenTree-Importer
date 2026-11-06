@@ -170,9 +170,10 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
     - decisions needed.
   - `GET /api/v1/preparations/:id/tree`, alongside the existing `/api/v1/preparations/:id/approvals`. It returns a deterministic hierarchy computed when read from that preparation's stored plan.
     - It never alters `ManualPreparationResult`, `ManualPreview`, `preview_bytes` or `response_bytes`, all of which are byte-compared or re-validated on replay (`runs.ts`, `preparations.ts`).
-    - Plans in `bench-effects-plan/1` and `/2` produce the full Category › Part › manufacturer part › supplier part hierarchy, with parameters, stock and images.
-    - Plans in `bench-stock-plan/1` and `bench-media-plan/1` produce Part › stock item › location, and Part › attachment.
-    - An unknown plan version returns `tree: null`, and the UI offers By type only.
+    - It returns one flat list of records, each once, with a parent (its category, Part or stock item) and, for a stock item, its location; the By type view and the Tree view (by category or by location) are built from that list.
+    - Plans in `bench-effects-plan/1` and `/2` give Category › Part, with the Part's parameters, manufacturer part, supplier part, stock items and attachments under it; new locations and companies are listed with what they set.
+    - Plans in `bench-stock-plan/1` and `bench-media-plan/1` give each existing Part with its stock items (located by location) and their attachments.
+    - An unknown plan version returns `nodes: null`, and the UI offers By type only, from the preview.
   - The tree and the By type view come from the same stored plan, so they cannot disagree.
 - **Rejected.**
   - Adding the tree to the preparation response, which would break replay of stored results.

@@ -41,12 +41,20 @@ const STATES: Record<ManualRunDto['state'], string> = {
 export const activeRun = (run: ManualRunDto) =>
   ['queued', 'running', 'stopping'].includes(run.state) && run.dispatch_state !== 'not_requested'
 
-/** A value InvenTree did not take: no effect, in a round that has finished. */
+const PART_VALUES = new Set(['create_part', 'parameter', 'manufacturer', 'supplier'])
+
+/**
+ * A Part value InvenTree did not take: in a finished round that was not cancelled, it has no
+ * result and nothing to resume or inspect, so the fix is in Review.
+ */
 export function toFix(run: ManualRunDto) {
   const finished = run.state === 'settled_incomplete' || run.state === 'recovery_required'
-  return finished
+  return finished && !run.cancellation_requested
     ? (run.supported_effects ?? []).filter(
-        (effect) => effect.certainty === 'none' && effect.recovery_action !== 'verify_effect',
+        (effect) =>
+          PART_VALUES.has(effect.kind) &&
+          effect.certainty === 'none' &&
+          effect.recovery_action === null,
       )
     : []
 }

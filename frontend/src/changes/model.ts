@@ -52,9 +52,21 @@ function nest(roots: Node[], childrenOf: (node: Node) => Node[]): TreeItem[] {
   return roots.map((node) => ({ node, children: nest(childrenOf(node), childrenOf) }))
 }
 
-/** Category › Part › its records and stock; companies and locations are named on their rows. */
+/** Category › Part › its records and stock; a stock item names its location on its row. */
 export function categoryTree(nodes: Node[]): TreeItem[] {
-  const shown = nodes.filter((node) => node.kind !== 'company' && node.kind !== 'location')
+  const places = new Map(
+    nodes.filter((node) => node.kind === 'location').map((node) => [node.key, node.label]),
+  )
+  const shown = nodes
+    .filter((node) => node.kind !== 'company' && node.kind !== 'location')
+    .map((node) =>
+      node.kind === 'stock_item'
+        ? {
+            ...node,
+            label: `${node.label} · ${(node.location_key && places.get(node.location_key)) || 'No location'}`,
+          }
+        : node,
+    )
   const keys = new Set(shown.map((node) => node.key))
   return nest(
     shown.filter((node) => node.parent_key === null || !keys.has(node.parent_key)),
@@ -71,13 +83,15 @@ const NO_LOCATION: Node = {
   location_key: null,
   lot_id: null,
   part_subject_id: null,
+  detail: null,
 }
 
 /** Location › stock item › its attachments. */
 export function locationTree(nodes: Node[]): TreeItem[] {
   const stock = nodes.filter((node) => node.kind === 'stock_item')
   const roots = nodes.filter((node) => node.kind === 'location')
-  if (stock.some((node) => node.location_key === null)) {
+  const known = new Set(roots.map((node) => node.key))
+  if (stock.some((node) => node.location_key === null || !known.has(node.location_key))) {
     roots.push(NO_LOCATION)
   }
   const keys = new Set(roots.map((node) => node.key))
@@ -108,13 +122,28 @@ export function readyLotIds(workspace: Pick<ManualWorkspaceDto, 'lots'>) {
 /** Lots not ready to add, with the Review filter that shows why; added lots are in Added. */
 export type LeftOutLot = { lotId: string; reason: string; filter: ReviewFilter }
 
+/** The Review filter that lists a lot with this issue; others open the lot under All. */
+const ISSUE_FILTERS: Record<string, ReviewFilter> = {
+  part_choice_required: 'blocking',
+  quantity_required: 'blocking',
+  location_required: 'blocking',
+  location_conflict: 'blocking',
+  location_groups_unavailable: 'blocking',
+  location_draft_parent_invalid: 'blocking',
+  warning_unresolved: 'warnings',
+  changed_after_review: 'changed',
+}
+
 export function leftOutLots(workspace: Pick<ManualWorkspaceDto, 'lots'>): LeftOutLot[] {
   return workspace.lots.flatMap((lot): LeftOutLot[] => {
     if (lot.issues.some((issue) => issue.code === APPROVED)) {
       return []
     }
     if (lot.issues.length > 0) {
-      return [{ lotId: lot.lot_id, reason: lot.issues[0].message, filter: 'blocking' }]
+      const issue = lot.issues[0]
+      return [
+        { lotId: lot.lot_id, reason: issue.message, filter: ISSUE_FILTERS[issue.code] ?? 'all' },
+      ]
     }
     return lot.reviewed
       ? []
@@ -130,7 +159,8 @@ export function previewNodes(preview: ManualPreviewDto): Node[] {
   const nodes = new Map<string, Node>()
 
   const add = (
-    node: Omit<Node, 'parent_key' | 'location_key' | 'lot_id' | 'part_subject_id'> & Partial<Node>,
+    node: Omit<Node, 'parent_key' | 'location_key' | 'lot_id' | 'part_subject_id' | 'detail'> &
+      Partial<Node>,
   ) => {
     if (!nodes.has(node.key)) {
       nodes.set(node.key, {
@@ -138,6 +168,7 @@ export function previewNodes(preview: ManualPreviewDto): Node[] {
         location_key: null,
         lot_id: null,
         part_subject_id: null,
+        detail: null,
         ...node,
       })
     }

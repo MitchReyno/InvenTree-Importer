@@ -22771,6 +22771,7 @@
           "key",
           "kind",
           "label",
+          "detail",
           "state",
           "parent_key",
           "location_key",
@@ -22827,6 +22828,18 @@
             "minLength": 1,
             "maxLength": 512,
             "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "state": {
             "anyOf": [
@@ -22926,6 +22939,7 @@
                     "key",
                     "kind",
                     "label",
+                    "detail",
                     "state",
                     "parent_key",
                     "location_key",
@@ -22982,6 +22996,18 @@
                       "minLength": 1,
                       "maxLength": 512,
                       "type": "string"
+                    },
+                    "detail": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "maxLength": 512,
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "state": {
                       "anyOf": [

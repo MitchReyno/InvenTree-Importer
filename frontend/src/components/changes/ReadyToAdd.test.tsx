@@ -59,12 +59,19 @@ const node = (value: Partial<PreparationNodeDto> & Pick<PreparationNodeDto, 'key
     location_key: null,
     lot_id: null,
     part_subject_id: null,
+    detail: null,
     ...value,
   }) as PreparationNodeDto
 
 const treeNodes = [
   node({ key: 'category:81', kind: 'category', label: 'Resistors', state: 'exists' }),
-  node({ key: 'part:p', kind: 'part', label: 'New resistor', parent_key: 'category:81' }),
+  node({
+    key: 'part:p',
+    kind: 'part',
+    label: 'New resistor',
+    parent_key: 'category:81',
+    detail: 'Through-hole · Tags: SMD',
+  }),
   node({
     key: 'parameter:p',
     kind: 'parameter',
@@ -89,12 +96,12 @@ const treeNodes = [
 
 function setup(
   options: {
-    shown?: ManualPreviewDto
+    shown?: ManualPreviewDto | null
     current?: ManualPreviewDto[]
     tree?: PreparationNodeDto[] | null
   } = {},
 ) {
-  const shown = options.shown ?? preview(lots)
+  const shown = options.shown === undefined ? preview(lots) : options.shown
   const prepareLots = vi.fn()
   const approve = vi.fn()
   const readTree = vi.fn(async (preparationId: string): Promise<PreparationTreeDto> => ({
@@ -104,9 +111,9 @@ function setup(
   }))
   const props = {
     batch,
-    workspace: workspace(options.current ?? [shown]),
+    workspace: workspace(options.current ?? (shown ? [shown] : [])),
     preview: shown,
-    pinnedPreparationId: shown.id,
+    pinnedPreparationId: shown?.id,
     busy: false,
     choose: vi.fn(),
     prepareLots,
@@ -146,6 +153,16 @@ describe('ReadyToAdd', () => {
     expect(screen.getByRole('checkbox', { name: 'Packet B' })).not.toBeChecked()
   })
 
+  it('before anything is prepared, the ticked lots are the ones prepared', async () => {
+    const user = userEvent.setup()
+    const { prepareLots } = setup({ shown: null })
+    await user.click(screen.getByRole('checkbox', { name: 'Packet B' }))
+    expect(screen.getByRole('checkbox', { name: 'Packet B' })).not.toBeChecked()
+    expect(prepareLots).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Show what will change' }))
+    expect(prepareLots).toHaveBeenCalledWith([lots[0], lots[2]])
+  })
+
   it('a preparation that is no longer current cannot be approved', () => {
     setup({ current: [] })
     expect(screen.getByText(/This preparation is no longer current/)).toBeVisible()
@@ -161,6 +178,9 @@ describe('ReadyToAdd', () => {
     expect(
       screen.getByRole('region', { name: 'Changes to existing records, 1' }),
     ).toHaveTextContent('S-47 · DigiKey')
+    expect(screen.getByRole('region', { name: 'Parts, 1' })).toHaveTextContent(
+      'Through-hole · Tags: SMD',
+    )
     expect(screen.getByRole('link', { name: 'Packet A · 10' })).toHaveAttribute(
       'href',
       `#${batch.id}/review/lots/${lots[0]}`,
@@ -180,8 +200,11 @@ describe('ReadyToAdd', () => {
       expect.stringMatching(/New resistor.*New/),
       expect.stringMatching(/Resistance: 4.7 kΩ.*New/),
       expect.stringMatching(/S-47 · DigiKey.*Update/),
-      expect.stringMatching(/Packet A · 10.*New/),
+      expect.stringMatching(/Packet A · 10 · No location.*New/),
     ])
+    expect(items()[1]).toHaveAttribute('aria-posinset', '1')
+    expect(items()[2]).toHaveAttribute('aria-setsize', '3')
+    expect(items()[4]).toHaveAttribute('aria-posinset', '3')
     items()[0].focus()
     await user.keyboard('{ArrowDown}')
     expect(items()[1]).toHaveFocus()
