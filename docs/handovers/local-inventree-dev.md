@@ -126,3 +126,9 @@ Checked on 2026-11-06 with Docker Compose v5.6.1 on arm64, in a throwaway projec
   - an image upgrade stops the old server and worker before init migrates;
   - the held-lock test uses a live holder with a nonce. Dropping the liveness check now fails it;
   - the database reset ignores supervisor locks of dead processes and names live ones.
+- **Round 3** (fresh reviewer, `8b4e548`) found no Critical or Important issues, two Minor ones and one Nitpick. It confirmed that the round-1 and round-2 fixes caused no regressions. Fixed:
+  - a newly created `inventree` database (for example after the server is re-created) gets the first-run init timeout;
+  - a plain `reset --yes` refuses while a live `local-inventree` supervisor uses the instance;
+  - if a stale-lock takeover cannot restore a newer lock because a third run locked in the gap, the moved lock is kept and the run stops with `inventree_dev_lock_contended`.
+
+  Accepted limit: that three-way race can still leave the original holder's lock moved aside. It needs three simultaneous `up`/`seed`/`reset` runs and is reported, not hidden.

@@ -516,3 +516,57 @@ test('the database reset ignores supervisor locks of dead processes and names li
     await rm(h.root, { recursive: true })
   }
 })
+
+test('a freshly created InvenTree database gets the first-run init timeout', async () => {
+  const h = await harness()
+  try {
+    await writeFile(
+      join(h.stateDir, 'inventree-dev.json'),
+      JSON.stringify({ ...validState, tokens }),
+      {
+        mode: 0o600,
+      },
+    )
+    await lib.up(h.ctx)
+    const init = h.seen.find(({ args }) => lib.composeSubcommand(args) === 'up-init')
+    assert.equal(
+      init.options.timeoutMs,
+      600_000,
+      'the fake reports no inventree database, so one is created',
+    )
+  } finally {
+    await rm(h.root, { recursive: true })
+  }
+})
+
+test('a plain reset refuses while a live local-inventree app uses the instance', async () => {
+  const h = await harness({
+    volumes: [{ Name: 'bench-inventree-dev-db', Labels: 'bench-intake.owner=inventree-dev' }],
+  })
+  try {
+    const base = join(h.ctx.home, '.local/state/bench-intake')
+    await mkdir(join(base, 'local-inventree-abc'), { recursive: true })
+    await writeFile(
+      join(base, 'local-inventree-abc/supervisor.lock'),
+      JSON.stringify({ pid: process.pid, nonce: 'y' }),
+    )
+    await mkdir(join(base, 'app-live'), { recursive: true })
+    await writeFile(
+      join(base, 'app-live/supervisor.lock'),
+      JSON.stringify({ pid: process.pid, nonce: 'z' }),
+    )
+    await assert.rejects(
+      lib.reset(h.ctx, { yes: true, restart: false }),
+      /reset_refused_supervisor_running/,
+    )
+    assert(h.log.some((line) => line.includes('local-inventree-abc')))
+    assert(
+      !h.log.some((line) => line.includes('app-live')),
+      'a fake-profile app does not use InvenTree',
+    )
+    await rm(join(base, 'local-inventree-abc'), { recursive: true })
+    await lib.reset(h.ctx, { yes: true, restart: false })
+  } finally {
+    await rm(h.root, { recursive: true })
+  }
+})

@@ -249,6 +249,7 @@ async function ensureDatabase(ctx, state) {
   if (!database.rowCount) await ctx.query('CREATE DATABASE inventree OWNER inventree')
   await ctx.query('REVOKE CONNECT ON DATABASE inventree FROM PUBLIC')
   await ctx.query('GRANT CONNECT ON DATABASE inventree TO inventree')
+  return { created: !database.rowCount }
 }
 
 async function logTail(ctx, service, state) {
@@ -258,7 +259,7 @@ async function logTail(ctx, service, state) {
   ctx.log(redact(`${logs.stdout ?? ''}${logs.stderr ?? ''}`, secretsOf(ctx, state)))
 }
 
-async function runInit(ctx, state) {
+async function runInit(ctx, state, { fresh = false } = {}) {
   const removeInit = () =>
     ctx.docker(composeArgs(ctx, 'rm', '-fsv', 'inventree-init'), { allowFailure: true })
   await removeInit()
@@ -274,7 +275,9 @@ async function runInit(ctx, state) {
     const result = await ctx.docker(
       composeArgs(ctx, 'up', '--no-deps', '--exit-code-from', 'inventree-init', 'inventree-init'),
       {
-        timeoutMs: state.initialized && !upgrading ? INIT_TIMEOUT_MS.later : INIT_TIMEOUT_MS.first,
+        // A new database or image migrates from scratch, like a first run.
+        timeoutMs:
+          state.initialized && !upgrading && !fresh ? INIT_TIMEOUT_MS.later : INIT_TIMEOUT_MS.first,
         quiet: true,
       },
     )
@@ -352,7 +355,12 @@ async function withLock(ctx, action) {
       }
       if ((await lockHolder(aside))?.nonce !== holder.nonce) {
         // A newer lock replaced the stale one; restore it without overwriting any later one.
-        await link(aside, path).catch(() => {})
+        try {
+          await link(aside, path)
+        } catch {
+          // A third run locked in the gap. Keep the moved lock for inspection and stop loudly.
+          throw refuse('inventree_dev_lock_contended')
+        }
         await rm(aside, { force: true })
         throw refuse('inventree_dev_lock_held')
       }
@@ -374,12 +382,12 @@ async function upUnlocked(ctx, options = {}) {
   await ownedVolume(ctx, DATA_VOLUME)
   const state = await ensureState(ctx)
   await writeEnvFiles(ctx, state)
-  await ensureDatabase(ctx, state)
+  const database = await ensureDatabase(ctx, state)
   if (state.image !== IMAGE) {
     // The old image must not keep serving while init migrates the schema for the new one.
     await docker(ctx, composeArgs(ctx, 'rm', '-fsv', 'inventree-server', 'inventree-worker'))
   }
-  await runInit(ctx, state)
+  await runInit(ctx, state, { fresh: database.created })
   // The init run passed the tokens it reused or issued; keep init's env in step for next time.
   await writeEnvFiles(ctx, state)
   const server = await ctx.docker(
@@ -423,7 +431,7 @@ async function down(ctx) {
 }
 
 /** Namespaces whose supervisor.lock names a live process (or cannot be read). */
-async function supervisorLocks(ctx) {
+async function supervisorLocks(ctx, prefix = '') {
   const roots = new Set([ctx.stateDir, join(ctx.home, '.local/state/bench-intake')])
   const held = []
   for (const root of roots) {
@@ -433,7 +441,9 @@ async function supervisorLocks(ctx) {
     } catch {
       continue
     }
-    for (const entry of entries.filter((item) => item.isDirectory())) {
+    for (const entry of entries.filter(
+      (item) => item.isDirectory() && item.name.startsWith(prefix),
+    )) {
       const lock = join(root, entry.name, 'supervisor.lock')
       let text
       try {
@@ -454,15 +464,16 @@ async function supervisorLocks(ctx) {
 async function reset(ctx, options = {}) {
   if (!options.yes) throw refuse('reset_requires_yes')
   return withLock(ctx, async () => {
-    if (options.databaseServer) {
-      if (ctx.env.INTAKE_APP_STATE) throw refuse('reset_refused_explicit_app_state')
-      const held = await supervisorLocks(ctx)
-      if (held.length) {
-        ctx.log(
-          `A development app may be using the database server:\n${held.map((path) => `  ${path}`).join('\n')}`,
-        )
-        throw refuse('reset_refused_supervisor_running')
-      }
+    if (options.databaseServer && ctx.env.INTAKE_APP_STATE) {
+      throw refuse('reset_refused_explicit_app_state')
+    }
+    // Any app may use the database server; only local-inventree apps read this instance.
+    const held = await supervisorLocks(ctx, options.databaseServer ? '' : 'local-inventree-')
+    if (held.length) {
+      ctx.log(
+        `A development app may be using ${options.databaseServer ? 'the database server' : 'this InvenTree'}:\n${held.map((path) => `  ${path}`).join('\n')}`,
+      )
+      throw refuse('reset_refused_supervisor_running')
     }
     const hasData = await ownedVolume(ctx, DATA_VOLUME)
     const hasDatabase = await ownedVolume(ctx, DB_VOLUME)
