@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   agentsClient,
   attentionClient,
+  recordsClient,
   captureClient,
   catalogueClient,
   inboxClient,
@@ -104,6 +105,11 @@ export default function App() {
       bootstrap?.csrf_token ? attentionClient(location.origin, bootstrap.csrf_token) : undefined,
     [bootstrap?.csrf_token],
   )
+  const records = useMemo(
+    () =>
+      bootstrap?.csrf_token ? recordsClient(location.origin, bootstrap.csrf_token) : undefined,
+    [bootstrap?.csrf_token],
+  )
   const header = useMemo(
     () => (bootstrap?.csrf_token ? headerClient(location.origin, bootstrap.csrf_token) : null),
     [bootstrap?.csrf_token],
@@ -162,6 +168,7 @@ export default function App() {
         operator={operator}
         catalogue={catalogue}
         attention={attention}
+        records={records}
         route={route}
         onDirtyChange={onDirtyChange}
       />

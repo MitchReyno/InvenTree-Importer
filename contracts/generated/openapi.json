@@ -2600,6 +2600,47 @@
         }
       ]
     },
+    "/api/v1/batches/{id}/records": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "BatchRecords",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchRecords"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ]
+    },
     "/api/v1/batches/{id}/issue-dispositions": {
       "post": {
         "x-intake-client": {
@@ -5539,6 +5580,12 @@
                     "maxLength": 256,
                     "type": "string"
                   },
+                  "description": {
+                    "minLength": 1,
+                    "maxLength": 250,
+                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                    "type": "string"
+                  },
                   "category": {
                     "additionalProperties": false,
                     "type": "object",
@@ -8100,6 +8147,12 @@
                                 "maxLength": 256,
                                 "type": "string"
                               },
+                              "description": {
+                                "minLength": 1,
+                                "maxLength": 250,
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                                "type": "string"
+                              },
                               "category": {
                                 "additionalProperties": false,
                                 "type": "object",
@@ -9084,6 +9137,642 @@
                         }
                       ]
                     }
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "target",
+                  "operation"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "record",
+                    "type": "string"
+                  },
+                  "target": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "role",
+                          "pk"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "company",
+                            "type": "string"
+                          },
+                          "role": {
+                            "anyOf": [
+                              {
+                                "const": "manufacturer",
+                                "type": "string"
+                              },
+                              {
+                                "const": "supplier",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "pk": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "pk"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "parameter_template",
+                            "type": "string"
+                          },
+                          "pk": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "part_subject_id"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "part",
+                            "type": "string"
+                          },
+                          "part_subject_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "part_subject_id"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "anyOf": [
+                              {
+                                "const": "manufacturer_part",
+                                "type": "string"
+                              },
+                              {
+                                "const": "supplier_part",
+                                "type": "string"
+                              }
+                            ]
+                          },
+                          "part_subject_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "part_subject_id",
+                          "template_pk"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "parameter",
+                            "type": "string"
+                          },
+                          "part_subject_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "template_pk": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "operation": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "op",
+                          "reference"
+                        ],
+                        "properties": {
+                          "op": {
+                            "const": "map_to_existing",
+                            "type": "string"
+                          },
+                          "reference": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "const": "company",
+                                "type": "string"
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "op",
+                          "template",
+                          "category_mappings",
+                          "exclude_parts"
+                        ],
+                        "properties": {
+                          "op": {
+                            "const": "map_template",
+                            "type": "string"
+                          },
+                          "template": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "const": "parameter_template",
+                                "type": "string"
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "category_mappings": {
+                            "maxItems": 32,
+                            "type": "array",
+                            "items": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "observation_id",
+                                "target_context_id",
+                                "model",
+                                "pk"
+                              ],
+                              "properties": {
+                                "observation_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "target_context_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "model": {
+                                  "const": "category_parameter",
+                                  "type": "string"
+                                },
+                                "pk": {
+                                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                  "format": "int64",
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          },
+                          "exclude_parts": {
+                            "maxItems": 100,
+                            "uniqueItems": true,
+                            "type": "array",
+                            "items": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "op",
+                          "reference",
+                          "parameter_mappings",
+                          "drop_parameters"
+                        ],
+                        "properties": {
+                          "op": {
+                            "const": "set_category",
+                            "type": "string"
+                          },
+                          "reference": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "const": "category",
+                                "type": "string"
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "parameter_mappings": {
+                            "maxItems": 32,
+                            "type": "array",
+                            "items": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "template_pk",
+                                "category_mapping"
+                              ],
+                              "properties": {
+                                "template_pk": {
+                                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                  "format": "int64",
+                                  "type": "string"
+                                },
+                                "category_mapping": {
+                                  "additionalProperties": false,
+                                  "type": "object",
+                                  "required": [
+                                    "observation_id",
+                                    "target_context_id",
+                                    "model",
+                                    "pk"
+                                  ],
+                                  "properties": {
+                                    "observation_id": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "target_context_id": {
+                                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                      "type": "string"
+                                    },
+                                    "model": {
+                                      "const": "category_parameter",
+                                      "type": "string"
+                                    },
+                                    "pk": {
+                                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                      "format": "int64",
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "drop_parameters": {
+                            "maxItems": 32,
+                            "uniqueItems": true,
+                            "type": "array",
+                            "items": {
+                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                              "format": "int64",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "op",
+                          "value"
+                        ],
+                        "properties": {
+                          "op": {
+                            "const": "set_name",
+                            "type": "string"
+                          },
+                          "value": {
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "op",
+                          "tags"
+                        ],
+                        "properties": {
+                          "op": {
+                            "const": "set_tags",
+                            "type": "string"
+                          },
+                          "tags": {
+                            "maxItems": 32,
+                            "uniqueItems": true,
+                            "type": "array",
+                            "items": {
+                              "minLength": 1,
+                              "maxLength": 100,
+                              "pattern": "[^\\s]",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "op",
+                          "value"
+                        ],
+                        "properties": {
+                          "op": {
+                            "const": "set_description",
+                            "type": "string"
+                          },
+                          "value": {
+                            "anyOf": [
+                              {
+                                "minLength": 1,
+                                "maxLength": 250,
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "op",
+                          "template",
+                          "category_mapping",
+                          "value"
+                        ],
+                        "properties": {
+                          "op": {
+                            "const": "set_parameter",
+                            "type": "string"
+                          },
+                          "template": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "const": "parameter_template",
+                                "type": "string"
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "category_mapping": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "const": "category_parameter",
+                                "type": "string"
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "value": {
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "op"
+                        ],
+                        "properties": {
+                          "op": {
+                            "const": "remove_parameter",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "op",
+                          "company",
+                          "mpn"
+                        ],
+                        "properties": {
+                          "op": {
+                            "const": "set_mpn",
+                            "type": "string"
+                          },
+                          "company": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "const": "company",
+                                "type": "string"
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "mpn": {
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "op",
+                          "company",
+                          "sku"
+                        ],
+                        "properties": {
+                          "op": {
+                            "const": "set_sku",
+                            "type": "string"
+                          },
+                          "company": {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "observation_id",
+                              "target_context_id",
+                              "model",
+                              "pk"
+                            ],
+                            "properties": {
+                              "observation_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "target_context_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              },
+                              "model": {
+                                "const": "company",
+                                "type": "string"
+                              },
+                              "pk": {
+                                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                "format": "int64",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "sku": {
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
                   }
                 }
               },
@@ -10804,6 +11493,12 @@
                               "maxLength": 256,
                               "type": "string"
                             },
+                            "description": {
+                              "minLength": 1,
+                              "maxLength": 250,
+                              "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                              "type": "string"
+                            },
                             "category": {
                               "additionalProperties": false,
                               "type": "object",
@@ -11904,6 +12599,2401 @@
               "sequence": {
                 "pattern": "^(0|[1-9][0-9]{0,18})$",
                 "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "RecordRef": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "role",
+              "pk"
+            ],
+            "properties": {
+              "kind": {
+                "const": "company",
+                "type": "string"
+              },
+              "role": {
+                "anyOf": [
+                  {
+                    "const": "manufacturer",
+                    "type": "string"
+                  },
+                  {
+                    "const": "supplier",
+                    "type": "string"
+                  }
+                ]
+              },
+              "pk": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "pk"
+            ],
+            "properties": {
+              "kind": {
+                "const": "parameter_template",
+                "type": "string"
+              },
+              "pk": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "part_subject_id"
+            ],
+            "properties": {
+              "kind": {
+                "const": "part",
+                "type": "string"
+              },
+              "part_subject_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "part_subject_id"
+            ],
+            "properties": {
+              "kind": {
+                "anyOf": [
+                  {
+                    "const": "manufacturer_part",
+                    "type": "string"
+                  },
+                  {
+                    "const": "supplier_part",
+                    "type": "string"
+                  }
+                ]
+              },
+              "part_subject_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "part_subject_id",
+              "template_pk"
+            ],
+            "properties": {
+              "kind": {
+                "const": "parameter",
+                "type": "string"
+              },
+              "part_subject_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              "template_pk": {
+                "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                "format": "int64",
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "RecordOperation": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "op",
+              "reference"
+            ],
+            "properties": {
+              "op": {
+                "const": "map_to_existing",
+                "type": "string"
+              },
+              "reference": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "observation_id",
+                  "target_context_id",
+                  "model",
+                  "pk"
+                ],
+                "properties": {
+                  "observation_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "target_context_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "model": {
+                    "const": "company",
+                    "type": "string"
+                  },
+                  "pk": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "op",
+              "template",
+              "category_mappings",
+              "exclude_parts"
+            ],
+            "properties": {
+              "op": {
+                "const": "map_template",
+                "type": "string"
+              },
+              "template": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "observation_id",
+                  "target_context_id",
+                  "model",
+                  "pk"
+                ],
+                "properties": {
+                  "observation_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "target_context_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "model": {
+                    "const": "parameter_template",
+                    "type": "string"
+                  },
+                  "pk": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  }
+                }
+              },
+              "category_mappings": {
+                "maxItems": 32,
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "observation_id",
+                    "target_context_id",
+                    "model",
+                    "pk"
+                  ],
+                  "properties": {
+                    "observation_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "target_context_id": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    },
+                    "model": {
+                      "const": "category_parameter",
+                      "type": "string"
+                    },
+                    "pk": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "exclude_parts": {
+                "maxItems": 100,
+                "uniqueItems": true,
+                "type": "array",
+                "items": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "op",
+              "reference",
+              "parameter_mappings",
+              "drop_parameters"
+            ],
+            "properties": {
+              "op": {
+                "const": "set_category",
+                "type": "string"
+              },
+              "reference": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "observation_id",
+                  "target_context_id",
+                  "model",
+                  "pk"
+                ],
+                "properties": {
+                  "observation_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "target_context_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "model": {
+                    "const": "category",
+                    "type": "string"
+                  },
+                  "pk": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  }
+                }
+              },
+              "parameter_mappings": {
+                "maxItems": 32,
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "template_pk",
+                    "category_mapping"
+                  ],
+                  "properties": {
+                    "template_pk": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    },
+                    "category_mapping": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "observation_id",
+                        "target_context_id",
+                        "model",
+                        "pk"
+                      ],
+                      "properties": {
+                        "observation_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "target_context_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "model": {
+                          "const": "category_parameter",
+                          "type": "string"
+                        },
+                        "pk": {
+                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                          "format": "int64",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "drop_parameters": {
+                "maxItems": 32,
+                "uniqueItems": true,
+                "type": "array",
+                "items": {
+                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                  "format": "int64",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "op",
+              "value"
+            ],
+            "properties": {
+              "op": {
+                "const": "set_name",
+                "type": "string"
+              },
+              "value": {
+                "minLength": 1,
+                "maxLength": 256,
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "op",
+              "tags"
+            ],
+            "properties": {
+              "op": {
+                "const": "set_tags",
+                "type": "string"
+              },
+              "tags": {
+                "maxItems": 32,
+                "uniqueItems": true,
+                "type": "array",
+                "items": {
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "[^\\s]",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "op",
+              "value"
+            ],
+            "properties": {
+              "op": {
+                "const": "set_description",
+                "type": "string"
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "maxLength": 250,
+                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "op",
+              "template",
+              "category_mapping",
+              "value"
+            ],
+            "properties": {
+              "op": {
+                "const": "set_parameter",
+                "type": "string"
+              },
+              "template": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "observation_id",
+                  "target_context_id",
+                  "model",
+                  "pk"
+                ],
+                "properties": {
+                  "observation_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "target_context_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "model": {
+                    "const": "parameter_template",
+                    "type": "string"
+                  },
+                  "pk": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  }
+                }
+              },
+              "category_mapping": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "observation_id",
+                  "target_context_id",
+                  "model",
+                  "pk"
+                ],
+                "properties": {
+                  "observation_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "target_context_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "model": {
+                    "const": "category_parameter",
+                    "type": "string"
+                  },
+                  "pk": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  }
+                }
+              },
+              "value": {
+                "minLength": 1,
+                "maxLength": 256,
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "op"
+            ],
+            "properties": {
+              "op": {
+                "const": "remove_parameter",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "op",
+              "company",
+              "mpn"
+            ],
+            "properties": {
+              "op": {
+                "const": "set_mpn",
+                "type": "string"
+              },
+              "company": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "observation_id",
+                  "target_context_id",
+                  "model",
+                  "pk"
+                ],
+                "properties": {
+                  "observation_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "target_context_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "model": {
+                    "const": "company",
+                    "type": "string"
+                  },
+                  "pk": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  }
+                }
+              },
+              "mpn": {
+                "minLength": 1,
+                "maxLength": 256,
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "op",
+              "company",
+              "sku"
+            ],
+            "properties": {
+              "op": {
+                "const": "set_sku",
+                "type": "string"
+              },
+              "company": {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "observation_id",
+                  "target_context_id",
+                  "model",
+                  "pk"
+                ],
+                "properties": {
+                  "observation_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "target_context_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "model": {
+                    "const": "company",
+                    "type": "string"
+                  },
+                  "pk": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  }
+                }
+              },
+              "sku": {
+                "minLength": 1,
+                "maxLength": 256,
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "RecordChange": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "target",
+          "operation"
+        ],
+        "properties": {
+          "kind": {
+            "const": "record",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "role",
+                  "pk"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "company",
+                    "type": "string"
+                  },
+                  "role": {
+                    "anyOf": [
+                      {
+                        "const": "manufacturer",
+                        "type": "string"
+                      },
+                      {
+                        "const": "supplier",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "pk": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "pk"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "parameter_template",
+                    "type": "string"
+                  },
+                  "pk": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "part_subject_id"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "part",
+                    "type": "string"
+                  },
+                  "part_subject_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "part_subject_id"
+                ],
+                "properties": {
+                  "kind": {
+                    "anyOf": [
+                      {
+                        "const": "manufacturer_part",
+                        "type": "string"
+                      },
+                      {
+                        "const": "supplier_part",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "part_subject_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "part_subject_id",
+                  "template_pk"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "parameter",
+                    "type": "string"
+                  },
+                  "part_subject_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  },
+                  "template_pk": {
+                    "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                    "format": "int64",
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
+          "operation": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "op",
+                  "reference"
+                ],
+                "properties": {
+                  "op": {
+                    "const": "map_to_existing",
+                    "type": "string"
+                  },
+                  "reference": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "observation_id",
+                      "target_context_id",
+                      "model",
+                      "pk"
+                    ],
+                    "properties": {
+                      "observation_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "target_context_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "model": {
+                        "const": "company",
+                        "type": "string"
+                      },
+                      "pk": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "op",
+                  "template",
+                  "category_mappings",
+                  "exclude_parts"
+                ],
+                "properties": {
+                  "op": {
+                    "const": "map_template",
+                    "type": "string"
+                  },
+                  "template": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "observation_id",
+                      "target_context_id",
+                      "model",
+                      "pk"
+                    ],
+                    "properties": {
+                      "observation_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "target_context_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "model": {
+                        "const": "parameter_template",
+                        "type": "string"
+                      },
+                      "pk": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "category_mappings": {
+                    "maxItems": 32,
+                    "type": "array",
+                    "items": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "observation_id",
+                        "target_context_id",
+                        "model",
+                        "pk"
+                      ],
+                      "properties": {
+                        "observation_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "target_context_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        "model": {
+                          "const": "category_parameter",
+                          "type": "string"
+                        },
+                        "pk": {
+                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                          "format": "int64",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "exclude_parts": {
+                    "maxItems": 100,
+                    "uniqueItems": true,
+                    "type": "array",
+                    "items": {
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "op",
+                  "reference",
+                  "parameter_mappings",
+                  "drop_parameters"
+                ],
+                "properties": {
+                  "op": {
+                    "const": "set_category",
+                    "type": "string"
+                  },
+                  "reference": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "observation_id",
+                      "target_context_id",
+                      "model",
+                      "pk"
+                    ],
+                    "properties": {
+                      "observation_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "target_context_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "model": {
+                        "const": "category",
+                        "type": "string"
+                      },
+                      "pk": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "parameter_mappings": {
+                    "maxItems": 32,
+                    "type": "array",
+                    "items": {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "template_pk",
+                        "category_mapping"
+                      ],
+                      "properties": {
+                        "template_pk": {
+                          "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                          "format": "int64",
+                          "type": "string"
+                        },
+                        "category_mapping": {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "observation_id",
+                            "target_context_id",
+                            "model",
+                            "pk"
+                          ],
+                          "properties": {
+                            "observation_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "target_context_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "model": {
+                              "const": "category_parameter",
+                              "type": "string"
+                            },
+                            "pk": {
+                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                              "format": "int64",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "drop_parameters": {
+                    "maxItems": 32,
+                    "uniqueItems": true,
+                    "type": "array",
+                    "items": {
+                      "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                      "format": "int64",
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "op",
+                  "value"
+                ],
+                "properties": {
+                  "op": {
+                    "const": "set_name",
+                    "type": "string"
+                  },
+                  "value": {
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "op",
+                  "tags"
+                ],
+                "properties": {
+                  "op": {
+                    "const": "set_tags",
+                    "type": "string"
+                  },
+                  "tags": {
+                    "maxItems": 32,
+                    "uniqueItems": true,
+                    "type": "array",
+                    "items": {
+                      "minLength": 1,
+                      "maxLength": 100,
+                      "pattern": "[^\\s]",
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "op",
+                  "value"
+                ],
+                "properties": {
+                  "op": {
+                    "const": "set_description",
+                    "type": "string"
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "minLength": 1,
+                        "maxLength": 250,
+                        "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "op",
+                  "template",
+                  "category_mapping",
+                  "value"
+                ],
+                "properties": {
+                  "op": {
+                    "const": "set_parameter",
+                    "type": "string"
+                  },
+                  "template": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "observation_id",
+                      "target_context_id",
+                      "model",
+                      "pk"
+                    ],
+                    "properties": {
+                      "observation_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "target_context_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "model": {
+                        "const": "parameter_template",
+                        "type": "string"
+                      },
+                      "pk": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "category_mapping": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "observation_id",
+                      "target_context_id",
+                      "model",
+                      "pk"
+                    ],
+                    "properties": {
+                      "observation_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "target_context_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "model": {
+                        "const": "category_parameter",
+                        "type": "string"
+                      },
+                      "pk": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "value": {
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "op"
+                ],
+                "properties": {
+                  "op": {
+                    "const": "remove_parameter",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "op",
+                  "company",
+                  "mpn"
+                ],
+                "properties": {
+                  "op": {
+                    "const": "set_mpn",
+                    "type": "string"
+                  },
+                  "company": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "observation_id",
+                      "target_context_id",
+                      "model",
+                      "pk"
+                    ],
+                    "properties": {
+                      "observation_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "target_context_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "model": {
+                        "const": "company",
+                        "type": "string"
+                      },
+                      "pk": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "mpn": {
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "op",
+                  "company",
+                  "sku"
+                ],
+                "properties": {
+                  "op": {
+                    "const": "set_sku",
+                    "type": "string"
+                  },
+                  "company": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "observation_id",
+                      "target_context_id",
+                      "model",
+                      "pk"
+                    ],
+                    "properties": {
+                      "observation_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "target_context_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "model": {
+                        "const": "company",
+                        "type": "string"
+                      },
+                      "pk": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "sku": {
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "RecordType": {
+        "anyOf": [
+          {
+            "const": "category",
+            "type": "string"
+          },
+          {
+            "const": "company",
+            "type": "string"
+          },
+          {
+            "const": "part",
+            "type": "string"
+          },
+          {
+            "const": "manufacturer_part",
+            "type": "string"
+          },
+          {
+            "const": "supplier_part",
+            "type": "string"
+          },
+          {
+            "const": "parameter_template",
+            "type": "string"
+          },
+          {
+            "const": "parameter",
+            "type": "string"
+          },
+          {
+            "const": "location",
+            "type": "string"
+          },
+          {
+            "const": "stock_item",
+            "type": "string"
+          },
+          {
+            "const": "tag",
+            "type": "string"
+          }
+        ]
+      },
+      "RecordState": {
+        "anyOf": [
+          {
+            "const": "new",
+            "type": "string"
+          },
+          {
+            "const": "exists",
+            "type": "string"
+          },
+          {
+            "const": "update",
+            "type": "string"
+          },
+          {
+            "const": "choose",
+            "type": "string"
+          },
+          {
+            "const": "unsupported",
+            "type": "string"
+          }
+        ]
+      },
+      "RecordOrigin": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "operator",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "step",
+              "proposal_id"
+            ],
+            "properties": {
+              "kind": {
+                "const": "step",
+                "type": "string"
+              },
+              "step": {
+                "anyOf": [
+                  {
+                    "const": "examine",
+                    "type": "string"
+                  },
+                  {
+                    "const": "research",
+                    "type": "string"
+                  },
+                  {
+                    "const": "images",
+                    "type": "string"
+                  },
+                  {
+                    "const": "inventory",
+                    "type": "string"
+                  }
+                ]
+              },
+              "proposal_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "step"
+            ],
+            "properties": {
+              "kind": {
+                "const": "estimate",
+                "type": "string"
+              },
+              "step": {
+                "const": "examine",
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "RecordField": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "value",
+          "origin"
+        ],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 64,
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "operator",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "step",
+                  "proposal_id"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "step",
+                    "type": "string"
+                  },
+                  "step": {
+                    "anyOf": [
+                      {
+                        "const": "examine",
+                        "type": "string"
+                      },
+                      {
+                        "const": "research",
+                        "type": "string"
+                      },
+                      {
+                        "const": "images",
+                        "type": "string"
+                      },
+                      {
+                        "const": "inventory",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "proposal_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "step"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "estimate",
+                    "type": "string"
+                  },
+                  "step": {
+                    "const": "examine",
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "BatchRecord": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "type",
+          "label",
+          "state",
+          "target",
+          "fields",
+          "part_ids",
+          "lot_ids",
+          "decision"
+        ],
+        "properties": {
+          "key": {
+            "minLength": 1,
+            "maxLength": 256,
+            "type": "string"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "const": "category",
+                "type": "string"
+              },
+              {
+                "const": "company",
+                "type": "string"
+              },
+              {
+                "const": "part",
+                "type": "string"
+              },
+              {
+                "const": "manufacturer_part",
+                "type": "string"
+              },
+              {
+                "const": "supplier_part",
+                "type": "string"
+              },
+              {
+                "const": "parameter_template",
+                "type": "string"
+              },
+              {
+                "const": "parameter",
+                "type": "string"
+              },
+              {
+                "const": "location",
+                "type": "string"
+              },
+              {
+                "const": "stock_item",
+                "type": "string"
+              },
+              {
+                "const": "tag",
+                "type": "string"
+              }
+            ]
+          },
+          "label": {
+            "minLength": 1,
+            "maxLength": 256,
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "const": "new",
+                "type": "string"
+              },
+              {
+                "const": "exists",
+                "type": "string"
+              },
+              {
+                "const": "update",
+                "type": "string"
+              },
+              {
+                "const": "choose",
+                "type": "string"
+              },
+              {
+                "const": "unsupported",
+                "type": "string"
+              }
+            ]
+          },
+          "target": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "role",
+                      "pk"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "company",
+                        "type": "string"
+                      },
+                      "role": {
+                        "anyOf": [
+                          {
+                            "const": "manufacturer",
+                            "type": "string"
+                          },
+                          {
+                            "const": "supplier",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "pk": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "pk"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "parameter_template",
+                        "type": "string"
+                      },
+                      "pk": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "part_subject_id"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "part",
+                        "type": "string"
+                      },
+                      "part_subject_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "part_subject_id"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "anyOf": [
+                          {
+                            "const": "manufacturer_part",
+                            "type": "string"
+                          },
+                          {
+                            "const": "supplier_part",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "part_subject_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "part_subject_id",
+                      "template_pk"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "parameter",
+                        "type": "string"
+                      },
+                      "part_subject_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "template_pk": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fields": {
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "name",
+                "value",
+                "origin"
+              ],
+              "properties": {
+                "name": {
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "minLength": 1,
+                      "maxLength": 512,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "origin": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "operator",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "step",
+                        "proposal_id"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "step",
+                          "type": "string"
+                        },
+                        "step": {
+                          "anyOf": [
+                            {
+                              "const": "examine",
+                              "type": "string"
+                            },
+                            {
+                              "const": "research",
+                              "type": "string"
+                            },
+                            {
+                              "const": "images",
+                              "type": "string"
+                            },
+                            {
+                              "const": "inventory",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "proposal_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "step"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "estimate",
+                          "type": "string"
+                        },
+                        "step": {
+                          "const": "examine",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "part_ids": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+              "type": "string"
+            }
+          },
+          "lot_ids": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+              "type": "string"
+            }
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "code",
+                  "detail"
+                ],
+                "properties": {
+                  "code": {
+                    "anyOf": [
+                      {
+                        "const": "part_choice_required",
+                        "type": "string"
+                      },
+                      {
+                        "const": "location_required",
+                        "type": "string"
+                      },
+                      {
+                        "const": "location_conflict",
+                        "type": "string"
+                      },
+                      {
+                        "const": "location_draft_parent_invalid",
+                        "type": "string"
+                      },
+                      {
+                        "const": "quantity_required",
+                        "type": "string"
+                      },
+                      {
+                        "const": "location_groups_unavailable",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "detail": {
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "BatchRecords": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "batch_id",
+          "revision",
+          "counts",
+          "records"
+        ],
+        "properties": {
+          "batch_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "revision": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "counts": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "type",
+                "new",
+                "existing",
+                "decide"
+              ],
+              "properties": {
+                "type": {
+                  "anyOf": [
+                    {
+                      "const": "category",
+                      "type": "string"
+                    },
+                    {
+                      "const": "company",
+                      "type": "string"
+                    },
+                    {
+                      "const": "part",
+                      "type": "string"
+                    },
+                    {
+                      "const": "manufacturer_part",
+                      "type": "string"
+                    },
+                    {
+                      "const": "supplier_part",
+                      "type": "string"
+                    },
+                    {
+                      "const": "parameter_template",
+                      "type": "string"
+                    },
+                    {
+                      "const": "parameter",
+                      "type": "string"
+                    },
+                    {
+                      "const": "location",
+                      "type": "string"
+                    },
+                    {
+                      "const": "stock_item",
+                      "type": "string"
+                    },
+                    {
+                      "const": "tag",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "new": {
+                  "minimum": 0,
+                  "maximum": 100000,
+                  "type": "integer"
+                },
+                "existing": {
+                  "minimum": 0,
+                  "maximum": 100000,
+                  "type": "integer"
+                },
+                "decide": {
+                  "minimum": 0,
+                  "maximum": 100000,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "records": {
+            "maxItems": 12000,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "key",
+                "type",
+                "label",
+                "state",
+                "target",
+                "fields",
+                "part_ids",
+                "lot_ids",
+                "decision"
+              ],
+              "properties": {
+                "key": {
+                  "minLength": 1,
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "type": {
+                  "anyOf": [
+                    {
+                      "const": "category",
+                      "type": "string"
+                    },
+                    {
+                      "const": "company",
+                      "type": "string"
+                    },
+                    {
+                      "const": "part",
+                      "type": "string"
+                    },
+                    {
+                      "const": "manufacturer_part",
+                      "type": "string"
+                    },
+                    {
+                      "const": "supplier_part",
+                      "type": "string"
+                    },
+                    {
+                      "const": "parameter_template",
+                      "type": "string"
+                    },
+                    {
+                      "const": "parameter",
+                      "type": "string"
+                    },
+                    {
+                      "const": "location",
+                      "type": "string"
+                    },
+                    {
+                      "const": "stock_item",
+                      "type": "string"
+                    },
+                    {
+                      "const": "tag",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "label": {
+                  "minLength": 1,
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "state": {
+                  "anyOf": [
+                    {
+                      "const": "new",
+                      "type": "string"
+                    },
+                    {
+                      "const": "exists",
+                      "type": "string"
+                    },
+                    {
+                      "const": "update",
+                      "type": "string"
+                    },
+                    {
+                      "const": "choose",
+                      "type": "string"
+                    },
+                    {
+                      "const": "unsupported",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "target": {
+                  "anyOf": [
+                    {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "role",
+                            "pk"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "company",
+                              "type": "string"
+                            },
+                            "role": {
+                              "anyOf": [
+                                {
+                                  "const": "manufacturer",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "supplier",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "pk": {
+                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                              "format": "int64",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "pk"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "parameter_template",
+                              "type": "string"
+                            },
+                            "pk": {
+                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                              "format": "int64",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "part_subject_id"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "part",
+                              "type": "string"
+                            },
+                            "part_subject_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "part_subject_id"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "anyOf": [
+                                {
+                                  "const": "manufacturer_part",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "supplier_part",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "part_subject_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "part_subject_id",
+                            "template_pk"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "parameter",
+                              "type": "string"
+                            },
+                            "part_subject_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "template_pk": {
+                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                              "format": "int64",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "fields": {
+                  "maxItems": 40,
+                  "type": "array",
+                  "items": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "value",
+                      "origin"
+                    ],
+                    "properties": {
+                      "name": {
+                        "minLength": 1,
+                        "maxLength": 64,
+                        "type": "string"
+                      },
+                      "value": {
+                        "anyOf": [
+                          {
+                            "minLength": 1,
+                            "maxLength": 512,
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "origin": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "kind"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "operator",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "kind",
+                              "step",
+                              "proposal_id"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "step",
+                                "type": "string"
+                              },
+                              "step": {
+                                "anyOf": [
+                                  {
+                                    "const": "examine",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "research",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "images",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "inventory",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "proposal_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "kind",
+                              "step"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "estimate",
+                                "type": "string"
+                              },
+                              "step": {
+                                "const": "examine",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "part_ids": {
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                },
+                "lot_ids": {
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                },
+                "decision": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "detail"
+                      ],
+                      "properties": {
+                        "code": {
+                          "anyOf": [
+                            {
+                              "const": "part_choice_required",
+                              "type": "string"
+                            },
+                            {
+                              "const": "location_required",
+                              "type": "string"
+                            },
+                            {
+                              "const": "location_conflict",
+                              "type": "string"
+                            },
+                            {
+                              "const": "location_draft_parent_invalid",
+                              "type": "string"
+                            },
+                            {
+                              "const": "quantity_required",
+                              "type": "string"
+                            },
+                            {
+                              "const": "location_groups_unavailable",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "detail": {
+                          "minLength": 1,
+                          "maxLength": 512,
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
               }
             }
           }
@@ -13489,7 +16579,7 @@
           },
           "route": {
             "maxLength": 512,
-            "pattern": "^[0-9a-f-]{36}/(processing|review|changes)(/[A-Za-z0-9_-]+)*$",
+            "pattern": "^[0-9a-f-]{36}/(processing|review|changes)(/([A-Za-z0-9_-]|%[0-9A-F]{2})+)*$",
             "type": "string"
           }
         }
@@ -13760,7 +16850,7 @@
                 },
                 "route": {
                   "maxLength": 512,
-                  "pattern": "^[0-9a-f-]{36}/(processing|review|changes)(/[A-Za-z0-9_-]+)*$",
+                  "pattern": "^[0-9a-f-]{36}/(processing|review|changes)(/([A-Za-z0-9_-]|%[0-9A-F]{2})+)*$",
                   "type": "string"
                 }
               }
@@ -13814,6 +16904,12 @@
           "name": {
             "minLength": 1,
             "maxLength": 256,
+            "type": "string"
+          },
+          "description": {
+            "minLength": 1,
+            "maxLength": 250,
+            "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
             "type": "string"
           },
           "category": {
@@ -21160,6 +24256,12 @@
                                     "maxLength": 256,
                                     "type": "string"
                                   },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                                    "type": "string"
+                                  },
                                   "category": {
                                     "additionalProperties": false,
                                     "type": "object",
@@ -21603,6 +24705,12 @@
                                   "name": {
                                     "minLength": 1,
                                     "maxLength": 256,
+                                    "type": "string"
+                                  },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -23331,6 +26439,12 @@
                                     "maxLength": 256,
                                     "type": "string"
                                   },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                                    "type": "string"
+                                  },
                                   "category": {
                                     "additionalProperties": false,
                                     "type": "object",
@@ -23774,6 +26888,12 @@
                                   "name": {
                                     "minLength": 1,
                                     "maxLength": 256,
+                                    "type": "string"
+                                  },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -27443,6 +30563,12 @@
                                 "maxLength": 256,
                                 "type": "string"
                               },
+                              "description": {
+                                "minLength": 1,
+                                "maxLength": 250,
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                                "type": "string"
+                              },
                               "category": {
                                 "additionalProperties": false,
                                 "type": "object",
@@ -27886,6 +31012,12 @@
                               "name": {
                                 "minLength": 1,
                                 "maxLength": 256,
+                                "type": "string"
+                              },
+                              "description": {
+                                "minLength": 1,
+                                "maxLength": 250,
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                 "type": "string"
                               },
                               "category": {
@@ -29542,6 +32674,12 @@
                                 "maxLength": 256,
                                 "type": "string"
                               },
+                              "description": {
+                                "minLength": 1,
+                                "maxLength": 250,
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                                "type": "string"
+                              },
                               "category": {
                                 "additionalProperties": false,
                                 "type": "object",
@@ -29985,6 +33123,12 @@
                               "name": {
                                 "minLength": 1,
                                 "maxLength": 256,
+                                "type": "string"
+                              },
+                              "description": {
+                                "minLength": 1,
+                                "maxLength": 250,
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                 "type": "string"
                               },
                               "category": {
@@ -31211,6 +34355,12 @@
                                 "maxLength": 256,
                                 "type": "string"
                               },
+                              "description": {
+                                "minLength": 1,
+                                "maxLength": 250,
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                                "type": "string"
+                              },
                               "category": {
                                 "additionalProperties": false,
                                 "type": "object",
@@ -31654,6 +34804,12 @@
                               "name": {
                                 "minLength": 1,
                                 "maxLength": 256,
+                                "type": "string"
+                              },
+                              "description": {
+                                "minLength": 1,
+                                "maxLength": 250,
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                 "type": "string"
                               },
                               "category": {
@@ -32891,6 +36047,12 @@
                                 "maxLength": 256,
                                 "type": "string"
                               },
+                              "description": {
+                                "minLength": 1,
+                                "maxLength": 250,
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                                "type": "string"
+                              },
                               "category": {
                                 "additionalProperties": false,
                                 "type": "object",
@@ -33334,6 +36496,12 @@
                               "name": {
                                 "minLength": 1,
                                 "maxLength": 256,
+                                "type": "string"
+                              },
+                              "description": {
+                                "minLength": 1,
+                                "maxLength": 250,
+                                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                 "type": "string"
                               },
                               "category": {
@@ -36177,6 +39345,12 @@
                                     "maxLength": 256,
                                     "type": "string"
                                   },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                                    "type": "string"
+                                  },
                                   "category": {
                                     "additionalProperties": false,
                                     "type": "object",
@@ -36620,6 +39794,12 @@
                                   "name": {
                                     "minLength": 1,
                                     "maxLength": 256,
+                                    "type": "string"
+                                  },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -37846,6 +41026,12 @@
                                     "maxLength": 256,
                                     "type": "string"
                                   },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                                    "type": "string"
+                                  },
                                   "category": {
                                     "additionalProperties": false,
                                     "type": "object",
@@ -38289,6 +41475,12 @@
                                   "name": {
                                     "minLength": 1,
                                     "maxLength": 256,
+                                    "type": "string"
+                                  },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -39525,6 +42717,12 @@
                                     "maxLength": 256,
                                     "type": "string"
                                   },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                                    "type": "string"
+                                  },
                                   "category": {
                                     "additionalProperties": false,
                                     "type": "object",
@@ -39968,6 +43166,12 @@
                                   "name": {
                                     "minLength": 1,
                                     "maxLength": 256,
+                                    "type": "string"
+                                  },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -41205,6 +44409,12 @@
                                     "maxLength": 256,
                                     "type": "string"
                                   },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                                    "type": "string"
+                                  },
                                   "category": {
                                     "additionalProperties": false,
                                     "type": "object",
@@ -41648,6 +44858,12 @@
                                   "name": {
                                     "minLength": 1,
                                     "maxLength": 256,
+                                    "type": "string"
+                                  },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -42896,6 +46112,12 @@
                                     "maxLength": 256,
                                     "type": "string"
                                   },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                                    "type": "string"
+                                  },
                                   "category": {
                                     "additionalProperties": false,
                                     "type": "object",
@@ -43339,6 +46561,12 @@
                                   "name": {
                                     "minLength": 1,
                                     "maxLength": 256,
+                                    "type": "string"
+                                  },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {
@@ -44621,6 +47849,12 @@
                                     "maxLength": 256,
                                     "type": "string"
                                   },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                                    "type": "string"
+                                  },
                                   "category": {
                                     "additionalProperties": false,
                                     "type": "object",
@@ -45064,6 +48298,12 @@
                                   "name": {
                                     "minLength": 1,
                                     "maxLength": 256,
+                                    "type": "string"
+                                  },
+                                  "description": {
+                                    "minLength": 1,
+                                    "maxLength": 250,
+                                    "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
                                     "type": "string"
                                   },
                                   "category": {

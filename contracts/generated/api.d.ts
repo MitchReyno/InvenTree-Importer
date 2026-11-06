@@ -2589,6 +2589,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{id}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description BatchRecords */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BatchRecords"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/batches/{id}/issue-dispositions": {
         parameters: {
             query?: never;
@@ -3515,6 +3563,7 @@ export interface components {
             mode: "create";
             spec: {
                 name: string;
+                description?: string;
                 category: {
                     observation_id: string;
                     target_context_id: string;
@@ -4081,6 +4130,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -4291,6 +4341,149 @@ export interface components {
                         };
                     };
                 })[];
+            } | {
+                /** @constant */
+                kind: "record";
+                target: {
+                    /** @constant */
+                    kind: "company";
+                    role: "manufacturer" | "supplier";
+                    /** Format: int64 */
+                    pk: string;
+                } | {
+                    /** @constant */
+                    kind: "parameter_template";
+                    /** Format: int64 */
+                    pk: string;
+                } | {
+                    /** @constant */
+                    kind: "part";
+                    part_subject_id: string;
+                } | {
+                    kind: "manufacturer_part" | "supplier_part";
+                    part_subject_id: string;
+                } | {
+                    /** @constant */
+                    kind: "parameter";
+                    part_subject_id: string;
+                    /** Format: int64 */
+                    template_pk: string;
+                };
+                operation: {
+                    /** @constant */
+                    op: "map_to_existing";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "company";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                } | {
+                    /** @constant */
+                    op: "map_template";
+                    template: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "parameter_template";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    category_mappings: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category_parameter";
+                        /** Format: int64 */
+                        pk: string;
+                    }[];
+                    exclude_parts: string[];
+                } | {
+                    /** @constant */
+                    op: "set_category";
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    parameter_mappings: {
+                        /** Format: int64 */
+                        template_pk: string;
+                        category_mapping: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "category_parameter";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                    }[];
+                    drop_parameters: string[];
+                } | {
+                    /** @constant */
+                    op: "set_name";
+                    value: string;
+                } | {
+                    /** @constant */
+                    op: "set_tags";
+                    tags: string[];
+                } | {
+                    /** @constant */
+                    op: "set_description";
+                    value: string | null;
+                } | {
+                    /** @constant */
+                    op: "set_parameter";
+                    template: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "parameter_template";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    category_mapping: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category_parameter";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    value: string;
+                } | {
+                    /** @constant */
+                    op: "remove_parameter";
+                } | {
+                    /** @constant */
+                    op: "set_mpn";
+                    company: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "company";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    mpn: string;
+                } | {
+                    /** @constant */
+                    op: "set_sku";
+                    company: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "company";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    sku: string;
+                };
             } | {
                 /** @constant */
                 kind: "observation";
@@ -4641,6 +4834,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -4864,6 +5058,445 @@ export interface components {
                 stream_id: string;
                 sequence: string;
             };
+        };
+        RecordRef: {
+            /** @constant */
+            kind: "company";
+            role: "manufacturer" | "supplier";
+            /** Format: int64 */
+            pk: string;
+        } | {
+            /** @constant */
+            kind: "parameter_template";
+            /** Format: int64 */
+            pk: string;
+        } | {
+            /** @constant */
+            kind: "part";
+            part_subject_id: string;
+        } | {
+            kind: "manufacturer_part" | "supplier_part";
+            part_subject_id: string;
+        } | {
+            /** @constant */
+            kind: "parameter";
+            part_subject_id: string;
+            /** Format: int64 */
+            template_pk: string;
+        };
+        RecordOperation: {
+            /** @constant */
+            op: "map_to_existing";
+            reference: {
+                observation_id: string;
+                target_context_id: string;
+                /** @constant */
+                model: "company";
+                /** Format: int64 */
+                pk: string;
+            };
+        } | {
+            /** @constant */
+            op: "map_template";
+            template: {
+                observation_id: string;
+                target_context_id: string;
+                /** @constant */
+                model: "parameter_template";
+                /** Format: int64 */
+                pk: string;
+            };
+            category_mappings: {
+                observation_id: string;
+                target_context_id: string;
+                /** @constant */
+                model: "category_parameter";
+                /** Format: int64 */
+                pk: string;
+            }[];
+            exclude_parts: string[];
+        } | {
+            /** @constant */
+            op: "set_category";
+            reference: {
+                observation_id: string;
+                target_context_id: string;
+                /** @constant */
+                model: "category";
+                /** Format: int64 */
+                pk: string;
+            };
+            parameter_mappings: {
+                /** Format: int64 */
+                template_pk: string;
+                category_mapping: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category_parameter";
+                    /** Format: int64 */
+                    pk: string;
+                };
+            }[];
+            drop_parameters: string[];
+        } | {
+            /** @constant */
+            op: "set_name";
+            value: string;
+        } | {
+            /** @constant */
+            op: "set_tags";
+            tags: string[];
+        } | {
+            /** @constant */
+            op: "set_description";
+            value: string | null;
+        } | {
+            /** @constant */
+            op: "set_parameter";
+            template: {
+                observation_id: string;
+                target_context_id: string;
+                /** @constant */
+                model: "parameter_template";
+                /** Format: int64 */
+                pk: string;
+            };
+            category_mapping: {
+                observation_id: string;
+                target_context_id: string;
+                /** @constant */
+                model: "category_parameter";
+                /** Format: int64 */
+                pk: string;
+            };
+            value: string;
+        } | {
+            /** @constant */
+            op: "remove_parameter";
+        } | {
+            /** @constant */
+            op: "set_mpn";
+            company: {
+                observation_id: string;
+                target_context_id: string;
+                /** @constant */
+                model: "company";
+                /** Format: int64 */
+                pk: string;
+            };
+            mpn: string;
+        } | {
+            /** @constant */
+            op: "set_sku";
+            company: {
+                observation_id: string;
+                target_context_id: string;
+                /** @constant */
+                model: "company";
+                /** Format: int64 */
+                pk: string;
+            };
+            sku: string;
+        };
+        RecordChange: {
+            /** @constant */
+            kind: "record";
+            target: {
+                /** @constant */
+                kind: "company";
+                role: "manufacturer" | "supplier";
+                /** Format: int64 */
+                pk: string;
+            } | {
+                /** @constant */
+                kind: "parameter_template";
+                /** Format: int64 */
+                pk: string;
+            } | {
+                /** @constant */
+                kind: "part";
+                part_subject_id: string;
+            } | {
+                kind: "manufacturer_part" | "supplier_part";
+                part_subject_id: string;
+            } | {
+                /** @constant */
+                kind: "parameter";
+                part_subject_id: string;
+                /** Format: int64 */
+                template_pk: string;
+            };
+            operation: {
+                /** @constant */
+                op: "map_to_existing";
+                reference: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "company";
+                    /** Format: int64 */
+                    pk: string;
+                };
+            } | {
+                /** @constant */
+                op: "map_template";
+                template: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "parameter_template";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                category_mappings: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category_parameter";
+                    /** Format: int64 */
+                    pk: string;
+                }[];
+                exclude_parts: string[];
+            } | {
+                /** @constant */
+                op: "set_category";
+                reference: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                parameter_mappings: {
+                    /** Format: int64 */
+                    template_pk: string;
+                    category_mapping: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "category_parameter";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                }[];
+                drop_parameters: string[];
+            } | {
+                /** @constant */
+                op: "set_name";
+                value: string;
+            } | {
+                /** @constant */
+                op: "set_tags";
+                tags: string[];
+            } | {
+                /** @constant */
+                op: "set_description";
+                value: string | null;
+            } | {
+                /** @constant */
+                op: "set_parameter";
+                template: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "parameter_template";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                category_mapping: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "category_parameter";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                value: string;
+            } | {
+                /** @constant */
+                op: "remove_parameter";
+            } | {
+                /** @constant */
+                op: "set_mpn";
+                company: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "company";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                mpn: string;
+            } | {
+                /** @constant */
+                op: "set_sku";
+                company: {
+                    observation_id: string;
+                    target_context_id: string;
+                    /** @constant */
+                    model: "company";
+                    /** Format: int64 */
+                    pk: string;
+                };
+                sku: string;
+            };
+        };
+        RecordType: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter_template" | "parameter" | "location" | "stock_item" | "tag";
+        RecordState: "new" | "exists" | "update" | "choose" | "unsupported";
+        RecordOrigin: {
+            /** @constant */
+            kind: "operator";
+        } | {
+            /** @constant */
+            kind: "step";
+            step: "examine" | "research" | "images" | "inventory";
+            proposal_id: string;
+        } | {
+            /** @constant */
+            kind: "estimate";
+            /** @constant */
+            step: "examine";
+        };
+        RecordField: {
+            name: string;
+            value: string | null;
+            origin: {
+                /** @constant */
+                kind: "operator";
+            } | {
+                /** @constant */
+                kind: "step";
+                step: "examine" | "research" | "images" | "inventory";
+                proposal_id: string;
+            } | {
+                /** @constant */
+                kind: "estimate";
+                /** @constant */
+                step: "examine";
+            };
+        };
+        BatchRecord: {
+            key: string;
+            type: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter_template" | "parameter" | "location" | "stock_item" | "tag";
+            label: string;
+            state: "new" | "exists" | "update" | "choose" | "unsupported";
+            target: ({
+                /** @constant */
+                kind: "company";
+                role: "manufacturer" | "supplier";
+                /** Format: int64 */
+                pk: string;
+            } | {
+                /** @constant */
+                kind: "parameter_template";
+                /** Format: int64 */
+                pk: string;
+            } | {
+                /** @constant */
+                kind: "part";
+                part_subject_id: string;
+            } | {
+                kind: "manufacturer_part" | "supplier_part";
+                part_subject_id: string;
+            } | {
+                /** @constant */
+                kind: "parameter";
+                part_subject_id: string;
+                /** Format: int64 */
+                template_pk: string;
+            }) | null;
+            fields: {
+                name: string;
+                value: string | null;
+                origin: {
+                    /** @constant */
+                    kind: "operator";
+                } | {
+                    /** @constant */
+                    kind: "step";
+                    step: "examine" | "research" | "images" | "inventory";
+                    proposal_id: string;
+                } | {
+                    /** @constant */
+                    kind: "estimate";
+                    /** @constant */
+                    step: "examine";
+                };
+            }[];
+            part_ids: string[];
+            lot_ids: string[];
+            decision: null | {
+                code: "part_choice_required" | "location_required" | "location_conflict" | "location_draft_parent_invalid" | "quantity_required" | "location_groups_unavailable";
+                detail: string;
+            };
+        };
+        BatchRecords: {
+            batch_id: string;
+            /** Format: int64 */
+            revision: string;
+            counts: {
+                type: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter_template" | "parameter" | "location" | "stock_item" | "tag";
+                new: number;
+                existing: number;
+                decide: number;
+            }[];
+            records: {
+                key: string;
+                type: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter_template" | "parameter" | "location" | "stock_item" | "tag";
+                label: string;
+                state: "new" | "exists" | "update" | "choose" | "unsupported";
+                target: ({
+                    /** @constant */
+                    kind: "company";
+                    role: "manufacturer" | "supplier";
+                    /** Format: int64 */
+                    pk: string;
+                } | {
+                    /** @constant */
+                    kind: "parameter_template";
+                    /** Format: int64 */
+                    pk: string;
+                } | {
+                    /** @constant */
+                    kind: "part";
+                    part_subject_id: string;
+                } | {
+                    kind: "manufacturer_part" | "supplier_part";
+                    part_subject_id: string;
+                } | {
+                    /** @constant */
+                    kind: "parameter";
+                    part_subject_id: string;
+                    /** Format: int64 */
+                    template_pk: string;
+                }) | null;
+                fields: {
+                    name: string;
+                    value: string | null;
+                    origin: {
+                        /** @constant */
+                        kind: "operator";
+                    } | {
+                        /** @constant */
+                        kind: "step";
+                        step: "examine" | "research" | "images" | "inventory";
+                        proposal_id: string;
+                    } | {
+                        /** @constant */
+                        kind: "estimate";
+                        /** @constant */
+                        step: "examine";
+                    };
+                }[];
+                part_ids: string[];
+                lot_ids: string[];
+                decision: null | {
+                    code: "part_choice_required" | "location_required" | "location_conflict" | "location_draft_parent_invalid" | "quantity_required" | "location_groups_unavailable";
+                    detail: string;
+                };
+            }[];
         };
         CatalogueModel: "location" | "supplier";
         CatalogueQuery: {
@@ -5132,6 +5765,7 @@ export interface components {
         InventoryModel: "part" | "location" | "category" | "parameter_template" | "category_parameter" | "company";
         InventoryPartSpec: {
             name: string;
+            description?: string;
             category: {
                 observation_id: string;
                 target_context_id: string;
@@ -6284,6 +6918,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -6380,6 +7015,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -6746,6 +7382,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -6842,6 +7479,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -7570,6 +8208,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -7666,6 +8305,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -8018,6 +8658,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -8114,6 +8755,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -8370,6 +9012,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -8466,6 +9109,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -8725,6 +9369,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -8821,6 +9466,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -9430,6 +10076,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -9526,6 +10173,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -9781,6 +10429,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -9877,6 +10526,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -10135,6 +10785,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -10231,6 +10882,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -10489,6 +11141,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -10585,6 +11238,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -10844,6 +11498,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -10940,6 +11595,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -11205,6 +11861,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -11301,6 +11958,7 @@ export interface components {
                     mode: "create";
                     spec: {
                         name: string;
+                        description?: string;
                         category: {
                             observation_id: string;
                             target_context_id: string;
@@ -15051,6 +15709,15 @@ export type CaptureObservation = components['schemas']['CaptureObservation']
 export type CaptureSummary = components['schemas']['CaptureSummary']
 export type CaptureList = components['schemas']['CaptureList']
 export type CaptureSnapshot = components['schemas']['CaptureSnapshot']
+export type RecordRef = components['schemas']['RecordRef']
+export type RecordOperation = components['schemas']['RecordOperation']
+export type RecordChange = components['schemas']['RecordChange']
+export type RecordType = components['schemas']['RecordType']
+export type RecordState = components['schemas']['RecordState']
+export type RecordOrigin = components['schemas']['RecordOrigin']
+export type RecordField = components['schemas']['RecordField']
+export type BatchRecord = components['schemas']['BatchRecord']
+export type BatchRecords = components['schemas']['BatchRecords']
 export type CatalogueModel = components['schemas']['CatalogueModel']
 export type CatalogueQuery = components['schemas']['CatalogueQuery']
 export type CatalogueLocation = components['schemas']['CatalogueLocation']

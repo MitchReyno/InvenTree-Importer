@@ -207,6 +207,16 @@ export function attentionClient(
   }
 }
 
+export function recordsClient(baseUrl: string, csrfToken: string, transport: typeof fetch = fetch) {
+  const client = typedClient(baseUrl, transport, csrfToken)
+  return {
+    read: (batchId: string) =>
+      successfulData(
+        client.GET('/api/v1/batches/{id}/records', { params: { path: { id: batchId } } }),
+      ),
+  }
+}
+
 export function headerClient(baseUrl: string, csrfToken: string, transport: typeof fetch = fetch) {
   const client = typedClient(baseUrl, transport, csrfToken)
   return {

@@ -204,24 +204,24 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 
 - **PR delivery:** PR-E.
 - **Outcome:** record-level edits and the records projection on the existing capture authority.
-- **Scope:** `contracts/src/capture.ts` (`record` change, `RecordRef`), `contracts/src/effects.ts` (optional Part description), `contracts/src/` (records projection), `intake-server/src/capture/` (apply), `intake-server/src/execution/` (description in `partEffects`, `decodeEffectsPlan`, `supportedCreateBody`), the owned fake, and the `/api/v1/batches/:id/records` route.
+- **Scope:** `contracts/src/records.ts` (`record` change, `RecordRef`, added to the `contracts/src/capture.ts` edit union), `contracts/src/effects.ts` (optional Part description), `contracts/src/` (records projection), `intake-server/src/capture/` (apply), `intake-server/src/execution/` (description in `partEffects`, `decodeEffectsPlan`, `supportedCreateBody`), the owned fake, and the `/api/v1/batches/:id/records` route.
 - **Acceptance:** Record-level edits with stated scope; Supported record edits; Unsupported record changes are honest (the requirement: unsupported values never enter a spec and are kept with a reason; its New category proposed scenario needs BI-006's proposals and is evidenced end to end in task 14).
 - **Approach:** design D6–D7, as one transaction per edit at `expected_revision`.
 - **TDD approach:** Baseline: confirm the intake and PostgreSQL suites pass. For each operation, first write a failing integration test (RED) covering CAS 412, fan-out, `set_category` refusal and `changed_after_review` read-back. GREEN: implement it, then refactor.
 - **Verification:** `pnpm contracts:check`; intake and PostgreSQL integration tests for each operation, CAS 412, multi-Part fan-out, `changed_after_review`, re-validation failures, and unsupported items never entering a spec.
-- **Risks:** fan-out scope. The response lists the affected Parts and lots, which the UI shows.
+- **Risks:** fan-out scope. The shared `recordScope` gives the affected Parts and lots, which the UI shows before saving.
 
-- [ ] 9.1 Add the `record` change kind with `RecordRef` and its operations to the contracts, with schema tests.
-- [ ] 9.2 Write failing integration tests (RED) for each operation and failure path:
-  - [ ] 9.2.1 CAS 412, and multi-Part fan-out in one transaction.
-  - [ ] 9.2.2 Role-mismatched company map refused.
-  - [ ] 9.2.3 `map_template` refused for a Part without a category mapping, unless excluded.
-  - [ ] 9.2.4 `set_category` refused for unmapped, undropped parameters.
-  - [ ] 9.2.5 `lotReviewState` reads `changed_after_review` for reviewed lots of an edited Part, with no capture call into operator-review.
-  - [ ] 9.2.6 An existing frozen-plan fixture without a description decodes with unchanged digests; a set description reaches the owned fake and is confirmed by `fieldsMatch()`; clearing deletes the property.
-- [ ] 9.3 Add the optional Part `description` to `InventoryPartSpec`, `partEffects()`, `decodeEffectsPlan()`, `supportedCreateBody()` and the owned fake, deleting the property when unset or cleared (GREEN for 9.2.6).
-- [ ] 9.4 Implement the transactional apply: a new operator-attributed `choice` selection version per affected Part, re-validated with `validatePartSpec`, with the company-role, template-mapping and category rules (GREEN for 9.2.1–9.2.5).
-- [ ] 9.5 Write a failing projection test, then implement the records route: records by type, "Needs a decision" Parts without a spec, per-field origin from the latest processing proposal, and proposed-new values only from retained structured proposals.
+- [x] 9.1 Add the `record` change kind with `RecordRef` and its operations to the contracts, with schema tests.
+- [x] 9.2 Write failing integration tests (RED) for each operation and failure path:
+  - [x] 9.2.1 CAS 412, and multi-Part fan-out in one transaction.
+  - [x] 9.2.2 Role-mismatched company map refused.
+  - [x] 9.2.3 `map_template` refused for a Part without a category mapping, unless excluded.
+  - [x] 9.2.4 `set_category` refused for unmapped, undropped parameters.
+  - [x] 9.2.5 `lotReviewState` reads `changed_after_review` for reviewed lots of an edited Part, with no capture call into operator-review.
+  - [x] 9.2.6 An existing frozen-plan fixture without a description decodes with unchanged digests; a set description reaches the owned fake and is confirmed by `fieldsMatch()`; clearing deletes the property.
+- [x] 9.3 Add the optional Part `description` to `InventoryPartSpec`, `partEffects()`, `decodeEffectsPlan()`, `supportedCreateBody()` and the owned fake, deleting the property when unset or cleared (GREEN for 9.2.6).
+- [x] 9.4 Implement the transactional apply: a new operator-attributed `choice` selection version per affected Part, re-validated with `validatePartSpec`, with the company-role, template-mapping and category rules (GREEN for 9.2.1–9.2.5).
+- [x] 9.5 Write a failing projection test, then implement the records route: records by type, "Needs a decision" Parts without a spec, per-field origin from a retained processing proposal (about the Part or one of its lots) the field still matches, and proposed-new values only from retained structured proposals.
 
 ## 10. Records UI
 
@@ -233,11 +233,11 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Before each screen, write failing component tests for the scope text, the 412 path keeping drafts, and unsupported fields (RED). GREEN: implement them.
 - **Verification:** component tests for each record type, the 412 path keeping drafts, and the scope text; a browser check.
 
-- [ ] 10.1 Build the type rail with counts and decision badges, and the list per type.
-- [ ] 10.2 Build the Company decision view: use the likely match or pick another observed company in the same role, with creation shown as not supported yet.
-- [ ] 10.3 Build the Part record: category change with per-parameter mapping or drop, name, description, tags, parameters table, sourcing, images, unsupported fields, and the "Needs a decision" start for Parts without a spec.
-- [ ] 10.4 Build Parameters across Parts with batch-wide template mapping, asking for a category mapping per affected category.
-- [ ] 10.5 Add "Who proposed what" with Ask routing.
+- [x] 10.1 Build the type rail with counts and decision badges, and the list per type.
+- [x] 10.2 Build the Company decision view: use the likely match or pick another observed company in the same role, with creation shown as not supported yet.
+- [x] 10.3 Build the Part record: category change with per-parameter mapping or drop, name, description, tags, parameters table, sourcing, images, unsupported fields, and the "Needs a decision" start for Parts without a spec.
+- [x] 10.4 Build Parameters across Parts with batch-wide template mapping, asking for a category mapping per affected category.
+- [x] 10.5 Add "Who proposed what", with Ask hidden until agent sessions exist (Ask routing is 14.6).
 
 ## 11. Preparation tree and Changes
 
@@ -308,7 +308,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - [x] D.1 PR-A: independent exact-head review clear (record the SHA), selected CI green, published, and merged under user authorization. Review clear at `9fea7c7`; merged as #96 (`50ff181`). The frontend, TypeScript, Markdown and workflow checks passed; the two intake jobs failed identically on `interactive-app` itself (#93's sandbox limit test and #97's startup timeouts).
 - [x] D.2 PR-B: same gates. Review clear at `7c42f99` after seven rounds; merged as #100 (`4080ea9`). Every CI job passed; the HTTP lane's two start-up timeouts, which also fail on `interactive-app`'s own push, passed on rerun, and #99 retired the PostgreSQL lane.
 - [x] D.3 PR-C: same gates. Review clear at `8d725fd` after five rounds; merged as #102 (`d38e6ad`) with every CI job green and a demo video attached.
-- [ ] D.4 PR-D: same gates.
+- [x] D.4 PR-D: same gates. Review clear at `7330b65` after eight rounds; merged as #104 (`1672e00`) with every CI job that ran green and a demo video attached.
 - [ ] D.5 PR-E: same gates.
 - [ ] D.6 PR-F: same gates. BI-008 is updated to Done only after acceptance and merge are evidenced. Task 14 is tracked separately by D.7.
 - [ ] D.7 PR-G (task 14): same gates, once PR-C, PR-D, PR-E and BI-006's contracts are on `interactive-app`.

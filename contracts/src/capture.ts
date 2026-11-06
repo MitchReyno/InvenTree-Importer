@@ -7,6 +7,7 @@ import {
   EvidenceRegion,
 } from './evidence-observations.ts'
 import { InventoryModel, InventoryPartSpec, InventoryMapping, mappedReference } from './effects.ts'
+import { RecordChange } from './records.ts'
 import {
   CaptureAssignedLocation,
   CaptureAssignedLocationChange,
@@ -108,6 +109,7 @@ export const CaptureEdit = object({
     CaptureGroupLocationChange,
     object({ kind: Type.Literal('note'), subject_id: Type.Union([Id, Type.Null()]), text: note }),
     CaptureBatchSettingsChange,
+    RecordChange,
     /** Creates a region (no `observation_id`) or adjusts one; either marks it operator-edited. */
     object({
       kind: Type.Literal('observation'),

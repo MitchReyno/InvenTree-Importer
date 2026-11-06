@@ -17,6 +17,8 @@ import {
   captureLotRetirements,
 } from './schema.ts'
 import {
+  RecordEditError,
+  applyRecordChange,
   validate,
   type CaptureEditDto,
   type CaptureLotContextDto,
@@ -414,6 +416,8 @@ async function insertSelection(
   field: SelectionField,
   value: Selection | undefined,
   version: string,
+  /** Observations already read in this transaction, so a record edit reads them once. */
+  known?: readonly CaptureObservationDto[],
 ) {
   if (value === undefined) {
     return
@@ -425,13 +429,17 @@ async function insertSelection(
     if (field !== 'choice') {
       fail('invalid_part_creation')
     }
-    const current = await snapshot(
-      c,
-      { actorId: b.actor_id, targetId: b.target_id, targetContextId: b.target_context_id },
-      b.id,
-    )
+    const observations =
+      known ??
+      (
+        await snapshot(
+          c,
+          { actorId: b.actor_id, targetId: b.target_id, targetContextId: b.target_context_id },
+          b.id,
+        )
+      ).observations
     try {
-      validatePartSpec(value.spec, b.target_context_id, current.observations)
+      validatePartSpec(value.spec, b.target_context_id, observations)
     } catch (error) {
       if (error instanceof PartSpecError) {
         fail(error.code)
@@ -679,6 +687,9 @@ async function applyLockedCaptureEdit(
       }
       await note(c, b, change.subject_id, change.text)
       break
+    case 'record':
+      await applyRecordEdit(c, b, change, nextRevision)
+      break
     case 'observation':
     case 'observation_move':
     case 'observation_suggestion':
@@ -693,6 +704,53 @@ async function applyLockedCaptureEdit(
       .where(eq(captureBatches.id, id)),
   )
   await retainRevision(c, b, input, false)
+}
+
+type RecordChange = Extract<CaptureEditDto['change'], { kind: 'record' }>
+
+/** One record edit rewrites every affected Part's spec as a new choice version, in one revision. */
+async function applyRecordEdit(
+  c: PoolClient,
+  b: Batch,
+  change: RecordChange,
+  nextRevision: string,
+) {
+  const current = await snapshot(
+    c,
+    { actorId: b.actor_id, targetId: b.target_id, targetContextId: b.target_context_id },
+    b.id,
+  )
+  let specs
+  try {
+    specs = applyRecordChange(current, change).specs
+  } catch (error) {
+    if (error instanceof RecordEditError) {
+      fail(error.code)
+    }
+    throw error
+  }
+  for (const [partId, spec] of specs) {
+    try {
+      validate('InventoryPartSpec', spec)
+    } catch {
+      fail('invalid_part_spec')
+    }
+    await insertSelection(
+      c,
+      b,
+      partId,
+      'choice',
+      { mode: 'create', spec },
+      nextRevision,
+      current.observations,
+    )
+    await executeDatabaseQuery(
+      queryDatabase(c)
+        .update(captureSubjects)
+        .set({ revision: sql`${captureSubjects.revision}+1` })
+        .where(eq(captureSubjects.id, partId)),
+    )
+  }
 }
 
 type BatchSettingsChange = Extract<CaptureEditDto['change'], { kind: 'batch_settings' }>

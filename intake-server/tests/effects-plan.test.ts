@@ -416,3 +416,50 @@ test('an oversized supported-effects selection is a typed capacity issue, not a 
     'effects_capacity',
   )
 })
+
+test('a frozen spec without a description keeps its digests; a description joins the Part create', () => {
+  const frozen: InventoryPartSpecDto = {
+    name: 'Frozen resistor',
+    category: {
+      observation_id: '0b6f9a52-4e1d-4c1a-9f65-000000000901',
+      target_context_id: '0b6f9a52-4e1d-4c1a-9f65-000000000001',
+      model: 'category',
+      pk: '81',
+    },
+    parameters: [],
+    manufacturer: null,
+    supplier: null,
+    tags: ['SMD'],
+  }
+  const subjectId = '0b6f9a52-4e1d-4c1a-9f65-000000000010'
+  const binding = (spec: InventoryPartSpecDto) => ({
+    subjectId,
+    spec,
+    specDigest: partSpecDigest(spec),
+    prior: null,
+  })
+  // Digests recorded before descriptions existed; an unset description must not move them.
+  assert.equal(
+    partSpecDigest(frozen),
+    '663c48e050f09561b92cefda7e4f0305e496c5aac5164f3b3e7b78b657b265df',
+  )
+  assert.equal(
+    sha256(canonical(partEffects(binding(frozen)))).toString('hex'),
+    '6741c7cc5da9de14f74ca5689dd84f56ac9ddc771b6a4cf3fc1de6a5cc3ebb2f',
+  )
+
+  const described = { ...frozen, description: 'Through-hole, 1/4 W' }
+  const create = partEffects(binding(described)).find((effect) => effect.kind === 'create_part')!
+  assert.equal(create.input.description, 'Through-hole, 1/4 W')
+  assert.notEqual(partSpecDigest(described), partSpecDigest(frozen))
+  const { plan } = fixture()
+  const withDescription = {
+    ...plan,
+    parts: [binding(described)],
+    effects: partEffects(binding(described)),
+    operations: [
+      { ...plan.operations[0], partOperationKey: logicalEffectKey(subjectId, 'create_part') },
+    ],
+  }
+  assert.deepEqual(decode(withDescription), withDescription)
+})

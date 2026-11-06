@@ -131,13 +131,13 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
 
   - The server applies the change in a single transaction at `expected_revision`.
   - It rewrites every affected Part's `InventoryPartSpec` in place, re-validated with `validatePartSpec`.
-  - Each rewritten `choice` selection is written as a new version with the operator as its actor. Per-field origin in the UI comes from comparing the current spec with the latest processing proposal for that subject. Only the selection row stores an actor.
+  - Each rewritten `choice` selection is written as a new version with the operator as its actor. Per-field origin in the UI comes from comparing the current spec with the retained processing proposals about the Part or one of its active lots: a field shows the step of a proposal it still matches (retained proposals have no reliable order). Only the selection row stores an actor.
   - It does not call into operator-review. Rewriting a Part's selection changes its material in `materialize()` (`intake-server/src/review/model.ts`), so reviewed lots that use the Part read as `changed_after_review`.
   - On a revision mismatch it returns 412 with current values, as other capture edits do.
 - **Scope.** Records edits only change Parts whose `choice` is already `create` with an `InventoryPartSpec`.
   - A Part with no spec yet (`unset` or `unknown`) shows "Needs a decision".
   - Its actions use the existing `CaptureEdit { kind: 'part', choice }`: choose an existing Part, or start a new one with a name and an observed category.
-  - The response lists the affected Part and lot IDs, which become the UI's "applies to … used by N lots" text.
+  - The browser and server share `applyRecordChange` and `recordScope` (`contracts/src/records.ts`). The UI derives the affected Parts and lots, its "applies to … used by N lots" text, and any refusal naming a Part, before sending; the server applies the same function and re-validates. The edit response stays the capture snapshot. (Adjusted during PR-E; it was a response listing the affected IDs.)
 - **Validation rules.** `validatePartSpec` checks every reference against a complete target observation. It also checks that each parameter's `category_mapping` matches the Part's category and its template, and that templates aren't duplicated on a Part. Each operation must therefore supply the following:
   - **Companies:** `map_to_existing` keeps the role. The new company must be observed with `manufacturer` or `supplier` mapping, matching the role being edited.
   - **Templates:** `map_template` supplies a `category_parameter` mapping for each category among the affected Parts. A Part is refused with `parameter_category_incompatible` unless it is named in `exclude_parts` if either:
@@ -183,7 +183,7 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
 - **Decision.** Add `GET /api/v1/batches/:id/attention`, returning counts and items grouped by owner:
   - processing questions, and failed or interrupted attempts in their step;
   - review lots changed since review, blocking, or needing an answer;
-  - record decisions: open blocking issues that need an operator choice, not status such as an earlier approval;
+  - record decisions: the records read's records waiting for a choice (a Part, a lot's Part or quantity, a location), one per record and routed to it, not status such as an earlier approval;
   - changes failures or uncertain results.
   
   Each item carries a route. The tab badges and the panel both use it.

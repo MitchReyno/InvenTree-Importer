@@ -34,7 +34,7 @@ export const AttentionItem = object({
   /** An in-app hash route under the batch, without the leading `#`. */
   route: Type.String({
     maxLength: 512,
-    pattern: '^[0-9a-f-]{36}/(processing|review|changes)(/[A-Za-z0-9_-]+)*$',
+    pattern: '^[0-9a-f-]{36}/(processing|review|changes)(/([A-Za-z0-9_-]|%[0-9A-F]{2})+)*$',
   }),
 })
 

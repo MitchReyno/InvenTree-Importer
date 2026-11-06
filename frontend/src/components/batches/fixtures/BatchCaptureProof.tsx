@@ -131,7 +131,7 @@ const attention: BatchAttentionDto = {
     { key: 'question:q2', group: 'question', tab: 'processing', title: 'How many diodes are in the bag?', detail: 'Assuming about 200', route: `${batchId}/processing/examine/q2` },
     { key: 'question:q3', group: 'question', tab: 'processing', title: 'Which supplier SKU is the LM358 tube?', detail: null, route: `${batchId}/processing/research/q3` },
     { key: `changed:${lotId(2)}`, group: 'changed_lot', tab: 'review', title: lotNames[1], detail: 'Changed since it was reviewed', route: `${batchId}/review/lots/${lotId(2)}` },
-    { key: `decision:${lotId(3)}:part_not_chosen`, group: 'decision', tab: 'review', title: 'Choose the Part for the microcontroller', detail: lotNames[2], route: `${batchId}/review/lots/${lotId(3)}` },
+    { key: `decision:stock_item:${lotId(3)}`, group: 'decision', tab: 'review', title: 'Choose the Part for this lot.', detail: lotNames[2], route: `${batchId}/review/records/stock_item/${lotId(3)}` },
   ],
   items_truncated: false,
 }

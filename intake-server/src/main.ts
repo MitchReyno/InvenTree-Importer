@@ -21,6 +21,8 @@ import { catalogueReader } from './capture/catalogue.ts'
 import { registerManual } from './review/routes.ts'
 import { registerAttention } from './attention/routes.ts'
 import { attentionReader } from './attention/reader.ts'
+import { registerRecords } from './records/routes.ts'
+import { recordsReader } from './records/reader.ts'
 import { inventoryTransport } from './inventory/transport.ts'
 import fastifyStatic from '@fastify/static'
 import { existsSync } from 'node:fs'
@@ -145,11 +147,19 @@ async function main() {
         deploymentId: process.env.INTAKE_DEPLOYMENT_ID,
         readOrigin: process.env.INTAKE_READ_ORIGIN,
       }
+      const readRecords = recordsReader(
+        db.pool,
+        config,
+        processing,
+        lockCaptureForEdit,
+        mediaStore !== undefined,
+      )
       registerAttention(
         server,
         config,
-        attentionReader(db.pool, manualConfig, processing, lockCaptureForEdit),
+        attentionReader(db.pool, manualConfig, processing, lockCaptureForEdit, readRecords),
       )
+      registerRecords(server, config, readRecords)
       registerManual(
         server,
         db.pool,
