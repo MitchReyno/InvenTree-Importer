@@ -590,3 +590,30 @@ A fresh reviewer subagent reviewed `4080ea9..528b79d`. It found one important an
 
 Checks on the fix: frontend 502/502, typecheck, lint and build clean.
 
+## PR-B qualification (tasks 8.4, 8.5, 9.4, 9.5)
+
+Results at the reviewed head `04c69ae`, plus the job card label fix below.
+
+- **Database tier:** `pnpm db:intake test` passed 216/216.
+- **Process tier:** `pnpm db:intake test:process` passed 70/70.
+  - The tier run passed 66, with the 4 sandbox tests skipped because the probe image was missing. Run on their own with the rebuilt probe image (`tests/process/media-resources.test.ts`), the 4 passed.
+  - Media decoding and the existing processing queue are unaffected.
+- **Earlier sandbox failures were environmental.** "Owned probe must become observable" happened because the locally built probe image had been pruned: `build-media-probe.cjs` leaves it untagged.
+  - Every probe failed at once with `decoder_interrupted`. The trunk baseline run failed the same way.
+  - The build also refuses to overwrite an existing `--output-file`, so rebuild to a new path.
+- **Frontend:** all tests pass. Typecheck, lint, build and the markdown checks (`pnpm lint:markdown`) are clean.
+- **Headless browser check (9.5).**
+  - **Setup:** a local driver, not committed, ran the `session-browser` fixture with a real blob store, two PNG photos and their notes, and the session worker under the `synthetic-session/1` profile.
+    - Shelf photo note: "LED 0603 red ×500; 16 MHz crystal".
+    - Reel close-up note: "LED 0603 red ×500".
+    - The processing fixture has no Review, header or attention routes, so the driver served them as `main.ts` does, adding the manual, research and projection grants for the `api` role.
+  - **Result:** Playwright (Chromium, headless) passed all seven checks:
+    1. Capture shows no AI-proposed lots before the quiet period.
+    2. On the live page, without a reload, the glance gains "led 0603 red" and "16 mhz crystal", marked AI-proposed, while the Examine status line shows.
+    3. The LED lot draws crops from both photos (2) and the crystal lot from one.
+    4. Review lists the LED lot's observations with "Estimated 500 · label · same item in 2 photos".
+    5. Moving one observation to No lot leaves the lot with one observation, marked Edited.
+    6. The moved observation is listed under Unassigned observations, shown when no lot is inspected.
+    7. Selecting "16 mhz crystal" in Processing's "Queue work for selected saved subjects" and queuing it starts its Research and Images sessions.
+- **Fix found by the check.** The lead job's card in Processing was titled "Retained subject · examine", because its subject is null. It now reads "This batch · examine", as Needs you already did, with a test (`ProcessingJobCard.test.tsx`).
+

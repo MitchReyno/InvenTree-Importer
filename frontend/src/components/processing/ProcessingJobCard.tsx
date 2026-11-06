@@ -60,7 +60,8 @@ export function ProcessingJobCard({
     <Panel>
       <Row>
         <Heading>
-          {subject?.label ?? 'Retained subject'} · {job.stage}
+          {job.subject_id === null ? 'This batch' : (subject?.label ?? 'Retained subject')} ·{' '}
+          {job.stage}
         </Heading>
         <Status>{labels[job.state]}</Status>
       </Row>

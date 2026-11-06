@@ -266,8 +266,8 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - [x] 8.1 Baseline the media readiness and processing trigger tests.
 - [x] 8.2 RED: single-flight, debounce restart, resume, eligibility, new-evidence-only examination and quantity-basis regressions.
 - [x] 8.3 GREEN: lead job, quiet-period trigger (a session worker sweep; design D8), preview staging, instructions and evidence notices.
-- [ ] 8.4 Verify that media decoding and the existing processing queue are unaffected.
-- [ ] 8.5 Record the results.
+- [x] 8.4 Verify that media decoding and the existing processing queue are unaffected.
+- [x] 8.5 Record the results.
 
 ## 9. Live lots on Capture and Review
 
@@ -287,8 +287,8 @@ Tasks 5 and 7 can proceed in parallel with tasks 3 and 4 once task 2 is done.
 - [x] 9.1 Baseline the Review/Capture component tests.
 - [x] 9.2 RED: live insert, badge, edited state and dirty-draft preservation.
 - [x] 9.3 GREEN: UI.
-- [ ] 9.4 Update the docs and handover for PR-B; run the markdown checks.
-- [ ] 9.5 Headless browser check: lots appear while the lead session runs, with the right observations, and can be queued with the existing Processing controls; record evidence.
+- [x] 9.4 Update the docs and handover for PR-B; run the markdown checks.
+- [x] 9.5 Headless browser check: lots appear while the lead session runs, with the right observations, and can be queued with the existing Processing controls; record evidence.
 
 ## 10. Per-lot Research and Images on a stable identity
 
