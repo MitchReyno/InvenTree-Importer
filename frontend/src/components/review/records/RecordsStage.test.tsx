@@ -696,6 +696,110 @@ describe('RecordsStage', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('maps a proposed new manufacturer to its likely match or another, on every Part using it', async () => {
+    const user = userEvent.setup()
+    const edit = vi.fn(async () => true)
+    const proposedCompany = entry({
+      key: 'company:proposed:manufacturer:vsy',
+      type: 'company',
+      label: 'VSY',
+      state: 'choose',
+      part_ids: [partA],
+      lot_ids: [id(101), id(102)],
+      decision: {
+        code: 'company_proposed_new',
+        detail:
+          'Creating a manufacturer is not supported yet. Use an existing company or pick another.',
+      },
+      proposed: {
+        role: 'manufacturer',
+        name: 'VSY',
+        reason: 'The reel label reads VSY',
+        number: 'R-10',
+        likely: {
+          reference: ref(910, 'company'),
+          label: 'Vishay',
+          why: 'Its name contains the other',
+        },
+      },
+    })
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{
+          read: vi.fn(async () => ({ ...records, records: [...records.records, proposedCompany] })),
+        }}
+        edit={edit}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await open(user, /^Companies/, 'VSY')
+    const detail = screen.getByRole('region', { name: 'VSY' })
+    expect(detail).toHaveTextContent('Proposed because: The reel label reads VSY')
+    expect(detail).toHaveTextContent('Creating a new manufacturer is not supported yet.')
+    expect(detail).toHaveTextContent(
+      'Sets the manufacturer of Carbon film resistor to the chosen company, with part number R-10.',
+    )
+    await user.click(within(detail).getByRole('button', { name: 'Use Vishay' }))
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'record',
+      target: { kind: 'manufacturer_part', part_subject_id: partA },
+      operation: { op: 'set_mpn', company: ref(910, 'company'), mpn: 'R-10' },
+    })
+
+    await user.selectOptions(within(detail).getByLabelText('Use another manufacturer'), 'Yageo')
+    await user.click(within(detail).getByRole('button', { name: 'Use this manufacturer' }))
+    expect(edit).toHaveBeenLastCalledWith({
+      kind: 'record',
+      target: { kind: 'manufacturer_part', part_subject_id: partA },
+      operation: { op: 'set_mpn', company: ref(909, 'company'), mpn: 'R-10' },
+    })
+  })
+
+  it('lists values the executor cannot create on the Part, with the agent’s reason', async () => {
+    const user = userEvent.setup()
+    const withNotes = {
+      ...records,
+      records: records.records.map((item) =>
+        item.key === `part:${partA}`
+          ? {
+              ...item,
+              unsupported: [
+                {
+                  field: 'category',
+                  value: 'Thin-film resistors',
+                  why: 'Creating a category is not supported yet; choose an existing category.',
+                  reason: 'The packet says thin film',
+                },
+              ],
+            }
+          : item,
+      ),
+    }
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => withNotes) }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+      />,
+    )
+    await open(user, /^Parts/, 'Carbon film resistor')
+    const notes = within(screen.getByRole('region', { name: 'Carbon film resistor' })).getByRole(
+      'region',
+      {
+        name: 'Not supported yet',
+      },
+    )
+    expect(notes).toHaveTextContent('Category: Thin-film resistors')
+    expect(notes).toHaveTextContent(
+      'Creating a category is not supported yet; choose an existing category.',
+    )
+    expect(notes).toHaveTextContent('Proposed because: The packet says thin film')
+  })
+
   it('drops record drafts when the batch discards local edits', async () => {
     const user = userEvent.setup()
     const onDirtyChange = vi.fn()
@@ -1032,7 +1136,7 @@ describe('CompanyDecision', () => {
         onUseLikely={useExisting}
       />,
     )
-    const decision = screen.getByRole('region', { name: 'GCT' })
+    const decision = screen.getByRole('region', { name: 'Proposed new manufacturer: GCT' })
     expect(decision).toHaveTextContent('Needs a decision')
     expect(decision).toHaveTextContent('GCT is its trading name.')
     expect(decision).toHaveTextContent('Creating a new manufacturer is not supported yet.')

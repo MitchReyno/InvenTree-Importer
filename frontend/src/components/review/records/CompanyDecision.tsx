@@ -26,7 +26,7 @@ export function CompanyDecision({
   disabled = false,
 }: Props) {
   return (
-    <Card aria-label={proposed.name}>
+    <Card aria-label={`Proposed new ${role}: ${proposed.name}`}>
       <Head>
         <strong>{proposed.name}</strong>
         <Pill tone="warn">Needs a decision</Pill>

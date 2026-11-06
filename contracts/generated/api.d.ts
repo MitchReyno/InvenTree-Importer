@@ -5476,9 +5476,33 @@ export interface components {
             part_ids: string[];
             lot_ids: string[];
             decision: null | {
-                code: "part_choice_required" | "location_required" | "location_conflict" | "location_draft_parent_invalid" | "quantity_required" | "location_groups_unavailable";
+                code: "part_choice_required" | "location_required" | "location_conflict" | "location_draft_parent_invalid" | "quantity_required" | "location_groups_unavailable" | "company_proposed_new";
                 detail: string;
             };
+            proposed?: {
+                role: "manufacturer" | "supplier";
+                name: string;
+                reason: string | null;
+                number: string | null;
+                likely: {
+                    reference: {
+                        observation_id: string;
+                        target_context_id: string;
+                        /** @constant */
+                        model: "company";
+                        /** Format: int64 */
+                        pk: string;
+                    };
+                    label: string;
+                    why: string;
+                } | null;
+            };
+            unsupported?: {
+                field: string;
+                value: string;
+                why: string;
+                reason: string | null;
+            }[];
         };
         BatchRecords: {
             batch_id: string;
@@ -5541,9 +5565,33 @@ export interface components {
                 part_ids: string[];
                 lot_ids: string[];
                 decision: null | {
-                    code: "part_choice_required" | "location_required" | "location_conflict" | "location_draft_parent_invalid" | "quantity_required" | "location_groups_unavailable";
+                    code: "part_choice_required" | "location_required" | "location_conflict" | "location_draft_parent_invalid" | "quantity_required" | "location_groups_unavailable" | "company_proposed_new";
                     detail: string;
                 };
+                proposed?: {
+                    role: "manufacturer" | "supplier";
+                    name: string;
+                    reason: string | null;
+                    number: string | null;
+                    likely: {
+                        reference: {
+                            observation_id: string;
+                            target_context_id: string;
+                            /** @constant */
+                            model: "company";
+                            /** Format: int64 */
+                            pk: string;
+                        };
+                        label: string;
+                        why: string;
+                    } | null;
+                };
+                unsupported?: {
+                    field: string;
+                    value: string;
+                    why: string;
+                    reason: string | null;
+                }[];
             }[];
         };
         CatalogueModel: "location" | "supplier";

@@ -2,6 +2,7 @@ import styled from 'styled-components'
 import type { BatchRecordDto, CaptureSnapshotDto } from '@invimport/contracts'
 import { batchHref } from '../../../navigation/batch-route'
 import { AskControl } from './AskControl'
+import { ProposedCompanyEditor } from './ProposedCompanyEditor'
 import { STATE_LABELS, STEP_LABELS, scopeText, specOf } from '../../../records/model'
 import { color, radius, space, type } from '../../../theme/generated/tokens'
 import { Pill, type PillTone } from '../../ui/Pill'
@@ -32,6 +33,8 @@ const FIELD_LABELS: Record<string, string> = {
   sku: 'SKU',
   value: 'Value',
   quantity: 'Quantity',
+  parameter: 'Parameter',
+  supplier: 'Supplier',
 }
 
 /** Where other records are edited, for types Records shows but does not edit. */
@@ -127,6 +130,29 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: 
             ))}
           </tbody>
         </Fields>
+      )}
+      {record.unsupported && record.unsupported.length > 0 && (
+        <Unsupported aria-label="Not supported yet">
+          <strong>Not supported yet</strong>
+          {record.unsupported.map((item) => (
+            <div key={`${item.field}:${item.value}`}>
+              <span>
+                {FIELD_LABELS[item.field] ?? item.field}: {item.value}
+              </span>
+              <Small>{item.why}</Small>
+              {item.reason && <Small>Proposed because: {item.reason}</Small>}
+            </div>
+          ))}
+        </Unsupported>
+      )}
+      {record.proposed && (
+        <ProposedCompanyEditor
+          batch={batch}
+          record={record}
+          proposed={record.proposed}
+          save={save}
+          disabled={disabled}
+        />
       )}
       {target?.kind === 'company' && (
         <CompanyEditor
@@ -229,5 +255,17 @@ const Fields = styled.table`
     padding: ${space[1]} ${space[2]} ${space[1]} 0;
     text-align: left;
     vertical-align: top;
+  }
+`
+
+const Unsupported = styled.section`
+  display: grid;
+  gap: ${space[2]};
+  padding: ${space[3]};
+  border: 1px solid ${color.line};
+  border-radius: ${radius.card};
+  div {
+    display: grid;
+    gap: 2px;
   }
 `

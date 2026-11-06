@@ -14,6 +14,70 @@ import {
 } from './records.ts'
 
 type Proposal = ProcessingSnapshotDto['jobs'][number]['proposals'][number]
+type Unsupported = NonNullable<BatchRecordDto['unsupported']>[number]
+type ProposedCompany = NonNullable<BatchRecordDto['proposed']>
+type Reference = { observation_id: string; target_context_id: string; model: string; pk: string }
+type Choice = { choice: string; name?: string; reason?: string; reference?: Reference }
+type Catalogue = {
+  category: Choice | null
+  parameters: { name: string; value: string; template: Reference | null }[]
+  manufacturer: { company: Choice; mpn: string } | null
+  supplier: {
+    company: Choice
+    sku: string | null
+    price: { amount: string; currency: string } | null
+  } | null
+}
+type Role = 'manufacturer' | 'supplier'
+
+const words = (text: string) =>
+  text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+
+/**
+ * An observed company a proposed name probably means, by an explicit rule: the same name, its
+ * initials, or one name containing the other. Nothing else counts as likely.
+ */
+type CompanyReference = Omit<Reference, 'model'> & { model: 'company' }
+
+function likelyMatch(
+  name: string,
+  candidates: { reference: CompanyReference; label: string }[],
+): { reference: CompanyReference; label: string; why: string } | null {
+  const wanted = words(name).join(' ')
+  const rules: [string, (label: string) => boolean][] = [
+    ['It has the same name', (label) => words(label).join(' ') === wanted],
+    [
+      `Its initials are ${name}`,
+      (label) =>
+        /^[A-Za-z]{2,}$/.test(name) &&
+        words(label)
+          .map((word) => word[0])
+          .join('') === name.toLowerCase(),
+    ],
+    [
+      'Its name contains the other',
+      (label) => {
+        const other = words(label).join(' ')
+        return (
+          wanted.length >= 3 &&
+          other.length >= 3 &&
+          (other.includes(wanted) || wanted.includes(other))
+        )
+      },
+    ],
+  ]
+  for (const [why, matches] of rules) {
+    const found = candidates.find((candidate) => matches(candidate.label))
+    if (found) {
+      return { ...found, why }
+    }
+  }
+  return null
+}
+
 type Step = Extract<RecordOriginDto, { kind: 'step' }>['step']
 type Origin = RecordOriginDto
 type Field = BatchRecordDto['fields'][number]
@@ -359,6 +423,116 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
         },
       })
     }
+  }
+
+  // Catalogue proposals: values the executor cannot create are shown, never written into a spec.
+  const catalogueOf = (subjects: string[]) =>
+    subjects
+      .flatMap((subject) => proposals.get(subject) ?? [])
+      .map((entry) => (entry.proposal.value as { catalogue?: Catalogue }).catalogue)
+      .find((catalogue): catalogue is Catalogue => Boolean(catalogue))
+
+  const observedCompanies = (role: Role) =>
+    capture.observations.flatMap((item) =>
+      item.model === 'company' &&
+      (item.mapping as { manufacturer?: boolean; supplier?: boolean } | undefined)?.[role]
+        ? [
+            {
+              reference: {
+                observation_id: item.id,
+                target_context_id: item.target_context_id,
+                model: 'company' as const,
+                pk: item.pk,
+              },
+              label: item.label,
+            },
+          ]
+        : [],
+    )
+
+  const proposedCompanies = new Map<
+    string,
+    { company: Omit<ProposedCompany, 'likely'>; parts: string[] }
+  >()
+  for (const part of capture.parts) {
+    const catalogue = catalogueOf([part.id, ...lotsOf([part.id])])
+    if (!catalogue) {
+      continue
+    }
+    const unsupported: Unsupported[] = []
+    if (catalogue.category?.choice === 'proposed_new' && catalogue.category.name) {
+      unsupported.push({
+        field: 'category',
+        value: clip(catalogue.category.name),
+        why: 'Creating a category is not supported yet; choose an existing category.',
+        reason: catalogue.category.reason?.slice(0, 512) || null,
+      })
+    }
+    for (const parameter of catalogue.parameters) {
+      if (parameter.template === null) {
+        unsupported.push({
+          field: 'parameter',
+          value: clip(`${parameter.name}: ${parameter.value}`),
+          why: 'Creating a parameter template is not supported yet.',
+          reason: null,
+        })
+      }
+    }
+    if (catalogue.supplier?.price) {
+      unsupported.push({
+        field: 'supplier',
+        value: `${catalogue.supplier.price.amount} ${catalogue.supplier.price.currency}`,
+        why: 'Supplier prices are not supported yet.',
+        reason: null,
+      })
+    }
+    const partRecord = records.find((item) => item.key === `part:${part.id}`)
+    if (partRecord && unsupported.length) {
+      partRecord.unsupported = unsupported.slice(0, 40)
+    }
+    const spec = part.choice.mode === 'create' ? part.choice.spec : null
+    for (const role of ['manufacturer', 'supplier'] as const) {
+      const entry = catalogue[role]
+      // A role the Part already has is the operator's choice; it is not asked about again.
+      if (
+        !entry ||
+        entry.company.choice !== 'proposed_new' ||
+        !entry.company.name ||
+        spec?.[role]
+      ) {
+        continue
+      }
+      const key = `${role}:${words(entry.company.name).join('-')}`
+      const known = proposedCompanies.get(key)
+      if (known) {
+        known.parts.push(part.id)
+        continue
+      }
+      proposedCompanies.set(key, {
+        company: {
+          role,
+          name: clip(entry.company.name),
+          reason: entry.company.reason?.slice(0, 512) || null,
+          number: ('mpn' in entry ? entry.mpn : entry.sku)?.slice(0, 256) || null,
+        },
+        parts: [part.id],
+      })
+    }
+  }
+  for (const [key, { company, parts }] of proposedCompanies) {
+    record({
+      key: `company:proposed:${key}`,
+      type: 'company',
+      label: company.name,
+      state: 'choose',
+      target: null,
+      part_ids: parts,
+      decision: {
+        code: 'company_proposed_new',
+        detail: `Creating a ${company.role} is not supported yet. Use an existing company or pick another.`,
+      },
+      proposed: { ...company, likely: likelyMatch(company.name, observedCompanies(company.role)) },
+    })
   }
 
   // Locations group active lots by where they resolve; a lot with none needs a decision.

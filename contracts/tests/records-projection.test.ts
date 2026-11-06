@@ -552,3 +552,172 @@ test('a Part’s field also shows the step when a proposal about one of its lots
     proposal_id: id(730),
   })
 })
+
+const proposedNew = (name: string, reason: string) => ({
+  choice: 'proposed_new',
+  name,
+  reason,
+  sources: [],
+})
+
+function catalogueJob(subject: string, catalogue: object) {
+  return {
+    jobs: [
+      {
+        id: id(720),
+        subject_id: subject,
+        stage: 'research',
+        proposals: [
+          proposal(730, {
+            schema_version: 'bench-intake-proposal/5',
+            subject_id: subject,
+            summary: 'Thin-film resistor.',
+            sources: [{ kind: 'note', note_id: id(800), text_sha256: 'a'.repeat(64) }],
+            relies_on: {
+              fields: ['research'],
+              sources: [{ kind: 'note', note_id: id(800), text_sha256: 'a'.repeat(64) }],
+            },
+            catalogue: {
+              category: null,
+              parameters: [],
+              manufacturer: null,
+              supplier: null,
+              description: null,
+              ...catalogue,
+            },
+          }),
+        ],
+        questions: [],
+      },
+    ],
+  } as unknown as ProcessingSnapshotDto
+}
+
+const withGct = {
+  ...capture,
+  observations: [
+    ...capture.observations,
+    observation(920, 'company', '31', 'Global Connector Technology', {
+      kind: 'company',
+      manufacturer: true,
+      supplier: false,
+    }),
+  ],
+} as unknown as CaptureSnapshotDto
+
+test('a proposed new manufacturer is a decision, with a likely existing match by initials', () => {
+  const result = projectRecords({
+    capture: withGct,
+    processing: catalogueJob(partB, {
+      manufacturer: {
+        company: proposedNew('GCT', 'The reel label reads GCT'),
+        mpn: 'R-10',
+        sources: [],
+      },
+    }),
+    lotGroups: null,
+  })
+  validate('BatchRecords', result)
+  const gct = of(result.records, 'company').find((record) => record.label === 'GCT')
+  assert.equal(gct?.state, 'choose')
+  assert.equal(gct?.decision?.code, 'company_proposed_new')
+  assert.deepEqual(gct?.part_ids, [partB])
+  assert.deepEqual(gct?.proposed, {
+    role: 'manufacturer',
+    name: 'GCT',
+    reason: 'The reel label reads GCT',
+    number: 'R-10',
+    likely: {
+      reference: {
+        observation_id: id(920),
+        target_context_id: context,
+        model: 'company',
+        pk: '31',
+      },
+      label: 'Global Connector Technology',
+      why: 'Its initials are GCT',
+    },
+  })
+  assert.equal(result.counts.find((count) => count.type === 'company')?.decide, 1)
+})
+
+test('a proposed new company has no likely match without a rule that finds one', () => {
+  const result = projectRecords({
+    capture: withGct,
+    processing: catalogueJob(partB, {
+      manufacturer: {
+        company: proposedNew('Acme Reels', 'Printed on the box'),
+        mpn: 'A-1',
+        sources: [],
+      },
+    }),
+    lotGroups: null,
+  })
+  assert.equal(
+    of(result.records, 'company').find((record) => record.label === 'Acme Reels')?.proposed?.likely,
+    null,
+  )
+})
+
+test('a role the Part already has is not asked about again', () => {
+  const result = projectRecords({
+    capture: withGct,
+    processing: catalogueJob(partA, {
+      manufacturer: {
+        company: proposedNew('GCT', 'The reel label reads GCT'),
+        mpn: 'R-10',
+        sources: [],
+      },
+    }),
+    lotGroups: null,
+  })
+  assert.equal(
+    of(result.records, 'company').some((record) => record.label === 'GCT'),
+    false,
+  )
+})
+
+test('values the executor cannot create are listed on the Part as not supported yet, with the reason', () => {
+  const result = projectRecords({
+    capture,
+    processing: catalogueJob(partB, {
+      category: proposedNew('Thin-film resistors', 'The packet says thin film'),
+      parameters: [
+        { name: 'Tolerance', value: '1%', template: null, category_mapping: null, sources: [] },
+      ],
+      supplier: {
+        company: { choice: 'existing', reference: ref(909, 'company'), sources: [] },
+        sku: 'S-10',
+        price: { amount: '0.10', currency: 'USD' },
+        sources: [],
+      },
+    }),
+    lotGroups: null,
+  })
+  validate('BatchRecords', result)
+  const part = of(result.records, 'part').find((record) => record.key === `part:${partB}`)
+  assert.deepEqual(part?.unsupported, [
+    {
+      field: 'category',
+      value: 'Thin-film resistors',
+      why: 'Creating a category is not supported yet; choose an existing category.',
+      reason: 'The packet says thin film',
+    },
+    {
+      field: 'parameter',
+      value: 'Tolerance: 1%',
+      why: 'Creating a parameter template is not supported yet.',
+      reason: null,
+    },
+    {
+      field: 'supplier',
+      value: '0.10 USD',
+      why: 'Supplier prices are not supported yet.',
+      reason: null,
+    },
+  ])
+  assert.equal(
+    of(result.records, 'part').find((record) => record.key === `part:${partA}`)?.unsupported,
+    undefined,
+  )
+})

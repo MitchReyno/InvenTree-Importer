@@ -14529,6 +14529,10 @@
                       {
                         "const": "location_groups_unavailable",
                         "type": "string"
+                      },
+                      {
+                        "const": "company_proposed_new",
+                        "type": "string"
                       }
                     ]
                   },
@@ -14540,6 +14544,160 @@
                 }
               }
             ]
+          },
+          "proposed": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "role",
+              "name",
+              "reason",
+              "number",
+              "likely"
+            ],
+            "properties": {
+              "role": {
+                "anyOf": [
+                  {
+                    "const": "manufacturer",
+                    "type": "string"
+                  },
+                  {
+                    "const": "supplier",
+                    "type": "string"
+                  }
+                ]
+              },
+              "name": {
+                "minLength": 1,
+                "maxLength": 256,
+                "type": "string"
+              },
+              "reason": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "number": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "likely": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "reference",
+                      "label",
+                      "why"
+                    ],
+                    "properties": {
+                      "reference": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "required": [
+                          "observation_id",
+                          "target_context_id",
+                          "model",
+                          "pk"
+                        ],
+                        "properties": {
+                          "observation_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "target_context_id": {
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                            "type": "string"
+                          },
+                          "model": {
+                            "const": "company",
+                            "type": "string"
+                          },
+                          "pk": {
+                            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                            "format": "int64",
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "label": {
+                        "minLength": 1,
+                        "maxLength": 256,
+                        "type": "string"
+                      },
+                      "why": {
+                        "minLength": 1,
+                        "maxLength": 512,
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "unsupported": {
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "field",
+                "value",
+                "why",
+                "reason"
+              ],
+              "properties": {
+                "field": {
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "value": {
+                  "minLength": 1,
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "why": {
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                "reason": {
+                  "anyOf": [
+                    {
+                      "minLength": 1,
+                      "maxLength": 512,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
           }
         }
       },
@@ -15023,6 +15181,10 @@
                             {
                               "const": "location_groups_unavailable",
                               "type": "string"
+                            },
+                            {
+                              "const": "company_proposed_new",
+                              "type": "string"
                             }
                           ]
                         },
@@ -15034,6 +15196,160 @@
                       }
                     }
                   ]
+                },
+                "proposed": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "role",
+                    "name",
+                    "reason",
+                    "number",
+                    "likely"
+                  ],
+                  "properties": {
+                    "role": {
+                      "anyOf": [
+                        {
+                          "const": "manufacturer",
+                          "type": "string"
+                        },
+                        {
+                          "const": "supplier",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "name": {
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "type": "string"
+                    },
+                    "reason": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "maxLength": 512,
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "number": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "maxLength": 256,
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "likely": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "reference",
+                            "label",
+                            "why"
+                          ],
+                          "properties": {
+                            "reference": {
+                              "additionalProperties": false,
+                              "type": "object",
+                              "required": [
+                                "observation_id",
+                                "target_context_id",
+                                "model",
+                                "pk"
+                              ],
+                              "properties": {
+                                "observation_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "target_context_id": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                  "type": "string"
+                                },
+                                "model": {
+                                  "const": "company",
+                                  "type": "string"
+                                },
+                                "pk": {
+                                  "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                                  "format": "int64",
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "label": {
+                              "minLength": 1,
+                              "maxLength": 256,
+                              "type": "string"
+                            },
+                            "why": {
+                              "minLength": 1,
+                              "maxLength": 512,
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "unsupported": {
+                  "maxItems": 40,
+                  "type": "array",
+                  "items": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "field",
+                      "value",
+                      "why",
+                      "reason"
+                    ],
+                    "properties": {
+                      "field": {
+                        "minLength": 1,
+                        "maxLength": 64,
+                        "type": "string"
+                      },
+                      "value": {
+                        "minLength": 1,
+                        "maxLength": 256,
+                        "type": "string"
+                      },
+                      "why": {
+                        "minLength": 1,
+                        "maxLength": 512,
+                        "type": "string"
+                      },
+                      "reason": {
+                        "anyOf": [
+                          {
+                            "minLength": 1,
+                            "maxLength": 512,
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  }
                 }
               }
             }

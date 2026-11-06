@@ -300,7 +300,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - [x] 14.4 Turn on live sessions and slot counts on the Agents page, and each lot's latest agent status line in the Capture Proposed lots glance.
 - [x] 14.5 Turn on region crops in the Review evidence pane, each lot's agent line in Lot details, and Tell Examine and region-level Map links in Review › Map.
 - [x] 14.6 Turn on Ask on Records.
-- [ ] 14.7 Write failing projection tests (RED), then read BI-006's structured catalogue proposals into the records projection (GREEN): proposed-new values, unsupported values with reasons, and the GCT and new-category scenarios end to end.
+- [x] 14.7 Write failing projection tests (RED), then read BI-006's structured catalogue proposals into the records projection (GREEN): proposed-new values, unsupported values with reasons, and the GCT and new-category scenarios end to end.
 - [ ] 14.8 Record the browser check of every screen above in the handover.
 
 ## Delivery evidence and lifecycle follow-up
