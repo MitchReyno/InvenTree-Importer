@@ -436,15 +436,17 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
   // Catalogue proposals: values the executor cannot create are shown, never written into a spec.
   // One catalogue per Part: from a current job before a superseded one, about the Part itself
   // before one of its lots. Retained proposals carry no order, so ties take the first read.
-  const catalogueOf = (subjects: string[]) =>
-    subjects
-      .flatMap((subject, rank) => (proposals.get(subject) ?? []).map((entry) => ({ entry, rank })))
-      .sort(
-        (left, right) =>
-          Number(right.entry.current) - Number(left.entry.current) || left.rank - right.rank,
-      )
+  const catalogueOf = (subjects: string[]) => {
+    const entries = subjects.flatMap((subject, rank) =>
+      (proposals.get(subject) ?? []).map((entry) => ({ entry, rank })),
+    )
+    // Once a current job has proposed, a superseded job's catalogue no longer counts.
+    const current = entries.filter(({ entry }) => entry.current)
+    return (current.length ? current : entries)
+      .sort((left, right) => left.rank - right.rank)
       .map(({ entry }) => (entry.proposal.value as { catalogue?: Catalogue }).catalogue)
       .find((catalogue): catalogue is Catalogue => Boolean(catalogue))
+  }
 
   const observedCompanies = (role: Role) =>
     capture.observations.flatMap((item) =>
@@ -516,7 +518,8 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       record({
         key: `company:proposed:${role}:${part.id}`,
         type: 'company',
-        label: name,
+        // Several Parts can propose the same name, so the label says whose it is.
+        label: clip(`${name} for ${spec.name}`),
         state: 'choose',
         target: null,
         part_ids: [part.id],

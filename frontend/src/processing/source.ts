@@ -67,6 +67,14 @@ function workStep(job: Job): WorkStep {
   return step === 'overview' ? 'examine' : step
 }
 
+/** Sessions that will not read another message; Processing offers a fresh one instead. */
+export const ENDED_SESSIONS: ReadonlySet<string> = new Set([
+  'cancelled',
+  'cancelling',
+  'failed',
+  'resume_unavailable',
+])
+
 /** The batch's Examine lead job: the batch-level Examine job that runs as a session. */
 export function examineLead(snapshot: Pick<ProcessingSnapshotDto, 'jobs'>) {
   return (

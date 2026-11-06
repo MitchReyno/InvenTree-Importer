@@ -1,7 +1,13 @@
-import { useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import styled from 'styled-components'
 import { examineLead } from '../../processing/source'
+import {
+  confirmPending,
+  editPending,
+  pendingMessage,
+  sendKey,
+} from '../../processing/pending-messages'
 import type { ProcessingClient } from '../../processing/types'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { space } from '../../theme/generated/tokens'
@@ -18,18 +24,24 @@ import { Label, Small, TextArea } from '../ui/primitives'
 export function TellExamine({
   batchId,
   processing,
+  onDirtyChange,
 }: {
   batchId: string
   processing: ProcessingClient | undefined
+  /** Reports unsent text to the navigation guard. */
+  onDirtyChange?: (dirty: boolean) => void
 }) {
+  const storeKey = `${batchId}:examine-lead`
   const scope = useServerScope()
   const pollInterval = useRetainedPollInterval()
-  const [text, setText] = useState('')
+  const [text, setText] = useState(() => pendingMessage(storeKey).text)
   const [busy, setBusy] = useState(false)
   const [outcome, setOutcome] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
-  // Kept with the unsent text, so retrying after an unconfirmed send cannot queue it twice.
-  const pendingKey = useRef<string | null>(null)
+  // A draft restored from the store is unsaved work too.
+  useEffect(() => {
+    onDirtyChange?.(Boolean(pendingMessage(storeKey).text.trim()))
+  }, [onDirtyChange, storeKey])
   const snapshot = useQuery({
     queryKey: serverQueryKey(scope, 'processing', batchId),
     queryFn: () => processing!.read(batchId),
@@ -47,7 +59,7 @@ export function TellExamine({
     setBusy(true)
     setOutcome(null)
     setFailed(false)
-    const key = (pendingKey.current ??= crypto.randomUUID())
+    const key = sendKey(storeKey, text)
     try {
       await chat!.call(
         processing,
@@ -56,8 +68,9 @@ export function TellExamine({
         { idempotency_key: key, text: text.trim() },
         key,
       )
-      pendingKey.current = null
+      confirmPending(storeKey)
       setText('')
+      onDirtyChange?.(false)
       setOutcome(chatConfirmation(state))
     } catch {
       setFailed(true)
@@ -82,7 +95,8 @@ export function TellExamine({
           disabled={busy}
           onChange={(event) => {
             setText(event.target.value)
-            pendingKey.current = null
+            editPending(storeKey, event.target.value)
+            onDirtyChange?.(Boolean(event.target.value.trim()))
             setOutcome(null)
             setFailed(false)
           }}

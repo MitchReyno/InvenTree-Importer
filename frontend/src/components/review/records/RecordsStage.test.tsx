@@ -799,6 +799,32 @@ describe('RecordsStage', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('offers no Ask for a session that has been cancelled', async () => {
+    const user = userEvent.setup()
+    const processing = {
+      read: vi.fn(async () => ({
+        jobs: [
+          { id: 'research-job', stage: 'research', subject_id: partA, session_state: 'cancelled' },
+        ],
+      })),
+      session: vi.fn(),
+      chat: vi.fn(),
+    } as unknown as ProcessingClient
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => records) }}
+        edit={vi.fn(async () => true)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+        processing={processing}
+      />,
+    )
+    await open(user, /^Parts/, 'Carbon film resistor')
+    await waitFor(() => expect(processing.read).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: /^Ask/ })).not.toBeInTheDocument()
+  })
+
   it('drops record drafts when the batch discards local edits', async () => {
     const user = userEvent.setup()
     const onDirtyChange = vi.fn()

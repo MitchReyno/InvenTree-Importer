@@ -43,3 +43,22 @@ it('reads nothing where sessions are not supported', () => {
   expect(result.current).toEqual({ lead: undefined, lots: new Map() })
   expect(read).not.toHaveBeenCalled()
 })
+
+it('leaves out the last line of a session that has finished or ended', async () => {
+  const ended = (id: string, state: string) => ({
+    ...job(id, 'research', id, 'Old line', '2026-11-06T10:00:00.000Z'),
+    session_state: state,
+  })
+
+  const read = vi.fn().mockResolvedValue({
+    jobs: [
+      ended('l1', 'finished'),
+      ended('l2', 'cancelled'),
+      job('l3', 'images', 'l3', 'Now', 'x'),
+    ],
+  })
+  const client = { read, session: vi.fn() } as unknown as ProcessingClient
+  const { result } = renderHook(() => useSessionStatuses(client, 'b', '1'))
+  await waitFor(() => expect(result.current.lots.size).toBe(1))
+  expect(result.current.lots.get('l3')).toBe('Images · Now')
+})

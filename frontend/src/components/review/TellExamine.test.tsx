@@ -81,3 +81,26 @@ it('shows no instruction field without an Examine session', async () => {
   await waitFor(() => expect(processing.read).toHaveBeenCalled())
   expect(screen.queryByLabelText('Instruction for Examine')).not.toBeInTheDocument()
 })
+
+it('keeps an unsent instruction and its key when the Map closes, and reports it as unsaved', async () => {
+  const user = userEvent.setup()
+  const processing = client(true)
+  processing.chat.mockRejectedValueOnce(new Error('timeout'))
+  const onDirtyChange = vi.fn()
+  const first = render(
+    <TellExamine batchId="kept" processing={processing} onDirtyChange={onDirtyChange} />,
+  )
+  await user.type(await screen.findByLabelText('Instruction for Examine'), 'Merge the reels')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  await user.click(screen.getByRole('button', { name: 'Tell Examine' }))
+  await screen.findByRole('alert')
+  first.unmount()
+
+  render(<TellExamine batchId="kept" processing={processing} onDirtyChange={onDirtyChange} />)
+  expect(await screen.findByLabelText('Instruction for Examine')).toHaveValue('Merge the reels')
+  expect(onDirtyChange).toHaveBeenLastCalledWith(true)
+  await user.click(screen.getByRole('button', { name: 'Tell Examine' }))
+  await waitFor(() => expect(processing.chat).toHaveBeenCalledTimes(2))
+  expect(processing.chat.mock.calls[1][3]).toBe(processing.chat.mock.calls[0][3])
+  expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+})

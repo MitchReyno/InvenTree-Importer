@@ -126,6 +126,8 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: 
                           value={field.value}
                           prefill={`Please check the ${(FIELD_LABELS[field.name] ?? field.name).toLowerCase()} of ${record.label}.`}
                           send={send}
+                          storeKey={`${batch.id}:ask:${record.key}:${field.name}`}
+                          report={reportFor(`ask:${field.name}`)}
                         />
                       ) : null
                     })()}

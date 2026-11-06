@@ -10,6 +10,7 @@ import type { CaptureWorkspaceProps } from '../../../capture/types'
 import { batchHref, parseBatchRoute, processingStepFor } from '../../../navigation/batch-route'
 import { serverQueryKey, useServerScope } from '../../../queries/scope'
 import { useRetainedPollInterval } from '../../operations/LiveUpdates'
+import { ENDED_SESSIONS } from '../../../processing/source'
 import type { ProcessingClient } from '../../../processing/types'
 import { useQuery } from '@tanstack/react-query'
 import { useDirtySources } from '../../../operator/useDirtySources'
@@ -89,14 +90,19 @@ export function RecordsStage({
   // The session of that step working on the record's Part or one of its lots.
   const askFor = (record: BatchRecordDto) => (step: string) => {
     const chat = processing?.chat
-    const owners = new Set([...record.part_ids, ...record.lot_ids])
-    const job = sessions.data?.jobs.find(
-      (item) =>
-        item.session_state &&
-        item.subject_id !== null &&
-        owners.has(item.subject_id) &&
-        processingStepFor(item.stage) === step,
-    )
+    // The Part's own session first, then a lot's; never one that will not read it.
+    const owners = [...record.part_ids, ...record.lot_ids]
+    const job = owners
+      .flatMap((owner) =>
+        (sessions.data?.jobs ?? []).filter(
+          (item) =>
+            item.subject_id === owner &&
+            item.session_state &&
+            !ENDED_SESSIONS.has(item.session_state) &&
+            processingStepFor(item.stage) === step,
+        ),
+      )
+      .at(0)
     if (!chat || !job) {
       return undefined
     }

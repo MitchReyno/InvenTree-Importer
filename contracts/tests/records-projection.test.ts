@@ -620,7 +620,7 @@ test('a proposed new manufacturer is a decision, with a likely existing match by
     lotGroups: null,
   })
   validate('BatchRecords', result)
-  const gct = of(result.records, 'company').find((record) => record.label === 'GCT')
+  const gct = of(result.records, 'company').find((record) => record.proposed?.name === 'GCT')
   assert.equal(gct?.key, `company:proposed:manufacturer:${partB}`)
   assert.equal(gct?.state, 'choose')
   assert.equal(gct?.decision?.code, 'company_proposed_new')
@@ -657,7 +657,8 @@ test('a proposed new company has no likely match without a rule that finds one',
     lotGroups: null,
   })
   assert.equal(
-    of(result.records, 'company').find((record) => record.label === 'Acme Reels')?.proposed?.likely,
+    of(result.records, 'company').find((record) => record.proposed?.name === 'Acme Reels')?.proposed
+      ?.likely,
     null,
   )
 })
@@ -675,7 +676,7 @@ test('a role the Part already has is not asked about again', () => {
     lotGroups: null,
   })
   assert.equal(
-    of(result.records, 'company').some((record) => record.label === 'GCT'),
+    of(result.records, 'company').some((record) => record.proposed?.name === 'GCT'),
     false,
   )
 })
@@ -748,12 +749,12 @@ test('each Part proposing the same new company gets its own decision with its ow
     ),
     lotGroups: null,
   })
-  const gct = of(result.records, 'company').filter((record) => record.label === 'GCT')
+  const gct = of(result.records, 'company').filter((record) => record.proposed?.name === 'GCT')
   assert.deepEqual(
-    gct.map((record) => [record.part_ids, record.proposed?.number]),
+    gct.map((record) => [record.label, record.part_ids, record.proposed?.number]),
     [
-      [[partB], 'USB4105'],
-      [[partC], 'USB4085'],
+      ['GCT for Metal film resistor', [partB], 'USB4105'],
+      ['GCT for Metal film resistor', [partC], 'USB4085'],
     ],
   )
 })
@@ -768,7 +769,7 @@ test('a Part already matched in InvenTree, or still unset, gets no company decis
       lotGroups: null,
     })
     assert.equal(
-      of(result.records, 'company').some((record) => record.label === 'GCT'),
+      of(result.records, 'company').some((record) => record.proposed?.name === 'GCT'),
       false,
     )
   }
@@ -842,7 +843,48 @@ test('a current proposal wins over a superseded one', () => {
   assert.deepEqual(
     of(result.records, 'company')
       .filter((record) => record.proposed)
-      .map((record) => record.label),
+      .map((record) => record.proposed?.name),
     ['GCT'],
+  )
+})
+
+test('a superseded catalogue no longer counts once a current job has proposed', () => {
+  const result = projectRecords({
+    capture: withGct,
+    processing: {
+      jobs: [
+        ...catalogueJob(
+          partB,
+          {
+            manufacturer: {
+              company: proposedNew('Old Co', 'Earlier guess'),
+              mpn: 'R-1',
+              sources: [],
+            },
+          },
+          { state: 'superseded' },
+        ).jobs,
+        {
+          ...catalogueJob(partB, {}).jobs[0],
+          id: id(723),
+          proposals: [
+            {
+              id: id(740),
+              message_id: id(741),
+              value: {
+                schema_version: 'bench-intake-proposal/4',
+                subject_id: partB,
+                summary: 'Identity only.',
+              },
+            },
+          ],
+        },
+      ],
+    } as unknown as ProcessingSnapshotDto,
+    lotGroups: null,
+  })
+  assert.equal(
+    of(result.records, 'company').some((record) => record.proposed),
+    false,
   )
 })

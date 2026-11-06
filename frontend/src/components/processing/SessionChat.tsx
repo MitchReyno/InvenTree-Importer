@@ -65,7 +65,7 @@ const confirmation: Partial<Record<SessionStateDto, string>> = {
 
 /** What a queued message means for a session in this state. */
 export function chatConfirmation(state: SessionStateDto) {
-  return confirmation[state] ?? 'Queued. The agent receives it when the session next runs.'
+  return confirmation[state] ?? 'Queued. The session resumes to answer.'
 }
 
 /** Chat queues in every session state; a cancelled session offers a fresh one instead. */
@@ -84,8 +84,7 @@ export function SessionChat({ storeKey, state, send, startFresh }: Props) {
     )
   }
 
-  const confirmed = () =>
-    setMessage(confirmation[state] ?? 'Queued. The session resumes to answer.')
+  const confirmed = () => setMessage(chatConfirmation(state))
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault()

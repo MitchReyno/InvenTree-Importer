@@ -1,46 +1,78 @@
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
+import {
+  confirmPending,
+  editPending,
+  pendingMessage,
+  sendKey,
+} from '../../../processing/pending-messages'
 import { space } from '../../../theme/generated/tokens'
 import { Button } from '../../ui/Button'
 import { Small, TextArea } from '../../ui/primitives'
 
 /**
  * Asks the step that proposed a field, through its session's inbox. "Asked" stays until the
- * field's value changes; the reply itself is in the session drawer in Processing.
+ * field's value changes; the reply itself is in the session drawer in Processing. An unsent
+ * message and its key are kept (by `storeKey`) when the record closes, and count as unsaved work.
  */
 export function AskControl({
   step,
   value,
   prefill,
+  storeKey,
   send,
+  report,
 }: {
   step: string
   value: string | null
   prefill: string
-  /** Sends with an idempotency key kept until the message is confirmed or changed. */
+  storeKey: string
   send: (text: string, key: string) => Promise<void>
+  report?: (dirty: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
-  const [text, setText] = useState(prefill)
+  const kept = pendingMessage(storeKey).text
+  const [open, setOpen] = useState(Boolean(kept))
+  const [text, setText] = useState(kept || prefill)
   const [busy, setBusy] = useState(false)
   const [asked, setAsked] = useState(false)
   const [failed, setFailed] = useState(false)
   const askedValue = useRef(value)
-  const pendingKey = useRef<string | null>(null)
+  const focus = useRef<'asked' | 'ask' | null>(null)
+  const askedRef = useRef<HTMLElement>(null)
+  const askRef = useRef<HTMLSpanElement>(null)
+
   useEffect(() => {
     if (asked && value !== askedValue.current) {
       setAsked(false)
     }
   }, [asked, value])
+  useEffect(() => {
+    report?.(open)
+  }, [open, report])
+  useEffect(() => () => report?.(false), [report])
+  useEffect(() => {
+    if (focus.current === 'asked') {
+      askedRef.current?.focus()
+    } else if (focus.current === 'ask') {
+      askRef.current?.querySelector('button')?.focus()
+    }
+    focus.current = null
+  })
 
   if (asked) {
-    return <Small role="status">Asked {step}</Small>
+    return (
+      <Small role="status" tabIndex={-1} ref={askedRef}>
+        Asked {step}
+      </Small>
+    )
   }
   if (!open) {
     return (
-      <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
-        Ask {step}
-      </Button>
+      <span ref={askRef}>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
+          Ask {step}
+        </Button>
+      </span>
     )
   }
   return (
@@ -49,11 +81,12 @@ export function AskControl({
         event.preventDefault()
         setBusy(true)
         setFailed(false)
-        const key = (pendingKey.current ??= crypto.randomUUID())
-        send(text.trim(), key)
+        const message = text.trim()
+        send(message, sendKey(storeKey, text))
           .then(() => {
-            pendingKey.current = null
+            confirmPending(storeKey)
             askedValue.current = value
+            focus.current = 'asked'
             setAsked(true)
             setOpen(false)
           })
@@ -69,14 +102,24 @@ export function AskControl({
         disabled={busy}
         onChange={(event) => {
           setText(event.target.value)
-          pendingKey.current = null
+          editPending(storeKey, event.target.value)
         }}
       />
       <Row>
         <Button type="submit" size="sm" disabled={busy || !text.trim()}>
           Send to {step}
         </Button>
-        <Button size="sm" variant="ghost" disabled={busy} onClick={() => setOpen(false)}>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={busy}
+          onClick={() => {
+            editPending(storeKey, '')
+            setText(prefill)
+            focus.current = 'ask'
+            setOpen(false)
+          }}
+        >
           Cancel
         </Button>
         {failed && (
