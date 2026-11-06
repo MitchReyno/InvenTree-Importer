@@ -528,6 +528,34 @@ describe('RecordsStage', () => {
     expect(screen.queryByRole('region', { name: 'Yageo' })).not.toBeInTheDocument()
   })
 
+  it('keeps offering the retry when loading current values fails', async () => {
+    const user = userEvent.setup()
+    const reload = vi.fn(async () => false)
+    render(
+      <RecordsStage
+        batch={batch}
+        client={{ read: vi.fn(async () => records) }}
+        edit={vi.fn(async () => false)}
+        observe={vi.fn(async () => null)}
+        onDirtyChange={vi.fn()}
+        reload={reload}
+      />,
+    )
+    await open(user, /^Companies/, 'Yageo')
+    await user.selectOptions(screen.getByLabelText('Use another supplier'), 'DigiKey')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    const retry = await screen.findByRole('button', {
+      name: 'Load current values, keep this draft',
+    })
+    await user.click(retry)
+
+    expect(reload).toHaveBeenCalledOnce()
+    expect(
+      screen.getByRole('button', { name: 'Load current values, keep this draft' }),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Use another supplier')).toHaveValue(id(911))
+  })
+
   it('drops record drafts when the batch discards local edits', async () => {
     const user = userEvent.setup()
     const onDirtyChange = vi.fn()

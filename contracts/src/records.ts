@@ -112,7 +112,12 @@ export const BatchRecord = object({
   decision: Type.Union([
     Type.Null(),
     object({
-      code: choice(['part_choice_required', 'location_required', 'location_conflict']),
+      code: choice([
+        'part_choice_required',
+        'location_required',
+        'location_conflict',
+        'location_draft_parent_invalid',
+      ]),
       detail: Type.String({ minLength: 1, maxLength: 512 }),
     }),
   ]),

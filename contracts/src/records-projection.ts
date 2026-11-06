@@ -1,5 +1,9 @@
 import type { CaptureSnapshotDto } from './capture.ts'
-import { resolveLotLocation, type LotLocationGroups } from './capture-location.ts'
+import {
+  defaultLocationDraft,
+  resolveLotLocation,
+  type LotLocationGroups,
+} from './capture-location.ts'
 import type { InventoryPartSpecDto } from './effects.ts'
 import type { ProcessingSnapshotDto } from './processing.ts'
 import {
@@ -378,13 +382,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
   }
 
   // The batch default may be a new location draft while the default stays unset, as approval reads it.
-  const draftId = capture.settings_intent?.default_location_draft
-  const locationDraft =
-    capture.defaults.location.mode === 'unset'
-      ? capture.reference_drafts?.find(
-          (record) => record.draft_id === draftId && record.kind === 'location',
-        )
-      : undefined
+  const locationDraft = defaultLocationDraft(capture)
 
   for (const lot of activeLots) {
     const resolved = resolveLotLocation(capture, lot, lotGroups)
@@ -418,14 +416,21 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
         },
         lot.id,
       )
-    } else if (
-      locationDraft?.kind === 'location' &&
-      resolved.source === 'batch' &&
-      resolved.location.mode === 'unset'
-    ) {
+    } else if (locationDraft && resolved.source === 'batch' && resolved.location.mode === 'unset') {
       place(
-        `location:draft:${locationDraft.draft_id}`,
-        { label: clip(locationDraft.value.name), state: 'new', decision: null },
+        `location:draft:${locationDraft.draftId}`,
+        {
+          label: clip(locationDraft.value.name),
+          ...(locationDraft.parentValid
+            ? { state: 'new', decision: null }
+            : {
+                state: 'choose',
+                decision: {
+                  code: 'location_draft_parent_invalid',
+                  detail: 'Choose this new location’s parent again in Capture.',
+                },
+              }),
+        },
         lot.id,
       )
     } else if (resolved.location.mode !== 'clear') {

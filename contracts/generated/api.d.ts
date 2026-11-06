@@ -5331,7 +5331,7 @@ export interface components {
             part_ids: string[];
             lot_ids: string[];
             decision: null | {
-                code: "part_choice_required" | "location_required" | "location_conflict";
+                code: "part_choice_required" | "location_required" | "location_conflict" | "location_draft_parent_invalid";
                 detail: string;
             };
         };
@@ -5391,7 +5391,7 @@ export interface components {
                 part_ids: string[];
                 lot_ids: string[];
                 decision: null | {
-                    code: "part_choice_required" | "location_required" | "location_conflict";
+                    code: "part_choice_required" | "location_required" | "location_conflict" | "location_draft_parent_invalid";
                     detail: string;
                 };
             }[];

@@ -4,6 +4,7 @@ import { locationCreateKey, logicalEffectKey } from '../execution/effects-plan.t
 import type { InventoryPartSpecDto } from '@invimport/contracts'
 import type { CaptureSnapshotDto, ManualEffectDto, ManualIssueDto } from '@invimport/contracts'
 import {
+  defaultLocationDraft as sharedDefaultLocationDraft,
   resolveLotLocation,
   type LotLocationGroups,
   type LotLocationResolution,
@@ -177,41 +178,25 @@ function currentDisposition(
 
 const unresolvedLocation = { mode: 'unknown' } as const
 
-/**
- * The Default-location draft applies only where the batch default is still unset. A parent must
- * match a retained location observation in this context, or the draft needs correcting.
- */
+/** The Default-location draft, shaped for the plan; validity is shared with the records read. */
 function defaultLocationDraft(
   snapshot: CaptureSnapshotDto,
 ): { location: MaterialLocation; label: string; parentValid: boolean } | null {
-  const draftId = snapshot.settings_intent?.default_location_draft
-  const draft = snapshot.reference_drafts?.find(
-    (record) => record.draft_id === draftId && record.kind === 'location',
-  )
-  if (!draft || draft.kind !== 'location' || snapshot.defaults.location.mode !== 'unset') {
+  const draft = sharedDefaultLocationDraft(snapshot)
+  if (!draft) {
     return null
   }
-  const parent = draft.value.parent
-  const observed = parent
-    ? snapshot.observations.find((item) => item.id === parent.observation_id)
-    : null
-  const parentValid =
-    !parent ||
-    (observed?.model === 'location' &&
-      observed.pk === parent.pk &&
-      observed.target_context_id === snapshot.target_context_id &&
-      parent.target_context_id === snapshot.target_context_id)
   return {
     location: {
-      draftId: draft.draft_id,
+      draftId: draft.draftId,
       spec: {
         name: draft.value.name,
         description: draft.value.description,
-        parent: parent?.pk ?? null,
+        parent: draft.value.parent?.pk ?? null,
       },
     },
     label: `${draft.value.name} (new location)`,
-    parentValid,
+    parentValid: draft.parentValid,
   }
 }
 

@@ -13946,6 +13946,10 @@
                       {
                         "const": "location_conflict",
                         "type": "string"
+                      },
+                      {
+                        "const": "location_draft_parent_invalid",
+                        "type": "string"
                       }
                     ]
                   },
@@ -14409,6 +14413,10 @@
                             },
                             {
                               "const": "location_conflict",
+                              "type": "string"
+                            },
+                            {
+                              "const": "location_draft_parent_invalid",
                               "type": "string"
                             }
                           ]

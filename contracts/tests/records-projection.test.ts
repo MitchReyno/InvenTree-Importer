@@ -268,6 +268,38 @@ test('a lot taking a new default location draft is placed under that draft, not 
   )
 })
 
+test('a new default location whose parent is no longer observed needs a decision', () => {
+  const draftId = id(950)
+  const withDraft = {
+    ...capture,
+    settings_intent: { default_location_draft: draftId },
+    reference_drafts: [
+      {
+        draft_id: draftId,
+        kind: 'location',
+        value: {
+          name: 'Shelf B',
+          description: '',
+          parent: {
+            observation_id: id(999),
+            target_context_id: context,
+            model: 'location',
+            pk: '44',
+          },
+        },
+      },
+    ],
+  } as unknown as CaptureSnapshotDto
+  const result = projectRecords({ capture: withDraft, processing: undefined, lotGroups: null })
+  const draft = of(result.records, 'location').find((record) => record.label === 'Shelf B')
+  assert.equal(draft?.state, 'choose')
+  assert.equal(draft?.decision?.code, 'location_draft_parent_invalid')
+  assert.deepEqual(
+    result.counts.find((item) => item.type === 'location'),
+    { type: 'location', new: 0, existing: 1, decide: 1 },
+  )
+})
+
 test('each type counts new, existing and to-decide records', () => {
   const result = projectRecords({ capture, processing: undefined, lotGroups: null })
   assert.deepEqual(
