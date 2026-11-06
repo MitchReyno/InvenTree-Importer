@@ -91,7 +91,7 @@ const uncertain = run(2, {
       recovery_action: null,
       rejected: true,
     },
-    // Not sent, because the round stopped first: nothing to fix in Review.
+    // Not sent, because the round stopped first: nothing refused.
     {
       operation_key: id(803),
       part_subject_id: partSubject,
@@ -189,7 +189,7 @@ describe('Added', () => {
     const strip = screen.getByRole('region', { name: 'Outcome' })
     expect(strip).toHaveTextContent('1 stock item added')
     expect(strip).toHaveTextContent('1 being checked')
-    expect(strip).toHaveTextContent('1 to fix')
+    expect(strip).toHaveTextContent('1 refused by InvenTree')
     expect(within(strip).getByText('Test InvenTree')).toBeVisible()
   })
 
@@ -233,17 +233,56 @@ describe('Added', () => {
   it('sends a value InvenTree did not take back to Review', () => {
     setup([uncertain])
     expect(
-      screen.getByRole('link', { name: 'Fix in Review: Create mapped parameter' }),
+      screen.getByRole('link', { name: 'See in Review: Create mapped parameter' }),
     ).toHaveAttribute('href', `#${batch.id}/review/records/part/${partSubject}`)
   })
 
-  it('offers Fix in Review only for a value InvenTree refused, not for one never sent', () => {
+  it('links only a value InvenTree refused to Review, and says it cannot be sent yet', () => {
     setup([uncertain])
     expect(
-      screen.getAllByRole('link', { name: /Fix in Review/ }).map((link) => link.textContent),
-    ).toEqual(['Fix in Review: Create mapped parameter'])
-    expect(screen.getByText('InvenTree refused this value, so nothing was created')).toBeVisible()
-    expect(screen.getByRole('region', { name: 'Outcome' })).toHaveTextContent('1 to fix')
+      screen.getAllByRole('link', { name: /See in Review/ }).map((link) => link.textContent),
+    ).toEqual(['See in Review: Create mapped parameter'])
+    expect(screen.getByText(/InvenTree refused this value.*cannot be sent yet/)).toBeVisible()
+    expect(screen.getByRole('region', { name: 'Outcome' })).toHaveTextContent(
+      '1 refused by InvenTree',
+    )
+  })
+
+  it('a round held only by a refusal says so, and a refused stock item is not being checked', () => {
+    const held = run(4, {
+      state: 'recovery_required',
+      effect_certainty: 'unknown',
+      operations: [operation(lotC, 'unknown', null)],
+      supported_effects: [
+        {
+          operation_key: lotC,
+          part_subject_id: lotC,
+          kind: 'create_stock',
+          label: 'Create stock',
+          dependencies: [],
+          inputs: {},
+          certainty: 'unknown',
+          remote_pks: [],
+          verification: null,
+          recovery_action: null,
+          rejected: true,
+        },
+      ] as ManualRunDto['supported_effects'],
+    })
+    setup([held])
+    const round = screen.getByRole('region', { name: 'Round 4' })
+    expect(round).toHaveTextContent('InvenTree refused a value in this round')
+    expect(round).not.toHaveTextContent('Stock may have been created')
+    expect(round).toHaveTextContent('InvenTree refused this stock item, so it was not created.')
+    expect(
+      within(round).getByRole('link', { name: 'See in Review: Create stock' }),
+    ).toHaveAttribute('href', `#${batch.id}/review/lots/${lotC}`)
+    const strip = screen.getByRole('region', { name: 'Outcome' })
+    expect(strip).toHaveTextContent('0 being checked')
+    expect(strip).toHaveTextContent('1 refused by InvenTree')
+    expect(screen.getByRole('list', { name: 'Activity' })).toHaveTextContent(
+      'Round 4 approved: InvenTree refused a value',
+    )
   })
 
   it('lists pending changes, lots not included and the activity log', () => {

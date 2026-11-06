@@ -92,12 +92,14 @@ export function ReadyToAdd({
   const nodes: PreparationNodeDto[] = tree?.nodes ?? (preview ? previewNodes(preview) : [])
   const counts = summary(nodes)
 
-  const ready = [...new Set([...(preview?.selected_lot_ids ?? []), ...readyLotIds(workspace)])]
+  // A current preparation's lots stay listed; a stale one's count only if still ready.
+  const ready = [
+    ...new Set([...(current ? preview.selected_lot_ids : []), ...readyLotIds(workspace)]),
+  ]
   // A ticked lot that is no longer ready drops out, so it is never sent or counted.
-  const ticked =
-    chosen?.filter((lot) => ready.includes(lot)) ??
-    preview?.selected_lot_ids ??
-    ready.slice(0, MAX_PREPARED_LOTS)
+  const ticked = (chosen ?? preview?.selected_lot_ids ?? ready.slice(0, MAX_PREPARED_LOTS)).filter(
+    (lot) => ready.includes(lot),
+  )
   const untickedAll = ticked.length === 0
   // Approval waits while the shown preparation is not exactly the ticked lots.
   const matches =

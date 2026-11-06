@@ -198,6 +198,46 @@ describe('ReadyToAdd', () => {
     expect(prepareLots).toHaveBeenCalledWith(lots)
   })
 
+  it('a stale preparation’s lot that changed since review is neither ticked nor prepared again', async () => {
+    const user = userEvent.setup()
+    const shown = preview(lots)
+    const changed = {
+      ...workspace([]),
+      lots: lots.map((lot) => ({
+        lot_id: lot,
+        reviewed: true,
+        issues:
+          lot === lots[1]
+            ? [
+                {
+                  code: 'changed_after_review',
+                  message: 'Changed since review',
+                  lot_id: lot,
+                  run_id: null,
+                },
+              ]
+            : [],
+      })),
+    } as unknown as ManualWorkspaceDto
+    const prepareLots = vi.fn()
+    render(
+      <ReadyToAdd
+        batch={batch}
+        workspace={changed}
+        preview={shown}
+        pinnedPreparationId={shown.id}
+        busy={false}
+        choose={vi.fn()}
+        prepareLots={prepareLots}
+        approve={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('checkbox', { name: 'Packet B' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Packet B' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Show what will change' }))
+    expect(prepareLots).toHaveBeenCalledWith([lots[0], lots[2]])
+  })
+
   it('a preparation that is no longer current cannot be approved', () => {
     setup({ current: [] })
     expect(screen.getByText(/This preparation is no longer current/)).toBeVisible()

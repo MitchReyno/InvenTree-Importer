@@ -6,7 +6,7 @@ import { space } from '../../theme/generated/tokens'
 import { Pill } from '../ui/Pill'
 import { StatusTimeline } from '../ui/StatusTimeline'
 import { Heading, Link, Notice, Panel, Paragraph, Small } from '../ui/primitives'
-import { activeRun, roundSummary, RoundOutcome, toFix } from './RoundOutcome'
+import { activeRun, checking, refused, roundSummary, RoundOutcome } from './RoundOutcome'
 
 interface Props {
   batch: CaptureSnapshotDto
@@ -25,25 +25,13 @@ interface Props {
 const plural = (count: number, one: string, many = `${one}s`) =>
   `${count} ${count === 1 ? one : many}`
 
-/** Changes › Added: what each approval added, what is still being checked, and what to fix. */
+/** Changes › Added: what each approval added, what is still being checked, and what was refused. */
 export function Added({ batch, workspace, focusedRunId, busy, command, targetUrl }: Props) {
   const runs = workspace.runs
   const focused = focusedRunId ? runs.find((value) => value.run_id === focusedRunId) : null
   const added = new Set(runs.flatMap((run) => run.confirmed_stock_ids)).size
-  const checking = runs.reduce(
-    (total, run) =>
-      total +
-      run.operations.filter((value) => value.certainty === 'unknown').length +
-      // Stock creates also appear as effects and are counted once, from the operations; a
-      // refused value is to fix, not being checked.
-      (run.supported_effects ?? []).filter(
-        (value) =>
-          value.kind !== 'create_stock' && value.certainty === 'unknown' && !value.rejected,
-      ).length +
-      (run.attachments ?? []).filter((value) => value.certainty === 'unknown').length,
-    0,
-  )
-  const fixes = runs.reduce((total, run) => total + toFix(run).length, 0)
+  const beingChecked = runs.reduce((total, run) => total + checking(run), 0)
+  const refusals = runs.reduce((total, run) => total + refused(run).length, 0)
   // Lots neither added by a round nor waiting in a prepared selection.
   const placed = new Set([
     ...runs.flatMap((run) => run.operations.map((value) => value.lot_id)),
@@ -57,8 +45,8 @@ export function Added({ batch, workspace, focusedRunId, busy, command, targetUrl
       <Strip role="region" aria-label="Outcome">
         <Pill tone="info">Test InvenTree</Pill>
         <strong>{plural(added, 'stock item')} added</strong>
-        <span>{checking} being checked</span>
-        <span>{fixes} to fix</span>
+        <span>{beingChecked} being checked</span>
+        <span>{refusals} refused by InvenTree</span>
         {runs.some(activeRun) && <span>Adding now</span>}
       </Strip>
       {runs.length === 0 && (

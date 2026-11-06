@@ -108,6 +108,11 @@ export async function effectsFakeRequest(
       response.end(JSON.stringify({ data: ['Enter a valid value.'] }))
       return true
     }
+    if (fault === 'forbid_parameter' && family === 'parameter') {
+      response.statusCode = 403
+      response.end(JSON.stringify({ detail: 'You do not have permission.' }))
+      return true
+    }
     const requested = JSON.parse(bytes.toString('utf8'))
     const { tags: _ignoredTags, ...withoutTags } = requested
     const body = family === 'part' && !tagsField ? withoutTags : requested

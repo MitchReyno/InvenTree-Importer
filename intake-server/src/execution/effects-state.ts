@@ -18,7 +18,7 @@ export interface SupportedState {
   remotePks: string[]
   createIntentId: string | null
   verification: 'matches' | 'missing_or_changed' | 'unavailable' | null
-  /** The latest create got a client-error response and no record is attributed to it. */
+  /** The latest create got a validation error (400) and no record is attributed to it. */
   rejected: boolean
 }
 
@@ -131,9 +131,8 @@ export async function supportedStates(
       certainty !== 'confirmed' &&
       remotePks.length === 0 &&
       latest?.outcome === 'response' &&
-      latest.status !== null &&
-      latest.status >= 400 &&
-      latest.status < 500
+      // Only a validation error refuses the value; 401, 403, 404 or 429 say nothing about it.
+      latest.status === 400
     return {
       rejected,
       ...operation,

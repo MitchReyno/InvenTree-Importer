@@ -156,6 +156,27 @@ test('a value InvenTree refuses is reported as rejected, and only that one', asy
   }
 })
 
+test('a permission error is not a refused value', async () => {
+  const fixture = await manualFixture({ effects: true })
+  try {
+    const capture = await createChoice(fixture)
+    await fixture.fake.fault('forbid_parameter')
+    const runId = await approve(fixture, capture.batch, capture.a.id)
+    const queued = await fixture.http(`/runs/${runId}/start`, {
+      expected_run_revision: (await run(fixture, runId)).revision,
+    })
+    assert.equal(queued.status, 200, JSON.stringify(queued.value))
+    await dispatch(fixture, runId)
+    const parameter = (await run(fixture, runId)).supported_effects!.find(
+      (effect) => effect.kind === 'parameter',
+    )!
+    assert.equal(parameter.certainty, 'unknown')
+    assert.equal('rejected' in parameter, false)
+  } finally {
+    await fixture.dispose()
+  }
+})
+
 test('one new shared Part survives dependent failure, restart, selected repair and later lot without duplicate stock', async () => {
   const fixture = await manualFixture({ effects: true })
   try {

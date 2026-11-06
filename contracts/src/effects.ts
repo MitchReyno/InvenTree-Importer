@@ -117,7 +117,7 @@ export const SupportedEffectResult = object({
     Type.Literal('resume_effect'),
     Type.Literal('verify_effect'),
   ]),
-  /** InvenTree refused the latest create (a client error) and no record is attributed to it. */
+  /** InvenTree refused the latest create as invalid (400) and no record is attributed to it. */
   rejected: Type.Optional(Type.Literal(true)),
 })
 export const effectsSchemas = {

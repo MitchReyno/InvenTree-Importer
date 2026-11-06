@@ -43,15 +43,38 @@ export const activeRun = (run: ManualRunDto) =>
 
 const PART_VALUES = new Set(['create_part', 'parameter', 'manufacturer', 'supplier'])
 
-/** A Part value InvenTree refused: the server saw a client error and no record came of it. */
-export function toFix(run: ManualRunDto) {
-  return (run.supported_effects ?? []).filter(
-    (effect) => effect.rejected === true && PART_VALUES.has(effect.kind),
+/** Values InvenTree refused as invalid; no record came of them. */
+export function refused(run: ManualRunDto) {
+  return (run.supported_effects ?? []).filter((effect) => effect.rejected === true)
+}
+
+const refusedStock = (run: ManualRunDto, operationKey: string) =>
+  refused(run).some(
+    (effect) => effect.kind === 'create_stock' && effect.operation_key === operationKey,
+  )
+
+/** Uncertain results still being checked, leaving out refusals and stock creates counted twice. */
+export function checking(run: ManualRunDto) {
+  return (
+    run.operations.filter(
+      (value) => value.certainty === 'unknown' && !refusedStock(run, value.operation_key),
+    ).length +
+    (run.supported_effects ?? []).filter(
+      (value) => value.kind !== 'create_stock' && value.certainty === 'unknown' && !value.rejected,
+    ).length +
+    (run.attachments ?? []).filter((value) => value.certainty === 'unknown').length
   )
 }
 
+/** A round that needs checking only because InvenTree refused something. */
+const heldByRefusal = (run: ManualRunDto) =>
+  run.state === 'recovery_required' && refused(run).length > 0 && checking(run) === 0
+
 export function roundSummary(run: ManualRunDto) {
   const added = run.confirmed_stock_ids.length
+  if (heldByRefusal(run)) {
+    return 'InvenTree refused a value'
+  }
   if (run.state === 'recovery_required' || run.effect_certainty === 'unknown') {
     return 'needs checking'
   }
@@ -105,18 +128,38 @@ function partStatus(output: PartOutputDto, unstarted: boolean, base: string | nu
 export function RoundOutcome({ run, busy, command, targetUrl }: Props) {
   const cancellable = ['queued', 'running', 'stopping'].includes(run.state)
   const unstarted = run.state === 'queued' && run.dispatch_state === 'not_requested'
-  const rejected = new Set(toFix(run).map((effect) => effect.operation_key))
+
+  const reviewHref = (effect: NonNullable<ManualRunDto['supported_effects']>[number]) =>
+    !effect.rejected
+      ? undefined
+      : effect.kind === 'create_stock'
+        ? batchHref(run.batch_id, { tab: 'review', view: 'lots', lotId: effect.part_subject_id })
+        : PART_VALUES.has(effect.kind)
+          ? batchHref(run.batch_id, {
+              tab: 'review',
+              view: 'records',
+              recordType: 'part',
+              recordId: effect.part_subject_id,
+            })
+          : undefined
+
   return (
     <Panel id={`run-${run.run_id}`} aria-label={`Round ${run.round_number}`}>
       <Heading>
         Round {run.round_number} · {STATES[run.state]}
       </Heading>
-      {run.state === 'recovery_required' && (
-        <Notice>
-          Stock may have been created, or the original physical owner may still be active. Nothing
-          is created again; each record is checked by its import reference first.
-        </Notice>
-      )}
+      {run.state === 'recovery_required' &&
+        (heldByRefusal(run) ? (
+          <Notice>
+            InvenTree refused a value in this round, so nothing was created for it. The round stays
+            open and holds this batch’s source, so a corrected value cannot be sent yet.
+          </Notice>
+        ) : (
+          <Notice>
+            Stock may have been created, or the original physical owner may still be active. Nothing
+            is created again; each record is checked by its import reference first.
+          </Notice>
+        ))}
       {unstarted && (
         <>
           <Paragraph>Approved. Nothing has been sent to InvenTree yet.</Paragraph>
@@ -146,16 +189,7 @@ export function RoundOutcome({ run, busy, command, targetUrl }: Props) {
           effect={effect}
           busy={busy}
           unstarted={unstarted}
-          fixHref={
-            rejected.has(effect.operation_key)
-              ? batchHref(run.batch_id, {
-                  tab: 'review',
-                  view: 'records',
-                  recordType: 'part',
-                  recordId: effect.part_subject_id,
-                })
-              : undefined
-          }
+          reviewHref={reviewHref(effect)}
           recover={() =>
             command(run, 'recover', {
               kind: effect.recovery_action === 'verify_effect' ? 'assessment' : 'effect',
@@ -177,6 +211,8 @@ export function RoundOutcome({ run, busy, command, targetUrl }: Props) {
                 </TargetLink>{' '}
                 added
               </>
+            ) : refusedStock(run, operation.operation_key) ? (
+              'InvenTree refused this stock item, so it was not created. It is never created again.'
             ) : operation.certainty === 'unknown' ? (
               `${operation.lot_label} is being checked by its import reference. It is never created again.`
             ) : (

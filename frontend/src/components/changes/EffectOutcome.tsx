@@ -6,11 +6,11 @@ interface Props {
   busy: boolean
   recover: () => void
   unstarted?: boolean
-  /** Where to correct a value InvenTree did not take. */
-  fixHref?: string
+  /** Where a refused value is shown in Review. */
+  reviewHref?: string
 }
 
-export function EffectOutcome({ effect, busy, recover, unstarted = false, fixHref }: Props) {
+export function EffectOutcome({ effect, busy, recover, unstarted = false, reviewHref }: Props) {
   const planned =
     unstarted &&
     effect.certainty === 'none' &&
@@ -31,7 +31,8 @@ export function EffectOutcome({ effect, busy, recover, unstarted = false, fixHre
       ? `Created new ${record} #${effect.remote_pks[0]}`
       : 'Historical effect confirmed'
   } else if (effect.rejected) {
-    status = 'InvenTree refused this value, so nothing was created'
+    status =
+      'InvenTree refused this value, so nothing was created. The round stays open, so a corrected value cannot be sent yet.'
   } else if (effect.certainty === 'unknown') {
     status = record
       ? `The new ${record} may have been created; it is never created again for this draft`
@@ -55,7 +56,7 @@ export function EffectOutcome({ effect, busy, recover, unstarted = false, fixHre
           : {effect.label}
         </Button>
       )}
-      {fixHref && <Link href={fixHref}>Fix in Review: {effect.label}</Link>}
+      {reviewHref && <Link href={reviewHref}>See in Review: {effect.label}</Link>}
     </Field>
   )
 }
