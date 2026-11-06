@@ -402,12 +402,13 @@ test('the session migration upgrades a database already at the previous migratio
     const names = (await readdir(directory))
       .filter((name) => /^\d{4}_[a-z_]+\.sql$/.test(name))
       .sort()
-    assert.equal(names.at(-1), '0018_agent_session_runtime.sql')
+    const target = names.indexOf('0018_agent_session_runtime.sql')
+    assert.ok(target > 0)
     await transaction(db.pool, async (client) => {
       await client.query(
         'CREATE TABLE schema_migration (name text PRIMARY KEY, sha256 text NOT NULL)',
       )
-      for (const name of names.slice(0, -1)) {
+      for (const name of names.slice(0, target)) {
         const sql = await readFile(new URL(name, directory), 'utf8')
         await client.query(sql)
         await client.query('INSERT INTO schema_migration VALUES ($1,$2)', [

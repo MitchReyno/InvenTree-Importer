@@ -1,6 +1,7 @@
 import { activeMediaGroups } from '../media/context.ts'
 import { randomUUID } from 'node:crypto'
 import type { PoolClient } from 'pg'
+import { and, eq } from 'drizzle-orm'
 import type {
   CaptureLotContextDto,
   BulkEditDto,
@@ -11,8 +12,14 @@ import type {
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { fail, type OperatorCommandScope } from './repository.ts'
 import {
+  activeObservationIds,
+  markLotEdited,
+  moveObservationsByOperator,
+} from './evidence-observations.ts'
+import {
   captureInstructions,
   captureIssueDispositions,
+  captureLotEvidenceObservations,
   captureLotLineages,
   captureLotRetirements,
 } from './schema.ts'
@@ -87,6 +94,19 @@ async function recordLineage(
     }
   }
   for (const predecessor of predecessors) {
+    // A split, merged or retired lot is the operator's; observations left on it stay put, and
+    // suggestions aimed at it can no longer be accepted.
+    await markLotEdited(client, predecessor, revision)
+    await executeDatabaseQuery(
+      queryDatabase(client)
+        .delete(captureLotEvidenceObservations)
+        .where(
+          and(
+            eq(captureLotEvidenceObservations.lotId, predecessor),
+            eq(captureLotEvidenceObservations.status, 'suggested'),
+          ),
+        ),
+    )
     await executeDatabaseQuery(
       queryDatabase(client).insert(captureLotRetirements).values({
         batchId: scope.batchId,
@@ -114,6 +134,16 @@ async function splitLot(client: PoolClient, scope: OperatorCommandScope, change:
     )
     if (inheritedContext) {
       await scope.setContext(childId, inheritedContext.value)
+    }
+    if (child.observation_ids?.length) {
+      await moveObservationsByOperator(
+        client,
+        scope.batchId,
+        child.observation_ids,
+        change.lot_id,
+        childId,
+        scope.nextRevision,
+      )
     }
     created.push({ lot_id: childId, label: child.label })
   }
@@ -156,6 +186,18 @@ async function mergeLots(client: PoolClient, scope: OperatorCommandScope, change
       purchase_date: shared('purchase_date'),
       tags: shared('tags'),
     })
+  }
+  // The merged lot holds every source lot's active observations.
+  for (const lotId of change.lot_ids) {
+    const observationIds = await activeObservationIds(client, scope.batchId, lotId)
+    await moveObservationsByOperator(
+      client,
+      scope.batchId,
+      observationIds,
+      lotId,
+      mergedId,
+      scope.nextRevision,
+    )
   }
   await recordLineage(client, scope, change.lot_ids, [mergedId], 'merge')
   return {

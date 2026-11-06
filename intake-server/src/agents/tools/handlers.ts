@@ -3,6 +3,9 @@ import { and, eq, sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 import {
   validate,
+  type ProposeLotArgsDto,
+  type RecordObservationArgsDto,
+  type RegroupArgsDto,
   type ProcessingProposalV5Dto,
   type ProcessingSourceDto,
   type SessionAskArgsDto,
@@ -12,7 +15,18 @@ import {
 import { executeDatabaseQuery, queryDatabase, transaction } from '../../db/database.ts'
 import { appendEvent } from '../../db/authority.ts'
 import { captureBatches } from '../../capture/schema.ts'
-import { lockCaptureForInputSettlement } from '../../capture/repository.ts'
+import {
+  CaptureError,
+  lockCaptureForAgentWrite,
+  lockCaptureForInputSettlement,
+} from '../../capture/repository.ts'
+import {
+  leadBatchView,
+  proposeLot,
+  recordObservation,
+  regroup,
+  type LotFormingResult,
+} from '../../capture/evidence-observations.ts'
 import type { ProcessingConfig } from '../../processing/attempts.ts'
 import { sealed } from '../../processing/model.ts'
 import { MAX_JOB_RESULTS, MAX_PROCESSING_SNAPSHOT_BYTES } from '../../processing/limits.ts'
@@ -31,6 +45,8 @@ import { sha256 } from '../../db/authority.ts'
 import { capabilityDigest, resolveSessionCapability, type SessionPrincipal } from './capability.ts'
 import { agentSessionOutbox, agentSessions } from '../schema.ts'
 import { appendSessionOutbox, lastStatusAt } from './outbox.ts'
+import sharp from 'sharp'
+import { regionCropCache } from '../../media/region-crops.ts'
 import { pendingSessionInbox, readSessionInbox, sessionInboxItem } from './inbox.ts'
 
 export const SESSION_IMAGE_BUDGET_BYTES = 8 * 1024 * 1024
@@ -38,6 +54,8 @@ const SUPPORTED_IMAGES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 export interface SessionToolContext {
   pool: Pool
+  /** The `agent_writer` pool for the Examine lead session's capture writes. */
+  writerPool?: Pool
   config: ProcessingConfig
   store?: BlobStore
   statusIntervalMs: number
@@ -45,6 +63,172 @@ export interface SessionToolContext {
   imageBudget: Map<string, number>
   /** Media versions actually returned to each lineage by fetch_evidence. */
   deliveredMedia: Map<string, Set<string>>
+  /** Private directory for region crops, outside the blob store. */
+  cropCacheDir?: string
+}
+
+/** The lead session's evidence: originals pinned in its manifest plus versions sent as notices. */
+async function leadDeliveredVersions(client: PoolClient, principal: SessionPrincipal) {
+  const pinned = decodeMediaInputs(
+    Buffer.from(principal.manifest.media.manifest, 'utf8'),
+    Buffer.from(principal.manifest.media.sha256, 'hex'),
+  ).versions.filter((item) => item.kind === 'original')
+  const notices = await client.query<{ evidence_id: string; version_id: string }>(
+    `SELECT payload->>'evidence_id' AS evidence_id, payload->>'version_id' AS version_id
+     FROM public.agent_session_inbox WHERE session_lineage_id=$1 AND kind='evidence'`,
+    [principal.lineageId],
+  )
+  return [
+    ...pinned.map((item) => ({ evidence_id: item.evidenceId, version_id: item.versionId })),
+    ...notices.rows,
+  ]
+}
+
+/** Lead-session previews are downscaled to this long edge before they reach the agent. */
+export const LEAD_PREVIEW_LONG_EDGE = 768
+
+/**
+ * The lead session's evidence: its pinned batch media plus versions sent to it as evidence
+ * notices. Previews come back downscaled; a region comes back as a crop of the full preview.
+ * Every answer lists each page's full preview size, which regions are measured against.
+ */
+async function leadFetchEvidence(
+  context: SessionToolContext,
+  token: string,
+  run: string,
+  args: unknown,
+): Promise<SessionToolOutput> {
+  let plan:
+    | {
+        batchId: string
+        jobId: string
+        versionId: string
+        preview: { id: string; page: number; width: number; height: number; digest: string }
+        region?: {
+          x: number
+          y: number
+          width: number
+          height: number
+          source_width: number
+          source_height: number
+        }
+      }
+    | undefined
+  const authorized = await withSession(
+    context,
+    token,
+    { capture: false },
+    async (client, principal) => {
+      const request = validated<{
+        evidence_id: string
+        version_id?: string
+        page?: number
+        region?: {
+          x: number
+          y: number
+          width: number
+          height: number
+          source_width: number
+          source_height: number
+        }
+      }>('SessionFetchEvidenceArgs', args)
+      const delivered = await leadDeliveredVersions(client, principal)
+      const version = delivered.find(
+        (item) =>
+          item.evidence_id === request.evidence_id &&
+          (request.version_id === undefined || item.version_id === request.version_id),
+      )
+      if (!version) {
+        refuse('source_not_delivered', 'That evidence was not delivered to this session.')
+      }
+      const previews = await client.query<{
+        id: string
+        page: number
+        width: number
+        height: number
+        digest: string
+      }>(
+        `SELECT id,page,width,height,encode(blob_digest,'hex') AS digest FROM public.media_preview
+       WHERE batch_id=$1 AND version_id=$2 ORDER BY page`,
+        [principal.batchId, version!.version_id],
+      )
+      const page = request.page ?? 1
+      const preview = previews.rows.find((row) => row.page === page)
+      if (!preview) {
+        refuse('validation_failed', 'That page has no preview yet.')
+      }
+      if (
+        request.region &&
+        (request.region.source_width !== preview!.width ||
+          request.region.source_height !== preview!.height ||
+          request.region.x + request.region.width > preview!.width ||
+          request.region.y + request.region.height > preview!.height)
+      ) {
+        refuse('validation_failed', 'The region must lie within the page preview it names.')
+      }
+      plan = {
+        batchId: principal.batchId,
+        jobId: principal.jobId,
+        versionId: version!.version_id,
+        preview: preview!,
+        region: request.region,
+      }
+      const described = await client.query<{ label: string; note: string | null }>(
+        `SELECT e.label,
+         (SELECT n.text FROM public.media_evidence_note n WHERE n.evidence_id=e.id
+          ORDER BY n.revision DESC LIMIT 1) AS note
+       FROM public.media_evidence e WHERE e.batch_id=$1 AND e.id=$2`,
+        [principal.batchId, request.evidence_id],
+      )
+      const note = described.rows[0]?.note?.trim()
+      return ok(client, principal, {
+        id: version!.version_id,
+        pages: previews.rows.map(({ page: number, width, height }) => ({
+          page: number,
+          width,
+          height,
+        })),
+        evidence_label: described.rows[0]?.label,
+        ...(note ? { evidence_note: note } : {}),
+      })
+    },
+  )
+  // Without a store or a private crop cache the agent gets page sizes but no image.
+  if (!plan || !authorized.result.ok || !context.store || (plan.region && !context.cropCacheDir)) {
+    return authorized
+  }
+  const { preview, region } = plan
+
+  const source = () => context.store!.read(preview.digest)
+
+  const bytes = region
+    ? await regionCropCache(context.cropCacheDir!).crop(
+        { versionId: plan.versionId, page: preview.page },
+        { kind: 'pixels', ...region },
+        source,
+      )
+    : await sharp(await source(), { limitInputPixels: false })
+        .resize({
+          width: LEAD_PREVIEW_LONG_EDGE,
+          height: LEAD_PREVIEW_LONG_EDGE,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .png()
+        .toBuffer()
+  // The image budget counts what reaches the agent, reserved for this provider run.
+  const used = context.imageBudget.get(run) ?? 0
+  if (bytes.length > SESSION_IMAGE_BUDGET_BYTES - used) {
+    return authorized
+  }
+  context.imageBudget.set(run, used + bytes.length)
+  const fetched = context.deliveredMedia.get(plan.jobId) ?? new Set<string>()
+  fetched.add(plan.versionId)
+  context.deliveredMedia.set(plan.jobId, fetched)
+  return {
+    result: authorized.result,
+    images: [{ mediaType: 'image/png', base64: bytes.toString('base64') }],
+  }
 }
 
 export interface SessionToolOutput {
@@ -135,6 +319,101 @@ async function withSession(
       }
       const output = await work(client, found, capture)
       return 'result' in output ? output : { result: output }
+    })
+  } catch (error) {
+    if (!(error instanceof ToolRefusal)) {
+      throw error
+    }
+    const pending = await transaction(context.pool, async (client) => {
+      const principal = await resolveSessionCapability(client, token)
+      return principal ? pendingSessionInbox(client, principal.lineageId!) : 0
+    })
+    return {
+      result: { ok: false, error: error.code, message: error.message, pending_inbox: pending },
+    }
+  }
+}
+
+/**
+ * Lot-forming tools: Examine lead session only, on the `agent_writer` pool. Capture is locked
+ * first, then job and attempt; every session change locks those too, so a plain read of the
+ * session row under them is current.
+ */
+async function withLeadSession(
+  context: SessionToolContext,
+  token: string,
+  work: (client: PoolClient, principal: SessionPrincipal) => Promise<LotFormingResult>,
+): Promise<SessionToolOutput> {
+  try {
+    const found =
+      (await resolveSessionCapability(context.pool, token)) ??
+      refuse('capability_refused', 'This session capability is not valid.')
+    // The column's TypeScript type predates the Examine stage.
+    if ((found.stage as string) !== 'examine' || found.subjectId !== null) {
+      refuse('tool_not_allowed', 'Only the batch Examine lead session can form lots.')
+    }
+    const pool =
+      context.writerPool ?? refuse('tool_not_allowed', 'This worker cannot write capture state.')
+    return await transaction(pool, async (client) => {
+      try {
+        await lockCaptureForAgentWrite(client, context.config, found.batchId)
+      } catch (error) {
+        if (error instanceof CaptureError && error.code === 'batch_archived') {
+          refuse('session_not_running', 'This session can no longer publish results.')
+        }
+        throw error
+      }
+      const { job, attempt } = await lockProcessingAttempt(client, found.jobId, found.attemptId)
+      const live = await executeDatabaseQuery(
+        queryDatabase(client)
+          .select({ attemptId: agentSessions.attemptId })
+          .from(agentSessions)
+          .where(
+            and(
+              eq(agentSessions.attemptId, found.attemptId),
+              eq(agentSessions.capabilitySha256, capabilityDigest(token)),
+              eq(agentSessions.sessionState, 'running'),
+            ),
+          ),
+      )
+      if (!live.length || attempt.state !== 'running' || job.current_attempt_id !== attempt.id) {
+        refuse('capability_refused', 'This session capability is not valid.')
+      }
+      let result: LotFormingResult
+      try {
+        result = await work(client, found)
+      } catch (error) {
+        if (error instanceof CaptureError) {
+          if (error.code === 'capture_capacity') {
+            refuse('capacity_reached', 'This batch has reached its limit of lots or observations.')
+          }
+          refuse('validation_failed', `The capture change was refused: ${error.code}.`)
+        }
+        throw error
+      }
+      const pending = await pendingSessionInbox(client, found.lineageId!)
+      if (!result.ok) {
+        return {
+          result: {
+            ok: false,
+            error: 'stale',
+            message: 'Rows changed after base_revision; re-read and re-plan.',
+            pending_inbox: pending,
+            revision: result.revision,
+            conflicts: result.conflicts,
+          },
+        }
+      }
+      return {
+        result: {
+          ok: true,
+          pending_inbox: pending,
+          revision: result.revision,
+          id: result.id,
+          suggested: result.suggested,
+          ...(result.partSubjectId ? { part_subject_id: result.partSubjectId } : {}),
+        },
+      }
     })
   } catch (error) {
     if (!(error instanceof ToolRefusal)) {
@@ -308,7 +587,74 @@ async function retainSessionMessage(
 }
 
 export function sessionTools(context: SessionToolContext) {
+  const writer = (principal: SessionPrincipal) => ({
+    config: context.config,
+    batchId: principal.batchId,
+    sessionId: principal.attemptId,
+  })
+
+  /** Each lot-forming write also lands in the session's outbox, so the timeline shows it. */
+  const outboxed = async (
+    client: PoolClient,
+    principal: SessionPrincipal,
+    result: LotFormingResult,
+    item: (id: string) => Parameters<typeof appendSessionOutbox>[2],
+  ) => {
+    if (result.ok) {
+      await appendSessionOutbox(client, principal.attemptId, item(result.id))
+    }
+    return result
+  }
+
   return {
+    read_batch: (token: string, args: unknown) =>
+      withSession(context, token, { capture: false }, async (client, principal) => {
+        validated('SessionReadBatchArgs', args)
+        if ((principal.stage as string) !== 'examine') {
+          refuse('tool_not_allowed', 'Only the batch Examine lead session reads the whole batch.')
+        }
+        return ok(client, principal, { batch: await leadBatchView(client, principal.batchId) })
+      }),
+
+    record_observation: (token: string, args: unknown) =>
+      withLeadSession(context, token, async (client, principal) => {
+        const input = validated<RecordObservationArgsDto>('RecordObservationArgs', args)
+        // Only evidence this session was given; an observation also marks it as examined.
+        const delivered = await leadDeliveredVersions(client, principal)
+        if (!delivered.some((item) => item.version_id === input.evidence_version_id)) {
+          refuse('source_not_delivered', 'That evidence was not delivered to this session.')
+        }
+        return outboxed(
+          client,
+          principal,
+          await recordObservation(client, writer(principal), input),
+          (id) => ({ kind: 'observation', payload: { evidence_observation_id: id } }),
+        )
+      }),
+
+    propose_lot: (token: string, args: unknown) =>
+      withLeadSession(context, token, async (client, principal) =>
+        outboxed(
+          client,
+          principal,
+          await proposeLot(
+            client,
+            writer(principal),
+            validated<ProposeLotArgsDto>('ProposeLotArgs', args),
+          ),
+          (id) => ({ kind: 'lot', payload: { lot_id: id } }),
+        ),
+      ),
+
+    regroup: (token: string, args: unknown) =>
+      withLeadSession(context, token, async (client, principal) => {
+        const input = validated<RegroupArgsDto>('RegroupArgs', args)
+        return outboxed(client, principal, await regroup(client, writer(principal), input), () => ({
+          kind: 'regroup',
+          payload: { lot_ids: [...new Set(input.moves.map((move) => move.to_lot_id))] },
+        }))
+      }),
+
     status: (token: string, args: unknown) =>
       withSession(context, token, { capture: false }, async (client, principal) => {
         const { text } = validated<{ text: string }>('SessionStatusArgs', args)
@@ -373,7 +719,13 @@ export function sessionTools(context: SessionToolContext) {
           'SessionProposeArgs',
           args,
         )
-        if (principal.subjectId === null || proposal.subject_id !== principal.subjectId) {
+        // The lead session proposes for any live lot of its batch; a lot session for its own lot.
+        const lots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
+        if (
+          principal.subjectId === null
+            ? !lots.includes(proposal.subject_id)
+            : proposal.subject_id !== principal.subjectId
+        ) {
           refuse('validation_failed', 'A proposal must be for this session’s lot.')
         }
         await requireDeliveredSources(client, context, principal, proposal)
@@ -409,8 +761,25 @@ export function sessionTools(context: SessionToolContext) {
       withSession(context, token, { capture: true }, async (client, principal, capture) => {
         const ask = validated<SessionAskArgsDto>('SessionAskArgs', args)
         await requireRoom(client, principal, 'questions', sealed(ask).bytes.length)
-        if (principal.subjectId === null || ask.subject_id !== principal.subjectId) {
+        // Only the lead session may ask about the whole batch or another subject of it.
+        const subjects = [
+          ...capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id),
+          ...capture!.snapshot.parts.map((part) => part.id),
+        ]
+        if (
+          principal.subjectId === null
+            ? ask.subject_id !== null && !subjects.includes(ask.subject_id)
+            : ask.subject_id !== principal.subjectId
+        ) {
           refuse('validation_failed', 'A question must be about this session’s lot.')
+        }
+        // A quantity is answered on a lot, so a quantity question must name one.
+        const lots = capture!.snapshot.lots.filter((lot) => !lot.retired).map((lot) => lot.id)
+        if (
+          ask.kind === 'quantity' &&
+          (ask.subject_id === null || !lots.includes(ask.subject_id))
+        ) {
+          refuse('validation_failed', 'A quantity question must be about one live lot.')
         }
         const { messageId, streamId } = await retainSessionMessage(
           client,
@@ -454,6 +823,10 @@ export function sessionTools(context: SessionToolContext) {
 
     fetch_evidence: async (token: string, args: unknown): Promise<SessionToolOutput> => {
       const run = capabilityDigest(token).toString('hex')
+      const found = await resolveSessionCapability(context.pool, token)
+      if (found && (found.stage as string) === 'examine') {
+        return leadFetchEvidence(context, token, run, args)
+      }
       let reserved: { version: MediaInputVersion; jobId: string; batchId: string } | undefined
       // Authorize and reserve under the session locks; the bytes are read after the transaction,
       // so a fetch never holds one pooled connection while waiting for another.

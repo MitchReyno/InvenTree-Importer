@@ -4,8 +4,11 @@ import {
   type CaptureSnapshotDto,
   type ProcessingInputV6Dto,
 } from '@invimport/contracts'
+import { automationIntentNotes } from '../capture/context-input.ts'
+import { decodeMediaInputs } from '../media/inputs.ts'
 import {
   decodeProcessingInput,
+  fail,
   mediaInputManifest,
   unseal,
   type RetainedMediaDescriptor,
@@ -74,4 +77,65 @@ export function decodeJobInput(bytes: Buffer, digest: Buffer) {
     return decodeSessionInput(bytes, digest)
   }
   return decodeProcessingInput(bytes, digest)
+}
+
+/**
+ * The batch-level Examine lead session's manifest: every human note and evidence or group note
+ * as hints, the whole batch's ready evidence, and no subject.
+ */
+export function sessionLeadInputManifest(
+  snapshot: CaptureSnapshotDto,
+  media: RetainedMediaDescriptor,
+  profile: Parameters<typeof sessionLotInputManifest>[4],
+): ProcessingInputV6Dto {
+  const decoded = decodeMediaInputs(
+    Buffer.from(media.manifest, 'utf8'),
+    Buffer.from(media.sha256, 'hex'),
+  )
+  if (decoded.batchId !== snapshot.id || decoded.subjectIds.length > 0) {
+    fail('processing_media_binding_invalid')
+  }
+  const mediaNotes = [
+    ...(decoded.context?.groups.flatMap((group) => (group.note ? [group.note] : [])) ?? []),
+    ...(decoded.context?.evidenceNotes.map((item) => item.note) ?? []),
+  ]
+    .filter((note) => note.text.trim().length > 0)
+    .map((note) => ({
+      id: note.id,
+      subject_id: null,
+      producer: 'human' as const,
+      actor_id: note.actor_id,
+      created_at: note.created_at,
+      text: note.text,
+    }))
+  const policy = sessionProfiles[profile.id as SessionProfileId]
+  const manifest = {
+    schema_version: 'bench-intake-input/6',
+    batch_id: snapshot.id,
+    source_id: snapshot.source_id,
+    capture_revision: snapshot.revision,
+    stage: 'examine',
+    subject_id: null,
+    subject: null,
+    linked_part: null,
+    defaults: snapshot.defaults,
+    notes: [...snapshot.notes, ...automationIntentNotes(snapshot), ...mediaNotes],
+    observations: snapshot.observations.flatMap((observation) => {
+      if (observation.model !== 'part' && observation.model !== 'location') {
+        return []
+      }
+      const { mapping: _mapping, ...frozen } = observation
+      return [frozen]
+    }),
+    profile_id: profile.id,
+    instruction_version: policy.instructionVersion,
+    instruction_sha256: policy.instructionDigest,
+    tool_profile_version: sessionToolProfileVersion,
+    media: { ...media },
+    agent: profile.id === 'native-agent/2' ? profile.agent : null,
+    settings_revision: profile.id === 'native-agent/2' ? profile.settingsRevision : null,
+    pinned_proposal_ids: [],
+  }
+  validate('ProcessingInputV6', manifest)
+  return manifest as ProcessingInputV6Dto
 }

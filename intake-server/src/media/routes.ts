@@ -1,3 +1,5 @@
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import type { Pool } from 'pg'
 import { Id, Revision, schemas, type MediaEditDto } from '@invimport/contracts'
@@ -27,6 +29,8 @@ export function registerMediaRoutes(
   pool: Pool,
   config: DevConfig,
   store: BlobStore,
+  /** Private region-crop cache, outside the blob store; tests use a per-process temp one. */
+  cropCacheDir = join(tmpdir(), `intake-region-crops-${process.pid}`),
 ) {
   const repository = mediaRepository(pool, config, store)
   const content = mediaContent(pool, config, store)
@@ -128,5 +132,20 @@ export function registerMediaRoutes(
         .header('content-disposition', `inline; filename="${previewId}.png"`)
       return reply.send(bytes)
     })
+
+    scope.get(
+      '/api/v1/batches/:batchId/media/observations/:resourceId/crop',
+      async (request, reply) => {
+        const { batchId, resourceId } = parameters(request)
+        const observationId = identifier(resourceId)
+        const bytes = await content.observationCrop(batchId, observationId, cropCacheDir)
+        reply
+          .header('content-security-policy', "default-src 'none'; sandbox")
+          .header('cross-origin-resource-policy', 'same-origin')
+          .header('content-type', 'image/png')
+          .header('content-disposition', `inline; filename="${observationId}.png"`)
+        return reply.send(bytes)
+      },
+    )
   })
 }

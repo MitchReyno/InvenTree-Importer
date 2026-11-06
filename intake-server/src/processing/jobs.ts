@@ -7,7 +7,7 @@ import { createAttempt, type ProcessingConfig } from './attempts.ts'
 import { processingAttempts, processingJobs, processingQuestions } from './schema.ts'
 import { MAX_JOBS_PER_BATCH } from './limits.ts'
 import { fail, type Stage } from './model.ts'
-import { processingJobColumns } from './state.ts'
+import { processingJobColumns, requireLotJob } from './state.ts'
 import type { LockedMediaInputs } from '../media/locked-inputs.ts'
 
 /** Caller holds the actor lane and selected job lock before invalidating attempts/questions. */
@@ -61,7 +61,7 @@ export async function queueJob(
       )
       .for('update'),
   )
-  const priorJob = jobs[0]
+  const priorJob = jobs[0] ? requireLotJob(jobs[0]) : undefined
   const job = priorJob ?? { id: randomUUID(), subject_id: subjectId, stage }
   let parentInputId: string | null = null
   let attemptNumber = '1'

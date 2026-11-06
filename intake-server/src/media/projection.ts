@@ -41,6 +41,8 @@ export interface MediaRows {
   groups: { id: string; label: string }[]
   membership: { evidence_id: string; group_id: string | null }[]
   links: { evidence_id: string; subject_id: string; linked: boolean }[]
+  /** Lots reached through active evidence observations of each evidence item. */
+  observation_links: { evidence_id: string; subject_id: string }[]
   attachments: MediaSnapshotDto['attachments']
   derivations: DerivationRow[]
 }
@@ -98,6 +100,14 @@ function projectEvidence(rows: MediaRows): MediaEvidenceDto[] {
   for (const link of rows.links) {
     if (link.linked) {
       const subjects = subjectsByEvidence.get(link.evidence_id) ?? []
+      subjects.push(link.subject_id)
+      subjectsByEvidence.set(link.evidence_id, subjects)
+    }
+  }
+  // Retained links are never rewritten; observation-derived lots are added alongside them.
+  for (const link of rows.observation_links) {
+    const subjects = subjectsByEvidence.get(link.evidence_id) ?? []
+    if (!subjects.includes(link.subject_id)) {
       subjects.push(link.subject_id)
       subjectsByEvidence.set(link.evidence_id, subjects)
     }

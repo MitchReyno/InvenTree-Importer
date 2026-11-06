@@ -132,7 +132,14 @@ async function main() {
         (batchId) => headerWork(headerPool, headerConfig, batchId),
       )
       if (mediaStore) {
-        registerMediaRoutes(server, db.pool, config, mediaStore)
+        // Region crops are cached privately beside, never inside, the blob store.
+        registerMediaRoutes(
+          server,
+          db.pool,
+          config,
+          mediaStore,
+          `${process.env.INTAKE_BLOB_ROOT!.replace(/\/+$/, '')}-region-crops`,
+        )
       }
       const manualConfig = {
         ...config,

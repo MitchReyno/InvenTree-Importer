@@ -71,7 +71,7 @@ test('pre-return failures dispose only the exact allocated fixture DB, roles and
       },
     )
     assert.ok(bootstrapAllocation?.origin)
-    assert.equal(bootstrapAllocation.roleNames.length, 3)
+    assert.equal(bootstrapAllocation.roleNames.length, 4)
     assert.notEqual(bootstrapAllocation.databaseName, sentinelAllocation.databaseName)
     assert.deepEqual(await allocationExists(audit, bootstrapAllocation), {
       database: false,

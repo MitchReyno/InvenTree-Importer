@@ -65,9 +65,14 @@ def select_checks(paths: list[str] | None) -> dict[str, bool]:
             or (not markdown and path.startswith("intake-server/"))
             or path in WORKSPACE_INPUTS
             or path == "tooling/dev.cjs"
-            or path.startswith(("tooling/dev/", "tooling/tests/dev."))
+            or path.startswith(("tooling/dev/", "tooling/tests/dev.", "tooling/tests/inventree-dev"))
+            or (not markdown and path.startswith("tooling/inventree-dev/"))
+            # The local InvenTree seed fixture is checked against the importer config.
+            or (not markdown and path.startswith("backend/config/"))
         ):
             selected["intake"] = True
+        if suffix == ".py" and path.startswith("tooling/inventree-dev/scripts/"):
+            selected["backend_lint"] = True
         if path.startswith(SHARED_WORKFLOWS):
             selected["workflow_sync"] = True
             if suffix == ".py":

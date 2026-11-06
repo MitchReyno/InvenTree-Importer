@@ -358,6 +358,16 @@ export function materialize(
       issues.push(
         issue('quantity_required', 'Choose an exact positive quantity for this lot.', lotId),
       )
+    } else if (lot.origin === 'agent' && lot.quantity.mode === 'inherit') {
+      // An AI lot's count is only an estimate: the operator accepts or replaces it on the lot,
+      // never through the batch default.
+      issues.push(
+        issue(
+          'quantity_required',
+          'Accept or replace the estimated quantity on this lot before approving it.',
+          lotId,
+        ),
+      )
     }
     if (resolution.status === 'conflict') {
       issues.push(

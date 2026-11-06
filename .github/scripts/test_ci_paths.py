@@ -38,7 +38,6 @@ class SelectionTests(unittest.TestCase):
         for path in (
             "backend/src/invimport/cli.py",
             "backend/tests/test_config.py",
-            "backend/config/units.yaml",
             "backend/uv.lock",
             "backend/.python-version",
             "backend/pyproject.toml",
@@ -46,6 +45,7 @@ class SelectionTests(unittest.TestCase):
         ):
             with self.subTest(path=path):
                 self.assert_checks([path], "backend", "backend_lint")
+        self.assert_checks(["backend/config/units.yaml"], "backend", "backend_lint", "intake")
         for path in (
             "frontend/src/App.tsx",
             "frontend/vite.config.ts",
@@ -54,6 +54,21 @@ class SelectionTests(unittest.TestCase):
         ):
             with self.subTest(path=path):
                 self.assert_checks([path], "frontend")
+
+    def test_local_inventree_tooling_selects_intake_and_lints_its_python(self):
+        for path in (
+            "tooling/inventree-dev/cli.cjs",
+            "tooling/inventree-dev/compose.yaml",
+            "tooling/inventree-dev/seed/fixtures.json",
+            "tooling/tests/inventree-dev.test.cjs",
+            "tooling/tests/inventree-dev-seed.test.cjs",
+        ):
+            with self.subTest(path=path):
+                self.assert_checks([path], "intake")
+        self.assert_checks(
+            ["tooling/inventree-dev/scripts/bootstrap.py"], "intake", "backend_lint"
+        )
+        self.assert_checks(["tooling/inventree-dev/README.md"], "markdown")
 
     def test_intake_and_browser_select_actual_contract_consumers_not_python(self):
         for path in (
@@ -188,6 +203,7 @@ class SelectionTests(unittest.TestCase):
             "backend",
             "backend_lint",
             "frontend",
+            "intake",
         )
         self.assert_checks(None, *CHECKS)
 

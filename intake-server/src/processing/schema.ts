@@ -32,8 +32,9 @@ export const processingJobs = pgTable('processing_job', {
   batchId: uuid('batch_id').notNull(),
   // Only the session profiles' batch-level Examine job has a null subject; its reads arrive
   // with the lead session, so subject jobs keep this narrower row type until then.
-  subjectId: uuid('subject_id').notNull(),
-  stage: text().$type<ProcessingInputV1Dto['stage']>().notNull(),
+  /** Null only for the batch-level Examine lead job. */
+  subjectId: uuid('subject_id'),
+  stage: text().$type<ProcessingInputV1Dto['stage'] | 'examine'>().notNull(),
   revision: bigint({ mode: 'bigint' }).notNull().default(1n),
   currentAttemptId: uuid('current_attempt_id').notNull(),
   state: text().$type<ProcessingStateDto>().notNull(),

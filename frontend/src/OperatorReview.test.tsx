@@ -255,6 +255,7 @@ function renderReview(
     edit?: () => Promise<void>
     review?: OperatorReviewDto
     processing?: ProcessingClient
+    batch?: typeof batch
   } = {},
 ) {
   const manual = manualClient()
@@ -264,7 +265,7 @@ function renderReview(
   const onDirtyChange = vi.fn()
   const view = render(
     <ManualWorkspace
-      batch={batch}
+      batch={overrides.batch ?? batch}
       client={manual}
       stage="review"
       edit={edit}
@@ -927,6 +928,82 @@ test('a polled operator projection at a newer revision keeps the instruction dra
   await waitFor(() => expect(screen.getByLabelText('Custom instructions')).toHaveValue(''))
 })
 
+test('a lot the lead session forms waits behind a dirty Review draft, then appears once clean', async () => {
+  const e = '30000000-0000-4000-8000-000000000007'
+  history.replaceState(null, '', `#${batchId}/review/lots/${a}`)
+  const cache = createServerQueryClient()
+  const user = userEvent.setup()
+  const client = { read: vi.fn(async () => batch), edit: vi.fn() } as unknown as Client
+  const operator = operatorClient()
+  const manual = manualClient()
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerStateProvider scope={fixtureScope} client={cache}>
+        {children}
+      </ServerStateProvider>
+    )
+  }
+
+  render(
+    <Batch
+      id={batchId}
+      route={`${batchId}/review/lots/${a}`}
+      client={client}
+      manual={manual}
+      operator={operator}
+      onDirtyChange={vi.fn()}
+    />,
+    { wrapper: Wrapper },
+  )
+  await screen.findByRole('checkbox', { name: 'Select Packet A' })
+  const next = {
+    capture: {
+      ...batch,
+      revision: '13',
+      lots: [
+        ...batch.lots,
+        {
+          ...lot(e, 'LED reel', '70000000-0000-4000-8000-000000000013', null),
+          origin: 'agent' as const,
+          agent_session_id: '80000000-0000-4000-8000-000000000008',
+        },
+      ],
+    },
+    operator: {
+      ...operatorReview,
+      revision: '13',
+      lots: [...operatorReview.lots, operatorLot(e, 'LED reel', {})],
+    },
+  }
+
+  const publish = async () => {
+    vi.mocked(client.read).mockResolvedValue(next.capture)
+    vi.mocked(operator.read).mockResolvedValue(next.operator)
+    // The server's manual workspace follows the batch revision, as on a real refetch.
+    vi.mocked(manual.workspace).mockResolvedValue({ ...workspace, revision: '13' })
+    await act(async () => {
+      cache.setQueryData(serverQueryKey(fixtureScope, 'operator-review', batchId), next.operator)
+      cache.setQueryData(serverQueryKey(fixtureScope, 'capture', batchId), next.capture)
+    })
+  }
+
+  await user.click(await screen.findByRole('button', { name: 'Edit lot values' }))
+  const quantity = screen.getByLabelText('Exact pieces')
+  await user.clear(quantity)
+  await user.type(quantity, '123')
+  await publish()
+  // The draft keeps its revision: no live lot, and the input is untouched.
+  expect(screen.getByLabelText('Exact pieces')).toHaveValue('123')
+  expect(screen.queryByRole('checkbox', { name: 'Select LED reel' })).not.toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: 'Discard lot edits' }))
+  const row = await screen.findByRole('checkbox', { name: 'Select LED reel' })
+  expect(row.closest('li, div')?.parentElement).toHaveTextContent('AI-proposed')
+  // A live update must not leave Review read-only.
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Edit lot values' })).toBeEnabled())
+})
+
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
 
 test('Review opens on the first queued lot with its evidence, without an Inspect step', async () => {
@@ -1181,4 +1258,30 @@ test('a lot with an open question links to it even when no problem asks for an a
 
   const links = await screen.findAllByRole('link', { name: 'Answer the open question' })
   expect(links[0]).toHaveAttribute('href', `#${batchId}/processing/examine/q-b`)
+})
+
+test('observations in no lot are listed beside the lot Review opens', async () => {
+  const unassigned = {
+    id: '90000000-0000-4000-8000-000000000001',
+    evidence_version_id: '90000000-0000-4000-8000-000000000002',
+    page: 1,
+    region: { kind: 'lines', from_line: 1, to_line: 2 },
+    readings: { markings: ['16 MHz crystal'] },
+    visible_count: null,
+    status: 'active',
+    supersedes_observation_id: null,
+    origin: 'agent',
+    agent_session_id: '90000000-0000-4000-8000-000000000003',
+    operator_edited: false,
+    revision: '12',
+    lot_id: null,
+    suggested_lot_ids: [],
+  }
+  renderReview({ batch: { ...batch, evidence_observations: [unassigned] } as typeof batch })
+  const details = await screen.findByRole('region', { name: 'Decision' })
+  expect(within(details).getByRole('heading', { name: /Packet B/ })).toBeVisible()
+
+  const list = screen.getByRole('region', { name: 'Unassigned observations' })
+  expect(within(list).getByText('16 MHz crystal')).toBeVisible()
+  expect(within(list).getByLabelText('Move 16 MHz crystal to')).toBeInTheDocument()
 })

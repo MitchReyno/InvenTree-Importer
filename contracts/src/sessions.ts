@@ -7,6 +7,7 @@ import {
   ProcessingQuestionSpec,
   ProcessingQuestionValue,
 } from './processing.ts'
+import { LeadBatchView, LotFormingConflict } from './evidence-observations.ts'
 
 const object = <T extends TProperties>(properties: T) =>
   Type.Object(properties, { additionalProperties: false })
@@ -67,6 +68,7 @@ export const SessionToolError = Type.Union(
       'inbox_item_unknown',
       'session_not_running',
       'capacity_reached',
+      'tool_failed',
     ] as const
   ).map((code) => Type.Literal(code)),
 )
@@ -122,6 +124,26 @@ export const SessionToolResult = Type.Union([
     /** The proposal, question or outbox item a write created. */
     id: Type.Optional(Id),
     items: Type.Optional(Type.Array(SessionInboxItem, { maxItems: 20 })),
+    /** fetch_evidence for the lead session: each page's preview size, which regions refer to. */
+    pages: Type.Optional(
+      Type.Array(
+        object({
+          page: Type.Integer({ minimum: 1, maximum: 10000 }),
+          width: Type.Integer({ minimum: 1 }),
+          height: Type.Integer({ minimum: 1 }),
+        }),
+        { maxItems: 30 },
+      ),
+    ),
+    /** fetch_evidence for the lead session: the evidence's label and the operator's note. */
+    evidence_label: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
+    evidence_note: Type.Optional(Type.String({ minLength: 1, maxLength: 8192 })),
+    /** Lot-forming tools: true when the write became a suggestion for the operator. */
+    suggested: Type.Optional(Type.Boolean()),
+    /** propose_lot: the draft Part it created for `part: { label }`. */
+    part_subject_id: Type.Optional(Id),
+    /** read_batch: the lead session's view of its batch. */
+    batch: Type.Optional(LeadBatchView),
   }),
   object({
     ok: Type.Literal(false),
@@ -129,6 +151,8 @@ export const SessionToolResult = Type.Union([
     message: Type.String({ minLength: 1, maxLength: 1024 }),
     pending_inbox: Type.Integer({ minimum: 0 }),
     revision: Type.Optional(Revision),
+    /** For `stale`: the rows that changed, with their current revision. */
+    conflicts: Type.Optional(Type.Array(LotFormingConflict, { maxItems: 200 })),
   }),
 ])
 

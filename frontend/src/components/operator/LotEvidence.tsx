@@ -12,6 +12,7 @@ import { EvidenceViewer } from './EvidenceViewer'
 import { ProcessingSources } from '../processing/ProcessingSources'
 import { ProcessingSuggestions } from './ProcessingSuggestions'
 import { StatusChip } from './StatusChip'
+import { LotObservations } from './LotObservations'
 
 type Lot = CaptureSnapshotDto['lots'][number]
 type Part = CaptureSnapshotDto['parts'][number]
@@ -88,9 +89,12 @@ export function LotEvidence({
   const subjects = new Set([lot.id, ...predecessorIds, ...(part ? [part.id] : [])])
   const evidence = linkedEvidence(media, subjects)
   const proposals =
-    processing?.jobs
-      .filter((job) => job.subject_id !== null && subjects.has(job.subject_id))
-      .flatMap((job) => job.proposals.map((proposal) => ({ job, proposal }))) ?? []
+    processing?.jobs.flatMap((job) =>
+      job.proposals
+        // The Examine lead job has no subject; its proposals name their lot.
+        .filter((proposal) => subjects.has(job.subject_id ?? proposal.value.subject_id))
+        .map((proposal) => ({ job, proposal })),
+    ) ?? []
   return (
     <>
       <Heading>Human evidence</Heading>
@@ -112,6 +116,7 @@ export function LotEvidence({
           unavailable={mediaUnavailable}
         />
       )}
+      <LotObservations batch={batch} lot={lot} edit={edit} disabled={editDisabled} />
       {notes.map(({ note, source }) => (
         <Field key={note.id}>
           <strong>{source}</strong>

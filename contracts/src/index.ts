@@ -27,6 +27,8 @@ import { agentSchemas } from './agents.ts'
 export * from './agents.ts'
 import { liveSchemas } from './live.ts'
 import { sessionSchemas } from './sessions.ts'
+import { evidenceObservationSchemas } from './evidence-observations.ts'
+export * from './evidence-observations.ts'
 export * from './sessions.ts'
 export * from './live.ts'
 export * from './scalars.ts'
@@ -180,6 +182,7 @@ export const schemas = {
   ...liveSchemas,
   ...agentSchemas,
   ...sessionSchemas,
+  ...evidenceObservationSchemas,
 }
 export type BootstrapDto = Static<typeof Bootstrap>
 export type ApprovalDto = Static<typeof Approval>

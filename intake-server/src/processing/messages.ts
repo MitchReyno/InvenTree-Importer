@@ -22,7 +22,12 @@ import type { ProcessingConfig } from './attempts.ts'
 import { MAX_RUNNER_MESSAGE_BYTES } from './limits.ts'
 import { fail, sealed } from './model.ts'
 import { loadProcessingAuthority, processingInputIsCurrent } from './authority.ts'
-import { lockProcessingAttempt, transitionAttempt, releaseProcessingLane } from './state.ts'
+import {
+  lockProcessingAttempt,
+  transitionAttempt,
+  releaseProcessingLane,
+  requireLotJob,
+} from './state.ts'
 import { validateProposalSources } from './provenance.ts'
 import { prepareMediaTransaction } from '../media/transaction.ts'
 import { lockProcessingMediaCurrency } from './media.ts'
@@ -205,7 +210,7 @@ export async function acceptEnvelope(
       fail('runner_sequence_conflict')
     }
 
-    validatePayloadReferences(authority, job.subject_id, envelope)
+    validatePayloadReferences(authority, requireLotJob(job).subject_id, envelope)
     if (envelope.kind === 'proposal') {
       await verifyRetainedResearchSources(
         client,

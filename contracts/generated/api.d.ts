@@ -4484,6 +4484,44 @@ export interface components {
                     };
                     sku: string;
                 };
+            } | {
+                /** @constant */
+                kind: "observation";
+                observation_id?: string;
+                evidence_version_id: string;
+                page?: number;
+                region: {
+                    /** @constant */
+                    kind: "pixels";
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                    source_width: number;
+                    source_height: number;
+                } | {
+                    /** @constant */
+                    kind: "lines";
+                    from_line: number;
+                    to_line: number;
+                };
+                readings?: {
+                    markings: string[];
+                    text?: string;
+                };
+                visible_count?: number | null;
+                lot_id?: string | null;
+            } | {
+                /** @constant */
+                kind: "observation_move";
+                observation_id: string;
+                lot_id: string | null;
+            } | {
+                /** @constant */
+                kind: "observation_suggestion";
+                observation_id: string;
+                lot_id?: string;
+                decision: "accept" | "dismiss";
             };
         };
         CaptureObserve: {
@@ -4932,6 +4970,50 @@ export interface components {
                 };
                 /** @constant */
                 retired?: true;
+                /** @constant */
+                origin?: "agent";
+                agent_session_id?: string;
+                /** @constant */
+                operator_edited?: true;
+                estimated_quantity?: string;
+                quantity_basis?: string;
+                evidence_observation_ids?: string[];
+                /** Format: int64 */
+                observation_set_version?: string;
+            }[];
+            evidence_observations?: {
+                id: string;
+                evidence_version_id: string;
+                page: number;
+                region: {
+                    /** @constant */
+                    kind: "pixels";
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                    source_width: number;
+                    source_height: number;
+                } | {
+                    /** @constant */
+                    kind: "lines";
+                    from_line: number;
+                    to_line: number;
+                };
+                readings: {
+                    markings: string[];
+                    text?: string;
+                };
+                visible_count: number | null;
+                status: "active" | "suggested";
+                supersedes_observation_id: string | null;
+                origin: "agent" | "operator";
+                agent_session_id: string | null;
+                operator_edited: boolean;
+                /** Format: int64 */
+                revision: string;
+                lot_id: string | null;
+                suggested_lot_ids: string[];
             }[];
             notes: {
                 id: string;
@@ -6777,6 +6859,16 @@ export interface components {
                 };
                 /** @constant */
                 retired?: true;
+                /** @constant */
+                origin?: "agent";
+                agent_session_id?: string;
+                /** @constant */
+                operator_edited?: true;
+                estimated_quantity?: string;
+                quantity_basis?: string;
+                evidence_observation_ids?: string[];
+                /** Format: int64 */
+                observation_set_version?: string;
             } | {
                 id: string;
                 label: string;
@@ -7231,6 +7323,16 @@ export interface components {
                 };
                 /** @constant */
                 retired?: true;
+                /** @constant */
+                origin?: "agent";
+                agent_session_id?: string;
+                /** @constant */
+                operator_edited?: true;
+                estimated_quantity?: string;
+                quantity_basis?: string;
+                evidence_observation_ids?: string[];
+                /** Format: int64 */
+                observation_set_version?: string;
             } | {
                 id: string;
                 label: string;
@@ -8047,6 +8149,16 @@ export interface components {
                 };
                 /** @constant */
                 retired?: true;
+                /** @constant */
+                origin?: "agent";
+                agent_session_id?: string;
+                /** @constant */
+                operator_edited?: true;
+                estimated_quantity?: string;
+                quantity_basis?: string;
+                evidence_observation_ids?: string[];
+                /** Format: int64 */
+                observation_set_version?: string;
             } | {
                 id: string;
                 label: string;
@@ -8487,6 +8599,16 @@ export interface components {
                 };
                 /** @constant */
                 retired?: true;
+                /** @constant */
+                origin?: "agent";
+                agent_session_id?: string;
+                /** @constant */
+                operator_edited?: true;
+                estimated_quantity?: string;
+                quantity_basis?: string;
+                evidence_observation_ids?: string[];
+                /** Format: int64 */
+                observation_set_version?: string;
             } | {
                 id: string;
                 label: string;
@@ -8831,6 +8953,16 @@ export interface components {
                 };
                 /** @constant */
                 retired?: true;
+                /** @constant */
+                origin?: "agent";
+                agent_session_id?: string;
+                /** @constant */
+                operator_edited?: true;
+                estimated_quantity?: string;
+                quantity_basis?: string;
+                evidence_observation_ids?: string[];
+                /** Format: int64 */
+                observation_set_version?: string;
             } | {
                 id: string;
                 label: string;
@@ -9178,6 +9310,16 @@ export interface components {
                 };
                 /** @constant */
                 retired?: true;
+                /** @constant */
+                origin?: "agent";
+                agent_session_id?: string;
+                /** @constant */
+                operator_edited?: true;
+                estimated_quantity?: string;
+                quantity_basis?: string;
+                evidence_observation_ids?: string[];
+                /** Format: int64 */
+                observation_set_version?: string;
             } | {
                 id: string;
                 label: string;
@@ -9875,6 +10017,16 @@ export interface components {
                 };
                 /** @constant */
                 retired?: true;
+                /** @constant */
+                origin?: "agent";
+                agent_session_id?: string;
+                /** @constant */
+                operator_edited?: true;
+                estimated_quantity?: string;
+                quantity_basis?: string;
+                evidence_observation_ids?: string[];
+                /** Format: int64 */
+                observation_set_version?: string;
             } | {
                 id: string;
                 label: string;
@@ -10218,6 +10370,16 @@ export interface components {
                 };
                 /** @constant */
                 retired?: true;
+                /** @constant */
+                origin?: "agent";
+                agent_session_id?: string;
+                /** @constant */
+                operator_edited?: true;
+                estimated_quantity?: string;
+                quantity_basis?: string;
+                evidence_observation_ids?: string[];
+                /** Format: int64 */
+                observation_set_version?: string;
             } | {
                 id: string;
                 label: string;
@@ -10564,6 +10726,16 @@ export interface components {
                 };
                 /** @constant */
                 retired?: true;
+                /** @constant */
+                origin?: "agent";
+                agent_session_id?: string;
+                /** @constant */
+                operator_edited?: true;
+                estimated_quantity?: string;
+                quantity_basis?: string;
+                evidence_observation_ids?: string[];
+                /** Format: int64 */
+                observation_set_version?: string;
             } | {
                 id: string;
                 label: string;
@@ -10910,6 +11082,16 @@ export interface components {
                 };
                 /** @constant */
                 retired?: true;
+                /** @constant */
+                origin?: "agent";
+                agent_session_id?: string;
+                /** @constant */
+                operator_edited?: true;
+                estimated_quantity?: string;
+                quantity_basis?: string;
+                evidence_observation_ids?: string[];
+                /** Format: int64 */
+                observation_set_version?: string;
             } | {
                 id: string;
                 label: string;
@@ -11257,6 +11439,16 @@ export interface components {
                 };
                 /** @constant */
                 retired?: true;
+                /** @constant */
+                origin?: "agent";
+                agent_session_id?: string;
+                /** @constant */
+                operator_edited?: true;
+                estimated_quantity?: string;
+                quantity_basis?: string;
+                evidence_observation_ids?: string[];
+                /** Format: int64 */
+                observation_set_version?: string;
             } | {
                 id: string;
                 label: string;
@@ -11610,6 +11802,16 @@ export interface components {
                 };
                 /** @constant */
                 retired?: true;
+                /** @constant */
+                origin?: "agent";
+                agent_session_id?: string;
+                /** @constant */
+                operator_edited?: true;
+                estimated_quantity?: string;
+                quantity_basis?: string;
+                evidence_observation_ids?: string[];
+                /** Format: int64 */
+                observation_set_version?: string;
             } | {
                 id: string;
                 label: string;
@@ -12648,7 +12850,7 @@ export interface components {
             state: "open" | "answered" | "superseded";
             spec: {
                 kind: "quantity" | "clarification";
-                subject_id: string;
+                subject_id: string | null;
                 prompt: string;
                 reason: string;
             };
@@ -13015,7 +13217,7 @@ export interface components {
                 state: "open" | "answered" | "superseded";
                 spec: {
                     kind: "quantity" | "clarification";
-                    subject_id: string;
+                    subject_id: string | null;
                     prompt: string;
                     reason: string;
                 };
@@ -13388,7 +13590,7 @@ export interface components {
                     state: "open" | "answered" | "superseded";
                     spec: {
                         kind: "quantity" | "clarification";
-                        subject_id: string;
+                        subject_id: string | null;
                         prompt: string;
                         reason: string;
                     };
@@ -13630,6 +13832,7 @@ export interface components {
                 children: {
                     label: string;
                     quantity: string;
+                    observation_ids?: string[];
                 }[];
             } | {
                 /** @constant */
@@ -15014,7 +15217,7 @@ export interface components {
                 };
             };
         };
-        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached";
+        SessionToolError: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed";
         SessionToolResult: {
             /** @constant */
             ok: true;
@@ -15076,14 +15279,76 @@ export interface components {
                     reason: string;
                 };
             })[];
+            pages?: {
+                page: number;
+                width: number;
+                height: number;
+            }[];
+            evidence_label?: string;
+            evidence_note?: string;
+            suggested?: boolean;
+            part_subject_id?: string;
+            batch?: {
+                /** Format: int64 */
+                revision: string;
+                lots: {
+                    id: string;
+                    label: string;
+                    origin: "agent" | "operator";
+                    operator_edited: boolean;
+                    retired: boolean;
+                    part_subject_id: string | null;
+                    estimated_quantity: string | null;
+                    observation_ids: string[];
+                    suggested_observation_ids: string[];
+                }[];
+                parts: {
+                    id: string;
+                    label: string;
+                }[];
+                observations: {
+                    id: string;
+                    evidence_version_id: string;
+                    page: number;
+                    region: {
+                        /** @constant */
+                        kind: "pixels";
+                        x: number;
+                        y: number;
+                        width: number;
+                        height: number;
+                        source_width: number;
+                        source_height: number;
+                    } | {
+                        /** @constant */
+                        kind: "lines";
+                        from_line: number;
+                        to_line: number;
+                    };
+                    markings: string[];
+                    visible_count: number | null;
+                    status: "active" | "suggested";
+                    supersedes_observation_id: string | null;
+                    lot_id: string | null;
+                    operator_edited: boolean;
+                }[];
+            };
         } | {
             /** @constant */
             ok: false;
-            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached";
+            error: "capability_refused" | "tool_not_allowed" | "validation_failed" | "status_rate_limited" | "source_not_delivered" | "stale" | "inbox_item_unknown" | "session_not_running" | "capacity_reached" | "tool_failed";
             message: string;
             pending_inbox: number;
             /** Format: int64 */
             revision?: string;
+            conflicts?: {
+                kind: "observation" | "lot";
+                id: string;
+                reason: "changed" | "operator_edited" | "retired" | "missing";
+                revision: string | null;
+                lot_id?: string | null;
+                operator_edited?: boolean;
+            }[];
         };
         SessionOutboxItem: {
             session_id: string;
@@ -15220,6 +15485,162 @@ export interface components {
             /** Format: int64 */
             seq: string;
         };
+        EvidenceRegion: {
+            /** @constant */
+            kind: "pixels";
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+            source_width: number;
+            source_height: number;
+        } | {
+            /** @constant */
+            kind: "lines";
+            from_line: number;
+            to_line: number;
+        };
+        EvidenceReadings: {
+            markings: string[];
+            text?: string;
+        };
+        CaptureEvidenceObservation: {
+            id: string;
+            evidence_version_id: string;
+            page: number;
+            region: {
+                /** @constant */
+                kind: "pixels";
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+                source_width: number;
+                source_height: number;
+            } | {
+                /** @constant */
+                kind: "lines";
+                from_line: number;
+                to_line: number;
+            };
+            readings: {
+                markings: string[];
+                text?: string;
+            };
+            visible_count: number | null;
+            status: "active" | "suggested";
+            supersedes_observation_id: string | null;
+            origin: "agent" | "operator";
+            agent_session_id: string | null;
+            operator_edited: boolean;
+            /** Format: int64 */
+            revision: string;
+            lot_id: string | null;
+            suggested_lot_ids: string[];
+        };
+        RecordObservationArgs: {
+            /** Format: int64 */
+            base_revision: string;
+            observation_id?: string;
+            evidence_version_id: string;
+            page?: number;
+            region: {
+                /** @constant */
+                kind: "pixels";
+                x: number;
+                y: number;
+                width: number;
+                height: number;
+                source_width: number;
+                source_height: number;
+            } | {
+                /** @constant */
+                kind: "lines";
+                from_line: number;
+                to_line: number;
+            };
+            readings: {
+                markings: string[];
+                text?: string;
+            };
+            visible_count?: number;
+        };
+        ProposeLotArgs: {
+            /** Format: int64 */
+            base_revision: string;
+            lot_id?: string;
+            label?: string;
+            observation_ids: string[];
+            part?: {
+                part_subject_id: string;
+            } | {
+                label: string;
+            };
+            estimated_quantity?: string;
+            quantity_basis?: string;
+        };
+        RegroupArgs: {
+            /** Format: int64 */
+            base_revision: string;
+            moves: {
+                observation_id: string;
+                to_lot_id: string;
+            }[];
+        };
+        LotFormingConflict: {
+            kind: "observation" | "lot";
+            id: string;
+            reason: "changed" | "operator_edited" | "retired" | "missing";
+            revision: string | null;
+            lot_id?: string | null;
+            operator_edited?: boolean;
+        };
+        LeadBatchView: {
+            /** Format: int64 */
+            revision: string;
+            lots: {
+                id: string;
+                label: string;
+                origin: "agent" | "operator";
+                operator_edited: boolean;
+                retired: boolean;
+                part_subject_id: string | null;
+                estimated_quantity: string | null;
+                observation_ids: string[];
+                suggested_observation_ids: string[];
+            }[];
+            parts: {
+                id: string;
+                label: string;
+            }[];
+            observations: {
+                id: string;
+                evidence_version_id: string;
+                page: number;
+                region: {
+                    /** @constant */
+                    kind: "pixels";
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                    source_width: number;
+                    source_height: number;
+                } | {
+                    /** @constant */
+                    kind: "lines";
+                    from_line: number;
+                    to_line: number;
+                };
+                markings: string[];
+                visible_count: number | null;
+                status: "active" | "suggested";
+                supersedes_observation_id: string | null;
+                lot_id: string | null;
+                operator_edited: boolean;
+            }[];
+        };
+        SessionReadBatchArgs: Record<string, never>;
     };
     responses: never;
     parameters: never;
@@ -15411,3 +15832,12 @@ export type SessionOutboxItem = components['schemas']['SessionOutboxItem']
 export type SessionInboxItem = components['schemas']['SessionInboxItem']
 export type SessionInboxSubmission = components['schemas']['SessionInboxSubmission']
 export type SessionInboxReceipt = components['schemas']['SessionInboxReceipt']
+export type EvidenceRegion = components['schemas']['EvidenceRegion']
+export type EvidenceReadings = components['schemas']['EvidenceReadings']
+export type CaptureEvidenceObservation = components['schemas']['CaptureEvidenceObservation']
+export type RecordObservationArgs = components['schemas']['RecordObservationArgs']
+export type ProposeLotArgs = components['schemas']['ProposeLotArgs']
+export type RegroupArgs = components['schemas']['RegroupArgs']
+export type LotFormingConflict = components['schemas']['LotFormingConflict']
+export type LeadBatchView = components['schemas']['LeadBatchView']
+export type SessionReadBatchArgs = components['schemas']['SessionReadBatchArgs']

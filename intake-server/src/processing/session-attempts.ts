@@ -10,7 +10,11 @@ import { channelToken, type ProcessingConfig } from './attempts.ts'
 import { MAX_PROCESSING_SNAPSHOT_BYTES } from './limits.ts'
 import { fail, sealed, type Stage } from './model.ts'
 import { processingAttempts, processingInputs } from './schema.ts'
-import { sessionLotInputManifest, type SessionLotStage } from './session-input.ts'
+import {
+  sessionLeadInputManifest,
+  sessionLotInputManifest,
+  type SessionLotStage,
+} from './session-input.ts'
 import {
   sessionCommandQueue,
   sessionHandlerVersion,
@@ -19,19 +23,25 @@ import {
 
 const LOT_STAGES: readonly Stage[] = ['research', 'images', 'inventory']
 
-/** A per-lot session attempt: `/6` input, `/5` command on the session queue, and its session. */
+/**
+ * A session attempt: `/6` input, `/5` command on the session queue, and its session. The batch's
+ * Examine lead job has no subject and batch-scoped media; every other stage is per lot.
+ */
 export async function createSessionAttempt(
   client: PoolClient,
   config: ProcessingConfig,
   profileId: SessionProfileId,
   snapshot: CaptureSnapshotDto,
-  job: { id: string; subject_id: string; stage: Stage },
+  job: { id: string; subject_id: string | null; stage: Stage | 'examine' },
   number: string,
   media: LockedMediaInputs,
   parentId: string | null,
+  /** The Examine trigger reads the saved selection without locking the settings row. */
+  { lockSettings = true }: { lockSettings?: boolean } = {},
 ) {
+  const lead = job.stage === 'examine' && job.subject_id === null
   // Reading and identifying are replaced by the batch-level Examine session.
-  if (!LOT_STAGES.includes(job.stage)) {
+  if (!lead && (job.subject_id === null || !LOT_STAGES.includes(job.stage as Stage))) {
     fail('unsupported_processing_stage', 422)
   }
   const attemptId = randomUUID()
@@ -40,20 +50,22 @@ export async function createSessionAttempt(
   const descriptor = { manifest: media.manifest, sha256: media.manifestDigest }
   let profile: Parameters<typeof sessionLotInputManifest>[4] = { id: 'synthetic-session/1' }
   if (profileId === 'native-agent/2') {
-    const settings = await readAgentSettings(client, config, true)
+    const settings = await readAgentSettings(client, config, lockSettings)
     if (!settings.selection) {
       fail('agent_settings_required', 409)
     }
     profile = { id: profileId, agent: settings.selection, settingsRevision: settings.revision }
   }
   const manifest = sealed(
-    sessionLotInputManifest(
-      snapshot,
-      job.subject_id,
-      job.stage as SessionLotStage,
-      descriptor,
-      profile,
-    ),
+    lead
+      ? sessionLeadInputManifest(snapshot, descriptor, profile)
+      : sessionLotInputManifest(
+          snapshot,
+          job.subject_id!,
+          job.stage as SessionLotStage,
+          descriptor,
+          profile,
+        ),
   )
   if (manifest.bytes.length > MAX_PROCESSING_SNAPSHOT_BYTES) {
     fail('processing_input_capacity', 422)

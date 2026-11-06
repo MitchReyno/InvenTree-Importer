@@ -5,6 +5,7 @@ import { and, asc, desc, eq, isNull, or } from 'drizzle-orm'
 import { validate, type MediaSnapshotDto } from '@invimport/contracts'
 import { captureInTransaction, type CaptureBinding } from '../capture/repository.ts'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
+import { captureEvidenceObservations, captureLotEvidenceObservations } from '../capture/schema.ts'
 import {
   mediaAttachmentSelections,
   mediaBatches,
@@ -104,6 +105,27 @@ async function readMediaRows(client: PoolClient, batchId: string): Promise<Media
       .where(eq(mediaLinks.batchId, batchId))
       .orderBy(asc(mediaLinks.evidenceId), asc(mediaLinks.subjectId), desc(mediaLinks.revision)),
   )
+  const observationLinks = await executeDatabaseQuery(
+    db
+      .selectDistinct({
+        evidence_id: mediaVersions.evidenceId,
+        subject_id: captureLotEvidenceObservations.lotId,
+      })
+      .from(captureLotEvidenceObservations)
+      .innerJoin(
+        captureEvidenceObservations,
+        eq(captureEvidenceObservations.id, captureLotEvidenceObservations.evidenceObservationId),
+      )
+      .innerJoin(mediaVersions, eq(mediaVersions.id, captureEvidenceObservations.evidenceVersionId))
+      .where(
+        and(
+          eq(captureLotEvidenceObservations.batchId, batchId),
+          eq(captureLotEvidenceObservations.status, 'active'),
+          eq(captureEvidenceObservations.status, 'active'),
+        ),
+      )
+      .orderBy(asc(mediaVersions.evidenceId), asc(captureLotEvidenceObservations.lotId)),
+  )
   const attachments = await executeDatabaseQuery(
     db
       .selectDistinctOn([mediaAttachmentSelections.subjectId], {
@@ -142,6 +164,7 @@ async function readMediaRows(client: PoolClient, batchId: string): Promise<Media
     groups,
     membership,
     links,
+    observation_links: observationLinks,
     attachments,
     derivations,
   }

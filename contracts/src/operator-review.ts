@@ -133,7 +133,12 @@ const operatorOutcome = object({
 
 export const BulkEditResult = operatorOutcome
 
-const splitChild = object({ label, quantity: Quantity })
+/** A child may take some of the lot's observations; the rest stay with the retired lot. */
+const splitChild = object({
+  label,
+  quantity: Quantity,
+  observation_ids: Type.Optional(Type.Array(Id, { maxItems: 100, uniqueItems: true })),
+})
 
 const moveDestination = Type.Union([
   object({ kind: Type.Literal('existing'), part_subject_id: Id }),

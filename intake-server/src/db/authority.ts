@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import type { PoolClient } from 'pg'
 import { and, eq, sql } from 'drizzle-orm'
-import { canonical } from '@invimport/contracts/json'
+import { canonical, canonicalRecord } from '@invimport/contracts/json'
 import { executeDatabaseQuery, queryDatabase } from './database.ts'
 import { events, idempotencyRecords, streams } from './schema.ts'
 
@@ -74,7 +74,7 @@ async function retainIdempotencyRecord(
         ...scope,
         semanticBytes,
         semanticDigest: sha256(semanticBytes),
-        responseBytes: Buffer.from(canonical(result)),
+        responseBytes: Buffer.from(canonicalRecord(result)),
       }),
   )
 }
@@ -88,7 +88,7 @@ export async function idempotent(
 ): Promise<unknown> {
   const commandScope = { ...scope }
   await lockCommandScope(client, commandScope)
-  const bytes = Buffer.from(canonical(payload))
+  const bytes = Buffer.from(canonicalRecord(payload))
   const prior = await findIdempotencyRecord(client, commandScope)
   if (prior) {
     verifyBytes(prior.semanticBytes, prior.semanticDigest)

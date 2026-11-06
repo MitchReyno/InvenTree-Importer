@@ -17,7 +17,7 @@ import type { LockCapture } from './capture.ts'
 import { channelToken, createAttempt, type ProcessingConfig } from './attempts.ts'
 import { commandScope, lockLane } from './scope.ts'
 import { fail, unseal, sealed, decodeProcessingInput } from './model.ts'
-import { lockProcessingAttempt } from './state.ts'
+import { lockProcessingAttempt, requireLotJob } from './state.ts'
 import { loadRetainedQuestionSpec } from './retained.ts'
 import { continueDependentJobs, continuationSubjectIds } from './continuations.ts'
 import { answerSessionQuestion } from './session-answers.ts'
@@ -248,12 +248,9 @@ export async function answerQuestion(
         fail('stale_question', 412)
       }
       await lockLane(client, config.actorId)
-      const { job, attempt, question } = await lockCurrentQuestion(
-        client,
-        batchId,
-        questionId,
-        input,
-      )
+      const current = await lockCurrentQuestion(client, batchId, questionId, input)
+      const job = requireLotJob(current.job)
+      const { attempt, question } = current
       const edit = await answerEdit(
         client,
         question,

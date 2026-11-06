@@ -1,5 +1,11 @@
 import { Type, type Static } from '@sinclair/typebox'
 import { Id, PositivePk, Quantity, Revision } from './scalars.ts'
+import { unicodeText } from './unicode-text.ts'
+import {
+  CaptureEvidenceObservation,
+  EvidenceReadings,
+  EvidenceRegion,
+} from './evidence-observations.ts'
 import { InventoryModel, InventoryPartSpec, InventoryMapping, mappedReference } from './effects.ts'
 import { RecordChange } from './records.ts'
 import {
@@ -104,6 +110,35 @@ export const CaptureEdit = object({
     object({ kind: Type.Literal('note'), subject_id: Type.Union([Id, Type.Null()]), text: note }),
     CaptureBatchSettingsChange,
     RecordChange,
+    /** Creates a region (no `observation_id`) or adjusts one; either marks it operator-edited. */
+    object({
+      kind: Type.Literal('observation'),
+      observation_id: Type.Optional(Id),
+      evidence_version_id: Id,
+      page: Type.Optional(Type.Integer({ minimum: 1, maximum: 10000 })),
+      region: EvidenceRegion,
+      readings: Type.Optional(EvidenceReadings),
+      visible_count: Type.Optional(
+        Type.Union([Type.Integer({ minimum: 0, maximum: 1000000 }), Type.Null()]),
+      ),
+      lot_id: Type.Optional(Type.Union([Id, Type.Null()])),
+    }),
+    /** Moves an observation to another lot, or out of any lot. */
+    object({
+      kind: Type.Literal('observation_move'),
+      observation_id: Id,
+      lot_id: Type.Union([Id, Type.Null()]),
+    }),
+    /**
+     * Resolves a lead-session suggestion: a membership suggestion names its lot; a suggested
+     * revision of an observation is named by the suggestion's own id.
+     */
+    object({
+      kind: Type.Literal('observation_suggestion'),
+      observation_id: Id,
+      lot_id: Type.Optional(Id),
+      decision: Type.Union([Type.Literal('accept'), Type.Literal('dismiss')]),
+    }),
   ]),
 })
 export const CaptureObserve = object({
@@ -190,8 +225,20 @@ export const CaptureSnapshot = object({
       location: CaptureLocation,
       /** Server-projected: split or merged before approval; kept as history. Active lots omit it. */
       retired: Type.Optional(Type.Literal(true)),
+      /** Present for lots the Examine lead session created; operator lots omit it. */
+      origin: Type.Optional(Type.Literal('agent')),
+      agent_session_id: Type.Optional(Id),
+      /** Present once the operator has changed the lot; the lead session then only suggests. */
+      operator_edited: Type.Optional(Type.Literal(true)),
+      /** The lead session's estimate and its basis; never a counted quantity. */
+      estimated_quantity: Type.Optional(Quantity),
+      quantity_basis: Type.Optional(unicodeText(1, 512)),
+      evidence_observation_ids: Type.Optional(Type.Array(Id, { maxItems: 100 })),
+      observation_set_version: Type.Optional(Revision),
     }),
   ),
+  /** Items seen in regions of evidence; omitted when the batch has none. */
+  evidence_observations: Type.Optional(Type.Array(CaptureEvidenceObservation, { maxItems: 1000 })),
   notes: Type.Array(
     object({
       id: Id,

@@ -136,6 +136,8 @@ export function retainedSessionProposal(
   seal: MessageSeal & { valueBytes: Buffer; valueDigest: Buffer },
   subjectId: string | null,
   manifest: ProcessingInputV6Dto,
+  /** For the lead job (no subject): the batch's lots a proposal may be about. */
+  batchLots: ReadonlySet<string> = new Set(),
 ): ProcessingProposalV5Dto {
   const envelope = acceptedSessionMessage(seal)
   const value = unseal(seal.valueBytes, seal.valueDigest)
@@ -144,7 +146,7 @@ export function retainedSessionProposal(
   if (
     envelope.kind !== 'proposal' ||
     canonical(envelope.payload) !== canonical(proposal) ||
-    proposal.subject_id !== subjectId
+    (subjectId === null ? !batchLots.has(proposal.subject_id) : proposal.subject_id !== subjectId)
   ) {
     fail('retained_proposal_binding_invalid')
   }
@@ -162,6 +164,8 @@ export function retainedSessionProposal(
 export function retainedSessionQuestion(
   seal: MessageSeal & { specBytes: Buffer; specDigest: Buffer },
   subjectId: string | null,
+  /** For the lead job: the batch's subjects a question may be about, besides the whole batch. */
+  batchSubjects: ReadonlySet<string> = new Set(),
 ): SessionAskArgsDto {
   const envelope = acceptedSessionMessage(seal)
   const value = unseal(seal.specBytes, seal.specDigest)
@@ -170,7 +174,9 @@ export function retainedSessionQuestion(
   if (
     envelope.kind !== 'question' ||
     canonical(envelope.payload) !== canonical(ask) ||
-    ask.subject_id !== subjectId
+    (subjectId === null
+      ? ask.subject_id !== null && !batchSubjects.has(ask.subject_id)
+      : ask.subject_id !== subjectId)
   ) {
     fail('retained_question_binding_invalid')
   }

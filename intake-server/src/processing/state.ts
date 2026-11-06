@@ -33,11 +33,23 @@ export function canCancelProcessingAttempt(
 export interface ProcessingJobRow {
   id: string
   batch_id: string
-  subject_id: string
-  stage: Stage
+  /** Null only for the batch-level Examine lead job. */
+  subject_id: string | null
+  stage: Stage | 'examine'
   revision: string
   current_attempt_id: string
   state: State
+}
+
+/** A per-lot job: every stage except the batch-level Examine lead job. */
+export type ProcessingLotJobRow = ProcessingJobRow & { subject_id: string; stage: Stage }
+
+/** Paths that predate the lead job refuse it rather than assume a subject. */
+export function requireLotJob<T extends ProcessingJobRow>(job: T): T & ProcessingLotJobRow {
+  if (job.subject_id === null || job.stage === 'examine') {
+    fail('unsupported_processing_stage', 422)
+  }
+  return job as T & ProcessingLotJobRow
 }
 
 export interface ProcessingAttemptRow {

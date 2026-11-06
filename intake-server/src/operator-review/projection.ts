@@ -5,7 +5,7 @@ import {
   type OperatorIssueDto,
   type OperatorReviewDto,
 } from '@invimport/contracts'
-import { canonical } from '@invimport/contracts/json'
+import { canonicalRecord } from '@invimport/contracts/json'
 import { captureInTransaction, fail } from '../capture/repository.ts'
 import {
   latestInstructions,
@@ -183,7 +183,7 @@ export async function operatorReview(
     cursor: snapshot.cursor,
   }
   validate('OperatorReview', result)
-  if (Buffer.byteLength(canonical(result)) > MAX_PROJECTION_BYTES) {
+  if (Buffer.byteLength(canonicalRecord(result)) > MAX_PROJECTION_BYTES) {
     fail('operator_review_capacity', 409)
   }
   return result
