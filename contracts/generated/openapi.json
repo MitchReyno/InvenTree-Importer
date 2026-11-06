@@ -2174,6 +2174,47 @@
         }
       ]
     },
+    "/api/v1/preparations/{id}/tree": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 45000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "PreparationTree",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreparationTree"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ]
+    },
     "/api/v1/runs/{id}": {
       "get": {
         "x-intake-client": {
@@ -22720,6 +22761,301 @@
           },
           "truncated": {
             "type": "boolean"
+          }
+        }
+      },
+      "PreparationNode": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "kind",
+          "label",
+          "state",
+          "parent_key",
+          "location_key",
+          "lot_id",
+          "part_subject_id"
+        ],
+        "properties": {
+          "key": {
+            "minLength": 1,
+            "maxLength": 160,
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "const": "category",
+                "type": "string"
+              },
+              {
+                "const": "company",
+                "type": "string"
+              },
+              {
+                "const": "part",
+                "type": "string"
+              },
+              {
+                "const": "manufacturer_part",
+                "type": "string"
+              },
+              {
+                "const": "supplier_part",
+                "type": "string"
+              },
+              {
+                "const": "parameter",
+                "type": "string"
+              },
+              {
+                "const": "location",
+                "type": "string"
+              },
+              {
+                "const": "stock_item",
+                "type": "string"
+              },
+              {
+                "const": "attachment",
+                "type": "string"
+              }
+            ]
+          },
+          "label": {
+            "minLength": 1,
+            "maxLength": 512,
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "const": "new",
+                "type": "string"
+              },
+              {
+                "const": "update",
+                "type": "string"
+              },
+              {
+                "const": "exists",
+                "type": "string"
+              },
+              {
+                "const": "choose",
+                "type": "string"
+              }
+            ]
+          },
+          "parent_key": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location_key": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lot_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "part_subject_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "PreparationTree": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "preparation_id",
+          "plan_version",
+          "nodes"
+        ],
+        "properties": {
+          "preparation_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "plan_version": {
+            "minLength": 1,
+            "maxLength": 64,
+            "type": "string"
+          },
+          "nodes": {
+            "anyOf": [
+              {
+                "maxItems": 2000,
+                "type": "array",
+                "items": {
+                  "additionalProperties": false,
+                  "type": "object",
+                  "required": [
+                    "key",
+                    "kind",
+                    "label",
+                    "state",
+                    "parent_key",
+                    "location_key",
+                    "lot_id",
+                    "part_subject_id"
+                  ],
+                  "properties": {
+                    "key": {
+                      "minLength": 1,
+                      "maxLength": 160,
+                      "type": "string"
+                    },
+                    "kind": {
+                      "anyOf": [
+                        {
+                          "const": "category",
+                          "type": "string"
+                        },
+                        {
+                          "const": "company",
+                          "type": "string"
+                        },
+                        {
+                          "const": "part",
+                          "type": "string"
+                        },
+                        {
+                          "const": "manufacturer_part",
+                          "type": "string"
+                        },
+                        {
+                          "const": "supplier_part",
+                          "type": "string"
+                        },
+                        {
+                          "const": "parameter",
+                          "type": "string"
+                        },
+                        {
+                          "const": "location",
+                          "type": "string"
+                        },
+                        {
+                          "const": "stock_item",
+                          "type": "string"
+                        },
+                        {
+                          "const": "attachment",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "label": {
+                      "minLength": 1,
+                      "maxLength": 512,
+                      "type": "string"
+                    },
+                    "state": {
+                      "anyOf": [
+                        {
+                          "const": "new",
+                          "type": "string"
+                        },
+                        {
+                          "const": "update",
+                          "type": "string"
+                        },
+                        {
+                          "const": "exists",
+                          "type": "string"
+                        },
+                        {
+                          "const": "choose",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "parent_key": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "maxLength": 160,
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "location_key": {
+                      "anyOf": [
+                        {
+                          "minLength": 1,
+                          "maxLength": 160,
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "lot_id": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "part_subject_id": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },

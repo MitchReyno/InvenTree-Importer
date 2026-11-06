@@ -578,3 +578,7 @@ Nitpicks left from the last reviews, handled in PR-F's first commit: the `hashch
 ## PR-F plan: Changes (Tasks 11 and 13)
 
 Branch `feat/redesign-batch-workspace-changes` from `ab80c3b`. Merge is authorised once review and CI are clear; a demo video is attached before merge.
+
+## PR-F results
+
+- **11.1 Preparation tree:** `GET /api/v1/preparations/:id/tree` returns one flat list of records with `parent_key` and `location_key` rather than two nested trees, so By type, Tree by category and Tree by location are built from the same list and cannot disagree. A stock-plan or media-plan Part is an existing record at the root; an effects-plan Part sits under its category, with its parameters and manufacturer and supplier parts. A Part made by an earlier run, and its records, read as existing. Unit tests (written first, failing on the missing module) cover each plan version, a prior Part, missing names and an unknown version. PostgreSQL tests read a stock and an effects preparation, check the stored plan, preview and sealed response bytes are unchanged afterwards, and approve the stock one.
