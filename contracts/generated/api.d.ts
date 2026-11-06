@@ -2589,6 +2589,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/batches/{id}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description BatchRecords */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BatchRecords"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/batches/{id}/issue-dispositions": {
         parameters: {
             query?: never;
@@ -5212,6 +5260,141 @@ export interface components {
                 };
                 sku: string;
             };
+        };
+        RecordType: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter_template" | "parameter" | "location" | "stock_item" | "tag";
+        RecordState: "new" | "exists" | "update" | "choose" | "unsupported";
+        RecordOrigin: {
+            /** @constant */
+            kind: "operator";
+        } | {
+            /** @constant */
+            kind: "step";
+            step: "examine" | "research" | "images" | "inventory";
+            proposal_id: string;
+        };
+        RecordField: {
+            name: string;
+            value: string | null;
+            origin: {
+                /** @constant */
+                kind: "operator";
+            } | {
+                /** @constant */
+                kind: "step";
+                step: "examine" | "research" | "images" | "inventory";
+                proposal_id: string;
+            };
+        };
+        BatchRecord: {
+            key: string;
+            type: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter_template" | "parameter" | "location" | "stock_item" | "tag";
+            label: string;
+            state: "new" | "exists" | "update" | "choose" | "unsupported";
+            target: ({
+                /** @constant */
+                kind: "company";
+                role: "manufacturer" | "supplier";
+                /** Format: int64 */
+                pk: string;
+            } | {
+                /** @constant */
+                kind: "parameter_template";
+                /** Format: int64 */
+                pk: string;
+            } | {
+                /** @constant */
+                kind: "part";
+                part_subject_id: string;
+            } | {
+                kind: "manufacturer_part" | "supplier_part";
+                part_subject_id: string;
+            } | {
+                /** @constant */
+                kind: "parameter";
+                part_subject_id: string;
+                /** Format: int64 */
+                template_pk: string;
+            }) | null;
+            fields: {
+                name: string;
+                value: string | null;
+                origin: {
+                    /** @constant */
+                    kind: "operator";
+                } | {
+                    /** @constant */
+                    kind: "step";
+                    step: "examine" | "research" | "images" | "inventory";
+                    proposal_id: string;
+                };
+            }[];
+            part_ids: string[];
+            lot_ids: string[];
+            decision: null | {
+                code: "part_choice_required" | "location_required" | "location_conflict";
+                detail: string;
+            };
+        };
+        BatchRecords: {
+            batch_id: string;
+            /** Format: int64 */
+            revision: string;
+            counts: {
+                type: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter_template" | "parameter" | "location" | "stock_item" | "tag";
+                new: number;
+                existing: number;
+                decide: number;
+            }[];
+            records: {
+                key: string;
+                type: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter_template" | "parameter" | "location" | "stock_item" | "tag";
+                label: string;
+                state: "new" | "exists" | "update" | "choose" | "unsupported";
+                target: ({
+                    /** @constant */
+                    kind: "company";
+                    role: "manufacturer" | "supplier";
+                    /** Format: int64 */
+                    pk: string;
+                } | {
+                    /** @constant */
+                    kind: "parameter_template";
+                    /** Format: int64 */
+                    pk: string;
+                } | {
+                    /** @constant */
+                    kind: "part";
+                    part_subject_id: string;
+                } | {
+                    kind: "manufacturer_part" | "supplier_part";
+                    part_subject_id: string;
+                } | {
+                    /** @constant */
+                    kind: "parameter";
+                    part_subject_id: string;
+                    /** Format: int64 */
+                    template_pk: string;
+                }) | null;
+                fields: {
+                    name: string;
+                    value: string | null;
+                    origin: {
+                        /** @constant */
+                        kind: "operator";
+                    } | {
+                        /** @constant */
+                        kind: "step";
+                        step: "examine" | "research" | "images" | "inventory";
+                        proposal_id: string;
+                    };
+                }[];
+                part_ids: string[];
+                lot_ids: string[];
+                decision: null | {
+                    code: "part_choice_required" | "location_required" | "location_conflict";
+                    detail: string;
+                };
+            }[];
         };
         CatalogueModel: "location" | "supplier";
         CatalogueQuery: {
@@ -15088,6 +15271,12 @@ export type CaptureSnapshot = components['schemas']['CaptureSnapshot']
 export type RecordRef = components['schemas']['RecordRef']
 export type RecordOperation = components['schemas']['RecordOperation']
 export type RecordChange = components['schemas']['RecordChange']
+export type RecordType = components['schemas']['RecordType']
+export type RecordState = components['schemas']['RecordState']
+export type RecordOrigin = components['schemas']['RecordOrigin']
+export type RecordField = components['schemas']['RecordField']
+export type BatchRecord = components['schemas']['BatchRecord']
+export type BatchRecords = components['schemas']['BatchRecords']
 export type CatalogueModel = components['schemas']['CatalogueModel']
 export type CatalogueQuery = components['schemas']['CatalogueQuery']
 export type CatalogueLocation = components['schemas']['CatalogueLocation']

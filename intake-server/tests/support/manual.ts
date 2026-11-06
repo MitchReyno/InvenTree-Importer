@@ -2,6 +2,8 @@ import { registerLive } from '../../src/live/routes.ts'
 import { registerProcessing } from '../../src/processing/routes.ts'
 import { registerAttention } from '../../src/attention/routes.ts'
 import { attentionReader } from '../../src/attention/reader.ts'
+import { registerRecords } from '../../src/records/routes.ts'
+import { recordsReader } from '../../src/records/reader.ts'
 import { grantProcessing } from '../../src/processing/grants.ts'
 import { lockCaptureForEdit } from '../../src/capture/repository.ts'
 import {
@@ -207,6 +209,17 @@ export async function manualFixture(
     if (store) {
       registerMediaRoutes(app, api.pool, config, store)
     }
+    registerRecords(
+      app,
+      config,
+      recordsReader(
+        api.pool,
+        config,
+        options.processing ? (config as never) : undefined,
+        lockCaptureForEdit,
+        Boolean(store),
+      ),
+    )
     if (options.processing) {
       registerProcessing(app, api.pool, config as never, lockCaptureForEdit)
       registerAttention(

@@ -1,5 +1,5 @@
 import { Type, type Static } from '@sinclair/typebox'
-import { Id, PositivePk } from './scalars.ts'
+import { Id, PositivePk, Revision } from './scalars.ts'
 import {
   InventoryPartSpec,
   PartDescription,
@@ -64,11 +64,90 @@ export const RecordChange = object({
   operation: RecordOperation,
 })
 
-export const recordSchemas = { RecordRef, RecordOperation, RecordChange }
+const choice = <const T extends readonly string[]>(values: T) =>
+  Type.Union(values.map((value) => Type.Literal(value)))
+
+const count = Type.Integer({ minimum: 0, maximum: 100000 })
+
+export const RECORD_TYPES = [
+  'category',
+  'company',
+  'part',
+  'manufacturer_part',
+  'supplier_part',
+  'parameter_template',
+  'parameter',
+  'location',
+  'stock_item',
+  'tag',
+] as const
+export const RecordType = choice(RECORD_TYPES)
+/** Exists: already in InvenTree. Update: applied to records the batch creates. */
+export const RecordState = choice(['new', 'exists', 'update', 'choose', 'unsupported'])
+/** Who set a value: the operator, or the processing step whose proposal it still matches. */
+export const RecordOrigin = Type.Union([
+  object({ kind: Type.Literal('operator') }),
+  object({
+    kind: Type.Literal('step'),
+    step: choice(['examine', 'research', 'images', 'inventory']),
+    proposal_id: Id,
+  }),
+])
+export const RecordField = object({
+  name: Type.String({ minLength: 1, maxLength: 64 }),
+  value: Type.Union([Type.String({ minLength: 1, maxLength: 512 }), Type.Null()]),
+  origin: RecordOrigin,
+})
+export const BatchRecord = object({
+  /** Stable within the projection, e.g. `company:supplier:12`. */
+  key: Type.String({ minLength: 1, maxLength: 256 }),
+  type: RecordType,
+  label: text,
+  state: RecordState,
+  /** The record edit target; null when the record is edited elsewhere or not at all. */
+  target: Type.Union([RecordRef, Type.Null()]),
+  fields: Type.Array(RecordField, { maxItems: 40 }),
+  part_ids: Type.Array(Id, { maxItems: 100 }),
+  lot_ids: Type.Array(Id, { maxItems: 100 }),
+  decision: Type.Union([
+    Type.Null(),
+    object({
+      code: choice(['part_choice_required', 'location_required', 'location_conflict']),
+      detail: Type.String({ minLength: 1, maxLength: 512 }),
+    }),
+  ]),
+})
+/** Every record a batch touches, read from capture state; it never changes a stored row. */
+export const BatchRecords = object({
+  batch_id: Id,
+  revision: Revision,
+  counts: Type.Array(object({ type: RecordType, new: count, existing: count, decide: count }), {
+    maxItems: RECORD_TYPES.length,
+  }),
+  records: Type.Array(BatchRecord, { maxItems: 2000 }),
+})
+
+export const recordSchemas = {
+  RecordRef,
+  RecordOperation,
+  RecordChange,
+  RecordType,
+  RecordState,
+  RecordOrigin,
+  RecordField,
+  BatchRecord,
+  BatchRecords,
+}
 
 export type RecordRefDto = Static<typeof RecordRef>
 export type RecordOperationDto = Static<typeof RecordOperation>
 export type RecordChangeDto = Static<typeof RecordChange>
+export type RecordTypeDto = Static<typeof RecordType>
+export type RecordStateDto = Static<typeof RecordState>
+export type RecordOriginDto = Static<typeof RecordOrigin>
+export type RecordFieldDto = Static<typeof RecordField>
+export type BatchRecordDto = Static<typeof BatchRecord>
+export type BatchRecordsDto = Static<typeof BatchRecords>
 
 /** A refusal; `partId` names the Part that caused it, when there is one. */
 export class RecordEditError extends Error {

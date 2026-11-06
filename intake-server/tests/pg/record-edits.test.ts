@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import type {
+  BatchRecordsDto,
   CaptureObservationDto,
   CaptureSnapshotDto,
   InventoryPartSpecDto,
@@ -309,6 +310,42 @@ test('a description is set on one Part and clearing removes it from the spec', a
     })
     assert.equal(cleared.status, 200, JSON.stringify(cleared.value))
     assert.equal('description' in specOf(cleared.value, partA), false)
+  } finally {
+    await fixture.dispose()
+  }
+})
+
+test('the records read lists the batch’s records, follows edits and writes nothing', async () => {
+  const fixture = await manualFixture({ effects: true })
+  try {
+    const { batchId, partA, partB, refs, batch } = await recordBatch(fixture)
+    const before = await selections(fixture, batchId)
+    const read = await fixture.http(`/batches/${batchId}/records`)
+    assert.equal(read.status, 200, JSON.stringify(read.value))
+    const records = read.value as BatchRecordsDto
+    assert.equal(records.revision, batch.revision)
+    const supplier = records.records.find((item) => item.key === 'company:supplier:12')!
+    assert.deepEqual([...supplier.part_ids].sort(), [partA, partB].sort())
+    assert.equal(supplier.lot_ids.length, 3)
+    assert.deepEqual(await selections(fixture, batchId), before)
+
+    const mapped = await record(
+      fixture,
+      batchId,
+      batch.revision,
+      { kind: 'company', role: 'supplier', pk: '12' },
+      { op: 'map_to_existing', reference: refs.supplierOnly },
+    )
+    assert.equal(mapped.status, 200, JSON.stringify(mapped.value))
+    const after = (await fixture.http(`/batches/${batchId}/records`)).value as BatchRecordsDto
+    assert.equal(
+      after.records.some((item) => item.key === 'company:supplier:12'),
+      false,
+    )
+    assert.deepEqual(
+      [...after.records.find((item) => item.key === 'company:supplier:602')!.part_ids].sort(),
+      [partA, partB].sort(),
+    )
   } finally {
     await fixture.dispose()
   }

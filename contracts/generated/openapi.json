@@ -2600,6 +2600,47 @@
         }
       ]
     },
+    "/api/v1/batches/{id}/records": {
+      "get": {
+        "x-intake-client": {
+          "timeoutMs": 10000,
+          "errorMode": "typed"
+        },
+        "responses": {
+          "200": {
+            "description": "BatchRecords",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchRecords"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ErrorDto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          }
+        }
+      ]
+    },
     "/api/v1/batches/{id}/issue-dispositions": {
       "post": {
         "x-intake-client": {
@@ -13341,6 +13382,1048 @@
                 }
               }
             ]
+          }
+        }
+      },
+      "RecordType": {
+        "anyOf": [
+          {
+            "const": "category",
+            "type": "string"
+          },
+          {
+            "const": "company",
+            "type": "string"
+          },
+          {
+            "const": "part",
+            "type": "string"
+          },
+          {
+            "const": "manufacturer_part",
+            "type": "string"
+          },
+          {
+            "const": "supplier_part",
+            "type": "string"
+          },
+          {
+            "const": "parameter_template",
+            "type": "string"
+          },
+          {
+            "const": "parameter",
+            "type": "string"
+          },
+          {
+            "const": "location",
+            "type": "string"
+          },
+          {
+            "const": "stock_item",
+            "type": "string"
+          },
+          {
+            "const": "tag",
+            "type": "string"
+          }
+        ]
+      },
+      "RecordState": {
+        "anyOf": [
+          {
+            "const": "new",
+            "type": "string"
+          },
+          {
+            "const": "exists",
+            "type": "string"
+          },
+          {
+            "const": "update",
+            "type": "string"
+          },
+          {
+            "const": "choose",
+            "type": "string"
+          },
+          {
+            "const": "unsupported",
+            "type": "string"
+          }
+        ]
+      },
+      "RecordOrigin": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "operator",
+                "type": "string"
+              }
+            }
+          },
+          {
+            "additionalProperties": false,
+            "type": "object",
+            "required": [
+              "kind",
+              "step",
+              "proposal_id"
+            ],
+            "properties": {
+              "kind": {
+                "const": "step",
+                "type": "string"
+              },
+              "step": {
+                "anyOf": [
+                  {
+                    "const": "examine",
+                    "type": "string"
+                  },
+                  {
+                    "const": "research",
+                    "type": "string"
+                  },
+                  {
+                    "const": "images",
+                    "type": "string"
+                  },
+                  {
+                    "const": "inventory",
+                    "type": "string"
+                  }
+                ]
+              },
+              "proposal_id": {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "RecordField": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "value",
+          "origin"
+        ],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "maxLength": 64,
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "operator",
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "kind",
+                  "step",
+                  "proposal_id"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "step",
+                    "type": "string"
+                  },
+                  "step": {
+                    "anyOf": [
+                      {
+                        "const": "examine",
+                        "type": "string"
+                      },
+                      {
+                        "const": "research",
+                        "type": "string"
+                      },
+                      {
+                        "const": "images",
+                        "type": "string"
+                      },
+                      {
+                        "const": "inventory",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "proposal_id": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "BatchRecord": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "type",
+          "label",
+          "state",
+          "target",
+          "fields",
+          "part_ids",
+          "lot_ids",
+          "decision"
+        ],
+        "properties": {
+          "key": {
+            "minLength": 1,
+            "maxLength": 256,
+            "type": "string"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "const": "category",
+                "type": "string"
+              },
+              {
+                "const": "company",
+                "type": "string"
+              },
+              {
+                "const": "part",
+                "type": "string"
+              },
+              {
+                "const": "manufacturer_part",
+                "type": "string"
+              },
+              {
+                "const": "supplier_part",
+                "type": "string"
+              },
+              {
+                "const": "parameter_template",
+                "type": "string"
+              },
+              {
+                "const": "parameter",
+                "type": "string"
+              },
+              {
+                "const": "location",
+                "type": "string"
+              },
+              {
+                "const": "stock_item",
+                "type": "string"
+              },
+              {
+                "const": "tag",
+                "type": "string"
+              }
+            ]
+          },
+          "label": {
+            "minLength": 1,
+            "maxLength": 256,
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "const": "new",
+                "type": "string"
+              },
+              {
+                "const": "exists",
+                "type": "string"
+              },
+              {
+                "const": "update",
+                "type": "string"
+              },
+              {
+                "const": "choose",
+                "type": "string"
+              },
+              {
+                "const": "unsupported",
+                "type": "string"
+              }
+            ]
+          },
+          "target": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "role",
+                      "pk"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "company",
+                        "type": "string"
+                      },
+                      "role": {
+                        "anyOf": [
+                          {
+                            "const": "manufacturer",
+                            "type": "string"
+                          },
+                          {
+                            "const": "supplier",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "pk": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "pk"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "parameter_template",
+                        "type": "string"
+                      },
+                      "pk": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "part_subject_id"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "part",
+                        "type": "string"
+                      },
+                      "part_subject_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "part_subject_id"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "anyOf": [
+                          {
+                            "const": "manufacturer_part",
+                            "type": "string"
+                          },
+                          {
+                            "const": "supplier_part",
+                            "type": "string"
+                          }
+                        ]
+                      },
+                      "part_subject_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "kind",
+                      "part_subject_id",
+                      "template_pk"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "const": "parameter",
+                        "type": "string"
+                      },
+                      "part_subject_id": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                        "type": "string"
+                      },
+                      "template_pk": {
+                        "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                        "format": "int64",
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fields": {
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "name",
+                "value",
+                "origin"
+              ],
+              "properties": {
+                "name": {
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "minLength": 1,
+                      "maxLength": 512,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "origin": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "operator",
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "step",
+                        "proposal_id"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "const": "step",
+                          "type": "string"
+                        },
+                        "step": {
+                          "anyOf": [
+                            {
+                              "const": "examine",
+                              "type": "string"
+                            },
+                            {
+                              "const": "research",
+                              "type": "string"
+                            },
+                            {
+                              "const": "images",
+                              "type": "string"
+                            },
+                            {
+                              "const": "inventory",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "proposal_id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "part_ids": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+              "type": "string"
+            }
+          },
+          "lot_ids": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+              "type": "string"
+            }
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                  "code",
+                  "detail"
+                ],
+                "properties": {
+                  "code": {
+                    "anyOf": [
+                      {
+                        "const": "part_choice_required",
+                        "type": "string"
+                      },
+                      {
+                        "const": "location_required",
+                        "type": "string"
+                      },
+                      {
+                        "const": "location_conflict",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "detail": {
+                    "minLength": 1,
+                    "maxLength": 512,
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "BatchRecords": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "batch_id",
+          "revision",
+          "counts",
+          "records"
+        ],
+        "properties": {
+          "batch_id": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+            "type": "string"
+          },
+          "revision": {
+            "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+            "format": "int64",
+            "type": "string"
+          },
+          "counts": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "type",
+                "new",
+                "existing",
+                "decide"
+              ],
+              "properties": {
+                "type": {
+                  "anyOf": [
+                    {
+                      "const": "category",
+                      "type": "string"
+                    },
+                    {
+                      "const": "company",
+                      "type": "string"
+                    },
+                    {
+                      "const": "part",
+                      "type": "string"
+                    },
+                    {
+                      "const": "manufacturer_part",
+                      "type": "string"
+                    },
+                    {
+                      "const": "supplier_part",
+                      "type": "string"
+                    },
+                    {
+                      "const": "parameter_template",
+                      "type": "string"
+                    },
+                    {
+                      "const": "parameter",
+                      "type": "string"
+                    },
+                    {
+                      "const": "location",
+                      "type": "string"
+                    },
+                    {
+                      "const": "stock_item",
+                      "type": "string"
+                    },
+                    {
+                      "const": "tag",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "new": {
+                  "minimum": 0,
+                  "maximum": 100000,
+                  "type": "integer"
+                },
+                "existing": {
+                  "minimum": 0,
+                  "maximum": 100000,
+                  "type": "integer"
+                },
+                "decide": {
+                  "minimum": 0,
+                  "maximum": 100000,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "records": {
+            "maxItems": 2000,
+            "type": "array",
+            "items": {
+              "additionalProperties": false,
+              "type": "object",
+              "required": [
+                "key",
+                "type",
+                "label",
+                "state",
+                "target",
+                "fields",
+                "part_ids",
+                "lot_ids",
+                "decision"
+              ],
+              "properties": {
+                "key": {
+                  "minLength": 1,
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "type": {
+                  "anyOf": [
+                    {
+                      "const": "category",
+                      "type": "string"
+                    },
+                    {
+                      "const": "company",
+                      "type": "string"
+                    },
+                    {
+                      "const": "part",
+                      "type": "string"
+                    },
+                    {
+                      "const": "manufacturer_part",
+                      "type": "string"
+                    },
+                    {
+                      "const": "supplier_part",
+                      "type": "string"
+                    },
+                    {
+                      "const": "parameter_template",
+                      "type": "string"
+                    },
+                    {
+                      "const": "parameter",
+                      "type": "string"
+                    },
+                    {
+                      "const": "location",
+                      "type": "string"
+                    },
+                    {
+                      "const": "stock_item",
+                      "type": "string"
+                    },
+                    {
+                      "const": "tag",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "label": {
+                  "minLength": 1,
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "state": {
+                  "anyOf": [
+                    {
+                      "const": "new",
+                      "type": "string"
+                    },
+                    {
+                      "const": "exists",
+                      "type": "string"
+                    },
+                    {
+                      "const": "update",
+                      "type": "string"
+                    },
+                    {
+                      "const": "choose",
+                      "type": "string"
+                    },
+                    {
+                      "const": "unsupported",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "target": {
+                  "anyOf": [
+                    {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "role",
+                            "pk"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "company",
+                              "type": "string"
+                            },
+                            "role": {
+                              "anyOf": [
+                                {
+                                  "const": "manufacturer",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "supplier",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "pk": {
+                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                              "format": "int64",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "pk"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "parameter_template",
+                              "type": "string"
+                            },
+                            "pk": {
+                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                              "format": "int64",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "part_subject_id"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "part",
+                              "type": "string"
+                            },
+                            "part_subject_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "part_subject_id"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "anyOf": [
+                                {
+                                  "const": "manufacturer_part",
+                                  "type": "string"
+                                },
+                                {
+                                  "const": "supplier_part",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "part_subject_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "additionalProperties": false,
+                          "type": "object",
+                          "required": [
+                            "kind",
+                            "part_subject_id",
+                            "template_pk"
+                          ],
+                          "properties": {
+                            "kind": {
+                              "const": "parameter",
+                              "type": "string"
+                            },
+                            "part_subject_id": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                              "type": "string"
+                            },
+                            "template_pk": {
+                              "pattern": "^[1-9][0-9]{0,18}(?![\\s\\S])",
+                              "format": "int64",
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "fields": {
+                  "maxItems": 40,
+                  "type": "array",
+                  "items": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "value",
+                      "origin"
+                    ],
+                    "properties": {
+                      "name": {
+                        "minLength": 1,
+                        "maxLength": 64,
+                        "type": "string"
+                      },
+                      "value": {
+                        "anyOf": [
+                          {
+                            "minLength": 1,
+                            "maxLength": 512,
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "origin": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "kind"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "operator",
+                                "type": "string"
+                              }
+                            }
+                          },
+                          {
+                            "additionalProperties": false,
+                            "type": "object",
+                            "required": [
+                              "kind",
+                              "step",
+                              "proposal_id"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "step",
+                                "type": "string"
+                              },
+                              "step": {
+                                "anyOf": [
+                                  {
+                                    "const": "examine",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "research",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "images",
+                                    "type": "string"
+                                  },
+                                  {
+                                    "const": "inventory",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "proposal_id": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                                "type": "string"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "part_ids": {
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                },
+                "lot_ids": {
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+                    "type": "string"
+                  }
+                },
+                "decision": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "detail"
+                      ],
+                      "properties": {
+                        "code": {
+                          "anyOf": [
+                            {
+                              "const": "part_choice_required",
+                              "type": "string"
+                            },
+                            {
+                              "const": "location_required",
+                              "type": "string"
+                            },
+                            {
+                              "const": "location_conflict",
+                              "type": "string"
+                            }
+                          ]
+                        },
+                        "detail": {
+                          "minLength": 1,
+                          "maxLength": 512,
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           }
         }
       },

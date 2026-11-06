@@ -314,6 +314,14 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/batches/{id}/records",
+    {
+      "timeoutMs": 10000,
+      "errorMode": "typed",
+      "responseSchema": "BatchRecords"
+    }
+  ],
+  [
     "POST /api/v1/batches/{id}/issue-dispositions",
     {
       "timeoutMs": 45000,
