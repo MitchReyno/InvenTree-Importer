@@ -281,8 +281,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Documentation only, so test-first does not apply. It is verified by checking each statement against the merged code, plus the markdown lint.
 - **Verification:** headless screenshots of each canvas screen in both themes at 1440, 860 and 390 and 200%, against the owned fake and the fixture profile, linked from the handover, with stated limits (no live provider, no real InvenTree).
 
-- [ ] 13.1 Rewrite the frontend architecture styling, navigation and screen sections, and update `intake-server/ARCHITECTURE.md` for the record edit, records, attention and preparation-tree reads.
-- [ ] 13.2 Record the browser qualification and any deviations from the canvas in the handover.
+- [x] 13.1 Rewrite the frontend architecture styling, navigation and screen sections, and update `intake-server/ARCHITECTURE.md` for the record edit, records, attention and preparation-tree reads.
+- [x] 13.2 Record the browser qualification and any deviations from the canvas in the handover.
 
 ## 14. BI-006 sessions, observations and proposals (conditional)
 

@@ -23,6 +23,7 @@ import { reviewHash } from '../../operator/review-model'
 import { serverQueryKey, useServerScope } from '../../queries/scope'
 import { space } from '../../theme/generated/tokens'
 import { Banner } from '../ui/Banner'
+import { Button as Action } from '../ui/Button'
 import { ChangeSummary } from '../ui/ChangeSummary'
 import { Pill } from '../ui/Pill'
 import { SegmentedControl } from '../ui/SegmentedControl'
@@ -158,7 +159,7 @@ export function ReadyToAdd({
         )}
         {leftOut.length > 0 && (
           <>
-            <Heading as="h3">Left out</Heading>
+            <SectionHeading as="h3">Left out</SectionHeading>
             <ul>
               {leftOut.map((lot) => (
                 <li key={lot.lotId}>
@@ -281,9 +282,9 @@ export function ReadyToAdd({
           )
         }
         primary={
-          <Button disabled={!approvable} onClick={approve}>
+          <Action variant="primary" size="lg" disabled={!approvable} onClick={approve}>
             Approve {lots} {lots === 1 ? 'lot' : 'lots'} and add to InvenTree
-          </Button>
+          </Action>
         }
       />
     </Layout>
@@ -293,6 +294,9 @@ export function ReadyToAdd({
 const Layout = styled.div`
   display: grid;
   gap: ${space[3]};
+`
+const SectionHeading = styled(Heading)`
+  margin-top: ${space[3]};
 `
 const Controls = styled.div`
   display: flex;

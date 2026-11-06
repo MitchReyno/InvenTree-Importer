@@ -11,7 +11,7 @@ import { Added } from './Added'
 
 const id = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`
 
-const [lotA, lotB, lotC] = [101, 102, 103].map(id)
+const [lotA, lotB, lotC, lotD] = [101, 102, 103, 104].map(id)
 const partSubject = id(10)
 const batch = {
   id: id(1),
@@ -20,6 +20,7 @@ const batch = {
     { id: lotA, label: 'Packet A', part_subject_id: partSubject },
     { id: lotB, label: 'Packet B', part_subject_id: partSubject },
     { id: lotC, label: 'Packet C', part_subject_id: partSubject },
+    { id: lotD, label: 'Packet D', part_subject_id: partSubject },
   ],
 } as unknown as CaptureSnapshotDto
 
@@ -209,9 +210,14 @@ describe('Added', () => {
       screen.getByRole('link', { name: 'Packet C, prepared and not yet approved' }),
     ).toHaveAttribute('href', `#${batch.id}/changes/ready/${id(900)}`)
     const notIncluded = screen.getByRole('region', { name: 'Not included' })
-    expect(within(notIncluded).getByRole('link', { name: 'Packet C' })).toHaveAttribute(
+    expect(
+      within(notIncluded)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['Packet D'])
+    expect(within(notIncluded).getByRole('link', { name: 'Packet D' })).toHaveAttribute(
       'href',
-      `#${batch.id}/review/lots/${lotC}`,
+      `#${batch.id}/review/lots/${lotD}`,
     )
     const log = screen.getByRole('list', { name: 'Activity' })
     expect(

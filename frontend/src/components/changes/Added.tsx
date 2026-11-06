@@ -39,8 +39,12 @@ export function Added({ batch, workspace, focusedRunId, busy, command, targetUrl
     0,
   )
   const fixes = runs.reduce((total, run) => total + toFix(run).length, 0)
-  const inRuns = new Set(runs.flatMap((run) => run.operations.map((value) => value.lot_id)))
-  const notIncluded = batch.lots.filter((lot) => !lot.retired && !inRuns.has(lot.id))
+  // Lots neither added by a round nor waiting in a prepared selection.
+  const placed = new Set([
+    ...runs.flatMap((run) => run.operations.map((value) => value.lot_id)),
+    ...workspace.preparations.flatMap((value) => value.effects.map((effect) => effect.lot_id)),
+  ])
+  const notIncluded = batch.lots.filter((lot) => !lot.retired && !placed.has(lot.id))
   const shown = focusedRunId ? (focused ? [focused] : []) : runs
 
   return (

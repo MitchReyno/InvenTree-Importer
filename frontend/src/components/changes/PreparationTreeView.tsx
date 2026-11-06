@@ -145,8 +145,8 @@ const Tree = styled.ul`
   background: ${color.surface};
 `
 const Row = styled.li<{ $level: number }>`
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1em minmax(0, 1fr) auto;
   align-items: center;
   gap: ${space[2]};
   padding: ${space[1]} ${space[2]};
