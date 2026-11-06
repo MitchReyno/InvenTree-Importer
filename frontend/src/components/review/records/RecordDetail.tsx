@@ -75,7 +75,7 @@ export function RecordDetail({ batch, record, save, disabled, reportFor, ask }: 
           </Small>
         )
       )}
-      {record.decision && record.type !== 'part' && (
+      {record.decision && record.type !== 'part' && !record.proposed && (
         <Small>
           {record.decision.detail}
           {record.type === 'stock_item' && record.lot_ids[0] && (

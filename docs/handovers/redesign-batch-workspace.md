@@ -666,4 +666,19 @@ Branch `feat/redesign-batch-workspace-agent-data` from `c15e9ce`. BI-006's contr
   - Records shows the company decision with `CompanyDecision` (its card is now labelled "Proposed new <role>: <name>", so it does not share the record's region name): "Use <likely>" or another observed company in the role sets the manufacturer or supplier part on each Part using it, with the proposed number, through the existing record edits; without a proposed number it says to set the role on each Part. A Part lists its values not supported yet, under "Not supported yet".
   - Tests were written first and failed: the GCT decision with its likely match by initials, no likely match without a rule, no question for a role already set, and the unsupported list; the component tests map the proposed company to its likely match and to another, and list the unsupported values.
 - **Gap:** no session runner publishes a catalogue block yet (BI-006 PR-C, its task 10.4), so the GCT and new-category scenarios are proved with seeded `/5` proposals in unit tests and the browser fixture, not with the synthetic worker. Proposals carry no likely-match field (BI-006 D13), so the projection's rule above stands in for it.
+- **14.8 Browser check:** headless Chromium (Playwright) against the Vite dev server, owned fixtures only: no API, provider, session worker or InvenTree.
+  - **Fixtures:**
+    - `batch-capture.html?agents` adds observations, an Examine lead session and a Research session on the ATmega328P lot, each with a status line.
+    - `records.html` now has a capacitor whose Research proposal names a new manufacturer "GCT" (the observed "Global Connector Technology" is its likely match by initials), a new category, a parameter with no template and a supplier price, with Research sessions so Ask appears.
+    - `processing.html` sessions carry status lines.
+  - **Views:** nine, each captured full-page in light and dark at 1440, 860 and 390 px and at 200% zoom: 72 screenshots.
+    - The Processing overview with status lines, and the Agents page.
+    - The Capture glance with each lot's line and the lead line.
+    - The region-level Map with Tell Examine, and the Map without sessions (no instruction field).
+    - Lot details with the agent line.
+    - The GCT decision.
+    - A Part's not-supported list, and Ask on a Part field.
+  - **Results:** every view showed its expected text (and the Map without sessions no "Tell Examine"), with no horizontal overflow, no console or page errors and the requested theme applied.
+  - **Fixes found this way:** region rows inherited the file rows' padding and divider (the row style is now scoped to direct children), and a proposed company repeated its decision's detail above the decision card.
+  - **Limits:** region crops in the evidence pane were not re-checked here, since the fixture cannot serve the crop route, so the fixture's observations sit on lots the screenshots do not open; BI-006's own qualification checked them against its server.
 

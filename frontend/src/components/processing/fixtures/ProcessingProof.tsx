@@ -91,9 +91,31 @@ const snapshot = (withSessions: boolean) =>
         questions: [
           question(2, lot(2), 'Is the last letter of the marking a P?', 'Assuming ATmega328P'),
         ],
-        ...(withSessions ? { session_state: 'waiting_input' } : {}),
+        ...(withSessions
+          ? {
+              session_state: 'waiting_input',
+              latest_status: {
+                text: 'Waiting for the marking answer',
+                at: '2026-11-06T09:04:00.000Z',
+              },
+            }
+          : {}),
       }),
-      job(3, 'research', 'running', lot(3), withSessions ? { session_state: 'running' } : {}),
+      job(
+        3,
+        'research',
+        'running',
+        lot(3),
+        withSessions
+          ? {
+              session_state: 'running',
+              latest_status: {
+                text: 'Checking the LM358 datasheet',
+                at: '2026-11-06T09:06:00.000Z',
+              },
+            }
+          : {},
+      ),
       job(4, 'images', 'failed', lot(1)),
     ],
   }) as unknown as ProcessingSnapshotDto

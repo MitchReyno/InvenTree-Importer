@@ -273,13 +273,13 @@ const Rows = styled.ul`
   margin: 0;
   padding: 0;
   list-style: none;
-  li {
+  > li {
     display: grid;
     gap: ${space[1]};
     padding: ${space['2-5']} 0;
     border-top: 1px solid ${color.line};
   }
-  li:first-child {
+  > li:first-child {
     border-top: 0;
   }
 `

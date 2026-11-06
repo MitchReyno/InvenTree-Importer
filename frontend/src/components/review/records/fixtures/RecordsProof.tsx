@@ -70,7 +70,8 @@ const company = (pk: string, label: string, manufacturer: boolean, supplier: boo
   observe('company', pk, label, { kind: 'company', manufacturer, supplier })
 
 const yageo = company('12', 'Yageo', true, false)
-const kemet = company('13', 'KEMET', true, false)
+company('13', 'KEMET', true, false)
+company('15', 'Global Connector Technology', true, false)
 company('14', 'Vishay', true, false)
 const mouser = company('21', 'Mouser Electronics', false, true)
 company('22', 'DigiKey', false, true)
@@ -94,7 +95,8 @@ const capacitorSpec: InventoryPartSpecDto = {
   parameters: [
     { template: composition, category_mapping: capacitorsComposition, value: 'Ceramic' },
   ],
-  manufacturer: { company: kemet, mpn: 'C0805C104K5RACTU' },
+  // Research proposed a manufacturer the target does not have yet (GCT), so none is set.
+  manufacturer: null,
   supplier: { company: mouser, sku: '80-C0805C104K5R' },
   tags: ['SMD'],
 }
@@ -168,6 +170,62 @@ const processing = {
                 mpn: 'RC0603FR-0710KL',
               },
               supplier: null,
+              description: null,
+            },
+          },
+        },
+      ],
+      questions: [],
+      session_state: 'running',
+      latest_status: { text: 'Checking the resistor datasheet', at: '2026-11-06T09:06:00.000Z' },
+    },
+    {
+      id: id('8', 3),
+      subject_id: id('a', 2),
+      stage: 'research',
+      session_state: 'running',
+      latest_status: { text: 'Reading the capacitor reel label', at: '2026-11-06T09:07:00.000Z' },
+      proposals: [
+        {
+          id: id('8', 4),
+          message_id: id('8', 5),
+          value: {
+            schema_version: 'bench-intake-proposal/5',
+            subject_id: id('a', 2),
+            summary: 'GCT 100 nF MLCC on a reel.',
+            tags: ['SMD'],
+            catalogue: {
+              category: {
+                choice: 'proposed_new',
+                name: 'MLCC capacitors',
+                reason: 'The reel label says MLCC.',
+                sources: [],
+              },
+              parameters: [
+                {
+                  name: 'Voltage',
+                  value: '50 V',
+                  template: null,
+                  category_mapping: null,
+                  sources: [],
+                },
+              ],
+              manufacturer: {
+                company: {
+                  choice: 'proposed_new',
+                  name: 'GCT',
+                  reason: 'The reel label reads GCT.',
+                  sources: [],
+                },
+                mpn: 'CL21B104KBCNNNC',
+                sources: [],
+              },
+              supplier: {
+                company: { choice: 'existing', reference: mouser, sources: [] },
+                sku: '80-C0805C104K5R',
+                price: { amount: '0.08', currency: 'USD' },
+                sources: [],
+              },
               description: null,
             },
           },
@@ -249,6 +307,13 @@ const attention: BatchAttentionDto = {
   items_truncated: false,
 }
 
+// Ask sends to the session working on the record; the fixture accepts every message.
+const processingClient = {
+  read: async () => processing,
+  session: async () => ({ outbox: [], inbox: [], truncated: false, session_state: 'running' }),
+  chat: async () => ({ id: id('f', 1) }),
+}
+
 function useHashRoute() {
   const [route, setRoute] = useState(() => location.hash.slice(1) || `${batchId}/review/records`)
   useEffect(() => {
@@ -274,6 +339,7 @@ export function RecordsProof() {
           manual={manualClient as never}
           attention={{ read: async () => attention }}
           records={records}
+          processing={processingClient as never}
           onDirtyChange={() => {}}
         />
       </main>
