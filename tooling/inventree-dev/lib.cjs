@@ -353,6 +353,7 @@ async function withLock(ctx, action) {
         if (error.code !== 'ENOENT') throw error
         continue
       }
+      await ctx.lockRace?.('after-rename')
       if ((await lockHolder(aside))?.nonce !== holder.nonce) {
         // A newer lock replaced the stale one; restore it without overwriting any later one.
         try {

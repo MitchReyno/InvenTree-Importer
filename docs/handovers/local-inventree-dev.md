@@ -132,3 +132,7 @@ Checked on 2026-11-06 with Docker Compose v5.6.1 on arm64, in a throwaway projec
   - if a stale-lock takeover cannot restore a newer lock because a third run locked in the gap, the moved lock is kept and the run stops with `inventree_dev_lock_contended`.
 
   Accepted limit: that three-way race can still leave the original holder's lock moved aside. It needs three simultaneous `up`/`seed`/`reset` runs and is reported, not hidden.
+- **Round 4** (fresh reviewer, `05a0529`) found no Critical or Important issues. It confirmed the round-3 fixes, and found two Minor test gaps and one doc overstatement. Fixed:
+  - the test harness reports an existing InvenTree database by default, so the upgrade test again proves the upgrade timeout; a new test asserts the 120 s timeout for a later run. The mutations dropping `upgrading` and always passing `fresh: true` now each fail a test;
+  - a new `after-rename` race stage tests the contended-lock branch: the moved lock is kept and the newest lock is left alone;
+  - the docs say neither reset can see namespaces at other explicit `INTAKE_APP_STATE` paths.

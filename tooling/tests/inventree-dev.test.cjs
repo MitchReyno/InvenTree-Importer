@@ -61,7 +61,9 @@ async function harness(options = {}) {
     startServices: async () => calls.push(['start-services']),
     query: async (text) => {
       queries.push(text)
-      return { rowCount: 0, rows: [] }
+      // The InvenTree database exists unless a test asks for a fresh one.
+      const exists = /FROM pg_database/.test(text) && options.databaseExists !== false
+      return { rowCount: exists ? 1 : 0, rows: [] }
     },
     seed: async () => calls.push(['seed']),
     docker: async (args, dockerOptions) => {
@@ -134,7 +136,7 @@ test('up starts the database first, then readies InvenTree with init run and rem
         /CREATE ROLE inventree LOGIN PASSWORD '[a-f0-9]{48}' .*CONNECTION LIMIT 20/.test(sql),
       ),
     )
-    assert(h.queries.some((sql) => /CREATE DATABASE inventree OWNER inventree/.test(sql)))
+    assert(!h.queries.some((sql) => /CREATE DATABASE/.test(sql)), 'an existing database is reused')
     assert(h.queries.some((sql) => /REVOKE CONNECT ON DATABASE inventree FROM PUBLIC/.test(sql)))
     const state = JSON.parse(await readFile(join(h.stateDir, 'inventree-dev.json'), 'utf8'))
     assert.deepEqual(state.tokens, tokens)
@@ -518,7 +520,7 @@ test('the database reset ignores supervisor locks of dead processes and names li
 })
 
 test('a freshly created InvenTree database gets the first-run init timeout', async () => {
-  const h = await harness()
+  const h = await harness({ databaseExists: false })
   try {
     await writeFile(
       join(h.stateDir, 'inventree-dev.json'),
@@ -566,6 +568,49 @@ test('a plain reset refuses while a live local-inventree app uses the instance',
     )
     await rm(join(base, 'local-inventree-abc'), { recursive: true })
     await lib.reset(h.ctx, { yes: true, restart: false })
+  } finally {
+    await rm(h.root, { recursive: true })
+  }
+})
+
+test('a later run on an existing, current database uses the shorter init timeout', async () => {
+  const h = await harness()
+  try {
+    await writeFile(
+      join(h.stateDir, 'inventree-dev.json'),
+      JSON.stringify({ ...validState, tokens }),
+      {
+        mode: 0o600,
+      },
+    )
+    await lib.up(h.ctx)
+    const init = h.seen.find(({ args }) => lib.composeSubcommand(args) === 'up-init')
+    assert.equal(init.options.timeoutMs, 120_000)
+  } finally {
+    await rm(h.root, { recursive: true })
+  }
+})
+
+test('a takeover that cannot restore a newer lock keeps the moved lock and stops', async () => {
+  const h = await harness()
+  try {
+    const lock = join(h.stateDir, 'inventree-dev.lock')
+    await writeFile(lock, JSON.stringify({ pid: 2147483646, nonce: 'dead' }), { mode: 0o600 })
+    const second = JSON.stringify({ pid: process.pid, nonce: 'second' })
+    const third = JSON.stringify({ pid: process.pid, nonce: 'third' })
+    h.ctx.lockRace = async (at) => {
+      if (at === 'after-read') {
+        await rm(lock, { force: true })
+        await writeFile(lock, second, { mode: 0o600 })
+      }
+      if (at === 'after-rename') await writeFile(lock, third, { mode: 0o600 })
+    }
+    await assert.rejects(lib.up(h.ctx), /inventree_dev_lock_contended/)
+    assert.equal(await readFile(lock, 'utf8'), third)
+    const moved = (await readdir(h.stateDir)).filter((name) => name.includes('.stale-'))
+    assert.equal(moved.length, 1)
+    assert.equal(await readFile(join(h.stateDir, moved[0]), 'utf8'), second)
+    assert.equal(h.calls.length, 0)
   } finally {
     await rm(h.root, { recursive: true })
   }
