@@ -212,15 +212,15 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **Risks:** fan-out scope. The response lists the affected Parts and lots, which the UI shows.
 
 - [x] 9.1 Add the `record` change kind with `RecordRef` and its operations to the contracts, with schema tests.
-- [ ] 9.2 Write failing integration tests (RED) for each operation and failure path:
-  - [ ] 9.2.1 CAS 412, and multi-Part fan-out in one transaction.
-  - [ ] 9.2.2 Role-mismatched company map refused.
-  - [ ] 9.2.3 `map_template` refused for a Part without a category mapping, unless excluded.
-  - [ ] 9.2.4 `set_category` refused for unmapped, undropped parameters.
-  - [ ] 9.2.5 `lotReviewState` reads `changed_after_review` for reviewed lots of an edited Part, with no capture call into operator-review.
-  - [ ] 9.2.6 An existing frozen-plan fixture without a description decodes with unchanged digests; a set description reaches the owned fake and is confirmed by `fieldsMatch()`; clearing deletes the property.
-- [ ] 9.3 Add the optional Part `description` to `InventoryPartSpec`, `partEffects()`, `decodeEffectsPlan()`, `supportedCreateBody()` and the owned fake, deleting the property when unset or cleared (GREEN for 9.2.6).
-- [ ] 9.4 Implement the transactional apply: a new operator-attributed `choice` selection version per affected Part, re-validated with `validatePartSpec`, with the company-role, template-mapping and category rules (GREEN for 9.2.1–9.2.5).
+- [x] 9.2 Write failing integration tests (RED) for each operation and failure path:
+  - [x] 9.2.1 CAS 412, and multi-Part fan-out in one transaction.
+  - [x] 9.2.2 Role-mismatched company map refused.
+  - [x] 9.2.3 `map_template` refused for a Part without a category mapping, unless excluded.
+  - [x] 9.2.4 `set_category` refused for unmapped, undropped parameters.
+  - [x] 9.2.5 `lotReviewState` reads `changed_after_review` for reviewed lots of an edited Part, with no capture call into operator-review.
+  - [x] 9.2.6 An existing frozen-plan fixture without a description decodes with unchanged digests; a set description reaches the owned fake and is confirmed by `fieldsMatch()`; clearing deletes the property.
+- [x] 9.3 Add the optional Part `description` to `InventoryPartSpec`, `partEffects()`, `decodeEffectsPlan()`, `supportedCreateBody()` and the owned fake, deleting the property when unset or cleared (GREEN for 9.2.6).
+- [x] 9.4 Implement the transactional apply: a new operator-attributed `choice` selection version per affected Part, re-validated with `validatePartSpec`, with the company-role, template-mapping and category rules (GREEN for 9.2.1–9.2.5).
 - [ ] 9.5 Write a failing projection test, then implement the records route: records by type, "Needs a decision" Parts without a spec, per-field origin from the latest processing proposal, and proposed-new values only from retained structured proposals.
 
 ## 10. Records UI
