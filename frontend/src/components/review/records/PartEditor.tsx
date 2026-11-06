@@ -27,6 +27,7 @@ export function PartEditor({ batch, partId, spec, save, disabled, reportFor }: P
         maxLength={256}
         disabled={disabled}
         report={reportFor('name')}
+        normalize={(value) => value.trim()}
         onSave={(value, send) =>
           send({ kind: 'record', target, operation: { op: 'set_name', value } })
         }

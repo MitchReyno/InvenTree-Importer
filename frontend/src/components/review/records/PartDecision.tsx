@@ -66,7 +66,7 @@ export function PartDecision({ batch, partId, save, disabled, report }: Props) {
               choice: {
                 mode: 'create',
                 spec: {
-                  name: draft.name,
+                  name: draft.name.trim(),
                   category: referenceTo(category),
                   parameters: [],
                   manufacturer: null,

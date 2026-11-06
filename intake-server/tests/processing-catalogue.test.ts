@@ -142,7 +142,7 @@ test('values a Part spec cannot hold yet are kept and flagged with a reason', ()
       manufacturer: 'new_manufacturer',
       supplier: 'new_supplier',
       'supplier.price': 'supplier_price_unsupported',
-      description: 'description_unsupported',
+      description: 'applicable',
     },
   )
 })
@@ -216,4 +216,12 @@ test('references that fail Part spec checks are unsupported, not silently applie
       supplier: 'applicable',
     },
   )
+})
+
+test('a description applies when it fits a Part description, and is unsupported otherwise', () => {
+  const described = (text: string) =>
+    byPath({ ...applicable, description: { text, sources } }).description
+  assert.equal(described('Thick film resistor, 0603, 1%.'), 'applicable')
+  assert.equal(described('x'.repeat(251)), 'description_unsupported')
+  assert.equal(described('Thick film\nresistor'), 'description_unsupported')
 })

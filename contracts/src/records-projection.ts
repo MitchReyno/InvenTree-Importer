@@ -431,6 +431,12 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
     })
   }
 
+  // A lot that inherits takes the batch default, as approval does.
+  const quantityOf = (quantity: (typeof activeLots)[number]['quantity']) => {
+    const resolved = quantity.mode === 'inherit' ? capture.defaults.quantity : quantity
+    return resolved.mode === 'set' ? resolved.value : null
+  }
+
   for (const lot of activeLots) {
     records.push({
       key: `stock_item:${lot.id}`,
@@ -438,9 +444,7 @@ export function projectRecords({ capture, processing, lotGroups }: RecordsInput)
       label: lot.label,
       state: 'new',
       target: null,
-      fields: [
-        field('quantity', lot.quantity.mode === 'set' ? lot.quantity.value : null, OPERATOR),
-      ],
+      fields: [field('quantity', quantityOf(lot.quantity), OPERATOR)],
       part_ids: lot.part_subject_id ? [lot.part_subject_id] : [],
       lot_ids: [lot.id],
       decision: null,

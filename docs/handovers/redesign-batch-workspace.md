@@ -477,3 +477,12 @@ Fresh read-only Claude reviewer at `8321c3b`: 1 Important, 1 Minor, both fixed t
 - **The shared Part editor dropped a description (Important):** `captureEditorChange` rebuilds a new Part's whole spec, and the editor has no description field, so saving a label or location there deleted a description set in Records. It now keeps the Part's existing description. A unit test (`capture/editor-model.test.ts`) changes only the label and expects the description kept; it failed first. Other spec writers (shared tags, processing suggestions) already spread the spec.
 - **The records cap was still below the worst case (Minor):** a Part yields at most 102 records (35 of its own, 67 shared when nothing is shared with another Part), so 100 Parts give 10,200. The cap is 12,000, with the arithmetic beside it; a test projects exactly that worst case and validates it.
 
+### PR-E review round 5
+
+Fresh read-only Claude reviewer at `b2f93a4`: 3 Minor, 1 Nitpick, all fixed test-first. It confirmed the round-4 fixes and that every other Part spec writer keeps the description (they spread the spec), effects include it only when set, and review material takes it in by design.
+
+- **The catalogue check still called descriptions unsupported (Minor):** `assessCatalogue` (`intake-server/src/processing/catalogue.ts`) now marks a proposed description applicable when it fits `PartDescription` (one trimmed line, at most 250 characters), and `description_unsupported` otherwise. Tests cover a fitting, a long and a multi-line description.
+- **A stock item inheriting the batch quantity showed none (Minor):** the projection resolves an inherited quantity to the batch default, as approval does. A projection test covers it.
+- **Docs (Minor):** `design.md` D6 and task 9.5 now say a field shows the step of a retained proposal it still matches.
+- **Nitpick:** Records trims the Part name, a new Part's name, parameter values, MPN and SKU before sending; tests type padded values and expect them trimmed.
+

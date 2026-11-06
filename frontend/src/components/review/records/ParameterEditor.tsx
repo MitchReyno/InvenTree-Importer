@@ -54,7 +54,7 @@ export function ParameterEditor({ batch, partId, parameter, save, disabled, repo
               op: 'set_parameter',
               template: parameter.template,
               category_mapping: parameter.category_mapping,
-              value,
+              value: value.trim(),
             },
           })
         }
@@ -157,7 +157,7 @@ export function NewParameter({
                 op: 'set_parameter',
                 template: referenceTo(template),
                 category_mapping: referenceTo(mapping),
-                value: draft.value,
+                value: draft.value.trim(),
               },
             })
           )

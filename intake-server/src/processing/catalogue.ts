@@ -1,4 +1,14 @@
-import type { CaptureObservationDto, CatalogueProposalDto } from '@invimport/contracts'
+import {
+  PartDescription,
+  type CaptureObservationDto,
+  type CatalogueProposalDto,
+} from '@invimport/contracts'
+
+const DESCRIPTION_PATTERN = new RegExp(PartDescription.pattern!)
+
+function validDescription(text: string) {
+  return text.length <= PartDescription.maxLength! && DESCRIPTION_PATTERN.test(text)
+}
 
 export type CatalogueUnsupportedReason =
   | 'new_category'
@@ -139,8 +149,12 @@ export function assessCatalogue(
     }
   }
   if (catalogue.description) {
-    // The Part spec has no description field yet.
-    unsupported('description', 'description_unsupported')
+    // Applies with `set_description` when it fits the Part spec's one-line, 250-character field.
+    if (validDescription(catalogue.description.text)) {
+      applicable('description')
+    } else {
+      unsupported('description', 'description_unsupported')
+    }
   }
   return result
 }

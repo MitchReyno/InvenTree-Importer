@@ -346,7 +346,7 @@ describe('RecordsStage', () => {
 
     const name = within(detail).getByLabelText('Name')
     await user.clear(name)
-    await user.type(name, 'Carbon resistor')
+    await user.type(name, ' Carbon resistor ')
     await user.click(within(detail).getByRole('button', { name: 'Save name' }))
     expect(edit).toHaveBeenCalledWith({
       kind: 'record',
@@ -402,7 +402,7 @@ describe('RecordsStage', () => {
     expect(detail).toHaveTextContent('Applies to Carbon film resistor, used by 2 lots.')
     const sku = within(detail).getByLabelText('SKU')
     await user.clear(sku)
-    await user.type(sku, 'S-48')
+    await user.type(sku, ' S-48 ')
     await user.click(within(detail).getByRole('button', { name: 'Save' }))
     expect(edit).toHaveBeenCalledWith({
       kind: 'record',

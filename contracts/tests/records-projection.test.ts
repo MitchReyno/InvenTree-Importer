@@ -363,3 +363,17 @@ test('a batch at the subject limit with every Part full stays within the contrac
   assert.equal(result.records.length, 10200)
   validate('BatchRecords', result)
 })
+
+test('a stock item that takes the batch quantity shows it', () => {
+  const result = projectRecords({
+    capture: {
+      ...capture,
+      defaults: { quantity: { mode: 'set', value: '10' }, location: { mode: 'unset' } },
+      lots: [{ ...capture.lots[0], quantity: { mode: 'inherit' } }],
+    } as unknown as CaptureSnapshotDto,
+    processing: undefined,
+    lotGroups: null,
+  })
+  const stock = result.records.find((record) => record.type === 'stock_item')!
+  assert.equal(stock.fields.find((field) => field.name === 'quantity')?.value, '10')
+})

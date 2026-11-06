@@ -70,12 +70,20 @@ export function SourcingEditor({ batch, partId, role, current, save, disabled, r
                 ? {
                     kind: 'record',
                     target: { kind: 'manufacturer_part', part_subject_id: partId },
-                    operation: { op: 'set_mpn', company: referenceTo(company), mpn: draft.code },
+                    operation: {
+                      op: 'set_mpn',
+                      company: referenceTo(company),
+                      mpn: draft.code.trim(),
+                    },
                   }
                 : {
                     kind: 'record',
                     target: { kind: 'supplier_part', part_subject_id: partId },
-                    operation: { op: 'set_sku', company: referenceTo(company), sku: draft.code },
+                    operation: {
+                      op: 'set_sku',
+                      company: referenceTo(company),
+                      sku: draft.code.trim(),
+                    },
                   },
             )
           )
