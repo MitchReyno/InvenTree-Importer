@@ -46,18 +46,23 @@ export function ParameterEditor({ batch, partId, parameter, save, disabled, repo
         busy={busy}
         problem={problem}
         retry={retry}
-        onSave={() =>
-          void send({
+        onSave={async () => {
+          const trimmed = value.trim()
+          const saved = await send({
             kind: 'record',
             target,
             operation: {
               op: 'set_parameter',
               template: parameter.template,
               category_mapping: parameter.category_mapping,
-              value: value.trim(),
+              value: trimmed,
             },
           })
-        }
+          // Keep what the server stored, so the accepted value reads as saved.
+          if (saved) {
+            setValue(trimmed)
+          }
+        }}
       >
         <Button
           size="sm"

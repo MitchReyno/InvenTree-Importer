@@ -486,3 +486,9 @@ Fresh read-only Claude reviewer at `b2f93a4`: 3 Minor, 1 Nitpick, all fixed test
 - **Docs (Minor):** `design.md` D6 and task 9.5 now say a field shows the step of a retained proposal it still matches.
 - **Nitpick:** Records trims the Part name, a new Part's name, parameter values, MPN and SKU before sending; tests type padded values and expect them trimmed.
 
+### PR-E review round 6
+
+Fresh read-only Claude reviewer at `1fa964c`: 1 Minor, fixed test-first. It confirmed the round-5 fixes.
+
+- **Padded values stayed unsaved (Minor):** round 5 trimmed the parameter value, MPN and SKU it sent but kept the raw draft, so after an accepted save the field stayed dirty and blocked opening another record (the round-2 failure, for these editors). `ParameterEditor` and `SourcingEditor` now keep the trimmed value once the save is accepted. A test with saves that move the revision saves a padded SKU, opens another record, and saves a padded parameter value; it failed first.
+

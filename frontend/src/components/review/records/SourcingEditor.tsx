@@ -62,32 +62,29 @@ export function SourcingEditor({ batch, partId, role, current, save, disabled, r
         busy={busy}
         problem={problem}
         retry={retry}
-        onSave={() =>
-          void (
-            company &&
-            send(
-              role === 'manufacturer'
-                ? {
-                    kind: 'record',
-                    target: { kind: 'manufacturer_part', part_subject_id: partId },
-                    operation: {
-                      op: 'set_mpn',
-                      company: referenceTo(company),
-                      mpn: draft.code.trim(),
-                    },
-                  }
-                : {
-                    kind: 'record',
-                    target: { kind: 'supplier_part', part_subject_id: partId },
-                    operation: {
-                      op: 'set_sku',
-                      company: referenceTo(company),
-                      sku: draft.code.trim(),
-                    },
-                  },
-            )
+        onSave={async () => {
+          if (!company) {
+            return
+          }
+          const code = draft.code.trim()
+          const saved = await send(
+            role === 'manufacturer'
+              ? {
+                  kind: 'record',
+                  target: { kind: 'manufacturer_part', part_subject_id: partId },
+                  operation: { op: 'set_mpn', company: referenceTo(company), mpn: code },
+                }
+              : {
+                  kind: 'record',
+                  target: { kind: 'supplier_part', part_subject_id: partId },
+                  operation: { op: 'set_sku', company: referenceTo(company), sku: code },
+                },
           )
-        }
+          // Keep what the server stored, so the accepted value reads as saved.
+          if (saved) {
+            setDraft({ ...draft, code })
+          }
+        }}
       />
     </>
   )

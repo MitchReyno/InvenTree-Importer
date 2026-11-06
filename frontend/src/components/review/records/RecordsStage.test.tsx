@@ -738,6 +738,27 @@ describe('RecordsStage with saves that move the revision', () => {
     expect(screen.getByLabelText('Description')).toHaveValue('Axial')
   })
 
+  it('treats a padded SKU or parameter value as saved once the trimmed value is accepted', async () => {
+    const user = userEvent.setup()
+    render(<LiveStage />)
+    await open(user, /^Supplier parts/, 'S-47 · Carbon film resistor')
+    const sku = screen.getByLabelText('SKU')
+    await user.clear(sku)
+    await user.type(sku, ' S-48 ')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(screen.getByLabelText('SKU')).toHaveValue('S-48'))
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+
+    await open(user, /^Parts/, 'Carbon film resistor')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    const value = screen.getByLabelText('Composition')
+    await user.clear(value)
+    await user.type(value, ' Metal film ')
+    await user.click(screen.getByRole('button', { name: 'Save Composition' }))
+    await waitFor(() => expect(screen.getByLabelText('Composition')).toHaveValue('Metal film'))
+    expect(screen.getByRole('button', { name: 'Save Composition' })).toBeDisabled()
+  })
+
   it('ignores an unknown record type in the route', async () => {
     render(
       <RecordsStage
