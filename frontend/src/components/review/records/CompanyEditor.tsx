@@ -25,7 +25,7 @@ export function CompanyEditor({ batch, role, pk, save, disabled, report }: Props
         Use another {role}
         <Select
           value={choice}
-          disabled={disabled}
+          disabled={disabled || busy}
           onChange={(event) => setChoice(event.target.value)}
         >
           <option value="">Choose an observed {role}…</option>

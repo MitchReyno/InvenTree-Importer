@@ -253,7 +253,7 @@ function CategoryField({
         Move to category
         <Select
           value={draft.category}
-          disabled={disabled}
+          disabled={disabled || busy}
           onChange={(event) => setDraft({ category: event.target.value, mappings: {}, drop: [] })}
         >
           <option value="">
@@ -276,7 +276,7 @@ function CategoryField({
                 {name} in {category.label}
                 <Select
                   value={draft.mappings[parameter.template.pk] ?? ''}
-                  disabled={disabled || dropped}
+                  disabled={disabled || busy || dropped}
                   onChange={(event) =>
                     setDraft({
                       ...draft,
@@ -296,7 +296,7 @@ function CategoryField({
                 <input
                   type="checkbox"
                   checked={dropped}
-                  disabled={disabled}
+                  disabled={disabled || busy}
                   onChange={(event) =>
                     setDraft({
                       ...draft,

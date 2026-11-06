@@ -106,7 +106,7 @@ export function NewParameter({
         Add a parameter
         <Select
           value={draft.template}
-          disabled={disabled}
+          disabled={disabled || busy}
           onChange={(event) => setDraft({ ...draft, template: event.target.value, mapping: '' })}
         >
           <option value="">Choose an observed template…</option>
@@ -123,7 +123,7 @@ export function NewParameter({
             Mapping in this category
             <Select
               value={draft.mapping}
-              disabled={disabled}
+              disabled={disabled || busy}
               onChange={(event) => setDraft({ ...draft, mapping: event.target.value })}
             >
               <option value="">Choose a mapping…</option>
@@ -139,7 +139,7 @@ export function NewParameter({
             <Input
               value={draft.value}
               maxLength={256}
-              disabled={disabled}
+              disabled={disabled || busy}
               onChange={(event) => setDraft({ ...draft, value: event.target.value })}
             />
           </Label>

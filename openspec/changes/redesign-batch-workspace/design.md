@@ -131,7 +131,7 @@ This is a large, mostly frontend change, with one bounded backend addition: reco
 
   - The server applies the change in a single transaction at `expected_revision`.
   - It rewrites every affected Part's `InventoryPartSpec` in place, re-validated with `validatePartSpec`.
-  - Each rewritten `choice` selection is written as a new version with the operator as its actor. Per-field origin in the UI comes from comparing the current spec with the retained processing proposals for that subject: a field shows the step of a proposal it still matches (retained proposals have no reliable order). Only the selection row stores an actor.
+  - Each rewritten `choice` selection is written as a new version with the operator as its actor. Per-field origin in the UI comes from comparing the current spec with the retained processing proposals about the Part or one of its active lots: a field shows the step of a proposal it still matches (retained proposals have no reliable order). Only the selection row stores an actor.
   - It does not call into operator-review. Rewriting a Part's selection changes its material in `materialize()` (`intake-server/src/review/model.ts`), so reviewed lots that use the Part read as `changed_after_review`.
   - On a revision mismatch it returns 412 with current values, as other capture edits do.
 - **Scope.** Records edits only change Parts whose `choice` is already `create` with an `InventoryPartSpec`.

@@ -32,7 +32,7 @@ export function PartDecision({ batch, partId, save, disabled, report }: Props) {
         <Input
           value={draft.name}
           maxLength={256}
-          disabled={disabled}
+          disabled={disabled || busy}
           onChange={(event) => setDraft({ ...draft, name: event.target.value })}
         />
       </Label>
@@ -40,7 +40,7 @@ export function PartDecision({ batch, partId, save, disabled, report }: Props) {
         Existing category
         <Select
           value={draft.category}
-          disabled={disabled}
+          disabled={disabled || busy}
           onChange={(event) => setDraft({ ...draft, category: event.target.value })}
         >
           <option value="">Choose an observed category…</option>

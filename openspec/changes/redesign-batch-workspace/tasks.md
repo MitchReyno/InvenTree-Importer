@@ -221,7 +221,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
   - [x] 9.2.6 An existing frozen-plan fixture without a description decodes with unchanged digests; a set description reaches the owned fake and is confirmed by `fieldsMatch()`; clearing deletes the property.
 - [x] 9.3 Add the optional Part `description` to `InventoryPartSpec`, `partEffects()`, `decodeEffectsPlan()`, `supportedCreateBody()` and the owned fake, deleting the property when unset or cleared (GREEN for 9.2.6).
 - [x] 9.4 Implement the transactional apply: a new operator-attributed `choice` selection version per affected Part, re-validated with `validatePartSpec`, with the company-role, template-mapping and category rules (GREEN for 9.2.1–9.2.5).
-- [x] 9.5 Write a failing projection test, then implement the records route: records by type, "Needs a decision" Parts without a spec, per-field origin from a retained processing proposal the field still matches, and proposed-new values only from retained structured proposals.
+- [x] 9.5 Write a failing projection test, then implement the records route: records by type, "Needs a decision" Parts without a spec, per-field origin from a retained processing proposal (about the Part or one of its lots) the field still matches, and proposed-new values only from retained structured proposals.
 
 ## 10. Records UI
 

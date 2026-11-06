@@ -72,7 +72,7 @@ export function TemplateEditor({ batch, pk, save, disabled, report }: Props) {
         Use another template
         <Select
           value={draft.template}
-          disabled={disabled}
+          disabled={disabled || busy}
           onChange={(event) => setDraft({ ...draft, template: event.target.value, mappings: {} })}
         >
           <option value="">Choose an observed template…</option>
@@ -89,7 +89,7 @@ export function TemplateEditor({ batch, pk, save, disabled, report }: Props) {
             Mapping in {label}
             <Select
               value={draft.mappings[category] ?? ''}
-              disabled={disabled}
+              disabled={disabled || busy}
               onChange={(event) =>
                 setDraft({
                   ...draft,
@@ -114,7 +114,7 @@ export function TemplateEditor({ batch, pk, save, disabled, report }: Props) {
               type="checkbox"
               aria-label={`Exclude ${partName(batch, id)}`}
               checked={draft.exclude.includes(id)}
-              disabled={disabled}
+              disabled={disabled || busy}
               onChange={(event) =>
                 setDraft({
                   ...draft,

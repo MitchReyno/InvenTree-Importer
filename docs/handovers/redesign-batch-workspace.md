@@ -499,3 +499,10 @@ Fresh read-only Claude reviewer at `e9e6e6a`: 1 Minor, 2 Nitpick, all fixed. It 
 - **Tags suggested from a lot read "Set by you" (Minor):** a lot's proposal can add tags to its Part ("Add suggested tags"), but origins looked only at proposals about the Part. A Part's fields now also check proposals about its active lots. A projection test with a lot-subject proposal failed first.
 - **Nitpicks:** the text, parameter and sourcing inputs are disabled while their save is in flight, so nothing typed meanwhile is replaced when the save is accepted; the test counts above are updated.
 
+### PR-E review round 8
+
+Fresh read-only Claude reviewer at `024a633`: 1 Minor, 1 Nitpick, both fixed. It confirmed the round-7 fixes.
+
+- **Docs (Minor):** `intake-server/ARCHITECTURE.md`, `design.md` D6 and task 9.5 now say a field's origin can come from a proposal about the Part or one of its active lots.
+- **Nitpick:** every Records editor now disables its inputs while its save is in flight, including the ones that clear after a save (new parameter, category, company, template, new Part), so input typed meanwhile is not cleared.
+
