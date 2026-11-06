@@ -255,10 +255,10 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
   - Tests for the WAI-ARIA tree keyboard pattern.
   - Existing manual workflow tests ported to the new screens: a stale preparation stays disabled, and no create-again on an unknown result.
 
-- [ ] 11.1 Add `GET /api/v1/preparations/:id/tree`, computed from the stored plan for each plan version (`tree: null` for an unknown version). First write a failing test (RED) that reads a stored preparation of each version, and checks that replayed preparation results stay byte-identical.
-- [ ] 11.2 Build Ready to add: lot selection that triggers preparation, the By type view, the Tree view with category or location grouping, and the sticky approve action.
-- [ ] 11.3 Build Added: outcome strip, runs with InvenTree links, recovery actions, pending changes, not included, activity log.
-- [ ] 11.4 Remove the old Approve and Results presentation after the ported tests pass.
+- [x] 11.1 Add `GET /api/v1/preparations/:id/tree`, computed from the stored plan for each plan version (`nodes: null` for an unknown version). First write a failing test (RED) that reads a stored preparation of each version, and checks that replayed preparation results stay byte-identical.
+- [x] 11.2 Build Ready to add: lot selection that triggers preparation, the By type view, the Tree view with category or location grouping, and the sticky approve action.
+- [x] 11.3 Build Added: outcome strip, runs with InvenTree links, recovery actions, pending changes, not included, activity log. A value InvenTree rejected is named and linked to where it is set (Review, or Capture for a new location or supplier); re-sending a corrected value needs the executor to settle a refused create, which is follow-up work outside this change (design D7).
+- [x] 11.4 Remove the old Approve and Results presentation after the ported tests pass.
 
 ## 12. Agents page
 
@@ -281,8 +281,8 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - **TDD approach:** Documentation only, so test-first does not apply. It is verified by checking each statement against the merged code, plus the markdown lint.
 - **Verification:** headless screenshots of each canvas screen in both themes at 1440, 860 and 390 and 200%, against the owned fake and the fixture profile, linked from the handover, with stated limits (no live provider, no real InvenTree).
 
-- [ ] 13.1 Rewrite the frontend architecture styling, navigation and screen sections, and update `intake-server/ARCHITECTURE.md` for the record edit, records, attention and preparation-tree reads.
-- [ ] 13.2 Record the browser qualification and any deviations from the canvas in the handover.
+- [x] 13.1 Rewrite the frontend architecture styling, navigation and screen sections, and update `intake-server/ARCHITECTURE.md` for the record edit, records, attention and preparation-tree reads.
+- [x] 13.2 Record the browser qualification and any deviations from the canvas in the handover.
 
 ## 14. BI-006 sessions, observations and proposals (conditional)
 
@@ -309,7 +309,7 @@ PR-C and PR-D can be reviewed in parallel after PR-B.
 - [x] D.2 PR-B: same gates. Review clear at `7c42f99` after seven rounds; merged as #100 (`4080ea9`). Every CI job passed; the HTTP lane's two start-up timeouts, which also fail on `interactive-app`'s own push, passed on rerun, and #99 retired the PostgreSQL lane.
 - [x] D.3 PR-C: same gates. Review clear at `8d725fd` after five rounds; merged as #102 (`d38e6ad`) with every CI job green and a demo video attached.
 - [x] D.4 PR-D: same gates. Review clear at `7330b65` after eight rounds; merged as #104 (`1672e00`) with every CI job that ran green and a demo video attached.
-- [ ] D.5 PR-E: same gates.
+- [x] D.5 PR-E: same gates. Review clear at `18b2381` after fourteen rounds, then the merge of #107 and its two fixes reviewed clear at `ad15957`; merged as #108 (`ab80c3b`) with every CI job that ran green and a demo video attached.
 - [ ] D.6 PR-F: same gates. BI-008 is updated to Done only after acceptance and merge are evidenced. Task 14 is tracked separately by D.7.
 - [ ] D.7 PR-G (task 14): same gates, once PR-C, PR-D, PR-E and BI-006's contracts are on `interactive-app`.
 

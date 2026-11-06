@@ -19,6 +19,8 @@ import { captureSchemas } from './capture.ts'
 import { recordSchemas } from './records.ts'
 import { catalogueSchemas } from './catalogue.ts'
 import { manualSchemas } from './manual.ts'
+import { preparationTreeSchemas } from './preparation-tree.ts'
+export * from './preparation-tree.ts'
 import { mediaSchemas } from './media.ts'
 import { processingSchemas } from './processing.ts'
 import { operatorReviewSchemas } from './operator-review.ts'
@@ -175,6 +177,7 @@ export const schemas = {
   ...attentionSchemas,
   ...effectsSchemas,
   ...manualSchemas,
+  ...preparationTreeSchemas,
   ...processingSchemas,
   ...operatorReviewSchemas,
   ...researchSchemas,

@@ -2154,6 +2154,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/preparations/{id}/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description PreparationTree */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PreparationTree"];
+                    };
+                };
+                /** @description ErrorDto */
+                default: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/runs/{id}": {
         parameters: {
             query?: never;
@@ -5872,6 +5920,8 @@ export interface components {
             remote_pks: string[];
             verification: null | "matches" | "missing_or_changed" | "unavailable";
             recovery_action: null | "resume_effect" | "verify_effect";
+            /** @constant */
+            rejected?: true;
         };
         ManualScope: {
             /** Format: int64 */
@@ -6324,6 +6374,8 @@ export interface components {
                 remote_pks: string[];
                 verification: null | "matches" | "missing_or_changed" | "unavailable";
                 recovery_action: null | "resume_effect" | "verify_effect";
+                /** @constant */
+                rejected?: true;
             }[];
             confirmed_stock_ids: string[];
             attributed_stock_ids: string[];
@@ -6446,6 +6498,8 @@ export interface components {
                     remote_pks: string[];
                     verification: null | "matches" | "missing_or_changed" | "unavailable";
                     recovery_action: null | "resume_effect" | "verify_effect";
+                    /** @constant */
+                    rejected?: true;
                 }[];
                 confirmed_stock_ids: string[];
                 attributed_stock_ids: string[];
@@ -6607,6 +6661,32 @@ export interface components {
                 state: "queued" | "running" | "stopping" | "settled_complete" | "settled_incomplete" | "recovery_required";
             }[];
             truncated: boolean;
+        };
+        PreparationNode: {
+            key: string;
+            kind: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter" | "location" | "stock_item" | "attachment";
+            label: string;
+            detail: string | null;
+            state: "new" | "update" | "exists" | "choose";
+            parent_key: string | null;
+            location_key: string | null;
+            lot_id: string | null;
+            part_subject_id: string | null;
+        };
+        PreparationTree: {
+            preparation_id: string;
+            plan_version: string;
+            nodes: {
+                key: string;
+                kind: "category" | "company" | "part" | "manufacturer_part" | "supplier_part" | "parameter" | "location" | "stock_item" | "attachment";
+                label: string;
+                detail: string | null;
+                state: "new" | "update" | "exists" | "choose";
+                parent_key: string | null;
+                location_key: string | null;
+                lot_id: string | null;
+                part_subject_id: string | null;
+            }[] | null;
         };
         ProcessingStageV2: "examine" | "reading" | "identifying" | "research" | "images" | "inventory";
         ProcessingInputV6: {
@@ -15753,6 +15833,8 @@ export type ManualRecoveryCommand = components['schemas']['ManualRecoveryCommand
 export type ManualRun = components['schemas']['ManualRun']
 export type ManualWorkspace = components['schemas']['ManualWorkspace']
 export type ManualActivity = components['schemas']['ManualActivity']
+export type PreparationNode = components['schemas']['PreparationNode']
+export type PreparationTree = components['schemas']['PreparationTree']
 export type ProcessingStageV2 = components['schemas']['ProcessingStageV2']
 export type ProcessingInputV6 = components['schemas']['ProcessingInputV6']
 export type ProcessingCommandV5 = components['schemas']['ProcessingCommandV5']

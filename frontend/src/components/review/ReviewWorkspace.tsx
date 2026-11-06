@@ -357,8 +357,7 @@ export function ReviewWorkspace({
       </ScopeBar>
       {!workspace.supported && (
         <Notice>
-          Stock execution is unavailable for this target. Only a separately configured owned fake is
-          qualified; the real inventory stays read-only.
+          Adding stock isn’t available for this target, so lots can be reviewed but not added.
         </Notice>
       )}
       <SubjectActions aria-label="Manual subjects">

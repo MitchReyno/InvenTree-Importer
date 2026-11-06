@@ -263,6 +263,14 @@ export const clientOperations = new Map<string, ClientOperation>([
     }
   ],
   [
+    "GET /api/v1/preparations/{id}/tree",
+    {
+      "timeoutMs": 45000,
+      "errorMode": "typed",
+      "responseSchema": "PreparationTree"
+    }
+  ],
+  [
     "GET /api/v1/runs/{id}",
     {
       "timeoutMs": 45000,

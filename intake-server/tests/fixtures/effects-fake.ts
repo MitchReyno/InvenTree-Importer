@@ -66,8 +66,16 @@ export async function effectsFakeRequest(
         : family === 'parameter/template'
           ? { pk, name: TEMPLATE_NAMES[pk] ?? 'Resistance', model_type: 'part.part', enabled: true }
           : family === 'part/category/parameters'
-            ? { pk, ...(CATEGORY_PARAMETERS[pk] ?? { category: '81', template: '201' }), default_value: '' }
-            : { pk, name: `Company ${pk}`, ...(COMPANY_ROLES[pk] ?? { is_manufacturer: true, is_supplier: true }) }
+            ? {
+                pk,
+                ...(CATEGORY_PARAMETERS[pk] ?? { category: '81', template: '201' }),
+                default_value: '',
+              }
+            : {
+                pk,
+                name: `Company ${pk}`,
+                ...(COMPANY_ROLES[pk] ?? { is_manufacturer: true, is_supplier: true }),
+              }
     if (fault === 'mapping_incomplete' && family === 'parameter/template') {
       response.end(JSON.stringify({ pk, name: 'Resistance' }))
       return true
@@ -95,6 +103,16 @@ export async function effectsFakeRequest(
   } as const
   const family = endpoints[path as keyof typeof endpoints]
   if (request.method === 'POST' && family) {
+    if (fault === 'reject_parameter' && family === 'parameter') {
+      response.statusCode = 400
+      response.end(JSON.stringify({ data: ['Enter a valid value.'] }))
+      return true
+    }
+    if (fault === 'forbid_parameter' && family === 'parameter') {
+      response.statusCode = 403
+      response.end(JSON.stringify({ detail: 'You do not have permission.' }))
+      return true
+    }
     const requested = JSON.parse(bytes.toString('utf8'))
     const { tags: _ignoredTags, ...withoutTags } = requested
     const body = family === 'part' && !tagsField ? withoutTags : requested

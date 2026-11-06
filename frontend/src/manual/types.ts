@@ -9,6 +9,7 @@ import type {
   ManualRunDto,
   ManualScopeDto,
   ManualWorkspaceDto,
+  PreparationTreeDto,
 } from '@invimport/contracts'
 
 /** Browser domain port; generated wire clients satisfy these runtime-schema DTOs. */
@@ -22,6 +23,8 @@ export interface ManualClient {
     key: string,
   ) => Promise<ManualPreparationResultDto>
   approve: (input: ApprovalDto, key: string) => Promise<ManualAcceptedDto>
+  /** Absent in setups that predate the tree read; Ready to add then shows By type only. */
+  tree?: (preparationId: string) => Promise<PreparationTreeDto>
   run: (runId: string) => Promise<ManualRunDto>
   start: (runId: string, input: ManualRunCommandDto, key: string) => Promise<ManualAcceptedDto>
   cancel: (runId: string, input: ManualRunCommandDto, key: string) => Promise<ManualAcceptedDto>

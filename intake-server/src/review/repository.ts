@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { executeDatabaseQuery, queryDatabase } from '../db/database.ts'
 import { manualRuns, manualApprovals, manualPreparations, manualPrepareCommands } from './schema.ts'
 import type { ManualAttachmentRead } from './part-attachments.ts'
@@ -13,6 +13,9 @@ import { deploymentBinding, currentReviews, type ManualConfig } from './authorit
 import { issue } from './model.ts'
 import { materializeWithMedia } from './media-material.ts'
 import { manualRunSnapshot, retainedPreparation } from './runs.ts'
+import { preparationTree } from './preparation-tree.ts'
+import { captureObservations } from '../capture/schema.ts'
+import { isEffectsPlan } from '../execution/effects-plan.ts'
 import {
   markReviewed,
   prepareSelection,
@@ -59,6 +62,40 @@ export function manualRepository(
           }
         }
         return { runs, truncated: rows.length > 100 }
+      })
+    },
+    /** The stored plan as a tree; it reads the retained preparation and changes nothing. */
+    async tree(preparationId: string) {
+      return transaction(pool, async (client) => {
+        await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
+        const { row, plan, preview } = await retainedPreparation(client, config, preparationId)
+        const ids = isEffectsPlan(plan)
+          ? plan.parts.flatMap(({ spec }) => [
+              spec.category.observation_id,
+              ...spec.parameters.map((parameter) => parameter.template.observation_id),
+              ...(spec.manufacturer ? [spec.manufacturer.company.observation_id] : []),
+              ...(spec.supplier ? [spec.supplier.company.observation_id] : []),
+            ])
+          : []
+        const rows = ids.length
+          ? await executeDatabaseQuery(
+              queryDatabase(client)
+                .select({ id: captureObservations.id, label: captureObservations.label })
+                .from(captureObservations)
+                .where(
+                  and(
+                    eq(captureObservations.batchId, row.batch_id),
+                    inArray(captureObservations.id, [...new Set(ids)]),
+                  ),
+                ),
+            )
+          : []
+        const labels = new Map(rows.map((value) => [value.id, value.label]))
+        return {
+          preparation_id: preparationId,
+          plan_version: plan.version,
+          nodes: preparationTree(plan, preview, (id) => labels.get(id)),
+        }
       })
     },
     review: (batchId: string, key: string, input: Parameters<typeof markReviewed>[4]) =>

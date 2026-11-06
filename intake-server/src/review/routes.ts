@@ -105,6 +105,11 @@ export function registerManual(
         return repository.approve(key(request), request.body)
       },
     )
+    scope.get(
+      '/api/v1/preparations/:id/tree',
+      { schema: { response: { 200: schemas.PreparationTree } } },
+      (request) => repository.tree(parameter(request)),
+    )
     scope.get('/api/v1/runs/:id', { schema: { response: { 200: schemas.ManualRun } } }, (request) =>
       repository.run(parameter(request)),
     )

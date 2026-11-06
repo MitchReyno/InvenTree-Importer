@@ -1,14 +1,16 @@
 import type { SupportedEffectResultDto } from '@invimport/contracts'
-import { Button, Field, Paragraph, Small } from '../ui/primitives'
+import { Button, Field, Link, Paragraph, Small } from '../ui/primitives'
 
 interface Props {
   effect: SupportedEffectResultDto
   busy: boolean
   recover: () => void
   unstarted?: boolean
+  /** Where a refused value is set, and that place's name. */
+  fix?: { place: 'Review' | 'Capture'; href: string }
 }
 
-export function SupportedEffectResult({ effect, busy, recover, unstarted = false }: Props) {
+export function EffectOutcome({ effect, busy, recover, unstarted = false, fix }: Props) {
   const planned =
     unstarted &&
     effect.certainty === 'none' &&
@@ -28,6 +30,9 @@ export function SupportedEffectResult({ effect, busy, recover, unstarted = false
     status = record
       ? `Created new ${record} #${effect.remote_pks[0]}`
       : 'Historical effect confirmed'
+  } else if (effect.rejected) {
+    status =
+      'InvenTree refused this value, so nothing was created. The round stays open, so a corrected value cannot be sent yet.'
   } else if (effect.certainty === 'unknown') {
     status = record
       ? `The new ${record} may have been created; it is never created again for this draft`
@@ -51,7 +56,11 @@ export function SupportedEffectResult({ effect, busy, recover, unstarted = false
           : {effect.label}
         </Button>
       )}
-      <Small>Original run and approval only. New effects require fresh review.</Small>
+      {fix && (
+        <Link href={fix.href}>
+          See in {fix.place}: {effect.label}
+        </Link>
+      )}
     </Field>
   )
 }

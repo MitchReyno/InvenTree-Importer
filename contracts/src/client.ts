@@ -9,6 +9,7 @@ import type {
   ManualWorkspace,
   ManualPreparationResult,
   ManualRun,
+  PreparationTree,
 } from '../generated/api.d.ts'
 import type { HeaderWorkQueryDto } from './header.ts'
 import type { CaptureListQueryDto } from './capture.ts'
@@ -83,6 +84,11 @@ export function manualClient(baseUrl: string, csrfToken: string, transport: type
 
   return {
     activity: () => successfulData(client.GET('/api/v1/activity')),
+
+    tree: (id: string) =>
+      preparationTreeResponse(
+        client.GET('/api/v1/preparations/{id}/tree', { params: { path: { id } } }),
+      ),
 
     workspace: (id: string) =>
       manualWorkspaceResponse(
@@ -175,6 +181,14 @@ async function manualPreparationResponse(
   const value = await successfulData(operation)
   validate('ManualPreparationResult', value)
   return value as ManualPreparationResult
+}
+
+async function preparationTreeResponse(
+  operation: Promise<{ data?: unknown }>,
+): Promise<PreparationTree> {
+  const value = await successfulData(operation)
+  validate('PreparationTree', value)
+  return value as PreparationTree
 }
 
 async function manualRunResponse(operation: Promise<{ data?: unknown }>): Promise<ManualRun> {

@@ -285,6 +285,7 @@ async function main() {
       '/api/v1/batches/{id}/reviews': { post: post('ManualScope', 'ManualReviewResult') },
       '/api/v1/batches/{id}/preparations': { post: post('ManualScope', 'ManualPreparationResult') },
       '/api/v1/preparations/{id}/approvals': { post: post('Approval', 'ManualAccepted') },
+      '/api/v1/preparations/{id}/tree': { get: get('PreparationTree') },
       '/api/v1/runs/{id}': { get: get('ManualRun') },
       '/api/v1/runs/{id}/start': { post: post('ManualRunCommand', 'ManualAccepted') },
       '/api/v1/runs/{id}/cancel': { post: post('ManualRunCommand', 'ManualAccepted') },
